@@ -1,0 +1,19 @@
+@charset "UTF-8";
+@use "sass:meta"; // https://sass-lang.com/documentation/modules/meta/
+
+@layer reset {
+    @include meta.load-css("normalize.css");
+}
+
+@layer base {
+    :root {
+        color-scheme: light dark;
+    }
+
+    body {
+        margin: 0;
+
+        font-family: system-ui, -apple-system, "Segoe UI", roboto, sans-serif;
+        line-height: 1.5;
+    }
+}
