@@ -1,0 +1,67 @@
+/******************************************************************************
+ * global size tokens
+ * @type {Sass}
+ * these variables are used in other scss files or vue components.
+ * this file gets @forwarded from _text-group.scss
+ * use
+ * @use "Abstracts/sizes" as s;
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:math"; // https://sass-lang.com/documentation/modules/math/
+
+// base size ==================================================================
+$base: 16px !default;
+
+// breakpoint map =============================================================
+// min-width media queries, mobile first by default
+$breakpoints: (
+    "portrait": 480px,
+    "landscape": 768px,
+    "desktop": 1024px,
+    "full": 1440px
+) !default;
+
+// max container width ========================================================
+$max: (
+    "cage": math.round($base * 90),
+    "form": math.round($base * 48),
+    "toast": math.round($base * 24)
+) !default;
+
+// border =====================================================================
+$border: (
+    "base": math.round($base * 0.125),
+    "featured": math.round($base * 0.32)
+) !default;
+
+// font sizes =================================================================
+$font: (
+    "base": math.round($base * 0.85),
+    "portrait": math.round($base * 0.9),
+    "landscape": math.round($base * 1),
+    "desktop": math.round($base * 1)
+) !default;
+
+// icons ======================================================================
+$icons: (
+    "tiny": math.round($base * 1),
+    "small": math.round($base * 1.2),
+    "medium": math.round($base * 1.5),
+    "large": math.round($base * 2),
+    "xlarge": math.round($base * 4),
+    "max": math.round($base * 6)
+) !default;
+
+// border-radius ==============================================================
+$radius: (
+    "base": math.round($base * 0.25),
+    "featured": math.round($base * 0.75)
+) !default;
+
+// padding ====================================================================
+$padding: (
+    "base": math.round($base * 0.5),
+    "portrait": math.round($base * 1),
+    "landscape": math.round($base * 1.15),
+    "desktop": math.round($base * 1.5)
+) !default;

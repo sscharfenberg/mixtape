@@ -64,6 +64,18 @@ Phase 1 was done first — no point deploying new app code onto the old host.
 - **Prefer the new idioms** (Inertia + composables) over the legacy API / Vue-Router / store-everything
   patterns, even when porting.
 
+**Design tokens (SCSS)** — three layers, one hard rule. Full guide:
+[`resources/app/styles/abstracts/README.md`](resources/app/styles/abstracts/README.md).
+
+- **Never `@use`/read a global token (`_global-*-tokens.scss`) outside its token group.** Globals are the
+  raw palette/scale (`$grey`, `$radius`, …) and stay private.
+- To give a component/page a colour or size, **create a contextual partial**
+  (`colors/components/_button.scss`, `sizes/pages/_home.scss`) that `@use`s the globals and derives the
+  value (`light-dark()`, `color.adjust()`, `math.round()`), then `@forward` it from that folder's
+  `_index.scss` (one line).
+- Components/pages **consume only contextual tokens** via the entrypoint: `@use "Abstracts/colors" as c;`
+  → `c.$c-button`; `@use "Abstracts/sizes" as s;` → `s.$c-button` (`c-*` = component, `p-*` = page).
+
 ## Docs
 
 **Server (Phase 1 — built):**

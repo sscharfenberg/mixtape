@@ -1,0 +1,8 @@
+/******************************************************************************
+ * contextual color tokens — components
+ * @type {Sass}
+ * one partial per component; @forward each one below. the parent index
+ * re-exports these with a "c-" prefix, so $button (in _button.scss) is
+ * consumed as c.$c-button via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+// @forward "button";

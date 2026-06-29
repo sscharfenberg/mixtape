@@ -1,0 +1,8 @@
+/******************************************************************************
+ * contextual color tokens — pages
+ * @type {Sass}
+ * one partial per page; @forward each one below. the parent index re-exports
+ * these with a "p-" prefix, so $home (in _home.scss) is consumed as
+ * c.$p-home via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+// @forward "home";
