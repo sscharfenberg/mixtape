@@ -32,6 +32,29 @@ legacy app is already Vue 3 + TS + `<script setup>`, this is _not_ about "adding
 - **Typed throughout**: preserve strict TS.
 - Preserve the app's core value and the maintenance flows below.
 
+## Frontend conventions
+
+**Pages live in their own directory, with a `*Page` entry file.** Each Inertia page is a folder under
+`resources/app/pages/` named after the page, containing a `<Name>Page.vue` entry plus any page-local
+parts (`components/`, composables, tests):
+
+```
+resources/app/pages/
+  Home/
+    HomePage.vue        <- route entry
+    components/         <- page-local components (when needed)
+    useHomeData.ts      <- page-local composable (when needed)
+```
+
+- **The `Page` suffix marks the route entry** — in a populated folder it's instantly clear which file
+  is the page vs. its co-located children, and it reads unambiguously in Vue devtools / stack traces.
+- **Controllers render the explicit path**: `Inertia::render('Home/HomePage', [...])`. Kept explicit
+  (not resolver magic) so it stays greppable end-to-end — search `HomePage` and you find both the file
+  and the controller that renders it. The resolver in `main.ts` maps the name straight to
+  `./pages/<name>.vue`.
+- **Prefer an invokable controller** (`__invoke`) for a single-action page; group related actions in
+  one controller otherwise.
+
 ## New and improved features (v2)
 
 Most of these are **user-scoped**, so they build directly on the new per-user auth model:

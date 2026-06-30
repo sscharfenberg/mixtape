@@ -9,7 +9,7 @@ class HomeController extends Controller
 {
     public function __invoke(): Response
     {
-        return Inertia::render('Home/Home', [
+        return Inertia::render('Home/HomePage', [
             'greeting' => 'Hello World',
         ]);
     }

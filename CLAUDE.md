@@ -64,6 +64,12 @@ Phase 1 was done first — no point deploying new app code onto the old host.
 - **Prefer the new idioms** (Inertia + composables) over the legacy API / Vue-Router / store-everything
   patterns, even when porting.
 
+**Pages (Inertia)** — every page is its own directory with a `*Page` entry file:
+`pages/Home/HomePage.vue` (not `pages/Home.vue`), holding page-local `components/`, composables, tests.
+Controllers render the explicit path — `Inertia::render('Home/HomePage', …)` — and prefer an invokable
+(`__invoke`) controller for single-action pages. Full rationale:
+[`docs/app-rewrite.md`](docs/app-rewrite.md) → *Frontend conventions*.
+
 **Design tokens (SCSS)** — three layers, one hard rule. Full guide:
 [`resources/app/styles/abstracts/README.md`](resources/app/styles/abstracts/README.md).
 
