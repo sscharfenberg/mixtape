@@ -1,0 +1,28 @@
+/******************************************************************************
+ * global z-index tokens
+ * @type {Sass}
+ * the raw stacking scale — abstract rungs with no component meaning (the
+ * "palette" for z-index). these global definitions should NOT be @used in
+ * other scss files; instead use the contextual $index map via:
+ * @use "Abstracts/z-indexes" as z;   →  map.get(z.$index, "main")
+ *****************************************************************************/
+
+// raw stacking rungs, ascending. values, no intent — UI regions are assigned
+// to these rungs by the contextual $index map (_contextual-z-index-tokens.scss).
+// the jumps to 200 / 1000 / 1500 / 2000 are deliberate: they reserve head-room
+// so an "escape" layer (dropdown, overlay, …) always clears the flow layers,
+// even if intermediate rungs are added later.
+$scale: (
+    "bottomless": -9999, // utility "send to the very back"
+    "cellar": -2,
+    "below": -1, // behind the default flow
+    "base": 0, // default flow
+    "raised": 1, // lifted out of a sibling's auto stacking context
+    "sticky": 2, // affixed chrome (header / footer)
+    "elevated": 4, // form layering
+    "popout": 6, // menus / selects that escape local overflow
+    "dropdown": 200,
+    "overlay": 1000,
+    "progress": 1500,
+    "modal": 2000
+) !default;

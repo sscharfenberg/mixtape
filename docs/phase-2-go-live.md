@@ -61,6 +61,15 @@ The home IP is dynamic, so we keep the DynDNS host updating it and point a **rea
 
 ## Step 2 — Fritzbox port-forward (the only WAN exposure)
 
+> **Decide the network link before exposing.** debbie runs on a **USB WiFi dongle** (no Ethernet in its
+> current room). The link is stable today — the 2026-06-30 incident where WiFi silently dropped SSH's
+> DSCP-EF frames is fixed via sshd **`IPQoS cs0 cs0`**, and WiFi power-save is disabled — but a **wired**
+> link is a sturdier foundation for an internet-facing, family-relied-on service, and removes the entire
+> WiFi failure class (which is miserable to debug once you're locked out remotely). Options that **avoid
+> relocating the box**: a **Powerline** link (AVM **FRITZ!Powerline**, pairs with the Fritzbox) or a
+> discreet long/flat cable; otherwise move debbie to a room with a drop. Not a blocker — but don't let it
+> stay forgotten once debbie is public. Why/context: `debbie-infrastructure.local.md` → Network.
+
 - Forward **TCP 80 + 443** → `192.168.178.200` (80 = ACME challenge + HTTP→HTTPS redirect; 443 = app).
 - Confirm the DynDNS client updates `mixtape.ddns.example` → current WAN IPv4.
 - **Verify SSH (22), Samba (139/445), and PostgreSQL are NOT forwarded** — only 80/443, ever.

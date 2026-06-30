@@ -5,6 +5,7 @@ import "@/styles/app.scss";
 import { createInertiaApp } from "@inertiajs/vue3";
 import type { DefineComponent } from "vue";
 import { createApp, h } from "vue";
+import FullLayout from "./components/Layout/FullLayout.vue";
 
 /******************************************************************************
  * mount Inertia App
@@ -19,6 +20,7 @@ createInertiaApp({
 
         return pageLoader();
     },
+    layout: () => FullLayout,
     setup({ el, App, props, plugin }) {
         createApp({ render: () => h(App, props) })
             .use(plugin)

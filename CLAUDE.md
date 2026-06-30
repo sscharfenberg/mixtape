@@ -64,6 +64,10 @@ Phase 1 was done first — no point deploying new app code onto the old host.
 - **Prefer the new idioms** (Inertia + composables) over the legacy API / Vue-Router / store-everything
   patterns, even when porting.
 
+**Linting the frontend** — use **`npm run lint`** (runs ESLint then Stylelint, both with `--fix`).
+Don't invoke `eslint` / `stylelint` directly. `npm run build` runs the same lint first, so a lint
+error fails the build before anything compiles.
+
 **Pages (Inertia)** — every page is its own directory with a `*Page` entry file:
 `pages/Home/HomePage.vue` (not `pages/Home.vue`), holding page-local `components/`, composables, tests.
 Controllers render the explicit path — `Inertia::render('Home/HomePage', …)` — and prefer an invokable

@@ -1,0 +1,10 @@
+/******************************************************************************
+ * main z-index file — contextual z-index tokens
+ * @type {Sass}
+ * the public entrypoint for z-indexes, consumed by other scss files / .vue
+ * components. the raw scale (_global-z-index-tokens.scss) is @used locally by
+ * the contextual partial but intentionally NOT forwarded — consume only the
+ * contextual $index map:
+ * @use "Abstracts/z-indexes" as z;   →  map.get(z.$index, "main")
+ *****************************************************************************/
+@forward "contextual-z-index-tokens";

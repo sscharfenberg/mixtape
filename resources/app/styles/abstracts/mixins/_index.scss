@@ -1,0 +1,10 @@
+/******************************************************************************
+ * sass mixins
+ * @type {Sass}
+ * the public entrypoint for mixins. consume via:
+ * @use "Abstracts/mixins" as m;   →  m.mq, m.cq, m.mqset, m.theme-dark
+ *****************************************************************************/
+@forward "cq";
+@forward "mq";
+@forward "mqset";
+@forward "theme-dark";

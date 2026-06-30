@@ -19,8 +19,8 @@ defineProps<{
 <style scoped lang="scss">
 .hello {
     max-width: 40rem;
-    margin: 4rem auto;
     padding: 0 1rem;
+    margin: 4rem auto;
 
     text-align: center;
 
