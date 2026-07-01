@@ -1,9 +1,10 @@
 <script setup lang="ts">
+import AppHeaderLogo from "Components/Landmarks/Header/AppHeaderLogo.vue";
 </script>
 
 <template>
     <header class="app-header">
-        Header
+        <app-header-logo />
     </header>
 </template>
 
