@@ -1,0 +1,13 @@
+/******************************************************************************
+ * contextual z-index token — app <main>
+ * @type {Sass}
+ * the stacking rung for the app's <main> landmark. it needs a positive z-index
+ * so <main> paints in the positive step, above sibling landmarks (footer, …)
+ * whose backdrop-filter silently opens an "auto" stacking context — see the
+ * full note in Landmarks/Main/AppMain.vue. consumed as z.$c-main via
+ * `@use "Abstracts/z-indexes" as z;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-z-index-tokens" as z;
+
+$main: map.get(z.$scale, "raised") !default;

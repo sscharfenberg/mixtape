@@ -1,0 +1,11 @@
+/******************************************************************************
+ * contextual z-index token — app <header>
+ * @type {Sass}
+ * the stacking rung for the app's <header> landmark. it sits on the "sticky"
+ * rung so the affixed chrome stays above the flow content below it. consumed
+ * as z.$c-header via `@use "Abstracts/z-indexes" as z;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-z-index-tokens" as z;
+
+$header: map.get(z.$scale, "sticky") !default;

@@ -3,12 +3,14 @@
  * @type {Sass}
  * the raw stacking scale — abstract rungs with no component meaning (the
  * "palette" for z-index). these global definitions should NOT be @used in
- * other scss files; instead use the contextual $index map via:
- * @use "Abstracts/z-indexes" as z;   →  map.get(z.$index, "main")
+ * other scss files; instead consume a contextual per-component / per-page
+ * token via the entrypoint:
+ * @use "Abstracts/z-indexes" as z;   →  z.$c-main
  *****************************************************************************/
 
 // raw stacking rungs, ascending. values, no intent — UI regions are assigned
-// to these rungs by the contextual $index map (_contextual-z-index-tokens.scss).
+// to these rungs by the contextual per-component / per-page partials
+// (components/_*.scss, pages/_*.scss), one named rung per partial.
 // the jumps to 200 / 1000 / 1500 / 2000 are deliberate: they reserve head-room
 // so an "escape" layer (dropdown, overlay, …) always clears the flow layers,
 // even if intermediate rungs are added later.

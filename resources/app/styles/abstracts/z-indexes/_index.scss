@@ -2,9 +2,34 @@
  * main z-index file — contextual z-index tokens
  * @type {Sass}
  * the public entrypoint for z-indexes, consumed by other scss files / .vue
- * components. the raw scale (_global-z-index-tokens.scss) is @used locally by
- * the contextual partial but intentionally NOT forwarded — consume only the
- * contextual $index map:
- * @use "Abstracts/z-indexes" as z;   →  map.get(z.$index, "main")
+ * components. the raw scale (_global-z-index-tokens.scss) is @used locally but
+ * intentionally NOT forwarded — consume only the contextual tokens below:
+ * @use "Abstracts/z-indexes" as z;
  *****************************************************************************/
-@forward "contextual-z-index-tokens";
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "global-z-index-tokens" as z;
+
+// per-component / per-page token partials, re-exported transparently.
+// the "c-*" / "p-*" prefixes namespace them, so $main (components/_main.scss)
+// is consumed as z.$c-main, and a page's $home (pages/_home.scss) as z.$p-home.
+@forward "components" as c-*;
+@forward "pages" as p-*;
+
+// app-wide semantic layers -> raw rungs. several layers may share a rung (header
+// + footer both "sticky"); retune the rung once in the global $scale and every
+// layer mapped to it moves together. this is the single source of truth for
+// "what sits above what" — never write a bare z-index in a component. a layer
+// scoped to a single component/page lives in its own partial instead (see the
+// app <main> in components/_main.scss, consumed as z.$c-main).
+$index: (
+    "background": map.get(z.$scale, "below"),
+    "default": map.get(z.$scale, "base"),
+    "header": map.get(z.$scale, "sticky"),
+    "footer": map.get(z.$scale, "sticky"),
+    "form": map.get(z.$scale, "elevated"),
+    "select": map.get(z.$scale, "popout"),
+    "dropdown": map.get(z.$scale, "dropdown"),
+    "overlay": map.get(z.$scale, "overlay"),
+    "progress": map.get(z.$scale, "progress"),
+    "modal": map.get(z.$scale, "modal")
+) !default;

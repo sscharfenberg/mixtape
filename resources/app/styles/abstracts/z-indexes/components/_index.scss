@@ -1,0 +1,9 @@
+/******************************************************************************
+ * contextual z-index tokens — components
+ * @type {Sass}
+ * one partial per component; @forward each one below. the parent index
+ * re-exports these with a "c-" prefix, so $main (in _main.scss) is consumed
+ * as z.$c-main via `@use "Abstracts/z-indexes" as z;`.
+ *****************************************************************************/
+@forward "header";
+@forward "main";

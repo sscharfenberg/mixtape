@@ -74,17 +74,20 @@ Controllers render the explicit path — `Inertia::render('Home/HomePage', …)`
 (`__invoke`) controller for single-action pages. Full rationale:
 [`docs/app-rewrite.md`](docs/app-rewrite.md) → *Frontend conventions*.
 
-**Design tokens (SCSS)** — three layers, one hard rule. Full guide:
-[`resources/app/styles/abstracts/README.md`](resources/app/styles/abstracts/README.md).
+**Design tokens (SCSS)** — three layers, one hard rule. **Every** token group is identical:
+**global tokens → contextual partial (components/pages) → consumed by SCSS/Vue.** Applies today to
+`colors/`, `sizes/`, `z-indexes/`; future `typography/` / `shadows/` are created the same way. Full
+guide: [`resources/app/styles/abstracts/README.md`](resources/app/styles/abstracts/README.md).
 
 - **Never `@use`/read a global token (`_global-*-tokens.scss`) outside its token group.** Globals are the
-  raw palette/scale (`$grey`, `$radius`, …) and stay private.
-- To give a component/page a colour or size, **create a contextual partial**
-  (`colors/components/_button.scss`, `sizes/pages/_home.scss`) that `@use`s the globals and derives the
-  value (`light-dark()`, `color.adjust()`, `math.round()`), then `@forward` it from that folder's
-  `_index.scss` (one line).
+  raw palette/scale (`$grey`, `$radius`, `$scale`, …) and stay private.
+- To give a component/page a colour, size, or z-index, **create a contextual partial**
+  (`colors/components/_button.scss`, `sizes/pages/_home.scss`, `z-indexes/components/_main.scss`) that
+  `@use`s the globals and derives the value (`light-dark()`, `color.adjust()`, `map.get($scale, …)`),
+  then `@forward` it from that folder's `_index.scss` (one line).
 - Components/pages **consume only contextual tokens** via the entrypoint: `@use "Abstracts/colors" as c;`
-  → `c.$c-button`; `@use "Abstracts/sizes" as s;` → `s.$c-button` (`c-*` = component, `p-*` = page).
+  → `c.$c-button`; `@use "Abstracts/sizes" as s;` → `s.$c-button`; `@use "Abstracts/z-indexes" as z;`
+  → `z.$c-main` (`c-*` = component, `p-*` = page).
 
 ## Docs
 

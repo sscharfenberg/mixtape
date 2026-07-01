@@ -27,7 +27,7 @@
  */
 main {
     position: relative;
-    z-index: map.get(z.$index, "main");
+    z-index: z.$c-main;
 
     width: 100%;
 

@@ -1,0 +1,8 @@
+/******************************************************************************
+ * contextual z-index tokens — pages
+ * @type {Sass}
+ * one partial per page; @forward each one below. the parent index re-exports
+ * these with a "p-" prefix, so $home (in _home.scss) is consumed as
+ * z.$p-home via `@use "Abstracts/z-indexes" as z;`.
+ *****************************************************************************/
+// @forward "home";

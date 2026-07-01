@@ -8,13 +8,12 @@
 </template>
 
 <style scoped lang="scss">
-@use "sass:map";
 @use "Abstracts/colors" as c;
 @use "Abstracts/sizes" as s;
 @use "Abstracts/z-indexes" as z;
 
 .app-header {
     position: relative;
-    z-index: map.get(z.$index, "header");
+    z-index: z.$c-header;
 }
 </style>
