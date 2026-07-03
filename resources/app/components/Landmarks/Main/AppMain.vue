@@ -33,14 +33,14 @@ main {
 
     @include m.mqset(
         "padding",
-        #{0 map.get(s.$app, "padding", "base")},
-        #{0 map.get(s.$app, "padding", "portrait")},
-        #{0 map.get(s.$app, "padding", "landscape")},
-        #{0 map.get(s.$app, "padding", "desktop")}
+        #{0 map.get(s.$c-app, "padding", "base")},
+        #{0 map.get(s.$c-app, "padding", "portrait")},
+        #{0 map.get(s.$c-app, "padding", "landscape")},
+        #{0 map.get(s.$c-app, "padding", "desktop")}
     );
 
     .inner {
-        max-width: map.get(s.$app, "max");
+        max-width: map.get(s.$c-app, "max");
         min-height: 20rem;
         margin: 0 auto 2lh;
     }

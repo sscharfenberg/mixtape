@@ -1,0 +1,15 @@
+/******************************************************************************
+ * main typography file — contextual typography tokens
+ * @type {Sass}
+ * the public entrypoint for typography, consumed by other scss files / .vue
+ * components. the raw families (_global-typography-tokens.scss) are @used
+ * locally but intentionally NOT forwarded — consume only the contextual
+ * tokens below:
+ * @use "Abstracts/typography" as t;
+ *****************************************************************************/
+
+// per-component / per-page token partials, re-exported transparently.
+// the "c-*" / "p-*" prefixes namespace them, so $body (components/_body.scss)
+// is consumed as t.$c-body, and $home (pages/_home.scss) as t.$p-home.
+@forward "components" as c-*;
+@forward "pages" as p-*;

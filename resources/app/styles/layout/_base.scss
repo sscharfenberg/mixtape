@@ -1,0 +1,42 @@
+/******************************************************************************
+ * base layout: *, html and body tags
+ * @type {Sass}
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "Abstracts/colors" as c;
+@use "Abstracts/sizes" as s;
+@use "Abstracts/typography" as t;
+@use "Abstracts/mixins" as m;
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    scrollbar-gutter: stable;
+
+    &:has(dialog[open]) {
+        overflow: hidden;
+    }
+
+    @include m.mqset(
+        "font-size",
+        #{map.get(s.$c-app, "font-size", "base")},
+        #{map.get(s.$c-app, "font-size", "portrait")},
+        #{map.get(s.$c-app, "font-size", "landscape")},
+        #{map.get(s.$c-app, "font-size", "desktop")}
+    );
+}
+
+body {
+    min-height: 100vh;
+
+    color: map.get(c.$c-app, "surface");
+
+    font-family: t.$c-body;
+    line-height: 1.4;
+    text-decoration-skip-ink: auto;
+}

@@ -1,0 +1,8 @@
+/******************************************************************************
+ * contextual color tokens — component:app
+ * @type {Sass}
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-color-tokens" as c;
+
+$app: () !default;

@@ -5,15 +5,17 @@
     @include meta.load-css("normalize.css");
 }
 
-@layer base {
-    :root {
-        color-scheme: light dark;
-    }
-
-    body {
-        margin: 0;
-
-        font-family: system-ui, -apple-system, "Segoe UI", roboto, sans-serif;
-        line-height: 1.5;
-    }
+@layer framework {
+    @include meta.load-css("font-face");
+    @include meta.load-css("layout");
 }
+
+// @layer vendor {
+//    @include meta.load-css("vendor");
+// }
+
+// @layer components {
+//    @include meta.load-css("components");
+// }
+
+@layer theme, utilities;

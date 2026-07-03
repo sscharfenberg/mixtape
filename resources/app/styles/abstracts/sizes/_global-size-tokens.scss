@@ -36,10 +36,10 @@ $border: (
 
 // font sizes =================================================================
 $font: (
-    "base": math.round($base * 0.85),
-    "portrait": math.round($base * 0.9),
-    "landscape": math.round($base * 1),
-    "desktop": math.round($base * 1)
+    "base": $base * 0.85,
+    "portrait": $base * 0.9,
+    "landscape": $base * 0.95,
+    "desktop": $base * 1
 ) !default;
 
 // icons ======================================================================

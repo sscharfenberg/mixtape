@@ -1,0 +1,24 @@
+/******************************************************************************
+ * contextual size tokens — component:app
+ * @type {Sass}
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$app: (
+    "font-size": (
+        "base": map.get(s.$font, "base"),
+        "portrait": map.get(s.$font, "portrait"),
+        "landscape": map.get(s.$font, "landscape"),
+        "desktop": map.get(s.$font, "desktop")
+    ),
+    "max": map.get(s.$max, "cage"),
+    "max-narrow": map.get(s.$breakpoints, "landscape"),
+    "icon": s.$icons,
+    "padding": (
+        "base": map.get(s.$padding, "base"),
+        "portrait": map.get(s.$padding, "portrait"),
+        "landscape": map.get(s.$padding, "landscape"),
+        "desktop": map.get(s.$padding, "desktop")
+    )
+) !default;

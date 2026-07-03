@@ -1,0 +1,8 @@
+/******************************************************************************
+ * contextual typography tokens — component:body
+ * @type {Sass}
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-typography-tokens" as t;
+
+$body: map.get(t.$font, "text") !default;

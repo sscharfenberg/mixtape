@@ -1,0 +1,15 @@
+/******************************************************************************
+ * app layout
+ * @type {Sass}
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "Abstracts/mixins" as m;
+@use "Abstracts/sizes" as s;
+
+#app {
+    display: flex;
+    flex-direction: column;
+
+    min-height: 100dvh;
+}
