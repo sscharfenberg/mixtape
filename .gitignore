@@ -27,6 +27,8 @@ Homestead.yaml
 Thumbs.db
 
 # --- MixTape (added) ---
+# TypeScript incremental-build cache (emitted by `vue-tsc --build`) — machine-local, regenerated on every build.
+*.tsbuildinfo
 # Local-only / host-specific docs (e.g. docs/debbie-infrastructure.local.md) — never commit.
 *.local.md
 # Claude Code local/personal settings.
