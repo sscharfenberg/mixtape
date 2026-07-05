@@ -1,0 +1,10 @@
+/******************************************************************************
+ * contextual size tokens — component:frosted-glass
+ * @type {Sass}
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$frosted-glass: (
+    "border": map.get(s.$border, "base")
+);

@@ -34,7 +34,8 @@ html {
 body {
     min-height: 100vh;
 
-    color: map.get(c.$c-app, "surface");
+    background-color: map.get(c.$c-body, "background");
+    color: map.get(c.$c-body, "surface");
 
     font-family: t.$c-body;
     line-height: 1.4;

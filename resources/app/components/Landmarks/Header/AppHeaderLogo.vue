@@ -12,14 +12,18 @@ import { Link } from "@inertiajs/vue3";
 @use "Abstracts/sizes" as s;
 
 img {
-    width: 5.5ch;
+    width: 5ch;
     height: auto;
 
     @include m.mq("portrait") {
-        width: 7ch;
+        width: 6ch;
     }
 
     @include m.mq("landscape") {
+        width: 7ch;
+    }
+
+    @include m.mq("desktop") {
         width: 8ch;
     }
 }

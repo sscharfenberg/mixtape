@@ -1,0 +1,14 @@
+/******************************************************************************
+ * contextual color tokens — component:header
+ * @type {Sass}
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$frosted-glass: (
+    "background": hsl(from light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "black")) h s l / 25%),
+    "surface": light-dark(#000, #fff),
+    "border-from": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher")),
+    "border-to": light-dark(map.get(c.$grey, "fog"), map.get(c.$grey, "abbey"))
+);

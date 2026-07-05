@@ -12,9 +12,6 @@ $app: (
         "landscape": map.get(s.$font, "landscape"),
         "desktop": map.get(s.$font, "desktop")
     ),
-    "max": map.get(s.$max, "cage"),
-    "max-narrow": map.get(s.$breakpoints, "landscape"),
-    "icon": s.$icons,
     "padding": (
         "base": map.get(s.$padding, "base"),
         "portrait": map.get(s.$padding, "portrait"),
