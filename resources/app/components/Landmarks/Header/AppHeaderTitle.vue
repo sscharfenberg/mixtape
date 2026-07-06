@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { Link } from "@inertiajs/vue3";
+
+// Single source of truth: APP_NAME in .env, mirrored to the frontend via VITE_APP_NAME.
+const appName = import.meta.env.VITE_APP_NAME;
 </script>
 
 <template>
     <Link href="/">
-        <span>Mixtape</span>
-        <span>Mixtape</span>
+        <span>{{ appName }}</span>
+        <span>{{ appName }}</span>
     </Link>
 </template>
 

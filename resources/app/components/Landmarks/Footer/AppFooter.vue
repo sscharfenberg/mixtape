@@ -9,11 +9,14 @@ if (currentYear > startYear) {
 }
 const page = usePage();
 const version = computed(() => page.props.version as string);
+
+// Single source of truth: APP_NAME in .env, mirrored to the frontend via VITE_APP_NAME.
+const appName = import.meta.env.VITE_APP_NAME;
 </script>
 
 <template>
     <footer>
-        <span class="meta">&copy; MixTape contributors {{ copyrightDate }} · {{ version }}</span>
+        <span class="meta">&copy; {{ appName }} contributors {{ copyrightDate }} · {{ version }}</span>
     </footer>
 </template>
 

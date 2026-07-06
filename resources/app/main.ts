@@ -7,6 +7,9 @@ import type { DefineComponent } from "vue";
 import { createApp, h } from "vue";
 import FullLayout from "./components/Layout/FullLayout.vue";
 
+// Single source of truth: APP_NAME in .env, mirrored to the frontend via VITE_APP_NAME.
+const appName = import.meta.env.VITE_APP_NAME;
+
 /******************************************************************************
  * mount Inertia App
  *****************************************************************************/
@@ -26,6 +29,6 @@ createInertiaApp({
             .use(plugin)
             .mount(el);
     },
-    title: title => (title ? `Mixtape: ${title}` : "Mixtape"),
+    title: title => (title ? `${appName}: ${title}` : appName),
     progress: { color: "#4f46e5" }
 });

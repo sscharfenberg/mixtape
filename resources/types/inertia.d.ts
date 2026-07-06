@@ -6,8 +6,9 @@ export {};
  */
 declare module "@inertiajs/core" {
     export interface InertiaConfig {
-        sharedPageProps: {
-            name: string;
-        };
+        // The app name is not shared here — the frontend reads it from
+        // import.meta.env.VITE_APP_NAME (mirrored from Laravel's APP_NAME).
+        // Add shared props as server-side shared data grows.
+        sharedPageProps: Record<string, never>;
     }
 }
