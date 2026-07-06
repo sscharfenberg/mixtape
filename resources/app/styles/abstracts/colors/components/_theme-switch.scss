@@ -1,0 +1,14 @@
+/******************************************************************************
+ * contextual color tokens — component:theme-switch
+ * @type {Sass}
+ * ported from cantrip.me's $theme token. consumed as c.$c-theme-switch via
+ * `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-color-tokens" as c;
+
+$theme-switch: (
+    "surface": light-dark(map.get(c.$grey, "abbey"), map.get(c.$grey, "fog")),
+    "surface-selected": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$brand, "dark1", "contrast")),
+    "background-selected": light-dark(map.get(c.$brand, "light1", "color"), map.get(c.$brand, "dark1", "color"))
+) !default;

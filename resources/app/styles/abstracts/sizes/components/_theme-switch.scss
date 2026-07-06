@@ -1,0 +1,14 @@
+/******************************************************************************
+ * contextual size tokens — component:theme-switch
+ * @type {Sass}
+ * ported from cantrip.me. consumed as s.$c-theme-switch via
+ * `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:math"; // https://sass-lang.com/documentation/modules/math/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$theme-switch: (
+    "radius": map.get(s.$radius, "featured"),
+    "padding": math.round(s.$base * 0.2) math.round(s.$base * 0.5)
+) !default;

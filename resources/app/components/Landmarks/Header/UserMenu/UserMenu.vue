@@ -7,6 +7,7 @@
  * arrive with Fortify; the popover-list structure is here to build on.
  *****************************************************************************/
 import { Link } from "@inertiajs/vue3";
+import ThemeSwitch from "Components/Landmarks/Header/UserMenu/ThemeSwitch.vue";
 import PopOver from "Components/UI/PopOver.vue";
 
 /** Programmatically hides the user-menu popover by its DOM id (on item click). */
@@ -35,6 +36,8 @@ function closePopover(): void {
                 <li>
                     <Link class="popover-list-item" href="/" @click="closePopover">Sign in</Link>
                 </li>
+                <li class="popover-list__divider" />
+                <li><theme-switch /></li>
             </ul>
         </pop-over>
     </nav>
