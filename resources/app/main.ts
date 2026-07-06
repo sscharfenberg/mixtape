@@ -26,6 +26,6 @@ createInertiaApp({
             .use(plugin)
             .mount(el);
     },
-    title: title => (title ? `MixTape: ${title}` : "MixTape"),
+    title: title => (title ? `Mixtape: ${title}` : "Mixtape"),
     progress: { color: "#4f46e5" }
 });

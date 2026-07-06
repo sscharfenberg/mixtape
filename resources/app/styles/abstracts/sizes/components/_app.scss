@@ -3,6 +3,7 @@
  * @type {Sass}
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:math"; // https://sass-lang.com/documentation/modules/math/
 @use "../global-size-tokens" as s;
 
 $app: (
@@ -13,9 +14,9 @@ $app: (
         "desktop": map.get(s.$font, "desktop")
     ),
     "padding": (
-        "base": map.get(s.$padding, "base"),
-        "portrait": map.get(s.$padding, "portrait"),
-        "landscape": map.get(s.$padding, "landscape"),
-        "desktop": map.get(s.$padding, "desktop")
+        "base": math.round(s.$base * 0.25),
+        "portrait": math.round(s.$base * 0.5),
+        "landscape": math.round(s.$base * 0.75),
+        "desktop": math.round(s.$base * 1)
     )
 ) !default;

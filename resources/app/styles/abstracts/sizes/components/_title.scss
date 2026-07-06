@@ -1,16 +1,15 @@
 /******************************************************************************
- * contextual size tokens — component:header
+ * contextual size tokens — component:frosted-glass
  * @type {Sass}
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "../global-size-tokens" as s;
 
-$header: (
-    "gap": (
-        "base": 1ch,
-        "portrait": 1.2ch,
-        "landscape": 1.6ch,
-        "desktop": 2.2ch
-    ),
-    "max": map.get(s.$max, "cage")
+$title: (
+    "font-size": (
+        "base": 1.2rem,
+        "portrait": 1.4rem,
+        "landscape": 2.2rem,
+        "desktop": 3rem
+    )
 );

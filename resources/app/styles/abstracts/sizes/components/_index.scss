@@ -6,5 +6,6 @@
  * consumed as s.$c-button via `@use "Abstracts/sizes" as s;`.
  *****************************************************************************/
 @forward "app";
-@forward "header";
 @forward "frosted-glass";
+@forward "header";
+@forward "title";

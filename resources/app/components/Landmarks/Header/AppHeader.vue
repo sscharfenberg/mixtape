@@ -15,6 +15,7 @@ import AppHeaderTitle from "Components/Landmarks/Header/AppHeaderTitle.vue";
 <style scoped lang="scss">
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "Abstracts/colors" as c;
+@use "Abstracts/mixins" as m;
 @use "Abstracts/sizes" as s;
 @use "Abstracts/z-indexes" as z;
 
@@ -26,6 +27,14 @@ import AppHeaderTitle from "Components/Landmarks/Header/AppHeaderTitle.vue";
     background-color: map.get(c.$c-frosted-glass, "background");
     backdrop-filter: blur(12px);
     color: map.get(c.$c-frosted-glass, "surface");
+
+    @include m.mqset(
+        "padding",
+        #{map.get(s.$c-app, "padding", "base") * 0.5 map.get(s.$c-app, "padding", "base")},
+        #{map.get(s.$c-app, "padding", "portrait") * 0.5 map.get(s.$c-app, "padding", "portrait")},
+        #{map.get(s.$c-app, "padding", "landscape") * 0.5 map.get(s.$c-app, "padding", "landscape")},
+        #{map.get(s.$c-app, "padding", "desktop") * 0.5 map.get(s.$c-app, "padding", "desktop")}
+    );
 
     &::before {
         position: absolute;
@@ -56,7 +65,14 @@ import AppHeaderTitle from "Components/Landmarks/Header/AppHeaderTitle.vue";
 
         max-width: map.get(s.$c-header, "max");
         margin: 0 auto;
-        gap: map.get(s.$c-header, "gap");
+
+        @include m.mqset(
+            "gap",
+            #{map.get(s.$c-header, "gap", "base")},
+            #{map.get(s.$c-header, "gap", "portrait")},
+            #{map.get(s.$c-header, "gap", "landscape")},
+            #{map.get(s.$c-header, "gap", "desktop")}
+        );
     }
 }
 </style>

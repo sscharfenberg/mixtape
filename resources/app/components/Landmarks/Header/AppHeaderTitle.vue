@@ -4,14 +4,16 @@ import { Link } from "@inertiajs/vue3";
 
 <template>
     <Link href="/">
-        <span>MixTape</span>
-        <span>MixTape</span>
+        <span>Mixtape</span>
+        <span>Mixtape</span>
     </Link>
 </template>
 
 <style lang="scss" scoped>
 @use "sass:map";
+@use "Abstracts/mixins" as m;
 @use "Abstracts/colors" as c;
+@use "Abstracts/sizes" as s;
 
 a {
     position: relative;
@@ -19,9 +21,16 @@ a {
     margin: 0;
     transform: skew(-15deg);
 
-    font-size: 2rem;
     text-decoration: none;
     letter-spacing: 0.03em;
+
+    @include m.mqset(
+        "font-size",
+        #{map.get(s.$c-title, "font-size", "base")},
+        #{map.get(s.$c-title, "font-size", "portrait")},
+        #{map.get(s.$c-title, "font-size", "landscape")},
+        #{map.get(s.$c-title, "font-size", "desktop")}
+    );
 
     &::after {
         position: absolute;
