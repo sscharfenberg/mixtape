@@ -4,7 +4,7 @@
  * renders an <svg> that references a <symbol> in the inlined sprite sheet.
  * source icons live in resources/app/assets/icons/*.svg; `npm run icons`
  * merges them into storage/app/public/sprite.svg, which app.blade.php inlines
- * into the page so `#name` resolves. icon styles: @/styles/components/_icon.scss.
+ * into the page so `#name` resolves.
  *****************************************************************************/
 import { computed } from "vue";
 const props = defineProps({
@@ -43,3 +43,65 @@ const cssClasses = computed(() => {
         <use :xlink:href="`#${name}`"></use>
     </svg>
 </template>
+
+<style scoped lang="scss">
+/**
+ * sizing comes from the contextual s.$c-icon token (the global $icons scale).
+ */
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/sizes" as s;
+
+.icon {
+    display: inline-block;
+
+    width: var(--icon-size);
+    height: var(--icon-size);
+    flex: 0 0 var(--icon-size);
+
+    vertical-align: middle;
+
+    fill: currentcolor;
+
+    &.tiny {
+        --icon-size: #{map.get(s.$c-icon, "tiny")};
+    }
+
+    &.small {
+        --icon-size: #{map.get(s.$c-icon, "small")};
+    }
+
+    &.medium {
+        --icon-size: #{map.get(s.$c-icon, "medium")};
+    }
+
+    &.large {
+        --icon-size: #{map.get(s.$c-icon, "large")};
+    }
+
+    &.xlarge {
+        --icon-size: #{map.get(s.$c-icon, "xlarge")};
+    }
+
+    &.max {
+        --icon-size: #{map.get(s.$c-icon, "max")};
+    }
+
+    // continuously rotating icon (e.g. a spinner)
+    &.rotate {
+        @media (prefers-reduced-motion: no-preference) {
+            // 1200ms == cantrip's $timings "slowish"; no timings token group yet.
+            animation: icon-rotate 1200ms linear infinite;
+        }
+    }
+}
+
+@keyframes icon-rotate {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+</style>
