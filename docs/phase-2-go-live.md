@@ -11,8 +11,9 @@
   (self-signed `/etc/ssl/certs/mixtape-selfsigned.crt`) at **`https://debbie.local`**, DB **`mixtape_dev`**
   (localhost). It's the development site and **stays untouched** by go-live.
 - **There is no prod site yet** — building it is **Step 0** below.
-- nginx: HTTP→HTTPS 301 + `443 ssl http2` + security headers; ACME path (`/.well-known/acme-challenge/`)
-  already open for HTTP-01.
+- nginx: HTTP→HTTPS 301 + `443 ssl http2` + security headers — incl. a CSP **hardening subset**
+  (`base-uri`/`object-src`/`form-action`/`frame-ancestors`); prod adds the fuller resource policy (Step 0).
+  ACME path (`/.well-known/acme-challenge/`) already open for HTTP-01.
 - Firewall: **`80/443` tightened to LAN-only (IPv4)**; v6 web dropped; **no Fritzbox forward** exists.
 - PostgreSQL localhost-only; Samba + SSH LAN-only.
 
@@ -44,6 +45,24 @@ so dev work never affects it. The media library `/var/media` is shared by both a
   socket, **`server_name mixtape.ddns.example`** (→ real host in Step 4), make it the **`default_server`**
   (move that flag off the dev vhost), per-site logs `/var/log/nginx/mixtape.prod.{access,error}.log`.
   Reuse the self-signed cert for now (Step 4 swaps in the real one).
+- **Security headers / CSP:** carry the three headers dev has (`X-Content-Type-Options nosniff`,
+  `X-Frame-Options SAMEORIGIN`, `Referrer-Policy strict-origin-when-cross-origin`) into the prod vhost,
+  and add the **full** CSP. Dev runs only the resource-agnostic hardening subset
+  (`base-uri`/`object-src`/`form-action`/`frame-ancestors`) because Vite HMR loads scripts + a `wss` from
+  the separate `:5174` vhost; **prod serves built assets from `'self'` with no dev server**, so it can lock
+  resource origins too:
+
+  ```nginx
+  add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; media-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests" always;
+  ```
+
+  Keep all four `add_header`s in the `server {}` block — no `location` sets its own `add_header`, so they
+  apply to every response (the inheritance trap). Caveats baked into the policy: `script-src 'unsafe-inline'`
+  is required by the inline pre-paint theme script (nginx can't emit per-request nonces) and
+  `style-src 'unsafe-inline'` by Vue's `v-bind()` inline styles — both still block *external-origin*
+  loads. When the **vidstack** player lands, `media-src` may need `blob:` (and possibly `worker-src 'self'
+  blob:`) — re-test then. Stronger follow-up: move CSP into Laravel middleware with per-request **nonces**
+  (e.g. `spatie/laravel-csp`) to drop `script-src 'unsafe-inline'`.
 - Confirm prod serves on the LAN (via the IP) **before** touching the router.
 
 ## Step 1 — Real domain + DNS (CNAME hybrid)
@@ -165,6 +184,9 @@ now, alongside the other go-live polish:
 
 - [ ] From **off-LAN** (phone on mobile data): `https://music.<domain>` loads with a **valid** cert (no
       warning), HTTP→HTTPS works, and login is required.
+- [ ] **Security headers** on a prod page response (`curl -sI https://music.<domain> | grep -iE
+      'content-security|x-frame|x-content|referrer'`); app, login, and **audio playback** all work under the
+      full CSP — the vidstack player is the likeliest `media-src`/`worker-src` casualty, so exercise it.
 - [ ] **SSH / Samba / PostgreSQL are NOT reachable** from the WAN (IPv4 **and** IPv6).
 - [ ] Invite flow works end-to-end; a **signed share-link** plays without login and **expires**.
 - [ ] Mail: trigger a password reset → arrives, **SPF/DKIM/DMARC pass**.
