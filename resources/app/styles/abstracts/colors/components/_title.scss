@@ -9,9 +9,11 @@
 $title: (
     "c1": map.get(c.$retro, "c1"),
     "c2": map.get(c.$retro, "c2"),
-    "c3": map.get(c.$retro, "c3"),
     "c4": map.get(c.$retro, "c4"),
     "c5": map.get(c.$retro, "c5"),
     "c6": map.get(c.$retro, "c6"),
-    "twinkle": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "asher"))
+    "c7": map.get(c.$retro, "c7"),
+    "c8": map.get(c.$retro, "c8"),
+    "twinkle": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "asher")),
+    "stroke": map.get(c.$grey, "slate")
 );

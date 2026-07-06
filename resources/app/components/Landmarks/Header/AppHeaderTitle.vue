@@ -62,11 +62,13 @@ a {
     span:first-child {
         display: block;
 
-        text-shadow:
-            0 0 0.1em #8ba2d0,
-            0 0 0.2em #000,
-            0 0 5em #165ff3;
-        -webkit-text-stroke: 0.06em rgb(black, 0.5);
+        @include m.mq("landscape") {
+            text-shadow:
+                0 0 0.1em map.get(c.$c-title, "c7"),
+                0 0 0.2em #000,
+                0 0 5em map.get(c.$c-title, "c8");
+            -webkit-text-stroke: 0.06em rgb(black, 0.5);
+        }
     }
 
     span:last-child {
@@ -74,25 +76,22 @@ a {
         top: 0;
         left: 0;
 
-        background-image: linear-gradient(
-            map.get(c.$c-title, "c1") 25%,
-            map.get(c.$c-title, "c2") 35%,
-            map.get(c.$c-title, "c3") 50%,
-            map.get(c.$c-title, "c4") 50%,
-            map.get(c.$c-title, "c5") 55%,
-            map.get(c.$c-title, "c6") 75%
-        );
-
-        // background-image: linear-gradient(
-        //    map.get(c.$c-title, "color1") 25%,
-        //    map.get(c.$c-title, "color2") 35%,
-        //    map.get(c.$c-title, "color3") 50%,
-        //    map.get(c.$c-title, "color4") 65%,
-        //    map.get(c.$c-title, "color5") 75%
-        // );
+        background-color: light-dark(map.get(c.$c-title, "c5"), map.get(c.$c-title, "c6"));
         background-clip: text;
-        -webkit-text-stroke: 0.01em #94a0b9;
+        -webkit-text-stroke: 0.01em map.get(c.$c-title, "stroke");
         -webkit-text-fill-color: transparent;
+
+        @include m.mq("landscape") {
+            background-color: transparent;
+            background-image: linear-gradient(
+                map.get(c.$c-title, "c1") 25%,
+                map.get(c.$c-title, "c2") 35%,
+                #fff 50%,
+                map.get(c.$c-title, "c4") 50%,
+                map.get(c.$c-title, "c5") 55%,
+                map.get(c.$c-title, "c6") 75%
+            );
+        }
     }
 }
 </style>
