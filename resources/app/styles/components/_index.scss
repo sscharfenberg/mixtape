@@ -1,0 +1,8 @@
+/******************************************************************************
+ * component styles — barrel
+ * @type {Sass}
+ * loaded into the `components` cascade layer from app.scss. add one @forward
+ * per component (or component folder) below.
+ *****************************************************************************/
+@forward "icon";
+@forward "popover";

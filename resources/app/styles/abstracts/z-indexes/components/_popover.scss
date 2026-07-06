@@ -1,0 +1,13 @@
+/******************************************************************************
+ * contextual z-index token — component:popover
+ * @type {Sass}
+ * the stacking rung for a popover's floating content. it sits on the "popout"
+ * rung so menus escape local overflow/stacking contexts. the native Popover
+ * API also promotes the dialog into the top layer, so this is mainly a
+ * fallback for non-supporting engines. consumed as z.$c-popover via
+ * `@use "Abstracts/z-indexes" as z;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-z-index-tokens" as z;
+
+$popover: map.get(z.$scale, "popout") !default;

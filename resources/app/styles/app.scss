@@ -14,8 +14,8 @@
 //    @include meta.load-css("vendor");
 // }
 
-// @layer components {
-//    @include meta.load-css("components");
-// }
+@layer components {
+    @include meta.load-css("components");
+}
 
 @layer theme, utilities;

@@ -1,0 +1,87 @@
+/******************************************************************************
+ * popover list + list items
+ * @type {Sass}
+ * caution/error item variants read the popover token (derived from $state in
+ * the contextual partial), not $state directly — consumers stay off globals.
+ * transition durations inlined: 150ms == cantrip's $timings "fast".
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/colors" as c;
+@use "Abstracts/sizes" as s;
+
+.popover-list {
+    display: flex;
+    flex-direction: column;
+
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    gap: 0.25rem;
+
+    list-style: none;
+
+    > li:not(:last-child) {
+        padding-bottom: 0.25rem;
+        border-bottom: map.get(s.$c-popover, "border") solid map.get(c.$c-popover, "border");
+    }
+
+    // Inter-group separator: a 2px coloured rule between conceptual sections.
+    // Authored as an empty <li class="popover-list__divider">.
+    > li.popover-list__divider {
+        padding: 0;
+        border-bottom: 2px solid map.get(c.$c-popover, "border-divider");
+    }
+
+    // Drop the regular border-bottom on the item immediately before a divider
+    // so we don't end up with a doubled rule.
+    > li:has(+ .popover-list__divider) {
+        padding-bottom: 0;
+        border-bottom: 0;
+    }
+
+    &-item {
+        display: flex;
+        align-items: center;
+
+        width: 100%;
+        padding: 0.4rem 0.6rem;
+        border: 0;
+        gap: 0.5rem;
+
+        background-color: map.get(c.$c-popover, "item-background");
+        color: map.get(c.$c-popover, "item-surface");
+
+        font-size: 1rem;
+        font-weight: normal;
+        line-height: 1;
+        text-align: left;
+        text-decoration: none;
+        text-shadow: none;
+
+        cursor: pointer;
+
+        transition:
+            background-color 150ms linear,
+            color 150ms linear;
+
+        &:hover {
+            background-color: map.get(c.$c-popover, "item-background-hover");
+            color: map.get(c.$c-popover, "item-surface-hover");
+        }
+
+        &--selected {
+            background-color: map.get(c.$c-popover, "item-background-selected");
+            color: map.get(c.$c-popover, "item-surface-selected");
+        }
+
+        &--caution {
+            background-color: map.get(c.$c-popover, "item-background-caution");
+            color: map.get(c.$c-popover, "item-surface-caution");
+        }
+
+        &--error {
+            background-color: map.get(c.$c-popover, "item-background-error");
+            color: map.get(c.$c-popover, "item-surface-error");
+        }
+    }
+}

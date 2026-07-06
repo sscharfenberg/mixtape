@@ -1,0 +1,49 @@
+/******************************************************************************
+ * popover trigger button
+ * @type {Sass}
+ * the anchor-name custom property is set in PopOver.vue's scoped style
+ * (v-bind), not here — v-bind only resolves inside an SFC.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/colors" as c;
+@use "Abstracts/sizes" as s;
+
+.popover-button {
+    display: flex;
+    align-items: center;
+
+    padding: map.get(s.$c-popover, "button-padding");
+    border: 0;
+    gap: 0.5ch;
+
+    background-color: map.get(c.$c-popover, "button-background");
+    color: map.get(c.$c-popover, "button-surface");
+
+    cursor: pointer;
+
+    &--rounded {
+        border-radius: 100vw;
+    }
+
+    &--padded {
+        padding: map.get(s.$c-popover, "button-extra-padding");
+    }
+
+    &:hover {
+        background-color: map.get(c.$c-popover, "button-background-hover");
+        color: map.get(c.$c-popover, "button-surface-hover");
+    }
+
+    &--active {
+        background-color: map.get(c.$c-popover, "button-background-active");
+        color: map.get(c.$c-popover, "button-surface-active");
+    }
+
+    &--tiny {
+        padding: 0;
+
+        .icon {
+            --icon-size: 1.25rem;
+        }
+    }
+}

@@ -11,6 +11,11 @@
         @inertiaHead
     </head>
     <body>
+        {{-- inline the generated svg sprite (npm run icons) so <use href="#name"> resolves.
+             hidden container: the <symbol> defs stay referenceable but never render. --}}
+        @if (Storage::disk('public')->exists('sprite.svg'))
+            <div hidden aria-hidden="true">{!! Storage::disk('public')->get('sprite.svg') !!}</div>
+        @endif
         @inertia
     </body>
 </html>

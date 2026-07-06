@@ -1,0 +1,98 @@
+/******************************************************************************
+ * popover floating content (the [popover] dialog)
+ * @type {Sass}
+ * position-anchor is set in PopOver.vue's scoped style (v-bind); everything
+ * else lives here. mixtape has no timings token group yet, so the transition
+ * durations are inlined — 150ms == cantrip's $timings "fast".
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/colors" as c;
+@use "Abstracts/sizes" as s;
+@use "Abstracts/z-indexes" as z;
+
+.popover-content {
+    position: fixed;
+
+    inset: anchor(bottom) anchor(right) auto auto;
+    z-index: z.$c-popover;
+
+    overflow-y: auto;
+
+    max-width: 50dvw;
+    max-height: calc(100dvh - 2rem);
+    padding: map.get(s.$c-popover, "padding");
+    border: 0;
+    margin-block-start: 4px;
+
+    background-color: map.get(c.$c-popover, "background");
+
+    backdrop-filter: blur(12px);
+    border-radius: map.get(s.$c-popover, "radius");
+
+    /**
+     * fallbacks are tried in order — first flip-block (vertical only), then
+     * flip-inline (horizontal only), then the combined flip for corner cases
+     * where neither single flip fits.
+     */
+    position-try-fallbacks:
+        flip-block,
+        flip-inline,
+        flip-block flip-inline;
+
+    @media (prefers-reduced-motion: no-preference) {
+        opacity: 0;
+
+        transform: perspective(600px) rotateY(90deg);
+
+        /**
+         * When a popover opens the browser promotes it into the top layer. On
+         * close it would normally be yanked out immediately, clipping the exit
+         * animation — so `overlay` is transitioned with `allow-discrete` to keep
+         * the element in the top layer for the full transition.
+         */
+        transition:
+            transform 150ms ease-out,
+            opacity 150ms ease-out,
+            display 150ms allow-discrete,
+            overlay 150ms allow-discrete;
+    }
+
+    &:popover-open {
+        display: flex;
+
+        @media (prefers-reduced-motion: no-preference) {
+            opacity: 1;
+
+            transform: perspective(600px) rotateY(0deg);
+
+            @starting-style {
+                opacity: 0;
+
+                transform: perspective(600px) rotateY(90deg);
+            }
+        }
+    }
+
+    &::before {
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+
+        border: map.get(s.$c-popover, "border") solid transparent;
+
+        background: linear-gradient(
+                to bottom right,
+                map.get(c.$c-popover, "border-from"),
+                map.get(c.$c-popover, "border-to")
+            )
+            border-box;
+
+        border-radius: inherit;
+        mask:
+            linear-gradient(black, black) border-box,
+            linear-gradient(black, black) padding-box;
+        mask-composite: subtract;
+
+        content: "";
+    }
+}

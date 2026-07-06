@@ -1,0 +1,17 @@
+/******************************************************************************
+ * contextual size tokens — component:popover
+ * @type {Sass}
+ * ported from cantrip.me. consumed as s.$c-popover via
+ * `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:math"; // https://sass-lang.com/documentation/modules/math/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$popover: (
+    "radius": map.get(s.$radius, "base"),
+    "padding": math.round(s.$base * 0.5),
+    "border": map.get(s.$border, "base"),
+    "button-padding": math.round(map.get(s.$border, "base") * 2),
+    "button-extra-padding": math.round(map.get(s.$border, "base") * 2) math.round(s.$base * 0.5)
+) !default;

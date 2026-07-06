@@ -1,0 +1,62 @@
+/******************************************************************************
+ * contextual color tokens — component:popover
+ * @type {Sass}
+ * ported from cantrip.me's nested $components.popover map, flattened to
+ * mixtape's one-partial-per-component shape. consumed as c.$c-popover via
+ * `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$popover: (
+    // content wrapper --------------------------------------------------------
+    "background": light-dark(
+            color.adjust(map.get(c.$grey, "white"), $alpha: -0.125),
+            color.adjust(map.get(c.$grey, "black"), $alpha: -0.125)
+        ),
+    "border-from": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher")),
+    "border-to": light-dark(map.get(c.$grey, "fog"), map.get(c.$grey, "abbey")),
+    // list + item separators -------------------------------------------------
+    "border": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher")),
+    "border-divider": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$brand, "dark1", "contrast")),
+    // list items -------------------------------------------------------------
+    "item-background": light-dark(
+            color.adjust(map.get(c.$grey, "infra"), $alpha: -0.25),
+            color.adjust(map.get(c.$grey, "bunker"), $alpha: -0.25)
+        ),
+    "item-surface": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral")),
+    "item-background-hover": light-dark(map.get(c.$brand, "light2", "color"), map.get(c.$brand, "dark2", "color")),
+    "item-surface-hover": light-dark(map.get(c.$brand, "light2", "contrast"), map.get(c.$brand, "dark2", "contrast")),
+    "item-background-selected": light-dark(map.get(c.$brand, "light1", "color"), map.get(c.$brand, "dark1", "contrast")),
+    "item-surface-selected": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$brand, "dark1", "color")),
+    "item-background-caution": light-dark(
+            map.get(c.$state, "light", "warning", "color"),
+            map.get(c.$state, "dark", "warning", "color")
+        ),
+    "item-surface-caution": light-dark(
+            map.get(c.$state, "light", "warning", "contrast"),
+            map.get(c.$state, "dark", "warning", "contrast")
+        ),
+    "item-background-error": light-dark(
+            map.get(c.$state, "light", "error", "color"),
+            map.get(c.$state, "dark", "error", "color")
+        ),
+    "item-surface-error": light-dark(
+            map.get(c.$state, "light", "error", "contrast"),
+            map.get(c.$state, "dark", "error", "contrast")
+        ),
+    // trigger button ---------------------------------------------------------
+    "button-background": light-dark(
+            color.adjust(map.get(c.$grey, "infra"), $alpha: -0.25),
+            color.adjust(map.get(c.$grey, "asher"), $alpha: -0.25)
+        ),
+    "button-surface": light-dark(map.get(c.$grey, "abbey"), map.get(c.$grey, "infra")),
+    "button-background-hover": light-dark(
+            color.adjust(map.get(c.$grey, "abbey"), $alpha: -0.25),
+            color.adjust(map.get(c.$grey, "mystic"), $alpha: -0.25)
+        ),
+    "button-surface-hover": light-dark(map.get(c.$grey, "mystic"), map.get(c.$grey, "bunker")),
+    "button-background-active": light-dark(map.get(c.$brand, "light2", "color"), map.get(c.$brand, "dark2", "color")),
+    "button-surface-active": light-dark(map.get(c.$brand, "light2", "contrast"), map.get(c.$brand, "dark2", "contrast"))
+) !default;

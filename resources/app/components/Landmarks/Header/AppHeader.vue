@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AppHeaderLogo from "Components/Landmarks/Header/AppHeaderLogo.vue";
 import AppHeaderTitle from "Components/Landmarks/Header/AppHeaderTitle.vue";
+import UserMenu from "Components/Landmarks/Header/UserMenu/UserMenu.vue";
 </script>
 
 <template>
@@ -8,6 +9,7 @@ import AppHeaderTitle from "Components/Landmarks/Header/AppHeaderTitle.vue";
         <div class="inner">
             <app-header-logo />
             <app-header-title />
+            <user-menu />
         </div>
     </header>
 </template>

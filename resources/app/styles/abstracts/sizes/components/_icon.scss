@@ -1,0 +1,18 @@
+/******************************************************************************
+ * contextual size tokens — component:icon
+ * @type {Sass}
+ * exposes the global $icons scale as a per-component contextual token so
+ * .icon styles never reach a global directly. consumed as s.$c-icon via
+ * `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$icon: (
+    "tiny": map.get(s.$icons, "tiny"),
+    "small": map.get(s.$icons, "small"),
+    "medium": map.get(s.$icons, "medium"),
+    "large": map.get(s.$icons, "large"),
+    "xlarge": map.get(s.$icons, "xlarge"),
+    "max": map.get(s.$icons, "max")
+) !default;
