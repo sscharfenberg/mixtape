@@ -37,6 +37,22 @@ class HandleInertiaRequests extends Middleware
     {
         return [
             ...parent::share($request),
+            'auth' => [
+                // Null until a user is logged in. Wired now so guest-only vs
+                // authenticated menu items can switch the moment Fortify lands.
+                'user' => fn () => $request->user()
+                    ? $request->user()->only('id', 'name', 'email')
+                    : null,
+            ],
+            // Placeholder feature flags until Fortify is installed. Once it is,
+            // swap these literals for Laravel\Fortify\Features::enabled(...).
+            // Open registration stays disabled by design — onboarding is via
+            // one-time invite tokens (see CLAUDE.md → Auth & sharing).
+            'features' => [
+                'registration' => false,
+                'resetPasswords' => true,
+                'emailVerification' => false,
+            ],
         ];
     }
 }

@@ -9,6 +9,22 @@ declare module "@inertiajs/core" {
         // The app name is not shared here — the frontend reads it from
         // import.meta.env.VITE_APP_NAME (mirrored from Laravel's APP_NAME).
         // Add shared props as server-side shared data grows.
-        sharedPageProps: Record<string, never>;
+        sharedPageProps: {
+            auth: {
+                // `null` until a user is logged in (prep for Fortify).
+                user: {
+                    id: number;
+                    name: string;
+                    email: string;
+                } | null;
+            };
+            // Backend feature flags gating guest-only links. Placeholder
+            // values until Fortify supplies real ones (see HandleInertiaRequests).
+            features: {
+                registration: boolean;
+                resetPasswords: boolean;
+                emailVerification: boolean;
+            };
+        };
     }
 }

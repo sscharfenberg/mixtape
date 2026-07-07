@@ -2,13 +2,22 @@
 /******************************************************************************
  * UserMenu
  * the last item in the app header — an account popover, mirroring cantrip.me's
- * user menu. Placeholder for now: mixtape has no auth/i18n/routes yet, so every
- * entry points at home. Real auth-gated items (sign in / dashboard / logout)
- * arrive with Fortify; the popover-list structure is here to build on.
+ * user menu. The `auth` and `features` shared props are wired now as prep for
+ * Fortify: `user` is null until login, and the feature flags are placeholders
+ * (see HandleInertiaRequests) until Fortify supplies real values. The /login
+ * and /forgot routes arrive with Fortify too; labels are literal for now.
  *****************************************************************************/
-import { Link } from "@inertiajs/vue3";
+import { Link, usePage } from "@inertiajs/vue3";
+import { computed } from "vue";
 import ThemeSwitch from "Components/Landmarks/Header/UserMenu/ThemeSwitch.vue";
+import Icon from "Components/UI/Icon.vue";
 import PopOver from "Components/UI/PopOver.vue";
+
+const page = usePage();
+/** The authenticated user object, or `null`/`undefined` when logged out — controls which menu items are visible. */
+const user = computed(() => page.props.auth.user);
+/** Backend feature flags (e.g. `resetPasswords`) gating guest-only links. Placeholder until Fortify. */
+const features = computed(() => page.props.features);
 
 /** Programmatically hides the user-menu popover by its DOM id (on item click). */
 function closePopover(): void {
@@ -19,22 +28,25 @@ function closePopover(): void {
 
 <template>
     <nav class="user-menu" aria-label="User menu">
-        <pop-over icon="account" aria-label="Open user menu" reference="userMenu" class-string="popover-button--rounded">
+        <pop-over
+            icon="account"
+            aria-label="Open user menu"
+            reference="userMenu"
+            class-string="popover-button--rounded"
+            width="20ch"
+        >
             <ul class="popover-list">
-                <li>
-                    <Link class="popover-list-item popover-list-item--selected" href="/" @click="closePopover">
-                        Home
+                <li v-if="!user">
+                    <Link class="popover-list-item" href="/login" @click="closePopover">
+                        <icon name="login" :size="1" />
+                        Anmelden
                     </Link>
                 </li>
-                <li>
-                    <Link class="popover-list-item" href="/" @click="closePopover">Playlists</Link>
-                </li>
-                <li>
-                    <Link class="popover-list-item" href="/" @click="closePopover">Search</Link>
-                </li>
-                <li class="popover-list__divider" />
-                <li>
-                    <Link class="popover-list-item" href="/" @click="closePopover">Sign in</Link>
+                <li v-if="!user && features.resetPasswords">
+                    <Link class="popover-list-item" href="/forgot" @click="closePopover">
+                        <icon name="support" :size="1" />
+                        Probleme beim Anmelden?
+                    </Link>
                 </li>
                 <li class="popover-list__divider" />
                 <li><theme-switch /></li>
