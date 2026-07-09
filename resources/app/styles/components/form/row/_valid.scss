@@ -1,0 +1,38 @@
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/colors" as c;
+
+.form-row {
+    // check-mark indicator for validated fields; anchor-positioned to the right
+    // edge of the input, vertically centered — the anchor is set via the
+    // position-anchor inline style in FormRow.vue so each instance targets its
+    // own input.
+    &--valid,
+    &--invalid {
+        display: flex;
+        position: absolute;
+
+        top: calc(anchor(top) + 0.9lh);
+        right: calc(anchor(right) + 1.5ch);
+        place-items: center;
+
+        width: 20px;
+        height: 20px;
+
+        background-color: map.get(c.$c-input, "valid", "background");
+        color: map.get(c.$c-input, "valid", "surface");
+        border-radius: 100dvw;
+        translate: 0 -50%;
+    }
+
+    // loading spinner while an async validation is in progress
+    &--validating {
+        position: absolute;
+        top: 9px;
+        right: 1.5ch;
+    }
+
+    &--invalid {
+        background-color: map.get(c.$c-input, "invalid", "background");
+        color: map.get(c.$c-input, "invalid", "surface");
+    }
+}

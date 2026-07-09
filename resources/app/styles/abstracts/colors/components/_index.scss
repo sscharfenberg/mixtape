@@ -6,7 +6,10 @@
  * consumed as c.$c-button via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
 @forward "body";
+@forward "button";
+@forward "error";
 @forward "frosted-glass";
+@forward "input";
 @forward "popover";
 @forward "theme-switch";
 @forward "title";

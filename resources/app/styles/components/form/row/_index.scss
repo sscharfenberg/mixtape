@@ -1,0 +1,55 @@
+/******************************************************************************
+ * .form-row — a labelled field row (label · addon · input · button · error)
+ * @type {Sass}
+ * ported from cantrip.me's form-group. barrel + wrapper layout.
+ *****************************************************************************/
+@use "Abstracts/mixins" as m;
+@forward "addon";
+@forward "button";
+@forward "error";
+@forward "icon";
+@forward "label";
+@forward "valid";
+
+.form-row {
+    display: flex;
+    flex-flow: row wrap;
+
+    gap: 1ex;
+
+    @include m.mq("landscape") {
+        flex-flow: row nowrap;
+
+        gap: 2ch;
+    }
+
+    &__input {
+        position: relative;
+
+        flex: 0 0 100%;
+
+        @include m.mq("landscape") {
+            flex: 0 0 65%;
+            gap: 2ch;
+        }
+    }
+
+    &__slot {
+        display: flex;
+    }
+
+    // Wrapper around the default slot content; serves as the CSS anchor target
+    // for the valid indicator. Grows to fill the slot like the input.
+    &__field {
+        display: flex;
+        flex-grow: 1;
+
+        .form-input {
+            flex-grow: 1;
+        }
+    }
+
+    &__text {
+        margin-top: 2ex;
+    }
+}

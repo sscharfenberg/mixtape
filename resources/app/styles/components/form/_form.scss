@@ -1,0 +1,18 @@
+/******************************************************************************
+ * .form — the form wrapper
+ * @type {Sass}
+ * a comfortable single-column width and vertical rhythm between form-rows.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/sizes" as s;
+
+.form {
+    display: flex;
+    flex-direction: column;
+
+    width: 100%;
+    max-width: map.get(s.$c-form, "max-width");
+    margin-inline: auto;
+
+    gap: map.get(s.$c-form, "gap");
+}

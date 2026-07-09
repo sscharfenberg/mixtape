@@ -1,0 +1,79 @@
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/colors" as c;
+@use "Abstracts/sizes" as s;
+@use "Abstracts/mixins" as m;
+
+.form-row {
+    &__button {
+        display: flex;
+
+        border: map.get(s.$c-input, "border") solid map.get(c.$c-input, "border");
+
+        border-radius: 0 map.get(s.$c-input, "radius") map.get(s.$c-input, "radius") 0;
+
+        button {
+            display: flex;
+            align-items: center;
+
+            padding: 0.75ex 1.5ch 0.75ex 1ch;
+            border: 0;
+            gap: 1ch;
+
+            background-color: map.get(c.$c-input, "background");
+            color: map.get(c.$c-input, "surface");
+            outline: 0;
+
+            line-height: map.get(s.$c-input, "line-height");
+
+            cursor: pointer;
+
+            // 150ms == cantrip's $timings "fast"; no timings token group yet.
+            transition:
+                background-color 150ms linear,
+                color 150ms linear;
+
+            &:not([disabled]):hover,
+            &:not([disabled]):focus,
+            &:not([disabled]):active {
+                background-color: map.get(c.$c-input, "button", "background-hover");
+                color: map.get(c.$c-input, "button", "surface-hover");
+            }
+
+            > span {
+                display: none;
+
+                @include m.mq("portrait") {
+                    display: block;
+                }
+            }
+
+            &:last-child {
+                border-top-right-radius: map.get(s.$c-input, "radius");
+                border-bottom-right-radius: map.get(s.$c-input, "radius");
+            }
+
+            &[disabled] {
+                color: map.get(c.$c-input, "surface");
+
+                cursor: not-allowed;
+            }
+        }
+    }
+
+    // if the form-row has a button, square off the right side of the input.
+    &:has(.form-row__button) .form-input {
+        border-right-width: 0;
+
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+    }
+
+    // if the input is focussed, continue the border color onto the button.
+    &:has(input:not([readonly])):focus .form-row__button,
+    &:has(input:not([readonly])):focus-visible .form-row__button,
+    &:has(input:not([readonly])):focus-within .form-row__button {
+        background-color: map.get(c.$c-input, "background-focus");
+        color: map.get(c.$c-input, "surface-focus");
+        border-color: map.get(c.$c-input, "border-focus");
+    }
+}

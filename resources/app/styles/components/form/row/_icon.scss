@@ -1,0 +1,18 @@
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/mixins" as m;
+@use "Abstracts/sizes" as s;
+
+.form-row {
+    // the "required" marker next to a label
+    &__icon {
+        justify-self: flex-start;
+
+        width: map.get(s.$c-input, "icon");
+        height: map.get(s.$c-input, "icon");
+        margin: map.get(s.$c-input, "border") 0;
+
+        @include m.mq("landscape") {
+            text-align: right;
+        }
+    }
+}

@@ -1,0 +1,16 @@
+/******************************************************************************
+ * contextual size tokens — component:button
+ * @type {Sass}
+ * mixtape's primary form button. `radius: 100vw` keeps the pill shape in step
+ * with the inputs. consumed as s.$c-button via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$button: (
+    "padding": 0.5rem 1.5rem,
+    "border": map.get(s.$border, "base"),
+    "radius": 100vw,
+    "gap": 0.5ch,
+    "min-height": map.get(s.$icons, "medium")
+) !default;

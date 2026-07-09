@@ -1,0 +1,31 @@
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/colors" as c;
+@use "Abstracts/sizes" as s;
+
+.form-row {
+    &__addon {
+        padding: 0.75ex 1ch 0.75ex 1.5ch;
+        border: map.get(s.$c-input, "border") solid map.get(c.$c-input, "border");
+
+        background-color: map.get(c.$c-input, "background");
+        color: map.get(c.$c-input, "surface");
+
+        outline: 0;
+        border-radius: map.get(s.$c-input, "radius-px") 0 0 map.get(s.$c-input, "radius-px");
+    }
+
+    &:has(input:not([readonly])):focus .form-row__addon,
+    &:has(input:not([readonly])):focus-visible .form-row__addon,
+    &:has(input:not([readonly])):focus-within .form-row__addon {
+        background-color: map.get(c.$c-input, "background-focus");
+        color: map.get(c.$c-input, "surface-focus");
+        border-color: map.get(c.$c-input, "border-focus");
+    }
+
+    &:has(.form-row__addon) .form-input {
+        border-left-width: 0;
+
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+    }
+}

@@ -1,0 +1,14 @@
+/******************************************************************************
+ * contextual size tokens — component:form
+ * @type {Sass}
+ * the <form class="form"> wrapper: a comfortable single-column width and the
+ * vertical rhythm between form-rows. consumed as s.$c-form via
+ * `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:math"; // https://sass-lang.com/documentation/modules/math/
+@use "../global-size-tokens" as s;
+
+$form: (
+    "max-width": math.round(s.$base * 60),
+    "gap": math.round(s.$base * 1.5)
+) !default;

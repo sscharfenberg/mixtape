@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use Laravel\Fortify\Features;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -37,21 +38,23 @@ class HandleInertiaRequests extends Middleware
     {
         return [
             ...parent::share($request),
+            'csrfToken' => csrf_token(),
             'auth' => [
-                // Null until a user is logged in. Wired now so guest-only vs
-                // authenticated menu items can switch the moment Fortify lands.
+                // Null until a user is logged in — drives guest-only vs.
+                // authenticated menu items (see UserMenu.vue).
                 'user' => fn () => $request->user()
                     ? $request->user()->only('id', 'name', 'email')
                     : null,
             ],
-            // Placeholder feature flags until Fortify is installed. Once it is,
-            // swap these literals for Laravel\Fortify\Features::enabled(...).
-            // Open registration stays disabled by design — onboarding is via
-            // one-time invite tokens (see CLAUDE.md → Auth & sharing).
+            // Real Fortify feature flags. All three are off today: registration
+            // stays disabled by design (invite-only onboarding), while password
+            // reset and email verification are deferred until a mail relay lands
+            // (see config/fortify.php). The UserMenu links gate on these, so they
+            // light up automatically when a feature is switched on.
             'features' => [
-                'registration' => false,
-                'resetPasswords' => true,
-                'emailVerification' => false,
+                'registration' => Features::enabled(Features::registration()),
+                'resetPasswords' => Features::enabled(Features::resetPasswords()),
+                'emailVerification' => Features::enabled(Features::emailVerification()),
             ],
         ];
     }

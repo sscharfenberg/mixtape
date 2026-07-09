@@ -1,0 +1,57 @@
+/******************************************************************************
+ * .btn-* — form buttons
+ * @type {Sass}
+ * A clean, tokenised primary action button (mixtape's own take rather than a
+ * verbatim port of cantrip's animated gradient button). Pill-shaped to match
+ * the inputs. consumed via the `components` cascade layer.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/colors" as c;
+@use "Abstracts/sizes" as s;
+
+// base styling shared by every .btn / .btn-* variant
+[class|="btn"] {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: map.get(s.$c-button, "padding");
+    border: map.get(s.$c-button, "border") solid transparent;
+    gap: map.get(s.$c-button, "gap");
+
+    outline: 0;
+    border-radius: map.get(s.$c-button, "radius");
+
+    font: inherit;
+    font-weight: 600;
+    line-height: map.get(s.$c-button, "min-height");
+    text-decoration: none;
+
+    cursor: pointer;
+    user-select: none;
+
+    // 150ms == cantrip's $timings "fast"; no timings token group yet.
+    transition:
+        background-color 150ms linear,
+        color 150ms linear;
+
+    &[disabled] {
+        background-color: map.get(c.$c-button, "background-disabled");
+        color: map.get(c.$c-button, "surface-disabled");
+
+        font-style: italic;
+
+        cursor: not-allowed;
+    }
+}
+
+// primary call-to-action
+.btn-primary {
+    background-color: map.get(c.$c-button, "background");
+    color: map.get(c.$c-button, "surface");
+
+    &:not([disabled]):hover,
+    &:not([disabled]):focus-visible {
+        background-color: map.get(c.$c-button, "background-hover");
+    }
+}

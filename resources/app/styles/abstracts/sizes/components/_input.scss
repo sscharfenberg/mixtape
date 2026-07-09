@@ -1,0 +1,17 @@
+/******************************************************************************
+ * contextual size tokens — component:input
+ * @type {Sass}
+ * ported from cantrip.me's $components.input. consumed as s.$c-input via
+ * `@use "Abstracts/sizes" as s;`. `radius: 100vw` gives pill-shaped inputs;
+ * `radius-px` is the concrete corner value the addon/button use to join cleanly.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$input: (
+    "radius": 100vw,
+    "radius-px": 20px,
+    "border": map.get(s.$border, "base"),
+    "line-height": map.get(s.$icons, "medium"),
+    "icon": map.get(s.$icons, "medium")
+) !default;

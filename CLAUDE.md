@@ -66,7 +66,8 @@ Phase 1 was done first — no point deploying new app code onto the old host.
 
 **Linting the frontend** — use **`npm run lint`** (runs ESLint then Stylelint, both with `--fix`).
 Don't invoke `eslint` / `stylelint` directly. `npm run build` runs the same lint first, so a lint
-error fails the build before anything compiles.
+error fails the build before anything compiles. **Always run `npm run lint` after editing any
+frontend file (Vue / TS / SCSS) — before calling a change done — so the build stays green.**
 
 **Pages (Inertia)** — every page is its own directory with a `*Page` entry file:
 `pages/Home/HomePage.vue` (not `pages/Home.vue`), holding page-local `components/`, composables, tests.

@@ -1,0 +1,17 @@
+/******************************************************************************
+ * contextual color tokens — component:error
+ * @type {Sass}
+ * ported from cantrip.me's $components.error. consumed as c.$c-error via
+ * `@use "Abstracts/colors" as c;`. Used by the form-row error area.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-color-tokens" as c;
+
+$error: (
+    "background": light-dark(map.get(c.$state, "light", "error", "color"), map.get(c.$state, "dark", "error", "color")),
+    "surface": light-dark(
+            map.get(c.$state, "light", "error", "contrast"),
+            map.get(c.$state, "dark", "error", "contrast")
+        ),
+    "border": light-dark(map.get(c.$state, "light", "warning", "color"), map.get(c.$state, "dark", "warning", "color"))
+) !default;

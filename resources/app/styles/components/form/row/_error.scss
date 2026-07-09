@@ -1,0 +1,20 @@
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/colors" as c;
+@use "Abstracts/sizes" as s;
+
+.form-row {
+    // area with the validation error message
+    &__error {
+        display: flex;
+        align-items: flex-start;
+
+        padding: 1ex 1.5ch;
+        border: map.get(s.$c-error, "border") solid map.get(c.$c-error, "border");
+        margin-top: 1ex;
+        gap: 1ch;
+
+        background-color: map.get(c.$c-error, "background");
+        color: map.get(c.$c-error, "surface");
+        border-radius: map.get(s.$c-error, "radius");
+    }
+}

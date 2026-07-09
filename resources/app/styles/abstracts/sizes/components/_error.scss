@@ -1,0 +1,13 @@
+/******************************************************************************
+ * contextual size tokens — component:error
+ * @type {Sass}
+ * ported from cantrip.me's $components.error. consumed as s.$c-error via
+ * `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$error: (
+    "radius": map.get(s.$radius, "featured"),
+    "border": map.get(s.$border, "base")
+) !default;
