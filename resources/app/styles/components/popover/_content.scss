@@ -2,12 +2,12 @@
  * popover floating content (the [popover] dialog)
  * @type {Sass}
  * position-anchor is set in PopOver.vue's scoped style (v-bind); everything
- * else lives here. mixtape has no timings token group yet, so the transition
- * durations are inlined — 150ms == cantrip's $timings "fast".
+ * else lives here.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "Abstracts/colors" as c;
 @use "Abstracts/sizes" as s;
+@use "Abstracts/timings" as ti;
 @use "Abstracts/z-indexes" as z;
 
 .popover-content {
@@ -51,10 +51,10 @@
          * the element in the top layer for the full transition.
          */
         transition:
-            transform 150ms ease-out,
-            opacity 150ms ease-out,
-            display 150ms allow-discrete,
-            overlay 150ms allow-discrete;
+            transform ti.$c-popover ease-out,
+            opacity ti.$c-popover ease-out,
+            display ti.$c-popover allow-discrete,
+            overlay ti.$c-popover allow-discrete;
     }
 
     &:popover-open {

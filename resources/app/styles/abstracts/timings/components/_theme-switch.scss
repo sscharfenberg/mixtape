@@ -1,0 +1,10 @@
+/******************************************************************************
+ * contextual timing token — component:theme-switch
+ * @type {Sass}
+ * the sliding-indicator + label colour transition speed. consumed as
+ * ti.$c-theme-switch via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$theme-switch: map.get(ti.$timings, "fast") !default;

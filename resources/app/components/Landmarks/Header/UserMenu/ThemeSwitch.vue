@@ -72,6 +72,7 @@ onMounted(() => {
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "Abstracts/colors" as c;
 @use "Abstracts/sizes" as s;
+@use "Abstracts/timings" as ti;
 @use "Abstracts/z-indexes" as z;
 
 .theme-switch {
@@ -97,10 +98,11 @@ onMounted(() => {
 
             content: "";
 
-            // no timings token group in mixtape yet — 150ms == cantrip's "fast".
-            transition:
-                left 150ms linear,
-                background-color 150ms linear;
+            @media (prefers-reduced-motion: no-preference) {
+                transition:
+                    left ti.$c-theme-switch linear,
+                    background-color ti.$c-theme-switch linear;
+            }
         }
 
         // radios stay in the DOM but visually hidden — still focusable/tabbable for
@@ -145,7 +147,9 @@ onMounted(() => {
 
         cursor: pointer;
 
-        transition: color 150ms linear;
+        @media (prefers-reduced-motion: no-preference) {
+            transition: color ti.$c-theme-switch linear;
+        }
 
         // visible keyboard focus ring on the focused option's label
         // (:focus-visible → keyboard only, not mouse clicks).

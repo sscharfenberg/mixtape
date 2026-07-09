@@ -45,6 +45,7 @@ const model = defineModel<string>();
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "Abstracts/sizes" as s;
 @use "Abstracts/colors" as c;
+@use "Abstracts/timings" as ti;
 
 @layer components {
     .form-input {
@@ -59,11 +60,12 @@ const model = defineModel<string>();
 
         line-height: map.get(s.$c-input, "line-height");
 
-        // 150ms == cantrip's $timings "fast"; no timings token group yet.
-        transition:
-            background-color 150ms,
-            color 150ms,
-            border-color 150ms;
+        @media (prefers-reduced-motion: no-preference) {
+            transition:
+                background-color ti.$c-input,
+                color ti.$c-input,
+                border-color ti.$c-input;
+        }
 
         &::placeholder {
             color: map.get(c.$c-input, "placeholder");

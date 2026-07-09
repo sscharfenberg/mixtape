@@ -1,0 +1,10 @@
+/******************************************************************************
+ * contextual timing token — component:popover
+ * @type {Sass}
+ * the popover open/close and list-item hover transition speed. consumed as
+ * ti.$c-popover via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$popover: map.get(ti.$timings, "fast") !default;

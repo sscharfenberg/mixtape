@@ -50,6 +50,7 @@ const cssClasses = computed(() => {
  */
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "Abstracts/sizes" as s;
+@use "Abstracts/timings" as ti;
 
 .icon {
     display: inline-block;
@@ -89,8 +90,7 @@ const cssClasses = computed(() => {
     // continuously rotating icon (e.g. a spinner)
     &.rotate {
         @media (prefers-reduced-motion: no-preference) {
-            // 1200ms == cantrip's $timings "slowish"; no timings token group yet.
-            animation: icon-rotate 1200ms linear infinite;
+            animation: icon-rotate ti.$c-icon linear infinite;
         }
     }
 }

@@ -77,8 +77,8 @@ Controllers render the explicit path — `Inertia::render('Home/HomePage', …)`
 
 **Design tokens (SCSS)** — three layers, one hard rule. **Every** token group is identical:
 **global tokens → contextual partial (components/pages) → consumed by SCSS/Vue.** Applies today to
-`colors/`, `sizes/`, `z-indexes/`; future `typography/` / `shadows/` are created the same way. Full
-guide: [`resources/app/styles/abstracts/README.md`](resources/app/styles/abstracts/README.md).
+`colors/`, `sizes/`, `z-indexes/`, `typography/`, `timings/`; future groups (`shadows/`, …) are created
+the same way. Full guide: [`resources/app/styles/abstracts/README.md`](resources/app/styles/abstracts/README.md).
 
 - **Never `@use`/read a global token (`_global-*-tokens.scss`) outside its token group.** Globals are the
   raw palette/scale (`$grey`, `$radius`, `$scale`, …) and stay private.
@@ -88,7 +88,16 @@ guide: [`resources/app/styles/abstracts/README.md`](resources/app/styles/abstrac
   then `@forward` it from that folder's `_index.scss` (one line).
 - Components/pages **consume only contextual tokens** via the entrypoint: `@use "Abstracts/colors" as c;`
   → `c.$c-button`; `@use "Abstracts/sizes" as s;` → `s.$c-button`; `@use "Abstracts/z-indexes" as z;`
-  → `z.$c-main` (`c-*` = component, `p-*` = page).
+  → `z.$c-main` (`c-*` = component, `p-*` = page). Timings use `@use "Abstracts/timings" as ti;` → `ti.$c-*`.
+
+**Motion (transitions & animations)** — **every `transition` must live inside
+`@media (prefers-reduced-motion: no-preference) { … }`**, so a user who asks to reduce motion gets none.
+The guard is written positively (motion is *opt-in* via `no-preference`) rather than as a `reduce`
+opt-out, so motion is also off wherever the preference is unknown/unsupported. Continuous decorative
+`animation`s (e.g. the rotating icon) take the same guard. Durations always come from the `timings/`
+tokens (`ti.$c-*`), **never raw `ms`/`s`**. One deliberate exception (by design, not omission): the
+**loading spinner keeps turning even under reduced motion** — a frozen spinner reads as broken — but it
+runs *much slower by default* and only switches to the lively duration under `no-preference`.
 
 ## Docs
 

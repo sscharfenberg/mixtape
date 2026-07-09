@@ -8,6 +8,7 @@
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "Abstracts/colors" as c;
 @use "Abstracts/sizes" as s;
+@use "Abstracts/timings" as ti;
 
 // base styling shared by every .btn / .btn-* variant
 [class|="btn"] {
@@ -30,10 +31,11 @@
     cursor: pointer;
     user-select: none;
 
-    // 150ms == cantrip's $timings "fast"; no timings token group yet.
-    transition:
-        background-color 150ms linear,
-        color 150ms linear;
+    @media (prefers-reduced-motion: no-preference) {
+        transition:
+            background-color ti.$c-button linear,
+            color ti.$c-button linear;
+    }
 
     &[disabled] {
         background-color: map.get(c.$c-button, "background-disabled");

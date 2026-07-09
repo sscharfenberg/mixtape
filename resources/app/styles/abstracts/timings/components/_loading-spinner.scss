@@ -1,0 +1,23 @@
+/******************************************************************************
+ * contextual timing token — component:loading-spinner
+ * @type {Sass}
+ * The spinner runs at two speeds, so this is a map. By default (including for
+ * reduced-motion users) it turns at a `-calm`, deliberately slow pace so it
+ * still reads as "loading" without being a distracting whirl; only when motion
+ * is allowed (@media prefers-reduced-motion: no-preference) does it switch to
+ * the livelier `-full` speed. Each ring's `delay` is a stagger derived as 40%
+ * of its duration, so the two rings stay locked in phase at either speed.
+ * consumed as ti.$c-loading-spinner via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$-calm: map.get(ti.$timings, "glacial"); // 4000ms — much slower, the default
+$-full: map.get(ti.$timings, "slow"); // 1000ms — the lively speed (the old 1s)
+
+$loading-spinner: (
+    "duration": $-calm,
+    "delay": $-calm * 0.4,
+    "duration-motion": $-full,
+    "delay-motion": $-full * 0.4 // 400ms == the old 0.4s stagger
+) !default;

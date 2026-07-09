@@ -1,0 +1,10 @@
+/******************************************************************************
+ * contextual timing token — component:icon
+ * @type {Sass}
+ * the continuous-rotation (spinner) duration for a rotating .icon. consumed as
+ * ti.$c-icon via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$icon: map.get(ti.$timings, "slowish") !default;

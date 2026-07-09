@@ -1,0 +1,14 @@
+/******************************************************************************
+ * main timings file — contextual timing tokens
+ * @type {Sass}
+ * the public entrypoint for timings, consumed by other scss files / .vue
+ * components. the raw scale (_global-timing-tokens.scss) is @used locally but
+ * intentionally NOT forwarded — consume only the contextual tokens below:
+ * @use "Abstracts/timings" as ti;
+ *****************************************************************************/
+
+// per-component / per-page token partials, re-exported transparently.
+// the "c-*" / "p-*" prefixes namespace them, so $button (components/_button.scss)
+// is consumed as ti.$c-button, and $home (pages/_home.scss) as ti.$p-home.
+@forward "components" as c-*;
+@forward "pages" as p-*;

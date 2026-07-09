@@ -1,0 +1,18 @@
+/******************************************************************************
+ * global timing definitions — the raw duration scale
+ * @type {Sass}
+ * ported verbatim from cantrip.me's $timings. these globals should NOT be
+ * @used in other scss files; instead consume the contextual tokens via
+ * @use "Abstracts/timings" as ti;
+ *****************************************************************************/
+$timings: (
+    "lightning": 100ms,
+    "fast": 150ms,
+    "quick": 250ms,
+    "medium": 450ms,
+    "portly": 650ms,
+    "slow": 1000ms,
+    "slowish": 1200ms,
+    "delayed": 1500ms,
+    "glacial": 4000ms
+) !default;

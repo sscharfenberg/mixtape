@@ -1,0 +1,13 @@
+/******************************************************************************
+ * contextual timing tokens — components
+ * @type {Sass}
+ * one partial per component; @forward each one below. the parent index
+ * re-exports these with a "c-" prefix, so $button (in _button.scss) is
+ * consumed as ti.$c-button via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@forward "button";
+@forward "icon";
+@forward "input";
+@forward "loading-spinner";
+@forward "popover";
+@forward "theme-switch";
