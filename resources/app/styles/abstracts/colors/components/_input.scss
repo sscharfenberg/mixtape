@@ -19,6 +19,10 @@ $input: (
             color.adjust(map.get(c.$grey, "black"), $alpha: -0.5)
         ),
     "surface": light-dark(map.get(c.$grey, "abbey"), map.get(c.$grey, "fog")),
+    "placeholder": light-dark(
+            color.adjust(map.get(c.$grey, "abbey"), $alpha: -0.5),
+            color.adjust(map.get(c.$grey, "fog"), $alpha: -0.5)
+        ),
     "border-focus": light-dark(map.get(c.$brand, "dark1", "color"), map.get(c.$brand, "light1", "color")),
     "background-focus": light-dark(#fff, #000),
     "surface-focus": light-dark(#000, #fff),

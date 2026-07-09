@@ -76,4 +76,13 @@
         color: map.get(c.$c-input, "surface-focus");
         border-color: map.get(c.$c-input, "border-focus");
     }
+
+    // ...and the reverse: if a button in the form-row is focussed, show the
+    // input's focus styles too. (.form-input's own appearance lives in
+    // FormInput.vue; this cross-component rule stays with the button styles.)
+    &:has(button:not([disabled]):focus) .form-input {
+        background-color: map.get(c.$c-input, "background-focus");
+        color: map.get(c.$c-input, "surface-focus");
+        border-color: map.get(c.$c-input, "border-focus");
+    }
 }

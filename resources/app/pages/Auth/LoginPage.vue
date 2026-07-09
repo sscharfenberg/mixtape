@@ -8,12 +8,13 @@
  * (no link here); the forgot-password link is gated on the resetPasswords
  * feature flag and stays hidden until that flow lands.
  *
- * Intentionally style-free: it composes the global form components
- * (.form / <form-row> / .form-input / .btn-primary), so there are no
+ * Intentionally style-free: it composes the shared form components
+ * (.form / <form-row> / <form-input> / .btn-primary), so there are no
  * page-specific styles or tokens here.
  *****************************************************************************/
 import { Head, Link, useForm, usePage } from "@inertiajs/vue3";
 import { computed, ref } from "vue";
+import FormInput from "Components/Form/FormInput.vue";
 import FormRow from "Components/Form/FormRow.vue";
 import Icon from "Components/UI/Icon.vue";
 
@@ -59,10 +60,9 @@ function submit(): void {
             addon-icon="register"
             :required="true"
         >
-            <input
+            <form-input
                 id="name"
                 v-model="form.name"
-                class="form-input"
                 type="text"
                 name="name"
                 autocomplete="username"
@@ -78,10 +78,9 @@ function submit(): void {
             addon-icon="key"
             :required="true"
         >
-            <input
+            <form-input
                 id="password"
                 v-model="form.password"
-                class="form-input"
                 :type="showPassword ? 'text' : 'password'"
                 name="password"
                 autocomplete="current-password"
