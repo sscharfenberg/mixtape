@@ -1,0 +1,24 @@
+/******************************************************************************
+ * contextual color tokens — component:glowing-border
+ * @type {Sass}
+ * the animated glowing gradient border. `surface` fills the interior
+ * (padding-box) so only the transparent border reveals the `gradient`; it
+ * defaults to the app background but is meant to be overridden (via
+ * --glowing-surface) when the border sits on a differently-coloured host.
+ * `gradient` is the ordered conic-gradient loop (first stop repeated last so
+ * the sweep is seamless), drawn from the retro palette. consumed as
+ * c.$c-glowing-border via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-color-tokens" as c;
+
+$glowing-border: (
+    "surface": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "bunker")),
+    "gradient": (
+        map.get(c.$retro, "c6"),
+        map.get(c.$retro, "c5"),
+        map.get(c.$retro, "c8"),
+        map.get(c.$retro, "c2"),
+        map.get(c.$retro, "c6")
+    )
+) !default;

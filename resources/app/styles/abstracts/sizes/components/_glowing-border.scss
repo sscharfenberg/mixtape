@@ -1,0 +1,30 @@
+/******************************************************************************
+ * contextual size tokens — component:glowing-border
+ * @type {Sass}
+ * the geometry knobs of the glowing gradient border (ported from
+ * kevinpowell / WbbXRPL): the transparent `border-width` the gradient shows
+ * through, the pill `radius`, the interior padding — `padding-block` plus a
+ * responsive `padding-inline` (fed through mqset) that widens the tab so it
+ * reaches further toward centre as the viewport grows, instead of clinging to
+ * the edge — and the glow itself: its `glow-blur`, `glow-opacity`, the inner
+ * surface pad (`inner-inset` / `inner-scale`) and the outer halo spread
+ * (`outer-inset`). consumed as s.$c-glowing-border via
+ * `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+$glowing-border: (
+    "border-width": 3px,
+    "radius": 100vw,
+    "padding-block": 0.5rem,
+    "padding-inline": (
+        "base": 2rem,
+        "portrait": 3rem,
+        "landscape": 4rem,
+        "desktop": 5rem,
+        "full": 6rem
+    ),
+    "glow-blur": 1rem,
+    "glow-opacity": 0.125,
+    "inner-inset": 0.5rem,
+    "inner-scale": 1.2,
+    "outer-inset": 1.5rem
+) !default;

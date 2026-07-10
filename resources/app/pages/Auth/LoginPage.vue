@@ -48,7 +48,7 @@ function submit(): void {
     <Head>
         <title>Anmelden</title>
     </Head>
-    <headline>
+    <headline glow>
         <icon name="key" :size="3" />
         Anmelden
     </headline>

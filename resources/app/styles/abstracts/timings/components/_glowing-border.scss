@@ -1,0 +1,9 @@
+/******************************************************************************
+ * contextual timing token — component:glowing-border
+ * @type {Sass}
+ * the duration of one full conic-gradient rotation of the glow. deliberately
+ * slow and cinematic — beyond the shared duration scale — so the border drifts
+ * rather than spins. consumed as ti.$c-glowing-border via
+ * `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+$glowing-border: 10s !default;

@@ -31,14 +31,6 @@ main {
 
     width: 100%;
 
-    @include m.mqset(
-        "padding",
-        #{0 map.get(s.$c-app, "padding", "base")},
-        #{0 map.get(s.$c-app, "padding", "portrait")},
-        #{0 map.get(s.$c-app, "padding", "landscape")},
-        #{0 map.get(s.$c-app, "padding", "desktop")}
-    );
-
     .inner {
         max-width: map.get(s.$c-app, "max");
         min-height: 20rem;

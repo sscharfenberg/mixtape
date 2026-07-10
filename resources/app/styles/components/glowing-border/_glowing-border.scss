@@ -1,0 +1,123 @@
+/******************************************************************************
+ * .glowing-border — animated glowing gradient border
+ * @type {Sass}
+ * Ported from kevinpowell's pen (WbbXRPL). A reusable decoration: add
+ * `glowing-border` to any block to wrap it in a conic-gradient border with a
+ * soft, slowly-rotating halo, or `glowing-border glowing-border--right` to
+ * mirror the shape so it hugs the right edge instead of the left. Every literal
+ * lives in the contextual tokens (c/s/ti.$c-glowing-border); the `--glowing-*`
+ * custom properties expose surface / gradient / width / blur / intensity so a
+ * host can retune them per use.
+ *
+ * Motion: the rotation runs only under prefers-reduced-motion: no-preference;
+ * otherwise the border is drawn static at the registered initial angle.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/colors" as c;
+@use "Abstracts/mixins" as m;
+@use "Abstracts/sizes" as s;
+@use "Abstracts/timings" as ti;
+
+// registered so the conic gradient's start angle can be animated — a plain
+// custom property can't be interpolated by keyframes.
+@property --glowing-deg {
+    syntax: "<angle>";
+    inherits: true;
+    initial-value: -90deg;
+}
+
+.glowing-border {
+    // host-overridable knobs, defaulted from the contextual tokens.
+    --glowing-surface: #{map.get(c.$c-glowing-border, "surface")};
+    --glowing-gradient: #{map.get(c.$c-glowing-border, "gradient")};
+    --glowing-border-width: #{map.get(s.$c-glowing-border, "border-width")};
+    --glowing-blur: #{map.get(s.$c-glowing-border, "glow-blur")};
+    --glowing-intensity: #{map.get(s.$c-glowing-border, "glow-opacity")};
+
+    position: relative;
+
+    width: fit-content;
+    max-width: 100%;
+    padding-block: map.get(s.$c-glowing-border, "padding-block");
+
+    // the tab clings to the container edge; widen its horizontal padding as the
+    // viewport grows so it reaches further toward centre instead of looking
+    // marooned far off to one side on large screens.
+    @include m.mqset(
+        "padding-inline",
+        map.get(s.$c-glowing-border, "padding-inline", "base"),
+        map.get(s.$c-glowing-border, "padding-inline", "portrait"),
+        map.get(s.$c-glowing-border, "padding-inline", "landscape"),
+        map.get(s.$c-glowing-border, "padding-inline", "desktop"),
+        map.get(s.$c-glowing-border, "padding-inline", "full")
+    );
+
+    border: var(--glowing-border-width) solid transparent;
+    border-left: 0;
+
+    // the gradient-border trick: `surface` fills the padding-box while the
+    // rotating conic gradient paints the border-box, so only the transparent
+    // border shows the colours.
+    background:
+        linear-gradient(var(--glowing-surface) 0 0) padding-box,
+        conic-gradient(from var(--glowing-deg), var(--glowing-gradient)) border-box;
+    border-radius: 0 map.get(s.$c-glowing-border, "radius") map.get(s.$c-glowing-border, "radius") 0;
+    isolation: isolate;
+
+    @media (prefers-reduced-motion: no-preference) {
+        animation: glowing-border-rotate ti.$c-glowing-border linear infinite;
+    }
+
+    &::before,
+    &::after {
+        position: absolute;
+
+        border-radius: inherit;
+
+        content: "";
+    }
+
+    // a blurred, surface-coloured pad that softens the inner edge of the border.
+    &::before {
+        inset: map.get(s.$c-glowing-border, "inner-inset");
+        z-index: -1;
+
+        transform-origin: right;
+
+        background: var(--glowing-surface);
+
+        filter: blur(var(--glowing-blur));
+        scale: map.get(s.$c-glowing-border, "inner-scale") 1;
+    }
+
+    // the halo: a larger, blurred, low-opacity copy of the gradient behind all.
+    &::after {
+        inset: calc(map.get(s.$c-glowing-border, "outer-inset") * -1);
+        z-index: -2;
+        opacity: var(--glowing-intensity);
+
+        background: conic-gradient(from var(--glowing-deg), var(--glowing-gradient));
+
+        filter: blur(var(--glowing-blur));
+    }
+}
+
+// mirror the shape to hug the right edge: the full `border` shorthand restores
+// the left border the base rule dropped, then the right one is removed instead.
+.glowing-border--right {
+    border: var(--glowing-border-width) solid transparent;
+    border-right: 0;
+    margin-inline-start: auto;
+
+    border-radius: map.get(s.$c-glowing-border, "radius") 0 0 map.get(s.$c-glowing-border, "radius");
+
+    &::before {
+        transform-origin: left;
+    }
+}
+
+@keyframes glowing-border-rotate {
+    100% {
+        --glowing-deg: 270deg;
+    }
+}
