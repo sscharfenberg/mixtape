@@ -1,0 +1,24 @@
+/******************************************************************************
+ * contextual size tokens — component:headline
+ * @type {Sass}
+ * the shared <Headline> section heading (h2 / h3 / h4): the `font` size and
+ * the `border` width of the underline per level. ported from cantrip.me.
+ * consumed as s.$c-headline via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$headline: (
+    "h2": (
+        "font": 2rem,
+        "border": map.get(s.$border, "base")
+    ),
+    "h3": (
+        "font": 1.6rem,
+        "border": map.get(s.$border, "base")
+    ),
+    "h4": (
+        "font": 1.3rem,
+        "border": map.get(s.$border, "base")
+    )
+) !default;

@@ -15,6 +15,11 @@ const pixelSize = `${props.size * 12}px`;
 </template>
 
 <style scoped lang="scss">
+/**
+ * styles are in @/styles/components/progress/_loading-spinner.scss.
+ * the v-binds below are duplicated here so the anchor-positioning
+ * custom properties resolve at runtime and the setup vars aren't flagged as unused.
+ */
 .loading-spinner {
     --pixel-size: v-bind(pixelSize);
 }

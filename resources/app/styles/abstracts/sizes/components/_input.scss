@@ -9,7 +9,7 @@
 @use "../global-size-tokens" as s;
 
 $input: (
-    "radius": 100vw,
+    "radius": map.get(s.$radius, "featured"),
     "radius-px": 20px,
     "border": map.get(s.$border, "base"),
     "line-height": map.get(s.$icons, "medium"),

@@ -11,7 +11,7 @@
         color: map.get(c.$c-input, "surface");
 
         outline: 0;
-        border-radius: map.get(s.$c-input, "radius-px") 0 0 map.get(s.$c-input, "radius-px");
+        border-radius: map.get(s.$c-input, "radius") 0 0 map.get(s.$c-input, "radius");
     }
 
     &:has(input:not([readonly])):focus .form-row__addon,

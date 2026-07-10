@@ -1,0 +1,11 @@
+/******************************************************************************
+ * contextual typography tokens — component:headline
+ * @type {Sass}
+ * the shared <Headline> section heading (h2 / h3 / h4). all levels use the
+ * headline family. consumed as t.$c-headline via
+ * `@use "Abstracts/typography" as t;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-typography-tokens" as t;
+
+$headline: map.get(t.$font, "headline") !default;

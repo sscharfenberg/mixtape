@@ -1,0 +1,34 @@
+/******************************************************************************
+ * contextual color tokens — component:headline
+ * @type {Sass}
+ * the shared <Headline> section heading (h2 / h3 / h4): the text `surface`
+ * and the underlining `border` per level. ported from cantrip.me. consumed as
+ * c.$c-headline via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$headline: (
+    "h2": (
+        "surface": light-dark(map.get(c.$brand, "dark2", "color"), map.get(c.$brand, "light2", "color")),
+        "border": light-dark(
+                color.adjust(map.get(c.$brand, "dark1", "color"), $alpha: -0.25),
+                color.adjust(map.get(c.$brand, "light1", "color"), $alpha: -0.25)
+            )
+    ),
+    "h3": (
+        "surface": light-dark(map.get(c.$brand, "dark2", "color"), map.get(c.$brand, "light2", "color")),
+        "border": light-dark(
+                color.adjust(map.get(c.$grey, "slate"), $alpha: -0.25),
+                color.adjust(map.get(c.$grey, "charcoal"), $alpha: -0.25)
+            )
+    ),
+    "h4": (
+        "surface": light-dark(map.get(c.$grey, "abbey"), map.get(c.$grey, "fog")),
+        "border": light-dark(
+                color.adjust(map.get(c.$grey, "slate"), $alpha: -0.25),
+                color.adjust(map.get(c.$grey, "charcoal"), $alpha: -0.25)
+            )
+    )
+) !default;
