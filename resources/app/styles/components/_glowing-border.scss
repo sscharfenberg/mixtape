@@ -31,14 +31,34 @@
     --glowing-surface: #{map.get(c.$c-glowing-border, "surface")};
     --glowing-gradient: #{map.get(c.$c-glowing-border, "gradient")};
     --glowing-border-width: #{map.get(s.$c-glowing-border, "border-width")};
-    --glowing-blur: #{map.get(s.$c-glowing-border, "glow-blur")};
     --glowing-intensity: #{map.get(s.$c-glowing-border, "glow-opacity")};
+
+    // the blur softens both the halo and the inner pad; grow it with the
+    // viewport so the glow scales up alongside the larger tab on big screens.
+    @include m.mqset(
+        "--glowing-blur",
+        map.get(s.$c-glowing-border, "glow-blur", "base"),
+        map.get(s.$c-glowing-border, "glow-blur", "portrait"),
+        map.get(s.$c-glowing-border, "glow-blur", "landscape"),
+        map.get(s.$c-glowing-border, "glow-blur", "desktop"),
+        map.get(s.$c-glowing-border, "glow-blur", "full")
+    );
 
     position: relative;
 
     width: fit-content;
     max-width: 100%;
-    padding-block: map.get(s.$c-glowing-border, "padding-block");
+
+    // top/bottom padding grows gently with the viewport so the tab breathes more
+    // on larger screens instead of staying cramped.
+    @include m.mqset(
+        "padding-block",
+        map.get(s.$c-glowing-border, "padding-block", "base"),
+        map.get(s.$c-glowing-border, "padding-block", "portrait"),
+        map.get(s.$c-glowing-border, "padding-block", "landscape"),
+        map.get(s.$c-glowing-border, "padding-block", "desktop"),
+        map.get(s.$c-glowing-border, "padding-block", "full")
+    );
 
     // the tab clings to the container edge; widen its horizontal padding as the
     // viewport grows so it reaches further toward centre instead of looking
@@ -91,8 +111,17 @@
     }
 
     // the halo: a larger, blurred, low-opacity copy of the gradient behind all.
+    // its spread widens with the viewport so the glow reaches further out on
+    // bigger screens, keeping pace with the growing padding.
     &::after {
-        inset: calc(map.get(s.$c-glowing-border, "outer-inset") * -1);
+        @include m.mqset(
+            "inset",
+            calc(map.get(s.$c-glowing-border, "outer-inset", "base") * -1),
+            calc(map.get(s.$c-glowing-border, "outer-inset", "portrait") * -1),
+            calc(map.get(s.$c-glowing-border, "outer-inset", "landscape") * -1),
+            calc(map.get(s.$c-glowing-border, "outer-inset", "desktop") * -1),
+            calc(map.get(s.$c-glowing-border, "outer-inset", "full") * -1)
+        );
         z-index: -2;
         opacity: var(--glowing-intensity);
 

@@ -9,6 +9,6 @@
 @use "../global-size-tokens" as s;
 
 $form: (
-    "max-width": math.round(s.$base * 60),
+    "max-width": math.round(s.$base * 50),
     "gap": math.round(s.$base * 1.5)
 ) !default;

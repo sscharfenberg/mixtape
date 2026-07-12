@@ -1,8 +1,6 @@
 <script setup lang="ts"></script>
 <template>
-    <main>
-        <section class="frosted-glass inner"><slot /></section>
-    </main>
+    <main class="frosted-glass"><slot /></main>
 </template>
 
 <style lang="scss" scoped>
@@ -30,11 +28,7 @@ main {
     z-index: z.$c-main;
 
     width: 100%;
-
-    .inner {
-        max-width: map.get(s.$c-app, "max");
-        min-height: 20rem;
-        margin: 0 auto 2lh;
-    }
+    min-height: 20rem;
+    margin: 2lh auto;
 }
 </style>

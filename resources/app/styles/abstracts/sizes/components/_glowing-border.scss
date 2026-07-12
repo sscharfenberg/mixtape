@@ -3,28 +3,52 @@
  * @type {Sass}
  * the geometry knobs of the glowing gradient border (ported from
  * kevinpowell / WbbXRPL): the transparent `border-width` the gradient shows
- * through, the pill `radius`, the interior padding — `padding-block` plus a
- * responsive `padding-inline` (fed through mqset) that widens the tab so it
- * reaches further toward centre as the viewport grows, instead of clinging to
- * the edge — and the glow itself: its `glow-blur`, `glow-opacity`, the inner
- * surface pad (`inner-inset` / `inner-scale`) and the outer halo spread
- * (`outer-inset`). consumed as s.$c-glowing-border via
+ * through, the pill `radius`, the interior padding — both a responsive
+ * `padding-block` (top/bottom grow gently with the viewport) and a responsive
+ * `padding-inline`, each fed through mqset so the tab breathes more and reaches
+ * further toward centre as the viewport grows instead of clinging to the edge —
+ * and the glow itself: a responsive `glow-blur`, its `glow-opacity`, the inner
+ * surface pad (`inner-inset` / `inner-scale`) and a responsive outer halo
+ * spread (`outer-inset`) — blur and spread both grow with the viewport (fed
+ * through mqset) so the halo scales up with the larger tab on big screens.
+ * consumed as s.$c-glowing-border via
  * `@use "Abstracts/sizes" as s;`.
  *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
 $glowing-border: (
-    "border-width": 3px,
+    "border-width": map.get(s.$border, "featured"),
     "radius": 100vw,
-    "padding-block": 0.5rem,
-    "padding-inline": (
-        "base": 2rem,
-        "portrait": 3rem,
-        "landscape": 4rem,
-        "desktop": 5rem,
-        "full": 6rem
+    "padding-block": (
+        "base": 0.5rem,
+        "portrait": 0.65rem,
+        "landscape": 0.8rem,
+        "desktop": 1rem,
+        "full": 1.25rem
     ),
-    "glow-blur": 1rem,
+    "padding-inline": (
+        "base": 2.5rem,
+        "portrait": 3.5rem,
+        "landscape": 4.5rem,
+        "desktop": 5.5rem,
+        "full": 7rem
+    ),
+    "glow-blur": (
+        "base": 1rem,
+        "portrait": 1.15rem,
+        "landscape": 1.3rem,
+        "desktop": 1.5rem,
+        "full": 1.75rem
+    ),
     "glow-opacity": 0.125,
     "inner-inset": 0.5rem,
     "inner-scale": 1.2,
-    "outer-inset": 1.5rem
+    "outer-inset": (
+        "base": 1.5rem,
+        "portrait": 1.75rem,
+        "landscape": 2rem,
+        "desktop": 2.5rem,
+        "full": 3rem
+    )
 ) !default;
