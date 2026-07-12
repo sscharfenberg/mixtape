@@ -1,0 +1,36 @@
+/******************************************************************************
+ * .form-row focus glow — retro neon halo around a focused text field
+ * @type {Sass}
+ * On focus the whole composite field ([addon · input · button]) gets the same
+ * synthwave cyan outer glow as the neon Button / Checkbox. It's applied to the
+ * __slot (the wrapper that holds addon + input + button) rather than the input
+ * itself, so the halo hugs the whole field instead of lighting only the middle
+ * segment and breaking at the seams. The slot is rounded to the field's outer
+ * corners so the glow follows its shape.
+ *
+ * Scoped to rows that hold a `.form-input` (the text field), so a checkbox row —
+ * whose bare <input type="checkbox"> is also an `input` inside a __slot — never
+ * picks up the field glow (it has its own).
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/colors" as c;
+@use "Abstracts/sizes" as s;
+@use "Abstracts/timings" as ti;
+
+// rounded to the field's outer corners + transition, only on text-field rows.
+.form-row:has(.form-input) .form-row__slot {
+    border-radius: map.get(s.$c-input, "radius");
+
+    @media (prefers-reduced-motion: no-preference) {
+        transition: box-shadow ti.$c-input;
+    }
+}
+
+// :focus-within covers the input and the trailing show/hide button (which keeps
+// input focus via mousedown.prevent), matching the addon/button focus rules'
+// selector shape. A tight edge glow plus a wider soft halo.
+.form-row:has(.form-input:not([readonly])):focus-within .form-row__slot {
+    box-shadow:
+        0 0 0.3em 0 map.get(c.$c-input, "glow"),
+        0 0 0.7em 0.05em map.get(c.$c-input, "glow");
+}
