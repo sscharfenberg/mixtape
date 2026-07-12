@@ -1,0 +1,16 @@
+/******************************************************************************
+ * contextual size tokens — component:checkbox
+ * @type {Sass}
+ * ported from cantrip.me's $components.checkbox. a square the size of a medium
+ * icon, a thin (base) border also used for the tick's stroke, and the small
+ * (base) corner radius — in step with the other form controls. consumed as
+ * s.$c-checkbox via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$checkbox: (
+    "size": map.get(s.$icons, "medium"),
+    "border": map.get(s.$border, "base"),
+    "radius": map.get(s.$radius, "base")
+) !default;

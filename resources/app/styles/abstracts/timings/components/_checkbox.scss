@@ -1,0 +1,10 @@
+/******************************************************************************
+ * contextual timing token — component:checkbox
+ * @type {Sass}
+ * the box's colour / glow and the tick's fade-and-pop transition speed.
+ * consumed as ti.$c-checkbox via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$checkbox: map.get(ti.$timings, "quick") !default;

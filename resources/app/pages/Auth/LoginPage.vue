@@ -15,6 +15,7 @@
 import { Head, Link, useForm, usePage } from "@inertiajs/vue3";
 import { computed, ref } from "vue";
 import Button from "Components/Form/Button.vue";
+import Checkbox from "Components/Form/Checkbox.vue";
 import FormInput from "Components/Form/FormInput.vue";
 import FormRow from "Components/Form/FormRow.vue";
 import Headline from "Components/UI/Headline.vue";
@@ -104,10 +105,9 @@ function submit(): void {
             </template>
         </form-row>
 
-        <label>
-            <input v-model="form.remember" type="checkbox" name="remember" />
-            Angemeldet bleiben
-        </label>
+        <form-row for-id="remember" label="Angemeldet bleiben">
+            <checkbox ref-id="remember" v-model="form.remember" />
+        </form-row>
 
         <form-row>
             <Button variant="primary" type="submit" :disabled="form.processing">

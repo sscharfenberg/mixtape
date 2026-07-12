@@ -6,6 +6,7 @@
  * consumed as ti.$c-button via `@use "Abstracts/timings" as ti;`.
  *****************************************************************************/
 @forward "button";
+@forward "checkbox";
 @forward "glowing-border";
 @forward "icon";
 @forward "input";

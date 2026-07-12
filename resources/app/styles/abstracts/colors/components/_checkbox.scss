@@ -1,0 +1,34 @@
+/******************************************************************************
+ * contextual color tokens — component:checkbox
+ * @type {Sass}
+ * ported from cantrip.me's $components.checkbox, restyled to the retro /
+ * synthwave palette and flattened to mixtape's one-partial-per-component shape.
+ * The empty box echoes the input fields (translucent slate / charcoal border on
+ * a translucent surface) so it reads as part of the same family; checking it
+ * lights the box up in the neon cyan — the same AA-tuned hue as the neon Button —
+ * with a dark tick (indigo in dark theme, white in light) drawn on top. consumed
+ * as c.$c-checkbox via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$checkbox: (
+    "border": light-dark(
+            color.adjust(map.get(c.$grey, "slate"), $alpha: -0.25),
+            color.adjust(map.get(c.$grey, "charcoal"), $alpha: -0.25)
+        ),
+    "background": light-dark(
+            color.adjust(map.get(c.$grey, "mystic"), $alpha: -0.5),
+            color.adjust(map.get(c.$grey, "bunker"), $alpha: -0.5)
+        ),
+    "border-checked": light-dark(
+            color.scale(map.get(c.$retro, "c2"), $lightness: -23%, $saturation: 12%),
+            color.scale(map.get(c.$retro, "c2"), $lightness: 5%)
+        ),
+    "background-checked": light-dark(
+            color.scale(map.get(c.$retro, "c2"), $lightness: -23%, $saturation: 12%),
+            color.scale(map.get(c.$retro, "c2"), $lightness: 5%)
+        ),
+    "checkmark": light-dark(map.get(c.$grey, "white"), map.get(c.$retro, "c4"))
+) !default;
