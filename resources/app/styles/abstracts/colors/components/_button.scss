@@ -1,18 +1,26 @@
 /******************************************************************************
  * contextual color tokens — component:button
  * @type {Sass}
- * mixtape's primary form button. On-brand and constant across themes so the
- * submit action reads as the clear call-to-action. consumed as c.$c-button via
- * `@use "Abstracts/colors" as c;`.
+ * mixtape's neon action button (ported from Kevin Powell's "Neon button with
+ * CSS", recoloured from his neon pink to the retro/synthwave cyan `c2`).
+ * `neon` is the glow hue: the bright retro cyan is the dark-theme value (neon
+ * only reads as neon against a dark surface); light theme darkens + saturates
+ * it a step so the outline label stays legible on a light background.
+ * `contrast` is the label colour shown on the neon *fill* (btn-default at rest /
+ * btn-primary on hover) — a deep synthwave indigo on the bright fill, white on
+ * the darkened one. `*-disabled` keep the old neutral, theme-aware treatment.
+ * consumed as c.$c-button via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "sass:color"; // https://sass-lang.com/documentation/modules/color
 @use "../global-color-tokens" as c;
 
 $button: (
-    "background": map.get(c.$brand, "light1", "color"),
-    "surface": map.get(c.$brand, "light1", "contrast"),
-    "background-hover": color.adjust(map.get(c.$brand, "light1", "color"), $lightness: -8%),
+    "neon": light-dark(
+            color.scale(map.get(c.$retro, "c2"), $lightness: -20%, $saturation: 12%),
+            map.get(c.$retro, "c2")
+        ),
+    "contrast": light-dark(map.get(c.$grey, "white"), map.get(c.$retro, "c4")),
     "background-disabled": light-dark(map.get(c.$grey, "infra"), map.get(c.$grey, "abbey")),
     "surface-disabled": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "fog"))
 ) !default;

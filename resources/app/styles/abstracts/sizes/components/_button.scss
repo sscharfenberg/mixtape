@@ -1,8 +1,12 @@
 /******************************************************************************
  * contextual size tokens — component:button
  * @type {Sass}
- * mixtape's primary form button. `radius: 100vw` keeps the pill shape in step
- * with the inputs. consumed as s.$c-button via `@use "Abstracts/sizes" as s;`.
+ * mixtape's neon action button. Unlike the pill inputs, the neon look reads
+ * better as a rounded rectangle (the `radius: base` ≈ the pen's 0.25em), so the
+ * glowing edge and the reflection below it stay crisp. `border: base` is the
+ * thin neon tube; the glow spreads (blur / halo) are `em`-based effect
+ * constants that live in the component. consumed as s.$c-button via
+ * `@use "Abstracts/sizes" as s;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "../global-size-tokens" as s;
@@ -10,7 +14,7 @@
 $button: (
     "padding": 0.5rem 1.5rem,
     "border": map.get(s.$border, "base"),
-    "radius": 100vw,
+    "radius": map.get(s.$radius, "base"),
     "gap": 0.5ch,
     "min-height": map.get(s.$icons, "medium")
 ) !default;

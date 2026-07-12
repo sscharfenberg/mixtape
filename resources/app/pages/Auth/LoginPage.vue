@@ -9,13 +9,14 @@
  * feature flag and stays hidden until that flow lands.
  *
  * Intentionally style-free: it composes the shared components
- * (<headline> / .form / <form-row> / <form-input> / .btn-primary), so there are
+ * (<headline> / .form / <form-row> / <form-input> / <Button>), so there are
  * no page-specific styles or tokens here.
  *****************************************************************************/
 import { Head, Link, useForm, usePage } from "@inertiajs/vue3";
 import { computed, ref } from "vue";
 import FormInput from "Components/Form/FormInput.vue";
 import FormRow from "Components/Form/FormRow.vue";
+import Button from "Components/UI/Button.vue";
 import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
 
@@ -108,10 +109,12 @@ function submit(): void {
             Angemeldet bleiben
         </label>
 
-        <button class="btn-primary" type="submit" :disabled="form.processing">
-            <icon name="login" :size="1" />
-            <span>{{ form.processing ? "Wird angemeldet …" : "Anmelden" }}</span>
-        </button>
+        <form-row>
+            <Button variant="primary" type="submit" :disabled="form.processing">
+                <icon name="login" :size="1" />
+                <span>{{ form.processing ? "Wird angemeldet …" : "Anmelden" }}</span>
+            </Button>
+        </form-row>
 
         <p v-if="features.resetPasswords">
             <Link href="/forgot">Probleme beim Anmelden?</Link>
