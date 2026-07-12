@@ -14,9 +14,9 @@
  *****************************************************************************/
 import { Head, Link, useForm, usePage } from "@inertiajs/vue3";
 import { computed, ref } from "vue";
+import Button from "Components/Form/Button.vue";
 import FormInput from "Components/Form/FormInput.vue";
 import FormRow from "Components/Form/FormRow.vue";
-import Button from "Components/UI/Button.vue";
 import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
 

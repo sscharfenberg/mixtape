@@ -3,9 +3,11 @@
  * @type {Sass}
  * mixtape's neon action button (ported from Kevin Powell's "Neon button with
  * CSS", recoloured from his neon pink to the retro/synthwave cyan `c2`).
- * `neon` is the glow hue: the bright retro cyan is the dark-theme value (neon
- * only reads as neon against a dark surface); light theme darkens + saturates
- * it a step so the outline label stays legible on a light background.
+ * `neon` is the glow hue, derived from the retro cyan `c2` and nudged so the
+ * label clears WCAG 2.1 AA (4.5:1) in every mode/state: the dark-theme value is
+ * brightened a touch (neon-on-page and indigo-on-fill both pass), the
+ * light-theme value darkened a step (legible on a light page and under white
+ * fill text).
  * `contrast` is the label colour shown on the neon *fill* (btn-default at rest /
  * btn-primary on hover) — a deep synthwave indigo on the bright fill, white on
  * the darkened one. `*-disabled` keep the old neutral, theme-aware treatment.
@@ -17,8 +19,8 @@
 
 $button: (
     "neon": light-dark(
-            color.scale(map.get(c.$retro, "c2"), $lightness: -20%, $saturation: 12%),
-            map.get(c.$retro, "c2")
+            color.scale(map.get(c.$retro, "c2"), $lightness: -23%, $saturation: 12%),
+            color.scale(map.get(c.$retro, "c2"), $lightness: 5%)
         ),
     "contrast": light-dark(map.get(c.$grey, "white"), map.get(c.$retro, "c4")),
     "background-disabled": light-dark(map.get(c.$grey, "infra"), map.get(c.$grey, "abbey")),
