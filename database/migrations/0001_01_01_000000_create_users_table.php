@@ -16,7 +16,7 @@ return new class extends Migration
             $table->charset = 'utf8mb4';
             $table->collation = 'utf8mb4_unicode_ci';
             $table->uuid('id')->primary();
-            $table->string('name');
+            $table->string('name')->unique(); // the login identifier (config/fortify.php → 'username' => 'name')
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
