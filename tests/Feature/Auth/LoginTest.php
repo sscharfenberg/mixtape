@@ -41,7 +41,7 @@ class LoginTest extends TestCase
             'password' => 's3cret-pass',
         ]);
 
-        $response->assertRedirect('/'); // config('fortify.home')
+        $response->assertRedirect('/dashboard'); // config('fortify.home')
         $this->assertAuthenticatedAs($user);
     }
 

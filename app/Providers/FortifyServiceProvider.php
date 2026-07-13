@@ -25,7 +25,7 @@ class FortifyServiceProvider extends ServiceProvider
         // (including the GET /login view) is declared explicitly in routes/web.php
         // so the app only exposes the endpoints it actually uses, and the wiring
         // stays greppable end-to-end. Login/logout rely on Fortify's default
-        // response classes, which redirect to config('fortify.home') ('/').
+        // response classes, which redirect to config('fortify.home') ('/dashboard').
         Fortify::ignoreRoutes();
     }
 

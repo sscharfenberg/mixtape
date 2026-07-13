@@ -52,7 +52,7 @@ function submit(): void {
     </Head>
     <headline glow>
         <icon name="key" :size="3" />
-        Anmelden
+        Anmeldung
     </headline>
 
     <p v-if="status" role="status">{{ status }}</p>
@@ -66,14 +66,7 @@ function submit(): void {
             addon-icon="register"
             :required="true"
         >
-            <form-input
-                id="name"
-                v-model="form.name"
-                type="text"
-                name="name"
-                autocomplete="username"
-                autofocus
-            />
+            <form-input id="name" v-model="form.name" type="text" name="name" autocomplete="username" autofocus />
         </form-row>
 
         <form-row
