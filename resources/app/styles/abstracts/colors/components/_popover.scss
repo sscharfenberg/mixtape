@@ -13,7 +13,7 @@ $popover: (
     // trigger glow (open state) — the same AA-tuned synthwave cyan halo as the
     // neon input fields / checkbox, so the open trigger reads as part of the
     // same lit-up family.
-    "button-glow": light-dark(map.get(c.$retro, "neon", "light"), map.get(c.$retro, "neon", "dark")),
+    "button-glow": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
     // content wrapper --------------------------------------------------------
     "background": light-dark(
             color.adjust(map.get(c.$grey, "white"), $alpha: -0.125),

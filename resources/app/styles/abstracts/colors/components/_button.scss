@@ -16,8 +16,8 @@
 @use "../global-color-tokens" as c;
 
 $button: (
-    "neon": light-dark(map.get(c.$retro, "neon", "light"), map.get(c.$retro, "neon", "dark")),
-    "contrast": light-dark(map.get(c.$grey, "white"), map.get(c.$retro, "c4")),
+    "neon": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
+    "contrast": light-dark(map.get(c.$grey, "white"), map.get(c.$retro, "c4", "dark")),
     "background-disabled": light-dark(map.get(c.$grey, "infra"), map.get(c.$grey, "abbey")),
     "surface-disabled": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "fog"))
 ) !default;

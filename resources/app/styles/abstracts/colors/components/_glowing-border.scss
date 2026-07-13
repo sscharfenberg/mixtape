@@ -6,23 +6,23 @@
  * defaults to the app background but is meant to be overridden (via
  * --glowing-surface) when the border sits on a differently-coloured host.
  * `gradient` is the ordered conic-gradient loop (first stop repeated last so
- * the sweep is seamless), drawn from the retro palette. each stop is wrapped in
- * `light-dark()`: light mode keeps the raw palette, while dark mode swaps in a
- * brighter, more saturated variant (color.scale, +25% saturation / +12%
- * lightness) so the retro hues don't read muted against the dark surface.
+ * the sweep is seamless), drawn from the retro palette. each stop is the hue's
+ * theme-aware pair straight from the palette via `light-dark()`: the stepped-
+ * down `light` value (deeper + more saturated, legible on the light surface) in
+ * light mode, the raw vivid `dark` value in dark mode. no scaling here — the
+ * palette owns every derived value; this file only picks from it.
  * consumed as c.$c-glowing-border via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
-@use "sass:color"; // https://sass-lang.com/documentation/modules/color
 @use "../global-color-tokens" as c;
 
 $glowing-border: (
     "surface": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "bunker")),
     "gradient": (
-        light-dark(#{map.get(c.$retro, "c6")}, #{color.scale(map.get(c.$retro, "c6"), $saturation: 25%, $lightness: 12%)}),
-        light-dark(#{map.get(c.$retro, "c5")}, #{color.scale(map.get(c.$retro, "c5"), $saturation: 25%, $lightness: 12%)}),
-        light-dark(#{map.get(c.$retro, "c8")}, #{color.scale(map.get(c.$retro, "c8"), $saturation: 25%, $lightness: 12%)}),
-        light-dark(#{map.get(c.$retro, "c2")}, #{color.scale(map.get(c.$retro, "c2"), $saturation: 25%, $lightness: 12%)}),
-        light-dark(#{map.get(c.$retro, "c6")}, #{color.scale(map.get(c.$retro, "c6"), $saturation: 25%, $lightness: 12%)})
+        light-dark(#{map.get(c.$retro, "c6", "light")}, #{map.get(c.$retro, "c6", "dark")}),
+        light-dark(#{map.get(c.$retro, "c5", "light")}, #{map.get(c.$retro, "c5", "dark")}),
+        light-dark(#{map.get(c.$retro, "c8", "light")}, #{map.get(c.$retro, "c8", "dark")}),
+        light-dark(#{map.get(c.$retro, "c2", "light")}, #{map.get(c.$retro, "c2", "dark")}),
+        light-dark(#{map.get(c.$retro, "c6", "light")}, #{map.get(c.$retro, "c6", "dark")})
     )
 ) !default;

@@ -75,17 +75,24 @@ Controllers render the explicit path — `Inertia::render('Home/HomePage', …)`
 (`__invoke`) controller for single-action pages. Full rationale:
 [`docs/app-rewrite.md`](docs/app-rewrite.md) → *Frontend conventions*.
 
-**Design tokens (SCSS)** — three layers, one hard rule. **Every** token group is identical:
+**Design tokens (SCSS)** — three layers, two hard rules. **Every** token group is identical:
 **global tokens → contextual partial (components/pages) → consumed by SCSS/Vue.** Applies today to
 `colors/`, `sizes/`, `z-indexes/`, `typography/`, `timings/`; future groups (`shadows/`, …) are created
 the same way. Full guide: [`resources/app/styles/abstracts/README.md`](resources/app/styles/abstracts/README.md).
 
-- **Never `@use`/read a global token (`_global-*-tokens.scss`) outside its token group.** Globals are the
-  raw palette/scale (`$grey`, `$radius`, `$scale`, …) and stay private.
+- **Rule 1 — never `@use`/read a global token (`_global-*-tokens.scss`) outside its token group.** Globals
+  are the raw palette/scale (`$grey`, `$radius`, `$scale`, …) and stay private.
+- **Rule 2 — contextual _colour_ tokens pick globals; they never mint a colour.** The only maths allowed
+  on a global colour is a trivial **opacity** tweak (`color.adjust($alpha: …)`). Any new hue —
+  lighten / darken / saturate / shift (`color.scale`, non-alpha `color.adjust`) — is pre-computed **in the
+  global palette** as a named entry and consumed via `light-dark()` / `map.get()`. That's why `$retro`
+  stores each hue as a baked `("light": …, "dark": …)` pair and the WCAG-tuned control glow is its own
+  named entry (`c3`), not a per-component re-scale of `c2`. Sizes/z-indexes analogously **pick from a
+  scale** (`map.get($scale, …)`) and only round/step off `$base`.
 - To give a component/page a colour, size, or z-index, **create a contextual partial**
   (`colors/components/_button.scss`, `sizes/pages/_home.scss`, `z-indexes/components/_main.scss`) that
-  `@use`s the globals and derives the value (`light-dark()`, `color.adjust()`, `map.get($scale, …)`),
-  then `@forward` it from that folder's `_index.scss` (one line).
+  `@use`s the globals and **picks/themes** the value (`light-dark()`, `map.get($scale, …)`, opacity-only
+  `color.adjust()`), then `@forward` it from that folder's `_index.scss` (one line).
 - Components/pages **consume only contextual tokens** via the entrypoint: `@use "Abstracts/colors" as c;`
   → `c.$c-button`; `@use "Abstracts/sizes" as s;` → `s.$c-button`; `@use "Abstracts/z-indexes" as z;`
   → `z.$c-main` (`c-*` = component, `p-*` = page). Timings use `@use "Abstracts/timings" as ti;` → `ti.$c-*`.

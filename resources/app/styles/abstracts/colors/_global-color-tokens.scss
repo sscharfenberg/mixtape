@@ -30,23 +30,48 @@ $brand: (
 ) !default;
 
 // retro colors ===============================================================
+// Every hue is theme-aware. `dark` is the raw vivid synthwave value (used as-is
+// on the dark UI); `light` is that same hue stepped down for a light background
+// — color.scale($lightness: -23%, $saturation: 12%), pre-baked to a literal so
+// the palette stays computation-free. Consume both sides through the CSS
+// `light-dark()` (e.g. `light-dark(map.get(c.$retro, "c2", "light"), map.get(c.$retro, "c2", "dark"))`).
 $retro: (
-    "c1": #032d50,
-    "c2": #00a1ef,
-    // neon — the WCAG 2.1 AA-tuned synthwave glow cyan derived from `c2` (light
-    // theme darkened + saturated a step, dark theme brightened a touch). It's
-    // the neon Button fill and the focus / checked / open glow shared by the
-    // inputs, checkbox and popover trigger. Pre-baked here so the contextual
-    // tokens consume a named palette value instead of re-deriving it from `c2`.
-    "neon": (
+    "c1": (
+        "light": #02233e,
+        "dark": #032d50
+    ),
+    "c2": (
+        "light": #007cb8,
+        "dark": #00a1ef
+    ),
+    // c3 (neon) — c2's WCAG 2.1 AA-tuned UI-control variant: the same darkened
+    // `light` value, but a `dark` value brightened a touch (color.scale
+    // $lightness +5%) so labels / glows clear 4.5:1 on the neon Button fill and
+    // the focus / checked / open glows of the inputs, checkbox and popover.
+    "c3": (
         "light": #007cb8,
         "dark": #00aafd
     ),
-    "c4": #20125f,
-    "c5": #8313e7,
-    "c6": #ff61af,
-    "c7": #8ba2d0,
-    "c8": #165ff3
+    "c4": (
+        "light": #180c4b,
+        "dark": #20125f
+    ),
+    "c5": (
+        "light": #650db4,
+        "dark": #8313e7
+    ),
+    "c6": (
+        "light": #ff1086,
+        "dark": #ff61af
+    ),
+    "c7": (
+        "light": #4a72c1,
+        "dark": #8ba2d0
+    ),
+    "c8": (
+        "light": #0946c3,
+        "dark": #165ff3
+    )
 ) !default;
 
 // greyscale ==================================================================

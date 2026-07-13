@@ -3,17 +3,16 @@
  * @type {Sass}
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
-@use "sass:color"; // https://sass-lang.com/documentation/modules/color
 @use "../global-color-tokens" as c;
 
 $title: (
-    "c1": map.get(c.$retro, "c1"),
-    "c2": map.get(c.$retro, "c2"),
-    "c4": map.get(c.$retro, "c4"),
-    "c5": map.get(c.$retro, "c5"),
-    "c6": map.get(c.$retro, "c6"),
-    "c7": map.get(c.$retro, "c7"),
-    "c8": map.get(c.$retro, "c8"),
+    "c1": light-dark(map.get(c.$retro, "c1", "light"), map.get(c.$retro, "c1", "dark")),
+    "c2": light-dark(map.get(c.$retro, "c2", "light"), map.get(c.$retro, "c2", "dark")),
+    "c4": light-dark(map.get(c.$retro, "c4", "light"), map.get(c.$retro, "c4", "dark")),
+    "c5": light-dark(map.get(c.$retro, "c5", "light"), map.get(c.$retro, "c5", "dark")),
+    "c6": light-dark(map.get(c.$retro, "c6", "light"), map.get(c.$retro, "c6", "dark")),
+    "c7": light-dark(map.get(c.$retro, "c7", "light"), map.get(c.$retro, "c7", "dark")),
+    "c8": light-dark(map.get(c.$retro, "c8", "light"), map.get(c.$retro, "c8", "dark")),
     "twinkle": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "asher")),
     "stroke": map.get(c.$grey, "slate")
 );

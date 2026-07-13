@@ -29,8 +29,9 @@ abstracts/colors/
 1. **Global tokens** (`_global-<group>-tokens.scss`) — the raw, meaningless palette/scale
    (`$grey`, `$brand`, `$radius`, `$padding`, …). Values, no intent.
 2. **Contextual partials** (`components/_*.scss`, `pages/_*.scss`, plus the shared `$glass`/`$shadows`
-   in `_index.scss`) — semantic tokens that **read and derive from** the globals
-   (`light-dark()`, `color.adjust()`, `math.round()`). One file per component / page.
+   in `_index.scss`) — semantic tokens that **pick and theme** the globals (`light-dark()`, `map.get()`,
+   opacity-only `color.adjust()`, `math.round()` off a scale). One file per component / page. They pick
+   globals — they don't mint new colours; see [the second hard rule](#the-second-hard-rule-contextual-tokens-pick-they-dont-compute).
 3. **Consumers** — a component's own SCSS or a `.vue <style>` block. These read **only** contextual
    tokens, through the group entrypoint.
 
@@ -49,11 +50,46 @@ never reach for `$grey` from a `.vue` file. Why this matters:
 
 - **One source of truth** — "which colour does the button use?" is answered by `_button.scss`, not by
   hunting `map.get($grey, …)` calls scattered across components.
-- **Theming & derivation happen once** — `light-dark()` / `color.adjust()` / `math.round()` live in the
-  partial, not duplicated at every call site.
+- **Theming happens once** — the `light-dark()` pick / opacity tweak / `math.round()` lives in the
+  partial, not duplicated at every call site (and colour _derivation_ lives one layer deeper, in the
+  global palette — see [the second hard rule](#the-second-hard-rule-contextual-tokens-pick-they-dont-compute)).
 - **Palette is free to change** — renaming or retuning a global entry only touches partials. The global
   file is deliberately **not** forwarded from the entrypoint, so `c.$grey` is _unreachable_ from a
   consumer by construction — the rule is enforced by the module graph, not just convention.
+
+## The second hard rule: contextual tokens pick, they don't compute
+
+> **A contextual token consumes global values. It never mints a new one.** The only maths a contextual
+> partial may do to a global colour is a trivial **opacity** tweak. Any new colour — lightened, darkened,
+> saturated, hue-shifted — is pre-computed **in the global palette**, given a name, and consumed from
+> there.
+
+Inside a `colors/` partial you may:
+
+- **pick** a theme pair — `light-dark(map.get(c.$retro, "c2", "light"), map.get(c.$retro, "c2", "dark"))`;
+- **pick** a single value — `map.get(c.$grey, "abbey")`;
+- apply a **trivial opacity** change — `color.adjust(map.get(c.$grey, "white"), $alpha: -0.125)`.
+
+You may **not** derive a fresh colour from a global — that is the global layer's job:
+
+```scss
+// ❌ don't: minting a colour in a contextual token
+"glow": color.scale(map.get(c.$retro, "c2"), $lightness: -23%, $saturation: 12%),
+
+// ✅ do: bake the variant into the global palette (a named entry), then pick it
+"glow": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
+```
+
+This is why `$retro` stores every hue as a baked `("light": …, "dark": …)` pair, and why the WCAG-tuned
+control glow is its own named palette entry (`c3`) rather than each component re-scaling `c2` at its own
+call site. **The palette is the single source of truth for what a colour _is_; a contextual token only
+says _which_ colour a thing uses and _how opaque_.** Retuning a hue then happens in exactly one place, and
+"which blue is this?" always has one answer.
+
+The other groups follow the same spirit through their own raw layer: `sizes/` / `z-indexes/` partials
+**pick from a scale** (`map.get(s.$scale, …)`) and at most round or step off `$base` — they never invent a
+magnitude from thin air. The hard, no-exceptions edge is the **colours** rule above: never create a colour
+outside the global palette.
 
 ## Adding a token
 

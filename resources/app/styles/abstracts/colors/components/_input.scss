@@ -26,7 +26,7 @@ $input: (
     "border-focus": light-dark(map.get(c.$brand, "dark1", "color"), map.get(c.$brand, "light1", "color")),
     "background-focus": light-dark(#fff, #000),
     "surface-focus": light-dark(#000, #fff),
-    "glow": light-dark(map.get(c.$retro, "neon", "light"), map.get(c.$retro, "neon", "dark")),
+    "glow": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
     "validating": light-dark(
             map.get(c.$state, "light", "pending", "color"),
             map.get(c.$state, "dark", "pending", "color")
