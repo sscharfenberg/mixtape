@@ -1,0 +1,17 @@
+/******************************************************************************
+ * contextual size tokens — component:toast
+ * @type {Sass}
+ * ported from cantrip.me. consumed as s.$c-toast via
+ * `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:math"; // https://sass-lang.com/documentation/modules/math/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$toast: (
+    "max": map.get(s.$max, "toast"),
+    "border": map.get(s.$border, "base"),
+    "radius": map.get(s.$radius, "featured"),
+    "padding": 0.5lh 1ch,
+    "progress": math.round(map.get(s.$border, "base") * 1.5)
+) !default;

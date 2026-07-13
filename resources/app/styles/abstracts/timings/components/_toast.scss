@@ -1,0 +1,11 @@
+/******************************************************************************
+ * contextual timing token — component:toast
+ * @type {Sass}
+ * the toast enter / leave / reflow transition speed. the per-toast countdown
+ * uses a dynamic `--toast-duration` (the toast's own dismiss delay), not a
+ * token. consumed as ti.$c-toast via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$toast: map.get(ti.$timings, "quick") !default;

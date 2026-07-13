@@ -25,6 +25,17 @@ declare module "@inertiajs/core" {
                 resetPasswords: boolean;
                 emailVerification: boolean;
             };
+            // Session flash, bridged into the toast (see ToastContainer.vue).
+            // Always shared (a closure in HandleInertiaRequests); fields are
+            // null when nothing was flashed. `type` is a raw string, cast to a
+            // ToastType in the component; `nonce` is fresh whenever a message
+            // exists so the toast watcher fires for every flash.
+            flash: {
+                message: string | null;
+                type: string | null;
+                duration: number | null;
+                nonce: string | null;
+            };
         };
     }
 }

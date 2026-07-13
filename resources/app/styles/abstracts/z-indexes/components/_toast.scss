@@ -1,0 +1,11 @@
+/******************************************************************************
+ * contextual z-index token — component:toast
+ * @type {Sass}
+ * the toast stack sits on the "modal" rung so it clears every flow / overlay
+ * layer (it is a top-level, always-visible notification region). consumed as
+ * z.$c-toast via `@use "Abstracts/z-indexes" as z;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-z-index-tokens" as z;
+
+$toast: map.get(z.$scale, "modal") !default;

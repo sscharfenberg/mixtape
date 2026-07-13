@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Http\Responses\LoginResponse;
+use App\Http\Responses\LogoutResponse;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -10,6 +12,8 @@ use Illuminate\Support\Str;
 use Laravel\Fortify\Actions\AttemptToAuthenticate;
 use Laravel\Fortify\Actions\EnsureLoginIsNotThrottled;
 use Laravel\Fortify\Actions\PrepareAuthenticatedSession;
+use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
+use Laravel\Fortify\Contracts\LogoutResponse as LogoutResponseContract;
 use Laravel\Fortify\Contracts\RedirectsIfTwoFactorAuthenticatable;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\Fortify;
@@ -24,9 +28,15 @@ class FortifyServiceProvider extends ServiceProvider
         // Do not let Fortify auto-register its default route set. Every route
         // (including the GET /login view) is declared explicitly in routes/web.php
         // so the app only exposes the endpoints it actually uses, and the wiring
-        // stays greppable end-to-end. Login/logout rely on Fortify's default
-        // response classes, which redirect to config('fortify.home') ('/dashboard').
+        // stays greppable end-to-end.
         Fortify::ignoreRoutes();
+
+        // Custom login/logout responses flash a quick toast message, then
+        // redirect (login → config('fortify.home') = /dashboard, logout → '/').
+        // Bound here — the app provider registers after Fortify's, so these
+        // override Fortify's default responses. See app/Http/Responses.
+        $this->app->singleton(LoginResponseContract::class, LoginResponse::class);
+        $this->app->singleton(LogoutResponseContract::class, LogoutResponse::class);
     }
 
     /**

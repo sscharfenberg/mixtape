@@ -1,0 +1,170 @@
+/******************************************************************************
+ * toast notifications (ported from cantrip.me)
+ * @type {Sass}
+ * the ToastContainer teleports to <body>, so these styles are global (not
+ * scoped in the SFC). The stack is fixed top-right; each severity themes from
+ * the contextual tokens. Per the motion convention, the enter/leave/reflow
+ * transitions and the countdown-progress animation are gated behind
+ * prefers-reduced-motion: no-preference — the toast still auto-dismisses on its
+ * JS timer regardless, so nothing is lost under reduced motion.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/colors" as c;
+@use "Abstracts/sizes" as s;
+@use "Abstracts/z-indexes" as z;
+@use "Abstracts/timings" as ti;
+
+.toast-container {
+    display: flex;
+    position: fixed;
+
+    // float just in from the top-right corner, over the header's UserMenu
+    // button. The button is inset by the header padding, so on very narrow
+    // viewports (tiny padding) a sliver of it can peek behind the stack; 0.5rem
+    // covers it at normal widths. z-index (modal) keeps it above the sticky header.
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: z.$c-toast;
+    flex-direction: column;
+
+    width: min(map.get(s.$c-toast, "max"), calc(100vw - 4ch));
+    gap: 1lh;
+
+    // let clicks pass through the gaps between toasts; each item re-enables them.
+    pointer-events: none;
+
+    &__item {
+        display: flex;
+
+        position: relative;
+        align-items: center;
+
+        padding: map.get(s.$c-toast, "padding");
+        border: map.get(s.$c-toast, "border") solid transparent;
+        gap: 1ch;
+
+        backdrop-filter: blur(12px);
+        border-radius: map.get(s.$c-toast, "radius");
+
+        pointer-events: all;
+
+        &--success {
+            background-color: map.get(c.$c-toast, "success-background");
+            color: map.get(c.$c-toast, "success-surface");
+            border-color: map.get(c.$c-toast, "success-border");
+        }
+
+        &--warning {
+            background-color: map.get(c.$c-toast, "warning-background");
+            color: map.get(c.$c-toast, "warning-surface");
+            border-color: map.get(c.$c-toast, "warning-border");
+        }
+
+        &--error {
+            background-color: map.get(c.$c-toast, "error-background");
+            color: map.get(c.$c-toast, "error-surface");
+            border-color: map.get(c.$c-toast, "error-border");
+        }
+
+        &--info {
+            background-color: map.get(c.$c-toast, "info-background");
+            color: map.get(c.$c-toast, "info-surface");
+            border-color: map.get(c.$c-toast, "info-border");
+        }
+
+        // the message takes the middle, pushing nothing off-screen.
+        span {
+            flex: 1 1 auto;
+        }
+    }
+
+    // inline dismiss control at the trailing edge of the row (the message span
+    // flexes to push it right). Kept subtle at rest, full-strength on hover.
+    &__close {
+        display: flex;
+        align-items: center;
+        opacity: 0.7;
+
+        // generous touch target; the negative margin cancels the padding's
+        // layout footprint so the toast row keeps the icon's compact size.
+        padding: 0.6rem;
+        border: 0;
+        margin: -0.6rem -0.6rem -0.6rem 0;
+
+        background: none;
+        color: inherit;
+
+        cursor: pointer;
+
+        @media (prefers-reduced-motion: no-preference) {
+            transition: opacity ti.$c-toast linear;
+        }
+
+        &:hover {
+            opacity: 1;
+        }
+    }
+
+    // the info fill is lighter than the other severities, so its dismiss control
+    // stays at full strength (the 0.7 rest opacity reads too faint there).
+    &__item--info &__close {
+        opacity: 1;
+    }
+
+    &__progress {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        opacity: 0.35;
+
+        width: 100%;
+        height: map.get(s.$c-toast, "progress");
+        transform-origin: left center;
+
+        background: currentcolor;
+        border-end-end-radius: map.get(s.$c-toast, "radius");
+        border-end-start-radius: map.get(s.$c-toast, "radius");
+    }
+}
+
+// motion is opt-in: the slide/fade transitions and the countdown bar only run
+// when the user has not asked to reduce motion.
+@media (prefers-reduced-motion: no-preference) {
+    .toast-container__progress {
+        animation: toast-progress var(--toast-duration) linear forwards;
+    }
+
+    .toast-enter-from,
+    .toast-leave-to {
+        opacity: 0;
+
+        transform: translateX(calc(100% + 2rem));
+    }
+
+    .toast-enter-active,
+    .toast-leave-active {
+        transition:
+            opacity ti.$c-toast ease,
+            transform ti.$c-toast ease;
+    }
+
+    .toast-enter-to {
+        opacity: 1;
+
+        transform: translateX(0);
+    }
+
+    .toast-move {
+        transition: transform ti.$c-toast ease;
+    }
+}
+
+@keyframes toast-progress {
+    from {
+        transform: scaleX(1);
+    }
+
+    to {
+        transform: scaleX(0);
+    }
+}

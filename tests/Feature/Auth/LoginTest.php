@@ -43,6 +43,34 @@ class LoginTest extends TestCase
 
         $response->assertRedirect('/dashboard'); // config('fortify.home')
         $this->assertAuthenticatedAs($user);
+
+        // a fast (3000ms) success toast is flashed for the login (see LoginResponse).
+        $response->assertSessionHas('message');
+        $response->assertSessionHas('type', 'success');
+        $response->assertSessionHas('duration', 3000);
+    }
+
+    public function test_login_flashes_a_fast_toast_onto_the_next_page(): void
+    {
+        User::factory()->create([
+            'name' => 'Grace Hopper',
+            'password' => Hash::make('correct-horse'),
+        ]);
+
+        $response = $this->followingRedirects()->post('/login', [
+            'name' => 'Grace Hopper',
+            'password' => 'correct-horse',
+        ]);
+
+        // The flash set by LoginResponse is shared by HandleInertiaRequests and
+        // reaches the (dashboard) page's Inertia props, where ToastContainer
+        // renders it. Duration is the fast 3000ms; nonce is a fresh string.
+        $response->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('flash.message', 'Willkommen zurück, Grace Hopper!')
+            ->where('flash.type', 'success')
+            ->where('flash.duration', 3000)
+            ->where('flash.nonce', fn ($nonce) => is_string($nonce))
+        );
     }
 
     public function test_login_is_rejected_with_the_wrong_password(): void
@@ -86,5 +114,10 @@ class LoginTest extends TestCase
 
         $response->assertRedirect();
         $this->assertGuest();
+
+        // a fast (3000ms) success toast is flashed for the logout (see LogoutResponse).
+        $response->assertSessionHas('message');
+        $response->assertSessionHas('type', 'success');
+        $response->assertSessionHas('duration', 3000);
     }
 }

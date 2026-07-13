@@ -1,0 +1,45 @@
+/******************************************************************************
+ * contextual color tokens — component:toast
+ * @type {Sass}
+ * severity surfaces for the ported toast, derived from the global $state
+ * palette. Each type's fill is its state colour at 90% opacity (so the
+ * backdrop blur shows through), the label is the state's paired contrast, and
+ * the border is the opaque state colour. Rule 2-compliant: globals are only
+ * picked + opacity-adjusted, no new hue is minted — toast "info" reuses the
+ * $state "pending" blue. consumed as c.$c-toast via
+ * `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$toast: (
+    "success-background": light-dark(
+            color.adjust(map.get(c.$state, "light", "success", "color"), $alpha: -0.1),
+            color.adjust(map.get(c.$state, "dark", "success", "color"), $alpha: -0.1)
+        ),
+    "success-surface": light-dark(map.get(c.$state, "light", "success", "contrast"), map.get(c.$state, "dark", "success", "contrast")),
+    "success-border": light-dark(map.get(c.$state, "light", "success", "color"), map.get(c.$state, "dark", "success", "color")),
+
+    "warning-background": light-dark(
+            color.adjust(map.get(c.$state, "light", "warning", "color"), $alpha: -0.1),
+            color.adjust(map.get(c.$state, "dark", "warning", "color"), $alpha: -0.1)
+        ),
+    "warning-surface": light-dark(map.get(c.$state, "light", "warning", "contrast"), map.get(c.$state, "dark", "warning", "contrast")),
+    "warning-border": light-dark(map.get(c.$state, "light", "warning", "color"), map.get(c.$state, "dark", "warning", "color")),
+
+    "error-background": light-dark(
+            color.adjust(map.get(c.$state, "light", "error", "color"), $alpha: -0.1),
+            color.adjust(map.get(c.$state, "dark", "error", "color"), $alpha: -0.1)
+        ),
+    "error-surface": light-dark(map.get(c.$state, "light", "error", "contrast"), map.get(c.$state, "dark", "error", "contrast")),
+    "error-border": light-dark(map.get(c.$state, "light", "error", "color"), map.get(c.$state, "dark", "error", "color")),
+
+    // "info" reuses the $state "pending" blue — no new hue minted (Rule 2).
+    "info-background": light-dark(
+            color.adjust(map.get(c.$state, "light", "pending", "color"), $alpha: -0.1),
+            color.adjust(map.get(c.$state, "dark", "pending", "color"), $alpha: -0.1)
+        ),
+    "info-surface": light-dark(map.get(c.$state, "light", "pending", "contrast"), map.get(c.$state, "dark", "pending", "contrast")),
+    "info-border": light-dark(map.get(c.$state, "light", "pending", "color"), map.get(c.$state, "dark", "pending", "color"))
+) !default;

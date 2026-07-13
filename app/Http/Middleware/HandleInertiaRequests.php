@@ -56,6 +56,15 @@ class HandleInertiaRequests extends Middleware
                 'resetPasswords' => Features::enabled(Features::resetPasswords()),
                 'emailVerification' => Features::enabled(Features::emailVerification()),
             ],
+            // Session flash bridged into the Vue toast (see ToastContainer.vue).
+            // `nonce` is a fresh per-response token whenever a message exists, so
+            // the toast watcher fires even for two identical messages in a row.
+            'flash' => fn () => [
+                'message' => $request->session()->get('message'),
+                'type' => $request->session()->get('type'),
+                'duration' => $request->session()->get('duration'),
+                'nonce' => $request->session()->has('message') ? uniqid('', true) : null,
+            ],
         ];
     }
 }
