@@ -7,6 +7,7 @@
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "Abstracts/colors" as c;
 @use "Abstracts/sizes" as s;
+@use "Abstracts/timings" as ti;
 
 .popover-button {
     display: flex;
@@ -21,8 +22,21 @@
 
     cursor: pointer;
 
+    @media (prefers-reduced-motion: no-preference) {
+        transition: box-shadow ti.$c-popover;
+    }
+
     &--rounded {
         border-radius: 100vw;
+    }
+
+    // open state: the same layered neon halo as the focused input / checked
+    // checkbox — a tight edge glow plus a wider soft spread. Toggled from
+    // PopOver.vue via the native popover `toggle` event.
+    &--open {
+        box-shadow:
+            0 0 0.3em 0 map.get(c.$c-popover, "button-glow"),
+            0 0 0.7em 0.05em map.get(c.$c-popover, "button-glow");
     }
 
     &--padded {

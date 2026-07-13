@@ -33,6 +33,15 @@ $brand: (
 $retro: (
     "c1": #032d50,
     "c2": #00a1ef,
+    // neon — the WCAG 2.1 AA-tuned synthwave glow cyan derived from `c2` (light
+    // theme darkened + saturated a step, dark theme brightened a touch). It's
+    // the neon Button fill and the focus / checked / open glow shared by the
+    // inputs, checkbox and popover trigger. Pre-baked here so the contextual
+    // tokens consume a named palette value instead of re-deriving it from `c2`.
+    "neon": (
+        "light": #007cb8,
+        "dark": #00aafd
+    ),
     "c4": #20125f,
     "c5": #8313e7,
     "c6": #ff61af,

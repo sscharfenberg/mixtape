@@ -22,13 +22,7 @@ $checkbox: (
             color.adjust(map.get(c.$grey, "mystic"), $alpha: -0.5),
             color.adjust(map.get(c.$grey, "bunker"), $alpha: -0.5)
         ),
-    "border-checked": light-dark(
-            color.scale(map.get(c.$retro, "c2"), $lightness: -23%, $saturation: 12%),
-            color.scale(map.get(c.$retro, "c2"), $lightness: 5%)
-        ),
-    "background-checked": light-dark(
-            color.scale(map.get(c.$retro, "c2"), $lightness: -23%, $saturation: 12%),
-            color.scale(map.get(c.$retro, "c2"), $lightness: 5%)
-        ),
+    "border-checked": light-dark(map.get(c.$retro, "neon", "light"), map.get(c.$retro, "neon", "dark")),
+    "background-checked": light-dark(map.get(c.$retro, "neon", "light"), map.get(c.$retro, "neon", "dark")),
     "checkmark": light-dark(map.get(c.$grey, "white"), map.get(c.$retro, "c4"))
 ) !default;
