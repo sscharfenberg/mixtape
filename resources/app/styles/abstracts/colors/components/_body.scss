@@ -6,6 +6,6 @@
 @use "../global-color-tokens" as c;
 
 $body: (
-    "background": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "bunker")),
-    "surface": light-dark(map.get(c.$grey, "bunker"), map.get(c.$grey, "white"))
+    "background": light-dark(map.get(c.$grey, "mystic"), map.get(c.$grey, "ebony")),
+    "surface": light-dark(map.get(c.$grey, "bunker"), map.get(c.$grey, "mystic"))
 ) !default;
