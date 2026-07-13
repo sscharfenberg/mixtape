@@ -51,6 +51,7 @@
         background-color: map.get(c.$c-popover, "item-background");
         color: map.get(c.$c-popover, "item-surface");
 
+        font-family: inherit; // so a <button> item (e.g. logout) matches the <a>/<Link> items
         font-size: 1rem;
         font-weight: normal;
         line-height: 1;

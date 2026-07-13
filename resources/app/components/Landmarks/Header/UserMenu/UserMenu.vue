@@ -48,6 +48,19 @@ function closePopover(): void {
                         Probleme beim Anmelden?
                     </Link>
                 </li>
+                <li v-if="user">
+                    <Link
+                        class="popover-list-item"
+                        href="/logout"
+                        method="post"
+                        as="button"
+                        type="button"
+                        @click="closePopover"
+                    >
+                        <icon name="logout" :size="1" />
+                        Abmelden
+                    </Link>
+                </li>
                 <li class="popover-list__divider" />
                 <li><theme-switch /></li>
             </ul>
