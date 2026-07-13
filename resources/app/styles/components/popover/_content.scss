@@ -29,6 +29,13 @@
     backdrop-filter: blur(12px);
     border-radius: map.get(s.$c-popover, "radius");
 
+    // the same layered neon halo the open trigger wears, so the floating content
+    // reads as part of the same lit-up popover. only painted while open (the
+    // dialog is display:none when closed).
+    box-shadow:
+        0 0 0.6em 0.1em map.get(c.$c-popover, "glow"),
+        0 0 1.5em 0.25em map.get(c.$c-popover, "glow");
+
     /**
      * fallbacks are tried in order — first flip-block (vertical only), then
      * flip-inline (horizontal only), then the combined flip for corner cases

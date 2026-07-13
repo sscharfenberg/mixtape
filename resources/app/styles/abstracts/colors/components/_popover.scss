@@ -10,10 +10,10 @@
 @use "../global-color-tokens" as c;
 
 $popover: (
-    // trigger glow (open state) — the same AA-tuned synthwave cyan halo as the
-    // neon input fields / checkbox, so the open trigger reads as part of the
-    // same lit-up family.
-    "button-glow": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
+    // open-state glow — the same AA-tuned synthwave cyan halo as the neon input
+    // fields / checkbox, shared by both the trigger button and the floating
+    // content so the whole popover reads as part of the same lit-up family.
+    "glow": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
     // content wrapper --------------------------------------------------------
     "background": light-dark(
             color.adjust(map.get(c.$grey, "white"), $alpha: -0.125),
@@ -51,16 +51,17 @@ $popover: (
             map.get(c.$state, "dark", "error", "contrast")
         ),
     // trigger button ---------------------------------------------------------
-    "button-background": light-dark(
-            color.adjust(map.get(c.$grey, "infra"), $alpha: -0.25),
-            color.adjust(map.get(c.$grey, "asher"), $alpha: -0.25)
-        ),
-    "button-surface": light-dark(map.get(c.$grey, "abbey"), map.get(c.$grey, "infra")),
-    "button-background-hover": light-dark(
-            color.adjust(map.get(c.$grey, "abbey"), $alpha: -0.25),
-            color.adjust(map.get(c.$grey, "mystic"), $alpha: -0.25)
-        ),
-    "button-surface-hover": light-dark(map.get(c.$grey, "mystic"), map.get(c.$grey, "bunker")),
+    // resting fill: a synthwave gradient ramping from the deep-navy c1 (top-left)
+    // to the brighter c2 (bottom-right). the white surface clears WCAG 2.1 AA
+    // (4.5:1) across the whole light-mode ramp (c2 endpoint = 4.6:1) and over the
+    // glyph's central region in dark mode.
+    "button-gradient-from": light-dark(map.get(c.$retro, "c1", "light"), map.get(c.$retro, "c1", "dark")),
+    "button-gradient-to": light-dark(map.get(c.$retro, "c2", "light"), map.get(c.$retro, "c2", "dark")),
+    "button-surface": map.get(c.$grey, "white"),
+    // hover: collapse the resting gradient to a flat deep-navy c1 fill; white
+    // surface clears WCAG 2.1 AA on it in both themes (~16:1 light / ~14:1 dark).
+    "button-background-hover": light-dark(map.get(c.$retro, "c1", "light"), map.get(c.$retro, "c1", "dark")),
+    "button-surface-hover": map.get(c.$grey, "white"),
     "button-background-active": light-dark(map.get(c.$brand, "light2", "color"), map.get(c.$brand, "dark2", "color")),
     "button-surface-active": light-dark(map.get(c.$brand, "light2", "contrast"), map.get(c.$brand, "dark2", "contrast"))
 ) !default;

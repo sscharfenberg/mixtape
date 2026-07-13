@@ -17,7 +17,11 @@
     border: 0;
     gap: 0.5ch;
 
-    background-color: map.get(c.$c-popover, "button-background");
+    background-image: linear-gradient(
+        to bottom right,
+        map.get(c.$c-popover, "button-gradient-from"),
+        map.get(c.$c-popover, "button-gradient-to")
+    );
     color: map.get(c.$c-popover, "button-surface");
 
     cursor: pointer;
@@ -35,8 +39,8 @@
     // PopOver.vue via the native popover `toggle` event.
     &--open {
         box-shadow:
-            0 0 0.3em 0 map.get(c.$c-popover, "button-glow"),
-            0 0 0.7em 0.05em map.get(c.$c-popover, "button-glow");
+            0 0 0.6em 0.1em map.get(c.$c-popover, "glow"),
+            0 0 1.5em 0.25em map.get(c.$c-popover, "glow");
     }
 
     &--padded {
@@ -45,11 +49,15 @@
 
     &:hover {
         background-color: map.get(c.$c-popover, "button-background-hover");
+
+        // drop the resting gradient so the flat hover fill shows through.
+        background-image: none;
         color: map.get(c.$c-popover, "button-surface-hover");
     }
 
     &--active {
         background-color: map.get(c.$c-popover, "button-background-active");
+        background-image: none;
         color: map.get(c.$c-popover, "button-surface-active");
     }
 
