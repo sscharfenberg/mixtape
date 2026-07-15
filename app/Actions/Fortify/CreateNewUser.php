@@ -4,10 +4,11 @@ namespace App\Actions\Fortify;
 
 use App\Models\Invite;
 use App\Models\User;
+use App\Rules\PasswordEntropy;
 use App\Rules\ValidInvite;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
@@ -15,12 +16,18 @@ use Laravel\Fortify\Contracts\CreatesNewUsers;
 
 /**
  * Creates a newly registered user — but only in exchange for a valid one-time
- * invite. Bound to Fortify's registration via Fortify::createUsersUsing() in
- * FortifyServiceProvider, so Fortify's RegisteredUserController runs this on
- * POST /register.
+ * invite, and only for a strong-enough password. Bound to Fortify's registration
+ * via Fortify::createUsersUsing() in FortifyServiceProvider, so Fortify's
+ * RegisteredUserController runs this on POST /register.
+ *
+ * Validation goes through the injected request (not the $input array) so Inertia
+ * Precognition can live-validate a single field on the register form without
+ * creating a user (see the precognitive() wrapper below).
  */
 class CreateNewUser implements CreatesNewUsers
 {
+    public function __construct(protected Request $request) {}
+
     /**
      * Validate and create a newly registered user.
      *
@@ -28,28 +35,30 @@ class CreateNewUser implements CreatesNewUsers
      */
     public function create(array $input): User
     {
-        // Store e-mails lower-cased so uniqueness (and future lookups) are
-        // case-insensitive without a DB collation — `name` gets that via its ICU
-        // collation; e-mail is simpler to just normalise. Normalise BEFORE
-        // validating so `unique:users` checks the value we will actually store.
-        if (isset($input['email']) && is_string($input['email'])) {
-            $input['email'] = Str::lower($input['email']);
+        // Normalise the e-mail on the request so precognition, validation and
+        // storage all see the lower-cased value (name gets case-insensitivity
+        // from its ICU collation; e-mail is simpler to just lower-case).
+        if (is_string($this->request->input('email'))) {
+            $this->request->merge(['email' => Str::lower($this->request->input('email'))]);
         }
 
-        Validator::make($input, [
+        // precognitive(): on a precognitive request the helper validates only the
+        // requested field(s) and short-circuits (no user created); on a real
+        // submit it validates everything, then execution falls through to create.
+        precognitive(fn () => $this->request->validate([
             'name' => ['required', 'string', 'min:3', 'max:80', 'unique:users'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-            'password' => ['required', 'string', Password::default(), 'confirmed'],
+            'password' => ['required', 'string', Password::default(), new PasswordEntropy],
+            'password_confirmation' => ['required', 'string', 'same:password'],
             'code' => ['required', 'string', new ValidInvite],
-        ])->validate();
+        ]));
 
-        return DB::transaction(function () use ($input) {
-            // Re-read the invite under a row lock and consume it in the same
-            // transaction as the user insert. ValidInvite above is only a
-            // friendly pre-check; between it and here the row could have been
+        return DB::transaction(function () {
+            // Re-check + consume the invite under a row lock (race-safe): between
+            // the ValidInvite check above and here the row could have been
             // redeemed by someone racing the same link, so this is authoritative.
             $invite = Invite::query()
-                ->where('token', Invite::hashCode($input['code']))
+                ->where('token', Invite::hashCode($this->request->input('code')))
                 ->where('valid_until', '>', now())
                 ->lockForUpdate()
                 ->first();
@@ -61,9 +70,9 @@ class CreateNewUser implements CreatesNewUsers
             }
 
             $user = User::create([
-                'name' => $input['name'],
-                'email' => $input['email'],
-                'password' => Hash::make($input['password']),
+                'name' => $this->request->input('name'),
+                'email' => $this->request->input('email'),
+                'password' => Hash::make($this->request->input('password')),
             ]);
 
             // single-use: spend the invite so the link can never be reused.

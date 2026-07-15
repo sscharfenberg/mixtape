@@ -1,51 +1,39 @@
 <script setup lang="ts">
 /******************************************************************************
  * RegisterPage
- * Invite-only account creation via Fortify. Reachable only through a valid
- * invite link (AuthController::registerView bounces bad/expired codes to /login
- * before this page renders). Submits name + email + password (+ confirmation)
- * and the invite `code` to POST /register; CreateNewUser validates + consumes
- * the invite, creates the user, logs them in, and Fortify redirects to
- * config('fortify.home') ('/dashboard'). Validation errors come back on their
- * fields; a stale/raced invite errors on `code`.
+ * Invite-only account creation via Fortify, with live validation and a password
+ * strength meter. Reachable only through a valid invite link
+ * (AuthController::registerView bounces bad/expired codes to /login first).
  *
- * Intentionally style-free (like LoginPage): it composes the shared components
- * (<headline> / .form / <form-row> / <form-input> / <Button>), so there are no
- * page-specific styles or tokens here. The `code` is carried in the useForm
- * data object and posted back automatically — no hidden <input> needed.
+ * Uses Inertia's <Form> with Precognition: each field validates server-side on
+ * blur (@change → validate(field)), driven by CreateNewUser's rules (incl. the
+ * zxcvbn PasswordEntropy gate). The password field additionally feeds a live
+ * strength meter (usePasswordEntropy → /password/entropy → PasswordStrength).
+ * On success Fortify creates the (unverified) user and RegisterResponse sends
+ * them to the landing page with a "check your email" toast. The invite `code`
+ * rides along as a hidden field.
  *****************************************************************************/
-import { Head, useForm } from "@inertiajs/vue3";
+import { Form, Head } from "@inertiajs/vue3";
 import { ref } from "vue";
 import Button from "Components/Form/Button.vue";
 import FormInput from "Components/Form/FormInput.vue";
 import FormRow from "Components/Form/FormRow.vue";
+import PasswordStrength from "Components/Form/PasswordStrength.vue";
 import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
+import { usePasswordEntropy } from "Composables/usePasswordEntropy";
 
-const props = defineProps<{
-    /** Invite code from the registration link; posted back so the backend can
-     *  re-validate and consume the one-time invite. */
+defineProps<{
+    /** Invite code from the registration link; posted back as a hidden field so
+     *  the backend can re-validate and consume the one-time invite. */
     code: string;
 }>();
 
 const showPassword = ref(false);
 const showPasswordConfirmation = ref(false);
 
-const form = useForm({
-    name: "",
-    email: "",
-    password: "",
-    password_confirmation: "",
-    code: props.code
-});
-
-/** POST the registration; clear the password fields whether it succeeds or fails. */
-function submit(): void {
-    form.post("/register", {
-        preserveScroll: true,
-        onFinish: () => form.reset("password", "password_confirmation")
-    });
-}
+// Live, server-scored (zxcvbn) password strength for the meter.
+const { password, score, onPasswordChange } = usePasswordEntropy();
 </script>
 
 <template>
@@ -57,58 +45,71 @@ function submit(): void {
         Registrierung
     </headline>
 
-    <form class="form" novalidate @submit.prevent="submit">
+    <Form
+        #default="{ errors, processing, validate, validating, valid, invalid }"
+        action="/register"
+        method="post"
+        class="form"
+    >
         <form-row
             for-id="name"
             label="Benutzername"
-            :error="form.errors.name ?? ''"
-            :invalid="!!form.errors.name"
+            :error="errors.name ?? ''"
+            :invalid="invalid('name')"
+            :validated="valid('name')"
+            :validating="validating"
             addon-icon="account"
             :required="true"
         >
             <form-input
                 id="name"
-                v-model="form.name"
                 type="text"
                 name="name"
                 autocomplete="username"
                 maxlength="80"
                 autofocus
+                @change="validate('name')"
             />
         </form-row>
 
         <form-row
             for-id="email"
             label="E-Mail"
-            :error="form.errors.email ?? ''"
-            :invalid="!!form.errors.email"
+            :error="errors.email ?? ''"
+            :invalid="invalid('email')"
+            :validated="valid('email')"
+            :validating="validating"
             addon-icon="mail"
             :required="true"
         >
             <form-input
                 id="email"
-                v-model="form.email"
                 type="email"
                 name="email"
                 autocomplete="email"
                 maxlength="255"
+                @change="validate('email')"
             />
         </form-row>
 
         <form-row
             for-id="password"
             label="Passwort"
-            :error="form.errors.password ?? ''"
-            :invalid="!!form.errors.password"
+            :error="errors.password ?? ''"
+            :invalid="invalid('password')"
+            :validated="valid('password')"
+            :validating="validating"
             addon-icon="key"
             :required="true"
         >
             <form-input
                 id="password"
-                v-model="form.password"
+                v-model="password"
                 :type="showPassword ? 'text' : 'password'"
                 name="password"
                 autocomplete="new-password"
+                @change="validate('password')"
+                @keyup="onPasswordChange"
             />
             <template #button>
                 <button
@@ -122,22 +123,28 @@ function submit(): void {
                     <span>{{ showPassword ? "Verbergen" : "Anzeigen" }}</span>
                 </button>
             </template>
+            <!-- meter lives in the #text slot so it aligns to the input column width -->
+            <template v-if="score !== null" #text>
+                <password-strength :score="score" />
+            </template>
         </form-row>
 
         <form-row
             for-id="password_confirmation"
             label="Passwort bestätigen"
-            :error="form.errors.password_confirmation ?? ''"
-            :invalid="!!form.errors.password_confirmation"
+            :error="errors.password_confirmation ?? ''"
+            :invalid="invalid('password_confirmation')"
+            :validated="valid('password_confirmation')"
+            :validating="validating"
             addon-icon="key"
             :required="true"
         >
             <form-input
                 id="password_confirmation"
-                v-model="form.password_confirmation"
                 :type="showPasswordConfirmation ? 'text' : 'password'"
                 name="password_confirmation"
                 autocomplete="new-password"
+                @change="validate('password_confirmation')"
             />
             <template #button>
                 <button
@@ -153,11 +160,13 @@ function submit(): void {
             </template>
         </form-row>
 
+        <input type="hidden" name="code" :value="code" />
+
         <form-row>
-            <Button variant="primary" type="submit" :disabled="form.processing">
+            <Button variant="primary" type="submit" :disabled="processing">
                 <icon name="register" :size="1" />
-                <span>{{ form.processing ? "Wird registriert …" : "Registrieren" }}</span>
+                <span>{{ processing ? "Wird registriert …" : "Registrieren" }}</span>
             </Button>
         </form-row>
-    </form>
+    </Form>
 </template>

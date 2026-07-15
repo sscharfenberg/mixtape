@@ -36,6 +36,7 @@
             "Assets/*": ["./resources/app/assets/*"],
             "Components/*": ["./resources/app/components/*"],
             "Composables/*": ["./resources/app/composables/*"],
+            "Utils/*": ["./resources/app/utils/*"],
             "Abstracts/*": ["./resources/app/styles/abstracts/*"],
             "Types/*": ["./resources/app/types/*"]
         },

@@ -157,4 +157,54 @@ class RegisterTest extends TestCase
         $response->assertSessionHasErrors('name');
         $this->assertGuest();
     }
+
+    public function test_registration_rejects_a_weak_password(): void
+    {
+        [$code, $invite] = $this->invite();
+
+        $response = $this->from('/login')->post('/register', $this->payload([
+            'password' => 'password', // zxcvbn score 0
+            'password_confirmation' => 'password',
+            'code' => $code,
+        ]));
+
+        $response->assertSessionHasErrors('password');
+        $this->assertGuest();
+        $this->assertDatabaseHas('invites', ['id' => $invite->id]); // not consumed
+        $this->assertDatabaseMissing('users', ['name' => 'New Friend']);
+    }
+
+    public function test_precognition_validates_a_single_field_without_creating_a_user(): void
+    {
+        [$code, $invite] = $this->invite();
+
+        // A precognitive request validating only 'name' passes (204) and runs
+        // nothing else — no user is created and the invite is left untouched.
+        $this->withHeaders([
+            'Precognition' => 'true',
+            'Precognition-Validate-Only' => 'name',
+        ])->postJson('/register', $this->payload(['code' => $code]))
+            ->assertNoContent();
+
+        $this->assertDatabaseMissing('users', ['name' => 'New Friend']);
+        $this->assertDatabaseHas('invites', ['id' => $invite->id]);
+    }
+
+    public function test_precognition_reports_a_weak_password(): void
+    {
+        [$code] = $this->invite();
+
+        $this->withHeaders([
+            'Precognition' => 'true',
+            'Precognition-Validate-Only' => 'password',
+        ])->postJson('/register', $this->payload([
+            'password' => 'password',
+            'password_confirmation' => 'password',
+            'code' => $code,
+        ]))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('password');
+
+        $this->assertDatabaseMissing('users', ['name' => 'New Friend']);
+    }
 }

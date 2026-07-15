@@ -130,6 +130,7 @@ export default defineConfig(({ mode }) => {
                 Assets: path.resolve(__dirname, "resources/app/assets"),
                 Components: path.resolve(__dirname, "resources/app/components"),
                 Composables: path.resolve(__dirname, "resources/app/composables"),
+                Utils: path.resolve(__dirname, "resources/app/utils"),
                 Abstracts: path.resolve(__dirname, "resources/app/styles/abstracts"),
                 Types: path.resolve(__dirname, "resources/app/types")
             }

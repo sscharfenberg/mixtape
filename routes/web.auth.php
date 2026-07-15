@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Auth\EntropyController;
 use App\Http\Controllers\Auth\VerifyEmailController;
+use App\Http\Middleware\HandleControllerPrecognitiveRequest;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\Http\Controllers\AuthenticatedSessionController;
@@ -35,8 +37,12 @@ Route::middleware('guest')->group(function () {
         Route::get('/register', [AuthController::class, 'registerView'])
             ->name('register');
 
+        // HandleControllerPrecognitiveRequest drives the register form's live
+        // field validation (Inertia Precognition). The throttle is generous
+        // because each field's validate-on-blur is its own request; the invite
+        // requirement is the real abuse gate.
         Route::post('/register', [RegisteredUserController::class, 'store'])
-            ->middleware('throttle:6,1')
+            ->middleware(['throttle:30,1', HandleControllerPrecognitiveRequest::class])
             ->name('register.store');
     }
 });
@@ -54,3 +60,10 @@ if (Features::enabled(Features::emailVerification())) {
         ->middleware(['signed', 'throttle:6,1'])
         ->name('verify-email');
 }
+
+// Password strength (zxcvbn) score for the live registration meter. A stateless
+// utility (returns a 0–4 score; changes nothing), so it's a plain web route, not
+// a data API. Throttled to blunt abuse of the zxcvbn call.
+Route::post('/password/entropy', EntropyController::class)
+    ->middleware('throttle:60,1')
+    ->name('password.entropy');
