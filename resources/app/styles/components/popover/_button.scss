@@ -55,10 +55,10 @@
         color: map.get(c.$c-popover, "button-surface-hover");
     }
 
-    &--active {
-        background-color: map.get(c.$c-popover, "button-background-active");
+    &--highlighted {
+        background-color: map.get(c.$c-popover, "button-background-highlighted");
         background-image: none;
-        color: map.get(c.$c-popover, "button-surface-active");
+        color: map.get(c.$c-popover, "button-surface-highlighted");
     }
 
     &--tiny {

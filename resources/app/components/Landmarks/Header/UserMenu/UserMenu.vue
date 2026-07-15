@@ -19,6 +19,9 @@ const user = computed(() => page.props.auth.user);
 /** Backend feature flags (e.g. `resetPasswords`) gating guest-only links. Placeholder until Fortify. */
 const features = computed(() => page.props.features);
 
+/** Trigger modifiers: always rounded, plus a lit-up highlight while a user is signed in. */
+const triggerClass = computed(() => `popover-button--rounded${user.value ? " popover-button--highlighted" : ""}`);
+
 /** Programmatically hides the user-menu popover by its DOM id (on item click). */
 function closePopover(): void {
     const dialog = document.getElementById("userMenu");
@@ -32,7 +35,7 @@ function closePopover(): void {
             icon="account"
             aria-label="Open user menu"
             reference="userMenu"
-            class-string="popover-button--rounded"
+            :class-string="triggerClass"
             width="20ch"
         >
             <ul class="popover-list">
@@ -46,6 +49,12 @@ function closePopover(): void {
                     <Link class="popover-list-item" href="/forgot" @click="closePopover">
                         <icon name="support" :size="1" />
                         Probleme beim Anmelden?
+                    </Link>
+                </li>
+                <li v-if="user">
+                    <Link class="popover-list-item" href="/dashboard" @click="closePopover">
+                        <icon name="user-settings" :size="1" />
+                        Dashboard
                     </Link>
                 </li>
                 <li v-if="user">

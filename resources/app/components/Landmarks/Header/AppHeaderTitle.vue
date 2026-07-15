@@ -6,10 +6,12 @@ const appName = import.meta.env.VITE_APP_NAME;
 </script>
 
 <template>
-    <Link href="/">
-        <span>{{ appName }}</span>
-        <span>{{ appName }}</span>
-    </Link>
+    <h1>
+        <Link href="/">
+            <span>{{ appName }}</span>
+            <span>{{ appName }}</span>
+        </Link>
+    </h1>
 </template>
 
 <style lang="scss" scoped>
@@ -17,6 +19,15 @@ const appName = import.meta.env.VITE_APP_NAME;
 @use "Abstracts/mixins" as m;
 @use "Abstracts/colors" as c;
 @use "Abstracts/sizes" as s;
+
+// semantic heading only — generates no box (`display: contents`) so the <a>
+// stays the header flex item and the visual is unchanged; `font: inherit`
+// stops the UA h1's bold/2em from inheriting through to the title text.
+h1 {
+    display: contents;
+
+    font: inherit;
+}
 
 a {
     position: relative;
