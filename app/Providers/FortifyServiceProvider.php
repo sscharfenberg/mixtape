@@ -2,11 +2,18 @@
 
 namespace App\Providers;
 
+use App\Actions\Fortify\CreateNewUser;
+use App\Actions\Fortify\EnsureEmailIsVerified;
 use App\Http\Responses\LoginResponse;
 use App\Http\Responses\LogoutResponse;
+use App\Http\Responses\RegisterResponse;
+use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Laravel\Fortify\Actions\AttemptToAuthenticate;
@@ -15,6 +22,7 @@ use Laravel\Fortify\Actions\PrepareAuthenticatedSession;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 use Laravel\Fortify\Contracts\LogoutResponse as LogoutResponseContract;
 use Laravel\Fortify\Contracts\RedirectsIfTwoFactorAuthenticatable;
+use Laravel\Fortify\Contracts\RegisterResponse as RegisterResponseContract;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\Fortify;
 
@@ -37,6 +45,12 @@ class FortifyServiceProvider extends ServiceProvider
         // override Fortify's default responses. See app/Http/Responses.
         $this->app->singleton(LoginResponseContract::class, LoginResponse::class);
         $this->app->singleton(LogoutResponseContract::class, LogoutResponse::class);
+
+        // With email verification on, registration must NOT drop the user on the
+        // dashboard (the account can't be used yet). This response logs the
+        // just-created user back out and sends them to the landing page with a
+        // "check your email" toast. See App\Http\Responses\RegisterResponse.
+        $this->app->singleton(RegisterResponseContract::class, RegisterResponse::class);
     }
 
     /**
@@ -44,8 +58,37 @@ class FortifyServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Fortify's RegisteredUserController resolves this to build a new user on
+        // POST /register; our action gates creation on a valid one-time invite
+        // (App\Models\Invite). Registration is enabled in config/fortify.php.
+        Fortify::createUsersUsing(CreateNewUser::class);
+
+        $this->configureEmailVerification();
         $this->configureLoginPipeline();
         $this->configureRateLimiting();
+    }
+
+    /**
+     * Point Laravel's email-verification link at our named `verify-email` route.
+     *
+     * Only wired when the feature is enabled. The URL is the standard signed,
+     * time-limited link (default 60 min — config/auth.php → verification.expire),
+     * carrying the user id and a sha1 of their email as {id}/{hash}, which
+     * VerifyEmailController re-checks.
+     */
+    private function configureEmailVerification(): void
+    {
+        if (! Features::enabled(Features::emailVerification())) {
+            return;
+        }
+
+        VerifyEmail::createUrlUsing(function ($notifiable) {
+            return URL::temporarySignedRoute(
+                'verify-email',
+                Carbon::now()->addMinutes(Config::get('auth.verification.expire', 60)),
+                ['id' => $notifiable->getKey(), 'hash' => sha1($notifiable->getEmailForVerification())]
+            );
+        });
     }
 
     /**
@@ -63,6 +106,7 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::authenticateThrough(function (Request $request) {
             return array_filter([
                 config('fortify.limiters.login') ? null : EnsureLoginIsNotThrottled::class,
+                Features::enabled(Features::emailVerification()) ? EnsureEmailIsVerified::class : null,
                 Features::enabled(Features::twoFactorAuthentication()) ? RedirectsIfTwoFactorAuthenticatable::class : null,
                 AttemptToAuthenticate::class,
                 PrepareAuthenticatedSession::class,

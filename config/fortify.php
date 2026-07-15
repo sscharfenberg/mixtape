@@ -149,12 +149,23 @@ return [
     */
 
     'features' => [
-        // Onboarding is invite-only, so open registration stays disabled by design.
-        // Features::registration(),
+        // Onboarding is invite-only: registration is ENABLED, but both the routes
+        // (routes/web.auth.php) and the user-creation action
+        // (App\Actions\Fortify\CreateNewUser) require a valid one-time invite code
+        // (App\Models\Invite, minted via `php artisan app:invite`). There is no
+        // open self-service signup — a valid invite link is mandatory.
+        Features::registration(),
+        //
+        // Email verification IS enabled: registration creates an unverified user,
+        // sends a verification email (App\Notifications\VerifyEmailNotification),
+        // and login is blocked until the address is confirmed
+        // (App\Actions\Fortify\EnsureEmailIsVerified). The "resend verification"
+        // endpoint is intentionally NOT wired yet. Note: with MAIL_MAILER=log the
+        // link lands in the log until a mail relay (Mailtrap) is configured.
+        Features::emailVerification(),
         //
         // Deferred until a transactional mail relay (Mailtrap) and the reset UI land:
         // Features::resetPasswords(),
-        // Features::emailVerification(),
         //
         // Deferred until the account / 2FA management UI lands. The DB columns and
         // the User model's TwoFactorAuthenticatable trait are already in place so

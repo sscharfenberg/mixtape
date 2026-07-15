@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -11,13 +12,31 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('users', function (Blueprint $table) {
-            $table->engine = 'InnoDB';
-            $table->charset = 'utf8mb4';
-            $table->collation = 'utf8mb4_unicode_ci';
+        // MixTape logs in by `name` (config/fortify.php -> 'username' => 'name'),
+        // so the login identifier must compare case-insensitively: "Sven" and
+        // "sven" are the same account. Postgres string collations are
+        // case-SENSITIVE by default, so we mint a nondeterministic ICU collation
+        // (ICU strength level 2 = ignore case, keep accents) and pin `users.name`
+        // to it; the unique index on that column then dedupes case-insensitively.
+        //
+        // Postgres-only: the sqlite connection used by the test suite doesn't
+        // understand the ICU DDL (and its default comparison is already
+        // case-insensitive enough for the suite), so the column keeps its default
+        // collation there. e-mail takes the simpler route of being stored
+        // lower-cased on registration, so a plain unique index suffices for it.
+        $pgsql = DB::connection()->getDriverName() === 'pgsql';
+
+        if ($pgsql) {
+            DB::statement(
+                'CREATE COLLATION IF NOT EXISTS case_insensitive '
+                ."(provider = icu, locale = 'und-u-ks-level2', deterministic = false)"
+            );
+        }
+
+        Schema::create('users', function (Blueprint $table) use ($pgsql) {
             $table->uuid('id')->primary();
-            $table->string('name')->unique(); // the login identifier (config/fortify.php → 'username' => 'name')
-            $table->string('email')->unique();
+            $table->string('name')->collation($pgsql ? 'case_insensitive' : null)->unique(); // login identifier, case-insensitive on Postgres
+            $table->string('email')->unique(); // stored lower-cased (see CreateNewUser)
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->text('two_factor_secret')->nullable();
@@ -28,9 +47,6 @@ return new class extends Migration
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
-            $table->engine = 'InnoDB';
-            $table->charset = 'utf8mb4';
-            $table->collation = 'utf8mb4_unicode_ci';
             $table->string('email')->primary();
             $table->string('token');
             $table->timestamp('created_at')->nullable();
@@ -54,5 +70,10 @@ return new class extends Migration
         Schema::dropIfExists('users');
         Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');
+
+        // Drop the collation only after the table that depends on it is gone.
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            DB::statement('DROP COLLATION IF EXISTS case_insensitive');
+        }
     }
 };

@@ -90,6 +90,23 @@ class LoginTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_login_is_rejected_when_the_email_is_not_verified(): void
+    {
+        User::factory()->unverified()->create([
+            'name' => 'Unverified User',
+            'password' => Hash::make('s3cret-pass'),
+        ]);
+
+        $response = $this->from('/login')->post('/login', [
+            'name' => 'Unverified User',
+            'password' => 's3cret-pass',
+        ]);
+
+        $response->assertRedirect('/login');
+        $response->assertSessionHasErrors('name'); // EnsureEmailIsVerified error lands on the username field
+        $this->assertGuest();
+    }
+
     public function test_login_requires_a_name_and_password(): void
     {
         $response = $this->from('/login')->post('/login', [

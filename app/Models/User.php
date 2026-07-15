@@ -2,19 +2,21 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Notifications\VerifyEmailNotification;
 use Database\Factories\UserFactory;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Fortify\Features;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable
+class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     // HasUuids: the users table uses a uuid primary key (see the create_users_table
@@ -34,5 +36,21 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Send the email verification notification — but only when the feature is
+     * enabled (config/fortify.php). Overrides the framework default so we send
+     * our own German VerifyEmailNotification instead of Laravel's built-in mail.
+     * Invoked by the framework's SendEmailVerificationNotification listener when
+     * the Registered event fires on sign-up.
+     */
+    public function sendEmailVerificationNotification(): void
+    {
+        if (! Features::enabled(Features::emailVerification())) {
+            return;
+        }
+
+        $this->notify(new VerifyEmailNotification);
     }
 }
