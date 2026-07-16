@@ -47,13 +47,19 @@ class UpdateProfileInformationTest extends TestCase
         Notification::fake();
         $user = User::factory()->create(['name' => 'Ada Lovelace', 'email' => 'ada@example.com']);
 
-        $this->actingAs($user)->put('/user/profile-information', [
+        $response = $this->actingAs($user)->put('/user/profile-information', [
             'name' => 'Ada L. Lovelace',
             'email' => 'ada@example.com',
         ]);
 
         $this->assertNotNull($user->fresh()->email_verified_at);
         Notification::assertNothingSent();
+
+        // Stays on the dashboard, still logged in, with a success toast
+        // (App\Http\Responses\ProfileInformationUpdatedResponse).
+        $this->assertAuthenticatedAs($user);
+        $response->assertSessionHas('type', 'success');
+        $response->assertSessionHas('message');
     }
 
     public function test_changing_the_email_revokes_verification_and_resends_it(): void
@@ -61,7 +67,7 @@ class UpdateProfileInformationTest extends TestCase
         Notification::fake();
         $user = User::factory()->create(['name' => 'Ada Lovelace', 'email' => 'ada@example.com']);
 
-        $this->actingAs($user)->put('/user/profile-information', [
+        $response = $this->actingAs($user)->put('/user/profile-information', [
             'name' => 'Ada Lovelace',
             'email' => 'ada-new@example.com',
         ]);
@@ -70,6 +76,21 @@ class UpdateProfileInformationTest extends TestCase
         $this->assertSame('ada-new@example.com', $user->email);
         $this->assertNull($user->email_verified_at);
         Notification::assertSentTo($user, VerifyEmailNotification::class);
+
+        // Regression: the dashboard route is `verified`-guarded, and this app
+        // has no route named `verification.notice` (Laravel's default target
+        // for that middleware) — redirecting back to /dashboard while
+        // unverified would throw a RouteNotFoundException. The response must
+        // log the user out and land on the guest landing page instead
+        // (App\Http\Responses\ProfileInformationUpdatedResponse).
+        $response->assertRedirect('/');
+        $response->assertSessionHas('type', 'success');
+        $response->assertSessionHas('message');
+        $this->assertGuest();
+
+        // Following through to /dashboard as a guest must redirect to login,
+        // not blow up — this is the actual crash the user hit in production.
+        $this->get('/dashboard')->assertRedirect('/login');
     }
 
     public function test_validates_required_fields(): void

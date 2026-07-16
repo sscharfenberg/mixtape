@@ -9,6 +9,7 @@ use App\Actions\Fortify\UpdateUserProfileInformation;
 use App\Http\Responses\LoginResponse;
 use App\Http\Responses\LogoutResponse;
 use App\Http\Responses\PasswordUpdateResponse;
+use App\Http\Responses\ProfileInformationUpdatedResponse;
 use App\Http\Responses\RegisterResponse;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -25,6 +26,7 @@ use Laravel\Fortify\Actions\PrepareAuthenticatedSession;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 use Laravel\Fortify\Contracts\LogoutResponse as LogoutResponseContract;
 use Laravel\Fortify\Contracts\PasswordUpdateResponse as PasswordUpdateResponseContract;
+use Laravel\Fortify\Contracts\ProfileInformationUpdatedResponse as ProfileInformationUpdatedResponseContract;
 use Laravel\Fortify\Contracts\RedirectsIfTwoFactorAuthenticatable;
 use Laravel\Fortify\Contracts\RegisterResponse as RegisterResponseContract;
 use Laravel\Fortify\Features;
@@ -60,6 +62,13 @@ class FortifyServiceProvider extends ServiceProvider
         // `status` session key (no message text) — override it so the
         // dashboard's password form gets the same toast as login/logout.
         $this->app->singleton(PasswordUpdateResponseContract::class, PasswordUpdateResponse::class);
+
+        // Fortify's default just redirects back to the dashboard regardless of
+        // outcome — but changing the email revokes verification, and the
+        // dashboard route is `verified`-guarded with no `verification.notice`
+        // route to redirect to (this app uses its own route names), so that
+        // would throw. See App\Http\Responses\ProfileInformationUpdatedResponse.
+        $this->app->singleton(ProfileInformationUpdatedResponseContract::class, ProfileInformationUpdatedResponse::class);
     }
 
     /**
