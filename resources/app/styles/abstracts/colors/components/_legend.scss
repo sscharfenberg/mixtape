@@ -1,0 +1,54 @@
+/******************************************************************************
+ * contextual color tokens — component:legend
+ * @type {Sass}
+ * ported from cantrip.me's $components.legend. the default (unmodified) item
+ * is a neutral grey box; "warning" / "error" / "success" modifiers recolour a
+ * single item from the shared $state map (an alpha-only tweak on the state
+ * colour per CLAUDE.md's colour-token rules — no new hue is minted here).
+ * consumed as c.$c-legend via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$legend: (
+    "border": light-dark(
+            color.adjust(map.get(c.$grey, "slate"), $alpha: -0.25),
+            color.adjust(map.get(c.$grey, "charcoal"), $alpha: -0.25)
+        ),
+    "background": light-dark(
+            color.adjust(map.get(c.$grey, "white"), $alpha: -0.25),
+            color.adjust(map.get(c.$grey, "black"), $alpha: -0.25)
+        ),
+    "surface": light-dark(map.get(c.$grey, "abbey"), map.get(c.$grey, "fog")),
+    "warning": (
+        "background": light-dark(
+                color.adjust(map.get(c.$state, "light", "warning", "color"), $alpha: -0.3),
+                color.adjust(map.get(c.$state, "dark", "warning", "color"), $alpha: -0.3)
+            ),
+        "surface": light-dark(
+                map.get(c.$state, "light", "warning", "contrast"),
+                map.get(c.$state, "dark", "warning", "contrast")
+            )
+    ),
+    "error": (
+        "background": light-dark(
+                color.adjust(map.get(c.$state, "light", "error", "color"), $alpha: -0.3),
+                color.adjust(map.get(c.$state, "dark", "error", "color"), $alpha: -0.3)
+            ),
+        "surface": light-dark(
+                map.get(c.$state, "light", "error", "contrast"),
+                map.get(c.$state, "dark", "error", "contrast")
+            )
+    ),
+    "success": (
+        "background": light-dark(
+                color.adjust(map.get(c.$state, "light", "success", "color"), $alpha: -0.3),
+                color.adjust(map.get(c.$state, "dark", "success", "color"), $alpha: -0.3)
+            ),
+        "surface": light-dark(
+                map.get(c.$state, "light", "success", "contrast"),
+                map.get(c.$state, "dark", "success", "contrast")
+            )
+    )
+) !default;

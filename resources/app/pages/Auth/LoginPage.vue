@@ -17,6 +17,7 @@ import { computed, ref } from "vue";
 import Button from "Components/Form/Button.vue";
 import Checkbox from "Components/Form/Checkbox.vue";
 import FormInput from "Components/Form/FormInput.vue";
+import FormLegend from "Components/Form/FormLegend.vue";
 import FormRow from "Components/Form/FormRow.vue";
 import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
@@ -58,6 +59,12 @@ function submit(): void {
     <p v-if="status" role="status">{{ status }}</p>
 
     <form class="form" novalidate @submit.prevent="submit">
+        <form-legend :items="[{ slot: 'required', icon: 'info' }]">
+            <template #required>
+                Felder, die mit einem <icon name="required" /> gekennzeichnet sind, müssen ausgefüllt werden.
+            </template>
+        </form-legend>
+
         <form-row
             for-id="name"
             label="Benutzername"

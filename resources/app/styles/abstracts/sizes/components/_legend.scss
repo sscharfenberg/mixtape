@@ -1,0 +1,15 @@
+/******************************************************************************
+ * contextual size tokens — component:legend
+ * @type {Sass}
+ * ported from cantrip.me's $components.legend. consumed as s.$c-legend via
+ * `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$legend: (
+    "border": map.get(s.$border, "base"),
+    "radius": map.get(s.$radius, "featured"),
+    "padding": 0.4rem 0.5rem,
+    "padding-block-start": 0.5rem
+) !default;

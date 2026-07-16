@@ -17,6 +17,7 @@ import { Form, Head } from "@inertiajs/vue3";
 import { ref } from "vue";
 import Button from "Components/Form/Button.vue";
 import FormInput from "Components/Form/FormInput.vue";
+import FormLegend from "Components/Form/FormLegend.vue";
 import FormRow from "Components/Form/FormRow.vue";
 import PasswordStrength from "Components/Form/PasswordStrength.vue";
 import Headline from "Components/UI/Headline.vue";
@@ -51,6 +52,26 @@ const { password, score, onPasswordChange } = usePasswordEntropy();
         method="post"
         class="form"
     >
+        <form-legend
+            :items="[
+                { slot: 'intro', icon: 'info', modifier: 'warning' },
+                { slot: 'required', icon: 'info' },
+                { slot: 'password', icon: 'key' }
+            ]"
+        >
+            <template #intro>
+                Nach der Registrierung schicken wir dir einen Link zur Bestätigung der E-Mail-Adresse. Du kannst dich
+                erst einloggen, wenn die E-Mail-Adresse bestätigt wurde.
+            </template>
+            <template #required>
+                Felder, die mit einem <icon name="required" /> gekennzeichnet sind, müssen ausgefüllt werden.
+            </template>
+            <template #password>
+                Während der Eingabe des Passwortes prüfen wir, ob das Passwort sicher genug ist. Unsichere Passwörter
+                werden abgewiesen.
+            </template>
+        </form-legend>
+
         <form-row
             for-id="name"
             label="Benutzername"
