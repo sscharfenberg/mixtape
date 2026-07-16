@@ -1,0 +1,13 @@
+/******************************************************************************
+ * contextual size tokens — component:textlink
+ * @type {Sass}
+ * ported from cantrip.me's $components.textlink. consumed as s.$c-textlink
+ * via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$textlink: (
+    "underline-thickness": #{map.get(s.$border, "base") * 1.5},
+    "underline-offset": #{map.get(s.$border, "base") * 2.5}
+) !default;

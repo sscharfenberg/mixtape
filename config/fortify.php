@@ -164,8 +164,9 @@ return [
         // link lands in the log until a mail relay (Mailtrap) is configured.
         Features::emailVerification(),
         //
-        // Deferred until a transactional mail relay (Mailtrap) and the reset UI land:
-        // Features::resetPasswords(),
+        // Password reset ("forgot password / username", App\Http\Controllers\Auth\
+        // ForgotController + NewPasswordController) is enabled.
+        Features::resetPasswords(),
         //
         // Deferred until the account / 2FA management UI lands. The DB columns and
         // the User model's TwoFactorAuthenticatable trait are already in place so

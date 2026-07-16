@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\EntropyController;
+use App\Http\Controllers\Auth\ForgotController;
+use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Middleware\HandleControllerPrecognitiveRequest;
 use Illuminate\Support\Facades\Route;
@@ -13,11 +15,14 @@ use Laravel\Fortify\Http\Controllers\RegisteredUserController;
  * Authentication routes
  *
  * FortifyServiceProvider calls Fortify::ignoreRoutes(), so the auth endpoints
- * are declared here explicitly rather than auto-registered. Login + logout and
- * invite-only registration exist today; password reset, email verification and
- * two-factor auth are deferred (see config/fortify.php) and their routes will be
- * added here alongside their UIs. Login/logout/registration use Fortify's own
- * controllers, which defer to the (optionally overridden) response classes.
+ * are declared here explicitly rather than auto-registered. Login/logout,
+ * invite-only registration, email verification and password reset exist today;
+ * two-factor auth is deferred (see config/fortify.php) and its routes will be
+ * added here alongside its UI. Login/logout/registration use Fortify's own
+ * controllers, which defer to the (optionally overridden) response classes;
+ * password reset uses app-owned controllers (ForgotController /
+ * NewPasswordController) instead of Fortify's, so the single "forgot
+ * password / username" page can dispatch either recovery.
  *****************************************************************************/
 
 // Guest-only: the login / register pages and their POST handlers.
@@ -44,6 +49,27 @@ Route::middleware('guest')->group(function () {
         Route::post('/register', [RegisteredUserController::class, 'store'])
             ->middleware(['throttle:30,1', HandleControllerPrecognitiveRequest::class])
             ->name('register.store');
+    }
+
+    // "Forgot password / username": one page, one `type` field toggles which
+    // recovery ForgotController::store dispatches. `password.reset` is the
+    // name Laravel's default ResetPassword notification builds its URL
+    // against (App\Models\User::sendPasswordResetNotification), so it must
+    // keep that exact name even though the controller is app-owned.
+    if (Features::enabled(Features::resetPasswords())) {
+        Route::get('/forgot', [ForgotController::class, 'show'])
+            ->name('forgot');
+
+        Route::post('/forgot', [ForgotController::class, 'store'])
+            ->middleware(['throttle:6,1', HandleControllerPrecognitiveRequest::class])
+            ->name('forgot.store');
+
+        Route::get('/reset-password', [NewPasswordController::class, 'show'])
+            ->name('password.reset');
+
+        Route::post('/reset-password', [NewPasswordController::class, 'store'])
+            ->middleware(['throttle:6,1', HandleControllerPrecognitiveRequest::class])
+            ->name('password.reset.store');
     }
 });
 

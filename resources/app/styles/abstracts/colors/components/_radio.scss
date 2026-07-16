@@ -1,0 +1,16 @@
+/******************************************************************************
+ * contextual color tokens — component:radio
+ * @type {Sass}
+ * ported from cantrip.me's $components.radio. the box/border/background match
+ * c.$c-input (a radio option IS an input-family control); only the checked
+ * dot's own colours are radio-specific. consumed as c.$c-radio via
+ * `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-color-tokens" as c;
+
+$radio: (
+    "inner": map.get(c.$brand, "light1", "color"),
+    "outer": map.get(c.$brand, "light1", "contrast"),
+    "surface-checked": light-dark(map.get(c.$brand, "dark1", "color"), map.get(c.$brand, "light1", "color"))
+) !default;

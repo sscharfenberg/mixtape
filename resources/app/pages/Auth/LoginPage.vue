@@ -12,7 +12,7 @@
  * (<headline> / .form / <form-row> / <form-input> / <Button>), so there are
  * no page-specific styles or tokens here.
  *****************************************************************************/
-import { Head, Link, useForm, usePage } from "@inertiajs/vue3";
+import { Head, useForm, usePage } from "@inertiajs/vue3";
 import { computed, ref } from "vue";
 import Button from "Components/Form/Button.vue";
 import Checkbox from "Components/Form/Checkbox.vue";
@@ -21,6 +21,8 @@ import FormLegend from "Components/Form/FormLegend.vue";
 import FormRow from "Components/Form/FormRow.vue";
 import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
+import LabelledLink from "Components/UI/LabelledLink.vue";
+import LinkGroup from "Components/UI/LinkGroup.vue";
 
 defineProps<{
     /** Optional session status message (e.g. after a future password reset). */
@@ -116,8 +118,10 @@ function submit(): void {
             </Button>
         </form-row>
 
-        <p v-if="features.resetPasswords">
-            <Link href="/forgot">Probleme beim Anmelden?</Link>
-        </p>
+        <form-row v-if="features.resetPasswords" style="margin-top: 2rem">
+            <link-group label="Wenn du dich nicht anmelden kannst, verwende diese Links.">
+                <labelled-link href="/forgot">Probleme beim Anmelden?</labelled-link>
+            </link-group>
+        </form-row>
     </form>
 </template>

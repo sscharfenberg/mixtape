@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Notifications\PasswordResetLinkNotification;
 use App\Notifications\VerifyEmailNotification;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -52,5 +53,18 @@ class User extends Authenticatable implements MustVerifyEmail
         }
 
         $this->notify(new VerifyEmailNotification);
+    }
+
+    /**
+     * Send the password reset notification.
+     *
+     * Overrides the framework default so we send our own German
+     * PasswordResetLinkNotification instead of Laravel's built-in mail.
+     * Invoked by Password::broker()->sendResetLink() (App\Http\Controllers\
+     * Auth\ForgotController).
+     */
+    public function sendPasswordResetNotification(#[\SensitiveParameter] $token): void
+    {
+        $this->notify(new PasswordResetLinkNotification($token));
     }
 }

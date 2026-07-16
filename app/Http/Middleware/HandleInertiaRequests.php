@@ -46,11 +46,9 @@ class HandleInertiaRequests extends Middleware
                     ? $request->user()->only('id', 'name', 'email')
                     : null,
             ],
-            // Real Fortify feature flags. All three are off today: registration
-            // stays disabled by design (invite-only onboarding), while password
-            // reset and email verification are deferred until a mail relay lands
-            // (see config/fortify.php). The UserMenu links gate on these, so they
-            // light up automatically when a feature is switched on.
+            // Real Fortify feature flags (see config/fortify.php). The UserMenu /
+            // auth-page links gate on these, so they light up automatically
+            // whenever a feature is switched on there.
             'features' => [
                 'registration' => Features::enabled(Features::registration()),
                 'resetPasswords' => Features::enabled(Features::resetPasswords()),

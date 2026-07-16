@@ -1,0 +1,10 @@
+/******************************************************************************
+ * contextual timing token — component:textlink
+ * @type {Sass}
+ * the text-link colour/decoration hover transition speed. consumed as
+ * ti.$c-textlink via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$textlink: map.get(ti.$timings, "fast") !default;

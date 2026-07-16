@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build *)",
+      "Bash(npm run lint *)",
+      "Bash(php artisan route:list *)",
+      "Bash(command -v *)",
+      "mcp__ide__getDiagnostics"
+    ]
+  }
+}
