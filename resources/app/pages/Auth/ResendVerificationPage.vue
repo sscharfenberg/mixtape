@@ -1,57 +1,37 @@
 <script setup lang="ts">
 /******************************************************************************
- * ForgotPage
- * "Forgot password / username" (ported from cantrip.me's Auth/Forgot). One
- * form, one `type` radio toggle: `password` additionally asks for the
- * username and requests a Fortify password-reset link (App\Http\Controllers\
- * Auth\ForgotController::sendPasswordResetLink); `name` only needs the email
- * and requests a username-reminder mail. POST /forgot always redirects home
- * with the same success toast regardless of whether a matching account
+ * ResendVerificationPage
+ * "Resend verification email" (ported from cantrip.me's Auth/ResendVerification).
+ * For a user whose signed verification link expired — they can't log in to
+ * trigger a fresh one (login is blocked until verified), so this page asks for
+ * name + email and dispatches App\Http\Controllers\Auth\ResendVerification-
+ * Controller::store. POST /resend-verification always redirects home with the
+ * same success toast regardless of whether a matching, unverified account
  * exists, so the form can't be used to enumerate registered emails.
  *
- * Uses Inertia's <Form> with Precognition, matching RegisterPage: each field
+ * Uses Inertia's <Form> with Precognition, matching ForgotPage: each field
  * validates server-side on blur (@change → validate(field)).
  *****************************************************************************/
-import { Form, Head, usePage } from "@inertiajs/vue3";
-import { computed, ref } from "vue";
+import { Form, Head } from "@inertiajs/vue3";
 import Button from "Components/Form/Button.vue";
 import FormInput from "Components/Form/FormInput.vue";
 import FormLegend from "Components/Form/FormLegend.vue";
 import FormRow from "Components/Form/FormRow.vue";
-import RadioButtonGroup from "Components/Form/Radio/RadioButtonGroup.vue";
 import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
-import LabelledLink from "Components/UI/LabelledLink.vue";
-import LinkGroup from "Components/UI/LinkGroup.vue";
-
-const page = usePage();
-/** Backend feature flags — gates the "resend verification" link. */
-const features = computed(() => page.props.features);
-
-/** The two recovery types the radio group can submit as `type`. */
-const types = [
-    { value: "password", label: "Passwort vergessen", checked: true, icon: "key" },
-    { value: "name", label: "Benutzername vergessen", checked: false, icon: "account" }
-];
-const type = ref(types.find(option => option.checked)?.value ?? "password");
-
-/** Track the selected recovery type so the username field can be toggled. */
-function onTypeChange(event: Event): void {
-    type.value = (event.target as HTMLInputElement).value;
-}
 </script>
 
 <template>
     <Head>
-        <title>Probleme beim Anmelden?</title>
+        <title>Bestätigungs-Link erneut versenden</title>
     </Head>
     <headline glow>
-        <icon name="support" :size="3" />
-        Probleme beim Anmelden?
+        <icon name="mail" :size="3" />
+        Bestätigungs-Link erneut versenden
     </headline>
 
     <Form
-        action="/forgot"
+        action="/resend-verification"
         method="post"
         class="form"
         #default="{ errors, valid, invalid, validating, validate, processing }"
@@ -63,22 +43,15 @@ function onTypeChange(event: Event): void {
             ]"
         >
             <template #intro>
-                Wenn du dich nicht anmelden kannst, können wir dir entweder deinen Benutzernamen oder einen Link zum
-                Zurücksetzen des Passworts schicken. Wähle dafür das Passwort oder den Benutzernamen aus, und gib die
-                hinterlegte E-Mail-Adresse an. Wenn du das Passwort vergessen hast, musst du auch den Benutzernamen
-                angeben.
+                Wenn dein Bestätigungs-Link abgelaufen ist, kannst du hier einen neuen Link zur Bestätigung deiner
+                E-Mail-Adresse anfordern. Bitte gib dafür deinen Benutzernamen und die E-Mail-Adresse an.
             </template>
             <template #required>
                 Felder, die mit einem <icon name="required" /> gekennzeichnet sind, müssen ausgefüllt werden.
             </template>
         </form-legend>
 
-        <form-row>
-            <radio-button-group name="type" :radio-buttons="types" @change="onTypeChange" />
-        </form-row>
-
         <form-row
-            v-if="type === 'password'"
             for-id="name"
             label="Benutzername"
             :error="errors.name ?? ''"
@@ -123,12 +96,6 @@ function onTypeChange(event: Event): void {
                 <icon name="save" :size="1" />
                 <span>{{ processing ? "Wird angefordert …" : "Anfordern" }}</span>
             </Button>
-        </form-row>
-
-        <form-row v-if="features.emailVerification" style="margin-top: 2rem">
-            <link-group label="Wenn du dich nicht anmelden kannst, verwende diese Links.">
-                <labelled-link href="/resend-verification">Bestätigungs-Link erneut versenden</labelled-link>
-            </link-group>
         </form-row>
     </Form>
 </template>

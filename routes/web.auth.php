@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\EntropyController;
 use App\Http\Controllers\Auth\ForgotController;
 use App\Http\Controllers\Auth\NewPasswordController;
+use App\Http\Controllers\Auth\ResendVerificationController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Middleware\HandleControllerPrecognitiveRequest;
 use Illuminate\Support\Facades\Route;
@@ -70,6 +71,19 @@ Route::middleware('guest')->group(function () {
         Route::post('/reset-password', [NewPasswordController::class, 'store'])
             ->middleware(['throttle:6,1', HandleControllerPrecognitiveRequest::class])
             ->name('password.reset.store');
+    }
+
+    // "Resend verification email": for a user stuck with an expired signed
+    // link, who can't log in to trigger a fresh one (login is blocked until
+    // verified). Matches name + email before resending, same anti-enumeration
+    // shape as the "forgot" flow above.
+    if (Features::enabled(Features::emailVerification())) {
+        Route::get('/resend-verification', [ResendVerificationController::class, 'show'])
+            ->name('verification.resend');
+
+        Route::post('/resend-verification', [ResendVerificationController::class, 'store'])
+            ->middleware(['throttle:6,1', HandleControllerPrecognitiveRequest::class])
+            ->name('verification.resend.store');
     }
 });
 

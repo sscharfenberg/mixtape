@@ -5,8 +5,8 @@
  * /login; on success Fortify redirects to config('fortify.home') ('/') and
  * Inertia follows it. Validation / failed-credential errors come back on the
  * `name` field (Fortify::username() === 'name'). Registration is invite-only
- * (no link here); the forgot-password link is gated on the resetPasswords
- * feature flag and stays hidden until that flow lands.
+ * (no link here); the forgot-password and resend-verification links are each
+ * gated on their own feature flag (resetPasswords / emailVerification).
  *
  * Intentionally style-free: it composes the shared components
  * (<headline> / .form / <form-row> / <form-input> / <Button>), so there are
@@ -118,9 +118,12 @@ function submit(): void {
             </Button>
         </form-row>
 
-        <form-row v-if="features.resetPasswords" style="margin-top: 2rem">
+        <form-row v-if="features.resetPasswords || features.emailVerification" style="margin-top: 2rem">
             <link-group label="Wenn du dich nicht anmelden kannst, verwende diese Links.">
-                <labelled-link href="/forgot">Probleme beim Anmelden?</labelled-link>
+                <labelled-link v-if="features.resetPasswords" href="/forgot">Probleme beim Anmelden?</labelled-link>
+                <labelled-link v-if="features.emailVerification" href="/resend-verification">
+                    Bestätigungs-Link erneut versenden
+                </labelled-link>
             </link-group>
         </form-row>
     </form>
