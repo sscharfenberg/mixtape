@@ -6,10 +6,13 @@ use App\Http\Controllers\Auth\ForgotController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\ResendVerificationController;
 use App\Http\Controllers\Auth\VerifyEmailController;
+use App\Http\Controllers\User\DeleteAccountController;
 use App\Http\Middleware\HandleControllerPrecognitiveRequest;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\Http\Controllers\AuthenticatedSessionController;
+use Laravel\Fortify\Http\Controllers\PasswordController;
+use Laravel\Fortify\Http\Controllers\ProfileInformationController;
 use Laravel\Fortify\Http\Controllers\RegisteredUserController;
 
 /******************************************************************************
@@ -107,3 +110,32 @@ if (Features::enabled(Features::emailVerification())) {
 Route::post('/password/entropy', EntropyController::class)
     ->middleware('throttle:60,1')
     ->name('password.entropy');
+
+/******************************************************************************
+ * Dashboard account management (App\Http\Controllers\User\DashboardController)
+ *
+ * Profile/password updates go through Fortify's own controllers, which defer
+ * to App\Actions\Fortify\UpdateUserProfileInformation / UpdateUserPassword
+ * (wired in FortifyServiceProvider); account deletion is app-owned since
+ * Fortify has no built-in action for it. The generous throttle (matching
+ * /register's) is because each form validates itself one field at a time
+ * (Precognition-Validate-Only) as the user tabs through it, not just once on
+ * submit.
+ *****************************************************************************/
+Route::middleware(['auth', HandleControllerPrecognitiveRequest::class])->group(function () {
+    if (Features::enabled(Features::updateProfileInformation())) {
+        Route::put('/user/profile-information', [ProfileInformationController::class, 'update'])
+            ->middleware('throttle:30,1')
+            ->name('user-profile-information.update');
+    }
+
+    if (Features::enabled(Features::updatePasswords())) {
+        Route::put('/user/password', [PasswordController::class, 'update'])
+            ->middleware('throttle:30,1')
+            ->name('user-password.update');
+    }
+});
+
+Route::delete('/user/delete', [DeleteAccountController::class, 'destroy'])
+    ->middleware(['auth', 'throttle:6,1'])
+    ->name('user.delete');

@@ -1,0 +1,13 @@
+/******************************************************************************
+ * contextual z-index token — component:sticky-nav
+ * @type {Sass}
+ * the stacking rung for the dashboard's jump-link nav. it sits on the "sticky"
+ * rung — the same affixed-chrome rung as the app header/footer — so the bar
+ * stays above the section content scrolling beneath it once
+ * `position: sticky` catches. consumed as z.$c-sticky-nav via
+ * `@use "Abstracts/z-indexes" as z;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-z-index-tokens" as z;
+
+$sticky-nav: map.get(z.$scale, "sticky") !default;

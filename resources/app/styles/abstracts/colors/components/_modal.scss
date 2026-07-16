@@ -1,0 +1,31 @@
+/******************************************************************************
+ * contextual color tokens — component:modal
+ * @type {Sass}
+ * ported from cantrip.me's $components.modal (its grey/$brand palette keys
+ * match mixtape's 1:1, so the picks carry over unchanged). `title-*` reuses
+ * the brand accent pair for the modal header bar; `footer-*` stays
+ * transparent/canvasText so it just inherits the page's own text colour.
+ * Consumed as c.$c-modal via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$modal: (
+    "backdrop": light-dark(
+            color.adjust(map.get(c.$grey, "white"), $alpha: -0.75),
+            color.adjust(map.get(c.$grey, "black"), $alpha: -0.55)
+        ),
+    "background": hsl(from light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "black")) h s l / 50%),
+    "surface": light-dark(map.get(c.$grey, "black"), map.get(c.$grey, "white")),
+    "border": light-dark(map.get(c.$grey, "charcoal"), map.get(c.$grey, "charcoal")),
+    "title-background": light-dark(map.get(c.$brand, "light1", "color"), map.get(c.$brand, "dark1", "color")),
+    "title-surface": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$brand, "dark1", "contrast")),
+    "close-background-hover": light-dark(
+            color.adjust(map.get(c.$grey, "black"), $alpha: -0.85),
+            color.adjust(map.get(c.$grey, "white"), $alpha: -0.85)
+        ),
+    "footer-background": transparent,
+    "footer-surface": canvasText,
+    "footer-border": light-dark(map.get(c.$grey, "charcoal"), map.get(c.$grey, "charcoal"))
+) !default;

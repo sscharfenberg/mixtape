@@ -1,11 +1,32 @@
 <script setup lang="ts">
+import { onMounted, onUnmounted, ref } from "vue";
 import AppHeaderLogo from "Components/Landmarks/Header/AppHeaderLogo.vue";
 import AppHeaderTitle from "Components/Landmarks/Header/AppHeaderTitle.vue";
 import UserMenu from "Components/Landmarks/Header/UserMenu/UserMenu.vue";
+
+// Publishes the header's real rendered height as `--app-header-height` on the
+// root element, so affixed chrome further down the page (e.g. StickyNav) can
+// pin itself just below the header instead of guessing a height that drifts
+// across breakpoints.
+const headerRef = ref<HTMLElement | null>(null);
+
+onMounted(() => {
+    const setHeightVar = (): void => {
+        if (headerRef.value) {
+            document.documentElement.style.setProperty("--app-header-height", `${headerRef.value.getBoundingClientRect().height}px`);
+        }
+    };
+    setHeightVar();
+
+    const observer = new ResizeObserver(setHeightVar);
+    if (headerRef.value) observer.observe(headerRef.value);
+
+    onUnmounted(() => observer.disconnect());
+});
 </script>
 
 <template>
-    <header class="app-header">
+    <header ref="headerRef" class="app-header">
         <div class="inner">
             <app-header-logo />
             <app-header-title />

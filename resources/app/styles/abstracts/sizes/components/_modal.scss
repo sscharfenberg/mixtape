@@ -1,0 +1,16 @@
+/******************************************************************************
+ * contextual size tokens — component:modal
+ * @type {Sass}
+ * ported from cantrip.me's $components.modal. `max-width` caps the dialog at
+ * the "landscape" breakpoint so it never spans the full width of a large
+ * viewport. consumed as s.$c-modal via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$modal: (
+    "padding": 0.5lh 1rem,
+    "border": map.get(s.$border, "base"),
+    "radius": map.get(s.$radius, "featured"),
+    "max-width": map.get(s.$breakpoints, "landscape")
+) !default;

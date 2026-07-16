@@ -1,0 +1,31 @@
+/******************************************************************************
+ * contextual color tokens — component:sticky-nav
+ * @type {Sass}
+ * ported from cantrip.me's $components.sticky-nav (its grey/$brand palette
+ * keys match mixtape's 1:1, so the picks carry over unchanged). A translucent
+ * glass bar that turns fully opaque once `position: sticky` catches
+ * (`background-sticky` / `border-sticky`); the current-section link is
+ * highlighted with the brand accent pair. Consumed as c.$c-sticky-nav via
+ * `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$sticky-nav: (
+    "background": hsl(from light-dark(map.get(c.$grey, "astral"), map.get(c.$grey, "ebony")) h s l / 25%),
+    "surface": light-dark(map.get(c.$grey, "black"), map.get(c.$grey, "white")),
+    "border-from": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "abbey")),
+    "border-to": light-dark(map.get(c.$grey, "fog"), map.get(c.$grey, "bunker")),
+    "background-sticky": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "black")),
+    "border-sticky": light-dark(
+            color.adjust(map.get(c.$grey, "slate"), $alpha: -0.25),
+            color.adjust(map.get(c.$grey, "charcoal"), $alpha: -0.25)
+        ),
+    "link-background": light-dark(map.get(c.$grey, "mystic"), map.get(c.$grey, "bunker")),
+    "link-surface": light-dark(map.get(c.$grey, "black"), map.get(c.$grey, "white")),
+    "link-background-hover": light-dark(map.get(c.$grey, "infra"), map.get(c.$grey, "abbey")),
+    "link-surface-hover": light-dark(map.get(c.$grey, "black"), map.get(c.$grey, "white")),
+    "link-background-active": light-dark(map.get(c.$brand, "light2", "color"), map.get(c.$brand, "dark1", "contrast")),
+    "link-surface-active": light-dark(map.get(c.$brand, "light2", "contrast"), map.get(c.$brand, "dark1", "color"))
+) !default;

@@ -12,8 +12,8 @@ class DashboardController extends Controller
      * Display the authenticated user's dashboard.
      *
      * The landing page after login (Fortify redirects here — config/fortify.php
-     * → 'home' => '/dashboard'). Stubbed for now; the real dashboard (playlists,
-     * listen history, account settings — mirroring cantrip.me's) lands later.
+     * → 'home' => '/dashboard'). Account settings (profile, password, account
+     * deletion) are in place; playlists / listen history land later.
      */
     public function __invoke(): Response
     {

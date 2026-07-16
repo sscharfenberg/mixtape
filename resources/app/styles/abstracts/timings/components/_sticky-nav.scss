@@ -1,0 +1,10 @@
+/******************************************************************************
+ * contextual timing token — component:sticky-nav
+ * @type {Sass}
+ * the jump-link background/colour hover transition speed. consumed as
+ * ti.$c-sticky-nav via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$sticky-nav: map.get(ti.$timings, "fast") !default;

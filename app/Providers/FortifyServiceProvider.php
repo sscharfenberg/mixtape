@@ -4,8 +4,11 @@ namespace App\Providers;
 
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\EnsureEmailIsVerified;
+use App\Actions\Fortify\UpdateUserPassword;
+use App\Actions\Fortify\UpdateUserProfileInformation;
 use App\Http\Responses\LoginResponse;
 use App\Http\Responses\LogoutResponse;
+use App\Http\Responses\PasswordUpdateResponse;
 use App\Http\Responses\RegisterResponse;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -21,6 +24,7 @@ use Laravel\Fortify\Actions\EnsureLoginIsNotThrottled;
 use Laravel\Fortify\Actions\PrepareAuthenticatedSession;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 use Laravel\Fortify\Contracts\LogoutResponse as LogoutResponseContract;
+use Laravel\Fortify\Contracts\PasswordUpdateResponse as PasswordUpdateResponseContract;
 use Laravel\Fortify\Contracts\RedirectsIfTwoFactorAuthenticatable;
 use Laravel\Fortify\Contracts\RegisterResponse as RegisterResponseContract;
 use Laravel\Fortify\Features;
@@ -51,6 +55,11 @@ class FortifyServiceProvider extends ServiceProvider
         // just-created user back out and sends them to the landing page with a
         // "check your email" toast. See App\Http\Responses\RegisterResponse.
         $this->app->singleton(RegisterResponseContract::class, RegisterResponse::class);
+
+        // Fortify's default password-update response only flashes a plain
+        // `status` session key (no message text) — override it so the
+        // dashboard's password form gets the same toast as login/logout.
+        $this->app->singleton(PasswordUpdateResponseContract::class, PasswordUpdateResponse::class);
     }
 
     /**
@@ -62,6 +71,12 @@ class FortifyServiceProvider extends ServiceProvider
         // POST /register; our action gates creation on a valid one-time invite
         // (App\Models\Invite). Registration is enabled in config/fortify.php.
         Fortify::createUsersUsing(CreateNewUser::class);
+
+        // Backs the dashboard's profile/password forms (App\Http\Controllers\User\
+        // DashboardController). Enabled via Features::updateProfileInformation()/
+        // updatePasswords() in config/fortify.php.
+        Fortify::updateUserProfileInformationUsing(UpdateUserProfileInformation::class);
+        Fortify::updateUserPasswordsUsing(UpdateUserPassword::class);
 
         $this->configureEmailVerification();
         $this->configureLoginPipeline();

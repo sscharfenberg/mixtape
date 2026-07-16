@@ -1,0 +1,10 @@
+/******************************************************************************
+ * contextual timing token — component:modal
+ * @type {Sass}
+ * the open/close backdrop + content transition speed (ported from
+ * cantrip.me). consumed as ti.$c-modal via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$modal: map.get(ti.$timings, "fast") !default;
