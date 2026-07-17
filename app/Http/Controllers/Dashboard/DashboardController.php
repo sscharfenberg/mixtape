@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\User;
+namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
 use Inertia\Inertia;
@@ -17,6 +17,6 @@ class DashboardController extends Controller
      */
     public function __invoke(): Response
     {
-        return Inertia::render('User/DashboardPage');
+        return Inertia::render('Dashboard/DashboardPage');
     }
 }

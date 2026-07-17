@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature\User;
+namespace Tests\Feature\Dashboard;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -25,6 +25,6 @@ class DashboardTest extends TestCase
         $this->actingAs(User::factory()->create())
             ->get('/dashboard')
             ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->component('User/DashboardPage'));
+            ->assertInertia(fn (Assert $page) => $page->component('Dashboard/DashboardPage'));
     }
 }

@@ -14,7 +14,7 @@ import FormLegend from "Components/Form/FormLegend.vue";
 import FormRow from "Components/Form/FormRow.vue";
 import Modal from "Components/Modal/Modal.vue";
 import Icon from "Components/UI/Icon.vue";
-import { useDeleteAccount } from "../../composables/useDeleteAccount";
+import { useDeleteAccount } from "Composables/useDeleteAccount";
 
 const emit = defineEmits<{ close: [] }>();
 const showPassword = ref(false);

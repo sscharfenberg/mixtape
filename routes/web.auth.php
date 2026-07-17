@@ -6,7 +6,7 @@ use App\Http\Controllers\Auth\ForgotController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\ResendVerificationController;
 use App\Http\Controllers\Auth\VerifyEmailController;
-use App\Http\Controllers\User\DeleteAccountController;
+use App\Http\Controllers\Dashboard\DeleteAccountController;
 use App\Http\Middleware\HandleControllerPrecognitiveRequest;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
@@ -112,7 +112,7 @@ Route::post('/password/entropy', EntropyController::class)
     ->name('password.entropy');
 
 /******************************************************************************
- * Dashboard account management (App\Http\Controllers\User\DashboardController)
+ * Dashboard account management (App\Http\Controllers\Dashboard\DashboardController)
  *
  * Profile/password updates go through Fortify's own controllers, which defer
  * to App\Actions\Fortify\UpdateUserProfileInformation / UpdateUserPassword

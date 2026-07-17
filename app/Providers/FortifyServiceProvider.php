@@ -81,7 +81,7 @@ class FortifyServiceProvider extends ServiceProvider
         // (App\Models\Invite). Registration is enabled in config/fortify.php.
         Fortify::createUsersUsing(CreateNewUser::class);
 
-        // Backs the dashboard's profile/password forms (App\Http\Controllers\User\
+        // Backs the dashboard's profile/password forms (App\Http\Controllers\Dashboard\
         // DashboardController). Enabled via Features::updateProfileInformation()/
         // updatePasswords() in config/fortify.php.
         Fortify::updateUserProfileInformationUsing(UpdateUserProfileInformation::class);

@@ -1,13 +1,13 @@
 <?php
 
-namespace Tests\Feature\User;
+namespace Tests\Feature\Dashboard;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Account deletion (DELETE /user/delete, App\Http\Controllers\User\
+ * Account deletion (DELETE /user/delete, App\Http\Controllers\Dashboard\
  * DeleteAccountController). A hard delete with no recovery path — validates
  * the current password, logs the user out, invalidates the session, then
  * deletes the record. JSON requests (the confirmation modal) get a

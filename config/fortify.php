@@ -173,7 +173,7 @@ return [
         // this becomes a one-line flip (plus its routes) when we build that screen.
         // Features::twoFactorAuthentication(['confirm' => true, 'confirmPassword' => true]),
         //
-        // The dashboard's profile/password forms (App\Http\Controllers\User\
+        // The dashboard's profile/password forms (App\Http\Controllers\Dashboard\
         // DashboardController + App\Actions\Fortify\UpdateUserProfileInformation /
         // UpdateUserPassword).
         Features::updateProfileInformation(),

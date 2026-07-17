@@ -12,9 +12,9 @@ import { Head } from "@inertiajs/vue3";
 import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
 import StickyNav from "Components/UI/StickyNav.vue";
-import DashboardPassword from "./components/DashboardPassword.vue";
-import DashboardProfile from "./components/DashboardProfile.vue";
-import DeleteAccount from "./components/Delete/DeleteAccount.vue";
+import DashboardPassword from "./DashboardPassword.vue";
+import DashboardProfile from "./DashboardProfile.vue";
+import DeleteAccount from "./Delete/DeleteAccount.vue";
 
 const navItems = [
     { id: "passwordSection", label: "Passwort" },
