@@ -87,8 +87,11 @@ the same way. Full guide: [`resources/app/styles/abstracts/README.md`](resources
   lighten / darken / saturate / shift (`color.scale`, non-alpha `color.adjust`) — is pre-computed **in the
   global palette** as a named entry and consumed via `light-dark()` / `map.get()`. That's why `$retro`
   stores each hue as a baked `("light": …, "dark": …)` pair and the WCAG-tuned control glow is its own
-  named entry (`c3`), not a per-component re-scale of `c2`. Sizes/z-indexes analogously **pick from a
-  scale** (`map.get($scale, …)`) and only round/step off `$base`.
+  named entry (`c3`), not a per-component re-scale of `c2`. Sizes/z-indexes usually **pick from a
+  scale** (`map.get($scale, …)`) and round/step off `$base` — but, unlike colours, aren't confined to it:
+  a size token may also hold a plain literal (`2rem`) or a CSS keyword (`auto`) when that's what the
+  component actually needs. It's still one named decision in one place; only the **colours** rule is
+  hard (never mint a colour outside the global palette).
 - To give a component/page a colour, size, or z-index, **create a contextual partial**
   (`colors/components/_button.scss`, `sizes/pages/_home.scss`, `z-indexes/components/_main.scss`) that
   `@use`s the globals and **picks/themes** the value (`light-dark()`, `map.get($scale, …)`, opacity-only

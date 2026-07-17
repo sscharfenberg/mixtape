@@ -86,10 +86,13 @@ call site. **The palette is the single source of truth for what a colour _is_; a
 says _which_ colour a thing uses and _how opaque_.** Retuning a hue then happens in exactly one place, and
 "which blue is this?" always has one answer.
 
-The other groups follow the same spirit through their own raw layer: `sizes/` / `z-indexes/` partials
-**pick from a scale** (`map.get(s.$scale, …)`) and at most round or step off `$base` — they never invent a
-magnitude from thin air. The hard, no-exceptions edge is the **colours** rule above: never create a colour
-outside the global palette.
+The other groups follow the same spirit through their own raw layer, but with more latitude: `sizes/` /
+`z-indexes/` partials usually **pick from a scale** (`map.get(s.$scale, …)`) and round or step off `$base`.
+Unlike colours, though, sizes are **not confined to the scale** — a contextual size token may also hold a
+plain **literal** (`"margin": 2rem`) or a CSS **keyword** (`"margin-inline": auto`) where that's what the
+component genuinely needs. That's still one named decision captured in one place — the whole point of a
+token — not a magic number scattered across call sites. The hard, no-exceptions edge is the **colours**
+rule above: never create a colour outside the global palette.
 
 ## Adding a token
 

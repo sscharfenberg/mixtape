@@ -12,7 +12,7 @@
 
     width: 100%;
     max-width: map.get(s.$c-form, "max-width");
-    margin-inline: auto;
+    margin: map.get(s.$c-form, "margin") auto;
 
     gap: map.get(s.$c-form, "gap");
 }
