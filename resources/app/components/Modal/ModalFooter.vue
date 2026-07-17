@@ -11,6 +11,10 @@
     display: flex;
     align-items: center;
 
+    // A lone action hugs the trailing edge; a pair (or more) spreads to both
+    // edges. Consumers just drop their buttons in — no alignment classes needed.
+    justify-content: flex-end;
+
     padding: map.get(s.$c-modal, "padding");
     border-top: map.get(s.$c-modal, "border") solid map.get(c.$c-modal, "footer-border");
     gap: 2ch;
@@ -19,5 +23,9 @@
     color: map.get(c.$c-modal, "footer-surface");
     border-end-end-radius: calc(#{map.get(s.$c-modal, "radius")} - #{map.get(s.$c-modal, "border")});
     border-end-start-radius: calc(#{map.get(s.$c-modal, "radius")} - #{map.get(s.$c-modal, "border")});
+
+    &:has(> :nth-child(2)) {
+        justify-content: space-between;
+    }
 }
 </style>
