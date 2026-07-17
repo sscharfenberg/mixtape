@@ -15,15 +15,15 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'email', 'password', 'two_factor_secret', 'two_factor_recovery_codes', 'two_factor_confirmed_at'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     // HasUuids: the users table uses a uuid primary key (see the create_users_table
     // migration), so Eloquent must generate a UUID on insert instead of relying on
-    // auto-increment. TwoFactorAuthenticatable backs the two_factor_* columns that
-    // already exist on the table; the 2FA feature itself is switched on later.
+    // auto-increment. TwoFactorAuthenticatable backs the two_factor_* columns on the
+    // table and powers the 2FA feature (config/fortify.php → twoFactorAuthentication).
     use HasFactory, HasUuids, Notifiable, TwoFactorAuthenticatable;
 
     /**

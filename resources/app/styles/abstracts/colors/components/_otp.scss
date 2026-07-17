@@ -1,0 +1,27 @@
+/******************************************************************************
+ * contextual color tokens — component:otp
+ * @type {Sass}
+ * ported from cantrip.me's $components.otp — the per-digit boxes of the OTP
+ * input (Components/Form/OTPInput). Each box is a muted input-like cell; the
+ * currently-active box brightens and takes the brand border. Picks from the
+ * global palette only (grey + brand), with opacity-only tweaks per CLAUDE.md's
+ * colour-token rules. Consumed as c.$c-otp via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$otp: (
+    "border": light-dark(
+            color.adjust(map.get(c.$grey, "slate"), $alpha: -0.25),
+            color.adjust(map.get(c.$grey, "charcoal"), $alpha: -0.25)
+        ),
+    "background": light-dark(
+            color.adjust(map.get(c.$grey, "white"), $alpha: -0.5),
+            color.adjust(map.get(c.$grey, "black"), $alpha: -0.5)
+        ),
+    "surface": light-dark(map.get(c.$grey, "abbey"), map.get(c.$grey, "fog")),
+    "background-active": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "black")),
+    "surface-active": light-dark(map.get(c.$grey, "black"), map.get(c.$grey, "white")),
+    "border-active": light-dark(map.get(c.$brand, "dark1", "color"), map.get(c.$brand, "light1", "color"))
+) !default;

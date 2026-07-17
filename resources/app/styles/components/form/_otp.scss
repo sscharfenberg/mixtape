@@ -1,0 +1,70 @@
+/******************************************************************************
+ * .otp — the segmented one-time-code field (Components/Form/OTPInput)
+ * @type {Sass}
+ * Global (not scoped in the .vue) because vue-input-otp renders the container
+ * and the Slots.vue digit boxes outside OTPInput's own style scope, so a scoped
+ * rule never reaches them. Loaded into the `components` cascade layer via the
+ * form barrel (components/_index.scss → app.scss). The container mirrors
+ * .form-input's frame (c.$c-input / s.$c-input); the per-digit boxes use the
+ * c.$c-otp / s.$c-otp tokens. The focus transition is opt-in under
+ * prefers-reduced-motion per the project's motion rule.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/colors" as c;
+@use "Abstracts/sizes" as s;
+@use "Abstracts/timings" as ti;
+
+.otp {
+    display: flex;
+
+    width: 100%;
+    padding: 0.5ex 4ch 0.5ex 2ch;
+    border: map.get(s.$c-input, "border") solid map.get(c.$c-input, "border");
+    gap: 0.5ch;
+
+    background-color: map.get(c.$c-input, "background");
+    color: map.get(c.$c-input, "surface");
+    border-radius: map.get(s.$c-input, "radius");
+
+    @media (prefers-reduced-motion: no-preference) {
+        transition:
+            background-color ti.$c-input,
+            color ti.$c-input,
+            border-color ti.$c-input;
+    }
+
+    &:focus-within {
+        background-color: map.get(c.$c-input, "background-focus");
+        color: map.get(c.$c-input, "surface-focus");
+        border-color: map.get(c.$c-input, "border-focus");
+    }
+
+    &__char {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        width: 4ch;
+        min-height: calc(#{map.get(s.$c-otp, "line-height")} + 2 * #{map.get(s.$c-otp, "border")});
+        padding: map.get(s.$c-otp, "padding");
+        border: map.get(s.$c-otp, "border") solid map.get(c.$c-otp, "border");
+
+        background-color: map.get(c.$c-otp, "background");
+        color: map.get(c.$c-otp, "surface");
+        border-radius: map.get(s.$c-otp, "radius");
+
+        line-height: map.get(s.$c-otp, "line-height");
+
+        &--active {
+            background-color: map.get(c.$c-otp, "background-active");
+            color: map.get(c.$c-otp, "surface-active");
+            border-color: map.get(c.$c-otp, "border-active");
+        }
+    }
+
+    // vue-input-otp sets an inline width on its hidden input; span the container
+    // so paste / focus covers the whole field.
+    [data-input-otp] {
+        width: 100% !important;
+    }
+}

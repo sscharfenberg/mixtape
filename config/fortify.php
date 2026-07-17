@@ -168,10 +168,13 @@ return [
         // ForgotController + NewPasswordController) is enabled.
         Features::resetPasswords(),
         //
-        // Deferred until the account / 2FA management UI lands. The DB columns and
-        // the User model's TwoFactorAuthenticatable trait are already in place so
-        // this becomes a one-line flip (plus its routes) when we build that screen.
-        // Features::twoFactorAuthentication(['confirm' => true, 'confirmPassword' => true]),
+        // Two-factor auth (opt-in per user, never forced — CLAUDE.md → Auth &
+        // sharing). 'confirm' requires the user to verify a TOTP code before
+        // enrollment completes; 'confirmPassword' gates every 2FA management
+        // route behind a fresh password confirmation (POST /confirm-password →
+        // App\Http\Controllers\Auth\ConfirmPasswordController). Routes are declared
+        // explicitly in routes/web.auth.php (Fortify::ignoreRoutes() is on).
+        Features::twoFactorAuthentication(['confirm' => true, 'confirmPassword' => true]),
         //
         // The dashboard's profile/password forms (App\Http\Controllers\Dashboard\
         // DashboardController + App\Actions\Fortify\UpdateUserProfileInformation /

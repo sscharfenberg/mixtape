@@ -4,9 +4,9 @@
  * The authenticated user's landing page — Fortify redirects here after login
  * (config/fortify.php → 'home' => '/dashboard'; route named 'dashboard', behind
  * the `auth` middleware). Ported from cantrip.me's Dashboard/Dashboard: a
- * StickyNav jump-nav plus one section per settings area. Card-game-only
- * sections (deck view/sort, collection integration) and 2FA management have
- * no MixTape equivalent yet / land separately.
+ * StickyNav jump-nav plus one section per settings area (password, profile,
+ * two-factor auth, account deletion). Card-game-only sections (deck view/sort,
+ * collection integration) have no MixTape equivalent yet.
  *****************************************************************************/
 import { Head } from "@inertiajs/vue3";
 import Headline from "Components/UI/Headline.vue";
@@ -15,10 +15,12 @@ import StickyNav from "Components/UI/StickyNav.vue";
 import DashboardPassword from "./DashboardPassword.vue";
 import DashboardProfile from "./DashboardProfile.vue";
 import DeleteAccount from "./Delete/DeleteAccount.vue";
+import TwoFactor from "./TwoFactor/TwoFactor.vue";
 
 const navItems = [
     { id: "passwordSection", label: "Passwort" },
     { id: "profileSection", label: "Profil" },
+    { id: "twoFactorSection", label: "Zwei-Faktor" },
     { id: "deleteSection", label: "Benutzerkonto löschen" }
 ];
 </script>
@@ -36,5 +38,6 @@ const navItems = [
 
     <dashboard-password align="right" />
     <dashboard-profile align="left" />
-    <delete-account align="right" />
+    <two-factor align="right" />
+    <delete-account align="left" />
 </template>

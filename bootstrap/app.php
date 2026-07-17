@@ -18,12 +18,18 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        // Render exceptions (notably validation errors) as JSON for api/* paths
-        // and for Inertia Precognition requests. Precognition needs the 422 JSON
-        // body to drive the register form's live field validation; ordinary
-        // Inertia form posts stay non-JSON so validation errors come back as a
-        // redirect-with-session-errors, which is what Inertia expects.
+        // Render exceptions (notably validation errors) as JSON for api/* paths,
+        // for Inertia Precognition requests, and for any request that explicitly
+        // asks for JSON via Accept: application/json. Precognition needs the 422
+        // JSON body to drive live field validation; the fetch()-based flows (the
+        // 2FA login challenge and the JSON login handshake in useLogin.ts) need a
+        // 422 so they can surface errors inline instead of following a redirect.
+        // Ordinary Inertia form posts send Accept: text/html (wantsJson() is
+        // false), so they still come back as a redirect-with-session-errors, which
+        // is what Inertia expects.
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*') || $request->isAttemptingPrecognition(),
+            fn (Request $request) => $request->is('api/*')
+                || $request->isAttemptingPrecognition()
+                || $request->wantsJson(),
         );
     })->create();

@@ -6,6 +6,7 @@
  * consumed as s.$c-button via `@use "Abstracts/sizes" as s;`.
  *****************************************************************************/
 @forward "app";
+@forward "badge";
 @forward "button";
 @forward "checkbox";
 @forward "error";
@@ -18,6 +19,7 @@
 @forward "input";
 @forward "legend";
 @forward "modal";
+@forward "otp";
 @forward "password-strength";
 @forward "popover";
 @forward "sticky-nav";

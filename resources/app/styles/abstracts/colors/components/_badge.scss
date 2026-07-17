@@ -1,0 +1,72 @@
+/******************************************************************************
+ * contextual color tokens — component:badge
+ * @type {Sass}
+ * the status pill (Components/UI/Badge) — used by the dashboard's two-factor
+ * section to show enabled (success) / disabled (warning) state. Each variant
+ * recolours from the shared $state map with an alpha-only tweak (per CLAUDE.md's
+ * colour-token rules — no new hue is minted here): a near-solid state fill with
+ * its designed contrast text, plus a softer border of the same hue. Consumed as
+ * c.$c-badge via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$badge: (
+    "success": (
+        "background": light-dark(
+                color.adjust(map.get(c.$state, "light", "success", "color"), $alpha: -0.15),
+                color.adjust(map.get(c.$state, "dark", "success", "color"), $alpha: -0.15)
+            ),
+        "surface": light-dark(
+                map.get(c.$state, "light", "success", "contrast"),
+                map.get(c.$state, "dark", "success", "contrast")
+            ),
+        "border": light-dark(
+                color.adjust(map.get(c.$state, "light", "success", "color"), $alpha: -0.3),
+                color.adjust(map.get(c.$state, "dark", "success", "color"), $alpha: -0.3)
+            )
+    ),
+    "warning": (
+        "background": light-dark(
+                color.adjust(map.get(c.$state, "light", "warning", "color"), $alpha: -0.15),
+                color.adjust(map.get(c.$state, "dark", "warning", "color"), $alpha: -0.15)
+            ),
+        "surface": light-dark(
+                map.get(c.$state, "light", "warning", "contrast"),
+                map.get(c.$state, "dark", "warning", "contrast")
+            ),
+        "border": light-dark(
+                color.adjust(map.get(c.$state, "light", "warning", "color"), $alpha: -0.3),
+                color.adjust(map.get(c.$state, "dark", "warning", "color"), $alpha: -0.3)
+            )
+    ),
+    "error": (
+        "background": light-dark(
+                color.adjust(map.get(c.$state, "light", "error", "color"), $alpha: -0.15),
+                color.adjust(map.get(c.$state, "dark", "error", "color"), $alpha: -0.15)
+            ),
+        "surface": light-dark(
+                map.get(c.$state, "light", "error", "contrast"),
+                map.get(c.$state, "dark", "error", "contrast")
+            ),
+        "border": light-dark(
+                color.adjust(map.get(c.$state, "light", "error", "color"), $alpha: -0.3),
+                color.adjust(map.get(c.$state, "dark", "error", "color"), $alpha: -0.3)
+            )
+    ),
+    "caution": (
+        "background": light-dark(
+                color.adjust(map.get(c.$state, "light", "caution", "color"), $alpha: -0.15),
+                color.adjust(map.get(c.$state, "dark", "caution", "color"), $alpha: -0.15)
+            ),
+        "surface": light-dark(
+                map.get(c.$state, "light", "caution", "contrast"),
+                map.get(c.$state, "dark", "caution", "contrast")
+            ),
+        "border": light-dark(
+                color.adjust(map.get(c.$state, "light", "caution", "color"), $alpha: -0.3),
+                color.adjust(map.get(c.$state, "dark", "caution", "color"), $alpha: -0.3)
+            )
+    )
+) !default;

@@ -1,0 +1,16 @@
+/******************************************************************************
+ * contextual size tokens — component:badge
+ * @type {Sass}
+ * ported from cantrip.me's $components.badge — the status pill
+ * (Components/UI/Badge). consumed as s.$c-badge via
+ * `@use "Abstracts/sizes" as s;`. padding is a literal (what the pill needs);
+ * border/radius step off the global scale.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$badge: (
+    "padding": 0.3rem 0.5rem,
+    "border": map.get(s.$border, "base"),
+    "radius": map.get(s.$radius, "featured")
+) !default;

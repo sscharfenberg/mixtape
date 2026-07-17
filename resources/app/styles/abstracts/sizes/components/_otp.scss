@@ -1,0 +1,16 @@
+/******************************************************************************
+ * contextual size tokens — component:otp
+ * @type {Sass}
+ * ported from cantrip.me's $components.otp — the per-digit boxes of the OTP
+ * input (Components/Form/OTPInput). consumed as s.$c-otp via
+ * `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$otp: (
+    "padding": 0,
+    "radius": map.get(s.$radius, "base"),
+    "border": map.get(s.$border, "base"),
+    "line-height": map.get(s.$icons, "medium")
+) !default;

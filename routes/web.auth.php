@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Auth\ConfirmPasswordController;
 use App\Http\Controllers\Auth\EntropyController;
 use App\Http\Controllers\Auth\ForgotController;
 use App\Http\Controllers\Auth\NewPasswordController;
@@ -11,9 +12,15 @@ use App\Http\Middleware\HandleControllerPrecognitiveRequest;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\Http\Controllers\AuthenticatedSessionController;
+use Laravel\Fortify\Http\Controllers\ConfirmedTwoFactorAuthenticationController;
 use Laravel\Fortify\Http\Controllers\PasswordController;
 use Laravel\Fortify\Http\Controllers\ProfileInformationController;
+use Laravel\Fortify\Http\Controllers\RecoveryCodeController;
 use Laravel\Fortify\Http\Controllers\RegisteredUserController;
+use Laravel\Fortify\Http\Controllers\TwoFactorAuthenticatedSessionController;
+use Laravel\Fortify\Http\Controllers\TwoFactorAuthenticationController;
+use Laravel\Fortify\Http\Controllers\TwoFactorQrCodeController;
+use Laravel\Fortify\Http\Controllers\TwoFactorSecretKeyController;
 
 /******************************************************************************
  * Authentication routes
@@ -139,3 +146,55 @@ Route::middleware(['auth', HandleControllerPrecognitiveRequest::class])->group(f
 Route::delete('/user/delete', [DeleteAccountController::class, 'destroy'])
     ->middleware(['auth', 'throttle:6,1'])
     ->name('user.delete');
+
+/******************************************************************************
+ * Two-factor authentication (opt-in per user — config/fortify.php)
+ *
+ * Fortify::ignoreRoutes() is on, so its 2FA endpoints are declared here
+ * explicitly, all pointing at Fortify's own controllers. The login-time
+ * challenge is guest-only (the user isn't authenticated yet — Fortify holds the
+ * pending login id in the session). Every management endpoint is `auth` and —
+ * because the feature's 'confirmPassword' option is on — additionally behind
+ * Fortify's `password.confirm` middleware, fed by POST /confirm-password (an
+ * app-owned ConfirmPasswordController that marks the session password-confirmed
+ * for JSON requests). The frontend (useTwoFactorAuth) confirms the password
+ * first, then fires the real management request.
+ *****************************************************************************/
+if (Features::enabled(Features::twoFactorAuthentication())) {
+    // Complete a login that paused for a 2FA challenge. Throttled per pending
+    // login id via the `two-factor` limiter (FortifyServiceProvider).
+    Route::post('/two-factor-challenge', [TwoFactorAuthenticatedSessionController::class, 'store'])
+        ->middleware(['guest', 'throttle:two-factor'])
+        ->name('two-factor.login.store');
+
+    // Fresh password confirmation for the management routes below. JSON only
+    // (the 2FA composable posts here via fetch); marks the session confirmed so
+    // the `password.confirm` middleware passes on the request that follows.
+    Route::post('/confirm-password', [ConfirmPasswordController::class, 'store'])
+        ->middleware(['auth', 'throttle:6,1'])
+        ->name('password.confirm');
+
+    // Management: enable / disable / confirm enrollment, the QR + secret-key
+    // fetched during setup, and viewing / regenerating recovery codes. Gated by
+    // `password.confirm` whenever the feature's confirmPassword option is on.
+    $twoFactorMiddleware = Features::optionEnabled(Features::twoFactorAuthentication(), 'confirmPassword')
+        ? ['auth', 'password.confirm']
+        : ['auth'];
+
+    Route::middleware($twoFactorMiddleware)->group(function () {
+        Route::post('/user/two-factor-authentication', [TwoFactorAuthenticationController::class, 'store'])
+            ->name('two-factor.enable');
+        Route::delete('/user/two-factor-authentication', [TwoFactorAuthenticationController::class, 'destroy'])
+            ->name('two-factor.disable');
+        Route::post('/user/confirmed-two-factor-authentication', [ConfirmedTwoFactorAuthenticationController::class, 'store'])
+            ->name('two-factor.confirm');
+        Route::get('/user/two-factor-qr-code', [TwoFactorQrCodeController::class, 'show'])
+            ->name('two-factor.qr-code');
+        Route::get('/user/two-factor-secret-key', [TwoFactorSecretKeyController::class, 'show'])
+            ->name('two-factor.secret-key');
+        Route::get('/user/two-factor-recovery-codes', [RecoveryCodeController::class, 'index'])
+            ->name('two-factor.recovery-codes');
+        Route::post('/user/two-factor-recovery-codes', [RecoveryCodeController::class, 'store'])
+            ->name('two-factor.regenerate-recovery-codes');
+    });
+}

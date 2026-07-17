@@ -53,6 +53,7 @@ class HandleInertiaRequests extends Middleware
                 'registration' => Features::enabled(Features::registration()),
                 'resetPasswords' => Features::enabled(Features::resetPasswords()),
                 'emailVerification' => Features::enabled(Features::emailVerification()),
+                'twoFactorAuthentication' => Features::enabled(Features::twoFactorAuthentication()),
             ],
             // Session flash bridged into the Vue toast (see ToastContainer.vue).
             // `nonce` is a fresh per-response token whenever a message exists, so
