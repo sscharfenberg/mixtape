@@ -1,0 +1,26 @@
+/******************************************************************************
+ * contextual color tokens — component:progress-bar
+ * @type {Sass}
+ * The top-of-viewport request progress bar (@sscharfenberg/progressbar, wired to
+ * Inertia's router in main.ts). `track` is the frosted rail; `bar` is the neon
+ * fill (retro c2 — the brand blue); `stripes` is the translucent-white overlay
+ * that gives the animated barber-pole; `shadow` lifts the rail off the page.
+ * Picks from the global palette only, with opacity-only tweaks (CLAUDE.md
+ * colour rules). Consumed as c.$c-progress-bar via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$progress-bar: (
+    "track": light-dark(
+            color.adjust(map.get(c.$grey, "white"), $alpha: -0.25),
+            color.adjust(map.get(c.$grey, "bunker"), $alpha: -0.05)
+        ),
+    "bar": light-dark(map.get(c.$retro, "c2", "light"), map.get(c.$retro, "c2", "dark")),
+    "stripes": color.adjust(map.get(c.$grey, "white"), $alpha: -0.85),
+    "shadow": light-dark(
+            color.adjust(map.get(c.$grey, "black"), $alpha: -0.93),
+            color.adjust(map.get(c.$grey, "white"), $alpha: -0.93)
+        )
+) !default;

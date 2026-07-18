@@ -1,0 +1,14 @@
+/******************************************************************************
+ * contextual size tokens — component:progress-bar
+ * @type {Sass}
+ * The top-of-viewport request progress bar (@sscharfenberg/progressbar). A slim
+ * fixed-height rail; `radius` rounds the bar's leading edge as it grows.
+ * Consumed as s.$c-progress-bar via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$progress-bar: (
+    "height": 8px,
+    "radius": map.get(s.$radius, "base")
+) !default;

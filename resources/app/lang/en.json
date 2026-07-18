@@ -8,6 +8,7 @@
         "availableOptions": "Available options",
         "notifications": "Notifications",
         "passwordStrength": "Password strength",
+        "loadingProgress": "Loading progress",
         "requiredFieldsHint": "Fields marked with {icon} are required."
     },
     "header": {

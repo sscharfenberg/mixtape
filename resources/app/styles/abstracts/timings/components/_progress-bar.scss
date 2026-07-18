@@ -1,0 +1,15 @@
+/******************************************************************************
+ * contextual timing tokens — component:progress-bar
+ * @type {Sass}
+ * The top-of-viewport request progress bar (@sscharfenberg/progressbar). `width`
+ * eases the bar as its value changes; `stripes` is the barber-pole loop. Both
+ * only run under `prefers-reduced-motion: no-preference` (see the style partial).
+ * Consumed as ti.$c-progress-bar via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$progress-bar: (
+    "width": map.get(ti.$timings, "fast"),
+    "stripes": map.get(ti.$timings, "glacial")
+) !default;

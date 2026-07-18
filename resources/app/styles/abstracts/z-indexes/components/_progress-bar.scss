@@ -1,0 +1,12 @@
+/******************************************************************************
+ * contextual z-index token — component:progress-bar
+ * @type {Sass}
+ * The top-of-viewport request progress bar (@sscharfenberg/progressbar) sits on
+ * the dedicated "progress" rung — above the sticky header/overlays but below
+ * modals — so it is always visible during a navigation. Consumed as
+ * z.$c-progress-bar via `@use "Abstracts/z-indexes" as z;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-z-index-tokens" as z;
+
+$progress-bar: map.get(z.$scale, "progress") !default;

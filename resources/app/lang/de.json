@@ -8,6 +8,7 @@
         "availableOptions": "Verfügbare Optionen",
         "notifications": "Benachrichtigungen",
         "passwordStrength": "Passwortstärke",
+        "loadingProgress": "Ladefortschritt",
         "requiredFieldsHint": "Felder, die mit einem {icon} gekennzeichnet sind, müssen ausgefüllt werden."
     },
     "header": {

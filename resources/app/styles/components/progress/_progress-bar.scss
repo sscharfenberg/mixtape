@@ -1,0 +1,68 @@
+/******************************************************************************
+ * .progressbar — top-of-viewport request progress bar
+ * @type {Sass}
+ * Styles for @sscharfenberg/progressbar (wired to Inertia's router in main.ts).
+ * The package injects `<div class="progressbar"><div class="progressbar__bar">`
+ * and drives `--bar-percentage` on the bar; we only theme it — so this replaces
+ * the package's own progressbar.css. Colours/sizes/timings come from tokens, and
+ * per the project's motion rule the width transition and barber-pole animation
+ * are opt-in under `prefers-reduced-motion: no-preference` (the package ships
+ * them unconditionally). Loaded into the `components` cascade layer via the
+ * barrel (progress/_index.scss → components/_index.scss → app.scss).
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/colors" as c;
+@use "Abstracts/sizes" as s;
+@use "Abstracts/timings" as ti;
+@use "Abstracts/z-indexes" as z;
+
+.progressbar {
+    position: fixed;
+    inset: 0 0 auto;
+    z-index: z.$c-progress-bar;
+
+    box-sizing: border-box;
+    width: 100%;
+    height: map.get(s.$c-progress-bar, "height");
+
+    background: map.get(c.$c-progress-bar, "track");
+    box-shadow: 0 1px 4px map.get(c.$c-progress-bar, "shadow");
+
+    &__bar {
+        --bar-percentage: 10%;
+
+        width: var(--bar-percentage);
+        height: 100%;
+
+        background: map.get(c.$c-progress-bar, "bar")
+            linear-gradient(
+                135deg,
+                map.get(c.$c-progress-bar, "stripes") 25%,
+                transparent 25%,
+                transparent 50%,
+                map.get(c.$c-progress-bar, "stripes") 50%,
+                map.get(c.$c-progress-bar, "stripes") 75%,
+                transparent 75%,
+                transparent
+            );
+        background-size: 40px 40px;
+        border-radius: 0 map.get(s.$c-progress-bar, "radius") map.get(s.$c-progress-bar, "radius") 0;
+
+        // Motion is opt-in (project rule): a reduced-motion user gets a static
+        // fill that still resizes instantly — no barber-pole, no width easing.
+        @media (prefers-reduced-motion: no-preference) {
+            animation: progressbar-stripes map.get(ti.$c-progress-bar, "stripes") linear infinite;
+            transition: width map.get(ti.$c-progress-bar, "width") linear;
+        }
+    }
+}
+
+@keyframes progressbar-stripes {
+    from {
+        background-position: 40px 0;
+    }
+
+    to {
+        background-position: 0 0;
+    }
+}
