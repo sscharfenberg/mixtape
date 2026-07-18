@@ -33,3 +33,8 @@ Thumbs.db
 *.local.md
 # Claude Code local/personal settings.
 .claude/settings.local.json
+
+# Home-infrastructure / ops docs — never tracked (see CLAUDE.md -> Docs).
+docs/server-requirements.md
+docs/phase-2-go-live.md
+docs/deploy/

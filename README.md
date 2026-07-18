@@ -12,7 +12,7 @@ new stack.
 
 - **Phase 1 — server** ✅ Done. A fresh, hardened Debian host running
   PostgreSQL 17 / php-fpm 8.4 / nginx / Samba, with TLS and the media collection
-  restored. See [`docs/server-requirements.md`](docs/server-requirements.md).
+  restored. Server docs are kept out of this repo (see `CLAUDE.md` → *Docs*).
 - **Phase 2 — app rewrite** 🚧 In progress. Inertia v3 + Vue 3 + TypeScript,
   composables-first, with Fortify auth and invite-only onboarding. See
   [`docs/app-rewrite.md`](docs/app-rewrite.md).
@@ -40,9 +40,6 @@ Two-factor auth is available but never forced.
   features, access model.
 - [`docs/artisan-commands.md`](docs/artisan-commands.md) — project-specific
   `app:*` artisan commands.
-- [`docs/server-requirements.md`](docs/server-requirements.md) — server
-  requirements & design.
-- [`docs/phase-2-go-live.md`](docs/phase-2-go-live.md) — the go-live runbook.
 - [`CLAUDE.md`](CLAUDE.md) — steering context & conventions (frontend lint, page
   structure, design tokens, motion).
 

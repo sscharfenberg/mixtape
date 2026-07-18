@@ -19,10 +19,10 @@ this repo starts clean.
 
 1. ✅ **Rebuild debbie** — **DONE & verified 2026-06-28.** Fresh Debian on plain LVM (large `/var`),
    hardened, services up (PostgreSQL 17 / php-fpm 8.4 / nginx / Samba), collection restored, PoC proven.
-   Spec + design in [`docs/server-requirements.md`](docs/server-requirements.md).
+   Spec + design in `../mixtape-ops/server-requirements.md` (**untracked**, see *Docs*).
 2. ⬜ **Rewrite the app** — **NEXT.** New design; Inertia v3 instead of the REST API; composables-first
    Vue + TS. See [`docs/app-rewrite.md`](docs/app-rewrite.md); public go-live in
-   [`docs/phase-2-go-live.md`](docs/phase-2-go-live.md).
+   `../mixtape-ops/phase-2-go-live.md` (**untracked**).
 
 Phase 1 was done first — no point deploying new app code onto the old host.
 
@@ -111,12 +111,24 @@ runs *much slower by default* and only switches to the lively duration under `no
 
 ## Docs
 
-**Server (Phase 1 — built):**
+> **Home-infrastructure docs are deliberately NOT git-tracked.** This repo is public and documents
+> the *app*, not how one home server was built. Anything describing debbie — host spec, network,
+> exposure, deploy procedure — lives in the **`../mixtape-ops/`** sibling folder (untracked, alongside
+> the legacy `../MixTape` clone). Don't move it back in, and don't add host names, LAN addresses, or
+> server runbooks to tracked files.
 
-- [`docs/server-requirements.md`](docs/server-requirements.md) — **server requirements & design** (role, hardware, OS, LVM, stack, network/exposure, security, backups + the *why*). Safe to commit.
-- `docs/debbie-infrastructure.local.md` — **LOCAL / gitignored**: the *concrete* live box (LAN topology, disks, services, secret **locations**). Read this for the real values.
+**Server / operations (untracked — `../mixtape-ops/`):**
+
+- `server-requirements.md` — server requirements & design (role, hardware, OS, LVM, stack,
+  network/exposure, security, backups + the *why*).
+- `phase-2-go-live.md` — ordered **go-live runbook**: TLS, real-domain CNAME→DynDNS, Mailtrap +
+  SPF/DKIM/DMARC, router forward + firewall widen, backup alerting. **Auth must be in force before
+  any exposure.**
+- `RUNBOOK-step0.md` + `mixtape.prod.nginx.conf` / `mixtape-prod.pool.conf` / `env.prod.template` /
+  `mixtape-deploy.sudoers` / `mixtape-prod-deploy.sh` — how the production site is built and deployed.
+- `docs/debbie-infrastructure.local.md` — still in `docs/` but **gitignored** (`*.local.md`): the
+  *concrete* live box (LAN topology, disks, services, secret **locations**).
 
 **App (Phase 2 — next):**
 
 - [`docs/app-rewrite.md`](docs/app-rewrite.md) — the rewrite: stack, goals, features, access model, legacy map.
-- [`docs/phase-2-go-live.md`](docs/phase-2-go-live.md) — ordered **go-live runbook**: Let's Encrypt TLS, real-domain CNAME→DynDNS, Mailtrap + SPF/DKIM/DMARC, Fritzbox forward + firewall widen, backup alerting. **Auth must be in force before any exposure.**

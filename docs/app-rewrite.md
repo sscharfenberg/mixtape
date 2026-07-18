@@ -1,7 +1,7 @@
 # Application rewrite (Phase 2)
 
-> Phase 2 of MixTape v2. See [../CLAUDE.md](../CLAUDE.md) for the overview and
-> [server-requirements.md](server-requirements.md) for the host it deploys to.
+> Phase 2 of MixTape v2. See [../CLAUDE.md](../CLAUDE.md) for the overview. Docs for the host it
+> deploys to are kept outside this repo — see [../CLAUDE.md](../CLAUDE.md) → *Docs*.
 
 The legacy app (`../MixTape`) is already Laravel 12 + Vue 3.5 + TypeScript — but it's a **REST API**
 consumed by a **separate Vue-Router SPA**. The rewrite changes the **architecture** (Inertia instead of
@@ -95,8 +95,8 @@ Rules:
   **revocable** at any time.
 - **Transactional mail** (Fortify password resets, email verification, invite links) is sent through a
   relay — **Mailtrap** (free tier, as on `cantrip.me`) — **never** from debbie's dynamic residential IP.
-  Deliverability relies on **SPF/DKIM/DMARC TXT records on the real domain**; see
-  [phase-2-go-live.md](phase-2-go-live.md) for the domain/DNS + mail setup.
+  Deliverability relies on **SPF/DKIM/DMARC TXT records on the real domain**; the domain/DNS + mail
+  setup lives in the untracked go-live runbook (see [../CLAUDE.md](../CLAUDE.md) → *Docs*).
 
 ## What to preserve from the legacy app (port behaviour, not architecture)
 
