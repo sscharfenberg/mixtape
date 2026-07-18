@@ -10,7 +10,8 @@ use Illuminate\Notifications\Messages\MailMessage;
  * from cantrip.me).
  *
  * Overrides Laravel's default ResetPassword notification to use MixTape's own
- * (German) copy. The reset URL still resolves via the default `password.reset`
+ * copy, resolved via the i18n lang files (mail.*) in the recipient's locale
+ * (User implements HasLocalePreference). The reset URL still resolves via the default `password.reset`
  * named route (routes/web.auth.php), which NewPasswordController::show expects
  * as `email`/`token` query parameters.
  */
@@ -24,12 +25,12 @@ class PasswordResetLinkNotification extends ResetPassword
     protected function buildMailMessage($url): MailMessage
     {
         return (new MailMessage)
-            ->subject('Passwort zurücksetzen')
-            ->greeting('Hallo!')
-            ->line('Du erhältst diese E-Mail, weil wir eine Anfrage zum Zurücksetzen des Passwortes für dein Konto erhalten haben.')
-            ->action('Passwort zurücksetzen', $url)
-            ->line('Dieser Link zum Zurücksetzen des Passwortes läuft in '.config('auth.passwords.'.config('auth.defaults.passwords').'.expire').' Minuten ab.')
-            ->line('Wenn du kein Zurücksetzen des Passwortes angefordert hast, ist keine weitere Aktion erforderlich.')
-            ->salutation("Mit freundlichen Grüßen,\nDas Team von MixTape");
+            ->subject(__('mail.reset_password.subject'))
+            ->greeting(__('mail.greeting'))
+            ->line(__('mail.reset_password.line_1'))
+            ->action(__('mail.reset_password.action'), $url)
+            ->line(__('mail.reset_password.line_expires', ['count' => config('auth.passwords.'.config('auth.defaults.passwords').'.expire')]))
+            ->line(__('mail.reset_password.line_2'))
+            ->salutation(__('mail.salutation'));
     }
 }

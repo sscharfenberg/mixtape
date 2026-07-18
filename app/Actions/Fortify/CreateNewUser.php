@@ -65,7 +65,7 @@ class CreateNewUser implements CreatesNewUsers
 
             if ($invite === null) {
                 throw ValidationException::withMessages([
-                    'code' => 'Dieser Einladungslink ist ungültig oder abgelaufen.',
+                    'code' => __('rules.invite_invalid'),
                 ]);
             }
 

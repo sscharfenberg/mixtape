@@ -11,7 +11,10 @@
  * ti.$c-password-strength).
  *****************************************************************************/
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import Icon from "Components/UI/Icon.vue";
+
+const { t } = useI18n();
 
 const props = defineProps<{
     /** zxcvbn strength score, 0 (weakest) – 4 (strongest). */
@@ -34,7 +37,7 @@ const strong = computed(() => props.score >= 3);
             aria-valuemin="0"
             aria-valuemax="4"
             :aria-valuenow="score"
-            aria-label="Passwortstärke"
+            :aria-label="t('common.passwordStrength')"
         >
             <div class="password-strength__cover" :style="{ width: coverWidth }" />
         </div>

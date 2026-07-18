@@ -8,6 +8,7 @@
  * section swaps back to TwoFactorDisabled.
  *****************************************************************************/
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import Button from "Components/Form/Button.vue";
 import FormInput from "Components/Form/FormInput.vue";
 import FormLegend from "Components/Form/FormLegend.vue";
@@ -27,6 +28,8 @@ withDefaults(
     }
 );
 
+const { t } = useI18n();
+
 const { processing, validationErrors, requiresPasswordConfirmation, disableTwoFactor } = useTwoFactorAuth();
 
 const password = ref("");
@@ -43,22 +46,24 @@ const legendItems = computed(() => {
 <template>
     <two-factor-recovery-codes :align="align" />
 
-    <headline :size="4" glow :align="align">Zwei-Faktor Authentifizierung deaktivieren</headline>
+    <headline :size="4" glow :align="align">{{ t("dashboard.twoFactor.enabled.headline") }}</headline>
 
     <form class="form" novalidate @submit.prevent="disableTwoFactor(password)">
         <form-legend :items="legendItems">
             <template #intro>
-                Gib dein Passwort ein, um die Zwei-Faktor Authentifizierung zu deaktivieren.
+                {{ t("dashboard.twoFactor.enabled.intro") }}
             </template>
             <template #required>
-                Felder, die mit einem <icon name="required" /> gekennzeichnet sind, müssen ausgefüllt werden.
+                <i18n-t keypath="common.requiredFieldsHint" scope="global">
+                    <template #icon><icon name="required" /></template>
+                </i18n-t>
             </template>
         </form-legend>
 
         <form-row
             v-if="requiresPasswordConfirmation"
             for-id="disable-password"
-            label="Passwort"
+            :label="t('dashboard.twoFactor.passwordLabel')"
             :error="validationErrors.password ?? ''"
             :invalid="!!validationErrors.password"
             :required="true"
@@ -75,12 +80,12 @@ const legendItems = computed(() => {
                 <button
                     type="button"
                     tabindex="-1"
-                    :aria-label="showPassword ? 'Passwort verbergen' : 'Passwort anzeigen'"
+                    :aria-label="showPassword ? t('common.hidePassword') : t('common.showPassword')"
                     @mousedown.prevent
                     @click="showPassword = !showPassword"
                 >
                     <icon :name="showPassword ? 'visibility-off' : 'visibility-on'" />
-                    <span>{{ showPassword ? "Verbergen" : "Anzeigen" }}</span>
+                    <span>{{ showPassword ? t("common.hide") : t("common.show") }}</span>
                 </button>
             </template>
         </form-row>
@@ -88,7 +93,7 @@ const legendItems = computed(() => {
         <form-row>
             <Button variant="primary" type="submit" :disabled="processing">
                 <icon name="security" :size="1" />
-                <span>{{ processing ? "Wird deaktiviert …" : "2FA deaktivieren" }}</span>
+                <span>{{ processing ? t("dashboard.twoFactor.enabled.submitting") : t("dashboard.twoFactor.enabled.submit") }}</span>
             </Button>
         </form-row>
     </form>

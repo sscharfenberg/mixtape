@@ -1,0 +1,191 @@
+{
+    "common": {
+        "close": "Close",
+        "show": "Show",
+        "hide": "Hide",
+        "showPassword": "Show password",
+        "hidePassword": "Hide password",
+        "availableOptions": "Available options",
+        "notifications": "Notifications",
+        "passwordStrength": "Password strength",
+        "requiredFieldsHint": "Fields marked with {icon} are required."
+    },
+    "header": {
+        "userMenu": {
+            "nav": "User menu",
+            "open": "Open user menu",
+            "login": "Sign in",
+            "loginHelp": "Trouble signing in?",
+            "dashboard": "Dashboard",
+            "logout": "Sign out"
+        },
+        "language": {
+            "label": "Language"
+        },
+        "theme": {
+            "label": "Colour theme",
+            "dark": "Dark",
+            "light": "Light",
+            "system": "System"
+        },
+        "logoAlt": "{appName} logo"
+    },
+    "footer": {
+        "copyright": "© {appName} contributors {date} · {version}"
+    },
+    "auth": {
+        "login": {
+            "pageTitle": "Sign in",
+            "title": "Sign in",
+            "twoFactorHint": "Two-factor authentication is enabled for your account. Please check your app and enter the one-time code shown there.",
+            "useOtp": "Use one-time code",
+            "useRecoveryCode": "Use recovery code",
+            "verifying": "Verifying …",
+            "submitting": "Signing in …",
+            "verify": "Verify",
+            "submit": "Sign in",
+            "nameLabel": "Username",
+            "passwordLabel": "Password",
+            "rememberLabel": "Stay signed in",
+            "recoveryCodeLabel": "Recovery code",
+            "otpLabel": "One-time code",
+            "helpLinksLabel": "If you can't sign in, use these links.",
+            "forgotLink": "Trouble signing in?",
+            "resendLink": "Resend confirmation link"
+        },
+        "register": {
+            "pageTitle": "Register",
+            "title": "Registration",
+            "introHint": "After registering, we'll send you a link to confirm your email address. You can only sign in once your email address has been confirmed.",
+            "passwordHint": "As you type, we check whether your password is strong enough. Weak passwords are rejected.",
+            "nameLabel": "Username",
+            "emailLabel": "Email",
+            "passwordLabel": "Password",
+            "passwordConfirmLabel": "Confirm password",
+            "submitting": "Registering …",
+            "submit": "Register"
+        },
+        "forgot": {
+            "pageTitle": "Trouble signing in?",
+            "title": "Trouble signing in?",
+            "typePassword": "Forgot password",
+            "typeName": "Forgot username",
+            "introHint": "If you can't sign in, we can send you either your username or a link to reset your password. Choose password or username, and enter the email address on file. If you've forgotten your password, you also need to provide your username.",
+            "nameLabel": "Username",
+            "emailLabel": "Email",
+            "submitting": "Requesting …",
+            "submit": "Request",
+            "helpLinksLabel": "If you can't sign in, use these links.",
+            "resendLink": "Resend confirmation link"
+        },
+        "reset": {
+            "pageTitle": "Reset password",
+            "title": "Reset password",
+            "introHint": "Enter your new password. After saving, you can sign in with the new password.",
+            "emailLabel": "Email",
+            "passwordLabel": "Password",
+            "passwordConfirmLabel": "Confirm password",
+            "submitting": "Saving …",
+            "submit": "Save"
+        },
+        "resend": {
+            "pageTitle": "Resend confirmation link",
+            "title": "Resend confirmation link",
+            "introHint": "If your confirmation link has expired, you can request a new link to confirm your email address here. Please provide your username and email address.",
+            "nameLabel": "Username",
+            "emailLabel": "Email",
+            "submitting": "Requesting …",
+            "submit": "Request"
+        }
+    },
+    "dashboard": {
+        "page": {
+            "title": "My account",
+            "nav": {
+                "password": "Password",
+                "profile": "Profile",
+                "twoFactor": "Two-factor",
+                "delete": "Delete account"
+            }
+        },
+        "profile": {
+            "headline": "Update profile",
+            "intro": "You can change your email address and/or your username. If you change your email address, you must confirm the new address — we'll send you a confirmation link.",
+            "nameLabel": "Username",
+            "emailLabel": "Email",
+            "submit": "Change",
+            "submitting": "Changing …"
+        },
+        "password": {
+            "headline": "Change password",
+            "intro": "You can change your password by entering your current password and the new password.",
+            "currentLabel": "Current password",
+            "newLabel": "New password",
+            "confirmLabel": "Confirm new password",
+            "submit": "Change",
+            "submitting": "Changing …"
+        },
+        "delete": {
+            "headline": "Delete account",
+            "warning": "Warning",
+            "explanation": "You can delete your account here if necessary. {warning} — this action deletes your account and all associated data.",
+            "noSoftDeletes": "We don't use a “deleted” flag — the account is removed immediately and permanently.",
+            "reversed": "This action cannot be undone — we cannot restore deleted accounts.",
+            "modal": {
+                "header": "Confirm deletion",
+                "intro": "Are you sure you want to permanently delete your account?",
+                "passwordLabel": "Password",
+                "confirm": "Delete"
+            }
+        },
+        "twoFactor": {
+            "headline": "Two-factor authentication",
+            "passwordLabel": "Password",
+            "badge": {
+                "enabled": "Enabled",
+                "disabled": "Disabled"
+            },
+            "disabled": {
+                "intro": "Two-factor authentication uses {totp}. You need a compatible app, e.g. Google/Microsoft Authenticator or {bitwarden} / {enpass}.",
+                "totpTerm": "time-limited one-time passwords (TOTP)",
+                "confirm": "Your password is required to enable it.",
+                "submit": "Enable 2FA",
+                "submitting": "Enabling …"
+            },
+            "enabled": {
+                "headline": "Disable two-factor authentication",
+                "intro": "Enter your password to disable two-factor authentication.",
+                "submit": "Disable 2FA",
+                "submitting": "Disabling …"
+            },
+            "modal": {
+                "headerSetup": "Set up two-factor authentication",
+                "headerConfirm": "Confirm 2FA",
+                "introSetup": "To finish setting up 2FA, scan the QR code in your authenticator app, or enter the setup code manually.",
+                "qrCodeLabel": "QR code",
+                "manualKeyLabel": "Manual setup code",
+                "copy": "Copy",
+                "copied": "Copied",
+                "introVerify": "Enter the one-time password from your app and click “Confirm”.",
+                "codeLabel": "One-time password",
+                "nextStep": "Next step",
+                "back": "Back",
+                "confirm": "Confirm",
+                "confirming": "Confirming …"
+            },
+            "recoveryCodes": {
+                "headline": "Recovery codes",
+                "intro": "Recovery codes let you sign in when you no longer have access to your 2FA device. Store the recovery codes in a secure password manager.",
+                "usage": "Each recovery code can be used only once to sign in to your account and is removed after use. If you need more recovery codes, use the “Regenerate” button.",
+                "show": "Show recovery codes",
+                "regenerate": "Regenerate"
+            },
+            "errors": {
+                "qrCode": "The QR code could not be loaded.",
+                "setupKey": "The setup code could not be loaded.",
+                "recoveryCodesLoad": "The recovery codes could not be loaded.",
+                "recoveryCodesRegenerate": "The recovery codes could not be regenerated."
+            }
+        }
+    }
+}

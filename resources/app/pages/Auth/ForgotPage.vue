@@ -14,6 +14,7 @@
  *****************************************************************************/
 import { Form, Head, usePage } from "@inertiajs/vue3";
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import Button from "Components/Form/Button.vue";
 import FormInput from "Components/Form/FormInput.vue";
 import FormLegend from "Components/Form/FormLegend.vue";
@@ -24,14 +25,15 @@ import Icon from "Components/UI/Icon.vue";
 import LabelledLink from "Components/UI/LabelledLink.vue";
 import LinkGroup from "Components/UI/LinkGroup.vue";
 
+const { t } = useI18n();
 const page = usePage();
 /** Backend feature flags — gates the "resend verification" link. */
 const features = computed(() => page.props.features);
 
 /** The two recovery types the radio group can submit as `type`. */
 const types = [
-    { value: "password", label: "Passwort vergessen", checked: true, icon: "key" },
-    { value: "name", label: "Benutzername vergessen", checked: false, icon: "account" }
+    { value: "password", label: t("auth.forgot.typePassword"), checked: true, icon: "key" },
+    { value: "name", label: t("auth.forgot.typeName"), checked: false, icon: "account" }
 ];
 const type = ref(types.find(option => option.checked)?.value ?? "password");
 
@@ -43,11 +45,11 @@ function onTypeChange(event: Event): void {
 
 <template>
     <Head>
-        <title>Probleme beim Anmelden?</title>
+        <title>{{ t("auth.forgot.pageTitle") }}</title>
     </Head>
     <headline glow>
         <icon name="support" :size="3" />
-        Probleme beim Anmelden?
+        {{ t("auth.forgot.title") }}
     </headline>
 
     <Form
@@ -62,14 +64,11 @@ function onTypeChange(event: Event): void {
                 { slot: 'required', icon: 'info' }
             ]"
         >
-            <template #intro>
-                Wenn du dich nicht anmelden kannst, können wir dir entweder deinen Benutzernamen oder einen Link zum
-                Zurücksetzen des Passworts schicken. Wähle dafür das Passwort oder den Benutzernamen aus, und gib die
-                hinterlegte E-Mail-Adresse an. Wenn du das Passwort vergessen hast, musst du auch den Benutzernamen
-                angeben.
-            </template>
+            <template #intro>{{ t("auth.forgot.introHint") }}</template>
             <template #required>
-                Felder, die mit einem <icon name="required" /> gekennzeichnet sind, müssen ausgefüllt werden.
+                <i18n-t keypath="common.requiredFieldsHint" scope="global">
+                    <template #icon><icon name="required" /></template>
+                </i18n-t>
             </template>
         </form-legend>
 
@@ -80,7 +79,7 @@ function onTypeChange(event: Event): void {
         <form-row
             v-if="type === 'password'"
             for-id="name"
-            label="Benutzername"
+            :label="t('auth.forgot.nameLabel')"
             :error="errors.name ?? ''"
             :invalid="invalid('name')"
             :validated="valid('name')"
@@ -100,7 +99,7 @@ function onTypeChange(event: Event): void {
 
         <form-row
             for-id="email"
-            label="E-Mail"
+            :label="t('auth.forgot.emailLabel')"
             :error="errors.email ?? ''"
             :invalid="invalid('email')"
             :validated="valid('email')"
@@ -121,13 +120,13 @@ function onTypeChange(event: Event): void {
         <form-row>
             <Button variant="primary" type="submit" :disabled="processing">
                 <icon name="save" :size="1" />
-                <span>{{ processing ? "Wird angefordert …" : "Anfordern" }}</span>
+                <span>{{ processing ? t("auth.forgot.submitting") : t("auth.forgot.submit") }}</span>
             </Button>
         </form-row>
 
         <form-row v-if="features.emailVerification" style="margin-top: 2rem">
-            <link-group label="Wenn du dich nicht anmelden kannst, verwende diese Links.">
-                <labelled-link href="/resend-verification">Bestätigungs-Link erneut versenden</labelled-link>
+            <link-group :label="t('auth.forgot.helpLinksLabel')">
+                <labelled-link href="/resend-verification">{{ t("auth.forgot.resendLink") }}</labelled-link>
             </link-group>
         </form-row>
     </Form>

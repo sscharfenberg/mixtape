@@ -25,7 +25,7 @@ class ValidInvite implements ValidationRule
             ->exists();
 
         if (! $ok) {
-            $fail('Dieser Einladungslink ist ungültig oder abgelaufen.');
+            $fail(__('rules.invite_invalid'));
         }
     }
 }

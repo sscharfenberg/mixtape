@@ -35,7 +35,7 @@ class NewPasswordController extends Controller
         $user = User::query()->where('email', $request->string('email')->value())->first();
 
         if (! $user || ! Password::broker(config('fortify.passwords'))->tokenExists($user, $request->string('token')->value())) {
-            $request->session()->flash('message', 'Diese Passwort-Rücksetzungs-URL ist ungültig.');
+            $request->session()->flash('message', __('passwords.token'));
             $request->session()->flash('type', 'error');
 
             return redirect()->route('forgot');
@@ -81,17 +81,16 @@ class NewPasswordController extends Controller
         );
 
         if ($status !== Password::PASSWORD_RESET) {
-            // The broker's $status constants are Laravel lang keys, but this app
-            // hardcodes German copy rather than publishing lang/en/passwords.php —
-            // map the (rare) non-success statuses to German directly.
+            // The broker's $status constants are Laravel lang keys; map the
+            // (rare) non-success statuses to our own passwords.* lang lines.
             return back()->withErrors(['email' => match ($status) {
-                Password::INVALID_TOKEN => 'Diese Passwort-Rücksetzungs-URL ist ungültig.',
-                Password::RESET_THROTTLED => 'Bitte warte, bevor du es erneut versuchst.',
-                default => 'Wir können kein Benutzerkonto mit dieser E-Mail-Adresse finden.',
+                Password::INVALID_TOKEN => __('passwords.token'),
+                Password::RESET_THROTTLED => __('passwords.throttled'),
+                default => __('passwords.user'),
             }]);
         }
 
-        $request->session()->flash('message', 'Dein Passwort wurde zurückgesetzt.');
+        $request->session()->flash('message', __('passwords.reset'));
         $request->session()->flash('type', 'success');
 
         return redirect(config('fortify.home'));

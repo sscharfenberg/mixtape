@@ -28,7 +28,7 @@ class PasswordEntropy implements ValidationRule
         }
 
         if ((new Zxcvbn)->passwordStrength($value)['score'] < 3) {
-            $fail('Das Passwort ist nicht sicher genug.');
+            $fail(__('rules.password_entropy'));
         }
     }
 }

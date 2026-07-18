@@ -9,6 +9,7 @@
  *****************************************************************************/
 import { Form, usePage } from "@inertiajs/vue3";
 import { ref } from "vue";
+import { useI18n } from "vue-i18n";
 import Button from "Components/Form/Button.vue";
 import FormInput from "Components/Form/FormInput.vue";
 import FormLegend from "Components/Form/FormLegend.vue";
@@ -26,6 +27,8 @@ withDefaults(
     }
 );
 
+const { t } = useI18n();
+
 const user = usePage().props.auth.user;
 const name = ref(user?.name ?? "");
 const email = ref(user?.email ?? "");
@@ -34,7 +37,7 @@ const email = ref(user?.email ?? "");
 <template>
     <headline :size="3" anchor-id="profileSection" glow :align="align">
         <icon name="mail" />
-        Profil aktualisieren
+        {{ t("dashboard.profile.headline") }}
     </headline>
 
     <Form
@@ -50,17 +53,18 @@ const email = ref(user?.email ?? "");
             ]"
         >
             <template #intro>
-                Du kannst deine E-Mail-Adresse und/oder deinen Benutzernamen ändern. Wenn du die E-Mail-Adresse
-                änderst, musst du die neue Adresse bestätigen — wir schicken dir einen Link zur Bestätigung.
+                {{ t("dashboard.profile.intro") }}
             </template>
             <template #required>
-                Felder, die mit einem <icon name="required" /> gekennzeichnet sind, müssen ausgefüllt werden.
+                <i18n-t keypath="common.requiredFieldsHint" scope="global">
+                    <template #icon><icon name="required" /></template>
+                </i18n-t>
             </template>
         </form-legend>
 
         <form-row
             for-id="name"
-            label="Benutzername"
+            :label="t('dashboard.profile.nameLabel')"
             :error="errors.name ?? ''"
             :invalid="invalid('name')"
             :validated="valid('name')"
@@ -81,7 +85,7 @@ const email = ref(user?.email ?? "");
 
         <form-row
             for-id="email"
-            label="E-Mail"
+            :label="t('dashboard.profile.emailLabel')"
             :error="errors.email ?? ''"
             :invalid="invalid('email')"
             :validated="valid('email')"
@@ -103,7 +107,7 @@ const email = ref(user?.email ?? "");
         <form-row>
             <Button variant="default" type="submit" :disabled="processing">
                 <icon name="save" :size="1" />
-                <span>{{ processing ? "Wird geändert …" : "Ändern" }}</span>
+                <span>{{ processing ? t("dashboard.profile.submitting") : t("dashboard.profile.submit") }}</span>
             </Button>
         </form-row>
     </Form>

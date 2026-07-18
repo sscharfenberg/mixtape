@@ -20,7 +20,7 @@ class PasswordUpdateResponse implements PasswordUpdateResponseContract
      */
     public function toResponse($request)
     {
-        $request->session()->flash('message', 'Dein Passwort wurde geändert.');
+        $request->session()->flash('message', __('flash.password.updated'));
         $request->session()->flash('type', 'success');
         $request->session()->flash('duration', 3000);
 

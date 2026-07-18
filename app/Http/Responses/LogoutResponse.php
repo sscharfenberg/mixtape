@@ -21,7 +21,7 @@ class LogoutResponse implements LogoutResponseContract
      */
     public function toResponse($request)
     {
-        $request->session()->flash('message', 'Du wurdest abgemeldet.');
+        $request->session()->flash('message', __('flash.logout'));
         $request->session()->flash('type', 'success');
         $request->session()->flash('duration', 3000);
 

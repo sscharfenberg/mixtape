@@ -14,10 +14,12 @@
  *****************************************************************************/
 import { usePage } from "@inertiajs/vue3";
 import { watch } from "vue";
+import { useI18n } from "vue-i18n";
 import Icon from "Components/UI/Icon.vue";
 import { useToast } from "Composables/useToast";
 import type { ToastType } from "Composables/useToast";
 
+const { t } = useI18n();
 const { activeToasts, addToast, removeToast } = useToast();
 const page = usePage();
 
@@ -54,7 +56,7 @@ function iconName(type: ToastType): string {
         <div
             class="toast-container"
             role="region"
-            aria-label="Benachrichtigungen"
+            :aria-label="t('common.notifications')"
             aria-live="polite"
             aria-atomic="false"
         >
@@ -69,7 +71,7 @@ function iconName(type: ToastType): string {
                 >
                     <icon :name="iconName(toast.type)" />
                     <span>{{ toast.message }}</span>
-                    <button class="toast-container__close" aria-label="Schließen" @click="removeToast(toast.id)">
+                    <button class="toast-container__close" :aria-label="t('common.close')" @click="removeToast(toast.id)">
                         <icon name="close" :size="1" />
                     </button>
                     <div v-if="toast.duration > 0" class="toast-container__progress" />

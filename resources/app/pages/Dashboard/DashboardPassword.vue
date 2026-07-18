@@ -9,6 +9,7 @@
  *****************************************************************************/
 import { Form } from "@inertiajs/vue3";
 import { ref } from "vue";
+import { useI18n } from "vue-i18n";
 import Button from "Components/Form/Button.vue";
 import FormInput from "Components/Form/FormInput.vue";
 import FormLegend from "Components/Form/FormLegend.vue";
@@ -27,6 +28,8 @@ withDefaults(
         align: "left"
     }
 );
+
+const { t } = useI18n();
 
 const { password, score, onPasswordChange, reset } = usePasswordEntropy();
 const currentPassword = ref("");
@@ -52,7 +55,7 @@ function resetForm(): void {
 <template>
     <headline :size="3" anchor-id="passwordSection" glow :align="align">
         <icon name="key" />
-        Passwort ändern
+        {{ t("dashboard.password.headline") }}
     </headline>
 
     <Form
@@ -70,16 +73,18 @@ function resetForm(): void {
             ]"
         >
             <template #intro>
-                Du kannst dein Passwort ändern, indem du dein aktuelles Passwort und das neue Passwort eingibst.
+                {{ t("dashboard.password.intro") }}
             </template>
             <template #required>
-                Felder, die mit einem <icon name="required" /> gekennzeichnet sind, müssen ausgefüllt werden.
+                <i18n-t keypath="common.requiredFieldsHint" scope="global">
+                    <template #icon><icon name="required" /></template>
+                </i18n-t>
             </template>
         </form-legend>
 
         <form-row
             for-id="current_password"
-            label="Aktuelles Passwort"
+            :label="t('dashboard.password.currentLabel')"
             :error="errors.current_password ?? ''"
             :invalid="invalid('current_password')"
             :validated="valid('current_password')"
@@ -99,19 +104,19 @@ function resetForm(): void {
                 <button
                     type="button"
                     tabindex="-1"
-                    :aria-label="showCurrentPassword ? 'Passwort verbergen' : 'Passwort anzeigen'"
+                    :aria-label="showCurrentPassword ? t('common.hidePassword') : t('common.showPassword')"
                     @mousedown.prevent
                     @click="showCurrentPassword = !showCurrentPassword"
                 >
                     <icon :name="showCurrentPassword ? 'visibility-off' : 'visibility-on'" />
-                    <span>{{ showCurrentPassword ? "Verbergen" : "Anzeigen" }}</span>
+                    <span>{{ showCurrentPassword ? t("common.hide") : t("common.show") }}</span>
                 </button>
             </template>
         </form-row>
 
         <form-row
             for-id="password"
-            label="Neues Passwort"
+            :label="t('dashboard.password.newLabel')"
             :error="errors.password ?? ''"
             :invalid="invalid('password')"
             :validated="valid('password')"
@@ -132,12 +137,12 @@ function resetForm(): void {
                 <button
                     type="button"
                     tabindex="-1"
-                    :aria-label="showPassword ? 'Passwort verbergen' : 'Passwort anzeigen'"
+                    :aria-label="showPassword ? t('common.hidePassword') : t('common.showPassword')"
                     @mousedown.prevent
                     @click="showPassword = !showPassword"
                 >
                     <icon :name="showPassword ? 'visibility-off' : 'visibility-on'" />
-                    <span>{{ showPassword ? "Verbergen" : "Anzeigen" }}</span>
+                    <span>{{ showPassword ? t("common.hide") : t("common.show") }}</span>
                 </button>
             </template>
             <template v-if="score !== null" #text>
@@ -147,7 +152,7 @@ function resetForm(): void {
 
         <form-row
             for-id="password_confirmation"
-            label="Neues Passwort bestätigen"
+            :label="t('dashboard.password.confirmLabel')"
             :error="errors.password_confirmation ?? ''"
             :invalid="invalid('password_confirmation')"
             :validated="valid('password_confirmation')"
@@ -167,12 +172,12 @@ function resetForm(): void {
                 <button
                     type="button"
                     tabindex="-1"
-                    :aria-label="showPasswordConfirmation ? 'Passwort verbergen' : 'Passwort anzeigen'"
+                    :aria-label="showPasswordConfirmation ? t('common.hidePassword') : t('common.showPassword')"
                     @mousedown.prevent
                     @click="showPasswordConfirmation = !showPasswordConfirmation"
                 >
                     <icon :name="showPasswordConfirmation ? 'visibility-off' : 'visibility-on'" />
-                    <span>{{ showPasswordConfirmation ? "Verbergen" : "Anzeigen" }}</span>
+                    <span>{{ showPasswordConfirmation ? t("common.hide") : t("common.show") }}</span>
                 </button>
             </template>
         </form-row>
@@ -180,7 +185,7 @@ function resetForm(): void {
         <form-row>
             <Button variant="default" type="submit" :disabled="processing">
                 <icon name="save" :size="1" />
-                <span>{{ processing ? "Wird geändert …" : "Ändern" }}</span>
+                <span>{{ processing ? t("dashboard.password.submitting") : t("dashboard.password.submit") }}</span>
             </Button>
         </form-row>
     </Form>

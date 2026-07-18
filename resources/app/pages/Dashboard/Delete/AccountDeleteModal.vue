@@ -8,6 +8,7 @@
  * behind it.
  *****************************************************************************/
 import { onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import Button from "Components/Form/Button.vue";
 import FormInput from "Components/Form/FormInput.vue";
 import FormLegend from "Components/Form/FormLegend.vue";
@@ -15,6 +16,8 @@ import FormRow from "Components/Form/FormRow.vue";
 import Modal from "Components/Modal/Modal.vue";
 import Icon from "Components/UI/Icon.vue";
 import { useDeleteAccount } from "Composables/useDeleteAccount";
+
+const { t } = useI18n();
 
 const emit = defineEmits<{ close: [] }>();
 const showPassword = ref(false);
@@ -32,16 +35,16 @@ function onSubmit(): void {
 
 <template>
     <modal @close="emit('close')">
-        <template #header>Bestätige die Löschung</template>
+        <template #header>{{ t("dashboard.delete.modal.header") }}</template>
 
         <form id="account-delete-form" class="form" @submit.prevent="onSubmit">
             <form-legend :items="[{ slot: 'intro', icon: 'question' }]">
-                <template #intro>Bist du sicher, dass du dein Benutzerkonto permanent löschen willst?</template>
+                <template #intro>{{ t("dashboard.delete.modal.intro") }}</template>
             </form-legend>
 
             <form-row
                 for-id="delete-password"
-                label="Passwort"
+                :label="t('dashboard.delete.modal.passwordLabel')"
                 :required="true"
                 addon-icon="key"
                 :error="passwordError"
@@ -59,12 +62,12 @@ function onSubmit(): void {
                     <button
                         type="button"
                         tabindex="-1"
-                        :aria-label="showPassword ? 'Passwort verbergen' : 'Passwort anzeigen'"
+                        :aria-label="showPassword ? t('common.hidePassword') : t('common.showPassword')"
                         @mousedown.prevent
                         @click="showPassword = !showPassword"
                     >
                         <icon :name="showPassword ? 'visibility-off' : 'visibility-on'" />
-                        <span>{{ showPassword ? "Verbergen" : "Anzeigen" }}</span>
+                        <span>{{ showPassword ? t("common.hide") : t("common.show") }}</span>
                     </button>
                 </template>
             </form-row>
@@ -73,7 +76,7 @@ function onSubmit(): void {
         <template #footer>
             <Button variant="primary" type="submit" form="account-delete-form" :disabled="processing || !password">
                 <icon name="delete" :size="1" />
-                <span>Löschen</span>
+                <span>{{ t("dashboard.delete.modal.confirm") }}</span>
             </Button>
         </template>
     </modal>

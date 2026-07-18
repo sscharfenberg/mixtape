@@ -36,7 +36,7 @@ class DeleteAccountController extends Controller
         $password = $request->string('password')->value();
 
         if ($password === '' || ! Hash::check($password, $user->password)) {
-            $message = 'Das Passwort ist nicht korrekt.';
+            $message = __('auth.password_incorrect');
 
             if ($request->expectsJson()) {
                 return response()->json(['errors' => ['password' => [$message]]], 422);
@@ -51,7 +51,7 @@ class DeleteAccountController extends Controller
 
         $user->delete();
 
-        $request->session()->flash('message', 'Dein Benutzerkonto wurde gelöscht - du bist jederzeit willkommen zurückzukehren.');
+        $request->session()->flash('message', __('flash.account.deleted'));
         $request->session()->flash('type', 'success');
 
         if ($request->expectsJson()) {

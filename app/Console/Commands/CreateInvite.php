@@ -45,7 +45,7 @@ class CreateInvite extends Command
         $days = (int) $this->option('days');
 
         if ($days < 1) {
-            $this->error('The --days option must be a positive integer.');
+            $this->error(__('invite.days_invalid'));
 
             return self::FAILURE;
         }
@@ -53,9 +53,9 @@ class CreateInvite extends Command
         // When no note is passed on the command line, ask for one interactively;
         // a blank answer (just pressing enter) stores no note.
         $note = $this->argument('note') ?? text(
-            label: 'Note — who is this invite for?',
-            placeholder: 'e.g. Oma, or leave blank',
-            hint: 'Optional; press enter to skip.',
+            label: __('invite.note_label'),
+            placeholder: __('invite.note_placeholder'),
+            hint: __('invite.note_hint'),
         );
         $note = ($note === null || trim($note) === '') ? null : trim($note);
 
@@ -71,12 +71,12 @@ class CreateInvite extends Command
         $url = route('register', ['code' => $code]);
 
         $this->newLine();
-        $this->info('Invite minted — valid for '.$days.' '.Str::plural('day', $days).'.');
+        $this->info(trans_choice('invite.minted', $days, ['count' => $days]));
         if ($note !== null) {
-            $this->line('  Note: '.$note);
+            $this->line('  '.__('invite.note_line', ['note' => $note]));
         }
         $this->newLine();
-        $this->line('Registration link (copy & share — shown only once):');
+        $this->line(__('invite.link_intro'));
         $this->line('  '.$url);
         $this->newLine();
 

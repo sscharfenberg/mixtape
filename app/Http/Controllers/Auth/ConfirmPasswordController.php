@@ -19,8 +19,6 @@ class ConfirmPasswordController extends Controller
      * $request->session()->passwordConfirmed(), so the real management request
      * that follows passes the middleware. A wrong password returns a 422 with
      * the error keyed on `password` so the inline field can show it.
-     *
-     * German copy is inlined (this app has no i18n layer).
      */
     public function store(Request $request): JsonResponse
     {
@@ -30,7 +28,7 @@ class ConfirmPasswordController extends Controller
 
         if (! Hash::check($request->password, $request->user()->password)) {
             return response()->json([
-                'errors' => ['password' => ['Das angegebene Passwort ist falsch.']],
+                'errors' => ['password' => [__('auth.password')]],
             ], 422);
         }
 

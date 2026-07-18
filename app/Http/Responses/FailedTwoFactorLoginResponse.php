@@ -18,7 +18,7 @@ class FailedTwoFactorLoginResponse implements FailedTwoFactorLoginResponseContra
      * fetch()-based challenge in useLogin.ts) gets a 422 validation error;
      * the non-JSON path redirects back to /login with the same error.
      *
-     * German messages are inlined (this app has no i18n layer).
+     * Messages are resolved via the i18n lang files (auth.*).
      *
      * @param  Request  $request
      * @return Response
@@ -26,8 +26,8 @@ class FailedTwoFactorLoginResponse implements FailedTwoFactorLoginResponseContra
     public function toResponse($request)
     {
         [$key, $message] = $request->filled('recovery_code')
-            ? ['recovery_code', 'Der angegebene Zwei-Faktor-Wiederherstellungscode ist ungültig.']
-            : ['code', 'Der angegebene Zwei-Faktor-Authentifizierungscode ist ungültig.'];
+            ? ['recovery_code', __('auth.two_factor_recovery_code_invalid')]
+            : ['code', __('auth.two_factor_code_invalid')];
 
         if ($request->wantsJson()) {
             throw ValidationException::withMessages([

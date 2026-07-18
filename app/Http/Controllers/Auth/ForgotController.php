@@ -69,7 +69,7 @@ class ForgotController extends Controller
             Password::broker(config('fortify.passwords'))->sendResetLink($request->only('email'));
         }
 
-        $request->session()->flash('message', 'Falls ein Konto mit dieser E-Mail-Adresse existiert, haben wir einen Link zum Zurücksetzen des Passwortes gesendet.');
+        $request->session()->flash('message', __('passwords.sent'));
         $request->session()->flash('type', 'success');
 
         return redirect()->route('home');
@@ -87,7 +87,7 @@ class ForgotController extends Controller
 
         $user?->notify(new ForgotUsernameNotification);
 
-        $request->session()->flash('message', 'Falls ein Konto mit dieser E-Mail-Adresse existiert, haben wir eine Benutzername-Erinnerung gesendet.');
+        $request->session()->flash('message', __('flash.username.reminder_sent'));
         $request->session()->flash('type', 'success');
 
         return redirect()->route('home');

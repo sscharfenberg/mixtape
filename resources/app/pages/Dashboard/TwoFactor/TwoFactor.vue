@@ -9,6 +9,7 @@
  * happens the moment Fortify flips `twoFactorEnabled` to true after enrollment.
  * Reads its control flags from the composable (fed by DashboardController props).
  *****************************************************************************/
+import { useI18n } from "vue-i18n";
 import Badge from "Components/UI/Badge.vue";
 import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
@@ -27,6 +28,8 @@ withDefaults(
     }
 );
 
+const { t } = useI18n();
+
 const { twoFactorEnabled, requiresConfirmation, showSetupModal, clearSetupData } = useTwoFactorAuth();
 
 /**
@@ -43,10 +46,12 @@ const handleModalClose = (): void => {
 <template>
     <headline :size="3" anchor-id="twoFactorSection" glow :align="align">
         <icon name="security" />
-        Zwei-Faktor Authentifizierung
+        {{ t("dashboard.twoFactor.headline") }}
         <template #right>
-            <badge v-if="!twoFactorEnabled" type="warning"><icon name="key" :size="1" />Deaktiviert</badge>
-            <badge v-else type="success"><icon name="security" />Aktiviert</badge>
+            <badge v-if="!twoFactorEnabled" type="warning"
+                ><icon name="key" :size="1" />{{ t("dashboard.twoFactor.badge.disabled") }}</badge
+            >
+            <badge v-else type="success"><icon name="security" />{{ t("dashboard.twoFactor.badge.enabled") }}</badge>
         </template>
     </headline>
 

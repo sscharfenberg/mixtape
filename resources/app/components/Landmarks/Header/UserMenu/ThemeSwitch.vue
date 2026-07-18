@@ -8,7 +8,10 @@
  * "light dark" means "follow the OS".
  *****************************************************************************/
 import { computed, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import Icon from "Components/UI/Icon.vue";
+
+const { t } = useI18n();
 
 /** The <meta name="color-scheme"> tag that controls the browser's colour scheme. */
 const colorScheme = document.querySelector("meta[name='color-scheme']");
@@ -36,12 +39,12 @@ const theme = computed<string>({
     }
 });
 
-/** Selectable options — `"light dark"` delegates to the OS preference. */
-const options = [
-    { value: "dark", label: "Dark", icon: "dark" },
-    { value: "light", label: "Light", icon: "light" },
-    { value: "light dark", label: "System", icon: "system" }
-];
+/** Selectable options — `"light dark"` delegates to the OS preference. Labels are translated (and re-render on a locale switch). */
+const options = computed(() => [
+    { value: "dark", label: t("header.theme.dark"), icon: "dark" },
+    { value: "light", label: t("header.theme.light"), icon: "light" },
+    { value: "light dark", label: t("header.theme.system"), icon: "system" }
+]);
 
 /** Re-apply the persisted theme on mount, in case the server-rendered default differs. */
 onMounted(() => {
@@ -50,7 +53,7 @@ onMounted(() => {
 </script>
 
 <template>
-    <div class="theme-switch__list" role="radiogroup" aria-label="Colour theme">
+    <div class="theme-switch__list" role="radiogroup" :aria-label="t('header.theme.label')">
         <template v-for="option in options" :key="option.value">
             <input
                 :id="'theme' + option.value.replace(' ', '')"

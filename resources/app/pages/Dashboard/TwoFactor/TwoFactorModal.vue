@@ -10,6 +10,7 @@
  *****************************************************************************/
 import { router } from "@inertiajs/vue3";
 import { nextTick, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import Button from "Components/Form/Button.vue";
 import FormInput from "Components/Form/FormInput.vue";
 import FormLegend from "Components/Form/FormLegend.vue";
@@ -33,6 +34,8 @@ const props = withDefaults(
 
 /** @emits close — Fired when the modal should be dismissed (cancellation or successful confirmation). */
 const emit = defineEmits<{ close: [] }>();
+
+const { t } = useI18n();
 
 const { qrCodeSvg, manualSetupKey, fetchSetupData } = useTwoFactorAuth();
 const { copy, copied } = useClipboard();
@@ -97,31 +100,30 @@ const submitVerification = (): void => {
 <template>
     <modal @close="emit('close')">
         <template #header>
-            <span v-if="!showVerificationStep">Zwei-Faktor Authentifizierung einrichten</span>
-            <span v-else>2FA bestätigen</span>
+            <span v-if="!showVerificationStep">{{ t("dashboard.twoFactor.modal.headerSetup") }}</span>
+            <span v-else>{{ t("dashboard.twoFactor.modal.headerConfirm") }}</span>
         </template>
 
         <div v-if="!showVerificationStep" class="form">
             <form-legend :items="[{ slot: 'intro', icon: 'info' }]">
                 <template #intro>
-                    Um die Einrichtung der 2FA abzuschließen, scanne den QR-Code in deiner Authentifizierungs-App,
-                    oder gib den Setup-Code manuell ein.
+                    {{ t("dashboard.twoFactor.modal.introSetup") }}
                 </template>
             </form-legend>
 
             <loading-spinner v-if="!qrCodeSvg" :size="2" />
-            <form-row v-else label="QR-Code">
+            <form-row v-else :label="t('dashboard.twoFactor.modal.qrCodeLabel')">
                 <!-- eslint-disable-next-line vue/no-v-html — trusted server-rendered SVG from Fortify -->
                 <div class="qr-code" v-html="qrCodeSvg" />
             </form-row>
 
             <loading-spinner v-if="!manualSetupKey" :size="2" />
-            <form-row v-else for-id="manualSetupKey" label="Manueller Setup-Code" addon-icon="key">
+            <form-row v-else for-id="manualSetupKey" :label="t('dashboard.twoFactor.modal.manualKeyLabel')" addon-icon="key">
                 <form-input id="manualSetupKey" :model-value="manualSetupKey ?? ''" name="manualSetupKey" readonly />
                 <template #button>
                     <button type="button" @click="copy(manualSetupKey ?? '')">
                         <icon :name="copied ? 'check' : 'copy'" />
-                        <span>{{ copied ? "Kopiert" : "Kopieren" }}</span>
+                        <span>{{ copied ? t("dashboard.twoFactor.modal.copied") : t("dashboard.twoFactor.modal.copy") }}</span>
                     </button>
                 </template>
             </form-row>
@@ -130,13 +132,13 @@ const submitVerification = (): void => {
         <form v-else id="two-factor-verify-form" class="form" novalidate @submit.prevent="submitVerification">
             <form-legend :items="[{ slot: 'intro', icon: 'info' }]">
                 <template #intro>
-                    Gib das Einmalkennwort aus deiner App ein und klicke auf „Bestätigen“.
+                    {{ t("dashboard.twoFactor.modal.introVerify") }}
                 </template>
             </form-legend>
 
             <form-row
                 for-id="code"
-                label="Einmalkennwort"
+                :label="t('dashboard.twoFactor.modal.codeLabel')"
                 :error="codeError ?? ''"
                 :invalid="!!codeError"
                 :required="true"
@@ -157,12 +159,12 @@ const submitVerification = (): void => {
         <template #footer>
             <template v-if="!showVerificationStep">
                 <Button variant="primary" type="button" @click="handleModalNextStep">
-                    <span>Nächster Schritt</span>
+                    <span>{{ t("dashboard.twoFactor.modal.nextStep") }}</span>
                 </Button>
             </template>
             <template v-else>
                 <Button variant="default" type="button" :disabled="processing" @click="showVerificationStep = false">
-                    <span>Zurück</span>
+                    <span>{{ t("dashboard.twoFactor.modal.back") }}</span>
                 </Button>
                 <Button
                     variant="primary"
@@ -171,7 +173,7 @@ const submitVerification = (): void => {
                     :disabled="processing || code.length < 6"
                 >
                     <icon name="check" :size="1" />
-                    <span>{{ processing ? "Wird bestätigt …" : "Bestätigen" }}</span>
+                    <span>{{ processing ? t("dashboard.twoFactor.modal.confirming") : t("dashboard.twoFactor.modal.confirm") }}</span>
                 </Button>
             </template>
         </template>

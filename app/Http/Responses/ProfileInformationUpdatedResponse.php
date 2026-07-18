@@ -38,13 +38,13 @@ class ProfileInformationUpdatedResponse implements ProfileInformationUpdatedResp
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            $request->session()->flash('message', 'Dein Profil wurde aktualisiert. Bitte bestätige deine neue E-Mail-Adresse — wir haben dir einen Link geschickt.');
+            $request->session()->flash('message', __('flash.profile.updated_email'));
             $request->session()->flash('type', 'success');
 
             return redirect()->route('home');
         }
 
-        $request->session()->flash('message', 'Dein Profil wurde aktualisiert.');
+        $request->session()->flash('message', __('flash.profile.updated'));
         $request->session()->flash('type', 'success');
 
         return back();

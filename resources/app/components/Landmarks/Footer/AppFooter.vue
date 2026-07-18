@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 import { usePage } from "@inertiajs/vue3";
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
+const { t } = useI18n();
 const startYear = 2026;
 const currentYear = new Date().getFullYear();
 let copyrightDate = `${startYear}`;
@@ -16,7 +18,7 @@ const appName = import.meta.env.VITE_APP_NAME;
 
 <template>
     <footer>
-        <span class="meta">&copy; {{ appName }} contributors {{ copyrightDate }} · {{ version }}</span>
+        <span class="meta">{{ t("footer.copyright", { appName, date: copyrightDate, version }) }}</span>
     </footer>
 </template>
 

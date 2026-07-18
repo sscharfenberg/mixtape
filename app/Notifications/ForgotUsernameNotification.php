@@ -31,11 +31,11 @@ class ForgotUsernameNotification extends Notification
     public function toMail(mixed $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Ihr Benutzername')
-            ->greeting('Hallo!')
-            ->line('Du erhältst diese E-Mail, weil wir eine Anfrage zur Erinnerung an deinen Benutzernamen erhalten haben.')
-            ->line("Dein Benutzername lautet: {$notifiable->name}")
-            ->line('Wenn du diese Anfrage nicht gestellt hast, ist keine weitere Aktion erforderlich.')
-            ->salutation("Mit freundlichen Grüßen,\nDas Team von MixTape");
+            ->subject(__('mail.forgot_username.subject'))
+            ->greeting(__('mail.greeting'))
+            ->line(__('mail.forgot_username.line_1'))
+            ->line(__('mail.forgot_username.line_name', ['name' => $notifiable->name]))
+            ->line(__('mail.forgot_username.line_2'))
+            ->salutation(__('mail.salutation'));
     }
 }

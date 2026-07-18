@@ -1,12 +1,15 @@
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
 import Icon from "Components/UI/Icon.vue";
+
+const { t } = useI18n();
 </script>
 
 <template>
     <div class="modal-dialog__header">
         <h3 class="modal-dialog__title"><slot /></h3>
-        <button type="button" class="btn-close" @click="$emit('close')" aria-label="Schließen" tabindex="-1">
-            <span>Schließen</span>
+        <button type="button" class="btn-close" @click="$emit('close')" :aria-label="t('common.close')" tabindex="-1">
+            <span>{{ t("common.close") }}</span>
             <icon name="close" :size="1" />
         </button>
     </div>

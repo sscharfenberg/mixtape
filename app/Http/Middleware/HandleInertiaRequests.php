@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\Locale;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 use Laravel\Fortify\Features;
@@ -39,6 +40,11 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'csrfToken' => csrf_token(),
+            // Active locale (resolved by ConfigureLocale, which runs first) and
+            // the supported set. Only the locale string is shared — the message
+            // catalogs are code-split JSON the client loads on demand (see i18n.ts).
+            'locale' => app()->getLocale(),
+            'supportedLocales' => Locale::values(),
             'auth' => [
                 // Null until a user is logged in — drives guest-only vs.
                 // authenticated menu items (see UserMenu.vue).

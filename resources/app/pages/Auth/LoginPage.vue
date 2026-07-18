@@ -17,6 +17,7 @@
  *****************************************************************************/
 import { Head, usePage } from "@inertiajs/vue3";
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import Button from "Components/Form/Button.vue";
 import Checkbox from "Components/Form/Checkbox.vue";
 import FormInput from "Components/Form/FormInput.vue";
@@ -35,6 +36,7 @@ defineProps<{
     status?: string;
 }>();
 
+const { t } = useI18n();
 const page = usePage();
 /** Backend feature flags — gate the guest-only recovery links. */
 const features = computed(() => page.props.features);
@@ -52,8 +54,8 @@ const legendItems = computed(() => {
 
 /** The code-type toggle shown during the challenge (TOTP vs. recovery code). */
 const codeTypes = computed(() => [
-    { value: "2fa", label: "Einmalkennwort verwenden", checked: !showRecoveryCode.value },
-    { value: "recovery", label: "Wiederherstellungscode verwenden", checked: showRecoveryCode.value }
+    { value: "2fa", label: t("auth.login.useOtp"), checked: !showRecoveryCode.value },
+    { value: "recovery", label: t("auth.login.useRecoveryCode"), checked: showRecoveryCode.value }
 ]);
 
 /** Flip between the 6-digit TOTP field and the free-text recovery-code field. */
@@ -65,18 +67,18 @@ const onCodeTypeChange = (event: Event): void => {
 
 /** Submit-button label, reflecting the stage (login vs. challenge) and progress. */
 const submitLabel = computed(() => {
-    if (processing.value) return requiresTwoFactor.value ? "Wird überprüft …" : "Wird angemeldet …";
-    return requiresTwoFactor.value ? "Überprüfen" : "Anmelden";
+    if (processing.value) return requiresTwoFactor.value ? t("auth.login.verifying") : t("auth.login.submitting");
+    return requiresTwoFactor.value ? t("auth.login.verify") : t("auth.login.submit");
 });
 </script>
 
 <template>
     <Head>
-        <title>Anmelden</title>
+        <title>{{ t("auth.login.pageTitle") }}</title>
     </Head>
     <headline glow>
         <icon name="key" :size="3" />
-        Anmeldung
+        {{ t("auth.login.title") }}
     </headline>
 
     <p v-if="status" role="status">{{ status }}</p>
@@ -84,18 +86,17 @@ const submitLabel = computed(() => {
     <form class="form" novalidate @submit.prevent="submit">
         <form-legend :items="legendItems">
             <template #required>
-                Felder, die mit einem <icon name="required" /> gekennzeichnet sind, müssen ausgefüllt werden.
+                <i18n-t keypath="common.requiredFieldsHint" scope="global">
+                    <template #icon><icon name="required" /></template>
+                </i18n-t>
             </template>
-            <template #twoFactor>
-                Für dein Benutzerkonto ist die Zwei-Faktor Authentifizierung aktiviert. Bitte prüfe deine App und gib
-                das Einmalkennwort ein, das angezeigt wird.
-            </template>
+            <template #twoFactor>{{ t("auth.login.twoFactorHint") }}</template>
         </form-legend>
 
         <template v-if="!requiresTwoFactor">
             <form-row
                 for-id="name"
-                label="Benutzername"
+                :label="t('auth.login.nameLabel')"
                 :error="errors.name ?? ''"
                 :invalid="!!errors.name"
                 addon-icon="register"
@@ -106,7 +107,7 @@ const submitLabel = computed(() => {
 
             <form-row
                 for-id="password"
-                label="Passwort"
+                :label="t('auth.login.passwordLabel')"
                 :error="errors.password ?? ''"
                 :invalid="!!errors.password"
                 addon-icon="key"
@@ -123,17 +124,17 @@ const submitLabel = computed(() => {
                     <button
                         type="button"
                         tabindex="-1"
-                        :aria-label="showPassword ? 'Passwort verbergen' : 'Passwort anzeigen'"
+                        :aria-label="showPassword ? t('common.hidePassword') : t('common.showPassword')"
                         @mousedown.prevent
                         @click="showPassword = !showPassword"
                     >
                         <icon :name="showPassword ? 'visibility-off' : 'visibility-on'" />
-                        <span>{{ showPassword ? "Verbergen" : "Anzeigen" }}</span>
+                        <span>{{ showPassword ? t("common.hide") : t("common.show") }}</span>
                     </button>
                 </template>
             </form-row>
 
-            <form-row for-id="remember" label="Angemeldet bleiben">
+            <form-row for-id="remember" :label="t('auth.login.rememberLabel')">
                 <checkbox ref-id="remember" v-model="remember" />
             </form-row>
         </template>
@@ -141,7 +142,7 @@ const submitLabel = computed(() => {
         <template v-else>
             <form-row
                 for-id="code"
-                :label="showRecoveryCode ? 'Wiederherstellungscode' : 'Einmalkennwort'"
+                :label="showRecoveryCode ? t('auth.login.recoveryCodeLabel') : t('auth.login.otpLabel')"
                 :error="showRecoveryCode ? (errors.recovery_code ?? '') : (errors.code ?? '')"
                 :invalid="showRecoveryCode ? !!errors.recovery_code : !!errors.code"
                 :required="true"
@@ -182,10 +183,12 @@ const submitLabel = computed(() => {
         </form-row>
 
         <form-row v-if="features.resetPasswords || features.emailVerification" style="margin-top: 2rem">
-            <link-group label="Wenn du dich nicht anmelden kannst, verwende diese Links.">
-                <labelled-link v-if="features.resetPasswords" href="/forgot">Probleme beim Anmelden?</labelled-link>
+            <link-group :label="t('auth.login.helpLinksLabel')">
+                <labelled-link v-if="features.resetPasswords" href="/forgot">
+                    {{ t("auth.login.forgotLink") }}
+                </labelled-link>
                 <labelled-link v-if="features.emailVerification" href="/resend-verification">
-                    Bestätigungs-Link erneut versenden
+                    {{ t("auth.login.resendLink") }}
                 </labelled-link>
             </link-group>
         </form-row>

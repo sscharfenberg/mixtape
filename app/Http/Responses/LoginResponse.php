@@ -31,7 +31,7 @@ class LoginResponse implements LoginResponseContract
      */
     public function toResponse($request)
     {
-        $request->session()->flash('message', 'Willkommen zurück, '.$request->user()->name.'!');
+        $request->session()->flash('message', __('flash.login.welcome', ['name' => $request->user()->name]));
         $request->session()->flash('type', 'success');
         $request->session()->flash('duration', 3000);
 

@@ -18,12 +18,18 @@ declare module "@inertiajs/core" {
                     email: string;
                 } | null;
             };
+            // Active locale (resolved server-side by ConfigureLocale) and the
+            // supported set, used to seed vue-i18n and render the language
+            // switcher (see i18n.ts, main.ts, LanguageSwitch.vue).
+            locale: string;
+            supportedLocales: string[];
             // Backend feature flags gating guest-only links. Placeholder
             // values until Fortify supplies real ones (see HandleInertiaRequests).
             features: {
                 registration: boolean;
                 resetPasswords: boolean;
                 emailVerification: boolean;
+                twoFactorAuthentication: boolean;
             };
             // Session flash, bridged into the toast (see ToastContainer.vue).
             // Always shared (a closure in HandleInertiaRequests); fields are

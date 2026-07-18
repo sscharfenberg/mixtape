@@ -8,6 +8,7 @@
  * revealed; the revealed codes sit in a readonly textarea for copying.
  *****************************************************************************/
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import Button from "Components/Form/Button.vue";
 import FormInput from "Components/Form/FormInput.vue";
 import FormLegend from "Components/Form/FormLegend.vue";
@@ -25,6 +26,8 @@ withDefaults(
         align: "left"
     }
 );
+
+const { t } = useI18n();
 
 const {
     handleRegenerateRecoveryCodes,
@@ -65,28 +68,27 @@ const onSubmit = (e: SubmitEvent): void => {
 </script>
 
 <template>
-    <headline :size="4" glow :align="align">Wiederherstellungscodes</headline>
+    <headline :size="4" glow :align="align">{{ t("dashboard.twoFactor.recoveryCodes.headline") }}</headline>
 
     <form class="form" novalidate @submit.prevent="onSubmit">
         <form-legend :items="legendItems">
             <template #intro>
-                Wiederherstellungscodes erlauben es dir, dich anzumelden, wenn du keinen Zugriff mehr auf dein
-                2FA-Gerät hast. Speichere die Wiederherstellungscodes in einem sicheren Passwortmanager.
+                {{ t("dashboard.twoFactor.recoveryCodes.intro") }}
             </template>
             <template #required>
-                Felder, die mit einem <icon name="required" /> gekennzeichnet sind, müssen ausgefüllt werden.
+                <i18n-t keypath="common.requiredFieldsHint" scope="global">
+                    <template #icon><icon name="required" /></template>
+                </i18n-t>
             </template>
             <template #usage>
-                Jeder Wiederherstellungscode kann nur einmal benutzt werden, um sich in deinem Benutzerkonto
-                anzumelden, und wird nach dem Benutzen entfernt. Wenn du mehr Wiederherstellungscodes benötigst,
-                benutze den Button „Neu erzeugen“.
+                {{ t("dashboard.twoFactor.recoveryCodes.usage") }}
             </template>
         </form-legend>
 
         <form-row
             v-if="requiresPasswordConfirmation && !isRecoveryCodesVisible"
             for-id="recovery-codes-password"
-            label="Passwort"
+            :label="t('dashboard.twoFactor.passwordLabel')"
             :error="validationErrors.password ?? ''"
             :invalid="!!validationErrors.password"
             :required="true"
@@ -103,12 +105,12 @@ const onSubmit = (e: SubmitEvent): void => {
                 <button
                     type="button"
                     tabindex="-1"
-                    :aria-label="showPassword ? 'Passwort verbergen' : 'Passwort anzeigen'"
+                    :aria-label="showPassword ? t('common.hidePassword') : t('common.showPassword')"
                     @mousedown.prevent
                     @click="showPassword = !showPassword"
                 >
                     <icon :name="showPassword ? 'visibility-off' : 'visibility-on'" />
-                    <span>{{ showPassword ? "Verbergen" : "Anzeigen" }}</span>
+                    <span>{{ showPassword ? t("common.hide") : t("common.show") }}</span>
                 </button>
             </template>
         </form-row>
@@ -116,19 +118,19 @@ const onSubmit = (e: SubmitEvent): void => {
         <form-row v-if="!isRecoveryCodesVisible">
             <Button variant="default" type="submit" name="action" value="show" :disabled="processing">
                 <icon name="visibility-on" :size="1" />
-                <span>Wiederherstellungscodes anzeigen</span>
+                <span>{{ t("dashboard.twoFactor.recoveryCodes.show") }}</span>
             </Button>
         </form-row>
 
         <template v-if="isRecoveryCodesVisible">
-            <form-row label="Wiederherstellungscodes">
+            <form-row :label="t('dashboard.twoFactor.recoveryCodes.headline')">
                 <textarea class="recovery-codes" :value="recoveryCodesString" readonly rows="8" aria-readonly="true" />
             </form-row>
 
             <form-row>
                 <Button variant="default" type="submit" name="action" value="regenerate" :disabled="processing">
                     <icon name="key" :size="1" />
-                    <span>Neu erzeugen</span>
+                    <span>{{ t("dashboard.twoFactor.recoveryCodes.regenerate") }}</span>
                 </Button>
             </form-row>
         </template>

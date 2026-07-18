@@ -1,0 +1,15 @@
+/******************************************************************************
+ * contextual size tokens — component:flag
+ * @type {Sass}
+ * The small flag image in the language switcher (Components/Landmarks/Header/
+ * UserMenu/LanguageSwitch). A fixed 3:2 box; the radius rounds the corners.
+ * Consumed as s.$c-flag via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$flag: (
+    "width": 1.5rem,
+    "height": 1rem,
+    "radius": map.get(s.$radius, "base")
+) !default;

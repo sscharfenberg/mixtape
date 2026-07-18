@@ -57,16 +57,21 @@ class LoginTest extends TestCase
             'password' => Hash::make('correct-horse'),
         ]);
 
-        $response = $this->followingRedirects()->post('/login', [
-            'name' => 'Grace Hopper',
-            'password' => 'correct-horse',
-        ]);
+        // Pin the request locale: at POST time the user isn't authenticated yet,
+        // so ConfigureLocale resolves the guest/browser locale (the test client
+        // defaults to Accept-Language: en). Send `de` so the localized welcome
+        // flash is resolved in the same locale the assertion's __() uses.
+        $response = $this->withHeader('Accept-Language', 'de')
+            ->followingRedirects()->post('/login', [
+                'name' => 'Grace Hopper',
+                'password' => 'correct-horse',
+            ]);
 
         // The flash set by LoginResponse is shared by HandleInertiaRequests and
         // reaches the (dashboard) page's Inertia props, where ToastContainer
         // renders it. Duration is the fast 3000ms; nonce is a fresh string.
         $response->assertOk()->assertInertia(fn (Assert $page) => $page
-            ->where('flash.message', 'Willkommen zurück, Grace Hopper!')
+            ->where('flash.message', __('flash.login.welcome', ['name' => 'Grace Hopper']))
             ->where('flash.type', 'success')
             ->where('flash.duration', 3000)
             ->where('flash.nonce', fn ($nonce) => is_string($nonce))

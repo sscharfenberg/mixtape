@@ -50,7 +50,7 @@ class ResendVerificationController extends Controller
             $user->sendEmailVerificationNotification();
         }
 
-        $request->session()->flash('message', 'Falls ein unbestätigtes Konto mit diesem Benutzernamen und dieser E-Mail-Adresse existiert, haben wir eine Bestätigungs-E-Mail gesendet.');
+        $request->session()->flash('message', __('flash.email.verification_resent'));
         $request->session()->flash('type', 'success');
 
         return redirect()->route('home');

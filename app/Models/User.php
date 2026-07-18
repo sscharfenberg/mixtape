@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Enums\Locale;
 use App\Notifications\PasswordResetLinkNotification;
 use App\Notifications\VerifyEmailNotification;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -15,9 +17,9 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 
-#[Fillable(['name', 'email', 'password', 'two_factor_secret', 'two_factor_recovery_codes', 'two_factor_confirmed_at'])]
+#[Fillable(['name', 'email', 'password', 'locale', 'two_factor_secret', 'two_factor_recovery_codes', 'two_factor_confirmed_at'])]
 #[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable implements MustVerifyEmail
+class User extends Authenticatable implements HasLocalePreference, MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     // HasUuids: the users table uses a uuid primary key (see the create_users_table
@@ -36,7 +38,19 @@ class User extends Authenticatable implements MustVerifyEmail
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'locale' => Locale::class,
         ];
+    }
+
+    /**
+     * The user's preferred locale, honoured by Laravel when localizing queued
+     * mail / notifications (Illuminate\Contracts\Translation\HasLocalePreference),
+     * so a verification or password-reset email goes out in their language
+     * regardless of the request that triggered it.
+     */
+    public function preferredLocale(): string
+    {
+        return $this->locale?->value ?? config('app.locale');
     }
 
     /**

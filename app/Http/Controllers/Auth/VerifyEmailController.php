@@ -29,7 +29,7 @@ class VerifyEmailController extends Controller
         $user = User::findOrFail($id);
 
         if (! hash_equals(sha1($user->getEmailForVerification()), $hash)) {
-            abort(403, 'Ungültiger Bestätigungslink.');
+            abort(403, __('auth.verification_link_invalid'));
         }
 
         if (! $user->hasVerifiedEmail()) {
@@ -37,7 +37,7 @@ class VerifyEmailController extends Controller
             event(new Verified($user));
         }
 
-        $request->session()->flash('message', 'Deine E-Mail-Adresse wurde erfolgreich bestätigt.');
+        $request->session()->flash('message', __('flash.email.verified'));
         $request->session()->flash('type', 'success');
 
         return redirect()->route('login');

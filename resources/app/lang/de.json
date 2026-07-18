@@ -1,0 +1,191 @@
+{
+    "common": {
+        "close": "Schließen",
+        "show": "Anzeigen",
+        "hide": "Verbergen",
+        "showPassword": "Passwort anzeigen",
+        "hidePassword": "Passwort verbergen",
+        "availableOptions": "Verfügbare Optionen",
+        "notifications": "Benachrichtigungen",
+        "passwordStrength": "Passwortstärke",
+        "requiredFieldsHint": "Felder, die mit einem {icon} gekennzeichnet sind, müssen ausgefüllt werden."
+    },
+    "header": {
+        "userMenu": {
+            "nav": "Benutzermenü",
+            "open": "Benutzermenü öffnen",
+            "login": "Anmelden",
+            "loginHelp": "Probleme beim Anmelden?",
+            "dashboard": "Dashboard",
+            "logout": "Abmelden"
+        },
+        "language": {
+            "label": "Sprache"
+        },
+        "theme": {
+            "label": "Farbschema",
+            "dark": "Dunkel",
+            "light": "Hell",
+            "system": "System"
+        },
+        "logoAlt": "{appName} Logo"
+    },
+    "footer": {
+        "copyright": "© {appName} Mitwirkende {date} · {version}"
+    },
+    "auth": {
+        "login": {
+            "pageTitle": "Anmelden",
+            "title": "Anmeldung",
+            "twoFactorHint": "Für dein Benutzerkonto ist die Zwei-Faktor Authentifizierung aktiviert. Bitte prüfe deine App und gib das Einmalkennwort ein, das angezeigt wird.",
+            "useOtp": "Einmalkennwort verwenden",
+            "useRecoveryCode": "Wiederherstellungscode verwenden",
+            "verifying": "Wird überprüft …",
+            "submitting": "Wird angemeldet …",
+            "verify": "Überprüfen",
+            "submit": "Anmelden",
+            "nameLabel": "Benutzername",
+            "passwordLabel": "Passwort",
+            "rememberLabel": "Angemeldet bleiben",
+            "recoveryCodeLabel": "Wiederherstellungscode",
+            "otpLabel": "Einmalkennwort",
+            "helpLinksLabel": "Wenn du dich nicht anmelden kannst, verwende diese Links.",
+            "forgotLink": "Probleme beim Anmelden?",
+            "resendLink": "Bestätigungs-Link erneut versenden"
+        },
+        "register": {
+            "pageTitle": "Registrieren",
+            "title": "Registrierung",
+            "introHint": "Nach der Registrierung schicken wir dir einen Link zur Bestätigung der E-Mail-Adresse. Du kannst dich erst einloggen, wenn die E-Mail-Adresse bestätigt wurde.",
+            "passwordHint": "Während der Eingabe des Passwortes prüfen wir, ob das Passwort sicher genug ist. Unsichere Passwörter werden abgewiesen.",
+            "nameLabel": "Benutzername",
+            "emailLabel": "E-Mail",
+            "passwordLabel": "Passwort",
+            "passwordConfirmLabel": "Passwort bestätigen",
+            "submitting": "Wird registriert …",
+            "submit": "Registrieren"
+        },
+        "forgot": {
+            "pageTitle": "Probleme beim Anmelden?",
+            "title": "Probleme beim Anmelden?",
+            "typePassword": "Passwort vergessen",
+            "typeName": "Benutzername vergessen",
+            "introHint": "Wenn du dich nicht anmelden kannst, können wir dir entweder deinen Benutzernamen oder einen Link zum Zurücksetzen des Passworts schicken. Wähle dafür das Passwort oder den Benutzernamen aus, und gib die hinterlegte E-Mail-Adresse an. Wenn du das Passwort vergessen hast, musst du auch den Benutzernamen angeben.",
+            "nameLabel": "Benutzername",
+            "emailLabel": "E-Mail",
+            "submitting": "Wird angefordert …",
+            "submit": "Anfordern",
+            "helpLinksLabel": "Wenn du dich nicht anmelden kannst, verwende diese Links.",
+            "resendLink": "Bestätigungs-Link erneut versenden"
+        },
+        "reset": {
+            "pageTitle": "Passwort zurücksetzen",
+            "title": "Passwort zurücksetzen",
+            "introHint": "Gib dein neues Passwort ein. Nach dem Speichern kannst du dich mit dem neuen Passwort anmelden.",
+            "emailLabel": "E-Mail",
+            "passwordLabel": "Passwort",
+            "passwordConfirmLabel": "Passwort bestätigen",
+            "submitting": "Wird gespeichert …",
+            "submit": "Speichern"
+        },
+        "resend": {
+            "pageTitle": "Bestätigungs-Link erneut versenden",
+            "title": "Bestätigungs-Link erneut versenden",
+            "introHint": "Wenn dein Bestätigungs-Link abgelaufen ist, kannst du hier einen neuen Link zur Bestätigung deiner E-Mail-Adresse anfordern. Bitte gib dafür deinen Benutzernamen und die E-Mail-Adresse an.",
+            "nameLabel": "Benutzername",
+            "emailLabel": "E-Mail",
+            "submitting": "Wird angefordert …",
+            "submit": "Anfordern"
+        }
+    },
+    "dashboard": {
+        "page": {
+            "title": "Mein Benutzerkonto",
+            "nav": {
+                "password": "Passwort",
+                "profile": "Profil",
+                "twoFactor": "Zwei-Faktor",
+                "delete": "Benutzerkonto löschen"
+            }
+        },
+        "profile": {
+            "headline": "Profil aktualisieren",
+            "intro": "Du kannst deine E-Mail-Adresse und/oder deinen Benutzernamen ändern. Wenn du die E-Mail-Adresse änderst, musst du die neue Adresse bestätigen — wir schicken dir einen Link zur Bestätigung.",
+            "nameLabel": "Benutzername",
+            "emailLabel": "E-Mail",
+            "submit": "Ändern",
+            "submitting": "Wird geändert …"
+        },
+        "password": {
+            "headline": "Passwort ändern",
+            "intro": "Du kannst dein Passwort ändern, indem du dein aktuelles Passwort und das neue Passwort eingibst.",
+            "currentLabel": "Aktuelles Passwort",
+            "newLabel": "Neues Passwort",
+            "confirmLabel": "Neues Passwort bestätigen",
+            "submit": "Ändern",
+            "submitting": "Wird geändert …"
+        },
+        "delete": {
+            "headline": "Benutzerkonto löschen",
+            "warning": "Achtung",
+            "explanation": "Wenn nötig kannst du hier dein Benutzerkonto löschen. {warning} — diese Aktion löscht dein Benutzerkonto und alle damit verbundenen Daten.",
+            "noSoftDeletes": "Wir verwenden keine Markierung als „gelöscht“ — das Benutzerkonto wird sofort und dauerhaft entfernt.",
+            "reversed": "Diese Aktion kann nicht rückgängig gemacht werden — wir können gelöschte Benutzerkonten nicht wiederherstellen.",
+            "modal": {
+                "header": "Bestätige die Löschung",
+                "intro": "Bist du sicher, dass du dein Benutzerkonto permanent löschen willst?",
+                "passwordLabel": "Passwort",
+                "confirm": "Löschen"
+            }
+        },
+        "twoFactor": {
+            "headline": "Zwei-Faktor Authentifizierung",
+            "passwordLabel": "Passwort",
+            "badge": {
+                "enabled": "Aktiviert",
+                "disabled": "Deaktiviert"
+            },
+            "disabled": {
+                "intro": "Die Zwei-Faktor Authentifizierung verwendet {totp}. Du benötigst eine entsprechende App, z. B. Google/Microsoft Authenticator oder {bitwarden} / {enpass}.",
+                "totpTerm": "zeitlich limitierte Einmalpasswörter (TOTP)",
+                "confirm": "Zum Aktivieren muss das Passwort angegeben werden.",
+                "submit": "2FA aktivieren",
+                "submitting": "Wird aktiviert …"
+            },
+            "enabled": {
+                "headline": "Zwei-Faktor Authentifizierung deaktivieren",
+                "intro": "Gib dein Passwort ein, um die Zwei-Faktor Authentifizierung zu deaktivieren.",
+                "submit": "2FA deaktivieren",
+                "submitting": "Wird deaktiviert …"
+            },
+            "modal": {
+                "headerSetup": "Zwei-Faktor Authentifizierung einrichten",
+                "headerConfirm": "2FA bestätigen",
+                "introSetup": "Um die Einrichtung der 2FA abzuschließen, scanne den QR-Code in deiner Authentifizierungs-App, oder gib den Setup-Code manuell ein.",
+                "qrCodeLabel": "QR-Code",
+                "manualKeyLabel": "Manueller Setup-Code",
+                "copy": "Kopieren",
+                "copied": "Kopiert",
+                "introVerify": "Gib das Einmalkennwort aus deiner App ein und klicke auf „Bestätigen“.",
+                "codeLabel": "Einmalkennwort",
+                "nextStep": "Nächster Schritt",
+                "back": "Zurück",
+                "confirm": "Bestätigen",
+                "confirming": "Wird bestätigt …"
+            },
+            "recoveryCodes": {
+                "headline": "Wiederherstellungscodes",
+                "intro": "Wiederherstellungscodes erlauben es dir, dich anzumelden, wenn du keinen Zugriff mehr auf dein 2FA-Gerät hast. Speichere die Wiederherstellungscodes in einem sicheren Passwortmanager.",
+                "usage": "Jeder Wiederherstellungscode kann nur einmal benutzt werden, um sich in deinem Benutzerkonto anzumelden, und wird nach dem Benutzen entfernt. Wenn du mehr Wiederherstellungscodes benötigst, benutze den Button „Neu erzeugen“.",
+                "show": "Wiederherstellungscodes anzeigen",
+                "regenerate": "Neu erzeugen"
+            },
+            "errors": {
+                "qrCode": "QR-Code konnte nicht geladen werden.",
+                "setupKey": "Setup-Code konnte nicht geladen werden.",
+                "recoveryCodesLoad": "Wiederherstellungscodes konnten nicht geladen werden.",
+                "recoveryCodesRegenerate": "Wiederherstellungscodes konnten nicht neu erzeugt werden."
+            }
+        }
+    }
+}

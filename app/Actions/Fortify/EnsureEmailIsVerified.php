@@ -33,7 +33,7 @@ class EnsureEmailIsVerified
 
         if ($user && ! $user->hasVerifiedEmail()) {
             throw ValidationException::withMessages([
-                Fortify::username() => ['Bitte bestätige deine E-Mail-Adresse, bevor du dich anmeldest.'],
+                Fortify::username() => [__('auth.email_not_verified')],
             ]);
         }
 

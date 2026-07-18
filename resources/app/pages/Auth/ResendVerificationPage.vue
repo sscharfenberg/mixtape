@@ -13,21 +13,24 @@
  * validates server-side on blur (@change → validate(field)).
  *****************************************************************************/
 import { Form, Head } from "@inertiajs/vue3";
+import { useI18n } from "vue-i18n";
 import Button from "Components/Form/Button.vue";
 import FormInput from "Components/Form/FormInput.vue";
 import FormLegend from "Components/Form/FormLegend.vue";
 import FormRow from "Components/Form/FormRow.vue";
 import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
+
+const { t } = useI18n();
 </script>
 
 <template>
     <Head>
-        <title>Bestätigungs-Link erneut versenden</title>
+        <title>{{ t("auth.resend.pageTitle") }}</title>
     </Head>
     <headline glow>
         <icon name="mail" :size="3" />
-        Bestätigungs-Link erneut versenden
+        {{ t("auth.resend.title") }}
     </headline>
 
     <Form
@@ -42,18 +45,17 @@ import Icon from "Components/UI/Icon.vue";
                 { slot: 'required', icon: 'info' }
             ]"
         >
-            <template #intro>
-                Wenn dein Bestätigungs-Link abgelaufen ist, kannst du hier einen neuen Link zur Bestätigung deiner
-                E-Mail-Adresse anfordern. Bitte gib dafür deinen Benutzernamen und die E-Mail-Adresse an.
-            </template>
+            <template #intro>{{ t("auth.resend.introHint") }}</template>
             <template #required>
-                Felder, die mit einem <icon name="required" /> gekennzeichnet sind, müssen ausgefüllt werden.
+                <i18n-t keypath="common.requiredFieldsHint" scope="global">
+                    <template #icon><icon name="required" /></template>
+                </i18n-t>
             </template>
         </form-legend>
 
         <form-row
             for-id="name"
-            label="Benutzername"
+            :label="t('auth.resend.nameLabel')"
             :error="errors.name ?? ''"
             :invalid="invalid('name')"
             :validated="valid('name')"
@@ -73,7 +75,7 @@ import Icon from "Components/UI/Icon.vue";
 
         <form-row
             for-id="email"
-            label="E-Mail"
+            :label="t('auth.resend.emailLabel')"
             :error="errors.email ?? ''"
             :invalid="invalid('email')"
             :validated="valid('email')"
@@ -94,7 +96,7 @@ import Icon from "Components/UI/Icon.vue";
         <form-row>
             <Button variant="primary" type="submit" :disabled="processing">
                 <icon name="save" :size="1" />
-                <span>{{ processing ? "Wird angefordert …" : "Anfordern" }}</span>
+                <span>{{ processing ? t("auth.resend.submitting") : t("auth.resend.submit") }}</span>
             </Button>
         </form-row>
     </Form>

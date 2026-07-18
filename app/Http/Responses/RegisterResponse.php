@@ -25,7 +25,7 @@ class RegisterResponse implements RegisterResponseContract
      */
     public function toResponse($request): JsonResponse|Response
     {
-        $request->session()->flash('message', 'Registrierung erfolgreich. Wir haben dir eine E-Mail mit einem Link zur Bestätigung der E-Mail-Adresse geschickt.');
+        $request->session()->flash('message', __('flash.register.success'));
         $request->session()->flash('type', 'success');
 
         if (Features::enabled(Features::emailVerification())) {

@@ -1,6 +1,16 @@
 import { router, usePage } from "@inertiajs/vue3";
 import type { ComputedRef, Ref } from "vue";
 import { computed, ref } from "vue";
+import type { Composer } from "vue-i18n";
+import { getI18n } from "@/i18n";
+
+/**
+ * Translate a key via the global i18n instance. These error strings are pushed
+ * from async fetch handlers — outside component setup, where `useI18n()` isn't
+ * available — so we reach the singleton directly; the cast bridges vue-i18n's
+ * `Composer | VueI18n` union to a callable `t`.
+ */
+const translate = (key: string): string => (getI18n().global as unknown as Composer).t(key);
 
 /** Return type of the {@link useTwoFactorAuth} composable. */
 export type UseTwoFactorAuthReturn = {
@@ -97,7 +107,7 @@ export const useTwoFactorAuth = (): UseTwoFactorAuthReturn => {
 
             qrCodeSvg.value = svg;
         } catch {
-            errors.value.push("QR-Code konnte nicht geladen werden.");
+            errors.value.push(translate("dashboard.twoFactor.errors.qrCode"));
             qrCodeSvg.value = null;
         }
     };
@@ -114,7 +124,7 @@ export const useTwoFactorAuth = (): UseTwoFactorAuthReturn => {
 
             manualSetupKey.value = key;
         } catch {
-            errors.value.push("Setup-Code konnte nicht geladen werden.");
+            errors.value.push(translate("dashboard.twoFactor.errors.setupKey"));
             manualSetupKey.value = null;
         }
     };
@@ -162,7 +172,7 @@ export const useTwoFactorAuth = (): UseTwoFactorAuthReturn => {
             clearErrors();
             recoveryCodesList.value = await fetchJson<string[]>("/user/two-factor-recovery-codes");
         } catch {
-            errors.value.push("Wiederherstellungscodes konnten nicht geladen werden.");
+            errors.value.push(translate("dashboard.twoFactor.errors.recoveryCodesLoad"));
             recoveryCodesList.value = [];
         }
     };
@@ -347,7 +357,7 @@ export const useTwoFactorAuth = (): UseTwoFactorAuthReturn => {
         }
 
         if (!response.ok) {
-            errors.value.push("Wiederherstellungscodes konnten nicht neu erzeugt werden.");
+            errors.value.push(translate("dashboard.twoFactor.errors.recoveryCodesRegenerate"));
             processing.value = false;
             return;
         }

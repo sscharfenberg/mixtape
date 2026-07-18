@@ -9,6 +9,8 @@
  * collection integration) have no MixTape equivalent yet.
  *****************************************************************************/
 import { Head } from "@inertiajs/vue3";
+import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
 import StickyNav from "Components/UI/StickyNav.vue";
@@ -17,21 +19,21 @@ import DashboardProfile from "./DashboardProfile.vue";
 import DeleteAccount from "./Delete/DeleteAccount.vue";
 import TwoFactor from "./TwoFactor/TwoFactor.vue";
 
-const navItems = [
-    { id: "passwordSection", label: "Passwort" },
-    { id: "profileSection", label: "Profil" },
-    { id: "twoFactorSection", label: "Zwei-Faktor" },
-    { id: "deleteSection", label: "Benutzerkonto löschen" }
-];
+const { t } = useI18n();
+
+const navItems = computed(() => [
+    { id: "passwordSection", label: t("dashboard.page.nav.password") },
+    { id: "profileSection", label: t("dashboard.page.nav.profile") },
+    { id: "twoFactorSection", label: t("dashboard.page.nav.twoFactor") },
+    { id: "deleteSection", label: t("dashboard.page.nav.delete") }
+]);
 </script>
 
 <template>
-    <Head>
-        <title>Mein Benutzerkonto</title>
-    </Head>
+    <Head :title="t('dashboard.page.title')" />
     <headline glow align="left">
         <icon name="user-settings" :size="3" />
-        Mein Benutzerkonto
+        {{ t("dashboard.page.title") }}
     </headline>
 
     <sticky-nav :items="navItems" />

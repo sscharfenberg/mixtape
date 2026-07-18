@@ -12,6 +12,7 @@
  *****************************************************************************/
 import { Form, Head } from "@inertiajs/vue3";
 import { ref } from "vue";
+import { useI18n } from "vue-i18n";
 import Button from "Components/Form/Button.vue";
 import FormInput from "Components/Form/FormInput.vue";
 import FormLegend from "Components/Form/FormLegend.vue";
@@ -28,6 +29,7 @@ const props = defineProps<{
     email: string;
 }>();
 
+const { t } = useI18n();
 const inputEmail = ref(props.email);
 const showPassword = ref(false);
 const showPasswordConfirmation = ref(false);
@@ -38,11 +40,11 @@ const { password, score, onPasswordChange } = usePasswordEntropy();
 
 <template>
     <Head>
-        <title>Passwort zurücksetzen</title>
+        <title>{{ t("auth.reset.pageTitle") }}</title>
     </Head>
     <headline glow>
         <icon name="key" :size="3" />
-        Passwort zurücksetzen
+        {{ t("auth.reset.title") }}
     </headline>
 
     <Form
@@ -52,14 +54,12 @@ const { password, score, onPasswordChange } = usePasswordEntropy();
         class="form"
     >
         <form-legend :items="[{ slot: 'intro', icon: 'info' }]">
-            <template #intro>
-                Gib dein neues Passwort ein. Nach dem Speichern kannst du dich mit dem neuen Passwort anmelden.
-            </template>
+            <template #intro>{{ t("auth.reset.introHint") }}</template>
         </form-legend>
 
         <form-row
             for-id="email"
-            label="E-Mail"
+            :label="t('auth.reset.emailLabel')"
             :error="errors.email ?? ''"
             :invalid="false"
             :validated="true"
@@ -80,7 +80,7 @@ const { password, score, onPasswordChange } = usePasswordEntropy();
 
         <form-row
             for-id="password"
-            label="Passwort"
+            :label="t('auth.reset.passwordLabel')"
             :error="errors.password ?? ''"
             :invalid="invalid('password')"
             :validated="valid('password')"
@@ -101,12 +101,12 @@ const { password, score, onPasswordChange } = usePasswordEntropy();
                 <button
                     type="button"
                     tabindex="-1"
-                    :aria-label="showPassword ? 'Passwort verbergen' : 'Passwort anzeigen'"
+                    :aria-label="showPassword ? t('common.hidePassword') : t('common.showPassword')"
                     @mousedown.prevent
                     @click="showPassword = !showPassword"
                 >
                     <icon :name="showPassword ? 'visibility-off' : 'visibility-on'" />
-                    <span>{{ showPassword ? "Verbergen" : "Anzeigen" }}</span>
+                    <span>{{ showPassword ? t("common.hide") : t("common.show") }}</span>
                 </button>
             </template>
             <template v-if="score !== null" #text>
@@ -116,7 +116,7 @@ const { password, score, onPasswordChange } = usePasswordEntropy();
 
         <form-row
             for-id="password_confirmation"
-            label="Passwort bestätigen"
+            :label="t('auth.reset.passwordConfirmLabel')"
             :error="errors.password_confirmation ?? ''"
             :invalid="invalid('password_confirmation')"
             :validated="valid('password_confirmation')"
@@ -135,14 +135,12 @@ const { password, score, onPasswordChange } = usePasswordEntropy();
                 <button
                     type="button"
                     tabindex="-1"
-                    :aria-label="showPasswordConfirmation ? 'Passwort verbergen' : 'Passwort anzeigen'"
+                    :aria-label="showPasswordConfirmation ? t('common.hidePassword') : t('common.showPassword')"
                     @mousedown.prevent
                     @click="showPasswordConfirmation = !showPasswordConfirmation"
                 >
                     <icon :name="showPasswordConfirmation ? 'visibility-off' : 'visibility-on'" />
-                    <span>{{
-                        showPasswordConfirmation ? "Verbergen" : "Anzeigen"
-                    }}</span>
+                    <span>{{ showPasswordConfirmation ? t("common.hide") : t("common.show") }}</span>
                 </button>
             </template>
         </form-row>
@@ -152,7 +150,7 @@ const { password, score, onPasswordChange } = usePasswordEntropy();
         <form-row>
             <Button variant="primary" type="submit" :disabled="processing">
                 <icon name="save" :size="1" />
-                <span>{{ processing ? "Wird gespeichert …" : "Speichern" }}</span>
+                <span>{{ processing ? t("auth.reset.submitting") : t("auth.reset.submit") }}</span>
             </Button>
         </form-row>
     </Form>

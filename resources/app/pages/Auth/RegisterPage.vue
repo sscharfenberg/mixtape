@@ -15,6 +15,7 @@
  *****************************************************************************/
 import { Form, Head } from "@inertiajs/vue3";
 import { ref } from "vue";
+import { useI18n } from "vue-i18n";
 import Button from "Components/Form/Button.vue";
 import FormInput from "Components/Form/FormInput.vue";
 import FormLegend from "Components/Form/FormLegend.vue";
@@ -30,6 +31,7 @@ defineProps<{
     code: string;
 }>();
 
+const { t } = useI18n();
 const showPassword = ref(false);
 const showPasswordConfirmation = ref(false);
 
@@ -39,11 +41,11 @@ const { password, score, onPasswordChange } = usePasswordEntropy();
 
 <template>
     <Head>
-        <title>Registrieren</title>
+        <title>{{ t("auth.register.pageTitle") }}</title>
     </Head>
     <headline glow>
         <icon name="register" :size="3" />
-        Registrierung
+        {{ t("auth.register.title") }}
     </headline>
 
     <Form
@@ -59,22 +61,18 @@ const { password, score, onPasswordChange } = usePasswordEntropy();
                 { slot: 'password', icon: 'key' }
             ]"
         >
-            <template #intro>
-                Nach der Registrierung schicken wir dir einen Link zur Bestätigung der E-Mail-Adresse. Du kannst dich
-                erst einloggen, wenn die E-Mail-Adresse bestätigt wurde.
-            </template>
+            <template #intro>{{ t("auth.register.introHint") }}</template>
             <template #required>
-                Felder, die mit einem <icon name="required" /> gekennzeichnet sind, müssen ausgefüllt werden.
+                <i18n-t keypath="common.requiredFieldsHint" scope="global">
+                    <template #icon><icon name="required" /></template>
+                </i18n-t>
             </template>
-            <template #password>
-                Während der Eingabe des Passwortes prüfen wir, ob das Passwort sicher genug ist. Unsichere Passwörter
-                werden abgewiesen.
-            </template>
+            <template #password>{{ t("auth.register.passwordHint") }}</template>
         </form-legend>
 
         <form-row
             for-id="name"
-            label="Benutzername"
+            :label="t('auth.register.nameLabel')"
             :error="errors.name ?? ''"
             :invalid="invalid('name')"
             :validated="valid('name')"
@@ -95,7 +93,7 @@ const { password, score, onPasswordChange } = usePasswordEntropy();
 
         <form-row
             for-id="email"
-            label="E-Mail"
+            :label="t('auth.register.emailLabel')"
             :error="errors.email ?? ''"
             :invalid="invalid('email')"
             :validated="valid('email')"
@@ -115,7 +113,7 @@ const { password, score, onPasswordChange } = usePasswordEntropy();
 
         <form-row
             for-id="password"
-            label="Passwort"
+            :label="t('auth.register.passwordLabel')"
             :error="errors.password ?? ''"
             :invalid="invalid('password')"
             :validated="valid('password')"
@@ -136,12 +134,12 @@ const { password, score, onPasswordChange } = usePasswordEntropy();
                 <button
                     type="button"
                     tabindex="-1"
-                    :aria-label="showPassword ? 'Passwort verbergen' : 'Passwort anzeigen'"
+                    :aria-label="showPassword ? t('common.hidePassword') : t('common.showPassword')"
                     @mousedown.prevent
                     @click="showPassword = !showPassword"
                 >
                     <icon :name="showPassword ? 'visibility-off' : 'visibility-on'" />
-                    <span>{{ showPassword ? "Verbergen" : "Anzeigen" }}</span>
+                    <span>{{ showPassword ? t("common.hide") : t("common.show") }}</span>
                 </button>
             </template>
             <!-- meter lives in the #text slot so it aligns to the input column width -->
@@ -152,7 +150,7 @@ const { password, score, onPasswordChange } = usePasswordEntropy();
 
         <form-row
             for-id="password_confirmation"
-            label="Passwort bestätigen"
+            :label="t('auth.register.passwordConfirmLabel')"
             :error="errors.password_confirmation ?? ''"
             :invalid="invalid('password_confirmation')"
             :validated="valid('password_confirmation')"
@@ -171,12 +169,12 @@ const { password, score, onPasswordChange } = usePasswordEntropy();
                 <button
                     type="button"
                     tabindex="-1"
-                    :aria-label="showPasswordConfirmation ? 'Passwort verbergen' : 'Passwort anzeigen'"
+                    :aria-label="showPasswordConfirmation ? t('common.hidePassword') : t('common.showPassword')"
                     @mousedown.prevent
                     @click="showPasswordConfirmation = !showPasswordConfirmation"
                 >
                     <icon :name="showPasswordConfirmation ? 'visibility-off' : 'visibility-on'" />
-                    <span>{{ showPasswordConfirmation ? "Verbergen" : "Anzeigen" }}</span>
+                    <span>{{ showPasswordConfirmation ? t("common.hide") : t("common.show") }}</span>
                 </button>
             </template>
         </form-row>
@@ -186,7 +184,7 @@ const { password, score, onPasswordChange } = usePasswordEntropy();
         <form-row>
             <Button variant="primary" type="submit" :disabled="processing">
                 <icon name="register" :size="1" />
-                <span>{{ processing ? "Wird registriert …" : "Registrieren" }}</span>
+                <span>{{ processing ? t("auth.register.submitting") : t("auth.register.submit") }}</span>
             </Button>
         </form-row>
     </Form>

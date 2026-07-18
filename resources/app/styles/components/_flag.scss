@@ -1,0 +1,20 @@
+/******************************************************************************
+ * .flag — the small country/language flag image
+ * @type {Sass}
+ * Rendered from resources/app/assets/flags/<locale>.svg by the language switcher
+ * (Components/Landmarks/Header/UserMenu/LanguageSwitch). A fixed box sized from
+ * s.$c-flag; object-fit keeps flags of differing source aspect ratios neatly
+ * inside it. Loaded into the `components` cascade layer via the barrel
+ * (components/_index.scss → app.scss).
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/sizes" as s;
+
+.flag {
+    width: map.get(s.$c-flag, "width");
+    height: map.get(s.$c-flag, "height");
+
+    border-radius: map.get(s.$c-flag, "radius");
+
+    object-fit: cover;
+}

@@ -46,7 +46,7 @@ class AuthController extends Controller
 
         if (! $valid) {
             return redirect()->route('login')
-                ->with('message', 'Dieser Einladungslink ist ungültig oder abgelaufen.')
+                ->with('message', __('rules.invite_invalid'))
                 ->with('type', 'error')
                 ->with('duration', 5000);
         }

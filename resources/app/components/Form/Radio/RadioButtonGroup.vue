@@ -6,7 +6,10 @@
  * (default) or a row.
  *****************************************************************************/
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import RadioButton from "Components/Form/Radio/RadioButton.vue";
+
+const { t } = useI18n();
 
 /** Describes a single radio option within the group. */
 interface RadioButtonOption {
@@ -46,7 +49,7 @@ const classList = computed(() => ["radio-group", `radio-group--${props.layout}`]
 </script>
 
 <template>
-    <ul role="list" :class="classList" aria-label="Verfügbare Optionen">
+    <ul role="list" :class="classList" :aria-label="t('common.availableOptions')">
         <li v-for="button in radioButtons" :key="button.value" class="radio-group__item">
             <radio-button
                 :value="button.value"
