@@ -17,6 +17,16 @@ import Icon from "Components/UI/Icon.vue";
 import { useTwoFactorAuth } from "Composables/useTwoFactorAuth";
 import TwoFactorRecoveryCodes from "./TwoFactorRecoveryCodes.vue";
 
+withDefaults(
+    defineProps<{
+        /** Which edge the section's glowing-border headline tabs hug (threaded down from TwoFactor). */
+        align?: "left" | "right";
+    }>(),
+    {
+        align: "left"
+    }
+);
+
 const { processing, validationErrors, requiresPasswordConfirmation, disableTwoFactor } = useTwoFactorAuth();
 
 const password = ref("");
@@ -31,9 +41,9 @@ const legendItems = computed(() => {
 </script>
 
 <template>
-    <two-factor-recovery-codes />
+    <two-factor-recovery-codes :align="align" />
 
-    <headline :size="4">Zwei-Faktor Authentifizierung deaktivieren</headline>
+    <headline :size="4" glow :align="align">Zwei-Faktor Authentifizierung deaktivieren</headline>
 
     <form class="form" novalidate @submit.prevent="disableTwoFactor(password)">
         <form-legend :items="legendItems">

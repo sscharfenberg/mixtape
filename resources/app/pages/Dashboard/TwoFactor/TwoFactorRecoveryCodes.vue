@@ -16,6 +16,16 @@ import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
 import { useTwoFactorAuth } from "Composables/useTwoFactorAuth";
 
+withDefaults(
+    defineProps<{
+        /** Which edge the section's glowing-border headline tabs hug (threaded down from TwoFactor). */
+        align?: "left" | "right";
+    }>(),
+    {
+        align: "left"
+    }
+);
+
 const {
     handleRegenerateRecoveryCodes,
     handleShowRecoveryCodes,
@@ -33,10 +43,11 @@ const password = ref("");
 /** Toggles the password field between `text` and `password` type for visibility. */
 const showPassword = ref(false);
 
-/** Legend notes — intro always; the required-fields hint only while the password field is shown. */
+/** Legend notes — intro always; the required-fields hint only while the password field is shown; the usage note once the codes are revealed. */
 const legendItems = computed(() => {
     const items = [{ slot: "intro", icon: "info" }];
     if (requiresPasswordConfirmation.value && !isRecoveryCodesVisible.value) items.push({ slot: "required", icon: "info" });
+    if (isRecoveryCodesVisible.value) items.push({ slot: "usage", icon: "info" });
     return items;
 });
 
@@ -54,7 +65,7 @@ const onSubmit = (e: SubmitEvent): void => {
 </script>
 
 <template>
-    <headline :size="4">Wiederherstellungscodes</headline>
+    <headline :size="4" glow :align="align">Wiederherstellungscodes</headline>
 
     <form class="form" novalidate @submit.prevent="onSubmit">
         <form-legend :items="legendItems">
@@ -64,6 +75,11 @@ const onSubmit = (e: SubmitEvent): void => {
             </template>
             <template #required>
                 Felder, die mit einem <icon name="required" /> gekennzeichnet sind, müssen ausgefüllt werden.
+            </template>
+            <template #usage>
+                Jeder Wiederherstellungscode kann nur einmal benutzt werden, um sich in deinem Benutzerkonto
+                anzumelden, und wird nach dem Benutzen entfernt. Wenn du mehr Wiederherstellungscodes benötigst,
+                benutze den Button „Neu erzeugen“.
             </template>
         </form-legend>
 
@@ -108,14 +124,6 @@ const onSubmit = (e: SubmitEvent): void => {
             <form-row label="Wiederherstellungscodes">
                 <textarea class="recovery-codes" :value="recoveryCodesString" readonly rows="8" aria-readonly="true" />
             </form-row>
-
-            <form-legend :items="[{ slot: 'intro', icon: 'info' }]">
-                <template #intro>
-                    Jeder Wiederherstellungscode kann nur einmal benutzt werden, um sich in deinem Benutzerkonto
-                    anzumelden, und wird nach dem Benutzen entfernt. Wenn du mehr Wiederherstellungscodes benötigst,
-                    benutze den Button „Neu erzeugen“.
-                </template>
-            </form-legend>
 
             <form-row>
                 <Button variant="default" type="submit" name="action" value="regenerate" :disabled="processing">

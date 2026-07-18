@@ -45,13 +45,25 @@ const handleModalClose = (): void => {
         <icon name="security" />
         Zwei-Faktor Authentifizierung
         <template #right>
-            <badge v-if="!twoFactorEnabled" type="warning"><icon name="key" />Deaktiviert</badge>
+            <badge v-if="!twoFactorEnabled" type="warning"><icon name="key" :size="1" />Deaktiviert</badge>
             <badge v-else type="success"><icon name="security" />Aktiviert</badge>
         </template>
     </headline>
 
     <TwoFactorDisabled v-if="!twoFactorEnabled" />
-    <TwoFactorEnabled v-else />
+    <TwoFactorEnabled v-else :align="align" />
 
     <TwoFactorModal v-if="showSetupModal" :requires-confirmation="requiresConfirmation" @close="handleModalClose" />
 </template>
+
+<style scoped lang="scss">
+@layer components {
+    // The badge is slot content we pass into Headline's #right slot, so it keeps
+    // this component's scope id — a plain (non-:deep) selector matches it. It
+    // inherits the h3 font-size (25.6px), which makes it enormous; shrink it back
+    // to a proportional size.
+    .badge {
+        font-size: 0.8rem;
+    }
+}
+</style>
