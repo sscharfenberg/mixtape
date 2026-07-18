@@ -3,7 +3,7 @@
  *****************************************************************************/
 import "@/styles/app.scss";
 import { createInertiaApp, router } from "@inertiajs/vue3";
-import { doesProgressBarExist, finishProgress, setProgress, startProgress } from "@sscharfenberg/progressbar/progressbar.js";
+import { doesProgressBarExist, finishProgress, setProgress, startProgress } from "@sscharfenberg/progressbar";
 import type { DefineComponent } from "vue";
 import { createApp, h } from "vue";
 import type { Composer } from "vue-i18n";
