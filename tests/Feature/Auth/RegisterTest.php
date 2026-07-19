@@ -26,7 +26,7 @@ class RegisterTest extends TestCase
     /**
      * Mint an invite and return its plaintext code plus the model.
      *
-     * @return array{0: string, 1: \App\Models\Invite}
+     * @return array{0: string, 1: Invite}
      */
     private function invite(array $overrides = []): array
     {
