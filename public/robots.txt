@@ -1,2 +1,11 @@
+# MixTape is a private music collection shared with family and friends.
+# Nothing here is meant to be indexed: every useful URL sits behind auth or is
+# an unguessable signed share-link. Crawling it only costs a home uplink its
+# bandwidth, so: please don't.
+#
+# This covers compliant crawlers, including the major LLM ones (GPTBot,
+# ClaudeBot, CCBot, Google-Extended, PerplexityBot, ...). Scanners that ignore
+# robots.txt are handled by nginx rate limiting and fail2ban instead.
+
 User-agent: *
-Disallow:
+Disallow: /
