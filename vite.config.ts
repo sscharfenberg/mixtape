@@ -159,20 +159,20 @@ export default defineConfig(({ mode }) => {
             host: true,
 
             // When VITE_SERVER_ORIGIN is set, Vite advertises that URL in
-            // public/hot so Laravel generates correct asset URLs. On debbie a
-            // TLS-terminating nginx vhost on https://debbie.local:5174 proxies
-            // to this dev server on 127.0.0.1:5173, so the origin is that URL.
+            // public/hot so Laravel generates correct asset URLs. On a remote
+            // dev box a TLS-terminating nginx vhost (e.g. https://dev.local:5174)
+            // proxies to this dev server on 127.0.0.1:5173, so the origin is that URL.
             origin: env.VITE_SERVER_ORIGIN || undefined,
             cors: true,
 
             // Hostnames Vite accepts in the Host header. Required when a reverse
-            // proxy forwards requests as Host: debbie.local. Unset in local dev
+            // proxy forwards requests as the proxy's own host. Unset in local dev
             // (Vite's default already allows localhost / 127.0.0.1).
             allowedHosts: env.VITE_ALLOWED_HOSTS ? env.VITE_ALLOWED_HOSTS.split(",") : undefined,
 
             // HMR websocket target the browser connects to. Behind the proxy this
             // must point at the public TLS port so the client opens
-            // wss://debbie.local:5174 instead of the unreachable ws://…:5173.
+            // wss://<dev-host>:5174 instead of the unreachable ws://…:5173.
             // Unset (local dev) keeps Vite's default localhost websocket.
             hmr: env.VITE_HMR_HOST
                 ? {

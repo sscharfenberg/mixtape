@@ -11,7 +11,7 @@ real domain CNAMEs to a DynDNS host, and the router forwards **only 80/443** —
 links to music with family and friends. Access is gated by auth.
 
 *(The host is referred to generically here. Its name, addresses, and everything else concrete live in
-the untracked `docs/debbie.local/` — see **Docs** below.)*
+the untracked `docs/host.local/` — see **Docs** below.)*
 
 **mixtape.v2** is a **ground-up rewrite** of the existing app. The legacy code is the sibling folder
 **`../MixTape`** (newer than the public GitHub repo) — read it for behaviour, the data model, artisan
@@ -23,11 +23,11 @@ this repo starts clean.
 1. ✅ **Rebuild the server** — **DONE & verified 2026-06-28.** Fresh Debian on plain LVM (large `/var`),
    hardened, services up (PostgreSQL 17 / php-fpm 8.4 / nginx / Samba), collection restored, PoC proven.
    Spec + design in [`docs/self-hosting/01-requirements.md`](docs/self-hosting/01-requirements.md);
-   the concrete box in `docs/debbie.local/infrastructure.md` (**untracked**, see *Docs*).
+   the concrete box in `docs/host.local/infrastructure.md` (**untracked**, see *Docs*).
 2. ⬜ **Rewrite the app** — **IN PROGRESS.** New design; Inertia v3 instead of the REST API;
    composables-first Vue + TS. See [`docs/app-rewrite.md`](docs/app-rewrite.md); public go-live in
    [`docs/self-hosting/04-going-public.md`](docs/self-hosting/04-going-public.md) (generic) and
-   `docs/debbie.local/go-live.md` (**untracked**, real values + status).
+   `docs/host.local/go-live.md` (**untracked**, real values + status).
 
 Phase 1 was done first — no point deploying new app code onto the old host.
 
@@ -42,7 +42,7 @@ Phase 1 was done first — no point deploying new app code onto the old host.
 - **Back up the media collection before any wipe** — it's the only thing whose loss is permanent (the
   DB is rebuilt from it via artisan in ~40 s). Backups go to a **separate physical drive**, so a
   system-disk reinstall can't touch them. Wipe/repartition only after a **verified** backup — "the
-  archive exists" is not "the archive restores". (Concrete disks/labels: `docs/debbie.local/`.)
+  archive exists" is not "the archive restores". (Concrete disks/labels: `docs/host.local/`.)
 
 **App**
 
@@ -120,12 +120,12 @@ runs *much slower by default* and only switches to the lively duration under `no
 > **Reproducible** server documentation — anything another person could follow on their own hardware —
 > is **tracked** in `docs/self-hosting/` and uses placeholders (`<your-domain>`, `<server-lan-ip>`).
 > Anything describing **this one box** — hostname, LAN topology, MACs, the DynDNS host, the real
-> domain, secret locations — goes in **`docs/debbie.local/`**, which is gitignored as a whole
+> domain, secret locations — goes in **`docs/host.local/`**, which is gitignored as a whole
 > directory.
 >
 > **Never put a real host name, LAN address, MAC, or the live domain in a tracked file.** When adding
 > server material, ask which half it is: the transferable lesson goes in `self-hosting/`, the concrete
-> state in `debbie.local/`. Most changes touch both.
+> state in `host.local/`. Most changes touch both.
 >
 > _(Until 2026-07-19 this all lived in an untracked sibling folder `../mixtape-ops/`. A gitignored
 > directory does the same job without the docs being one level away from the code they describe.)_
@@ -142,7 +142,7 @@ instance, written for someone else's server.
 - `files/` — installable configs (nginx vhost, fpm pool, rate-limit zones, sudoers, deploy script,
   `.env` template), all with placeholders.
 
-**This box (untracked — `docs/debbie.local/`):**
+**This box (untracked — `docs/host.local/`):**
 
 - `infrastructure.md` — the concrete live box: LAN topology, disks, services, secret **locations**.
 - `go-live.md` — the go-live runbook with real values and per-step status.

@@ -14,7 +14,7 @@ use Tests\TestCase;
  * MixTape authenticates by the account `name`, not email (config/fortify.php
  * → 'username' => 'name'), so these tests drive the `name` credential. They run
  * on the isolated sqlite :memory: connection (phpunit.xml) and never reach the
- * debbie Postgres. Redirect targets that are config-backed ('/' = fortify.home)
+ * real Postgres. Redirect targets that are config-backed ('/' = fortify.home)
  * are asserted exactly; framework-default guest/logout redirects are only
  * asserted to *be* redirects, to avoid coupling to their target.
  */

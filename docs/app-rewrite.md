@@ -94,10 +94,10 @@ Rules:
 - Signed share-links default to a **30-day expiry** (with an optional "no expiry" per link) and are
   **revocable** at any time.
 - **Transactional mail** (Fortify password resets, email verification, invite links) is sent through a
-  relay — **Mailtrap** (free tier, as on `cantrip.me`) — **never** from debbie's dynamic residential IP.
+  relay — **Mailtrap** (free tier, as on `cantrip.me`) — **never** from the server's dynamic residential IP.
   Deliverability relies on **SPF/DKIM/DMARC TXT records on the real domain**; the domain/DNS + mail
   setup is in [`self-hosting/04-going-public.md`](self-hosting/04-going-public.md) (this box's real
-  values live in the untracked `debbie.local/` — see [../CLAUDE.md](../CLAUDE.md) → *Docs*).
+  values live in the untracked `host.local/` — see [../CLAUDE.md](../CLAUDE.md) → *Docs*).
 
 ## What to preserve from the legacy app (port behaviour, not architecture)
 

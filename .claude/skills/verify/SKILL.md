@@ -9,13 +9,13 @@ Runtime verification recipe for this repo (Laravel 13 + Inertia v3 + Vue 3 + TS)
 No Playwright / chromium-cli / puppeteer is installed — drive Chrome directly over
 the DevTools Protocol from Node (Node ≥ 22 exposes global `WebSocket` + `fetch`).
 
-## Stand up the app (throwaway, no debbie)
+## Stand up the app (throwaway, no remote box)
 
-The committed `.env` points at debbie (`https://debbie.local`, Postgres, SMTP, secure
+The committed `.env` points at the remote dev box (its own host, Postgres, SMTP, secure
 cookies). Do **not** edit `.env` — override via real env vars (Laravel's dotenv is
 immutable, so real env vars win). Use a throwaway sqlite file and the **built** assets
 (run `npm run build` once; with no `public/hot` file, `@vite` serves from the manifest,
-so you don't need the Vite dev server and avoid its debbie origin/HMR settings).
+so you don't need the Vite dev server and avoid its proxied origin/HMR settings).
 
 ```bash
 DB=/tmp/mixtape-verify.sqlite; : > "$DB"

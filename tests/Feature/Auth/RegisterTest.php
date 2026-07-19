@@ -16,7 +16,7 @@ use Tests\TestCase;
  * routes/web.auth.php). Onboarding requires a valid one-time invite: the GET
  * view rejects bad codes, and POST /register (App\Actions\Fortify\CreateNewUser)
  * validates + consumes the invite atomically. Tests run on the isolated sqlite
- * :memory: connection and never reach the debbie Postgres, so they avoid
+ * :memory: connection and never reach the real Postgres, so they avoid
  * asserting the Postgres-only case-insensitive `name` collation.
  */
 class RegisterTest extends TestCase

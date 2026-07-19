@@ -4,8 +4,8 @@ Project-specific `artisan` commands for MixTape (namespaced `app:*`). Framework
 and package commands (`migrate`, `queue:work`, …) are not listed here — run
 `php artisan list` for the full set.
 
-> Run everything from the app root. On the dev box that is
-> `/var/www/mixtape.dev` on **debbie**; locally it is your working copy.
+> Run everything from the app root. On the server that is
+> `/var/www/mixtape.dev`; locally it is your working copy.
 
 ## Index
 

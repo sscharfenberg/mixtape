@@ -30,19 +30,23 @@ Thumbs.db
 # TypeScript incremental-build cache (emitted by `vue-tsc --build`) — machine-local, regenerated on every build.
 *.tsbuildinfo
 # Local-only / host-specific docs — never commit. (The host docs now live in
-# docs/debbie.local/ below; this glob remains for any stray *.local.md.)
+# docs/host.local/ below; this glob remains for any stray *.local.md.)
 *.local.md
 # Claude Code local/personal settings.
 .claude/settings.local.json
 
 # Home-infrastructure docs — never tracked (see CLAUDE.md -> Docs).
 #
-# This repo is public. docs/debbie.local/ holds everything specific to the one
-# live server: LAN topology, MACs, the DynDNS host, the real domain, secret
-# LOCATIONS. The generic, reproducible version of the same material is
+# This repo is public. docs/host.local/ holds everything specific to the one
+# live server: hostname, LAN topology, MACs, the DynDNS host, the real domain,
+# secret LOCATIONS. The generic, reproducible version of the same material is
 # docs/self-hosting/, which IS tracked and uses placeholders throughout.
 #
 # The trailing slash ignores the whole directory. Note the *.local.md rule above
 # would NOT cover files inside it (infrastructure.md does not match that glob),
 # so this entry is doing real work — do not remove it.
-docs/debbie.local/
+#
+# The directory is named generically on purpose: an ignore rule has to name its
+# target literally, so a host-named directory would leak the host name into this
+# tracked file — the exact thing the rule exists to prevent.
+docs/host.local/
