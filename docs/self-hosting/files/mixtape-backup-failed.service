@@ -1,0 +1,15 @@
+# /etc/systemd/system/mixtape-backup-failed.service
+#
+# Triggered by OnFailure= in mixtape-media-backup.service. Not enabled, not
+# timed — systemd starts it only when the backup unit enters a failed state.
+
+[Unit]
+Description=Report a failed MixTape media backup (dead-man's-switch + push)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/mixtape-backup-alert.sh
+
+# The secrets are read by the script itself rather than injected here, so that
+# exactly one file needs protecting and `systemctl cat` does not print the ping
+# URL and topic to anyone who can read unit files.

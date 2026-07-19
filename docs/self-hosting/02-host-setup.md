@@ -235,6 +235,10 @@ The media is the only thing whose loss is permanent. A workable scheme, driven b
   guess.
 - A weekly `systemd` timer rather than cron, so failures land in the journal with context.
 
+The script and its units are [`files/mixtape-media-backup.sh`](files/mixtape-media-backup.sh),
+[`files/mixtape-media-backup.service`](files/mixtape-media-backup.service) and
+[`files/mixtape-media-backup.timer`](files/mixtape-media-backup.timer).
+
 Failure *alerting* is covered in [`04-going-public.md`](04-going-public.md#step-8--backup-alerting).
 Until that exists, a backup that quietly stops running looks exactly like one that is working.
 

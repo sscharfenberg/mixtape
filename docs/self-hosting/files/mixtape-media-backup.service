@@ -1,0 +1,24 @@
+# /etc/systemd/system/mixtape-media-backup.service
+#
+# Weekly media snapshot. Paired with mixtape-media-backup.timer.
+
+[Unit]
+Description=MixTape media backup (rotated tar snapshot of /var/media -> USB)
+RequiresMountsFor=/mnt/usb /var/media
+
+# NOTE: there is deliberately NO `ConditionPathIsMountPoint=/mnt/usb` here.
+#
+# A failed Condition does not fail a unit — systemd *skips* it and records the
+# run as successful. So the single most likely real failure, the USB drive being
+# unplugged or unmounted, would silently skip the backup, OnFailure= below would
+# never fire, and you would hear nothing until the dead-man's-switch lapsed a day
+# later. The script checks the mountpoint itself and exits non-zero, which is a
+# real failure and alerts immediately. Conditions are for "not applicable", not
+# for "the thing I am protecting is broken".
+OnFailure=mixtape-backup-failed.service
+
+[Service]
+Type=oneshot
+Nice=10
+IOSchedulingClass=idle
+ExecStart=/usr/local/sbin/mixtape-media-backup.sh

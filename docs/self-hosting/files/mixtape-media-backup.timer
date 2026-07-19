@@ -1,0 +1,22 @@
+# /etc/systemd/system/mixtape-media-backup.timer
+#
+# Enable with: sudo systemctl enable --now mixtape-media-backup.timer
+
+[Unit]
+Description=Weekly MixTape media backup
+
+[Timer]
+OnCalendar=Sun *-*-* 03:00:00
+
+# Persistent: if the machine was off when the timer was due, run it shortly
+# after the next boot rather than waiting a whole week. A home server is off
+# often enough that without this, "missed because it was asleep" becomes the
+# most common reason a backup did not happen.
+Persistent=true
+
+# Spread the start a little, so the backup does not always contend with whatever
+# else fires exactly on the hour.
+RandomizedDelaySec=15m
+
+[Install]
+WantedBy=timers.target

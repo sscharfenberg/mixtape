@@ -375,14 +375,98 @@ nobody reads. The failure that actually happens is the *silent* one — the mach
 got disabled, the script hung — and a journal entry cannot report an event that never occurred.
 
 - **A dead-man's-switch** (healthchecks.io or similar) catches exactly that class. Create a check with
-  a period slightly longer than your backup interval, and have the script ping `/start` at the
-  beginning, success at the end, and `/fail` from a `trap` on error. Skipped "nothing changed" runs
-  should still ping success, or the switch false-alarms.
+  a period matching your backup interval and a generous grace, and have the script ping `/start` at
+  the beginning and success at the end.
 - **Push delivery** (ntfy or similar) gets it to your phone without needing a mail server.
-- A systemd `OnFailure=` hook on the backup unit adds an immediate push when a run errors, which
-  complements the dead-man's-switch covering "did not run at all".
+- A systemd `OnFailure=` hook reports runs that fail *or* die outright.
 
 This does not depend on TLS, the domain, or mail, so it can be done at any point.
+
+### The pieces
+
+| File | Installs as | Role |
+| --- | --- | --- |
+| [`files/mixtape-media-backup.sh`](files/mixtape-media-backup.sh) | `/usr/local/sbin/…` (755 root) | the backup; pings `/start` and success |
+| [`files/mixtape-backup-alert.sh`](files/mixtape-backup-alert.sh) | `/usr/local/sbin/…` (755 root) | pings `/fail` + pushes to ntfy |
+| [`files/mixtape-media-backup.service`](files/mixtape-media-backup.service) | `/etc/systemd/system/…` | the unit, with `OnFailure=` |
+| [`files/mixtape-backup-failed.service`](files/mixtape-backup-failed.service) | `/etc/systemd/system/…` | what `OnFailure=` starts |
+| [`files/backup-alerts.env.template`](files/backup-alerts.env.template) | `/etc/mixtape/backup-alerts.env` (**0600 root**) | the two secrets |
+
+```sh
+sudo install -d -m 0755 /etc/mixtape
+sudo install -m 0600 -o root -g root backup-alerts.env.template /etc/mixtape/backup-alerts.env
+sudo nano /etc/mixtape/backup-alerts.env            # real ping URL + topic
+sudo install -m 0755 -o root -g root mixtape-media-backup.sh mixtape-backup-alert.sh /usr/local/sbin/
+sudo install -m 0644 -o root -g root mixtape-media-backup.service mixtape-backup-failed.service /etc/systemd/system/
+sudo systemctl daemon-reload
+```
+
+### Four decisions worth understanding
+
+**Failure reporting lives in the `OnFailure=` hook, not in the script.** A `trap` inside the script
+cannot report a run that was OOM-killed, signalled, or that failed before the trap was installed.
+systemd knows the unit failed even when the process never got to say so. The trade-off is that
+running the script by hand does not alert — acceptable, because by hand you are watching the output.
+
+**Skipped runs must ping success.** A backup that correctly does nothing (the collection has not
+changed) is a healthy run. If it stayed silent, the switch would false-alarm every quiet week, and an
+alert you have learned to ignore is worse than no alert.
+
+**Do not put `ConditionPathIsMountPoint=` on the backup unit.** This one is a trap. A failed
+`Condition` does not fail a unit — systemd *skips* it and records success. Guard the backup drive that
+way and the most likely real failure, the drive being unplugged, silently skips the run, `OnFailure=`
+never fires, and you hear nothing until the grace window lapses. Let the script test the mountpoint
+and exit non-zero instead. Conditions express "not applicable", not "the thing I am protecting is
+broken".
+
+**Alerting must never break the backup.** Missing config disables pinging rather than failing; every
+`curl` is `|| true`; the alert script never `set -e`s and always exits 0. Otherwise a monitoring
+outage turns a good backup into a failed one, and you end up debugging the alarm instead of the thing
+it watches.
+
+### Verify it
+
+Prove the failure path *and* the success path — a switch nobody has seen fire is a guess:
+
+```sh
+# success: should show a run and a green check
+sudo systemctl start mixtape-media-backup.service
+journalctl -u mixtape-media-backup -n 20 --no-pager
+```
+
+A run that takes the "nothing changed" branch is the interesting success case — the dashboard should
+record it as a normal (very short) run, not stay silent.
+
+> **Unmounting the backup drive does not test the failure path.** `RequiresMountsFor=` pulls the mount
+> in as a dependency, so starting the unit *remounts* it and the backup succeeds. That is desirable —
+> a merely-unmounted drive self-heals — but it means only a physically absent drive fails that way.
+> Check `systemctl show … -p Result` before concluding anything: `Result=success` with no push means
+> nothing failed, not that alerting is broken.
+
+Test the failure path with a temporary override instead, which exercises the real chain — unit fails
+→ `OnFailure=` → alert unit → `/fail` ping + push — without touching the drive or the script:
+
+```sh
+sudo systemctl edit mixtape-media-backup.service --drop-in=test-failure
+```
+
+```ini
+[Service]
+ExecStart=
+ExecStart=/bin/false
+```
+
+The empty `ExecStart=` is required: it clears the inherited list, and without it systemd appends and
+runs both commands.
+
+```sh
+sudo systemctl start mixtape-media-backup.service     # expect the job to fail
+systemctl status mixtape-backup-failed.service --no-pager
+sudo systemctl revert mixtape-media-backup.service    # remove the drop-in
+sudo systemctl daemon-reload
+```
+
+Then confirm the check on the dashboard went red, and green again after a real run.
 
 ## Step 9 — Final verification
 

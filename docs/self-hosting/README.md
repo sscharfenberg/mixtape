@@ -72,6 +72,9 @@ this is a jump table for when something is already broken.
 | `fail2ban-regex` hits the datepattern on every line but matches none | fail2ban strips the timestamp before applying `failregex`; a regex that includes the timestamp can never match | [04](04-going-public.md#the-jail) |
 | fail2ban won't start after adding a jail | Its `logpath` doesn't exist yet — the app creates the auth log lazily, on the first failure | [04](04-going-public.md#the-jail) |
 | A jail bans your whole household at once | LAN clients reaching the public URL are hairpinned by the router, so they all arrive as the WAN IP; a LAN CIDR in `ignoreip` never sees them | [04](04-going-public.md#the-jail) |
+| Backup silently skips and never alerts | `ConditionPathIsMountPoint=` on the unit — a failed condition *skips* the unit and records success, so `OnFailure=` never fires | [04](04-going-public.md#four-decisions-worth-understanding) |
+| Dead-man's-switch cries wolf on quiet weeks | A "nothing changed" run exited without pinging success; skipped runs are healthy runs and must still report | [04](04-going-public.md#four-decisions-worth-understanding) |
+| Unmounting the backup drive doesn't trigger an alert | `RequiresMountsFor=` remounts it as a dependency, so the run succeeds. Test with a `/bin/false` drop-in instead | [04](04-going-public.md#verify-it) |
 
 ## What this guide does not cover
 
