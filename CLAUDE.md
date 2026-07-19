@@ -6,9 +6,12 @@ Steering context for this repo. Kept lean on purpose — detailed design lives i
 ## What this is
 
 **MixTape** is a self-hosted web app that organizes a personal mp3 / audiobook collection and plays it
-in the browser. It runs on the home server **"debbie"** and is **intentionally reachable from the
-internet** — a DynDNS name points at the Fritzbox router, which port-forwards a non-standard port to
-debbie — so the owner can share links to music with family and friends. Access is gated by auth.
+in the browser. It runs on a **home server** and is **intentionally reachable from the internet** — a
+real domain CNAMEs to a DynDNS host, and the router forwards **only 80/443** — so the owner can share
+links to music with family and friends. Access is gated by auth.
+
+*(The host is referred to generically here. Its name, addresses, and everything else concrete live in
+the untracked `docs/debbie.local/` — see **Docs** below.)*
 
 **mixtape.v2** is a **ground-up rewrite** of the existing app. The legacy code is the sibling folder
 **`../MixTape`** (newer than the public GitHub repo) — read it for behaviour, the data model, artisan
@@ -17,7 +20,7 @@ this repo starts clean.
 
 ## Two phases (Phase 1 first)
 
-1. ✅ **Rebuild debbie** — **DONE & verified 2026-06-28.** Fresh Debian on plain LVM (large `/var`),
+1. ✅ **Rebuild the server** — **DONE & verified 2026-06-28.** Fresh Debian on plain LVM (large `/var`),
    hardened, services up (PostgreSQL 17 / php-fpm 8.4 / nginx / Samba), collection restored, PoC proven.
    Spec + design in [`docs/self-hosting/01-requirements.md`](docs/self-hosting/01-requirements.md);
    the concrete box in `docs/debbie.local/infrastructure.md` (**untracked**, see *Docs*).
@@ -30,16 +33,16 @@ Phase 1 was done first — no point deploying new app code onto the old host.
 
 ## Load-bearing decisions
 
-**Server (debbie)**
+**Server**
 
 - Latest stable Debian, minimal install; **LVM** with a **large `/var`** and a small `/home`.
 - **Nginx + php-fpm**, HTTPS via **Let's Encrypt (certbot)**; media library at **`/var/media`**.
 - **Internet-facing by design** on **443/HTTPS** (clean links), but **only the web ports (80/443) are
   forwarded** — SSH, Samba, and the database stay **LAN-only and must never be exposed.**
-- **Back up the media collection before wiping** (the DB is rebuilt from it via artisan in ~40 s, and
-  there's no user data yet, so it needs no backup). The reinstall wipes **only the NVMe** (plain LVM, no
-  disk encryption); the 2 TB USB drive (`NAS-Backup`) is the backup target. Wipe/repartition only after
-  a verified backup.
+- **Back up the media collection before any wipe** — it's the only thing whose loss is permanent (the
+  DB is rebuilt from it via artisan in ~40 s). Backups go to a **separate physical drive**, so a
+  system-disk reinstall can't touch them. Wipe/repartition only after a **verified** backup — "the
+  archive exists" is not "the archive restores". (Concrete disks/labels: `docs/debbie.local/`.)
 
 **App**
 
@@ -61,7 +64,7 @@ Phase 1 was done first — no point deploying new app code onto the old host.
 ## Conventions for Claude
 
 - **Phase order matters**: server before app.
-- **Destructive ops on debbie are high-stakes** — anything that wipes/repartitions comes _after_
+- **Destructive ops on the server are high-stakes** — anything that wipes/repartitions comes _after_
   verified backups. Confirm before irreversible steps.
 - **Prefer the new idioms** (Inertia + composables) over the legacy API / Vue-Router / store-everything
   patterns, even when porting.
