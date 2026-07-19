@@ -30,6 +30,12 @@ class AuthFailureLogTest extends TestCase
     /**
      * Mirror of the fail2ban `failregex` for failed logins, with <HOST>
      * expanded to a plain address pattern.
+     *
+     * Only the *matching core* is mirrored, not the anchoring: fail2ban strips
+     * the timestamp from a line before applying its failregex, so its pattern
+     * begins at the channel/level while these run against the whole line. What
+     * both sides must agree on is the `login.failed ip=…` token order, which is
+     * what these assert.
      */
     private const LOGIN_FAILREGEX = '/\blogin\.failed ip=(?P<host>[0-9a-fA-F:.]+)\b/';
 

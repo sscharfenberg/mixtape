@@ -68,6 +68,7 @@ this is a jump table for when something is already broken.
 | A jail bans at half its configured `maxretry` | The listener is registered twice — Laravel auto-discovers any `handle*` method in `app/Listeners` on top of your explicit wiring | [04](04-going-public.md#a-dedicated-auth-failure-log) |
 | Auth log stops feeding the jail after a config tweak | The channel's `level` was env-driven and `LOG_LEVEL` got raised; pin it to a literal | [04](04-going-public.md#a-dedicated-auth-failure-log) |
 | A file-based jail reports healthy but never bans | `backend = systemd` inherited from `[DEFAULT]`, so fail2ban watches the journal instead of the log file | [04](04-going-public.md#the-jail) |
+| `fail2ban-regex` hits the datepattern on every line but matches none | fail2ban strips the timestamp before applying `failregex`; a regex that includes the timestamp can never match | [04](04-going-public.md#the-jail) |
 | fail2ban won't start after adding a jail | Its `logpath` doesn't exist yet — the app creates the auth log lazily, on the first failure | [04](04-going-public.md#the-jail) |
 | A jail bans your whole household at once | LAN clients reaching the public URL are hairpinned by the router, so they all arrive as the WAN IP; a LAN CIDR in `ignoreip` never sees them | [04](04-going-public.md#the-jail) |
 
