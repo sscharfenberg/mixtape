@@ -54,6 +54,7 @@ this is a jump table for when something is already broken.
 | Locked out of `sudo` entirely | A malformed file in `/etc/sudoers.d/`. Always `visudo -c -f` **before** installing | [03](03-production-deploy.md#7-sudoers) |
 | Web user can rewrite application code | Deploy ran at `umask 002`; it must be `027` | [03](03-production-deploy.md#6-writable-directories) |
 | `nvm: command not found` during deploy | nvm is a shell function and per-user — must be installed *as* the deploy user, and sourced explicitly | [03](03-production-deploy.md#2-nvm--node) |
+| Dev rebuild dies inside `composer install` / `package:discover` | php-fpm created `bootstrap/cache/*.php` as `www-data:www-data 644`; your user can't overwrite them. Normalize ownership first | [03](03-production-deploy.md#rebuilding-the-dev-site) |
 | Icons all render empty | The sprite is gitignored **and** not produced by the Vite build; `npm run icons` is a separate step | [03](03-production-deploy.md#10-first-deploy) |
 | Editing `.env` changes nothing | Prod runs from cached config — `config:cache` is mandatory after every `.env` edit | [04](04-going-public.md#step-5--app-production-config) |
 | Mail "sends" successfully but never arrives | Stale config cache still on `MAIL_MAILER=log`, and the log mailer's debug write is discarded if `LOG_LEVEL` is above debug — silent on both ends | [04](04-going-public.md#step-6--transactional-mail) |

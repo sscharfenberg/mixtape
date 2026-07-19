@@ -36,7 +36,10 @@ BRANCH=main
 NVM_DIR=/home/mixtape-deploy/.nvm
 DEPLOY_USER=mixtape-deploy
 LOCKFILE=/tmp/mixtape-prod-deploy.lock
-HEALTH_URL=https://<your-domain>/   # <-- set this
+# NOTE the quotes: unquoted, the angle brackets in the placeholder are parsed as
+# shell redirections, and an unedited copy dies with a baffling "No such file or
+# directory" instead of saying what is wrong. The guard below says it.
+HEALTH_URL="https://<your-domain>/"   # <-- set this
 
 # Deterministic PATH — do not inherit whatever the invoking shell had.
 export PATH=/usr/local/bin:/usr/bin:/bin
@@ -59,6 +62,13 @@ if [[ -z ${_MIXTAPE_DEPLOY_LOCKED:-} ]]; then
     export _MIXTAPE_DEPLOY_LOCKED=1
     exec flock -n "$LOCKFILE" "$0" "$@" \
         || fail "another deploy is already running (lock: $LOCKFILE)"
+fi
+
+# `if`, not `[[ … ]] && fail`: under `set -e` that idiom exits the script when the
+# condition is FALSE, because the list returns the test's non-zero status — i.e.
+# it would abort here on every correctly-edited copy.
+if [[ $HEALTH_URL == *"<your-domain>"* ]]; then
+    fail "edit HEALTH_URL at the top of this script before using it"
 fi
 
 # Running this as the wrong user silently produces a tree www-data can't read,

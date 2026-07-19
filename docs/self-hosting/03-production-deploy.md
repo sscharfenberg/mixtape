@@ -285,6 +285,43 @@ fails** — serving new code against a half-applied migration is worse than show
 It also refuses to run if the working tree is dirty, on the grounds that someone hand-patched the box
 and `git reset --hard` would silently destroy their work.
 
+## Rebuilding the dev site
+
+The dev site works nothing like the above, and conflating the two is the main way to waste an
+afternoon. It is **not a git checkout** — source arrives by SFTP from the workstation IDE — so there
+is nothing to fetch. [`files/mixtape-deploy-dev.sh`](files/mixtape-deploy-dev.sh) rebuilds whatever is
+already on disk:
+
+```bash
+mixtape-dev-deploy            # rebuild + migrate
+mixtape-dev-deploy --fresh    # rebuild + migrate:fresh --seed
+```
+
+Install it as `/usr/local/bin/mixtape-dev-deploy` (755 root:root) and edit `HEALTH_URL` at the top.
+Run it as your own admin user, never root, and never while an upload is still in flight — it cannot
+detect a half-uploaded tree.
+
+Four ways it deliberately differs from the prod script:
+
+- **It does not cache config.** Prod ends with `config:cache`/`route:cache`; dev ends with
+  `optimize:clear` and nothing else. Caching on dev would reintroduce the "editing `.env` changes
+  nothing" trap on the box where you iterate most.
+- **It installs dev dependencies.** No `--no-dev`; tests and debug tooling are the point of dev.
+- **It runs at `umask 002`, not `027`.** Prod's mask exists so `www-data` can never rewrite prod code.
+  Dev inverts that: the box is LAN-only and both you and the runtime write freely.
+- **It normalizes `storage/` and `bootstrap/cache` ownership first.** This is the non-obvious one.
+  php-fpm runs as `www-data` with its own umask, so files it creates at runtime
+  (`storage/logs/laravel.log`, `bootstrap/cache/*.php`) come out `www-data:www-data 644` — not
+  group-writable. The next rebuild runs as *you*, cannot overwrite them, and fails somewhere
+  unhelpful: `composer install` dies inside `package:discover` because it cannot rewrite
+  `bootstrap/cache/packages.php`. Re-normalizing each run makes it self-healing rather than a slow
+  slide into a broken tree.
+
+> **A note on both scripts' `HEALTH_URL`.** Write it quoted. Unquoted, the angle brackets in a
+> `https://<placeholder>/` template are shell *redirections*, so an unedited copy fails with a
+> confusing "No such file or directory" rather than saying what is wrong. The dev script quotes it
+> and guards on the placeholder still being there.
+
 ## Running artisan in production
 
 ```bash
