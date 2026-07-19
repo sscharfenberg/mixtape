@@ -61,6 +61,10 @@ this is a jump table for when something is already broken.
 | SPF suddenly fails after adding a record | Two SPF TXT records on one domain = permerror. There must be exactly one, with merged includes | [04](04-going-public.md#dns-records) |
 | 429 on a form that validates as you type | Precognition posts to the same route as the submit, so live validation eats the throttle budget | [03](03-production-deploy.md#rate-limiting-and-precognition) |
 | `psysh` refuses to start under `artisan tinker` | www-data's home is deploy-owned by design; pass `HOME=/tmp` | [03](03-production-deploy.md#running-artisan-in-production) |
+| A custom php-fpm pool's logs grow forever | The stock logrotate entry covers only the master log, not per-pool `error_log`/`slowlog` | [04](04-going-public.md#log-rotation) |
+| logrotate silently skips an entry | Its log directory is owned by a non-root user, so it needs an `su` line — the refusal is only reported in logrotate's own output | [04](04-going-public.md#log-rotation) |
+| Log rotates once, then stays frozen at 0 bytes | `su` dropped to the service user, so the postrotate signal to a root-owned daemon failed with EPERM and it kept writing to the renamed inode. Use `su root <group>` | [04](04-going-public.md#log-rotation) |
+| A fail2ban jail bans legitimate users | The nginx access log shows `POST /login → 302` for success *and* failure; match 429s or a dedicated app log channel instead | [04](04-going-public.md#step-7--login-hardening-and-logs) |
 
 ## What this guide does not cover
 

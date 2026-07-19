@@ -1,0 +1,46 @@
+# /etc/logrotate.d/mixtape-php
+#
+# The distro's php8.4-fpm entry rotates only the master log (/var/log/php8.4-fpm.log).
+# The per-site pool from `mixtape-prod.pool.conf` writes its *own* error and slow logs
+# into /var/log/php/, which nothing else covers — so without this file they grow
+# unbounded. On a public-facing box the slow log is the dangerous one: a single
+# pathological request pattern can fill a partition overnight.
+#
+# Two details that are easy to get wrong:
+#
+#   * An `su` line is required, not cosmetic. /var/log/php is 0750 www-data:www-data,
+#     and logrotate refuses to act on a directory writable by a non-root user unless
+#     told whose privileges to use. Omit it and logrotate skips this entry, reporting
+#     the error only in its own output, which nobody reads either.
+#   * That `su` must name **root**, not www-data — `su root www-data`, the same shape
+#     as Debian's stock nginx entry (`su root adm`). The privileges apply to the
+#     postrotate script too, and the slow log is opened by the fpm *master*, which
+#     runs as root: dropping to www-data means the `kill -USR1` below fails with
+#     EPERM. The helper swallows that (it redirects to /dev/null and always exits 0),
+#     so the breakage is silent — fpm keeps writing to the renamed inode and the live
+#     log stays frozen at zero bytes. Naming root satisfies logrotate's directory
+#     check without disarming the reopen.
+#   * The postrotate hook signals the fpm *master* (USR1), which reopens every pool's
+#     logs. `create` still hands the new file to www-data so that worker-written logs
+#     (the pool's error_log) stay writable; root can write those regardless.
+#
+# Install:
+#   sudo install -m 0644 -o root -g root mixtape-php.logrotate /etc/logrotate.d/mixtape-php
+#   sudo logrotate --debug /etc/logrotate.d/mixtape-php   # dry run, changes nothing
+
+/var/log/php/*.log {
+	su root www-data
+	create 0640 www-data www-data
+	weekly
+	rotate 12
+	missingok
+	notifempty
+	compress
+	delaycompress
+	sharedscripts
+	postrotate
+		if [ -x /usr/lib/php/php8.4-fpm-reopenlogs ]; then
+			/usr/lib/php/php8.4-fpm-reopenlogs;
+		fi
+	endscript
+}

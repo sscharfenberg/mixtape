@@ -199,7 +199,7 @@ DMARC each passing *and aligned* with your domain. (Alternatively, mail a Gmail 
 Finally exercise the real flow: request a password reset in the browser and confirm the link works
 when clicked. That tests `APP_URL` and signed-URL generation, which a raw test message does not touch.
 
-## Step 7 — Login hardening
+## Step 7 — Login hardening and logs
 
 Now that a public login surface exists:
 
@@ -208,6 +208,54 @@ Now that a public login surface exists:
 - Application-level throttling already covers the login and mail routes (see
   [`03-production-deploy.md`](03-production-deploy.md#rate-limiting-and-precognition)), so fail2ban is
   defence in depth rather than the primary gate.
+
+> **A jail on the nginx access log cannot see what you think it can.** The log records
+> `POST /login → 302` whether the credentials were right or wrong — the framework redirects back to
+> the form either way — so a naive `failregex` bans successful users. Match something that *is*
+> unambiguous: either the **429s** your own throttle already emits (a client tripping a 5/min login
+> limiter is misbehaving by definition), or a **dedicated application log channel** fed by the
+> framework's authentication-failure event. The second is cleaner and worth the small app change.
+
+### Log rotation
+
+Rotation is not automatic for anything you configured yourself, and an unrotated log on a
+public-facing box is a slow-motion disk-full outage.
+
+- **nginx** — the stock `/etc/logrotate.d/nginx` globs `/var/log/nginx/*.log`, so per-vhost logs are
+  already covered. Nothing to do.
+- **php-fpm** — the stock entry covers only the *master* log. A per-site pool with its own
+  `error_log` / `slowlog` (as in [`files/mixtape-prod.pool.conf`](files/mixtape-prod.pool.conf)) is
+  **not** rotated by anything. Install
+  [`files/mixtape-php.logrotate`](files/mixtape-php.logrotate) as `/etc/logrotate.d/mixtape-php`; the
+  file's header explains the non-obvious requirements (`su root <group>`, and signalling the fpm
+  master).
+- Verify rather than assume — `sudo logrotate --debug /etc/logrotate.d/mixtape-php` dry-runs the
+  entry and prints what it *would* do, including the "insecure permissions, skipping" refusal.
+
+> **A dry run does not exercise the postrotate script.** If nothing is due for rotation, logrotate
+> prints `not running postrotate script, since no logs were rotated` and you learn nothing about the
+> half most likely to be wrong. Note *which user* the debug output drops to (`switching euid from 0
+> to …`) and ask whether that user can actually signal the daemon that owns the log — a slow log
+> opened by a root-run master cannot be reopened by an unprivileged postrotate, and the helper exits
+> 0 either way. The symptom, a week later, is a live log frozen at zero bytes next to a rotated file
+> that is still growing.
+>
+> To actually settle it, force one rotation and check that the daemon *acted* on the signal. Seed a
+> byte first — `notifempty` skips a zero-length file even under `-f`:
+>
+> ```sh
+> sudo sh -c 'echo rotation-test >> /var/log/php/<pool>.slow.log'
+> sudo logrotate -vf /etc/logrotate.d/mixtape-php
+> sudo tail -5 /var/log/php8.4-fpm.log        # expect: NOTICE: error log file re-opened
+> ```
+>
+> That notice, timestamped to the rotation, is the confirmation. Inspecting `/proc/<pid>/fd` is *not*
+> a reliable substitute: fpm reopens the slow log by path per dump rather than holding a handle, so
+> an empty result there proves nothing either way. Delete the seeded `.1` file afterwards so it
+> isn't later mistaken for a real slow-request record.
+
+Also revisit **verbosity** now that real traffic is arriving: `LOG_LEVEL=warning` in the production
+`.env` keeps the application log to things you would actually act on.
 
 ## Step 8 — Backup alerting
 
