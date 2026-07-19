@@ -130,6 +130,21 @@ class AuthFailureLogTest extends TestCase
         $this->assertSame(1, substr_count(rtrim($log, "\n"), "\n") + 1, 'expected exactly one line');
     }
 
+    /**
+     * The User-Agent is the stand-in for logging the submitted password: it
+     * answers "human or script" without putting a secret on disk.
+     */
+    public function test_the_user_agent_is_recorded_and_scrubbed(): void
+    {
+        $this->withHeader('User-Agent', "python-requests/2.32\nforged")
+            ->post('/login', ['name' => 'nobody', 'password' => 'whatever']);
+
+        $log = $this->authLog();
+
+        $this->assertStringContainsString('ua="python-requests/2.32forged"', $log);
+        $this->assertSame(1, preg_match_all(self::LOGIN_FAILREGEX, $log));
+    }
+
     public function test_an_overlong_username_is_truncated(): void
     {
         $this->post('/login', ['name' => str_repeat('a', 5000), 'password' => 'whatever']);

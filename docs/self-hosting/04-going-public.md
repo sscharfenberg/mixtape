@@ -220,8 +220,16 @@ The app writes one line per authentication failure to its own channel
 (`config/logging.php` → `auth`, filled by `App\Listeners\LogAuthenticationFailures`):
 
 ```
-[2026-07-19 07:18:02] production.WARNING: login.failed ip=203.0.113.9 username="ada" user_id=- route="login.store"
+[2026-07-19 07:18:02] production.WARNING: login.failed ip=203.0.113.9 username="ada" user_id=- route="login.store" ua="curl/8.7.1"
 ```
+
+**The submitted password is not there, on purpose.** It is the obvious field to want — it is how you
+would spot one password sprayed across many accounts — but failed logins carry *working* credentials
+far more often than intuition suggests: the user typoed the username, or picked the wrong entry out
+of a password manager. Logging it builds a plaintext credential store that outlives the account,
+survives the next password change, and is copied into every backup. A truncated hash is not a fix
+either; a fast unsalted hash of a human password is a wordlist away from plaintext. `ua` answers the
+same operational question — human or script — and holds no secret.
 
 Three things about that channel are load-bearing rather than stylistic:
 
@@ -247,6 +255,19 @@ failure produces exactly *one* line.
 
 ### The jail
 
+> **Check your `[DEFAULT]` block first.** A hardened `jail.local` typically sets `backend = systemd`
+> so the `sshd` jail reads the journal. That is inherited by every jail — including a file-based one
+> like this — which makes fail2ban watch the journal for a log that only exists on disk. The jail
+> starts, reports itself healthy, and matches nothing. The shipped jail file overrides `backend`
+> for exactly this reason; do not drop the line because it looks redundant.
+>
+> Inherit `ignoreip`, `banaction`, `bantime` and `findtime` from `[DEFAULT]` rather than repeating
+> them, so the ban mechanism and the LAN exemption stay defined in one place.
+
+**The log must exist before the jail starts.** fail2ban refuses to start a jail whose `logpath` is
+missing, and the app only creates `auth.log` on the first authentication failure — so deploy, then
+fail one login on purpose, then install the jail.
+
 Install the filter and jail, then reload:
 
 ```sh
@@ -264,9 +285,25 @@ sudo fail2ban-regex /var/www/mixtape.prod/storage/logs/auth.log \
 sudo fail2ban-client status mixtape-auth
 ```
 
-Then fail a login from a non-LAN address on purpose and confirm the counter moves. Set `ignoreip` to
-cover your LAN before enabling any of this, or a household device on a stale saved password can lock
-the entire house out of the site.
+Then fail a login on purpose and confirm the counter moves.
+
+> **A LAN range in `ignoreip` does not protect your household.** When someone inside the LAN opens
+> the *public* URL, the router hairpins the connection (NAT loopback) and the web server sees your
+> **WAN** address — so every device in the house arrives as one external-looking IP that no LAN CIDR
+> covers. Ten fumbled passwords from anyone at home then bans the whole household off the public
+> link (the LAN hostname still works, which is exactly why this can go unnoticed until a guest
+> complains).
+>
+> Verify rather than assume: fail a login from a LAN browser *via the public URL* and read the `ip=`
+> field. If it matches `dig +short <your-dyndns-host>`, you are hairpinned. Fix by ignoring the
+> DynDNS name — fail2ban accepts hostnames and re-resolves them, so it tracks a dynamic IP:
+>
+> ```
+> ignoreip = 127.0.0.1/8 ::1 <your-lan-cidr> <your-dyndns-host>
+> ```
+>
+> Costs a DNS lookup per check, and leaves a brief window after an IP change where the house is
+> bannable again. Both beat the alternative.
 
 ### Log rotation
 

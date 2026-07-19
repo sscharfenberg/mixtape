@@ -67,6 +67,9 @@ this is a jump table for when something is already broken.
 | A fail2ban jail bans legitimate users | The nginx access log shows `POST /login → 302` for success *and* failure; match 429s or a dedicated app log channel instead | [04](04-going-public.md#step-7--login-hardening-and-logs) |
 | A jail bans at half its configured `maxretry` | The listener is registered twice — Laravel auto-discovers any `handle*` method in `app/Listeners` on top of your explicit wiring | [04](04-going-public.md#a-dedicated-auth-failure-log) |
 | Auth log stops feeding the jail after a config tweak | The channel's `level` was env-driven and `LOG_LEVEL` got raised; pin it to a literal | [04](04-going-public.md#a-dedicated-auth-failure-log) |
+| A file-based jail reports healthy but never bans | `backend = systemd` inherited from `[DEFAULT]`, so fail2ban watches the journal instead of the log file | [04](04-going-public.md#the-jail) |
+| fail2ban won't start after adding a jail | Its `logpath` doesn't exist yet — the app creates the auth log lazily, on the first failure | [04](04-going-public.md#the-jail) |
+| A jail bans your whole household at once | LAN clients reaching the public URL are hairpinned by the router, so they all arrive as the WAN IP; a LAN CIDR in `ignoreip` never sees them | [04](04-going-public.md#the-jail) |
 
 ## What this guide does not cover
 
