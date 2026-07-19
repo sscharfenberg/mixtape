@@ -140,7 +140,8 @@ instance, written for someone else's server.
 - `04-going-public.md` — domain/CNAME, port-forward, firewall widen, certbot, mail + SPF/DKIM/DMARC,
   fail2ban, backup alerting. **Auth must be in force before any exposure.**
 - `files/` — installable configs (nginx vhost, fpm pool, rate-limit zones, sudoers, deploy script,
-  `.env` template), all with placeholders.
+  `.env` template), all with placeholders. Also the two **workstation**-side files: `mt.sh` (ssh
+  wrapper — `mt artisan down --dev`, `mt artisan migrate --prod`) and its zsh completion `_mt`.
 
 **This box (untracked — `docs/host.local/`):**
 

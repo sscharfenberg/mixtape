@@ -1,0 +1,182 @@
+#compdef mt
+#
+# zsh completion for `mt` (MixTape server wrapper).
+#
+# INSTALL: this file must sit in a directory on $fpath, and $fpath must be
+# populated BEFORE compinit runs. Under oh-my-zsh, $ZSH_CUSTOM/completions is
+# already on fpath, so dropping the file in is enough — but see the cache note
+# at the bottom, which is the part that actually catches people out.
+
+_mt() {
+    local curcontext="$curcontext" state line
+    typeset -A opt_args
+
+    # --- Artisan subcommands ------------------------------------------------
+    # A static list, deliberately.
+    #
+    # The obvious alternative is to ask the server for the real list
+    # (`artisan list --raw`) and complete from that. It is rejected on purpose:
+    # every press of <TAB> would open an ssh connection and wait on the
+    # network — and on --prod it would additionally block on a sudo password
+    # prompt with no terminal to render it. Completion must be instant and
+    # side-effect free.
+    #
+    # The cost is that this list drifts as the app grows. That is acceptable:
+    # completion is a convenience, not a whitelist. Anything absent still runs
+    # fine when typed in full — nothing is blocked by not being listed.
+    #
+    # ESCAPING: `_describe` splits each entry on the FIRST unescaped colon into
+    # value:description. Artisan commands contain colons themselves, so every
+    # one of those MUST be written `\:`. Miss it and the entry silently
+    # half-works — `config:show` completes as the value `config` with the
+    # description "show:show a resolved config value", which looks plausible in
+    # the list and inserts the wrong command.
+    local -a artisan_commands
+    artisan_commands=(
+        # Maintenance mode — the headline use case
+        'down:put the site into maintenance mode'
+        'up:bring the site out of maintenance mode'
+
+        # Inspection: safe anywhere, the ones reached for most often
+        'about:show what the app believes about its config (drivers, cache state)'
+        'route\:list:list registered routes'
+        'config\:show:show a resolved config value'
+        'tinker:open a REPL'
+
+        # Migrations — non-destructive
+        'migrate:run pending migrations'
+        'migrate\:status:show which migrations have run'
+        'migrate\:install:create the migration repository'
+
+        # Migrations — DESTRUCTIVE. Listed so they can be completed, but `mt`
+        # itself demands a typed PRODUCTION confirmation for these on --prod.
+        'migrate\:fresh:DESTRUCTIVE — drop all tables and re-migrate'
+        'migrate\:refresh:DESTRUCTIVE — rollback and re-run all migrations'
+        'migrate\:reset:DESTRUCTIVE — rollback all migrations'
+        'migrate\:rollback:DESTRUCTIVE — roll back the last batch'
+        'db\:wipe:DESTRUCTIVE — drop all tables'
+
+        # Caches
+        'optimize:cache config, routes, views and events'
+        'optimize\:clear:clear all caches'
+        'config\:cache:cache the config (mandatory after editing .env on prod)'
+        'config\:clear:clear the config cache'
+        'route\:cache:cache the routes'
+        'route\:clear:clear the route cache'
+        'view\:cache:precompile blade views'
+        'view\:clear:clear compiled views'
+        'cache\:clear:flush the application cache'
+
+        # App-specific (the library scan chain and invites)
+        'app\:update:run the library scan chain'
+        'app\:invite:create a one-time invite token'
+
+        # Storage / misc
+        'storage\:link:link public/storage'
+        'schedule\:list:show scheduled tasks'
+        'queue\:work:process queued jobs'
+        'queue\:monitor:show queue sizes'
+    )
+
+    # The target flag is valid at ANY position — `mt artisan down --dev` and
+    # `mt --dev artisan down` are the same command — so it is offered at every
+    # level rather than only before the subcommand.
+    #
+    # The (…) prefix makes them mutually exclusive: once one is typed, zsh
+    # stops offering the other. `mt` errors on both, so completion should not
+    # suggest getting there.
+    local -a target_flags
+    target_flags=(
+        '(--dev --development --prod --production)'{--dev,--development}'[target the dev site (default)]'
+        '(--dev --development --prod --production)'{--prod,--production}'[target the PRODUCTION site]'
+    )
+
+    # Offer the target flags in a nested context, where `_arguments` cannot be
+    # reused. Inside the `*::` state below, `words` has been rewritten to start
+    # at the subcommand, and a second `_arguments` there does not offer these
+    # options at all — `mt artisan down --<TAB>` silently completes nothing,
+    # which is the commonest position of all. So they are added by hand.
+    #
+    # The mutual exclusion is re-implemented with a substring test rather than
+    # an `_arguments` exclusion list; note `--dev` is a substring of
+    # `--development` and `--prod` of `--production`, so two patterns cover all
+    # four spellings.
+    # NOT `_describe`: a candidate starting with `-` is treated as an option,
+    # and options are only shown when the surrounding context has requested the
+    # `options` tag. Inside the nested `*::` state that negotiation does not
+    # happen, so `_describe` (even with -o) reports success while displaying
+    # nothing — the failure mode is completely silent. `_wanted` requests the
+    # tag explicitly and then adds the matches, which is the supported way to
+    # offer options by hand.
+    _mt_target_flags() {
+        if [[ ${words[*]} == *--dev* || ${words[*]} == *--prod* ]]; then
+            return 1
+        fi
+        local expl
+        local -a flags descs
+        flags=(--dev --prod)
+        descs=(
+            '--dev   -- target the dev site (default)'
+            '--prod  -- target the PRODUCTION site'
+        )
+        _wanted options expl 'target' compadd -d descs -a flags
+    }
+
+    _arguments -C \
+        $target_flags \
+        '1: :->command' \
+        '*:: :->args' \
+        && return 0
+
+    case $state in
+        command)
+            local -a subcommands
+            subcommands=(
+                'artisan:run an artisan command on the target site'
+                'tinker:open a tinker REPL'
+                'logs:tail laravel.log'
+                'shell:interactive shell in the site directory'
+                'help:show usage'
+            )
+            _describe -t commands 'mt command' subcommands
+            ;;
+
+        args)
+            case $words[1] in
+                artisan)
+                    if (( CURRENT == 2 )); then
+                        _describe -t artisan 'artisan command' artisan_commands
+                    else
+                        # Past the artisan subcommand we cannot know that
+                        # command's own flags without asking the server, so
+                        # offer the target flags and otherwise stay out of the
+                        # way rather than guessing wrong.
+                        _mt_target_flags
+                    fi
+                    ;;
+                logs)
+                    _arguments \
+                        $target_flags \
+                        '--auth[tail auth.log (the fail2ban feed) instead of the app log]' \
+                        '-f[follow the log]' \
+                        '-n[number of lines]:lines:(10 25 50 100 500)'
+                    ;;
+                *)
+                    _mt_target_flags
+                    ;;
+            esac
+            ;;
+    esac
+}
+
+_mt "$@"
+
+# --- Cache note ------------------------------------------------------------
+# oh-my-zsh caches completions in ~/.zcompdump-<host>-<zsh-version> and only
+# rebuilds it when the OMZ git revision or the *fpath string* changes. Since
+# $ZSH_CUSTOM/completions is already on fpath whether or not it contains
+# anything, ADDING THIS FILE DOES NOT INVALIDATE THE CACHE — a plain shell
+# restart will not pick it up, which reads exactly like a broken completion.
+#
+# After installing (or after editing this file's #compdef line):
+#     rm -f ~/.zcompdump*  &&  exec zsh

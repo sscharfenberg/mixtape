@@ -341,6 +341,131 @@ Always as `www-data`, so anything artisan writes is owned by the runtime user.
 configuration — particularly the mail and database drivers, which is where a stale config cache shows
 up.
 
+## Driving both sites from your workstation
+
+Everything above assumes you are already logged into the server. In practice most artisan calls are
+one-offs — put dev into maintenance, check `about` on prod, tail a log — and doing them by hand means
+remembering which site runs as which user, then typing a different `ssh` line for each.
+
+[`files/mt.sh`](files/mt.sh) is a thin wrapper for exactly that. Install it on the **workstation**,
+not the server:
+
+```bash
+install -m 755 mt.sh ~/.local/bin/mt     # ensure ~/.local/bin is on $PATH
+```
+
+Then edit `HOST` at the top to your ssh alias. It refuses to run until you do.
+
+```bash
+mt artisan down --dev         # dev into maintenance
+mt artisan up --dev
+mt artisan migrate --prod     # prompts for your sudo password
+mt artisan about --prod
+mt logs -f --dev
+mt logs --auth --prod       # the auth.log that feeds fail2ban
+mt tinker --prod
+mt shell --dev
+```
+
+The `--dev` / `--prod` flag may appear **anywhere** in the line and is stripped before the rest is
+forwarded, so `mt artisan down --dev` and `mt --dev artisan down` are the same command and artisan
+never sees the flag.
+
+### The decisions worth knowing
+
+**Dev is the default target.** Prod is only ever touched when you explicitly type `--prod`, so a
+forgotten flag can only ever hit the throwaway site. This is the single most useful property of the
+wrapper and the reason not to make the target a positional argument.
+
+**The two targets run as different users**, mirroring the ownership model established above rather
+than inventing a third convention:
+
+| | Runs as | Why |
+| --- | --- | --- |
+| dev | you, directly | you own the tree (`<admin-user>:www-data`, 2775); artisan writing as you is correct |
+| prod | `sudo -u www-data` | your account is not in `www-data` and cannot even traverse `2750` prod; this is the same invocation the deploy script uses, so everything artisan writes stays owned by the runtime user |
+
+Running prod artisan as any other identity leaves files `www-data` cannot rewrite, and that surfaces
+much later somewhere confusing — the same failure described under *Rebuilding the dev site*.
+
+**The prod sudo hop prompts for your own password.** `mixtape-deploy`'s `NOPASSWD` rule belongs to
+that account, not yours, so there is no way to make this passwordless without widening sudoers. Treat
+the prompt as a feature: one more beat of friction between a typo and production.
+
+**Destructive migrations against prod require typing `PRODUCTION` first.** `migrate:fresh`,
+`migrate:refresh`, `migrate:reset`, `migrate:rollback` and `db:wipe` are one fumbled flag away from
+their harmless dev equivalents. Laravel's own `--force` confirmation is no help here: artisan runs
+non-interactively on the far side of an ssh pipe, where that prompt never fires. The wrapper therefore
+asks on the *workstation* side, reading from `/dev/tty` so a piped stdin cannot answer for you.
+
+**It deliberately does not deploy.** Deploys carry guards a passthrough wrapper has no business
+duplicating — the unpushed-commit check, maintenance-mode handling, the dirty-tree refusal. Keep
+calling `mixtape-prod-deploy` / `mixtape-dev-deploy` for those.
+
+### Traps this ran into
+
+- **`cd <site> && sudo -u www-data …` fails on prod with "Permission denied".** The `cd` runs as
+  *your* login user, and only the `sudo` after it switches to `www-data` — so on the `2750`
+  deploy-owned tree the command dies before sudo is ever reached. The fix is not to `cd` at all:
+  artisan resolves its base path from its own location (`__DIR__`), not the working directory, so an
+  absolute path behaves identically from any cwd. Confirm for yourself with
+  `cd / && php /var/www/mixtape.dev/artisan about`. Where a `cd` genuinely is wanted — an interactive
+  shell — it has to happen *inside* the sudo.
+- **`sudo -u www-data -s` exits immediately.** `-s` runs the target user's login shell, and
+  `www-data`'s is `/usr/sbin/nologin` by design, so you get "This account is currently not available"
+  rather than a shell. Name the shell explicitly (`sudo -u www-data bash`), and give it `HOME=/tmp`
+  so it is not trying to write history into `/var/www`.
+- **`storage/logs/laravel.log` does not exist on prod.** The two sites run different log drivers: dev
+  is `single`, which writes exactly that file, while prod's `.env` sets `LOG_CHANNEL=stack` and
+  `LOG_STACK=daily`, and Laravel's **daily** driver writes `laravel-YYYY-MM-DD.log` instead. Anything
+  that hardcodes `laravel.log` works on dev and fails on prod with a bare "No such file or directory".
+  Resolve the newest `laravel*.log` at read time instead — that is right under either driver, and
+  survives the date rolling over. Note the auth channel is a *separate* `single` file,
+  `storage/logs/auth.log`, which is what the fail2ban jail reads.
+- **`artisan tinker` on prod needs `HOME=/tmp`** — the psysh problem noted above. The wrapper applies
+  it to both `mt tinker --prod` and `mt artisan tinker --prod`, since they are the same underlying
+  command.
+- **macOS ships bash 3.2**, where expanding an *empty* array under `set -u` is an "unbound variable"
+  abort, not an empty expansion. `"${ARGS[@]}"` therefore breaks the commonest call of all —
+  `mt tinker --dev`, which has no remaining arguments. Every such expansion needs the
+  `${ARGS[@]+"${ARGS[@]}"}` guard.
+- **A TTY mangles pipes.** `ssh -t` translates LF to CRLF, so `mt artisan route:list --dev | grep …`
+  would silently see `\r` on every line. The wrapper allocates a TTY only when stdout is a terminal —
+  except on prod, which must force one (`-tt`) so sudo can prompt. Piping prod output does therefore
+  yield CRLF; that is the one accepted rough edge.
+
+### Tab completion (zsh)
+
+[`files/_mt`](files/_mt) completes the subcommands, the artisan commands, and the target flags.
+Install it into any directory on `$fpath` — under oh-my-zsh, `$ZSH_CUSTOM/completions` is already
+there:
+
+```bash
+cp _mt ~/.oh-my-zsh/custom/completions/_mt
+rm -f ~/.zcompdump* && exec zsh          # see below — this line is not optional
+```
+
+The artisan list is **static on purpose**. Completing from the live `artisan list` would open an ssh
+connection on every `<TAB>` — and on `--prod` block on a sudo password prompt with no terminal to
+render it. The list drifts as the app grows; that is fine, because completion is a convenience and
+never a whitelist. Anything absent still runs when typed in full.
+
+Three things that made this harder than it looks, all of which fail *silently*:
+
+- **oh-my-zsh caches completions** in `~/.zcompdump-<host>-<version>` and rebuilds it only when the
+  OMZ revision or the **`fpath` string** changes. `$ZSH_CUSTOM/completions` is on `fpath` whether or
+  not it contains anything, so *adding a file there does not invalidate the cache*. Restarting the
+  shell is not enough; delete the dump.
+- **`_describe` splits each entry on the first unescaped colon.** Artisan commands are full of colons,
+  so every one must be written `\:`. Miss it and the entry half-works in a way that looks plausible in
+  the list: `'config:show:…'` completes the value `config` with the description
+  `show:show a resolved config value`, and inserts the wrong command.
+- **Candidates starting with `-` are options**, and options are only displayed when the surrounding
+  context has requested the `options` tag. Inside a nested `_arguments` state that negotiation does not
+  happen, so `_describe` reports success while displaying nothing — `mt artisan down --<TAB>`, the
+  commonest position of all, completes silently to nothing. Use `_wanted options expl … compadd`,
+  which requests the tag explicitly.
+
 ## Rate limiting and Precognition
 
 Worth understanding before you tune any throttle, because the interaction is not obvious.
