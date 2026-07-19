@@ -351,6 +351,23 @@ public-facing box is a slow-motion disk-full outage.
 Also revisit **verbosity** now that real traffic is arriving: `LOG_LEVEL=warning` in the production
 `.env` keeps the application log to things you would actually act on.
 
+> **Check what it is rather than what you meant it to be.** The `.env` template ships `LOG_LEVEL=debug`
+> with a commented `warning` line to flip at go-live, alongside the `MAIL_MAILER` switch. Flipping one
+> and not the other is easy, produces no symptom, and leaves production writing debug-level detail
+> indefinitely. `grep -E '^LOG' .env` takes a second, and `artisan config:show logging` confirms the
+> *cached* value — the one that actually applies.
+
+Two things worth knowing before you tune anything on a freshly public site:
+
+- **A large access log is mostly not your users.** Expect roughly half of it to be scanners probing
+  for `/.env`, `/.npmrc`, `/.netrc` and friends. If your dotfile deny rule is working, those show up
+  as 403s in the error log — so an "alarming" error log full of `access forbidden by rule` is the
+  security config succeeding, not failing.
+- **Resist adding a bot-search jail for it.** The probes are already refused cheaply, and the sources
+  rotate across proxy ranges, so bans land on addresses that were not coming back. Every extra jail
+  is another way to ban someone by mistake, and daily rotation with `rotate 14` already bounds the
+  volume.
+
 ## Step 8 — Backup alerting
 
 The backup job from [`02-host-setup.md`](02-host-setup.md#210-backups) logs to the journal, which
