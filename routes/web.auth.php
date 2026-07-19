@@ -71,15 +71,25 @@ Route::middleware('guest')->group(function () {
         Route::get('/forgot', [ForgotController::class, 'show'])
             ->name('forgot');
 
+        // `auth-mail`: 6 actual sends/min, but 30 for the Precognition
+        // validate-on-blur traffic that shares this route. See the limiter in
+        // FortifyServiceProvider — the send budget is deliberately unchanged.
         Route::post('/forgot', [ForgotController::class, 'store'])
-            ->middleware(['throttle:6,1', HandleControllerPrecognitiveRequest::class])
+            ->middleware(['throttle:auth-mail', HandleControllerPrecognitiveRequest::class])
             ->name('forgot.store');
 
         Route::get('/reset-password', [NewPasswordController::class, 'show'])
             ->name('password.reset');
 
+        // Generous throttle, for the same reason as `register.store`: three
+        // fields each validate-on-blur through Precognition, so one honest
+        // reset costs 4+ requests against this budget and a single correction
+        // (mismatched confirmation, rejected weak password) blew past the old
+        // `6,1` with a 429. Safe to loosen — unlike `forgot.store` below this
+        // route sends no mail; it consumes a single-use, expiring token, which
+        // is the real gate.
         Route::post('/reset-password', [NewPasswordController::class, 'store'])
-            ->middleware(['throttle:6,1', HandleControllerPrecognitiveRequest::class])
+            ->middleware(['throttle:30,1', HandleControllerPrecognitiveRequest::class])
             ->name('password.reset.store');
     }
 
@@ -91,8 +101,9 @@ Route::middleware('guest')->group(function () {
         Route::get('/resend-verification', [ResendVerificationController::class, 'show'])
             ->name('verification.resend');
 
+        // Same split as `forgot.store` above — this route sends mail too.
         Route::post('/resend-verification', [ResendVerificationController::class, 'store'])
-            ->middleware(['throttle:6,1', HandleControllerPrecognitiveRequest::class])
+            ->middleware(['throttle:auth-mail', HandleControllerPrecognitiveRequest::class])
             ->name('verification.resend.store');
     }
 });

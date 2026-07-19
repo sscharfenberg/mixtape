@@ -156,9 +156,9 @@ class FortifyServiceProvider extends ServiceProvider
     }
 
     /**
-     * Configure the login / two-factor rate limiters.
+     * Configure the login / two-factor / auth-mail rate limiters.
      *
-     * Both are registered up front so the `two-factor` limiter is already in
+     * All are registered up front so the `two-factor` limiter is already in
      * place for when two-factor auth is enabled; only `login` is exercised today.
      */
     private function configureRateLimiting(): void
@@ -171,6 +171,23 @@ class FortifyServiceProvider extends ServiceProvider
 
         RateLimiter::for('two-factor', function (Request $request) {
             return Limit::perMinute(5)->by($request->session()->get('login.id'));
+        });
+
+        // For the routes that SEND mail (`forgot.store`, `verification.resend.store`).
+        //
+        // Those forms validate-on-blur through Precognition, so live validation
+        // hits the same route as the real submit. Under a flat `throttle:6,1`
+        // the two share one budget: typing eats the allowance the send needs,
+        // and an honest user gets a 429 (exactly what bit `password.reset.store`).
+        //
+        // Splitting on isPrecognitive() keeps the part that matters unchanged —
+        // still 6 actual sends per minute per IP, so this is NOT a loosening of
+        // the anti-abuse gate that stops someone flooding a victim's inbox —
+        // while giving the no-op validation requests room to breathe.
+        RateLimiter::for('auth-mail', function (Request $request) {
+            return $request->isPrecognitive()
+                ? Limit::perMinute(30)->by($request->ip())
+                : Limit::perMinute(6)->by($request->ip());
         });
     }
 }
