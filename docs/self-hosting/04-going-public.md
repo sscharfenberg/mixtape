@@ -203,11 +203,9 @@ when clicked. That tests `APP_URL` and signed-URL generation, which a raw test m
 
 Now that a public login surface exists:
 
-- Add a fail2ban jail watching the **production** nginx logs for repeated failed logins. The `sshd`
-  jail already covers SSH.
-- Application-level throttling already covers the login and mail routes (see
-  [`03-production-deploy.md`](03-production-deploy.md#rate-limiting-and-precognition)), so fail2ban is
-  defence in depth rather than the primary gate.
+Application-level throttling already covers the login and mail routes (see
+[`03-production-deploy.md`](03-production-deploy.md#rate-limiting-and-precognition)), so the jail below
+is defence in depth rather than the primary gate. The `sshd` jail already covers SSH.
 
 > **A jail on the nginx access log cannot see what you think it can.** The log records
 > `POST /login → 302` whether the credentials were right or wrong — the framework redirects back to
@@ -215,6 +213,60 @@ Now that a public login surface exists:
 > unambiguous: either the **429s** your own throttle already emits (a client tripping a 5/min login
 > limiter is misbehaving by definition), or a **dedicated application log channel** fed by the
 > framework's authentication-failure event. The second is cleaner and worth the small app change.
+
+### A dedicated auth-failure log
+
+The app writes one line per authentication failure to its own channel
+(`config/logging.php` → `auth`, filled by `App\Listeners\LogAuthenticationFailures`):
+
+```
+[2026-07-19 07:18:02] production.WARNING: login.failed ip=203.0.113.9 username="ada" user_id=- route="login.store"
+```
+
+Three things about that channel are load-bearing rather than stylistic:
+
+- **Its level is a literal, not `env('LOG_LEVEL')`.** Production runs at `warning`; the day someone
+  raises that to `error`, an env-driven channel would stop feeding the jail and nothing would look
+  broken.
+- **`ip=` comes first, and everything after it is scrubbed and quoted.** The username is whatever the
+  attacker typed. Left raw, a newline in it forges a complete log line — and since fail2ban bans the
+  address it reads *out of the matched line*, that turns your own jail into a way to ban a third
+  party. The listener strips control characters, bounds the length, and JSON-quotes the result.
+- **Only failures are logged.** A successful login would otherwise write a valid username beside a
+  valid IP into a file that outlives the session.
+
+Because the format is parsed by a filter that fails silently, treat it as an interface: the app's
+test suite keeps a mirror of the `failregex` and asserts real output against it, including that one
+failure produces exactly *one* line.
+
+> **Watch out for double registration.** Laravel discovers listeners in `app/Listeners` by matching
+> any `handle*` method against its type-hint. A listener that is *also* wired explicitly gets
+> registered twice, and every failure is logged twice — which silently halves the effective
+> `maxretry` of any jail counting those lines. Either rely on discovery alone, or name the methods
+> something other than `handle*`, as this app does.
+
+### The jail
+
+Install the filter and jail, then reload:
+
+```sh
+sudo install -m 0644 mixtape-auth.fail2ban-filter.conf /etc/fail2ban/filter.d/mixtape-auth.conf
+sudo tee -a /etc/fail2ban/jail.local < mixtape-auth.fail2ban-jail.conf   # edit ignoreip first
+sudo fail2ban-client reload
+```
+
+Verify against the real log before trusting it — `fail2ban-regex` reports how many lines matched, and
+zero matches is the failure mode you will not otherwise notice:
+
+```sh
+sudo fail2ban-regex /var/www/mixtape.prod/storage/logs/auth.log \
+  /etc/fail2ban/filter.d/mixtape-auth.conf
+sudo fail2ban-client status mixtape-auth
+```
+
+Then fail a login from a non-LAN address on purpose and confirm the counter moves. Set `ignoreip` to
+cover your LAN before enabling any of this, or a household device on a stale saved password can lock
+the entire house out of the site.
 
 ### Log rotation
 
@@ -229,6 +281,11 @@ public-facing box is a slow-motion disk-full outage.
   [`files/mixtape-php.logrotate`](files/mixtape-php.logrotate) as `/etc/logrotate.d/mixtape-php`; the
   file's header explains the non-obvious requirements (`su root <group>`, and signalling the fpm
   master).
+- **the app's own logs** — `storage/logs/*.log` are not rotated by anything either. Install
+  [`files/mixtape-auth-log.logrotate`](files/mixtape-auth-log.logrotate) for the auth log. It needs
+  *no* postrotate signal, because the framework rebuilds its container per request and reopens the
+  path on its own — which is also why its `su` can safely drop to the web user, unlike the php-fpm
+  entry above.
 - Verify rather than assume — `sudo logrotate --debug /etc/logrotate.d/mixtape-php` dry-runs the
   entry and prints what it *would* do, including the "insecure permissions, skipping" refusal.
 

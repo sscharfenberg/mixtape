@@ -1,0 +1,30 @@
+# /etc/logrotate.d/mixtape-auth
+#
+# Rotates the application's dedicated auth-failure log. Separate from
+# mixtape-php.logrotate because the two need different privileges, and mixing
+# them would force the stricter case on both.
+#
+# Unlike the php-fpm pool logs, this one needs no signal after rotation:
+# Laravel rebuilds its container per request, so the next request opens the log
+# by path and lands in the new file on its own. That is also why `su` can drop
+# to www-data here — there is no root-owned daemon holding the handle, so no
+# postrotate that would fail with EPERM. (See mixtape-php.logrotate, where the
+# opposite is true and getting this wrong freezes the log silently.)
+#
+# fail2ban follows the rotation by itself: it notices the inode change and
+# reopens. No jail reload is required.
+#
+# Install:
+#   sudo install -m 0644 -o root -g root mixtape-auth-log.logrotate \
+#     /etc/logrotate.d/mixtape-auth
+
+/var/www/mixtape.prod/storage/logs/auth.log {
+	su www-data www-data
+	create 0640 www-data www-data
+	weekly
+	rotate 12
+	missingok
+	notifempty
+	compress
+	delaycompress
+}

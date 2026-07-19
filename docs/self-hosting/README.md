@@ -65,6 +65,8 @@ this is a jump table for when something is already broken.
 | logrotate silently skips an entry | Its log directory is owned by a non-root user, so it needs an `su` line — the refusal is only reported in logrotate's own output | [04](04-going-public.md#log-rotation) |
 | Log rotates once, then stays frozen at 0 bytes | `su` dropped to the service user, so the postrotate signal to a root-owned daemon failed with EPERM and it kept writing to the renamed inode. Use `su root <group>` | [04](04-going-public.md#log-rotation) |
 | A fail2ban jail bans legitimate users | The nginx access log shows `POST /login → 302` for success *and* failure; match 429s or a dedicated app log channel instead | [04](04-going-public.md#step-7--login-hardening-and-logs) |
+| A jail bans at half its configured `maxretry` | The listener is registered twice — Laravel auto-discovers any `handle*` method in `app/Listeners` on top of your explicit wiring | [04](04-going-public.md#a-dedicated-auth-failure-log) |
+| Auth log stops feeding the jail after a config tweak | The channel's `level` was env-driven and `LOG_LEVEL` got raised; pin it to a literal | [04](04-going-public.md#a-dedicated-auth-failure-log) |
 
 ## What this guide does not cover
 

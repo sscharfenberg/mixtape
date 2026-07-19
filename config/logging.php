@@ -73,6 +73,28 @@ return [
             'replace_placeholders' => true,
         ],
 
+        /*
+         * Authentication failures only, one line each, for fail2ban to parse.
+         * Written by App\Listeners\LogAuthenticationFailures; the matching
+         * filter is docs/self-hosting/files/mixtape-auth.fail2ban-filter.conf.
+         *
+         * Two deliberate departures from the channels around it:
+         *
+         *  - `level` is a literal, NOT env('LOG_LEVEL'). Production runs
+         *    LOG_LEVEL=warning today, and tightening it further later must not
+         *    silently starve the jail of the only input it has.
+         *  - `replace_placeholders` is off. These lines embed a submitted
+         *    username, and interpolation would give attacker-controlled text a
+         *    say in how the line is assembled.
+         */
+        'auth' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/auth.log'),
+            'level' => 'info',
+            'replace_placeholders' => false,
+            'permission' => 0640,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),
