@@ -19,10 +19,12 @@ this repo starts clean.
 
 1. ✅ **Rebuild debbie** — **DONE & verified 2026-06-28.** Fresh Debian on plain LVM (large `/var`),
    hardened, services up (PostgreSQL 17 / php-fpm 8.4 / nginx / Samba), collection restored, PoC proven.
-   Spec + design in `../mixtape-ops/server-requirements.md` (**untracked**, see *Docs*).
-2. ⬜ **Rewrite the app** — **NEXT.** New design; Inertia v3 instead of the REST API; composables-first
-   Vue + TS. See [`docs/app-rewrite.md`](docs/app-rewrite.md); public go-live in
-   `../mixtape-ops/phase-2-go-live.md` (**untracked**).
+   Spec + design in [`docs/self-hosting/01-requirements.md`](docs/self-hosting/01-requirements.md);
+   the concrete box in `docs/debbie.local/infrastructure.md` (**untracked**, see *Docs*).
+2. ⬜ **Rewrite the app** — **IN PROGRESS.** New design; Inertia v3 instead of the REST API;
+   composables-first Vue + TS. See [`docs/app-rewrite.md`](docs/app-rewrite.md); public go-live in
+   [`docs/self-hosting/04-going-public.md`](docs/self-hosting/04-going-public.md) (generic) and
+   `docs/debbie.local/go-live.md` (**untracked**, real values + status).
 
 Phase 1 was done first — no point deploying new app code onto the old host.
 
@@ -111,23 +113,37 @@ runs *much slower by default* and only switches to the lively duration under `no
 
 ## Docs
 
-> **Home-infrastructure docs are deliberately NOT git-tracked.** This repo is public and documents
-> the *app*, not how one home server was built. Anything describing debbie — host spec, network,
-> exposure, deploy procedure — lives in the **`../mixtape-ops/`** sibling folder (untracked, alongside
-> the legacy `../MixTape` clone). Don't move it back in, and don't add host names, LAN addresses, or
-> server runbooks to tracked files.
+> **The split is generic-vs-specific, and it is enforced by `.gitignore`.** This repo is public.
+> **Reproducible** server documentation — anything another person could follow on their own hardware —
+> is **tracked** in `docs/self-hosting/` and uses placeholders (`<your-domain>`, `<server-lan-ip>`).
+> Anything describing **this one box** — hostname, LAN topology, MACs, the DynDNS host, the real
+> domain, secret locations — goes in **`docs/debbie.local/`**, which is gitignored as a whole
+> directory.
+>
+> **Never put a real host name, LAN address, MAC, or the live domain in a tracked file.** When adding
+> server material, ask which half it is: the transferable lesson goes in `self-hosting/`, the concrete
+> state in `debbie.local/`. Most changes touch both.
+>
+> _(Until 2026-07-19 this all lived in an untracked sibling folder `../mixtape-ops/`. A gitignored
+> directory does the same job without the docs being one level away from the code they describe.)_
 
-**Server / operations (untracked — `../mixtape-ops/`):**
+**Self-hosting guide (tracked — `docs/self-hosting/`):** the full path from bare hardware to a public
+instance, written for someone else's server.
 
-- `server-requirements.md` — server requirements & design (role, hardware, OS, LVM, stack,
-  network/exposure, security, backups + the *why*).
-- `phase-2-go-live.md` — ordered **go-live runbook**: TLS, real-domain CNAME→DynDNS, Mailtrap +
-  SPF/DKIM/DMARC, router forward + firewall widen, backup alerting. **Auth must be in force before
-  any exposure.**
-- `RUNBOOK-step0.md` + `mixtape.prod.nginx.conf` / `mixtape-prod.pool.conf` / `env.prod.template` /
-  `mixtape-deploy.sudoers` / `mixtape-prod-deploy.sh` — how the production site is built and deployed.
-- `docs/debbie-infrastructure.local.md` — still in `docs/` but **gitignored** (`*.local.md`): the
-  *concrete* live box (LAN topology, disks, services, secret **locations**).
+- `README.md` — overview, the order to work in, and a **gotchas index** (symptom → cause → where).
+- `01-requirements.md` — hardware, OS, LVM, stack, network/exposure, security posture + the *why*.
+- `02-host-setup.md` — Debian, networking, firewall, SSH, PostgreSQL, nginx/PHP, Samba, LAN TLS.
+- `03-production-deploy.md` — the `mixtape-deploy` ownership model, Step-0 build, routine deploys.
+- `04-going-public.md` — domain/CNAME, port-forward, firewall widen, certbot, mail + SPF/DKIM/DMARC,
+  fail2ban, backup alerting. **Auth must be in force before any exposure.**
+- `files/` — installable configs (nginx vhost, fpm pool, rate-limit zones, sudoers, deploy script,
+  `.env` template), all with placeholders.
+
+**This box (untracked — `docs/debbie.local/`):**
+
+- `infrastructure.md` — the concrete live box: LAN topology, disks, services, secret **locations**.
+- `go-live.md` — the go-live runbook with real values and per-step status.
+- `live-configs/` — copies synced from the server, with real hostnames and cert paths.
 
 **App (Phase 2 — next):**
 

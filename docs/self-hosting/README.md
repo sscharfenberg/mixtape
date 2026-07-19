@@ -1,0 +1,71 @@
+# Self-hosting MixTape
+
+MixTape is a self-hosted web app that organises a personal mp3 / audiobook collection and plays it in
+the browser. It is designed to run on **one always-on machine you own** — typically a home server —
+and to be **reachable from the internet**, so you can send someone a link to a song without giving
+them an account.
+
+This guide is the whole path from bare hardware to a public, TLS-secured, invite-only instance.
+
+> **Placeholders.** These docs use `<your-domain>`, `<server-lan-ip>`, and `<lan-subnet>` throughout.
+> Substitute your own; nothing here is copy-pasteable without doing so.
+
+## Who this is for
+
+Someone comfortable with a Linux shell, `sudo`, and editing config files. You do not need prior
+Laravel, nginx, or PostgreSQL experience — every command is given — but you should be willing to read
+what a command does before running it, because some of them are destructive and a few are
+security-relevant.
+
+## The order
+
+Do these in sequence. Each assumes the previous is done.
+
+| | Document | What you get |
+| --- | --- | --- |
+| 1 | [`01-requirements.md`](01-requirements.md) | What hardware/OS/network you need, and the reasoning — read before buying or wiping anything |
+| 2 | [`02-host-setup.md`](02-host-setup.md) | A hardened Debian host: LVM, packages, firewall, SSH, Samba, PostgreSQL, TLS on the LAN |
+| 3 | [`03-production-deploy.md`](03-production-deploy.md) | The app running on that host, deployable with one command |
+| 4 | [`04-going-public.md`](04-going-public.md) | A real domain, a port-forward, Let's Encrypt, working transactional mail |
+
+**Nothing is reachable from the internet until step 4**, and step 4 has a hard precondition: real
+authentication must be working first. Do not open a port before then.
+
+## Two sites, one box
+
+The recommended layout runs **two isolated sites** on the same machine:
+
+| | Path | Database | Reachable | Purpose |
+| --- | --- | --- | --- | --- |
+| dev | `/var/www/mixtape.dev` | `mixtape_dev` | LAN only | where you break things |
+| prod | `/var/www/mixtape.prod` | `mixtape_prod` | public | what people use |
+
+They share the media library on disk (one collection) but nothing else — separate databases, php-fpm
+pools, nginx vhosts, and log files. If you only want one site, build the prod one and skip dev.
+
+## Gotchas index
+
+Every one of these cost real debugging time. They are explained in context in the documents above;
+this is a jump table for when something is already broken.
+
+| Symptom | Cause | Where |
+| --- | --- | --- |
+| `nginx -t` refuses to reload after adding the prod vhost | Two `default_server` blocks on one port — it must be removed from the dev vhost in the same change | [03](03-production-deploy.md#9-nginx-vhost) |
+| Locked out of `sudo` entirely | A malformed file in `/etc/sudoers.d/`. Always `visudo -c -f` **before** installing | [03](03-production-deploy.md#7-sudoers) |
+| Web user can rewrite application code | Deploy ran at `umask 002`; it must be `027` | [03](03-production-deploy.md#6-writable-directories) |
+| `nvm: command not found` during deploy | nvm is a shell function and per-user — must be installed *as* the deploy user, and sourced explicitly | [03](03-production-deploy.md#2-nvm--node) |
+| Icons all render empty | The sprite is gitignored **and** not produced by the Vite build; `npm run icons` is a separate step | [03](03-production-deploy.md#10-first-deploy) |
+| Editing `.env` changes nothing | Prod runs from cached config — `config:cache` is mandatory after every `.env` edit | [04](04-going-public.md#step-5--app-production-config) |
+| Mail "sends" successfully but never arrives | Stale config cache still on `MAIL_MAILER=log`, and the log mailer's debug write is discarded if `LOG_LEVEL` is above debug — silent on both ends | [04](04-going-public.md#step-6--transactional-mail) |
+| `UnsupportedSchemeException` on send | `MAIL_SCHEME` set to something other than `smtp`/`smtps` — leave it unset | [04](04-going-public.md#step-6--transactional-mail) |
+| SPF suddenly fails after adding a record | Two SPF TXT records on one domain = permerror. There must be exactly one, with merged includes | [04](04-going-public.md#dns-records) |
+| 429 on a form that validates as you type | Precognition posts to the same route as the submit, so live validation eats the throttle budget | [03](03-production-deploy.md#rate-limiting-and-precognition) |
+| `psysh` refuses to start under `artisan tinker` | www-data's home is deploy-owned by design; pass `HOME=/tmp` | [03](03-production-deploy.md#running-artisan-in-production) |
+
+## What this guide does not cover
+
+- **Restoring or migrating an existing collection.** Point `/var/media` at your files; the scan chain
+  builds the database from them.
+- **High availability, clustering, or containers.** This is a single-box design on purpose.
+- **Anything specific to the author's server.** Host-specific notes are deliberately kept out of this
+  repository.

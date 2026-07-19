@@ -1,0 +1,28 @@
+# /etc/sudoers.d/mixtape-deploy      — 440 root:root
+#
+# Install with visudo so a syntax error can never lock you out of sudo:
+#   sudo visudo -c -f mixtape-deploy.sudoers      # check first
+#   sudo install -m 440 -o root -g root mixtape-deploy.sudoers /etc/sudoers.d/mixtape-deploy
+#
+# The deploy script runs unprivileged as mixtape-deploy. Exactly two operations
+# need more than that, and they are allowlisted individually — mixtape-deploy
+# has no general sudo rights.
+
+# 1. Reload php-fpm after a deploy (drops the prod pool's stale opcache).
+#    `reload` only, not restart/stop/start — a deploy must never be able to take
+#    the service down, and cannot be aimed at any other unit.
+mixtape-deploy ALL=(root) NOPASSWD: /usr/bin/systemctl reload php8.4-fpm
+
+# 2. Run artisan as www-data, so every file artisan writes (logs, compiled
+#    views, framework cache) is owned by the runtime user rather than the deploy
+#    user. Absolute paths, and pinned to the prod artisan only — the dev site is
+#    not reachable through this rule.
+#
+#    The trailing wildcard does allow `artisan tinker` as www-data, i.e.
+#    arbitrary code execution as the web user. That is not an escalation:
+#    mixtape-deploy already writes the application code that www-data executes.
+#    It is deliberately NOT a path to root.
+mixtape-deploy ALL=(www-data) NOPASSWD: /usr/bin/php /var/www/mixtape.prod/artisan *
+
+# Deliberately absent: any rule targeting the dev site, nginx, the database, or
+# the package manager. Those stay with your own account.
