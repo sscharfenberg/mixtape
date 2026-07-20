@@ -12,6 +12,8 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\Features;
@@ -80,5 +82,23 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
     public function sendPasswordResetNotification(#[\SensitiveParameter] $token): void
     {
         $this->notify(new PasswordResetLinkNotification($token));
+    }
+
+    /** The user's saved playlists. @return HasMany<Playlist, $this> */
+    public function playlists(): HasMany
+    {
+        return $this->hasMany(Playlist::class);
+    }
+
+    /** The user's listen history. @return HasMany<Play, $this> */
+    public function plays(): HasMany
+    {
+        return $this->hasMany(Play::class);
+    }
+
+    /** The user's persisted play queue (1:1). @return HasOne<PlayerState, $this> */
+    public function playerState(): HasOne
+    {
+        return $this->hasOne(PlayerState::class);
     }
 }
