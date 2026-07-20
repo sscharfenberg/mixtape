@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             UserSeeder::class,
+            LibrarySeeder::class, // depends on UserSeeder (attaches listening data to the seeded user)
         ]);
     }
 }
