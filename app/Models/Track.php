@@ -18,6 +18,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * podcast episodes (option B). Identity is the audio-stream `content_hash`, not
  * the `path`, so a rename or re-tag keeps the id (data-model.md → "the one
  * fact"); two files with identical audio are two rows (clones) sharing a hash.
+ *
+ * `path` is stored RELATIVE to the area root (e.g. `Artist/Album/01.mp3`), never
+ * the absolute server path, so relocating the collection doesn't touch the DB.
+ * Use `absolutePath()` to get the real file location. Uniqueness is `(type,
+ * path)` — one file per area.
  */
 #[Fillable([
     'type', 'collection_id', 'artist_id', 'genre_id', 'narrator_id',
@@ -54,6 +59,19 @@ class Track extends Model
             'modified_at' => 'datetime',
             'created_at' => 'datetime',
         ];
+    }
+
+    /**
+     * The absolute path to the file on disk, rebuilt from the configured area
+     * root and the stored area-relative `path`. Everything that touches the real
+     * file — the scanner, and (later) the player and cover-art extraction —
+     * resolves it through here rather than assuming `path` is absolute.
+     */
+    public function absolutePath(): string
+    {
+        $root = rtrim((string) config('mixtape.library.paths.'.$this->type->libraryPathKey()), '/');
+
+        return $root.'/'.$this->path;
     }
 
     /** @return BelongsTo<Collection, $this> */

@@ -14,6 +14,9 @@ trait InteractsWithLibraryFiles
 {
     protected string $root;
 
+    /** @var string[] extra temp roots (e.g. an audiobooks area) to clean up */
+    protected array $extraRoots = [];
+
     protected function makeLibraryRoot(): void
     {
         $this->root = sys_get_temp_dir().'/mixtape-lib-'.bin2hex(random_bytes(6));
@@ -22,14 +25,32 @@ trait InteractsWithLibraryFiles
         config(['mixtape.scan.extensions' => ['mp3']]);
     }
 
+    /** Spin up a second area (audiobooks) pointed at its own temp dir. */
+    protected function makeAudiobookRoot(): string
+    {
+        $dir = $this->root.'-audiobooks';
+        mkdir($dir, 0777, true);
+        config(['mixtape.library.paths.audiobooks' => $dir]);
+        $this->extraRoots[] = $dir;
+
+        return $dir;
+    }
+
     protected function removeLibraryRoot(): void
     {
-        if (! isset($this->root) || ! is_dir($this->root)) {
+        foreach (array_merge([$this->root ?? ''], $this->extraRoots) as $dir) {
+            $this->removeDir($dir);
+        }
+    }
+
+    protected function removeDir(string $dir): void
+    {
+        if ($dir === '' || ! is_dir($dir)) {
             return;
         }
 
         $items = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($this->root, FilesystemIterator::SKIP_DOTS),
+            new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
             RecursiveIteratorIterator::CHILD_FIRST,
         );
 
@@ -37,7 +58,7 @@ trait InteractsWithLibraryFiles
             $item->isDir() ? @rmdir($item->getPathname()) : @unlink($item->getPathname());
         }
 
-        @rmdir($this->root);
+        @rmdir($dir);
     }
 
     /**

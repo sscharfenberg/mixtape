@@ -109,23 +109,27 @@ final class LibraryScanService
             return $result;
         }
 
-        DB::transaction(function () use ($type, $files, $result) {
-            /** @var Collection<string, Track> $existing keyed by absolute path */
+        DB::transaction(function () use ($type, $files, $result, $root) {
+            /** @var Collection<string, Track> $existing keyed by area-relative path */
             $existing = Track::query()->where('type', $type)->get()->keyBy('path');
 
             $claimed = []; // [track id => true] — rows matched to a file this scan
             $newFiles = []; // files whose path isn't in the DB → pass 2
 
             // --- Pass 1: match by path (fast-path + same-path re-tag) ---------
+            // `path` is stored RELATIVE to the area root, so moving the collection
+            // (changing the configured root) still matches here — the read uses
+            // the absolute path, only the stored/keyed value is relative.
             foreach ($files as $file) {
-                $path = $file->getPathname();
+                $absPath = $file->getPathname();
+                $relPath = $this->relativePath($root, $absPath);
                 $size = (int) $file->getSize();
                 $mtime = (int) $file->getMTime();
 
-                $row = $existing->get($path);
+                $row = $existing->get($relPath);
 
                 if ($row === null) {
-                    $newFiles[] = [$path, $size, $mtime];
+                    $newFiles[] = [$absPath, $relPath, $size, $mtime];
 
                     continue;
                 }
@@ -137,12 +141,12 @@ final class LibraryScanService
                 }
 
                 // Same path, changed bytes → a re-tag. Re-read and update in place.
-                $meta = $this->readOrSkip($path, $result);
+                $meta = $this->readOrSkip($absPath, $result);
                 if ($meta === null) {
                     continue;
                 }
 
-                $row->fill($this->buildAttributes($type, $meta, $path, $size, $mtime))->save();
+                $row->fill($this->buildAttributes($type, $meta, $relPath, $size, $mtime))->save();
                 $result->updated++;
             }
 
@@ -152,8 +156,8 @@ final class LibraryScanService
                 ->groupBy('content_hash');
 
             // --- Pass 2: new paths — hash, rename-match, else insert ----------
-            foreach ($newFiles as [$path, $size, $mtime]) {
-                $meta = $this->readOrSkip($path, $result);
+            foreach ($newFiles as [$absPath, $relPath, $size, $mtime]) {
+                $meta = $this->readOrSkip($absPath, $result);
                 if ($meta === null) {
                     continue;
                 }
@@ -161,14 +165,14 @@ final class LibraryScanService
                 $candidates = ($byHash->get($meta->contentHash) ?? collect())
                     ->reject(fn (Track $t) => isset($claimed[$t->getKey()]));
 
-                $match = $this->pickRenameCandidate($candidates, $path);
+                $match = $this->pickRenameCandidate($candidates, $relPath);
 
                 if ($match !== null) {
-                    $match->fill($this->buildAttributes($type, $meta, $path, $size, $mtime))->save();
+                    $match->fill($this->buildAttributes($type, $meta, $relPath, $size, $mtime))->save();
                     $claimed[$match->getKey()] = true;
                     $result->renamed++;
                 } else {
-                    Track::create($this->buildAttributes($type, $meta, $path, $size, $mtime));
+                    Track::create($this->buildAttributes($type, $meta, $relPath, $size, $mtime));
                     $result->inserted++;
                 }
             }
@@ -217,6 +221,21 @@ final class LibraryScanService
         return iterator_to_array($finder, false);
     }
 
+    /**
+     * The path of a file relative to its area root — what gets stored, so the
+     * DB never bakes in the configured location and moving the collection is a
+     * fast-path no-op. Finder guarantees the file is under $root; the fallback
+     * (strip a leading slash) only guards a theoretical mismatch.
+     */
+    private function relativePath(string $root, string $absolute): string
+    {
+        $prefix = rtrim($root, '/').'/';
+
+        return str_starts_with($absolute, $prefix)
+            ? substr($absolute, strlen($prefix))
+            : ltrim($absolute, '/');
+    }
+
     /** The steady-state fast-path: same path, same size, same mtime → untouched. */
     private function unchanged(Track $row, int $size, int $mtime): bool
     {
@@ -245,16 +264,17 @@ final class LibraryScanService
      * area. Used for both INSERT and UPDATE, so a re-tag re-points FKs correctly
      * (and any taxonomy it abandons is swept up by pruneOrphans afterwards).
      *
+     * @param  string  $relativePath  path relative to the area root (what we store)
      * @return array<string, mixed>
      */
-    private function buildAttributes(TrackType $type, TrackMetadata $meta, string $path, int $size, int $mtime): array
+    private function buildAttributes(TrackType $type, TrackMetadata $meta, string $relativePath, int $size, int $mtime): array
     {
         $attributes = [
             'type' => $type,
             // Fall back to the filename when a file carries no title tag, so a
             // track is never nameless in the UI.
-            'name' => $meta->title ?? pathinfo($path, PATHINFO_FILENAME),
-            'path' => $path,
+            'name' => $meta->title ?? pathinfo($relativePath, PATHINFO_FILENAME),
+            'path' => $relativePath,
             'content_hash' => $meta->contentHash,
             'size' => $size,
             'modified_at' => Carbon::createFromTimestamp($mtime),

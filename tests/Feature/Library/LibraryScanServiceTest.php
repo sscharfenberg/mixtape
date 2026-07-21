@@ -160,8 +160,8 @@ class LibraryScanServiceTest extends TestCase
         $this->media('b/01.mp3', ['hash' => 'dup', 'title' => 'Song', 'artist' => 'A', 'album' => 'Best Of']);
         $this->scan();
 
-        $doomedRow = Track::where('path', $doomed)->firstOrFail();
-        $survivor = Track::where('path', '!=', $doomed)->firstOrFail();
+        $doomedRow = Track::where('path', 'a/01.mp3')->firstOrFail();      // stored relative
+        $survivor = Track::where('path', 'b/01.mp3')->firstOrFail();
 
         $user = User::factory()->create();
         $playlist = $user->playlists()->create(['name' => 'Mix', 'position' => 0]);
@@ -250,5 +250,58 @@ class LibraryScanServiceTest extends TestCase
 
         $this->assertSame(0, $summary->discovered());
         $this->assertSame(0, Track::count());
+    }
+
+    public function test_path_is_stored_relative_to_the_area_root(): void
+    {
+        $this->media('Artist/Album/01.mp3', ['hash' => 'h1', 'title' => 'One', 'artist' => 'A', 'album' => 'Alb']);
+        $this->scan();
+
+        $track = Track::firstOrFail();
+        $this->assertSame('Artist/Album/01.mp3', $track->path);           // relative, no server prefix
+        $this->assertSame($this->root.'/Artist/Album/01.mp3', $track->absolutePath());
+    }
+
+    public function test_relocating_the_root_is_a_fast_path_noop(): void
+    {
+        $this->media('a/01.mp3', ['hash' => 'h1', 'title' => 'One', 'artist' => 'A', 'album' => 'Alb']);
+        $this->media('a/02.mp3', ['hash' => 'h2', 'title' => 'Two', 'artist' => 'A', 'album' => 'Alb']);
+        $this->scan();
+
+        $before = Track::query()->orderBy('path')->pluck('id', 'path')->all();
+        $this->assertSame(['a/01.mp3', 'a/02.mp3'], array_keys($before));
+
+        // Actually move the whole collection to a new root (rename preserves the
+        // files' mtimes + contents), then point the config there.
+        $moved = $this->root.'-moved';
+        rename($this->root, $moved);
+        $this->root = $moved;                          // so tearDown cleans the new location
+        config(['mixtape.library.paths.music' => $moved]);
+
+        $summary = $this->scanner->scan([TrackType::Music]);
+
+        // Relative paths still match on (path, size, mtime): nothing changes.
+        $this->assertSame(0, $summary->inserted() + $summary->updated() + $summary->renamed() + $summary->deleted());
+        $this->assertSame($before, Track::query()->orderBy('path')->pluck('id', 'path')->all());
+    }
+
+    public function test_same_relative_path_in_two_areas_are_distinct_rows(): void
+    {
+        // music/Foo/01.mp3 and audiobooks/Foo/01.mp3 — identical relative path,
+        // different areas. UNIQUE(path) would have collided; UNIQUE(type, path)
+        // keeps them as two rows.
+        $this->media('Foo/01.mp3', ['hash' => 'm1', 'title' => 'Song', 'artist' => 'A', 'album' => 'Alb']);
+
+        $ab = $this->makeAudiobookRoot();
+        @mkdir($ab.'/Foo', 0777, true);
+        file_put_contents($ab.'/Foo/01.mp3', json_encode([
+            'hash' => 'b1', 'title' => 'Chapter', 'composer' => 'Author', 'artist' => 'Narrator', 'album' => 'Book',
+        ]));
+
+        $this->scanner->scan([TrackType::Music, TrackType::Audiobook]);
+
+        $this->assertSame(2, Track::count());
+        $this->assertSame(1, Track::where('type', TrackType::Music)->where('path', 'Foo/01.mp3')->count());
+        $this->assertSame(1, Track::where('type', TrackType::Audiobook)->where('path', 'Foo/01.mp3')->count());
     }
 }

@@ -112,9 +112,13 @@ skips unchanged files.
 album *and* on a compilation are both legitimate library entries, each with its own album / track-number
 tags. So:
 
-- **No `UNIQUE (content_hash)`.** The uniqueness anchor is **`UNIQUE (path)`** (as in legacy):
-  *one file on disk ⇒ exactly one row.* That is the line between duplicates you *want* (two files) and
-  the accidental ones you *don't* (one file spawning a phantom).
+- **No `UNIQUE (content_hash)`.** The uniqueness anchor is **`UNIQUE (type, path)`**:
+  *one file per area ⇒ exactly one row.* That is the line between duplicates you *want* (two files) and
+  the accidental ones you *don't* (one file spawning a phantom). (`path` is stored **relative to the area
+  root**, not the absolute server path, so relocating the collection is a fast-path no-op — and relative
+  paths can collide across areas, e.g. music vs. audiobook `Foo/1.mp3`, which is why the anchor is
+  `(type, path)` rather than `path` alone. Implemented 2026-07-22, superseding the original absolute
+  `UNIQUE (path)`.)
 - `content_hash` is stored **indexed, non-unique** — its jobs are catching renames (step 4) and the
   clones feature below.
 - `id` stays an **independent random uuid.** (A deterministic `uuidv5(content_hash)` is off the table —
@@ -237,7 +241,7 @@ tracks
   genre_id         uuid  fk → genres        nullable  (music)
   narrator_id      uuid  fk → narrators     nullable  (audiobook)
   composer, publisher   (music, text)
-  path             string  UNIQUE                            # scan anchor: one file ⇒ one row
+  path             string                                    # RELATIVE to the area root; UNIQUE (type, path) — one file per area
   content_hash     string  index (non-unique)                # NEW — audio-stream hash = identity; clones share it
   size, modified_at                                          # with path = the "unchanged" fast-path
   … other technical columns (codec, channel, duration, sample_rate, bit_rate, vbr, cover, track, disc) …
