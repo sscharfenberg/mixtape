@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Enums\TrackType;
+use App\Console\Commands\Concerns\ResolvesLibraryAreas;
 use App\Mail\LibraryAreasEmpty;
 use App\Mail\LibraryScanFailed;
 use App\Mail\LibraryScanSkipped;
@@ -28,6 +28,8 @@ use Throwable;
  */
 class UpdateLibrary extends Command
 {
+    use ResolvesLibraryAreas;
+
     protected $signature = 'app:update
                             {--area=* : Limit to one or more areas (music, audiobooks, podcast_shows). Default: all}
                             {--skip-cleanup : Skip the junk-file cleanup step}';
@@ -42,11 +44,7 @@ class UpdateLibrary extends Command
         }
 
         $startedAt = microtime(true);
-        $scope = count($areas) === count(TrackType::cases())
-            ? 'all areas'
-            : implode(', ', array_map(fn (TrackType $a) => $a->libraryPathKey(), $areas));
-
-        $this->narrate("Library scan started ({$scope}).");
+        $this->narrate('Library scan started ('.$this->describeScope($areas).').');
 
         try {
             if (! $this->option('skip-cleanup')) {
@@ -89,44 +87,6 @@ class UpdateLibrary extends Command
 
             return self::FAILURE;
         }
-    }
-
-    /**
-     * Resolve `--area` values to TrackTypes (accepting either the area name or
-     * the enum value). Returns all areas when none are given, or null on an
-     * unknown value so the caller can exit INVALID.
-     *
-     * @return TrackType[]|null
-     */
-    private function resolveAreas(): ?array
-    {
-        $requested = (array) $this->option('area');
-        if ($requested === []) {
-            return TrackType::cases();
-        }
-
-        $areas = [];
-        foreach ($requested as $name) {
-            $type = collect(TrackType::cases())
-                ->first(fn (TrackType $t) => $t->libraryPathKey() === $name || $t->value === $name);
-
-            if ($type === null) {
-                $this->error("Unknown area '{$name}'. Valid areas: music, audiobooks, podcast_shows.");
-
-                return null;
-            }
-
-            $areas[$type->value] = $type; // de-dupe by key
-        }
-
-        return array_values($areas);
-    }
-
-    /** Write a headline line to both the console and the `library` log channel. */
-    private function narrate(string $line): void
-    {
-        $this->line($line);
-        Log::channel('library')->info($line);
     }
 
     private function elapsed(float $startedAt): string

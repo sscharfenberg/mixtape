@@ -13,6 +13,7 @@ and package commands (`migrate`, `queue:work`, …) are not listed here — run
 | --- | --- |
 | [`app:invite`](#appinvite) | Mint a one-time, expiring registration invite link |
 | [`app:update`](#appupdate) | Scan the media library into the database (cleanup + content-hash diff) |
+| [`app:clean`](#appclean) | Delete OS/Samba junk files from the library shares (the cleanup step, standalone) |
 
 ---
 
@@ -191,3 +192,36 @@ identical audio are two rows (clones) sharing a hash.
   tag/stream reading and the audio-frame hash.
 - `app/Mail/LibraryScanFailed.php` — the failure alert e-mail.
 - `config/mixtape.php`, the `library` channel in `config/logging.php`.
+
+---
+
+## `app:clean`
+
+Deletes the OS/Samba junk that clients scatter through the library shares —
+`._*` (macOS AppleDouble), `.DS_Store`, `Thumbs.db`, `AlbumArt*`, Samba `.@__*` /
+`.smbdelete*`, `*.gp5` (masks in `config('mixtape.scan.cleanup_masks')`).
+
+```
+php artisan app:clean {--area=*}
+```
+
+This is exactly the cleanup step [`app:update`](#appupdate) runs first (unless
+`--skip-cleanup`), exposed as a standalone command for sweeping the shares
+without a full scan — handy because macOS/Samba re-create these files whenever the
+shares are browsed or played from. Both commands call the same
+`LibraryCleanupService`, so behaviour is identical; only real files are removed
+(never media or `Folder.jpg`), and a missing/empty area path is skipped, not an
+error.
+
+### Arguments & options
+
+| Name | Kind | Default | Meaning |
+| --- | --- | --- | --- |
+| `--area` | option (repeatable) | all | Limit to `music`, `audiobooks`, and/or `podcast_shows`. |
+
+### Related code
+
+- `app/Console/Commands/CleanLibrary.php` — the thin command.
+- `app/Console/Commands/Concerns/ResolvesLibraryAreas.php` — `--area` parsing +
+  narration shared with `app:update`.
+- `app/Services/Library/LibraryCleanupService.php` — the cleanup logic.
