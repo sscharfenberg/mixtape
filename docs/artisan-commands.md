@@ -12,6 +12,7 @@ and package commands (`migrate`, `queue:work`, …) are not listed here — run
 | Command | Summary |
 | --- | --- |
 | [`app:invite`](#appinvite) | Mint a one-time, expiring registration invite link |
+| [`app:update`](#appupdate) | Scan the media library into the database (cleanup + content-hash diff) |
 
 ---
 
@@ -102,3 +103,91 @@ Example output:
 - `routes/web.auth.php`, `app/Http/Controllers/Auth/AuthController.php` — the
   `GET` / `POST /register` wiring.
 - `resources/app/pages/Auth/RegisterPage.vue` — the registration form.
+
+---
+
+## `app:update`
+
+Scans the media library on disk into the database. This is the v2 replacement for
+the legacy `app:update` chain (`app:clean` + `app:csv:*` + `app:db:*`).
+
+```
+php artisan app:update {--area=*} {--skip-cleanup}
+```
+
+### Why it exists
+
+The library is the mp3/audiobook collection on disk; the database is a queryable
+index of it. `app:update` reconciles the two. It runs on the host (cron / manual)
+whenever files are added, removed, re-tagged, or moved.
+
+### What it does
+
+1. **Cleanup** (unless `--skip-cleanup`) — deletes OS/Samba junk (`.DS_Store`,
+   AppleDouble `._*`, `Thumbs.db`, Samba `.@__*` / `.smbdelete*`, …) from the
+   library roots *before* anything is analysed, so it can't be mistaken for media.
+   Masks: `config('mixtape.scan.cleanup_masks')`.
+2. **Scan** — a **content-hash diff**, not the legacy truncate-and-rebuild
+   ([`data-model.md`](data-model.md) → *the one fact*). Per area, in one
+   transaction: unchanged files fast-path on `(path, size, mtime)`; a same-path
+   byte change is a re-tag (update in place); a new path is hash-matched against
+   vanished rows to catch renames; the rest are inserts; gone files are
+   relink-then-cascade deleted; orphan taxonomy/collections are pruned.
+
+**Identity is the audio-frame hash**, so a rename *or* a re-tag keeps the track's
+id — playlists, most-played, and share links stay anchored. Two files with
+identical audio are two rows (clones) sharing a hash.
+
+### Arguments & options
+
+| Name | Kind | Default | Meaning |
+| --- | --- | --- | --- |
+| `--area` | option (repeatable) | all | Limit to `music`, `audiobooks`, and/or `podcast_shows`. |
+| `--skip-cleanup` | flag | off | Skip the junk-file cleanup step. |
+
+### Config (`config/mixtape.php`)
+
+- `library.paths.{music,audiobooks,podcast_shows}` — absolute server paths per
+  area (`MIXTAPE_*_PATH`; default under `/var/media`).
+- `scan.extensions` — audio extensions to scan (default `['mp3']`).
+- `scan.cleanup_masks` — junk-file patterns for the cleanup step.
+- `scan.alert_email` — where a **fatal** scan error is e-mailed
+  (`MIXTAPE_SCAN_ALERT_EMAIL`; empty → log only). The run always logs to the
+  `library` channel (`storage/logs/library.log`) and exits non-zero on failure.
+
+> **Unused areas:** leave an area's path **empty (or unset)** to disable it — the
+> scan skips it (touching no rows), so a collection with no podcasts just leaves
+> `podcast_shows` empty. There are no code defaults; the `.env` values are the
+> config. A **non-empty** path that isn't a directory is treated as a failure (a
+> typo or a dropped mount), so the area isn't silently "found empty" and
+> orphan-deleted.
+
+> **Empty-directory guard:** if a configured, existing directory yields **zero
+> files while the library still has rows for that area**, the scan refuses to
+> prune — it leaves every row intact — on the assumption a dropped mount is far
+> likelier than a real mass-deletion. Because that almost always signals a
+> problem, it is **escalated like a failure**: logged, e-mailed to
+> `scan.alert_email` (`LibraryAreasEmpty`), and the command **exits non-zero** —
+> but healthy areas in the same run still scan normally. To genuinely empty an
+> area, remove the rows deliberately rather than via a scan that found nothing.
+
+> **Resilience:** unlike the legacy scanner (one bad file aborted the whole run
+> *after* truncation), a file that can't be read is skipped — but never silently:
+> getID3's full diagnosis (errors **and** warnings, e.g. *"garbage data for 49902
+> bytes between 522 and 50424"*) is logged to the `library` channel, and if any
+> files were skipped the run e-mails an end-of-run summary (`LibraryScanSkipped`,
+> each path + reason) to `scan.alert_email`. Skips are non-fatal (exit 0); only a
+> structural failure (a configured-but-missing path, a DB error) aborts and
+> triggers the failure alert. Malformed files often re-mux clean with
+> `ffmpeg -i in.mp3 -c copy fixed.mp3`, after which the next scan imports them.
+
+### Related code
+
+- `app/Console/Commands/UpdateLibrary.php` — the thin command (orchestrate +
+  narrate + failure e-mail).
+- `app/Services/Library/LibraryCleanupService.php` — the cleanup step.
+- `app/Services/Library/LibraryScanService.php` — the content-hash diff.
+- `app/Services/Library/Id3TagReader.php` (+ `Contracts/TagReader.php`) — getID3
+  tag/stream reading and the audio-frame hash.
+- `app/Mail/LibraryScanFailed.php` — the failure alert e-mail.
+- `config/mixtape.php`, the `library` channel in `config/logging.php`.

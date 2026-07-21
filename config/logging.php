@@ -95,6 +95,22 @@ return [
             'permission' => 0640,
         ],
 
+        /*
+         * Library-scan channel — everything `php artisan app:update` does
+         * (cleanup, the content-hash diff, per-file skips, orphan pruning) lands
+         * here, one dedicated file away from the app log. Daily rotation, 14-day
+         * retention, mirroring the legacy `lib` channel. The command narrates its
+         * headline lines to both console and here; the scan service logs per-file
+         * detail (skipped/unreadable files, removed junk) here directly.
+         */
+        'library' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/library.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => env('LOG_LIBRARY_DAYS', 14),
+            'replace_placeholders' => true,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),

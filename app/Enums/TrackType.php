@@ -17,4 +17,32 @@ enum TrackType: string
     case Music = 'music';
     case Audiobook = 'audiobook';
     case Podcast = 'podcast';
+
+    /**
+     * The container kind this playable kind lives in: music↔album,
+     * audiobook↔audiobook, podcast↔podcast_show. The scanner keeps a track's
+     * `type` in step with its collection's `type` through this mapping.
+     */
+    public function collectionType(): CollectionType
+    {
+        return match ($this) {
+            self::Music => CollectionType::Album,
+            self::Audiobook => CollectionType::Audiobook,
+            self::Podcast => CollectionType::PodcastShow,
+        };
+    }
+
+    /**
+     * The `config('mixtape.library.paths.*')` key for this area — also the name
+     * accepted by `app:update --area=…`. Note it is NOT always the enum value:
+     * `audiobook` → `audiobooks`, `podcast` → `podcast_shows`.
+     */
+    public function libraryPathKey(): string
+    {
+        return match ($this) {
+            self::Music => 'music',
+            self::Audiobook => 'audiobooks',
+            self::Podcast => 'podcast_shows',
+        };
+    }
 }
