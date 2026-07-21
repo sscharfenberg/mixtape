@@ -1,0 +1,38 @@
+# /etc/systemd/system/mixtape-library-scan.service
+#
+# Daily library scan (php artisan app:update). Paired with
+# mixtape-library-scan.timer.
+#
+# Runs as www-data — the same user as php-fpm — so it reads the app's .env,
+# reaches the DB, and writes storage/logs exactly as a web request would, and
+# any junk files the cleanup step removes are touched with the right ownership.
+#
+# There is deliberately NO OnFailure= reporter here (unlike the media backup,
+# which is a bare shell script with no alerting of its own). app:update does its
+# OWN alerting: it e-mails MIXTAPE_SCAN_ALERT_EMAIL on a fatal error, a
+# suspiciously-empty area, or skipped files, and exits non-zero. A crash that
+# beats even that still lands in the journal (systemctl status / journalctl -u
+# mixtape-library-scan). Add an OnFailure= hook if you want a second channel.
+
+[Unit]
+Description=MixTape library scan (app:update — cleanup + content-hash diff)
+# The scan reads /var/media; if it is a separate mount, don't run before it's up.
+RequiresMountsFor=/var/media
+After=postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/mixtape.prod
+ExecStart=/usr/bin/php /var/www/mixtape.prod/artisan app:update
+
+# Be gentle: the FIRST scan hashes the whole collection (minutes of disk I/O);
+# steady-state runs are near-instant (the path/size/mtime fast-path).
+Nice=10
+IOSchedulingClass=idle
+
+# CRITICAL: a oneshot's default start timeout (~90s) would KILL the first,
+# full-hash scan mid-run. Give it a generous ceiling instead.
+TimeoutStartSec=1800

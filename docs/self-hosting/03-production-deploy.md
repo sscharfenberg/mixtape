@@ -487,12 +487,64 @@ Two different fixes, depending on what the route does:
 There is also an nginx-level `limit_req` on dynamic requests (30r/s, burst 60) — that one targets
 scanners walking paths at machine speed, and a real page load never approaches it.
 
+## Scheduled library scan
+
+The library scan (`php artisan app:update` — see
+[`../artisan-commands.md`](../artisan-commands.md)) runs nightly on a **dedicated
+systemd timer**, not Laravel's scheduler. A single scheduled command doesn't need
+the scheduler's per-minute `schedule:run` indirection, and — decisively for a home
+server that sleeps at night — a systemd timer with `Persistent=true` runs a
+*missed* scan shortly after the next boot, whereas a skipped `dailyAt()` is simply
+lost. It runs as **www-data** (same user as php-fpm) so it reads the app's `.env`,
+reaches the DB, and writes `storage/logs` exactly as a request would.
+
+**Before enabling, `app:update` must actually run on the box.** Confirm each, as
+www-data, from the app root:
+
+1. **getID3 is installed.** It's a normal (non-dev) dependency, so a prod
+   `composer install --no-dev` includes it — but a box last deployed before it was
+   added needs a fresh install.
+2. **`.env` has the scanner block** (`MIXTAPE_MUSIC_PATH`, `MIXTAPE_AUDIOBOOKS_PATH`,
+   `MIXTAPE_PODCAST_SHOWS_PATH`, `MIXTAPE_SCAN_ALERT_EMAIL` — see
+   [`files/env.prod.template`](files/env.prod.template)). There are **no code
+   defaults**: an unset path disables that area. After editing `.env`, re-cache:
+   `php artisan config:cache` (a stale cached config is the classic "my new env var
+   is ignored" trap).
+3. **Migrations are applied** (`php artisan migrate --force`) — the scan needs the
+   `tracks` / `collections` / taxonomy tables.
+4. **www-data can read (and, for cleanup, write) the media** under
+   `/var/media/{music,audiobooks}`.
+5. **Run one scan by hand first** — `sudo -u www-data /usr/bin/php artisan app:update`
+   — to seed the collection and surface any of the above interactively. The first
+   run hashes the whole library (minutes); watch `storage/logs/library.log`.
+
+Then install the units (as root):
+
+| File | Destination | Purpose |
+| --- | --- | --- |
+| [`files/mixtape-library-scan.service`](files/mixtape-library-scan.service) | `/etc/systemd/system/…` | the oneshot unit (www-data, `TimeoutStartSec=1800`) |
+| [`files/mixtape-library-scan.timer`](files/mixtape-library-scan.timer) | `/etc/systemd/system/…` | daily `04:00`, `Persistent=true` |
+
+```bash
+sudo install -m 0644 -o root -g root \
+  mixtape-library-scan.service mixtape-library-scan.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now mixtape-library-scan.timer
+```
+
+Verify: `systemctl list-timers mixtape-library-scan.timer` shows the next run;
+`journalctl -u mixtape-library-scan.service` and `storage/logs/library.log` show
+what happened. `app:update` alerts on its own (fatal / empty-area / skipped-files
+→ e-mail + non-zero exit), so no `OnFailure=` reporter is wired to the unit.
+
+> **Adjust the cadence** in `mixtape-library-scan.timer` (`OnCalendar=`). Nightly
+> suits a collection that changes occasionally; steady-state re-scans are
+> near-instant, so a tighter cadence is cheap if you add media often.
+
 ## Not needed yet
 
 - **Queue worker** — nothing implements `ShouldQueue`; mail is sent synchronously. Add a systemd unit
   when that changes.
-- **Scheduler cron** — no scheduled tasks are registered. Add `* * * * * php artisan schedule:run`
-  when the library scan is scheduled.
 
 ## Next
 

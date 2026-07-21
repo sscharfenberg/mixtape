@@ -1,0 +1,24 @@
+# /etc/systemd/system/mixtape-library-scan.timer
+#
+# Enable with: sudo systemctl enable --now mixtape-library-scan.timer
+
+[Unit]
+Description=Daily MixTape library scan
+
+[Timer]
+# Daily, after the weekly Sunday 03:00 backup window so the two never contend.
+OnCalendar=*-*-* 04:00:00
+
+# Persistent: a home server is often asleep at 04:00. Without this a missed scan
+# waits a whole day; with it, systemd runs the one missed scan shortly after the
+# next boot (same reasoning as the media backup timer). This is *why* the scan
+# is a dedicated timer rather than Laravel's scheduler driven by a per-minute
+# `schedule:run`: a missed `dailyAt('04:00')` is silently skipped, never caught
+# up. One scheduled command doesn't need the scheduler's indirection anyway.
+Persistent=true
+
+# Don't fire exactly on the hour alongside everything else.
+RandomizedDelaySec=15m
+
+[Install]
+WantedBy=timers.target
