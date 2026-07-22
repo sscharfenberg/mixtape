@@ -1,21 +1,16 @@
 /******************************************************************************
  * contextual color tokens — component:Widget
  * @type {Sass}
- * The card surface used across the browse pages (Widget + its title / body /
- * footer parts) and the loader overlay. `title-*` reuses the brand accent pair
- * for the header strip; the loader scrim is a translucent take on the card
- * background so content stays faintly visible behind the spinner. Consumed as
- * c.$c-widget via `@use "Abstracts/colors" as c;`.
+ * Colours for the Widget's inner parts. The card surface itself is the shared
+ * .frosted-glass class (translucent blur + gradient border), so this partial
+ * only covers the title strip (brand accent), the footer, and the loader
+ * overlay. Consumed as c.$c-widget via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "sass:color"; // https://sass-lang.com/documentation/modules/color
 @use "../global-color-tokens" as c;
 
 $widget: (
-    // card ------------------------------------------------------------------
-    "background": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "bunker")),
-    "surface": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral")),
-    "border": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher")),
     // title strip -----------------------------------------------------------
     "title-background": light-dark(map.get(c.$brand, "light1", "color"), map.get(c.$brand, "dark1", "color")),
     "title-surface": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$brand, "dark1", "contrast")),

@@ -24,7 +24,7 @@ withDefaults(
 </script>
 
 <template>
-    <div class="widget">
+    <div class="widget frosted-glass">
         <widget-title v-if="$slots.title"><slot name="title" /></widget-title>
         <widget-body><slot /></widget-body>
         <widget-footer v-if="$slots.footer"><slot name="footer" /></widget-footer>
@@ -34,20 +34,17 @@ withDefaults(
 
 <style scoped lang="scss">
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
-@use "Abstracts/colors" as c;
 @use "Abstracts/sizes" as s;
 
 .widget {
     display: flex;
     position: relative; // positioning context for the WidgetLoader overlay
     flex-direction: column;
-    isolation: isolate; // contain the loader overlay's z-index to this card
 
-    overflow: hidden; // clip the title strip to the card's rounded corners
-    border: map.get(s.$c-widget, "border") solid map.get(c.$c-widget, "border");
+    // The card surface — translucent blur + gradient border — comes from the
+    // shared .frosted-glass class on this element; here we own only layout + shape.
+    overflow: hidden; // clip the title strip + frosted border ring to the corners
 
-    background-color: map.get(c.$c-widget, "background");
-    color: map.get(c.$c-widget, "surface");
     border-radius: map.get(s.$c-widget, "radius");
 }
 </style>

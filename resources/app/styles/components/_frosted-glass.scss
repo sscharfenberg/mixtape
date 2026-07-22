@@ -1,0 +1,56 @@
+/******************************************************************************
+ * .frosted-glass — translucent, backdrop-blurred panel with a gradient border
+ * @type {Sass}
+ * Ported from cantrip.me. A reusable surface: add `frosted-glass` to any block
+ * to give it a semi-transparent, backdrop-blurred fill plus a soft gradient
+ * border drawn via a masked ::before — so the border rides the host's own
+ * border-radius without a solid border colour. The host owns its layout / shape
+ * (size, radius, padding); this class only paints the glass. Every literal
+ * comes from the contextual tokens (c/s.$c-frosted-glass).
+ *
+ * The element isolates its own stacking context, so the border ring (z-index 1,
+ * above the host's content edges) and any positioned overlay a host stacks on
+ * top stay contained to the panel.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/colors" as c;
+@use "Abstracts/sizes" as s;
+
+.frosted-glass {
+    position: relative;
+    isolation: isolate;
+
+    background-color: map.get(c.$c-frosted-glass, "background");
+    backdrop-filter: blur(12px);
+    color: map.get(c.$c-frosted-glass, "surface");
+
+    // Gradient border: fill the ::before with the gradient over the border-box,
+    // then mask out the padding-box so only the border ring remains. Sits above
+    // the host's content edges (pointer-events: none) so it reads all the way
+    // around, even over a full-bleed child.
+    &::before {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+
+        border: map.get(s.$c-frosted-glass, "border") solid transparent;
+
+        background:
+            linear-gradient(
+                to bottom right,
+                map.get(c.$c-frosted-glass, "border-from"),
+                map.get(c.$c-frosted-glass, "border-to")
+            )
+            border-box;
+
+        border-radius: inherit;
+        mask:
+            linear-gradient(black, black) border-box,
+            linear-gradient(black, black) padding-box;
+        mask-composite: subtract;
+
+        content: "";
+
+        pointer-events: none;
+    }
+}
