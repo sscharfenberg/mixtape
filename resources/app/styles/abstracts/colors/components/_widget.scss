@@ -3,8 +3,9 @@
  * @type {Sass}
  * Colours for the Widget's inner parts. The card surface itself is the shared
  * .frosted-glass class (translucent blur + gradient border), so this partial
- * only covers the title strip (brand accent), the footer, and the loader
- * overlay. Consumed as c.$c-widget via `@use "Abstracts/colors" as c;`.
+ * only covers the title strip (brand accent), the footer, the loader overlay,
+ * and the skeleton placeholder. Consumed as c.$c-widget via
+ * `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "sass:color"; // https://sass-lang.com/documentation/modules/color
@@ -22,5 +23,14 @@ $widget: (
             color.adjust(map.get(c.$grey, "white"), $alpha: -0.25),
             color.adjust(map.get(c.$grey, "bunker"), $alpha: -0.25)
         ),
-    "loader-spinner": light-dark(map.get(c.$brand, "light1", "color"), map.get(c.$brand, "dark1", "color"))
+    "loader-spinner": light-dark(map.get(c.$brand, "light1", "color"), map.get(c.$brand, "dark1", "color")),
+    // skeleton --------------------------------------------------------------
+    "skeleton-base": light-dark(
+            color.adjust(map.get(c.$grey, "iron"), $alpha: -0.4),
+            color.adjust(map.get(c.$grey, "asher"), $alpha: -0.35)
+        ),
+    "skeleton-sheen": light-dark(
+            color.adjust(map.get(c.$grey, "white"), $alpha: -0.35),
+            color.adjust(map.get(c.$grey, "white"), $alpha: -0.85)
+        )
 ) !default;

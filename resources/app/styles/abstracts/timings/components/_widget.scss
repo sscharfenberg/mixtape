@@ -1,11 +1,17 @@
 /******************************************************************************
- * contextual timing token — component:Widget
+ * contextual timing tokens — component:Widget
  * @type {Sass}
- * Duration of the WidgetLoader overlay's fade-in (motion is opt-in via the
- * prefers-reduced-motion guard at the call site). Consumed as ti.$c-widget via
+ * `loader-*` drive the WidgetLoader overlay: `loader-delay` holds it invisible
+ * so a fast op never flashes it, then `loader-fade` eases it in (motion only).
+ * `skeleton` is the WidgetSkeleton shimmer sweep. Motion stays opt-in via the
+ * prefers-reduced-motion guard at the call site. Consumed as ti.$c-widget via
  * `@use "Abstracts/timings" as ti;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "../global-timing-tokens" as ti;
 
-$widget: map.get(ti.$timings, "quick") !default;
+$widget: (
+    "loader-fade": map.get(ti.$timings, "quick"),
+    "loader-delay": map.get(ti.$timings, "fast"),
+    "skeleton": map.get(ti.$timings, "slowish")
+) !default;

@@ -25,24 +25,40 @@ const { t } = useI18n();
 @use "Abstracts/z-indexes" as z;
 
 .widget__loader {
+    // Delayed reveal: hidden for `loader-delay`, then shown. A fast op unmounts
+    // WidgetLoader before the delay elapses, so it never flashes — only a
+    // genuinely slow one reveals it. The 0s step keeps reduced-motion users
+    // flash-free too; the no-preference block upgrades that step to a fade.
     display: flex;
     position: absolute;
     inset: 0;
     z-index: z.$c-widget;
     align-items: center;
     justify-content: center;
+    opacity: 0;
 
     background-color: map.get(c.$c-widget, "loader-overlay");
     backdrop-filter: blur(2px);
     color: map.get(c.$c-widget, "loader-spinner");
 
+    animation: widget-loader-reveal 0s linear map.get(ti.$c-widget, "loader-delay") forwards;
+
     @media (prefers-reduced-motion: no-preference) {
-        animation: widget-loader-in ti.$c-widget ease-out;
+        animation:
+            widget-loader-fade map.get(ti.$c-widget, "loader-fade") ease-out
+            map.get(ti.$c-widget, "loader-delay") forwards;
+    }
+}
+
+// instant reveal once the delay elapses (reduced-motion / unknown-preference path)
+@keyframes widget-loader-reveal {
+    to {
+        opacity: 1;
     }
 }
 
 @media (prefers-reduced-motion: no-preference) {
-    @keyframes widget-loader-in {
+    @keyframes widget-loader-fade {
         from {
             opacity: 0;
         }

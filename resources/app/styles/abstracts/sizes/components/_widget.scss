@@ -14,5 +14,8 @@ $widget: (
     "radius": map.get(s.$radius, "featured"),
     "padding": map.get(s.$padding, "portrait"),
     "group-min": 220px,
-    "group-gap": map.get(s.$padding, "portrait")
+    "group-gap": map.get(s.$padding, "portrait"),
+    "skeleton-bar": 0.9rem,
+    "skeleton-gap": 0.6rem,
+    "skeleton-radius": map.get(s.$radius, "base")
 ) !default;
