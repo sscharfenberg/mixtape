@@ -13,11 +13,11 @@ $site-menu-links: (
     "background-hover": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$brand, "dark2", "contrast")),
     "surface": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$brand, "dark2", "contrast")),
     "surface-hover": light-dark(map.get(c.$brand, "light1", "color"), map.get(c.$brand, "dark2", "color")),
-    // active area — the current link takes the UserMenu popover's "logged in"
-    // (--highlighted) look: the same solid highlighted fill + surface (global
-    // $retro c6/c4, swapped light↔dark), lit with the c3 halo the popover / neon
-    // inputs share, so the current section reads as "lit up" in the header.
-    "active-background": light-dark(map.get(c.$retro, "c6", "dark"), map.get(c.$retro, "c4", "dark")),
+    // active area — the current link (and the compact SiteMenuPopover item) take
+    // the UserMenu popover's "logged in" (--highlighted) look: the same solid
+    // highlighted fill + surface (global $retro c6/c4, swapped light↔dark), so the
+    // current section reads as "lit up" across both site-menu presentations.
+    "active-background": light-dark(map.get(c.$brand, "light2", "color"), map.get(c.$brand, "dark1", "color")),
     "active-surface": light-dark(map.get(c.$retro, "c4", "light"), map.get(c.$retro, "c6", "dark")),
-    "active-glow": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark"))
+    "active-border": light-dark(map.get(c.$retro, "c4", "light"), map.get(c.$retro, "c6", "dark"))
 ) !default;

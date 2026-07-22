@@ -83,7 +83,6 @@ const isActive = (href: string): boolean => {
         @media (prefers-reduced-motion: no-preference) {
             transition:
                 background-color ti.$c-site-menu-links linear,
-                box-shadow ti.$c-site-menu-links linear,
                 color ti.$c-site-menu-links linear;
         }
 
@@ -93,17 +92,11 @@ const isActive = (href: string): boolean => {
         }
 
         // active area: give the current link the UserMenu popover's "logged in"
-        // (--highlighted) fill + surface, lit with the popover's open-state halo,
-        // so the current section reads as "lit up". Border drops away for the glow.
+        // (--highlighted) fill + surface, so the current section reads as "lit up".
         &--active {
             background-color: map.get(c.$c-site-menu-links, "active-background");
             color: map.get(c.$c-site-menu-links, "active-surface");
-            border-color: transparent;
-
-            // the same two-layer neon halo an open popover trigger has.
-            box-shadow:
-                0 0 0.6em 0.1em map.get(c.$c-site-menu-links, "active-glow"),
-                0 0 1.5em 0.25em map.get(c.$c-site-menu-links, "active-glow");
+            border-color: map.get(c.$c-site-menu-links, "active-border");
         }
 
         @include m.mqset(
