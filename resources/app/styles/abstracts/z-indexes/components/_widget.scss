@@ -1,0 +1,12 @@
+/******************************************************************************
+ * contextual z-index token — component:Widget
+ * @type {Sass}
+ * The rung for the WidgetLoader overlay. Widget isolates its own stacking
+ * context (isolation: isolate), so this "overlay" rung stays contained to the
+ * card — it only needs to clear the card's own title / body / footer content.
+ * Consumed as z.$c-widget via `@use "Abstracts/z-indexes" as z;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-z-index-tokens" as z;
+
+$widget: map.get(z.$scale, "overlay") !default;

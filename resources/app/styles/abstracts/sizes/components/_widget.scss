@@ -1,0 +1,18 @@
+/******************************************************************************
+ * contextual size tokens — component:Widget
+ * @type {Sass}
+ * Card metrics for Widget + its parts, plus the WidgetGroup grid. `group-min`
+ * is the grid's per-card minimum column width (a plain literal — it's the
+ * `minmax(min(<group-min>, 100%), 1fr)` floor, not a step off the scale).
+ * Consumed as s.$c-widget via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$widget: (
+    "border": map.get(s.$border, "base"),
+    "radius": map.get(s.$radius, "featured"),
+    "padding": map.get(s.$padding, "portrait"),
+    "group-min": 220px,
+    "group-gap": map.get(s.$padding, "portrait")
+) !default;

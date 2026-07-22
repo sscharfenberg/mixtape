@@ -1,0 +1,31 @@
+/******************************************************************************
+ * contextual color tokens — component:Widget
+ * @type {Sass}
+ * The card surface used across the browse pages (Widget + its title / body /
+ * footer parts) and the loader overlay. `title-*` reuses the brand accent pair
+ * for the header strip; the loader scrim is a translucent take on the card
+ * background so content stays faintly visible behind the spinner. Consumed as
+ * c.$c-widget via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$widget: (
+    // card ------------------------------------------------------------------
+    "background": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "bunker")),
+    "surface": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral")),
+    "border": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher")),
+    // title strip -----------------------------------------------------------
+    "title-background": light-dark(map.get(c.$brand, "light1", "color"), map.get(c.$brand, "dark1", "color")),
+    "title-surface": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$brand, "dark1", "contrast")),
+    // footer ----------------------------------------------------------------
+    "footer-border": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher")),
+    "footer-surface": light-dark(map.get(c.$grey, "slate"), map.get(c.$grey, "slate")),
+    // loader overlay --------------------------------------------------------
+    "loader-overlay": light-dark(
+            color.adjust(map.get(c.$grey, "white"), $alpha: -0.25),
+            color.adjust(map.get(c.$grey, "bunker"), $alpha: -0.25)
+        ),
+    "loader-spinner": light-dark(map.get(c.$brand, "light1", "color"), map.get(c.$brand, "dark1", "color"))
+) !default;

@@ -1,0 +1,11 @@
+/******************************************************************************
+ * contextual timing token — component:Widget
+ * @type {Sass}
+ * Duration of the WidgetLoader overlay's fade-in (motion is opt-in via the
+ * prefers-reduced-motion guard at the call site). Consumed as ti.$c-widget via
+ * `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$widget: map.get(ti.$timings, "quick") !default;
