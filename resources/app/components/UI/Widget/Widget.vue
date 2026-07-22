@@ -37,13 +37,18 @@ withDefaults(
 @use "Abstracts/sizes" as s;
 
 .widget {
-    display: flex;
+    // A subgrid card: it occupies the group's title / body / footer row bands
+    // (grid-row: span 3) and subgrids into them (grid-template-rows: subgrid), so
+    // those bands share a height across a row and every footer lines up. row-gap 0
+    // keeps the sections flush; only the group gap spaces cards apart. The surface
+    // itself (blur + gradient border) is the shared .frosted-glass class.
+    display: grid;
     position: relative; // positioning context for the WidgetLoader overlay
-    flex-direction: column;
+    grid-template-rows: subgrid;
+    grid-row: span 3;
 
-    // The card surface — translucent blur + gradient border — comes from the
-    // shared .frosted-glass class on this element; here we own only layout + shape.
     overflow: hidden; // clip the title strip + frosted border ring to the corners
+    row-gap: 0;
 
     border-radius: map.get(s.$c-widget, "radius");
 }

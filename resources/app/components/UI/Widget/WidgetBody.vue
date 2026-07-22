@@ -7,10 +7,8 @@
 @use "Abstracts/sizes" as s;
 
 .widget__body {
-    // Grow so footers line up at the bottom when a grid row stretches cards to
-    // equal height (Widget is a column flex container).
-    flex: 1 1 auto;
-
+    // Sits in the Widget's shared "body" subgrid row and stretches to fill it
+    // (grid items stretch by default), so the footer band lines up across cards.
     padding: map.get(s.$c-widget, "padding");
 }
 </style>
