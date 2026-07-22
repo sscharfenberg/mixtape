@@ -1,4 +1,11 @@
 <script setup lang="ts">
+/******************************************************************************
+ * AppHeaderTitle
+ * The wordmark <h1> in the header (an Inertia <Link> home). The app name is
+ * printed in two stacked <span>s on purpose: they are the layers the scoped
+ * style paints into the neon / gradient title effect. Name comes from
+ * VITE_APP_NAME (mirrors the backend APP_NAME — see below).
+ *****************************************************************************/
 import { Link } from "@inertiajs/vue3";
 
 // Single source of truth: APP_NAME in .env, mirrored to the frontend via VITE_APP_NAME.

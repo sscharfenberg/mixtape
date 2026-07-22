@@ -10,12 +10,17 @@ import { onBeforeUnmount, onMounted, ref } from "vue";
 import Icon from "Components/UI/Icon.vue";
 const props = withDefaults(
     defineProps<{
+        /** Icon name shown on the trigger button. */
         icon: string;
+        /** Optional visible text label beside the trigger icon. */
         label?: string;
+        /** Accessible name for the trigger button (falls back to "Open menu"). */
         ariaLabel?: string;
         /** Extra modifier(s) merged onto the trigger's class list (e.g. a future "logged in" state). */
         classString?: string;
+        /** Shared id tying the trigger to its dialog and the CSS anchor name; defaults to a random string so multiple PopOvers don't collide. */
         reference?: string;
+        /** Popover dialog width (any CSS length). Defaults to 25ch. */
         width?: string;
     }>(),
     {
@@ -23,6 +28,7 @@ const props = withDefaults(
         width: "25ch"
     }
 );
+// The CSS anchor-name form of `reference`: an anchor-name must be a dashed-ident, hence the "--" prefix; bound into the scoped style.
 const reference = ref("--" + props.reference);
 
 /** Whether the popover is open — drives the `--open` neon glow modifier on the trigger. */

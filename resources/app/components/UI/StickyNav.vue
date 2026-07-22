@@ -12,17 +12,20 @@
 import { computed } from "vue";
 import { useStickyNav } from "Composables/useStickyNav";
 
+/** One jump-link: `id` is the target section's element id, `label` its visible text. */
 export type StickyNavItem = {
     id: string;
     label: string;
 };
 
 const props = defineProps<{
+    /** Sections to link to, in order — one `#id` anchor is rendered per item. */
     items: StickyNavItem[];
     /** Accessible name for the <nav> landmark. Defaults to a German label. */
     label?: string;
 }>();
 
+/** Accessible <nav> name — the `label` prop, or the default German "Sprungnavigation". */
 const navLabel = computed(() => props.label ?? "Sprungnavigation");
 const { sentinel, isStuck, activeSection } = useStickyNav(props.items.map(i => i.id));
 </script>

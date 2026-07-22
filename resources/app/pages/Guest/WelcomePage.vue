@@ -1,4 +1,10 @@
 <script setup lang="ts">
+/******************************************************************************
+ * WelcomePage
+ * The public landing page at `/` (rendered by HomeController). Currently a
+ * placeholder — a single Container of filler copy — pending the real guest
+ * welcome / browse experience.
+ *****************************************************************************/
 import { Head } from "@inertiajs/vue3";
 import Container from "Components/UI/Container.vue";
 </script>

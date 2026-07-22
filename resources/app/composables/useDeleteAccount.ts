@@ -2,6 +2,7 @@ import { router, usePage } from "@inertiajs/vue3";
 import { computed, ref } from "vue";
 import type { Ref } from "vue";
 
+/** Return shape of {@link useDeleteAccount}: in-flight flag, inline password error, and the delete action. */
 export type UseDeleteAccountReturn = {
     processing: Ref<boolean>;
     passwordError: Ref<string>;

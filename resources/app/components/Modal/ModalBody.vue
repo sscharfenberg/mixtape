@@ -1,6 +1,12 @@
 <script setup lang="ts">
+/******************************************************************************
+ * ModalBody
+ * The scrollable content region of a Modal (default slot). When the modal has
+ * no footer it rounds off its own bottom edge (see `hasFooter`).
+ *****************************************************************************/
 withDefaults(
     defineProps<{
+        /** Whether the parent Modal renders a footer; when false, ModalBody rounds its own bottom corners. */
         hasFooter?: boolean;
     }>(),
     {

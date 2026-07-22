@@ -8,10 +8,12 @@
  *****************************************************************************/
 import { computed } from "vue";
 const props = defineProps({
+    /** Sprite symbol id to reference — the source SVG's file name (e.g. "close"). */
     name: {
         type: String,
         required: true
     },
+    /** Size step 0–5, mapped to the tiny…max size classes (each an s.$c-icon token). */
     size: {
         type: Number,
         default: 2,
@@ -19,15 +21,18 @@ const props = defineProps({
             return [0, 1, 2, 3, 4, 5].includes(value);
         }
     },
+    /** Continuously spin the icon (e.g. a spinner) — honours prefers-reduced-motion. */
     rotate: {
         type: Boolean,
         default: false
     },
+    /** Extra CSS classes merged onto the <svg> alongside the size / name classes. */
     additionalClasses: {
         type: Array as () => string[],
         default: () => []
     }
 });
+/** Build the <svg> class list: "icon" + any extra classes + the size class + the icon name (+ "rotate"). */
 const cssClasses = computed(() => {
     const sizeClasses = ["tiny", "small", "medium", "large", "xlarge", "max"];
     const classes = [...new Set(["icon", ...props.additionalClasses])];

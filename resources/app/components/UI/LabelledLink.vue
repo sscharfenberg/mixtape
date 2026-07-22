@@ -13,8 +13,11 @@ import Icon from "Components/UI/Icon.vue";
 
 const props = withDefaults(
     defineProps<{
+        /** Target: an internal path (Inertia <Link>), an http(s) URL (new tab), or a mailto: link. */
         href: string;
+        /** HTTP verb for the internal-<Link> case; ignored for external / mailto links. */
         method?: "get" | "post" | "put" | "patch" | "delete";
+        /** Payload passed to the internal <Link> for non-GET requests. */
         data?: RequestPayload;
         /** Icon name. Defaults to "external-link" for https links, "mail" for mailto. Pass "" to suppress. */
         icon?: string;
@@ -24,9 +27,12 @@ const props = withDefaults(
     }
 );
 
+/** True for absolute http(s) URLs — rendered as a plain <a target="_blank">. */
 const isExternal = computed(() => props.href.startsWith("https://") || props.href.startsWith("http://"));
+/** True for mailto: links — rendered as a plain <a>. */
 const isMailto = computed(() => props.href.startsWith("mailto:"));
 
+/** Which leading icon to show: an explicit `icon` wins ("" suppresses it); otherwise auto-pick by link kind. */
 const resolvedIcon = computed(() => {
     if (props.icon === "") return undefined;
     if (props.icon) return props.icon;

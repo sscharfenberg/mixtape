@@ -6,6 +6,7 @@
  * component only wires the per-instance size into the `--pixel-size` custom
  * property. Pass the `colored` class to tint it with the pending state.
  *****************************************************************************/
+/** Size multiplier — the spinner's `--pixel-size` is `size * 12px` (default 4 → 48px). */
 const props = withDefaults(defineProps<{ size?: number }>(), { size: 4 });
 const pixelSize = `${props.size * 12}px`;
 </script>

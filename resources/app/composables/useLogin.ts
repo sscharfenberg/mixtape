@@ -4,6 +4,7 @@ import type { Ref } from "vue";
 
 type TwoFactorLoginResponse = { two_factor?: boolean; redirect?: string };
 
+/** Return shape of {@link useLogin}: the bound form fields / state plus the unified submit handler. */
 export type UseLoginWithTwoFactorReturn = {
     errors: Ref<Record<string, string>>;
     name: Ref<string>;

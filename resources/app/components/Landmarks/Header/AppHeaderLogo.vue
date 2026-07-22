@@ -1,4 +1,10 @@
 <script setup lang="ts">
+/******************************************************************************
+ * AppHeaderLogo
+ * The MixTape logo in the header, wrapped in an Inertia <Link> back home. The
+ * SVG ships with the component; its alt text is localised and interpolates the
+ * app name (kept in sync with the backend via VITE_APP_NAME — see below).
+ *****************************************************************************/
 import { Link } from "@inertiajs/vue3";
 import { useI18n } from "vue-i18n";
 

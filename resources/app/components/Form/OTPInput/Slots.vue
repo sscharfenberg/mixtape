@@ -9,7 +9,9 @@
 import type { SlotProps } from "vue-input-otp";
 
 defineProps<{
+    /** Per-digit slot state from vue-input-otp (current char + isActive flag). */
     slots: SlotProps[];
+    /** Virtual-keyboard hint forwarded to the boxes: digits-only vs. free text. */
     inputmode: "numeric" | "text";
 }>();
 </script>

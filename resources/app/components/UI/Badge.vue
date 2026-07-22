@@ -8,6 +8,7 @@
  *****************************************************************************/
 withDefaults(
     defineProps<{
+        /** State variant — picks the pill's colour from the shared $state palette. Defaults to "caution". */
         type?: "success" | "warning" | "error" | "caution";
     }>(),
     {

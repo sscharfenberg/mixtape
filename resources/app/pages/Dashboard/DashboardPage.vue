@@ -21,6 +21,7 @@ import TwoFactor from "./TwoFactor/TwoFactor.vue";
 
 const { t } = useI18n();
 
+/** StickyNav jump-links, one per settings section below (labels localised). */
 const navItems = computed(() => [
     { id: "passwordSection", label: t("dashboard.page.nav.password") },
     { id: "profileSection", label: t("dashboard.page.nav.profile") },

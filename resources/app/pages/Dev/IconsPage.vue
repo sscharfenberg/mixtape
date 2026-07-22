@@ -14,6 +14,7 @@ import Icon from "Components/UI/Icon.vue";
 
 /** Lazy glob — we only read the keys, never import the modules. */
 const iconGlob = import.meta.glob("../../assets/icons/*.svg");
+// Strip each globbed path down to its bare file name (the sprite symbol id), then sort alphabetically.
 const iconNames = Object.keys(iconGlob)
     .map(path => path.replace(/^.*\/(.+)\.svg$/, "$1"))
     .sort();

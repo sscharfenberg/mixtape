@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/******************************************************************************
+ * ModalHeader
+ * The title bar of a Modal: the heading (default slot) plus a close button
+ * that emits `close` for the parent Modal to act on. Close label is localised.
+ *****************************************************************************/
 import { useI18n } from "vue-i18n";
 import Icon from "Components/UI/Icon.vue";
 

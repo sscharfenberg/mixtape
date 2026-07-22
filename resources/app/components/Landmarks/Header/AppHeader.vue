@@ -1,4 +1,12 @@
 <script setup lang="ts">
+/******************************************************************************
+ * AppHeader
+ * The sticky site-header landmark: a frosted-glass bar (logo + title + the
+ * responsive HeaderNavigation) pinned to the top of the viewport. It also
+ * publishes its own rendered height as the `--app-header-height` CSS variable
+ * (see onMounted below) so affixed chrome further down the page — e.g.
+ * StickyNav — can pin itself just beneath the header without hard-coding it.
+ *****************************************************************************/
 import { onMounted, onUnmounted, ref } from "vue";
 import AppHeaderLogo from "Components/Landmarks/Header/AppHeaderLogo.vue";
 import AppHeaderTitle from "Components/Landmarks/Header/AppHeaderTitle.vue";
