@@ -1,13 +1,13 @@
 <script setup lang="ts">
 /******************************************************************************
  * AppMain
- * The <main> content landmark that wraps every page's default slot. Renders a
- * frosted-glass surface; the scoped style pins it to an explicit z-index (see
- * the detailed note there) so page dropdowns never paint behind the footer.
+ * The <main> content landmark that wraps every page's default slot. The scoped
+ * style pins it to an explicit z-index (see the detailed note there) so page
+ * dropdowns never paint behind the footer.
  *****************************************************************************/
 </script>
 <template>
-    <main class="frosted-glass"><slot /></main>
+    <main><slot /></main>
 </template>
 
 <style lang="scss" scoped>
