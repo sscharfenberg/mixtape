@@ -8,6 +8,7 @@
  * directly at /icons (see the dev section in routes/web.php).
  *****************************************************************************/
 import { Head } from "@inertiajs/vue3";
+import Container from "Components/UI/Container.vue";
 import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
 
@@ -24,12 +25,14 @@ const iconNames = Object.keys(iconGlob)
         Icon overview
         <template #right>{{ iconNames.length }}</template>
     </headline>
-    <div class="icon-overview">
-        <div v-for="name in iconNames" :key="name" class="icon-overview__item">
-            <icon :name="name" :size="4" />
-            <span class="icon-overview__label">{{ name }}</span>
+    <container>
+        <div class="icon-overview">
+            <div v-for="name in iconNames" :key="name" class="icon-overview__item">
+                <icon :name="name" :size="4" />
+                <span class="icon-overview__label">{{ name }}</span>
+            </div>
         </div>
-    </div>
+    </container>
 </template>
 
 <style scoped lang="scss">

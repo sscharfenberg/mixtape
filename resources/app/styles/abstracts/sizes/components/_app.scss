@@ -18,5 +18,8 @@ $app: (
         "portrait": math.round(s.$base * 0.5),
         "landscape": math.round(s.$base * 0.75),
         "desktop": math.round(s.$base * 1)
-    )
+    ),
+    // the shared content "cage" width — the header's inner row and page
+    // Containers cap to this so content lines up across the app.
+    "max": map.get(s.$max, "cage")
 ) !default;

@@ -3,6 +3,7 @@ import { onMounted, onUnmounted, ref } from "vue";
 import AppHeaderLogo from "Components/Landmarks/Header/AppHeaderLogo.vue";
 import AppHeaderTitle from "Components/Landmarks/Header/AppHeaderTitle.vue";
 import HeaderNavigation from "Components/Landmarks/Header/HeaderNavigation.vue";
+import Container from "Components/UI/Container.vue";
 
 // Publishes the header's real rendered height as `--app-header-height` on the
 // root element, so affixed chrome further down the page (e.g. StickyNav) can
@@ -27,11 +28,11 @@ onMounted(() => {
 
 <template>
     <header ref="headerRef" class="app-header">
-        <div class="inner">
+        <container class="inner">
             <app-header-logo />
             <app-header-title />
             <header-navigation />
-        </div>
+        </container>
     </header>
 </template>
 
@@ -51,12 +52,14 @@ onMounted(() => {
     backdrop-filter: blur(12px);
     color: map.get(c.$c-frosted-glass, "surface");
 
+    // only the block (vertical) padding lives here; the inline padding comes
+    // from the inner Container, so the header content lines up with page content.
     @include m.mqset(
-        "padding",
-        #{map.get(s.$c-app, "padding", "base") * 0.5 map.get(s.$c-app, "padding", "base")},
-        #{map.get(s.$c-app, "padding", "portrait") * 0.5 map.get(s.$c-app, "padding", "portrait")},
-        #{map.get(s.$c-app, "padding", "landscape") * 0.5 map.get(s.$c-app, "padding", "landscape")},
-        #{map.get(s.$c-app, "padding", "desktop") * 0.5 map.get(s.$c-app, "padding", "desktop")}
+        "padding-block",
+        #{map.get(s.$c-app, "padding", "base") * 0.5},
+        #{map.get(s.$c-app, "padding", "portrait") * 0.5},
+        #{map.get(s.$c-app, "padding", "landscape") * 0.5},
+        #{map.get(s.$c-app, "padding", "desktop") * 0.5}
     );
 
     &::before {
@@ -82,12 +85,11 @@ onMounted(() => {
         content: "";
     }
 
+    // the Container (max-width cage + margin auto + inline padding) is applied
+    // via the component; here we only add the header's flex row + gap.
     .inner {
         display: flex;
         align-items: center;
-
-        max-width: map.get(s.$c-header, "max");
-        margin: 0 auto;
 
         @include m.mqset(
             "gap",

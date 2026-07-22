@@ -2,15 +2,11 @@
  * contextual size tokens — component:header
  * @type {Sass}
  *****************************************************************************/
-@use "sass:map"; // https://sass-lang.com/documentation/modules/map
-@use "../global-size-tokens" as s;
-
 $header: (
     "gap": (
         "base": 1ch,
         "portrait": 1.2ch,
         "landscape": 1.6ch,
         "desktop": 2.2ch
-    ),
-    "max": map.get(s.$max, "cage")
+    )
 );
