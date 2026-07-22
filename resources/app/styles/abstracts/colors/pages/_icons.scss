@@ -1,0 +1,15 @@
+/******************************************************************************
+ * contextual color tokens — page:icons (dev icon overview)
+ * @type {Sass}
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$icons: (
+    // translucent neutral card behind each icon — opacity tweak only (see CLAUDE.md, Rule 2).
+    "item-background": light-dark(
+            color.adjust(map.get(c.$grey, "infra"), $alpha: -0.25),
+            color.adjust(map.get(c.$grey, "bunker"), $alpha: -0.75)
+        )
+) !default;
