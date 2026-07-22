@@ -114,6 +114,27 @@ tokens (`ti.$c-*`), **never raw `ms`/`s`**. One deliberate exception (by design,
 **loading spinner keeps turning even under reduced motion** — a frozen spinner reads as broken — but it
 runs *much slower by default* and only switches to the lively duration under `no-preference`.
 
+**Comments (docblocks)** — **every named function, method, and constructor in `.php`, `.ts` and `.vue`
+files carries a docblock stating both *what* it does and *why*.** The "why" is the load-bearing half —
+the part the signature doesn't already tell you: a design-doc reference, a race it guards, a legacy quirk
+it ports, an ordering that matters. The bar is **no named declaration left uncommented**; after editing,
+re-check (grep `function ` and eyeball that the line above each hit is a comment).
+
+- **Prose, not just tags — because Pint strips tags.** Pint's default preset prunes "superfluous"
+  `@param`/`@return` tags (types it can already read from the signature), so a comment made *only* of
+  tags silently vanishes on the next format. Put the explanation in a sentence; keep `@param` only for
+  the things a type can't say (an array *shape*, units, "already truncated by the caller").
+- **Closures and other non-named functions need not be commented** (inline callbacks, `fn () => …`,
+  `DB::transaction(fn …)`, `RateLimiter::for(…)`, a `->map()` body). They *may* carry a comment when
+  genuinely subtle, but they're normally explained by the surrounding code and the enclosing function's
+  docblock — annotating every one is just ceremony.
+- **Trivial declarations get a one-liner, not a paragraph** — a DI-promotion constructor
+  (`__construct(private readonly Foo $foo)`), a plain accessor, a value-object/DTO constructor sitting
+  directly under a thorough class docblock. Keep it to a single `/** … */` line, and make that line carry
+  a *real* reason (why the dependency is injected, why the DTO is all-`readonly`, what an accessor totals)
+  rather than restating the class docblock right above it. A comment that only repeats is noise: drop the
+  paragraph, keep the one useful sentence.
+
 ## Docs
 
 > **The split is generic-vs-specific, and it is enforced by `.gitignore`.** This repo is public.
