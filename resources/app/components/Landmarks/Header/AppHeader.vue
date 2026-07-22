@@ -2,7 +2,7 @@
 import { onMounted, onUnmounted, ref } from "vue";
 import AppHeaderLogo from "Components/Landmarks/Header/AppHeaderLogo.vue";
 import AppHeaderTitle from "Components/Landmarks/Header/AppHeaderTitle.vue";
-import UserMenu from "Components/Landmarks/Header/UserMenu/UserMenu.vue";
+import HeaderNavigation from "Components/Landmarks/Header/HeaderNavigation.vue";
 
 // Publishes the header's real rendered height as `--app-header-height` on the
 // root element, so affixed chrome further down the page (e.g. StickyNav) can
@@ -30,7 +30,7 @@ onMounted(() => {
         <div class="inner">
             <app-header-logo />
             <app-header-title />
-            <user-menu />
+            <header-navigation />
         </div>
     </header>
 </template>

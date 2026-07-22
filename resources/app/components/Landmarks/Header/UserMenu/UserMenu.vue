@@ -80,10 +80,3 @@ function closePopover(): void {
         </pop-over>
     </nav>
 </template>
-
-<style scoped lang="scss">
-.user-menu {
-    // push the menu to the trailing edge of the header's flex row.
-    margin-inline-start: auto;
-}
-</style>

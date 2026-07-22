@@ -20,6 +20,14 @@
             "dashboard": "Dashboard",
             "logout": "Sign out"
         },
+        "siteMenu": {
+            "nav": "Main navigation",
+            "open": "Open navigation",
+            "music": "Music",
+            "audiobooks": "Audiobooks",
+            "podcasts": "Podcasts",
+            "playlists": "Playlists"
+        },
         "language": {
             "label": "Language"
         },
