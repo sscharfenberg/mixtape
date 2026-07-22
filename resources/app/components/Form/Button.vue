@@ -179,6 +179,8 @@ withDefaults(
     .btn-primary {
         @include neon-outline;
 
+        background-color: map.get(c.$c-button, "background-primary");
+
         &:not([disabled]):hover,
         &:not([disabled]):focus-visible {
             @include neon-fill;
