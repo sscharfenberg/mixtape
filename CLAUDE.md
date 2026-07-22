@@ -134,6 +134,14 @@ re-check (grep `function ` and eyeball that the line above each hit is a comment
   a *real* reason (why the dependency is injected, why the DTO is all-`readonly`, what an accessor totals)
   rather than restating the class docblock right above it. A comment that only repeats is noise: drop the
   paragraph, keep the one useful sentence.
+- **Vue / TS SFCs — the same rule in SFC shapes.** Every `.vue` file opens its `<script setup>` with a
+  **component banner** (`/**** … ****/`) saying what the component is and why / how it behaves — a
+  `<style>`-only file with no `<script setup>` needs none. Every **`defineProps` field** carries an inline
+  `/** … */`, as does every **exported `type`**. **Named operations** — `computed`s, event handlers,
+  `const fn = () => …`, composable functions — get a what/why docblock (trivial ones a one-liner). A bare
+  one-off state `ref` (`const open = ref(false)`) and inline `<template>` callbacks fall under the closures
+  exemption above. A composable `.ts` module documents its exported function *and* its return type. (There
+  is no Pint on the frontend, but `npm run lint` runs on every frontend edit — see *Linting the frontend*.)
 
 ## Docs
 
