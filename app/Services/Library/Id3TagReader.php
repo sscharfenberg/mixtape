@@ -22,6 +22,13 @@ final class Id3TagReader implements TagReader
     /** Read the audio-frame range in 1 MiB chunks so a large file is never fully buffered. */
     private const HASH_CHUNK = 1_048_576;
 
+    /**
+     * Analyse one file with getID3 and normalise it into a TrackMetadata. Throws a
+     * RuntimeException — carrying getID3's own errors *and* warnings — when the file
+     * can't be parsed or has no locatable audio stream; the scanner turns that into
+     * a logged, non-fatal skip. The identity hash covers only the audio frames
+     * ([avdataoffset, avdataend)), so re-tagging a file never changes it.
+     */
     public function read(string $absolutePath): TrackMetadata
     {
         $getID3 = new getID3;

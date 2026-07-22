@@ -24,6 +24,11 @@ class CleanLibrary extends Command
 
     protected $description = 'Delete OS/Samba junk files from the media library shares';
 
+    /**
+     * Resolve the target area(s), sweep their shares of OS/Samba junk, and narrate
+     * the count removed. Returns INVALID on an unknown `--area`; otherwise SUCCESS —
+     * cleanup is best-effort and has no failure path of its own.
+     */
     public function handle(LibraryCleanupService $cleanup): int
     {
         $areas = $this->resolveAreas();

@@ -26,6 +26,7 @@ class LibraryAreasEmpty extends Mailable
         public string $host,
     ) {}
 
+    /** The alert subject, tagged with the app name and the affected host. */
     public function envelope(): Envelope
     {
         return new Envelope(
@@ -33,6 +34,7 @@ class LibraryAreasEmpty extends Mailable
         );
     }
 
+    /** Render the plain-text body from the emails.scan-areas-empty view. */
     public function content(): Content
     {
         return new Content(text: 'emails.scan-areas-empty');

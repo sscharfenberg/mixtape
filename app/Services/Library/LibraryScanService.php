@@ -48,6 +48,7 @@ use Symfony\Component\Finder\SplFileInfo;
  */
 final class LibraryScanService
 {
+    /** The tag reader is injected (not `new`ed) so the scan tests can swap getID3 for a fake reader. */
     public function __construct(private readonly TagReader $reader) {}
 
     /**
@@ -65,6 +66,14 @@ final class LibraryScanService
         return new ScanSummary($results);
     }
 
+    /**
+     * Reconcile one area against the database — the per-area body of the diff laid
+     * out in the class docblock. Resolves and guards the configured root (an unused
+     * area is skipped; a missing directory aborts; a suddenly-empty directory that
+     * still has rows is protected, never pruned), then runs the two passes + orphan
+     * cleanup inside a single transaction so a mid-scan crash can't leave the area
+     * half-migrated. Returns the per-area tally.
+     */
     private function scanArea(TrackType $type, ?Closure $progress): ScanResult
     {
         $result = new ScanResult($type);
@@ -454,6 +463,7 @@ final class LibraryScanService
         }
     }
 
+    /** Forward a milestone line to the optional progress callback — a no-op when the caller (e.g. a test) passed none. */
     private function announce(?Closure $progress, string $line): void
     {
         if ($progress !== null) {

@@ -20,6 +20,11 @@ use ZxcvbnPhp\Zxcvbn;
  */
 class EntropyController extends Controller
 {
+    /**
+     * Score the submitted password (`p`) with zxcvbn and return `{score: 0–4}`.
+     * A missing or empty password is answered with a 422 and a null score, so the
+     * meter can tell "too weak" apart from "nothing typed yet".
+     */
     public function __invoke(Request $request): JsonResponse
     {
         $password = $request->input('p');

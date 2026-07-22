@@ -114,6 +114,11 @@ class LogAuthenticationFailures
         return request()->ip() ?? '-';
     }
 
+    /**
+     * The matched route's name (e.g. `login.store`), or null off a routed request
+     * (console, queue). Recorded so a line names the endpoint that was hit, and
+     * scrubbed at the call site like every other field — see the class docblock.
+     */
     private function routeName(): ?string
     {
         return request()->route()?->getName();

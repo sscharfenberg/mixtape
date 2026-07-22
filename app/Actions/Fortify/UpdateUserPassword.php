@@ -25,6 +25,7 @@ use Laravel\Fortify\Contracts\UpdatesUserPasswords;
  */
 class UpdateUserPassword implements UpdatesUserPasswords
 {
+    /** Inject the request so $request->validate() honours Precognition's per-field validation (see the class docblock). */
     public function __construct(protected Request $request) {}
 
     /**

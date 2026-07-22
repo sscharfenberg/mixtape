@@ -36,6 +36,13 @@ class UpdateLibrary extends Command
 
     protected $description = 'Scan the media library into the database (cleanup, then a content-hash diff)';
 
+    /**
+     * Run one scan: resolve areas, optionally clean, then run the content-hash diff
+     * and narrate the totals. Skipped (unreadable) files and guard-tripped empty
+     * areas are reported by e-mail + log but don't abort — an empty area still exits
+     * non-zero so it's noticed. Any thrown error is the fatal path: log critical,
+     * e-mail the alert, and return FAILURE so a broken nightly scan is never silent.
+     */
     public function handle(LibraryCleanupService $cleanup, LibraryScanService $scanner): int
     {
         $areas = $this->resolveAreas();
@@ -89,6 +96,7 @@ class UpdateLibrary extends Command
         }
     }
 
+    /** Human-readable run time since $startedAt — `ms` under one second, else `s`. */
     private function elapsed(float $startedAt): string
     {
         $ms = (int) round((microtime(true) - $startedAt) * 1000);
@@ -96,6 +104,12 @@ class UpdateLibrary extends Command
         return $ms < 1000 ? "{$ms} ms" : round($ms / 1000, 1).' s';
     }
 
+    /**
+     * Build the fatal-scan alert from the exception — class, file:line, and a
+     * bounded stack trace (the mail is plain-text; the untruncated detail stays in
+     * the library log) — and hand it to sendAlert(), which owns the actual send and
+     * the "no address configured" case.
+     */
     private function notifyFailure(Throwable $e): void
     {
         $this->sendAlert(new LibraryScanFailed(

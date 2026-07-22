@@ -17,6 +17,7 @@ class LibraryScanFailed extends Mailable
 {
     use Queueable, SerializesModels;
 
+    /** The already-formatted fields the scan-failed template renders (see the properties). */
     public function __construct(
         public string $summary,
         public string $exceptionClass,
@@ -25,6 +26,7 @@ class LibraryScanFailed extends Mailable
         public string $trace,
     ) {}
 
+    /** The alert subject, tagged with the app name and the affected host. */
     public function envelope(): Envelope
     {
         return new Envelope(
@@ -32,6 +34,7 @@ class LibraryScanFailed extends Mailable
         );
     }
 
+    /** Render the plain-text body from the emails.scan-failed view. */
     public function content(): Content
     {
         return new Content(text: 'emails.scan-failed');

@@ -26,6 +26,11 @@ use Laravel\Fortify\Contracts\CreatesNewUsers;
  */
 class CreateNewUser implements CreatesNewUsers
 {
+    /**
+     * Inject the current request so validation runs against it (not the $input
+     * array) — that's what lets Inertia Precognition live-validate a single field
+     * on the register form without ever creating a user. See create().
+     */
     public function __construct(protected Request $request) {}
 
     /**

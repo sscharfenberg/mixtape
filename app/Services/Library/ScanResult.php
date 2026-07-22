@@ -48,5 +48,6 @@ final class ScanResult
 
     public int $protectedRows = 0;
 
+    /** One result per area; the scanner mutates the counters above in place as it reconciles (so they aren't readonly). */
     public function __construct(public readonly TrackType $type) {}
 }

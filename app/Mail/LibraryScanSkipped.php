@@ -28,6 +28,7 @@ class LibraryScanSkipped extends Mailable
         public string $host,
     ) {}
 
+    /** The alert subject: app name, the true skipped-file count, and the host. */
     public function envelope(): Envelope
     {
         return new Envelope(
@@ -35,6 +36,7 @@ class LibraryScanSkipped extends Mailable
         );
     }
 
+    /** Render the plain-text body from the emails.scan-skipped view. */
     public function content(): Content
     {
         return new Content(text: 'emails.scan-skipped');

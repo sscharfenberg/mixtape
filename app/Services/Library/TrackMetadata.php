@@ -17,6 +17,7 @@ use App\Enums\Channel;
  */
 final class TrackMetadata
 {
+    /** Every field is readonly: a read is an immutable snapshot of the file's tags + stream at scan time. */
     public function __construct(
         public readonly string $contentHash,
         public readonly ?string $title,
