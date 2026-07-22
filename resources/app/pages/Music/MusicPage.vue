@@ -1,36 +1,32 @@
 <script setup lang="ts">
 /******************************************************************************
  * MusicPage
- * The Music browse area, reached at /music (route `music`, behind auth) and
- * linked from the header site menu (useSiteAreas). Scaffold: a glowing headline
- * over a demo WidgetGroup — the first Widget demos the deferred-first-load
- * skeleton, the second the refresh overlay — standing in for the real browse UI.
+ * The Music browse area (/music, route `music`, behind auth; linked from the
+ * header site menu). Lays out four browse widgets — Albums, Artists, Genres,
+ * Songs — in a WidgetGroup; each toggles between its latest and random entries.
+ * The data arrives as Inertia props from MusicController (both sets per widget,
+ * so the toggles are client-side).
  *****************************************************************************/
 import { Head } from "@inertiajs/vue3";
-import { onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import Button from "Components/Form/Button.vue";
 import Container from "Components/UI/Container.vue";
 import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
-import LabelledLink from "Components/UI/LabelledLink.vue";
-import Widget from "Components/UI/Widget/Widget.vue";
+import AlbumsWidget from "Components/UI/Widget/Consumers/AlbumsWidget.vue";
+import ArtistsWidget from "Components/UI/Widget/Consumers/ArtistsWidget.vue";
+import GenresWidget from "Components/UI/Widget/Consumers/GenresWidget.vue";
+import SongsWidget from "Components/UI/Widget/Consumers/SongsWidget.vue";
 import WidgetGroup from "Components/UI/Widget/WidgetGroup.vue";
-import WidgetSkeleton from "Components/UI/Widget/WidgetSkeleton.vue";
+import type { AlbumEntry, SongEntry, TaxonomyEntry, WidgetModes } from "Types/music";
 
 const { t } = useI18n();
 
-// Demo only — stand in for a deferred first-load: show the skeleton until the
-// "data" arrives shortly after mount.
-const ready = ref(false);
-onMounted(() => setTimeout(() => (ready.value = true), 1400));
-
-const demoLoading = ref(false);
-/** Demo only — briefly flash the WidgetLoader overlay so its loading state is visible. */
-const runDemoLoad = (): void => {
-    demoLoading.value = true;
-    setTimeout(() => (demoLoading.value = false), 1500);
-};
+defineProps<{
+    albums: WidgetModes<AlbumEntry>;
+    artists: WidgetModes<TaxonomyEntry>;
+    genres: WidgetModes<TaxonomyEntry>;
+    songs: WidgetModes<SongEntry>;
+}>();
 </script>
 
 <template>
@@ -42,34 +38,10 @@ const runDemoLoad = (): void => {
 
     <container>
         <widget-group>
-            <widget>
-                <template #title>
-                    <icon name="music" :size="1" />
-                    Recently added
-                </template>
-                <widget-skeleton v-if="!ready" :rows="3" />
-                <p v-else>
-                    Lorem ipsum dolor sit amet, consectetur adipisicing elit. Asperiores commodi dolor eum, labore
-                    omnis pariatur quaerat quis veritatis? Animi aperiam consectetur deleniti facilis hic id ipsum.
-                </p>
-                <template #footer>
-                    <labelled-link href="/music">Show all</labelled-link>
-                </template>
-            </widget>
-
-            <widget :loading="demoLoading">
-                <template #title>
-                    <icon name="playlist" :size="1" />
-                    Most played
-                </template>
-                <p>
-                    Lorem ipsum dolor sit amet, consectetur adipisicing elit. Amet consequatur delectus dolorum eos in
-                    magni obcaecati recusandae tempora, quaerat quis veritatis reiciendis.
-                </p>
-                <template #footer>
-                    <Button variant="primary" type="button" @click="runDemoLoad">Simulate loading</Button>
-                </template>
-            </widget>
+            <albums-widget :latest="albums.latest" :random="albums.random" />
+            <artists-widget :latest="artists.latest" :random="artists.random" />
+            <genres-widget :latest="genres.latest" :random="genres.random" />
+            <songs-widget :latest="songs.latest" :random="songs.random" />
         </widget-group>
     </container>
 </template>

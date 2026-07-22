@@ -197,5 +197,18 @@
                 "recoveryCodesRegenerate": "The recovery codes could not be regenerated."
             }
         }
+    },
+    "music": {
+        "widgets": {
+            "albums": "Albums",
+            "artists": "Artists",
+            "genres": "Genres",
+            "songs": "Songs"
+        },
+        "mode": {
+            "latest": "Latest",
+            "random": "Random"
+        },
+        "empty": "Nothing here yet"
     }
 }

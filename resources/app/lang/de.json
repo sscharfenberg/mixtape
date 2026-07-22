@@ -197,5 +197,18 @@
                 "recoveryCodesRegenerate": "Wiederherstellungscodes konnten nicht neu erzeugt werden."
             }
         }
+    },
+    "music": {
+        "widgets": {
+            "albums": "Alben",
+            "artists": "Künstler",
+            "genres": "Genres",
+            "songs": "Songs"
+        },
+        "mode": {
+            "latest": "Neueste",
+            "random": "Zufällig"
+        },
+        "empty": "Noch keine Einträge"
     }
 }
