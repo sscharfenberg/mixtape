@@ -46,6 +46,16 @@ const isActive = (href: string): boolean => {
 @use "Abstracts/sizes" as s;
 @use "Abstracts/timings" as ti;
 
+// Per-breakpoint link padding — a quarter of the token block-wise, half inline.
+// Pulled into locals so each mqset argument is a short single token: the inline
+// `map.get(...) * 0.25 map.get(...) * 0.5` form overruns 120 cols and reflows
+// mid-`*`, tripping stylelint's operator-no-newline-after (which --fix can't repair).
+$link-pad: map.get(s.$c-site-menu-links, "padding");
+$link-pad-base: map.get($link-pad, "base") * 0.25 map.get($link-pad, "base") * 0.5;
+$link-pad-portrait: map.get($link-pad, "portrait") * 0.25 map.get($link-pad, "portrait") * 0.5;
+$link-pad-landscape: map.get($link-pad, "landscape") * 0.25 map.get($link-pad, "landscape") * 0.5;
+$link-pad-desktop: map.get($link-pad, "desktop") * 0.25 map.get($link-pad, "desktop") * 0.5;
+
 .site-menu-links {
     display: none;
 
@@ -99,17 +109,7 @@ const isActive = (href: string): boolean => {
             border-color: map.get(c.$c-site-menu-links, "active-border");
         }
 
-        @include m.mqset(
-            "padding",
-            #{map.get(s.$c-site-menu-links, "padding", "base") * 0.25
-                map.get(s.$c-site-menu-links, "padding", "base") * 0.5},
-            #{map.get(s.$c-site-menu-links, "padding", "portrait") * 0.25
-                map.get(s.$c-site-menu-links, "padding", "portrait") * 0.5},
-            #{map.get(s.$c-site-menu-links, "padding", "landscape") * 0.25
-                map.get(s.$c-site-menu-links, "padding", "landscape") * 0.5},
-            #{map.get(s.$c-site-menu-links, "padding", "desktop") * 0.25
-                map.get(s.$c-site-menu-links, "padding", "desktop") * 0.5}
-        );
+        @include m.mqset("padding", $link-pad-base, $link-pad-portrait, $link-pad-landscape, $link-pad-desktop);
     }
 }
 </style>
