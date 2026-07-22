@@ -1,0 +1,13 @@
+/******************************************************************************
+ * contextual size tokens — component:SiteMenuLinks.vue
+ * @type {Sass}
+ * The links to the main areas of the site.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$site-menu-links: (
+    "border": map.get(s.$border, "base"),
+    "radius": map.get(s.$radius, "base"),
+    "padding": s.$padding
+) !default;

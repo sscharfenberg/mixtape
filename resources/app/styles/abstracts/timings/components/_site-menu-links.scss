@@ -1,0 +1,9 @@
+/******************************************************************************
+ * contextual timing tokens — component:SiteMenuLinks.vue
+ * @type {Sass}
+ * The links to the main areas of the site.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$site-menu-links: map.get(ti.$timings, "fast") !default;
