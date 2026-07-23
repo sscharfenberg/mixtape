@@ -1,17 +1,20 @@
 /******************************************************************************
  * contextual color tokens — component:Widget
  * @type {Sass}
- * Colours for the Widget's inner parts. The card surface itself is the shared
- * .frosted-glass class (translucent blur + gradient border), so this partial
- * only covers the title strip (brand accent), the footer, the loader overlay,
- * and the skeleton placeholder. Consumed as c.$c-widget via
- * `@use "Abstracts/colors" as c;`.
+ * The Widget card surface (solid — the browse pages sit on a solid background,
+ * so a frosted panel would blur nothing) plus its inner parts: the title strip
+ * (brand accent), footer, loader overlay, and skeleton placeholder. Consumed as
+ * c.$c-widget via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "sass:color"; // https://sass-lang.com/documentation/modules/color
 @use "../global-color-tokens" as c;
 
 $widget: (
+    // card ------------------------------------------------------------------
+    "background": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "black")),
+    "surface": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral")),
+    "border": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher")),
     // title strip -----------------------------------------------------------
     "title-background": light-dark(map.get(c.$brand, "light1", "color"), map.get(c.$brand, "dark1", "color")),
     "title-surface": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$brand, "dark1", "contrast")),
