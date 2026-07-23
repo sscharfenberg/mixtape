@@ -6,7 +6,7 @@
  * soft, slowly-rotating halo, or `glowing-border glowing-border--right` to
  * mirror the shape so it hugs the right edge instead of the left. Every literal
  * lives in the contextual tokens (c/s/ti.$c-glowing-border); the `--glowing-*`
- * custom properties expose surface / gradient / width / blur / intensity so a
+ * custom properties expose background / gradient / width / blur / intensity so a
  * host can retune them per use.
  *
  * Motion: the rotation runs only under prefers-reduced-motion: no-preference;
@@ -28,7 +28,7 @@
 
 .glowing-border {
     // host-overridable knobs, defaulted from the contextual tokens.
-    --glowing-surface: #{map.get(c.$c-glowing-border, "surface")};
+    --glowing-background: #{map.get(c.$c-glowing-border, "background")};
     --glowing-gradient: #{map.get(c.$c-glowing-border, "gradient")};
     --glowing-border-width: #{map.get(s.$c-glowing-border, "border-width")};
     --glowing-intensity: #{map.get(s.$c-glowing-border, "glow-opacity")};
@@ -79,7 +79,7 @@
     // rotating conic gradient paints the border-box, so only the transparent
     // border shows the colours.
     background:
-        linear-gradient(var(--glowing-surface) 0 0) padding-box,
+        linear-gradient(var(--glowing-background) 0 0) padding-box,
         conic-gradient(from var(--glowing-deg), var(--glowing-gradient)) border-box;
     border-radius: 0 map.get(s.$c-glowing-border, "radius") map.get(s.$c-glowing-border, "radius") 0;
     isolation: isolate;
@@ -104,7 +104,7 @@
 
         transform-origin: right;
 
-        background: var(--glowing-surface);
+        background: var(--glowing-background);
 
         filter: blur(var(--glowing-blur));
         scale: map.get(s.$c-glowing-border, "inner-scale") 1;
