@@ -63,8 +63,9 @@ $popover: (
     "button-background-hover": light-dark(map.get(c.$retro, "c1", "light"), map.get(c.$retro, "c1", "dark")),
     "button-surface-hover": map.get(c.$grey, "white"),
     // signed-in ("logged in") trigger — matched to the SiteMenu current-link
-    // highlight: a brand light2 / dark1 fill with a retro c4 / c6 label + border.
-    "button-background-highlighted": light-dark(map.get(c.$brand, "light2", "color"), map.get(c.$brand, "dark1", "color")),
-    "button-surface-highlighted": light-dark(map.get(c.$retro, "c4", "light"), map.get(c.$retro, "c6", "dark")),
-    "button-border-highlighted": light-dark(map.get(c.$retro, "c4", "light"), map.get(c.$retro, "c6", "dark"))
+    // highlight (kept in step with its dark-mode swap): light = brand light2 /
+    // retro c4; dark = brand dark2 (green fill / yellow label + border).
+    "button-background-highlighted": light-dark(map.get(c.$brand, "light2", "color"), map.get(c.$brand, "dark2", "color")),
+    "button-surface-highlighted": light-dark(map.get(c.$retro, "c4", "light"), map.get(c.$brand, "dark2", "contrast")),
+    "button-border-highlighted": light-dark(map.get(c.$retro, "c4", "light"), map.get(c.$brand, "dark2", "contrast"))
 ) !default;

@@ -1,0 +1,10 @@
+/******************************************************************************
+ * contextual timing token — component:widget-mode-toggle
+ * @type {Sass}
+ * the checked-label background/colour transition speed. consumed as
+ * ti.$c-widget-mode-toggle via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$widget-mode-toggle: map.get(ti.$timings, "fast") !default;

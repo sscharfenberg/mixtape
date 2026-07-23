@@ -1,0 +1,16 @@
+/******************************************************************************
+ * contextual size tokens — component:widget-mode-toggle
+ * @type {Sass}
+ * Metrics for the latest / random toggle pill: `radius`/`border` frame the
+ * whole control, and `padding` sizes each segment around its icon. Consumed as
+ * s.$c-widget-mode-toggle via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:math"; // https://sass-lang.com/documentation/modules/math/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$widget-mode-toggle: (
+    "radius": map.get(s.$radius, "featured"),
+    "border": map.get(s.$border, "base"),
+    "padding": math.round(s.$base * 0.15) math.round(s.$base * 0.45)
+) !default;

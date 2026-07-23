@@ -206,6 +206,7 @@
             "songs": "Songs"
         },
         "mode": {
+            "label": "Display mode",
             "latest": "Latest",
             "random": "Random"
         },

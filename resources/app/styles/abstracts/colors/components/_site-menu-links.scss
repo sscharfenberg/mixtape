@@ -1,23 +1,35 @@
 /******************************************************************************
  * contextual color tokens — component:SiteMenuLinks.vue
  * @type {Sass}
- * The links to the main areas of the site.
+ * The links to the main areas of the site (also feeding the compact
+ * SiteMenuPopover, which reuses the `active-*` set for its current item).
+ *
+ * Each link is a pill: a base fill + an accent used for its ink AND border,
+ * inverting on hover. **Light** mode is the plain palette — a normal link is
+ * brand light1 (light-blue fill / dark-blue ink) and the current link the
+ * light2 / retro-c4 "current" highlight. **Dark** mode deliberately SWAPS the
+ * two (owner's call, shared with the WidgetModeToggle so the two controls
+ * align): a normal link takes the old current-link look (dark-blue fill, pink
+ * ink+border) and the current link the old normal look (green fill, yellow
+ * ink+border). The `active-*-hover` pair inverts the current link on hover, the
+ * same fill↔ink flip the normal link already does.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "sass:color"; // https://sass-lang.com/documentation/modules/color
 @use "../global-color-tokens" as c;
 
 $site-menu-links: (
-    "border": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$brand, "dark2", "contrast")),
-    "background": light-dark(map.get(c.$brand, "light1", "color"), map.get(c.$brand, "dark2", "color")),
-    "background-hover": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$brand, "dark2", "contrast")),
-    "surface": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$brand, "dark2", "contrast")),
-    "surface-hover": light-dark(map.get(c.$brand, "light1", "color"), map.get(c.$brand, "dark2", "color")),
-    // active area — the current link (and the compact SiteMenuPopover item) take
-    // the UserMenu popover's "logged in" (--highlighted) look: the same solid
-    // highlighted fill + surface (global $retro c6/c4, swapped light↔dark), so the
-    // current section reads as "lit up" across both site-menu presentations.
-    "active-background": light-dark(map.get(c.$brand, "light2", "color"), map.get(c.$brand, "dark1", "color")),
-    "active-surface": light-dark(map.get(c.$retro, "c4", "light"), map.get(c.$retro, "c6", "dark")),
-    "active-border": light-dark(map.get(c.$retro, "c4", "light"), map.get(c.$retro, "c6", "dark"))
+    // normal link — light: brand light1; dark: SWAPPED to the current-link look (dark-blue / pink)
+    "border": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$retro, "c6", "dark")),
+    "background": light-dark(map.get(c.$brand, "light1", "color"), map.get(c.$brand, "dark1", "color")),
+    "background-hover": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$retro, "c6", "dark")),
+    "surface": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$retro, "c6", "dark")),
+    "surface-hover": light-dark(map.get(c.$brand, "light1", "color"), map.get(c.$brand, "dark1", "color")),
+    // current (active) link — light: light2 / c4 highlight; dark: SWAPPED to the normal look (green / yellow)
+    "active-background": light-dark(map.get(c.$brand, "light2", "color"), map.get(c.$brand, "dark2", "color")),
+    "active-surface": light-dark(map.get(c.$retro, "c4", "light"), map.get(c.$brand, "dark2", "contrast")),
+    "active-border": light-dark(map.get(c.$retro, "c4", "light"), map.get(c.$brand, "dark2", "contrast")),
+    // current link on hover — invert the resting current look (fill↔ink); border stays `active-border`
+    "active-background-hover": light-dark(map.get(c.$retro, "c4", "light"), map.get(c.$brand, "dark2", "contrast")),
+    "active-surface-hover": light-dark(map.get(c.$brand, "light2", "color"), map.get(c.$brand, "dark2", "color"))
 ) !default;

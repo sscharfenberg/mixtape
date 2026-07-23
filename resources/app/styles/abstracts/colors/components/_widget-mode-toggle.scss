@@ -1,0 +1,28 @@
+/******************************************************************************
+ * contextual color tokens — component:widget-mode-toggle
+ * @type {Sass}
+ * The latest / random toggle in a Widget's title strip — two little bordered
+ * pills borrowing the SiteMenuLinks *desktop* link palette so the controls read
+ * as kin. Each pill has a base fill + an accent used for its text AND border;
+ * on hover the two swap (accent fill, base text), like the SiteMenu links.
+ *
+ * In **light** mode an unselected pill is the SiteMenuLinks normal link and the
+ * selected pill is its "current link" (active) highlight. In **dark** mode those
+ * two are deliberately SWAPPED (unselected takes the current-link look, selected
+ * the normal-link look) — the owner's call, so the lit segment stays the warmer
+ * green/yellow against the title's purple→pink gradient. Values are re-picked
+ * from the globals here (not read off SiteMenuLinks' tokens) so this partial
+ * stays self-contained. `surface` doubles as each pill's border colour.
+ * Consumed as c.$c-widget-mode-toggle via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-color-tokens" as c;
+
+$widget-mode-toggle: (
+    // unselected — light: SiteMenuLinks normal link; dark: swapped to its "current link"
+    "background": light-dark(map.get(c.$brand, "light1", "color"), map.get(c.$brand, "dark1", "color")),
+    "surface": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$retro, "c6", "dark")),
+    // selected — light: SiteMenuLinks "current link"; dark: swapped to its normal link
+    "background-selected": light-dark(map.get(c.$brand, "light2", "color"), map.get(c.$brand, "dark2", "color")),
+    "surface-selected": light-dark(map.get(c.$retro, "c4", "light"), map.get(c.$brand, "dark2", "contrast"))
+) !default;

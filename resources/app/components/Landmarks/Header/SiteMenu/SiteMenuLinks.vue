@@ -107,6 +107,14 @@ $link-pad-desktop: map.get($link-pad, "desktop") * 0.25 map.get($link-pad, "desk
             background-color: map.get(c.$c-site-menu-links, "active-background");
             color: map.get(c.$c-site-menu-links, "active-surface");
             border-color: map.get(c.$c-site-menu-links, "active-border");
+
+            // invert the current link on hover (fill↔ink), the same flip the
+            // normal link does — matches the WidgetModeToggle's selected segment.
+            // Placed after the base `:hover` so it wins at equal specificity.
+            &:hover {
+                background-color: map.get(c.$c-site-menu-links, "active-background-hover");
+                color: map.get(c.$c-site-menu-links, "active-surface-hover");
+            }
         }
 
         @include m.mqset("padding", $link-pad-base, $link-pad-portrait, $link-pad-landscape, $link-pad-desktop);
