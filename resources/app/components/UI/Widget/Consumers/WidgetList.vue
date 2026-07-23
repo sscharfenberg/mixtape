@@ -47,11 +47,7 @@ defineProps<{
     }
 
     &__name {
-        overflow: hidden;
-
         font-weight: 600;
-        white-space: nowrap;
-        text-overflow: ellipsis;
     }
 
     &__meta {
