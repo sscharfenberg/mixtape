@@ -16,8 +16,12 @@ $widget: (
     "surface": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral")),
     "border": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher")),
     // title strip -----------------------------------------------------------
-    "title-background": light-dark(map.get(c.$brand, "light1", "color"), map.get(c.$brand, "dark1", "color")),
-    "title-surface": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$brand, "dark1", "contrast")),
+    "title-background": linear-gradient(
+            to bottom right,
+            light-dark(map.get(c.$retro, "c3", "dark"), map.get(c.$retro, "c5", "dark")),
+            light-dark(map.get(c.$retro, "c6", "dark"), map.get(c.$retro, "c6", "dark"))
+        ),
+    "title-surface": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$brand, "dark2", "contrast")),
     // footer ----------------------------------------------------------------
     "footer-border": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher")),
     "footer-surface": light-dark(map.get(c.$grey, "slate"), map.get(c.$grey, "slate")),

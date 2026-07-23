@@ -12,9 +12,12 @@
     align-items: center;
 
     padding: map.get(s.$c-widget, "padding");
+
+    // a bottom rule matching the card's own border (same width + colour)
+    border-bottom: map.get(s.$c-widget, "border") solid map.get(c.$c-widget, "border");
     gap: 0.5ch;
 
-    background-color: map.get(c.$c-widget, "title-background");
+    background: map.get(c.$c-widget, "title-background");
     color: map.get(c.$c-widget, "title-surface");
 
     font-weight: 600;
