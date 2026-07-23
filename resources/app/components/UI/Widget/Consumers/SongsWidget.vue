@@ -5,6 +5,7 @@
  * (default) and a random pick via the header ModeToggle. Both sets arrive as
  * Inertia props (see MusicController), so the toggle is instant.
  *****************************************************************************/
+import { Link } from "@inertiajs/vue3";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import Widget from "Components/UI/Widget/Widget.vue";
@@ -34,5 +35,8 @@ const items = computed(() =>
             <mode-toggle v-model="mode" name="songs-mode" />
         </template>
         <widget-list :items="items" />
+        <template #footer>
+            <Link href="/music/songs" class="btn btn-default">{{ t("music.seeAll") }}</Link>
+        </template>
     </widget>
 </template>

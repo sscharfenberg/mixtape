@@ -209,6 +209,7 @@
             "latest": "Neueste",
             "random": "Zufällig"
         },
-        "empty": "Noch keine Einträge"
+        "empty": "Noch keine Einträge",
+        "seeAll": "Alle anzeigen"
     }
 }

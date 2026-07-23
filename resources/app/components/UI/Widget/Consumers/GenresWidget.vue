@@ -5,6 +5,7 @@
  * recently added, by newest track) and a random pick via the header
  * ModeToggle. Both sets arrive as Inertia props (see MusicController).
  *****************************************************************************/
+import { Link } from "@inertiajs/vue3";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import Widget from "Components/UI/Widget/Widget.vue";
@@ -28,5 +29,8 @@ const items = computed(() => (mode.value === "random" ? props.random : props.lat
             <mode-toggle v-model="mode" name="genres-mode" />
         </template>
         <widget-list :items="items" />
+        <template #footer>
+            <Link href="/music/genres" class="btn btn-default">{{ t("music.seeAll") }}</Link>
+        </template>
     </widget>
 </template>

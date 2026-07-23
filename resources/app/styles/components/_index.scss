@@ -4,6 +4,7 @@
  * loaded into the `components` cascade layer from app.scss. add one @forward
  * per component (or component folder) below.
  *****************************************************************************/
+@forward "button";
 @forward "flag";
 @forward "form";
 @forward "frosted-glass";

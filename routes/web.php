@@ -4,6 +4,10 @@ use App\Http\Controllers\AudiobooksController;
 use App\Http\Controllers\Dashboard\DashboardController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LocaleController;
+use App\Http\Controllers\Music\AlbumsController;
+use App\Http\Controllers\Music\ArtistsController;
+use App\Http\Controllers\Music\GenresController;
+use App\Http\Controllers\Music\SongsController;
 use App\Http\Controllers\MusicController;
 use App\Http\Controllers\PlaylistsController;
 use App\Http\Controllers\PodcastsController;
@@ -32,6 +36,13 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         Route::get('/audiobooks', AudiobooksController::class)->name('audiobooks');
         Route::get('/podcasts', PodcastsController::class)->name('podcasts');
         Route::get('/playlists', PlaylistsController::class)->name('playlists');
+
+        // Music sub-sections — the "see all" targets from the browse widgets
+        // (stub pages for now).
+        Route::get('/music/albums', AlbumsController::class)->name('music.albums');
+        Route::get('/music/artists', ArtistsController::class)->name('music.artists');
+        Route::get('/music/genres', GenresController::class)->name('music.genres');
+        Route::get('/music/songs', SongsController::class)->name('music.songs');
     });
 
 // Authentication (login / logout). Kept in a dedicated file as the auth surface
