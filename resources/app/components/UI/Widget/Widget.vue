@@ -5,7 +5,8 @@
  * parts, used to lay out the browse pages. Slots: #title (optional header
  * strip), default (the body), #footer (optional). While `loading` is true a
  * WidgetLoader overlay covers the whole card. Drop several inside a WidgetGroup
- * for the responsive grid.
+ * for the responsive grid; set `wide` to span two of its columns (from the
+ * landscape breakpoint up, where two tracks fit).
  *****************************************************************************/
 import WidgetBody from "./WidgetBody.vue";
 import WidgetFooter from "./WidgetFooter.vue";
@@ -16,15 +17,18 @@ withDefaults(
     defineProps<{
         /** Show the loading overlay (a centered spinner) over the whole card. */
         loading?: boolean;
+        /** Span two grid columns in a WidgetGroup (from the "landscape" breakpoint up, where two tracks fit). */
+        wide?: boolean;
     }>(),
     {
-        loading: false
+        loading: false,
+        wide: false
     }
 );
 </script>
 
 <template>
-    <div class="widget">
+    <div class="widget" :class="{ 'widget--wide': wide }">
         <widget-title v-if="$slots.title"><slot name="title" /></widget-title>
         <widget-body><slot /></widget-body>
         <widget-footer v-if="$slots.footer"><slot name="footer" /></widget-footer>
@@ -35,6 +39,7 @@ withDefaults(
 <style scoped lang="scss">
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "Abstracts/colors" as c;
+@use "Abstracts/mixins" as m;
 @use "Abstracts/sizes" as s;
 
 .widget {
@@ -57,5 +62,16 @@ withDefaults(
     background-color: map.get(c.$c-widget, "background");
     color: map.get(c.$c-widget, "surface");
     border-radius: map.get(s.$c-widget, "radius");
+
+    // opt-in `wide`: span two grid columns in a WidgetGroup. Gated to the
+    // "landscape" breakpoint and up, where the group reliably fits two of its
+    // 220px tracks — below that the group is a single column, so spanning two
+    // would overflow. `grid-auto-flow: dense` on the group backfills the gaps a
+    // wide card leaves.
+    &--wide {
+        @include m.mq("landscape") {
+            grid-column: span 2;
+        }
+    }
 }
 </style>
