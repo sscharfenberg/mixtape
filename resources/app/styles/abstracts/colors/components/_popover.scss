@@ -62,6 +62,6 @@ $popover: (
     // surface clears WCAG 2.1 AA on it in both themes (~16:1 light / ~14:1 dark).
     "button-background-hover": light-dark(map.get(c.$retro, "c1", "light"), map.get(c.$retro, "c1", "dark")),
     "button-surface-hover": map.get(c.$grey, "white"),
-    "button-background-highlighted": light-dark(map.get(c.$retro, "c6", "dark"), map.get(c.$retro, "c4", "dark")),
-    "button-surface-highlighted": light-dark(map.get(c.$retro, "c4", "light"), map.get(c.$retro, "c6", "dark"))
+    "button-background-highlighted": light-dark(map.get(c.$retro, "c6", "dark"), map.get(c.$retro, "c6", "dark")),
+    "button-surface-highlighted": light-dark(map.get(c.$retro, "c4", "light"), map.get(c.$retro, "c4", "dark"))
 ) !default;
