@@ -92,11 +92,14 @@ class MusicController extends Controller
 
     /**
      * Four music songs (music-type tracks). `latest` orders by file mtime
-     * (`modified_at`), the true "recently added" after a bulk scan; `popular` is
-     * the most-played, ordered by play count (the `plays` table, all users);
-     * `random` shuffles. Note: `popular` counts plays per track *row*; the
-     * schema's plan to aggregate clones by `content_hash` (open decision #5) is
-     * deferred — for a top-four teaser the per-row count is close enough.
+     * (`modified_at`), the true "recently added" after a bulk scan; `random`
+     * shuffles. `popular` is the most-played by play count (the `plays` table,
+     * all users) — but restricted to songs with MORE THAN ONE play
+     * (`has('plays', '>', 1)`): a single listen is noise, not popularity. Until
+     * real listens accumulate this set is usually empty, and the widget shows a
+     * "not enough data" note rather than a meaningless ranking. (Counts are
+     * per track *row*; the schema's clone-aggregation by `content_hash` — open
+     * decision #5 — is deferred; a top-four teaser doesn't need it.)
      *
      * @return array<int, array{id: string, name: string, artist: ?string}>
      */
@@ -108,7 +111,7 @@ class MusicController extends Controller
             ->select(['id', 'name', 'artist_id'])
             ->tap(fn (Builder $q) => match ($mode) {
                 'random' => $q->inRandomOrder(),
-                'popular' => $q->withCount('plays')->orderByDesc('plays_count'),
+                'popular' => $q->has('plays', '>', 1)->withCount('plays')->orderByDesc('plays_count'),
                 default => $q->orderByDesc('modified_at'),
             })
             ->limit(self::LIMIT)

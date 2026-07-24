@@ -212,6 +212,7 @@
             "random": "Zufällig"
         },
         "empty": "Noch keine Einträge",
+        "notEnoughData": "Noch nicht genug Daten",
         "seeAll": "Alle anzeigen"
     }
 }

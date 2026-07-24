@@ -48,9 +48,13 @@ class MusicPageTest extends TestCase
     {
         // Six music tracks pull in six albums / artists / genres through their
         // FKs, so every widget has more than four candidates to cap.
-        Track::factory()->count(6)->create();
+        $user = User::factory()->create();
+        $tracks = Track::factory()->count(6)->create();
+        // Songs' "popular" is gated to >1 play, so give every track two plays or
+        // the set would be empty rather than capped.
+        $tracks->each(fn (Track $t) => Play::factory()->count(2)->create(['track_id' => $t->id, 'user_id' => $user->id]));
 
-        $this->actingAs(User::factory()->create())
+        $this->actingAs($user)
             ->get('/music')
             ->assertInertia(fn (Assert $page) => $page
                 ->has('albums.latest', 4)->has('albums.random', 4)
@@ -83,18 +87,38 @@ class MusicPageTest extends TestCase
             );
     }
 
-    public function test_songs_popular_orders_by_play_count(): void
+    public function test_songs_popular_ranks_by_plays_and_excludes_single_plays(): void
     {
         $user = User::factory()->create();
         $hot = Track::factory()->create(['name' => 'Hot Track']);
+        $warm = Track::factory()->create(['name' => 'Warm Track']);
         $cold = Track::factory()->create(['name' => 'Cold Track']);
         Play::factory()->count(5)->create(['track_id' => $hot->id, 'user_id' => $user->id]);
+        Play::factory()->count(2)->create(['track_id' => $warm->id, 'user_id' => $user->id]);
         Play::factory()->count(1)->create(['track_id' => $cold->id, 'user_id' => $user->id]);
 
-        // "popular" for songs = most-played, so the 5-play track leads.
+        // Ranked by play count; the single-play track is excluded (popular needs >1).
         $this->actingAs($user)
             ->get('/music')
-            ->assertInertia(fn (Assert $page) => $page->where('songs.popular.0.name', 'Hot Track'));
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('songs.popular', 2)
+                ->where('songs.popular.0.name', 'Hot Track')
+                ->where('songs.popular.1.name', 'Warm Track')
+            );
+    }
+
+    public function test_songs_popular_is_empty_when_no_song_has_more_than_one_play(): void
+    {
+        $user = User::factory()->create();
+        $songs = Track::factory()->count(3)->create();
+        Play::factory()->create(['track_id' => $songs[0]->id, 'user_id' => $user->id]);
+        Play::factory()->create(['track_id' => $songs[1]->id, 'user_id' => $user->id]);
+
+        // Every song sits at ≤1 play → no popularity signal → empty set, which the
+        // widget renders as "not enough data".
+        $this->actingAs($user)
+            ->get('/music')
+            ->assertInertia(fn (Assert $page) => $page->has('songs.popular', 0));
     }
 
     public function test_artists_popular_orders_by_total_file_duration(): void

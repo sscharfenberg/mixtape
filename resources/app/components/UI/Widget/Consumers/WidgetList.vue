@@ -13,6 +13,8 @@ const { t } = useI18n();
 defineProps<{
     /** Rows to show — a display name plus an optional secondary line each. */
     items: { id: string; name: string; meta?: string | null }[];
+    /** Override for the no-items line (e.g. songs' "not enough data" for popular); defaults to the generic empty message. */
+    emptyText?: string;
 }>();
 </script>
 
@@ -23,7 +25,7 @@ defineProps<{
             <span v-if="item.meta" class="widget-list__meta">{{ item.meta }}</span>
         </li>
     </ul>
-    <p v-else class="widget-list__empty">{{ t("music.empty") }}</p>
+    <p v-else class="widget-list__empty">{{ emptyText ?? t("music.empty") }}</p>
 </template>
 
 <style scoped lang="scss">
