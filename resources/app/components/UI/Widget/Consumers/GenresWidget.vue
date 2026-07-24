@@ -1,9 +1,11 @@
 <script setup lang="ts">
 /******************************************************************************
  * GenresWidget
- * The Music page's "Genres" card — four genres, toggled between latest (most
- * recently added, by newest track) and a random pick via the header
- * WidgetModeToggle. Both sets arrive as Inertia props (see MusicController).
+ * The Music page's "Genres" card — four genres, toggled via the header
+ * WidgetModeToggle between "popular" (default; most total file duration),
+ * latest (newest track) and a random pick. All sets arrive as Inertia props
+ * (see MusicController). Defaults to popular because "latest genre" is a weak
+ * signal here — genres have no date of their own.
  *****************************************************************************/
 import { Link } from "@inertiajs/vue3";
 import { computed, ref } from "vue";
@@ -16,17 +18,17 @@ import WidgetList from "./WidgetList.vue";
 const props = defineProps<WidgetModes<TaxonomyEntry>>();
 
 const { t } = useI18n();
-const mode = ref<WidgetMode>("latest");
+const mode = ref<WidgetMode>("popular");
 
-/** Active-mode genres — a plain name list (no secondary line). */
-const items = computed(() => (mode.value === "random" ? props.random : props.latest));
+/** Active-mode genres — a plain name list (no secondary line). Falls back to `latest` if a mode's set is absent. */
+const items = computed(() => props[mode.value] ?? props.latest);
 </script>
 
 <template>
     <widget>
         <template #title>
             {{ t("music.widgets.genres") }}
-            <widget-mode-toggle v-model="mode" name="genres-mode" />
+            <widget-mode-toggle v-model="mode" name="genres-mode" :modes="['latest', 'popular', 'random']" />
         </template>
         <widget-list :items="items" />
         <template #footer>

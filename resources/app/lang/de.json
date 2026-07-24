@@ -208,6 +208,7 @@
         "mode": {
             "label": "Anzeige-Modus",
             "latest": "Neueste",
+            "popular": "Beliebt",
             "random": "Zufällig"
         },
         "empty": "Noch keine Einträge",

@@ -18,9 +18,9 @@ const props = defineProps<WidgetModes<AlbumEntry>>();
 const { t } = useI18n();
 const mode = ref<WidgetMode>("latest");
 
-/** Active-mode albums mapped to the shared list shape (meta = "artist · year"). */
+/** Active-mode albums mapped to the shared list shape (meta = "artist · year"). Falls back to `latest` if a mode's set is absent. */
 const items = computed(() =>
-    (mode.value === "random" ? props.random : props.latest).map((album) => ({
+    (props[mode.value] ?? props.latest).map((album) => ({
         id: album.id,
         name: album.name,
         meta: [album.artist, album.year].filter(Boolean).join(" · ") || null
@@ -32,7 +32,7 @@ const items = computed(() =>
     <widget>
         <template #title>
             {{ t("music.widgets.albums") }}
-            <widget-mode-toggle v-model="mode" name="albums-mode" />
+            <widget-mode-toggle v-model="mode" name="albums-mode" :modes="['latest', 'random']" />
         </template>
         <widget-list :items="items" />
         <template #footer>

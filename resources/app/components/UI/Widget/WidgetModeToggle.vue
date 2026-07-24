@@ -1,17 +1,22 @@
 <script setup lang="ts">
 /******************************************************************************
  * WidgetModeToggle
- * The latest / random switch in a music Widget's title strip — one segmented
- * pill split into two icon options (recent on the left, shuffle on the right).
- * The native radios are visually hidden but stay focusable, so native arrow
- * keys still move selection; each label is a clickable segment. Only the checked
- * segment carries brand colour (the SiteMenuLinks current-link highlight) so
- * it's unmistakable; the unselected segment is muted grey. Each swaps its
- * fill/icon on hover for feedback. Two-way binds the active mode via v-model; `name`
- * groups the pair, so every toggle on the page needs a unique one.
+ * The mode switch in a music Widget's title strip — one segmented pill of two
+ * or three icon options, driven by the `modes` prop (each widget passes the
+ * modes it supports, in display order). The native radios are visually hidden
+ * but stay focusable, so native arrow keys still move selection; each label is a
+ * clickable segment. Only the checked segment carries brand colour (the
+ * SiteMenuLinks current-link highlight) so it's unmistakable; the unselected
+ * segments are muted grey. Each swaps its fill/icon on hover for feedback. The
+ * icons carry no visible text, so each segment is wrapped in a Tooltip echoing
+ * its aria-label on hover/focus — the input+label stay adjacent inside the
+ * wrapper so the `input:checked/:focus + &` selectors keep matching. Two-way
+ * binds the active mode via v-model; `name` groups the radios, so every toggle
+ * on the page needs a unique one.
  *****************************************************************************/
 import { useI18n } from "vue-i18n";
 import Icon from "Components/UI/Icon.vue";
+import Tooltip from "Components/UI/Tooltip.vue";
 import type { WidgetMode } from "Types/music";
 
 const { t } = useI18n();
@@ -19,21 +24,32 @@ const { t } = useI18n();
 defineProps<{
     /** Unique radio-group name — distinct per widget so the page's toggles don't collide. */
     name: string;
+    /** Modes to render as segments, left-to-right (e.g. `['latest','popular','random']`); a widget passes only the ones it supports. */
+    modes: WidgetMode[];
 }>();
 
 const mode = defineModel<WidgetMode>({ required: true });
+
+/**
+ * The single source of truth mapping each mode to its sprite icon, so consumers
+ * pick modes by name and the icon stays consistent everywhere: recent = latest,
+ * hot = popular, shuffle = random.
+ */
+const ICONS: Record<WidgetMode, string> = {
+    latest: "recent",
+    popular: "hot",
+    random: "shuffle",
+};
 </script>
 
 <template>
     <span class="widget-mode-toggle" role="radiogroup" :aria-label="t('music.mode.label')">
-        <input :id="name + '-latest'" v-model="mode" type="radio" :name="name" value="latest" />
-        <label :for="name + '-latest'" class="widget-mode-toggle__item" :aria-label="t('music.mode.latest')">
-            <icon name="recent" :size="2" />
-        </label>
-        <input :id="name + '-random'" v-model="mode" type="radio" :name="name" value="random" />
-        <label :for="name + '-random'" class="widget-mode-toggle__item" :aria-label="t('music.mode.random')">
-            <icon name="shuffle" :size="2" />
-        </label>
+        <tooltip v-for="m in modes" :key="m" :text="t(`music.mode.${m}`)">
+            <input :id="`${name}-${m}`" v-model="mode" type="radio" :name="name" :value="m" />
+            <label :for="`${name}-${m}`" class="widget-mode-toggle__item" :aria-label="t(`music.mode.${m}`)">
+                <icon :name="ICONS[m]" :size="2" />
+            </label>
+        </tooltip>
     </span>
 </template>
 

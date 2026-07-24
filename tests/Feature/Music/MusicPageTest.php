@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Music;
 
+use App\Models\Artist;
+use App\Models\Play;
 use App\Models\Track;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -33,6 +35,12 @@ class MusicPageTest extends TestCase
                 ->has('artists.latest')->has('artists.random')
                 ->has('genres.latest')->has('genres.random')
                 ->has('songs.latest')->has('songs.random')
+                // "popular" ships only for the three widgets that support it…
+                ->has('songs.popular')
+                ->has('artists.popular')
+                ->has('genres.popular')
+                // …never for albums (the owner scoped it out).
+                ->missing('albums.popular')
             );
     }
 
@@ -46,11 +54,59 @@ class MusicPageTest extends TestCase
             ->get('/music')
             ->assertInertia(fn (Assert $page) => $page
                 ->has('albums.latest', 4)->has('albums.random', 4)
-                ->has('artists.latest', 4)->has('artists.random', 4)
-                ->has('genres.latest', 4)->has('genres.random', 4)
-                ->has('songs.latest', 4)->has('songs.random', 4)
+                ->has('artists.latest', 4)->has('artists.random', 4)->has('artists.popular', 4)
+                ->has('genres.latest', 4)->has('genres.random', 4)->has('genres.popular', 4)
+                ->has('songs.latest', 4)->has('songs.random', 4)->has('songs.popular', 4)
                 ->has('albums.latest.0', fn (Assert $album) => $album->hasAll(['id', 'name', 'artist', 'year']))
                 ->has('songs.latest.0', fn (Assert $song) => $song->hasAll(['id', 'name', 'artist']))
             );
+    }
+
+    public function test_artists_widget_excludes_artists_with_no_tracks(): void
+    {
+        // Two performers (each Track::factory mints its own artist) plus one
+        // album-artist-only artist — a compilation owner like "Irish Folk
+        // Festival" that performs nothing, so its max(modified_at) is NULL.
+        // Postgres sorts that NULL to the TOP of "latest" (the reported bug);
+        // the controller's has('tracks') filter drops it. Both modes should
+        // therefore return only the two real performers. (On SQLite the NULL
+        // would sort last, not first, so this asserts the filter itself — count
+        // 2, not 3 — independently of the DB's NULL ordering.)
+        Track::factory()->count(2)->create();
+        Artist::factory()->create(['name' => 'No Tracks Compilation']);
+
+        $this->actingAs(User::factory()->create())
+            ->get('/music')
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('artists.latest', 2)
+                ->has('artists.random', 2)
+            );
+    }
+
+    public function test_songs_popular_orders_by_play_count(): void
+    {
+        $user = User::factory()->create();
+        $hot = Track::factory()->create(['name' => 'Hot Track']);
+        $cold = Track::factory()->create(['name' => 'Cold Track']);
+        Play::factory()->count(5)->create(['track_id' => $hot->id, 'user_id' => $user->id]);
+        Play::factory()->count(1)->create(['track_id' => $cold->id, 'user_id' => $user->id]);
+
+        // "popular" for songs = most-played, so the 5-play track leads.
+        $this->actingAs($user)
+            ->get('/music')
+            ->assertInertia(fn (Assert $page) => $page->where('songs.popular.0.name', 'Hot Track'));
+    }
+
+    public function test_artists_popular_orders_by_total_file_duration(): void
+    {
+        $long = Artist::factory()->create(['name' => 'Long Artist']);
+        $short = Artist::factory()->create(['name' => 'Short Artist']);
+        Track::factory()->create(['artist_id' => $long->id, 'duration' => 500]);
+        Track::factory()->create(['artist_id' => $short->id, 'duration' => 100]);
+
+        // "popular" for artists = most total file duration, so Long Artist leads.
+        $this->actingAs(User::factory()->create())
+            ->get('/music')
+            ->assertInertia(fn (Assert $page) => $page->where('artists.popular.0.name', 'Long Artist'));
     }
 }

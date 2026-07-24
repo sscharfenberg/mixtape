@@ -4,13 +4,22 @@
  * (WidgetModes) so the header toggle can switch between them client-side.
  *****************************************************************************/
 
-/** The active side of a widget's latest / random toggle. */
-export type WidgetMode = "latest" | "random";
+/**
+ * The active segment of a widget's mode toggle. `popular` exists only on the
+ * widgets that support it (songs by plays, artists/genres by total file
+ * duration) — never on albums.
+ */
+export type WidgetMode = "latest" | "random" | "popular";
 
-/** The latest (default) and random variants of one widget's entries. */
+/**
+ * The per-mode entry sets one widget receives. `latest` and `random` are always
+ * present; `popular` is sent only for songs/artists/genres (albums omit it), so
+ * it's optional.
+ */
 export interface WidgetModes<T> {
     latest: T[];
     random: T[];
+    popular?: T[];
 }
 
 /** A music album — id, title, album-artist (nullable), release year (nullable). */

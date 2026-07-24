@@ -3,9 +3,11 @@
  * MusicPage
  * The Music browse area (/music, route `music`, behind auth; linked from the
  * header site menu). Lays out four browse widgets — Albums, Artists, Genres,
- * Songs — in a WidgetGroup; each toggles between its latest and random entries.
- * The data arrives as Inertia props from MusicController (both sets per widget,
- * so the toggles are client-side).
+ * Songs — in a WidgetGroup; each toggles between latest, random and (for
+ * artists/genres/songs) a "popular" set. The data arrives as Inertia props from
+ * MusicController; each widget's full mode set is forwarded with `v-bind` (not
+ * key-by-key) so a widget always receives every mode it supports — omitting a
+ * key here silently drops that mode to the `latest` fallback in the widget.
  *****************************************************************************/
 import { Head } from "@inertiajs/vue3";
 import { useI18n } from "vue-i18n";
@@ -38,10 +40,10 @@ defineProps<{
 
     <container>
         <widget-group>
-            <albums-widget :latest="albums.latest" :random="albums.random" />
-            <artists-widget :latest="artists.latest" :random="artists.random" />
-            <genres-widget :latest="genres.latest" :random="genres.random" />
-            <songs-widget :latest="songs.latest" :random="songs.random" />
+            <albums-widget v-bind="albums" />
+            <artists-widget v-bind="artists" />
+            <genres-widget v-bind="genres" />
+            <songs-widget v-bind="songs" />
         </widget-group>
     </container>
 </template>

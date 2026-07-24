@@ -208,6 +208,7 @@
         "mode": {
             "label": "Display mode",
             "latest": "Latest",
+            "popular": "Popular",
             "random": "Random"
         },
         "empty": "Nothing here yet",
