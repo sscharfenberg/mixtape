@@ -12,5 +12,5 @@
 $widget-mode-toggle: (
     "radius": map.get(s.$radius, "featured"),
     "border": map.get(s.$border, "base"),
-    "padding": math.round(s.$base * 0.15) math.round(s.$base * 0.45)
+    "padding": 0.2rem 0.5rem
 ) !default;

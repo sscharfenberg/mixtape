@@ -4,10 +4,10 @@
  * The latest / random switch in a music Widget's title strip — one segmented
  * pill split into two icon options (recent on the left, shuffle on the right).
  * The native radios are visually hidden but stay focusable, so native arrow
- * keys still move selection; each label is a clickable segment. Colours track
- * the SiteMenuLinks desktop links so the two controls align: an unselected
- * segment is the normal link, the checked one the current-link highlight, and
- * hover swaps fill/icon. Two-way binds the active mode via v-model; `name`
+ * keys still move selection; each label is a clickable segment. Only the checked
+ * segment carries brand colour (the SiteMenuLinks current-link highlight) so
+ * it's unmistakable; the unselected segment is muted grey. Each swaps its
+ * fill/icon on hover for feedback. Two-way binds the active mode via v-model; `name`
  * groups the pair, so every toggle on the page needs a unique one.
  *****************************************************************************/
 import { useI18n } from "vue-i18n";
@@ -97,7 +97,7 @@ const mode = defineModel<WidgetMode>({ required: true });
                 background-color ti.$c-widget-mode-toggle linear;
         }
 
-        // hover on the unselected segment — swap fill and icon (accent fill, base icon).
+        // hover on the UNSELECTED segment — swap the muted grey fill and icon for feedback.
         &:hover {
             background-color: map.get(c.$c-widget-mode-toggle, "surface");
             color: map.get(c.$c-widget-mode-toggle, "background");

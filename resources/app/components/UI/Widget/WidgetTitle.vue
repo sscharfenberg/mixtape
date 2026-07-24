@@ -20,6 +20,7 @@
     background: map.get(c.$c-widget, "title-background");
     color: map.get(c.$c-widget, "title-surface");
 
+    font-size: map.get(s.$c-widget, "title-font-size");
     font-weight: 600;
 }
 </style>
