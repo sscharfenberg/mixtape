@@ -8,17 +8,23 @@
  * signal here — genres have no date of their own.
  *****************************************************************************/
 import { Link } from "@inertiajs/vue3";
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import Widget from "Components/UI/Widget/Widget.vue";
 import WidgetModeToggle from "Components/UI/Widget/WidgetModeToggle.vue";
+import { useWidgetMode } from "Composables/useWidgetMode";
 import type { TaxonomyEntry, WidgetMode, WidgetModes } from "Types/music";
 import WidgetList from "./WidgetList.vue";
 
 const props = defineProps<WidgetModes<TaxonomyEntry>>();
 
 const { t } = useI18n();
-const mode = ref<WidgetMode>("popular");
+
+/** Modes this widget offers (shared with the toggle and the persisted mode). */
+const modes: WidgetMode[] = ["latest", "popular", "random"];
+
+/** Active mode — restored from localStorage, defaulting to popular. */
+const mode = useWidgetMode("genres", "popular", modes);
 
 /** Active-mode genres — a plain name list (no secondary line). Falls back to `latest` if a mode's set is absent. */
 const items = computed(() => props[mode.value] ?? props.latest);
@@ -28,7 +34,7 @@ const items = computed(() => props[mode.value] ?? props.latest);
     <widget :refresh="'genres'">
         <template #title>
             {{ t("music.widgets.genres") }}
-            <widget-mode-toggle v-model="mode" name="genres-mode" :modes="['latest', 'popular', 'random']" popular-by="duration" />
+            <widget-mode-toggle v-model="mode" name="genres-mode" :modes="modes" popular-by="duration" />
         </template>
         <widget-list :items="items" />
         <template #footer>

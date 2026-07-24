@@ -6,17 +6,23 @@
  * Inertia props (see MusicController), so the toggle is instant.
  *****************************************************************************/
 import { Link } from "@inertiajs/vue3";
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import Widget from "Components/UI/Widget/Widget.vue";
 import WidgetModeToggle from "Components/UI/Widget/WidgetModeToggle.vue";
+import { useWidgetMode } from "Composables/useWidgetMode";
 import type { AlbumEntry, WidgetMode, WidgetModes } from "Types/music";
 import WidgetList from "./WidgetList.vue";
 
 const props = defineProps<WidgetModes<AlbumEntry>>();
 
 const { t } = useI18n();
-const mode = ref<WidgetMode>("latest");
+
+/** Modes this widget offers (shared with the toggle and the persisted mode). */
+const modes: WidgetMode[] = ["latest", "random"];
+
+/** Active mode — restored from localStorage, defaulting to latest. */
+const mode = useWidgetMode("albums", "latest", modes);
 
 /** Active-mode albums mapped to the shared list shape (meta = "artist · year"). Falls back to `latest` if a mode's set is absent. */
 const items = computed(() =>
@@ -32,7 +38,7 @@ const items = computed(() =>
     <widget :refresh="'albums'">
         <template #title>
             {{ t("music.widgets.albums") }}
-            <widget-mode-toggle v-model="mode" name="albums-mode" :modes="['latest', 'random']" />
+            <widget-mode-toggle v-model="mode" name="albums-mode" :modes="modes" />
         </template>
         <widget-list :items="items" />
         <template #footer>

@@ -8,17 +8,23 @@
  * no such song yet the set is empty and the list shows a "not enough data" note.
  *****************************************************************************/
 import { Link } from "@inertiajs/vue3";
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import Widget from "Components/UI/Widget/Widget.vue";
 import WidgetModeToggle from "Components/UI/Widget/WidgetModeToggle.vue";
+import { useWidgetMode } from "Composables/useWidgetMode";
 import type { SongEntry, WidgetMode, WidgetModes } from "Types/music";
 import WidgetList from "./WidgetList.vue";
 
 const props = defineProps<WidgetModes<SongEntry>>();
 
 const { t } = useI18n();
-const mode = ref<WidgetMode>("latest");
+
+/** Modes this widget offers (shared with the toggle and the persisted mode). */
+const modes: WidgetMode[] = ["latest", "popular", "random"];
+
+/** Active mode — restored from localStorage, defaulting to latest. */
+const mode = useWidgetMode("songs", "latest", modes);
 
 /** The active mode's raw set, falling back to `latest` if a mode's set is absent. */
 const active = computed(() => props[mode.value] ?? props.latest);
@@ -46,7 +52,7 @@ const emptyText = computed(() =>
     <widget :refresh="'songs'">
         <template #title>
             {{ t("music.widgets.songs") }}
-            <widget-mode-toggle v-model="mode" name="songs-mode" :modes="['latest', 'popular', 'random']" popular-by="plays" />
+            <widget-mode-toggle v-model="mode" name="songs-mode" :modes="modes" popular-by="plays" />
         </template>
         <widget-list :items="items" :empty-text="emptyText" />
         <template #footer>
