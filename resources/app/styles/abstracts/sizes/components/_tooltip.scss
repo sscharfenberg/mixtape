@@ -1,0 +1,16 @@
+/******************************************************************************
+ * contextual size tokens — component:tooltip
+ * @type {Sass}
+ * The floating hint's padding, corner, cap width and its offset from the anchor
+ * (`gap`, applied as the tip's margin so it doesn't touch the trigger).
+ * Consumed as s.$c-tooltip via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$tooltip: (
+    "padding": 0.35rem 0.6rem,
+    "radius": map.get(s.$radius, "base"),
+    "max-width": 22ch,
+    "gap": 0.35rem
+) !default;

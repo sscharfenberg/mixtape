@@ -1,0 +1,11 @@
+/******************************************************************************
+ * contextual timing token — component:tooltip
+ * @type {Sass}
+ * the tip's fade-in/out (and top-layer discrete transitions) speed — quick, so
+ * the hint feels instant once the hover-intent delay has elapsed. consumed as
+ * ti.$c-tooltip via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$tooltip: map.get(ti.$timings, "fast") !default;
