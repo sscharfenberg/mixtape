@@ -213,6 +213,8 @@
         },
         "empty": "Noch keine Einträge",
         "notEnoughData": "Noch nicht genug Daten",
+        "refresh": "Aktualisieren",
+        "reloadServerData": "Server-Daten neu laden",
         "seeAll": "Alle anzeigen"
     }
 }

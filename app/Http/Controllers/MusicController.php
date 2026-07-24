@@ -33,11 +33,15 @@ class MusicController extends Controller
      */
     public function __invoke(): Response
     {
+        // Each widget's data is a closure so a partial reload (the footer's
+        // refresh button → router.reload({ only: ['artists'] })) re-runs ONLY
+        // that widget's query — reshuffling its `random` — instead of all four.
+        // Full page loads still evaluate every closure.
         return Inertia::render('Music/MusicPage', [
-            'albums' => $this->modes($this->albums(...)),
-            'artists' => $this->modes($this->artists(...), ['popular']),
-            'genres' => $this->modes($this->genres(...), ['popular']),
-            'songs' => $this->modes($this->songs(...), ['popular']),
+            'albums' => fn () => $this->modes($this->albums(...)),
+            'artists' => fn () => $this->modes($this->artists(...), ['popular']),
+            'genres' => fn () => $this->modes($this->genres(...), ['popular']),
+            'songs' => fn () => $this->modes($this->songs(...), ['popular']),
         ]);
     }
 

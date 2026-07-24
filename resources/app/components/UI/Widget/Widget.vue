@@ -4,13 +4,18 @@
  * A content card assembled from the WidgetTitle / WidgetBody / WidgetFooter
  * parts, used to lay out the browse pages. Slots: #title (optional header
  * strip), default (the body), #footer (optional). While `loading` is true a
- * WidgetLoader overlay covers the whole card. Drop several inside a WidgetGroup
- * for the responsive grid; set `wide` to span two of its columns (from the
- * landscape breakpoint up, where two tracks fit).
+ * WidgetLoader overlay covers the whole card. When `refresh` is set, the footer
+ * shows a refresh button; while its partial reload is in flight the body is
+ * swapped for a WidgetSkeleton (the footer emits `refreshing`), so the card
+ * shows placeholders until the fresh data lands. Drop several inside a
+ * WidgetGroup for the responsive grid; set `wide` to span two of its columns
+ * (from the landscape breakpoint up, where two tracks fit).
  *****************************************************************************/
+import { ref } from "vue";
 import WidgetBody from "./WidgetBody.vue";
 import WidgetFooter from "./WidgetFooter.vue";
 import WidgetLoader from "./WidgetLoader.vue";
+import WidgetSkeleton from "./WidgetSkeleton.vue";
 import WidgetTitle from "./WidgetTitle.vue";
 
 withDefaults(
@@ -19,19 +24,33 @@ withDefaults(
         loading?: boolean;
         /** Span two grid columns in a WidgetGroup (from the "landscape" breakpoint up, where two tracks fit). */
         wide?: boolean;
+        /** Inertia prop key for this widget's data; when set the footer shows a refresh button that partial-reloads it. */
+        refresh?: string;
     }>(),
     {
         loading: false,
         wide: false
     }
 );
+
+/** True while the footer's refresh partial-reload is in flight; swaps the body for the skeleton. */
+const refreshing = ref(false);
 </script>
 
 <template>
     <div class="widget" :class="{ 'widget--wide': wide }">
         <widget-title v-if="$slots.title"><slot name="title" /></widget-title>
-        <widget-body><slot /></widget-body>
-        <widget-footer v-if="$slots.footer"><slot name="footer" /></widget-footer>
+        <widget-body>
+            <widget-skeleton v-if="refreshing" :rows="4" />
+            <slot v-else />
+        </widget-body>
+        <widget-footer
+            v-if="$slots.footer || refresh"
+            :refresh="refresh"
+            @refreshing="refreshing = $event"
+        >
+            <slot name="footer" />
+        </widget-footer>
         <widget-loader v-if="loading" />
     </div>
 </template>

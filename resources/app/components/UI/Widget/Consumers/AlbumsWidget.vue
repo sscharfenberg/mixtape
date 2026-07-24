@@ -29,7 +29,7 @@ const items = computed(() =>
 </script>
 
 <template>
-    <widget>
+    <widget :refresh="'albums'">
         <template #title>
             {{ t("music.widgets.albums") }}
             <widget-mode-toggle v-model="mode" name="albums-mode" :modes="['latest', 'random']" />

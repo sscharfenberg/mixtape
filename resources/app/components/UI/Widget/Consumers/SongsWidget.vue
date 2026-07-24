@@ -43,7 +43,7 @@ const emptyText = computed(() =>
 </script>
 
 <template>
-    <widget>
+    <widget :refresh="'songs'">
         <template #title>
             {{ t("music.widgets.songs") }}
             <widget-mode-toggle v-model="mode" name="songs-mode" :modes="['latest', 'popular', 'random']" />

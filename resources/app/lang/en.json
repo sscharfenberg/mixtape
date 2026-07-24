@@ -213,6 +213,8 @@
         },
         "empty": "Nothing here yet",
         "notEnoughData": "Not enough data",
+        "refresh": "Refresh",
+        "reloadServerData": "Reload server data",
         "seeAll": "See all"
     }
 }
