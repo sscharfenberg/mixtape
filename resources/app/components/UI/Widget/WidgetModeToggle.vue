@@ -8,11 +8,11 @@
  * clickable segment. Only the checked segment carries brand colour (the
  * SiteMenuLinks current-link highlight) so it's unmistakable; the unselected
  * segments are muted grey. Each swaps its fill/icon on hover for feedback. The
- * icons carry no visible text, so each segment is wrapped in a Tooltip echoing
- * its aria-label on hover/focus — the input+label stay adjacent inside the
- * wrapper so the `input:checked/:focus + &` selectors keep matching. Two-way
- * binds the active mode via v-model; `name` groups the radios, so every toggle
- * on the page needs a unique one.
+ * icons carry no visible text, so each segment is wrapped in a Tooltip that
+ * briefly explains what the mode ranks by (see `tip`) — on hover/focus; the
+ * input+label stay adjacent inside the wrapper so the `input:checked/:focus + &`
+ * selectors keep matching. Two-way binds the active mode via v-model; `name`
+ * groups the radios, so every toggle on the page needs a unique one.
  *****************************************************************************/
 import { useI18n } from "vue-i18n";
 import Icon from "Components/UI/Icon.vue";
@@ -21,11 +21,13 @@ import type { WidgetMode } from "Types/music";
 
 const { t } = useI18n();
 
-defineProps<{
+const props = defineProps<{
     /** Unique radio-group name — distinct per widget so the page's toggles don't collide. */
     name: string;
     /** Modes to render as segments, left-to-right (e.g. `['latest','popular','random']`); a widget passes only the ones it supports. */
     modes: WidgetMode[];
+    /** What the "popular" segment ranks by — plays (songs) or total file duration (artists/genres) — so its tooltip can say which. */
+    popularBy?: "plays" | "duration";
 }>();
 
 const mode = defineModel<WidgetMode>({ required: true });
@@ -40,11 +42,21 @@ const ICONS: Record<WidgetMode, string> = {
     popular: "hot",
     random: "shuffle",
 };
+
+/**
+ * The explanatory tooltip text for a mode — a short phrase of what it ranks by,
+ * since the icon alone doesn't convey it. "popular" branches on `popularBy`
+ * because it means most-played for songs but most-minutes for artists/genres.
+ */
+const tip = (m: WidgetMode): string => {
+    if (m === "popular") return t(`music.mode.tip.popular_${props.popularBy ?? "plays"}`);
+    return t(`music.mode.tip.${m}`);
+};
 </script>
 
 <template>
     <span class="widget-mode-toggle" role="radiogroup" :aria-label="t('music.mode.label')">
-        <tooltip v-for="m in modes" :key="m" :text="t(`music.mode.${m}`)">
+        <tooltip v-for="m in modes" :key="m" :text="tip(m)">
             <input :id="`${name}-${m}`" v-model="mode" type="radio" :name="name" :value="m" />
             <label :for="`${name}-${m}`" class="widget-mode-toggle__item" :aria-label="t(`music.mode.${m}`)">
                 <icon :name="ICONS[m]" :size="2" />

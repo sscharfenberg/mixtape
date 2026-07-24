@@ -209,7 +209,13 @@
             "label": "Anzeige-Modus",
             "latest": "Neueste",
             "popular": "Beliebt",
-            "random": "Zufällig"
+            "random": "Zufällig",
+            "tip": {
+                "latest": "Neueste — neuester Dateizeitstempel",
+                "popular_duration": "Beliebt — meiste Minuten in der Sammlung",
+                "popular_plays": "Beliebt — am häufigsten gespielt",
+                "random": "Zufällig — zufällige Auswahl"
+            }
         },
         "empty": "Noch keine Einträge",
         "notEnoughData": "Noch nicht genug Daten",

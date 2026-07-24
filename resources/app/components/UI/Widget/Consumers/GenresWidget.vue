@@ -28,7 +28,7 @@ const items = computed(() => props[mode.value] ?? props.latest);
     <widget :refresh="'genres'">
         <template #title>
             {{ t("music.widgets.genres") }}
-            <widget-mode-toggle v-model="mode" name="genres-mode" :modes="['latest', 'popular', 'random']" />
+            <widget-mode-toggle v-model="mode" name="genres-mode" :modes="['latest', 'popular', 'random']" popular-by="duration" />
         </template>
         <widget-list :items="items" />
         <template #footer>

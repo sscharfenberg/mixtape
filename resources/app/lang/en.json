@@ -209,7 +209,13 @@
             "label": "Display mode",
             "latest": "Latest",
             "popular": "Popular",
-            "random": "Random"
+            "random": "Random",
+            "tip": {
+                "latest": "Latest — newest file timestamp",
+                "popular_duration": "Popular — most minutes in the collection",
+                "popular_plays": "Popular — most played",
+                "random": "Random — a shuffled selection"
+            }
         },
         "empty": "Nothing here yet",
         "notEnoughData": "Not enough data",
