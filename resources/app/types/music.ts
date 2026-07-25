@@ -42,3 +42,22 @@ export interface TaxonomyEntry {
     id: string;
     name: string;
 }
+
+/**
+ * Collection totals for the stats widget (music only). Raw numbers — the widget
+ * formats `sizeBytes` (→ GB) and `playtimeSeconds` (→ months/days/…) for display.
+ */
+export interface CollectionStats {
+    /** Number of music files (music-type tracks). */
+    songs: number;
+    /** Combined size of all music files, in bytes. */
+    sizeBytes: number;
+    /** Combined duration of all music files, in seconds. */
+    playtimeSeconds: number;
+    /** Number of music albums. */
+    albums: number;
+    /** Number of artists with at least one track. */
+    artists: number;
+    /** Number of genres with at least one track. */
+    genres: number;
+}

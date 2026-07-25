@@ -19,5 +19,8 @@ $widget: (
     "skeleton-bar": 0.9rem,
     "skeleton-gap": 0.6rem,
     "skeleton-radius": map.get(s.$radius, "base"),
-    "title-font-size": 1.3rem
+    "title-font-size": 1.3rem,
+    // cells within a widget
+    "cell-radius": map.get(s.$radius, "base"),
+    "cell-padding": 0.5rem
 ) !default;

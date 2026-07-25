@@ -26,6 +26,8 @@ withDefaults(
         wide?: boolean;
         /** Inertia prop key for this widget's data; when set the footer shows a refresh button that partial-reloads it. */
         refresh?: string;
+        /** Centre the body content vertically within its band (it stays full-width) — for a body shorter than the row's tallest card. */
+        centered?: boolean;
     }>(),
     {
         loading: false,
@@ -40,7 +42,7 @@ const refreshing = ref(false);
 <template>
     <div class="widget" :class="{ 'widget--wide': wide }">
         <widget-title v-if="$slots.title"><slot name="title" /></widget-title>
-        <widget-body>
+        <widget-body :centered="centered">
             <widget-skeleton v-if="refreshing" :rows="4" />
             <slot v-else />
         </widget-body>

@@ -41,6 +41,10 @@ class MusicPageTest extends TestCase
                 ->has('genres.popular')
                 // …never for albums (the owner scoped it out).
                 ->missing('albums.popular')
+                // the stats widget's collection totals.
+                ->has('stats', fn (Assert $stats) => $stats->hasAll([
+                    'songs', 'sizeBytes', 'playtimeSeconds', 'albums', 'artists', 'genres',
+                ]))
             );
     }
 
@@ -132,5 +136,23 @@ class MusicPageTest extends TestCase
         $this->actingAs(User::factory()->create())
             ->get('/music')
             ->assertInertia(fn (Assert $page) => $page->where('artists.popular.0.name', 'Long Artist'));
+    }
+
+    public function test_stats_count_music_only(): void
+    {
+        // Three music files (each mints its own album/artist/genre) plus one
+        // audiobook chapter, which must NOT count toward the music stats.
+        Track::factory()->count(3)->create(['size' => 1000]);
+        Track::factory()->audiobook()->create(['size' => 999999]);
+
+        $this->actingAs(User::factory()->create())
+            ->get('/music')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('stats.songs', 3)
+                ->where('stats.sizeBytes', 3000) // audiobook's size excluded
+                ->where('stats.albums', 3)
+                ->where('stats.artists', 3)
+                ->where('stats.genres', 3)
+            );
     }
 }

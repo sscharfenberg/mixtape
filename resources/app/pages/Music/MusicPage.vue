@@ -2,12 +2,13 @@
 /******************************************************************************
  * MusicPage
  * The Music browse area (/music, route `music`, behind auth; linked from the
- * header site menu). Lays out four browse widgets — Albums, Artists, Genres,
- * Songs — in a WidgetGroup; each toggles between latest, random and (for
- * artists/genres/songs) a "popular" set. The data arrives as Inertia props from
- * MusicController; each widget's full mode set is forwarded with `v-bind` (not
- * key-by-key) so a widget always receives every mode it supports — omitting a
- * key here silently drops that mode to the `latest` fallback in the widget.
+ * header site menu). Lays out a wide collection-stats widget plus four browse
+ * widgets — Albums, Artists, Genres, Songs — in a WidgetGroup; each browse
+ * widget toggles between latest, random and (for artists/genres/songs) a
+ * "popular" set. The data arrives as Inertia props from MusicController; each
+ * browse widget's full mode set is forwarded with `v-bind` (not key-by-key) so a
+ * widget always receives every mode it supports — omitting a key here silently
+ * drops that mode to the `latest` fallback in the widget.
  *****************************************************************************/
 import { Head } from "@inertiajs/vue3";
 import { useI18n } from "vue-i18n";
@@ -18,8 +19,9 @@ import AlbumsWidget from "Components/UI/Widget/Consumers/AlbumsWidget.vue";
 import ArtistsWidget from "Components/UI/Widget/Consumers/ArtistsWidget.vue";
 import GenresWidget from "Components/UI/Widget/Consumers/GenresWidget.vue";
 import SongsWidget from "Components/UI/Widget/Consumers/SongsWidget.vue";
+import StatsWidget from "Components/UI/Widget/Consumers/StatsWidget.vue";
 import WidgetGroup from "Components/UI/Widget/WidgetGroup.vue";
-import type { AlbumEntry, SongEntry, TaxonomyEntry, WidgetModes } from "Types/music";
+import type { AlbumEntry, CollectionStats, SongEntry, TaxonomyEntry, WidgetModes } from "Types/music";
 
 const { t } = useI18n();
 
@@ -28,6 +30,7 @@ defineProps<{
     artists: WidgetModes<TaxonomyEntry>;
     genres: WidgetModes<TaxonomyEntry>;
     songs: WidgetModes<SongEntry>;
+    stats: CollectionStats;
 }>();
 </script>
 
@@ -40,6 +43,7 @@ defineProps<{
 
     <container>
         <widget-group>
+            <stats-widget v-bind="stats" />
             <albums-widget v-bind="albums" />
             <artists-widget v-bind="artists" />
             <genres-widget v-bind="genres" />

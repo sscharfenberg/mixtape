@@ -29,7 +29,8 @@ class MusicController extends Controller
     /**
      * Render the Music browse page. Albums get latest/random only; songs,
      * artists and genres also get a "popular" set (songs by plays, the two
-     * taxonomies by total file duration).
+     * taxonomies by total file duration). `stats` carries the collection totals
+     * for the stats widget.
      */
     public function __invoke(): Response
     {
@@ -42,7 +43,31 @@ class MusicController extends Controller
             'artists' => fn () => $this->modes($this->artists(...), ['popular']),
             'genres' => fn () => $this->modes($this->genres(...), ['popular']),
             'songs' => fn () => $this->modes($this->songs(...), ['popular']),
+            'stats' => fn () => $this->stats(),
         ]);
+    }
+
+    /**
+     * Collection totals for the stats widget — music only, matching the browse
+     * widgets (artists/genres restricted to those with tracks, like their lists).
+     * Raw numbers only; the frontend formats size (bytes → GB) and playtime
+     * (seconds → months/days/…). `size`/`duration` are cast so a null SUM on an
+     * empty library becomes 0 rather than null.
+     *
+     * @return array{songs: int, sizeBytes: int, playtimeSeconds: float, albums: int, artists: int, genres: int}
+     */
+    private function stats(): array
+    {
+        $music = fn () => Track::query()->where('type', TrackType::Music);
+
+        return [
+            'songs' => $music()->count(),
+            'sizeBytes' => (int) $music()->sum('size'),
+            'playtimeSeconds' => (float) $music()->sum('duration'),
+            'albums' => Collection::query()->where('type', CollectionType::Album)->count(),
+            'artists' => Artist::query()->has('tracks')->count(),
+            'genres' => Genre::query()->has('tracks')->count(),
+        ];
     }
 
     /**

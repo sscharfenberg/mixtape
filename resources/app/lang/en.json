@@ -1,5 +1,12 @@
 {
     "common": {
+        "duration": {
+            "months": "{n} month | {n} months",
+            "days": "{n} day | {n} days",
+            "hours": "{n} hour | {n} hours",
+            "minutes": "{n} minute | {n} minutes",
+            "seconds": "{n} second | {n} seconds"
+        },
         "close": "Close",
         "show": "Show",
         "hide": "Hide",
@@ -203,7 +210,8 @@
             "albums": "Albums",
             "artists": "Artists",
             "genres": "Genres",
-            "songs": "Songs"
+            "songs": "Songs",
+            "stats": "Statistics"
         },
         "mode": {
             "label": "Display mode",
@@ -215,6 +223,24 @@
                 "popular_duration": "Popular — most minutes in the collection",
                 "popular_plays": "Popular — most played",
                 "random": "Random — a shuffled selection"
+            }
+        },
+        "stats": {
+            "label": {
+                "songs": "Songs",
+                "size": "File size",
+                "playtime": "Playtime",
+                "albums": "Albums",
+                "artists": "Artists",
+                "genres": "Genres"
+            },
+            "hint": {
+                "songs": "Number of music files in the collection",
+                "size": "Combined size of all music files on disk",
+                "playtime": "Combined duration of all music files",
+                "albums": "Number of music albums",
+                "artists": "Number of artists with at least one track",
+                "genres": "Number of genres with at least one track"
             }
         },
         "empty": "Nothing here yet",
