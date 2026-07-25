@@ -1,0 +1,329 @@
+# DataTable Component
+
+A server-driven, accessible data table for paginated, sortable, searchable data.
+Built for Inertia.js — the **server owns the state**, the component renders it and
+emits changes via `router.get()`. Ported from cantrip.me and adapted to mixtape's
+conventions (styles-in-component, `v-model` Checkbox, the `Select` page-size
+picker, the `sr-only` utility, `components.datatable.*` i18n).
+
+## Quick Start
+
+```vue
+<script setup lang="ts">
+import DataTable from "Components/DataTable/DataTable.vue";
+import type { ColumnDef, TableResponse } from "Types/dataTable";
+
+interface SongRow {
+    id: string;
+    name: string;
+    artist: string | null;
+    duration: string | null;
+}
+
+defineProps<{
+    table: TableResponse<SongRow>;
+}>();
+
+const columns: ColumnDef<SongRow>[] = [
+    { key: "name", label: "Title", sortable: true, visibleInCard: true, cardPrimary: true },
+    { key: "artist", label: "Artist", sortable: true, visibleInCard: true },
+    { key: "duration", label: "Duration", sortable: true, align: "right" }
+];
+</script>
+
+<template>
+    <data-table :columns="columns" :response="table" base-url="/music/songs" :has-actions="false">
+        <template #empty>
+            <p>{{ t("music.empty") }}</p>
+        </template>
+    </data-table>
+</template>
+```
+
+## Props
+
+| Prop         | Type               | Default | Description                                                                                    |
+| ------------ | ------------------ | ------- | ---------------------------------------------------------------------------------------------- |
+| `columns`    | `ColumnDef<T>[]`   | —       | Column definitions (see below).                                                                |
+| `response`   | `TableResponse<T>` | —       | Server response containing rows, pagination, sort, and search state.                           |
+| `selectable` | `boolean`          | `false` | Enable row-selection checkboxes.                                                               |
+| `hasActions` | `boolean`          | `true`  | Render the per-row actions column (header + three-dot button + popover). Pass `false` for read-only tables so non-owners don't see an empty column. |
+| `baseUrl`    | `string`           | `""`    | Base path for Inertia navigation. Falls back to `window.location.pathname`.                    |
+
+## Slots
+
+| Slot               | Scope                       | Description                                                                       |
+| ------------------ | --------------------------- | --------------------------------------------------------------------------------- |
+| `#header-{key}`    | `{ column: ColumnDef<T> }`  | Custom header content for a column. Fallback: `column.label` as text.             |
+| `#cell-{key}`      | `{ row: T }`                | Custom renderer for a column. Fallback: raw `row[key]` as text.                   |
+| `#actions`         | `{ row: T, close: () => void }` | Row-action popover content (only when `hasActions`). Render as `<li>` items.  |
+| `#toolbar-actions` | `{ selectedIds: string[] }` | Toolbar buttons (e.g. bulk actions). Only rendered when the slot is provided.      |
+| `#empty`           | —                           | Content shown when `rows` is empty and not loading.                               |
+
+### Header Slots
+
+Columns without a matching `#header-{key}` slot render the `label` as text.
+Columns with a slot get full control:
+
+```vue
+<template #header-created_at>
+    <icon name="recent" :size="1" />
+</template>
+```
+
+When a header slot replaces the text label, the sort button automatically gets an
+`aria-label` set to the column's `label` so the header stays accessible.
+
+### Cell Slots
+
+Columns without a matching `#cell-{key}` slot render the raw value as text.
+Cell slots render in **both** the desktop table and the mobile card layout — write
+them once:
+
+```vue
+<template #cell-duration="{ row }">
+    <strong>{{ row.duration }}</strong>
+</template>
+```
+
+### Row Actions
+
+The `#actions` slot renders inside a **shared** popover (one instance for the whole
+table, not per-row), and only when `hasActions` is `true`. Use the app's popover
+classes; the slot's `close` dismisses the popover for in-place actions that don't
+navigate:
+
+```vue
+<template #actions="{ row, close }">
+    <li><button class="popover-list-item" @click="edit(row)">Edit</button></li>
+    <li><button class="popover-list-item popover-list-item--caution" @click="() => { remove(row); close(); }">Delete</button></li>
+</template>
+```
+
+### Toolbar Actions
+
+Shown next to the search input. The slot exposes `selectedIds` for bulk actions
+(requires `selectable`):
+
+```vue
+<template #toolbar-actions="{ selectedIds }">
+    <button v-if="selectedIds.length > 0" @click="move(selectedIds)">Move {{ selectedIds.length }}</button>
+</template>
+```
+
+## Column Definition
+
+```ts
+interface ColumnDef<T extends { id: string }> {
+    key: keyof T & string; // field name in row data — type-safe
+    label: string; // display label (pass an already-translated string)
+    sortable?: boolean; // default false
+    width?: string; // CSS value, default 'auto'
+    align?: "left" | "center" | "right"; // default 'left'
+    visibleInCard?: boolean; // show in mobile card layout, default false
+    cardPrimary?: boolean; // main column at the top of the card, first wins
+    cellClass?: string; // extra CSS class(es) for the <td>
+}
+```
+
+## Server Response Contract
+
+The server must return this shape as an Inertia prop:
+
+```ts
+interface TableResponse<T> {
+    rows: T[]; // current page of data
+    total: number; // total row count across all pages
+    page: number; // current page (1-based)
+    pageSize: number | null; // null = no pagination
+    sort: { key: string; direction: "asc" | "desc" } | null;
+    search: string | null;
+    filters: Record<string, string | string[]> | null; // reserved; currently always null
+}
+```
+
+Every row object **must** have an `id: string` field (UUID). Rows may optionally
+carry an `href: string` — when present the row/card becomes clickable and navigates
+to it (`router.visit`).
+
+## URL State
+
+Sort, pagination, and search live in URL query parameters for bookmarkability:
+
+```
+?sort=name&dir=asc&page=2&pageSize=25&search=Lightning
+```
+
+The component reads initial state from the `response` prop (the server is the
+source of truth) and emits changes via `router.get()` with `preserveState` and
+`preserveScroll`. Existing query params are preserved across navigations (changing
+page keeps the current sort and pageSize).
+
+## Server Implementation (Laravel)
+
+`App\Services\DataTableService::buildResponse()` handles sort/search/pagination in
+the controller. This is the real Music → Songs listing:
+
+```php
+use App\Enums\TrackType;
+use App\Services\DataTableService;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
+
+public function __invoke(Request $request): Response
+{
+    $query = Track::query()
+        ->where('tracks.type', TrackType::Music)
+        ->leftJoin('artists', 'tracks.artist_id', '=', 'artists.id')
+        ->leftJoin('collections', 'tracks.collection_id', '=', 'collections.id')
+        ->leftJoin('genres', 'tracks.genre_id', '=', 'genres.id')
+        ->select([
+            'tracks.id', 'tracks.name', 'tracks.duration',
+            'artists.name as artist_name',
+            'collections.name as album_name',
+            'genres.name as genre_name',
+        ]);
+
+    $table = DataTableService::buildResponse(
+        query: $query,
+        request: $request,
+        sortable: ['name', 'artist', 'album', 'genre', 'duration'],  // whitelist of sort keys
+        sortColumnMap: [                                              // sort key → real DB column
+            'name' => 'tracks.name',
+            'artist' => 'artists.name',
+            'album' => 'collections.name',
+            'genre' => 'genres.name',
+            'duration' => 'tracks.duration',
+        ],
+        defaultSort: 'name',
+        searchCallback: function (Builder $q, string $search): void {   // null to disable search
+            $like = '%'.$search.'%';
+            $q->where(function (Builder $q) use ($like): void {
+                $q->whereRaw('tracks.name COLLATE "C" ILIKE ?', [$like])
+                    ->orWhereRaw('artists.name COLLATE "C" ILIKE ?', [$like])
+                    ->orWhereRaw('collections.name COLLATE "C" ILIKE ?', [$like])
+                    ->orWhereRaw('genres.name COLLATE "C" ILIKE ?', [$like]);
+            });
+        },
+        rowMapper: fn (Track $song): array => [                         // model → plain row array
+            'id' => $song->id,
+            'name' => $song->name,
+            'artist' => $song->artist_name,
+            'album' => $song->album_name,
+            'genre' => $song->genre_name,
+            'duration' => $song->duration,
+        ],
+    );
+
+    return Inertia::render('Music/Songs/SongsPage', ['table' => $table]);
+}
+```
+
+`DataTableService` validates the sort key against the whitelist (falling back to
+`defaultSort`), the direction (`asc`/`desc`), and the page size (25/50/100), maps
+the sort key to its real column, applies the search callback, paginates, and shapes
+the `TableResponse`.
+
+> **Postgres + ICU collation gotcha.** The taxonomy `name` columns
+> (`artists`/`genres`/`collections`) carry the case-insensitive, **nondeterministic**
+> ICU collation, and Postgres **forbids `LIKE`/`ILIKE`** on those ("nondeterministic
+> collations are not supported for ILIKE"). Pin each match to the deterministic
+> `"C"` collation (`<col> COLLATE "C" ILIKE ?`) so it's legal — it case-folds ASCII,
+> which is enough for now. `tracks.name` is default-collated so plain ILIKE would
+> work there. `ORDER BY` is unaffected (only LIKE is restricted). The proper
+> accent-aware substring search via `pg_trgm` is deferred.
+
+## Styling & contextual design tokens
+
+Unlike most mixtape components (whose appearance lives in global `styles/components/`
+classes), **all of the DataTable's styling lives inside each `.vue` file's scoped
+`<style lang="scss">` block** — the sub-components are internal, so their styles
+travel with them. To port the component you must also create its **contextual
+tokens** (one partial per token group, `@forward`ed from that group's
+`components/_index.scss`, consumed as `*.$c-datatable`):
+
+| File                                           | Consumed as     | Holds                                                                                               |
+| ---------------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------- |
+| `colors/components/_datatable.scss`            | `c.$c-datatable`| A nested map: `border`, `overlay` (loading scrim), `th{background,surface,background-stuck,surface-stuck}`, `td{background{odd,even},surface}`, `pagination{border,background,surface,page{…},page-hover{…},page-current{…}}`, `cards{background,border,surface}`. |
+| `sizes/components/_datatable.scss`             | `s.$c-datatable`| `breakpoint` (the `desktop` step), `border` (`base`), `radius` (`featured`), `padding.{th,td}`, `pagination.{…,page.{…},jump.{…}}`, `cards.{min-width,padding,gap,border,radius}`. |
+| `timings/components/_datatable.scss`           | `ti.$c-datatable`| The pagination page-button hover duration (`fast`).                                               |
+
+Two rules apply (see `styles/abstracts/README.md`):
+
+- **Colours are picked from the global palette, never minted.** Greys use an
+  opacity-only `color.adjust($alpha: …)` (so the striped rows/header let the page
+  bleed through); the accent states (stuck header, current page) pick the shared
+  `$brand` pairs. Black/white come from `$grey`, not raw hex.
+- **Every `transition` is wrapped in `@media (prefers-reduced-motion: no-preference)`**
+  and its duration comes from `ti.$c-datatable`, never a raw `ms`.
+
+The **sticky header** reuses the existing `z.$c-main` z-index rung — no new
+z-index token. The component also depends on the **`sr-only`** utility (in
+`styles/layout/_base.scss`), the global **`popover-*`** classes (row-action popover
++ three-dot button), and the **`Select`** component for the page-size picker (which
+carries its own `*.$c-select` token set — see `Components/Form/Select/Select.vue`).
+
+## Sub-Components
+
+All live in `Components/DataTable/`. The parent only imports `DataTable.vue`; the
+rest are internal.
+
+| Component               | Responsibility                                                                                                         |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **DataTable.vue**       | Orchestrator: selection state (provide/inject), slot forwarding, Inertia navigation, loading overlay, aria-live, sticky detection. |
+| **DataTableToolbar**    | Search input (600ms debounce), selection-count badge, `#toolbar-actions` slot.                                         |
+| **DataTableHead**       | Sticky `<thead>` with sort buttons, `aria-sort`, three-state select-all checkbox.                                      |
+| **DataTableBody**       | `<tbody>` with cell-slot rendering, row selection, clickable rows, three-dot action button.                            |
+| **DataTableCards**      | Mobile card layout via a container query. Renders `visibleInCard` columns.                                             |
+| **DataTablePagination** | First/prev/next/last, windowed page numbers with ellipsis, jump-to-page, "from–to / total", and a page-size `Select`.  |
+| **DataTableActions**    | Shared row-action popover (one instance, repositioned per click) via CSS anchor positioning + the `popover-content` classes. |
+
+## Responsive Behavior
+
+The component uses CSS **container queries** (not media queries), so it adapts to
+its own width, not the viewport, via the `cq` mixin at the `desktop` breakpoint
+(**1024px** container width). Both the `<table>` and the card grid are always in the
+DOM; `display` toggles which shows. With ≤100 rows per page the DOM duplication is
+negligible.
+
+In the card layout: only `visibleInCard` columns show, the `cardPrimary` column is
+the card heading, and cell slots render identically to the table.
+
+## Selection
+
+When `selectable` is enabled:
+
+- Each row gets a checkbox (mixtape's `Checkbox`, bound via `v-model`).
+- The header checkbox is three-state: unchecked (none) / checked (all on page) /
+  indeterminate (some).
+- Selection **persists across page changes** (IDs in component state) and **clears
+  on sort / search / filter changes**.
+- Selected IDs are exposed via `#toolbar-actions` and via provide/inject
+  (`DATA_TABLE_KEY`).
+
+## Accessibility
+
+- Semantic `<table>`/`<thead>`/`<tbody>`/`<th>`/`<td>`.
+- Sort headers are `<button>`s with `aria-sort`.
+- `aria-busy="true"` on the table during Inertia navigation.
+- An `aria-live="polite"` (`sr-only`) region announces sort and page changes.
+- The row-action popover returns focus to the three-dot button on close.
+- All interactive controls have `aria-label`s from `components.datatable.*` i18n keys.
+
+## Sticky Header
+
+Column headers stick via `position: sticky`. Set the custom property
+`--datatable-sticky-offset` on a parent to account for a fixed site header:
+
+```css
+.my-layout {
+    --datatable-sticky-offset: 64px;
+}
+```
+
+Default offset is `0`.
+
+## i18n
+
+All UI text uses keys under `components.datatable.*` (both `de.json` and `en.json`).
+Column labels are passed as already-translated strings via `ColumnDef.label`.
