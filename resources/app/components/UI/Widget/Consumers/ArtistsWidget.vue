@@ -10,6 +10,7 @@
 import { Link } from "@inertiajs/vue3";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import Icon from "Components/UI/Icon.vue";
 import Widget from "Components/UI/Widget/Widget.vue";
 import WidgetModeToggle from "Components/UI/Widget/WidgetModeToggle.vue";
 import { useWidgetMode } from "Composables/useWidgetMode";
@@ -33,6 +34,7 @@ const items = computed(() => props[mode.value] ?? props.latest);
 <template>
     <widget :refresh="'artists'">
         <template #title>
+            <icon name="artist" />
             {{ t("music.widgets.artists") }}
             <widget-mode-toggle v-model="mode" name="artists-mode" :modes="modes" popular-by="duration" />
         </template>

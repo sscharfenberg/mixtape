@@ -8,6 +8,7 @@
 import { Link } from "@inertiajs/vue3";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import Icon from "Components/UI/Icon.vue";
 import Widget from "Components/UI/Widget/Widget.vue";
 import WidgetModeToggle from "Components/UI/Widget/WidgetModeToggle.vue";
 import { useWidgetMode } from "Composables/useWidgetMode";
@@ -26,7 +27,7 @@ const mode = useWidgetMode("albums", "latest", modes);
 
 /** Active-mode albums mapped to the shared list shape (meta = "artist · year"). Falls back to `latest` if a mode's set is absent. */
 const items = computed(() =>
-    (props[mode.value] ?? props.latest).map((album) => ({
+    (props[mode.value] ?? props.latest).map(album => ({
         id: album.id,
         name: album.name,
         meta: [album.artist, album.year].filter(Boolean).join(" · ") || null
@@ -37,6 +38,7 @@ const items = computed(() =>
 <template>
     <widget :refresh="'albums'">
         <template #title>
+            <icon name="album" />
             {{ t("music.widgets.albums") }}
             <widget-mode-toggle v-model="mode" name="albums-mode" :modes="modes" />
         </template>

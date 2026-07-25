@@ -10,6 +10,7 @@
 import { Link } from "@inertiajs/vue3";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import Icon from "Components/UI/Icon.vue";
 import Widget from "Components/UI/Widget/Widget.vue";
 import WidgetModeToggle from "Components/UI/Widget/WidgetModeToggle.vue";
 import { useWidgetMode } from "Composables/useWidgetMode";
@@ -31,7 +32,7 @@ const active = computed(() => props[mode.value] ?? props.latest);
 
 /** Active-mode songs mapped to the shared list shape (meta = performing artist). */
 const items = computed(() =>
-    active.value.map((song) => ({
+    active.value.map(song => ({
         id: song.id,
         name: song.name,
         meta: song.artist
@@ -51,6 +52,7 @@ const emptyText = computed(() =>
 <template>
     <widget :refresh="'songs'">
         <template #title>
+            <icon name="song" />
             {{ t("music.widgets.songs") }}
             <widget-mode-toggle v-model="mode" name="songs-mode" :modes="modes" popular-by="plays" />
         </template>
