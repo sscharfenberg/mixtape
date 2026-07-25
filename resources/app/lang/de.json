@@ -243,6 +243,13 @@
                 "genres": "Anzahl der Genres mit mindestens einem Titel"
             }
         },
+        "columns": {
+            "title": "Titel",
+            "artist": "Künstler",
+            "album": "Album",
+            "genre": "Genre",
+            "duration": "Dauer"
+        },
         "empty": "Noch keine Einträge",
         "notEnoughData": "Noch nicht genug Daten",
         "refresh": "Aktualisieren",

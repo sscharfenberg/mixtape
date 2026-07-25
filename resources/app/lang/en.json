@@ -243,6 +243,13 @@
                 "genres": "Number of genres with at least one track"
             }
         },
+        "columns": {
+            "title": "Title",
+            "artist": "Artist",
+            "album": "Album",
+            "genre": "Genre",
+            "duration": "Duration"
+        },
         "empty": "Nothing here yet",
         "notEnoughData": "Not enough data",
         "refresh": "Refresh",
