@@ -34,6 +34,11 @@ main {
     position: relative;
     z-index: z.$c-main;
 
+    // Any DataTable on any page pins its sticky header just below the app header
+    // (which publishes its live height as --app-header-height, like StickyNav),
+    // instead of behind it. Consumed by .dt-head's `top`; set here once, app-wide.
+    --datatable-sticky-offset: var(--app-header-height);
+
     width: 100%;
     min-height: 20rem;
     margin: 2lh auto;

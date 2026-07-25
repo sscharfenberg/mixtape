@@ -225,10 +225,14 @@ const isStuck = ref(false);
 let observer: IntersectionObserver | null = null;
 onMounted(() => {
     if (!stickysentinel.value) return;
-    const offset = getComputedStyle(stickysentinel.value.closest(".dt")!)
-        .getPropertyValue("--datatable-sticky-offset")
-        .trim();
-    const margin = offset ? `-${offset} 0px 0px 0px` : "0px";
+    // Resolve the sticky offset to a px length for the rootMargin. The head's
+    // `top` is `var(--datatable-sticky-offset, 0)`, which may itself resolve to
+    // another custom property (the app sets it to var(--app-header-height)); the
+    // head's COMPUTED `top` gives the final px, whereas reading the custom
+    // property returns the unresolved `var(...)` string (an invalid rootMargin).
+    const head = stickysentinel.value.closest(".dt")?.querySelector(".dt-head");
+    const offsetPx = head ? parseFloat(getComputedStyle(head).top) || 0 : 0;
+    const margin = offsetPx ? `-${offsetPx}px 0px 0px 0px` : "0px";
     observer = new IntersectionObserver(
         ([entry]) => {
             isStuck.value = !entry.isIntersecting;
