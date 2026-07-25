@@ -118,7 +118,7 @@ function onTypeChange(event: Event): void {
         </form-row>
 
         <form-row>
-            <Button variant="primary" type="submit" :disabled="processing">
+            <Button variant="default" type="submit" :disabled="processing">
                 <icon name="save" :size="1" />
                 <span>{{ processing ? t("auth.forgot.submitting") : t("auth.forgot.submit") }}</span>
             </Button>

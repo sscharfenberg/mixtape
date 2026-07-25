@@ -7,10 +7,10 @@
  * from Kevin Powell's "Neon button with CSS" (codepen QWdRzON), recoloured from
  * his neon pink to the retro / synthwave cyan.
  *
- * Two mirrored looks: `btn-primary` rests UNLIT (a glowing outline over a solid
- * neutral body) and lights up to the solid FILL on hover / keyboard focus;
- * `btn-default` is the inverse (lit at rest, dims to the outline). Values come
- * from the contextual tokens (c/s/ti.$c-button); the neon glow spreads are
+ * Two mirrored looks: `btn-primary` rests LIT (the solid neon FILL) and dims to
+ * the glowing outline on hover / keyboard focus; `btn-default` is the inverse (an
+ * unlit outline over a solid neutral body at rest, lighting up to the FILL). Values
+ * come from the contextual tokens (c/s/ti.$c-button); the neon glow spreads are
  * em-based, so they scale with the element's font size.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
@@ -145,24 +145,25 @@
     }
 }
 
-// primary: unlit at rest, lights up on hover / focus (the original pen).
+// primary: lit at rest (the solid fill), dims to the outline on hover / focus.
 .btn-primary {
-    @include neon-outline;
-
-    background-color: map.get(c.$c-button, "background-primary");
-
-    &:not([disabled]):hover,
-    &:not([disabled]):focus-visible {
-        @include neon-fill;
-    }
-}
-
-// default: the mirror image — lit at rest, dims to the outline on hover / focus.
-.btn-default {
     @include neon-fill;
 
     &:not([disabled]):hover,
     &:not([disabled]):focus-visible {
         @include neon-outline;
+    }
+}
+
+// default: the mirror image (the original pen) — an unlit outline over a solid
+// neutral body at rest, lighting up to the fill on hover / focus.
+.btn-default {
+    @include neon-outline;
+
+    background-color: map.get(c.$c-button, "background-default");
+
+    &:not([disabled]):hover,
+    &:not([disabled]):focus-visible {
+        @include neon-fill;
     }
 }

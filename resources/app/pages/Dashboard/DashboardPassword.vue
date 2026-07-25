@@ -183,7 +183,7 @@ function resetForm(): void {
         </form-row>
 
         <form-row>
-            <Button variant="default" type="submit" :disabled="processing">
+            <Button variant="primary" type="submit" :disabled="processing">
                 <icon name="save" :size="1" />
                 <span>{{ processing ? t("dashboard.password.submitting") : t("dashboard.password.submit") }}</span>
             </Button>

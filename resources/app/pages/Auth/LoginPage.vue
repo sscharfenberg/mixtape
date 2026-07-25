@@ -176,7 +176,7 @@ const submitLabel = computed(() => {
         </template>
 
         <form-row>
-            <Button variant="primary" type="submit" :disabled="processing">
+            <Button variant="default" type="submit" :disabled="processing">
                 <icon name="login" :size="1" />
                 <span>{{ submitLabel }}</span>
             </Button>

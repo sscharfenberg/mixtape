@@ -182,7 +182,7 @@ const { password, score, onPasswordChange } = usePasswordEntropy();
         <input type="hidden" name="code" :value="code" />
 
         <form-row>
-            <Button variant="primary" type="submit" :disabled="processing">
+            <Button variant="default" type="submit" :disabled="processing">
                 <icon name="register" :size="1" />
                 <span>{{ processing ? t("auth.register.submitting") : t("auth.register.submit") }}</span>
             </Button>

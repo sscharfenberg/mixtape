@@ -116,7 +116,7 @@ const onSubmit = (e: SubmitEvent): void => {
         </form-row>
 
         <form-row v-if="!isRecoveryCodesVisible">
-            <Button variant="default" type="submit" name="action" value="show" :disabled="processing">
+            <Button variant="primary" type="submit" name="action" value="show" :disabled="processing">
                 <icon name="visibility-on" :size="1" />
                 <span>{{ t("dashboard.twoFactor.recoveryCodes.show") }}</span>
             </Button>
@@ -128,7 +128,7 @@ const onSubmit = (e: SubmitEvent): void => {
             </form-row>
 
             <form-row>
-                <Button variant="default" type="submit" name="action" value="regenerate" :disabled="processing">
+                <Button variant="primary" type="submit" name="action" value="regenerate" :disabled="processing">
                     <icon name="key" :size="1" />
                     <span>{{ t("dashboard.twoFactor.recoveryCodes.regenerate") }}</span>
                 </Button>

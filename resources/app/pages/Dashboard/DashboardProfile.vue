@@ -105,7 +105,7 @@ const email = ref(user?.email ?? "");
         </form-row>
 
         <form-row>
-            <Button variant="default" type="submit" :disabled="processing">
+            <Button variant="primary" type="submit" :disabled="processing">
                 <icon name="save" :size="1" />
                 <span>{{ processing ? t("dashboard.profile.submitting") : t("dashboard.profile.submit") }}</span>
             </Button>

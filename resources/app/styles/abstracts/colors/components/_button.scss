@@ -7,9 +7,9 @@
  * value (a `c2` derivative brightened for dark / darkened for light so the label
  * clears 4.5:1 in every mode/state, and the same halo the inputs, checkbox and
  * popover use).
- * `contrast` is the label colour shown on the neon *fill* (btn-default at rest /
- * btn-primary on hover) — a deep synthwave indigo on the bright fill, white on
- * the darkened one. `background-primary` is the solid body btn-primary rests on
+ * `contrast` is the label colour shown on the neon *fill* (btn-primary at rest /
+ * btn-default on hover) — a deep synthwave indigo on the bright fill, white on
+ * the darkened one. `background-default` is the solid body btn-default rests on
  * (a neutral — mystic in light, ebony in dark) so its neon border / label / glow
  * read as a filled button instead of showing the surface behind. `*-disabled`
  * keep the old neutral, theme-aware treatment.
@@ -21,7 +21,7 @@
 $button: (
     "neon": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
     "contrast": light-dark(map.get(c.$grey, "white"), map.get(c.$retro, "c4", "dark")),
-    "background-primary": light-dark(map.get(c.$grey, "mystic"), map.get(c.$grey, "ebony")),
+    "background-default": light-dark(map.get(c.$grey, "mystic"), map.get(c.$grey, "ebony")),
     "background-disabled": light-dark(map.get(c.$grey, "infra"), map.get(c.$grey, "abbey")),
     "surface-disabled": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "fog"))
 ) !default;

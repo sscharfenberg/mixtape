@@ -10,11 +10,11 @@
  * leading <Icon>) go in the default slot.
  *
  * `variant` picks which of the two mirrored looks the button rests in:
- *   - "primary" rests UNLIT — a glowing neon outline with a transparent body —
- *     and lights up to the solid FILL on hover / keyboard focus (the original
- *     pen's behaviour).
- *   - "default" is the inverse: solid neon FILL at rest, dimming back to the
- *     outline on hover / focus.
+ *   - "primary" rests LIT — the solid neon FILL — and dims back to the glowing
+ *     outline on hover / keyboard focus.
+ *   - "default" is the inverse: a glowing neon outline over a solid neutral body
+ *     at rest, lighting up to the solid FILL on hover / focus (the original pen's
+ *     behaviour).
  * So a primary and a default button placed together read as opposites, and
  * either one's hover state is the other one's resting state.
  *
@@ -25,7 +25,7 @@
  *****************************************************************************/
 withDefaults(
     defineProps<{
-        /** Which mirrored look to rest in: "primary" unlit→fill, "default" fill→unlit. */
+        /** Which mirrored look to rest in: "primary" fill→outline, "default" outline→fill. */
         variant?: "primary" | "default";
     }>(),
     {

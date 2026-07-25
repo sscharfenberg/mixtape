@@ -94,7 +94,7 @@ const { t } = useI18n();
         </form-row>
 
         <form-row>
-            <Button variant="primary" type="submit" :disabled="processing">
+            <Button variant="default" type="submit" :disabled="processing">
                 <icon name="save" :size="1" />
                 <span>{{ processing ? t("auth.resend.submitting") : t("auth.resend.submit") }}</span>
             </Button>

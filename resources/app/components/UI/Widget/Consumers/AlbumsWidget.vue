@@ -42,7 +42,7 @@ const items = computed(() =>
         </template>
         <widget-list :items="items" />
         <template #footer>
-            <Link href="/music/albums" class="btn btn-default">{{ t("music.seeAll") }}</Link>
+            <Link href="/music/albums" class="btn btn-primary">{{ t("music.seeAll") }}</Link>
         </template>
     </widget>
 </template>

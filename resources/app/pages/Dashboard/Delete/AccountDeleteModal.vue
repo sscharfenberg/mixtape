@@ -74,7 +74,7 @@ function onSubmit(): void {
         </form>
 
         <template #footer>
-            <Button variant="primary" type="submit" form="account-delete-form" :disabled="processing || !password">
+            <Button variant="default" type="submit" form="account-delete-form" :disabled="processing || !password">
                 <icon name="delete" :size="1" />
                 <span>{{ t("dashboard.delete.modal.confirm") }}</span>
             </Button>

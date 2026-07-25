@@ -58,7 +58,7 @@ const showModal = ref(false);
         </form-legend>
 
         <form-row>
-            <Button variant="primary" type="submit">
+            <Button variant="default" type="submit">
                 <icon name="delete" :size="1" />
                 <span>{{ t("dashboard.delete.headline") }}</span>
             </Button>

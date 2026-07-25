@@ -158,16 +158,16 @@ const submitVerification = (): void => {
 
         <template #footer>
             <template v-if="!showVerificationStep">
-                <Button variant="primary" type="button" @click="handleModalNextStep">
+                <Button variant="default" type="button" @click="handleModalNextStep">
                     <span>{{ t("dashboard.twoFactor.modal.nextStep") }}</span>
                 </Button>
             </template>
             <template v-else>
-                <Button variant="default" type="button" :disabled="processing" @click="showVerificationStep = false">
+                <Button variant="primary" type="button" :disabled="processing" @click="showVerificationStep = false">
                     <span>{{ t("dashboard.twoFactor.modal.back") }}</span>
                 </Button>
                 <Button
-                    variant="primary"
+                    variant="default"
                     type="submit"
                     form="two-factor-verify-form"
                     :disabled="processing || code.length < 6"

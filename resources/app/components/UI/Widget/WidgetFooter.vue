@@ -59,7 +59,7 @@ const onRefresh = (): void => {
         <tooltip v-if="refresh" :text="t('music.reloadServerData')">
             <button
                 type="button"
-                class="btn btn-primary widget__refresh"
+                class="btn btn-default widget__refresh"
                 :aria-label="t('music.refresh')"
                 :disabled="refreshing"
                 @click="onRefresh"
