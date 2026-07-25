@@ -1,0 +1,11 @@
+/******************************************************************************
+ * contextual timing token — component:datatable
+ * @type {Sass}
+ * The pagination page-button colour/background hover transition speed (ported
+ * from cantrip.me's datatable, which used the `fast` rung directly). consumed as
+ * ti.$c-datatable via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$datatable: map.get(ti.$timings, "fast") !default;

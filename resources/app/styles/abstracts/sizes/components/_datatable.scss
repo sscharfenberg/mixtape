@@ -1,0 +1,49 @@
+/******************************************************************************
+ * contextual size tokens — component:datatable
+ * @type {Sass}
+ * The server-driven DataTable (ported from cantrip.me). `breakpoint` is the
+ * container-width at which the layout flips from the `<table>` to the mobile
+ * card grid — the `desktop` step (1024px), applied as a CONTAINER query (the
+ * table adapts to its own width, not the viewport), so it also lives in the
+ * $breakpoints scale the `cq` mixin reads. Borders/radii pick the shared scale
+ * (`base` tube, `featured` corner); the small paddings and the page/jump/card
+ * dimensions are plain literals — one named decision per value, which sizes are
+ * allowed to hold (unlike colours). consumed as s.$c-datatable via
+ * `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$datatable: (
+    "breakpoint": map.get(s.$breakpoints, "desktop"),
+    "border": map.get(s.$border, "base"),
+    "radius": map.get(s.$radius, "featured"),
+    "padding": (
+        "th": 0.25rem 0.5rem,
+        "td": 0.25rem 0.5rem
+    ),
+    "pagination": (
+        "border": map.get(s.$border, "base"),
+        "radius": map.get(s.$radius, "featured"),
+        "padding": 0.5rem,
+        "margin": 0.5rem 0 0,
+        "gap": 0.5rem,
+        "page": (
+            "border": map.get(s.$border, "base"),
+            "radius": map.get(s.$radius, "featured"),
+            "padding": 0.45rem,
+            "min-width": 39px
+        ),
+        "jump": (
+            "width": 4rem,
+            "padding": 0.75ex 2ch
+        )
+    ),
+    "cards": (
+        "min-width": 220px,
+        "padding": 0.5rem,
+        "gap": 0.5rem,
+        "border": map.get(s.$border, "base"),
+        "radius": map.get(s.$radius, "featured")
+    )
+) !default;

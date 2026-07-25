@@ -248,5 +248,26 @@
         "refresh": "Refresh",
         "reloadServerData": "Reload server data",
         "seeAll": "See all"
+    },
+    "components": {
+        "datatable": {
+            "search": "Search",
+            "search_placeholder": "Search …",
+            "select_all": "Select all",
+            "select_row": "Select row",
+            "actions": "Actions",
+            "row_actions": "Row actions",
+            "items_selected": "{count} selected",
+            "pagination": "Pagination",
+            "first": "First page",
+            "previous": "Previous page",
+            "next": "Next page",
+            "last": "Last page",
+            "jump_to_page": "Page",
+            "page_size": "Rows per page",
+            "sorted_asc": "Sorted by {column} ascending",
+            "sorted_desc": "Sorted by {column} descending",
+            "page_status": "Page {page} of {total}, {size} rows"
+        }
     }
 }

@@ -1,0 +1,400 @@
+<script setup lang="ts" generic="T extends { id: string; href?: string }">
+/******************************************************************************
+ * DataTable
+ * A server-driven, accessible table for paginated / sortable / searchable data
+ * (ported from cantrip.me). Built for Inertia: the SERVER owns the state (rows,
+ * page, sort, search arrive as the `response` prop), and this component just
+ * renders it and emits changes via `router.get()` with the state in the URL
+ * query — so a sorted/paged/filtered view is bookmarkable and survives reload.
+ *
+ * This is the orchestrator: selection state (shared with the sub-components via
+ * provide/inject), slot forwarding (cell-/header- slots + row actions), the
+ * loading overlay during navigation, aria-live announcements, and sticky-header
+ * detection. The <table> (desktop) and the card grid (mobile) are BOTH in the
+ * DOM; a container query at the `datatable.breakpoint` toggles which shows, so
+ * the layout adapts to the table's own width, not the viewport.
+ *
+ * All styling lives in the scoped block below (contextual c/s.$c-datatable
+ * tokens); the sub-components each carry their own scoped styles.
+ *****************************************************************************/
+import { router } from "@inertiajs/vue3";
+import { type Ref, computed, onBeforeUnmount, onMounted, provide, ref, useSlots, watch } from "vue";
+import { useI18n } from "vue-i18n";
+import DataTableActions from "Components/DataTable/DataTableActions.vue";
+import DataTableBody from "Components/DataTable/DataTableBody.vue";
+import DataTableCards from "Components/DataTable/DataTableCards.vue";
+import DataTableHead from "Components/DataTable/DataTableHead.vue";
+import DataTablePagination from "Components/DataTable/DataTablePagination.vue";
+import DataTableToolbar from "Components/DataTable/DataTableToolbar.vue";
+import LoadingSpinner from "Components/UI/LoadingSpinner.vue";
+import type { ColumnDef, TableResponse, SortEntry } from "Types/dataTable";
+import { DATA_TABLE_KEY } from "Types/dataTable";
+const props = withDefaults(
+    defineProps<{
+        /** Column definitions controlling rendering, sorting, and visibility. */
+        columns: ColumnDef<T>[];
+        /** Server-side table response containing rows, pagination, sort, and search state. */
+        response: TableResponse<T>;
+        /** Whether rows can be selected via checkboxes. */
+        selectable?: boolean;
+        /**
+         * Whether to render the per-row actions column (header + body + card-mode
+         * three-dot button). Pass `false` for read-only viewer-mode tables so
+         * non-owners don't see an empty actions column / button.
+         */
+        hasActions?: boolean;
+        /** Base URL for Inertia navigation; defaults to current pathname. */
+        baseUrl?: string;
+    }>(),
+    {
+        selectable: false,
+        hasActions: true,
+        baseUrl: ""
+    }
+);
+/**
+ * Explicit slot contract — vue-tsc loses prop inference for slots that
+ * sit inside a nested `<template v-if … #default>` (the `actions` slot
+ * lives inside the DataTableActions wrapper below). Declaring it here
+ * keeps the consumer's destructure (`{ row, close }`) typed correctly.
+ *
+ * Cell and header slots are column-driven, so the catch-all index
+ * signature allows arbitrary slot names without enumerating columns.
+ */
+defineSlots<{
+    actions(props: { row: T; close: () => void }): unknown;
+    "toolbar-actions"(props: { selectedIds: string[] }): unknown;
+    empty(): unknown;
+    // Catch-all for the column-driven cell-*/header-* slots (their prop shapes vary
+    // per column). `any` is required, not `unknown`: the index signature must be
+    // assignable-from the typed named slots above, which `unknown` params break.
+     
+    [name: string]: (props?: any) => unknown;
+}>();
+const { t } = useI18n();
+const slots = useSlots();
+/** Cell slot names to forward to the body + cards (columns opt in per-key). */
+const cellSlotNames = computed(() => Object.keys(slots).filter(name => name.startsWith("cell-")));
+/** Header slot names to forward to the head (columns opt in per-key). */
+const headerSlotNames = computed(() => Object.keys(slots).filter(name => name.startsWith("header-")));
+/** Server sends sort as object|null; normalise to the internal always-array form. */
+const sort = computed<SortEntry[]>(() => {
+    if (!props.response.sort) return [];
+    return [props.response.sort];
+});
+/** IDs of currently selected rows, shared with child components via provide/inject. */
+const selectedIds = ref<string[]>([]);
+/** Toggle a single row's selection state. */
+function toggleSelection(id: string) {
+    const idx = selectedIds.value.indexOf(id);
+    if (idx === -1) {
+        selectedIds.value.push(id);
+    } else {
+        selectedIds.value.splice(idx, 1);
+    }
+}
+/** Toggle selection for all rows on the current page (select all / deselect all). */
+function togglePageSelection(ids: string[]) {
+    const allSelected = ids.every(id => selectedIds.value.includes(id));
+    if (allSelected) {
+        selectedIds.value = selectedIds.value.filter(id => !ids.includes(id));
+    } else {
+        const missing = ids.filter(id => !selectedIds.value.includes(id));
+        selectedIds.value.push(...missing);
+    }
+}
+/** Clear selection on sort/filter/search change, preserve it across page changes. */
+watch(
+    () => [props.response.sort, props.response.search, props.response.filters],
+    () => {
+        selectedIds.value = [];
+    },
+    { deep: true }
+);
+provide(DATA_TABLE_KEY, {
+    selectedIds,
+    toggleSelection,
+    togglePageSelection
+});
+/** All row IDs on the current page, used by the header select-all checkbox. */
+const rowIds = computed(() => props.response.rows.map(row => row.id));
+/** True while an Inertia navigation is in flight — shows the loading overlay. */
+const isLoading = ref(false);
+router.on("start", () => {
+    isLoading.value = true;
+});
+router.on("finish", () => {
+    isLoading.value = false;
+});
+/** Screen reader announcement text, updated on sort and page changes. */
+const announcement = ref("");
+watch(sort, newSort => {
+    if (newSort.length === 0) return;
+    const entry = newSort[0];
+    const col = props.columns.find(c => c.key === entry.key);
+    const label = col?.label ?? entry.key;
+    announcement.value =
+        entry.direction === "asc"
+            ? t("components.datatable.sorted_asc", { column: label })
+            : t("components.datatable.sorted_desc", { column: label });
+});
+watch(
+    () => props.response.page,
+    page => {
+        if (!props.response.pageSize) return;
+        const totalPages = Math.ceil(props.response.total / props.response.pageSize);
+        announcement.value = t("components.datatable.page_status", {
+            page,
+            total: totalPages,
+            size: props.response.rows.length
+        });
+    }
+);
+/** The row whose action popover is currently open, or null. */
+const activeRow = ref<T | null>(null) as Ref<T | null>;
+/** The three-dot button that opened the popover — used to return focus on close. */
+const actionButtonRef = ref<HTMLElement | null>(null);
+/** Open the action popover for a row, anchored to the trigger button. */
+function onAction(row: T, el: HTMLElement) {
+    activeRow.value = row;
+    actionButtonRef.value = el;
+}
+/** Reset popover state and return focus to the three-dot button that opened it. */
+function onCloseActions() {
+    const triggerEl = actionButtonRef.value;
+    activeRow.value = null;
+    actionButtonRef.value = null;
+    triggerEl?.focus();
+}
+/**
+ * Handle to the row-actions popover so slot consumers can request a programmatic
+ * dismiss: native `auto` popovers only close on outside-click / Escape / another
+ * popover opening, so an in-place action (Inertia delete with preserveScroll)
+ * leaves it open unless the consumer calls this via the slot's `close`.
+ */
+const actionsRef = ref<{ hide: () => void } | null>(null);
+/** Programmatically dismiss the row-actions popover (exposed to consumers as `close`). */
+function closeActionsPopover() {
+    actionsRef.value?.hide();
+}
+/**
+ * Merge new params into the current URL, preserving existing query state
+ * (e.g. pageSize survives a page navigation). Params set to null are removed.
+ */
+function buildUrl(params: Record<string, string | number | null>) {
+    const base = props.baseUrl || window.location.pathname;
+    const url = new URL(base, window.location.origin);
+    const currentParams = new URLSearchParams(window.location.search);
+    for (const [key, value] of currentParams) {
+        url.searchParams.set(key, value);
+    }
+    for (const [key, value] of Object.entries(params)) {
+        if (value === null || value === "") {
+            url.searchParams.delete(key);
+        } else {
+            url.searchParams.set(key, String(value));
+        }
+    }
+    return url.pathname + url.search;
+}
+/** Toggle sort direction for a column and navigate to page 1. */
+function onSort(key: string) {
+    const current = sort.value.find(s => s.key === key);
+    let direction: "asc" | "desc" = "asc";
+    if (current) {
+        direction = current.direction === "asc" ? "desc" : "asc";
+    }
+    router.get(buildUrl({ sort: key, dir: direction, page: 1 }), {}, { preserveState: true, preserveScroll: true });
+}
+/** Navigate with an updated search query, resetting to page 1. */
+function onSearch(query: string) {
+    router.get(buildUrl({ search: query || null, page: 1 }), {}, { preserveState: true, preserveScroll: true });
+}
+/** Navigate to a specific page number. */
+function onNavigate(page: number) {
+    router.get(buildUrl({ page }), {}, { preserveState: true, preserveScroll: true });
+}
+/** Change page size and reset to page 1. */
+function onPageSizeChange(size: number) {
+    router.get(buildUrl({ pageSize: size, page: 1 }), {}, { preserveState: true, preserveScroll: true });
+}
+/** Sentinel at the top of the wrapper; its intersection tells us when the head is stuck. */
+const stickysentinel = ref<HTMLElement | null>(null);
+/** True when the table header is stuck (scrolled past the sentinel). */
+const isStuck = ref(false);
+let observer: IntersectionObserver | null = null;
+onMounted(() => {
+    if (!stickysentinel.value) return;
+    const offset = getComputedStyle(stickysentinel.value.closest(".dt")!)
+        .getPropertyValue("--datatable-sticky-offset")
+        .trim();
+    const margin = offset ? `-${offset} 0px 0px 0px` : "0px";
+    observer = new IntersectionObserver(
+        ([entry]) => {
+            isStuck.value = !entry.isIntersecting;
+        },
+        { rootMargin: margin }
+    );
+    observer.observe(stickysentinel.value);
+});
+onBeforeUnmount(() => {
+    observer?.disconnect();
+});
+</script>
+
+<template>
+    <div class="dt" :class="{ 'dt--loading': isLoading }">
+        <data-table-toolbar :search="response.search" :selected-count="selectedIds.length" @search="onSearch">
+            <template v-if="$slots['toolbar-actions']" #actions>
+                <slot name="toolbar-actions" :selected-ids="selectedIds" />
+            </template>
+        </data-table-toolbar>
+
+        <div class="dt__wrapper">
+            <div v-if="isLoading" class="dt__overlay">
+                <loading-spinner :size="3" />
+            </div>
+
+            <!-- Sentinel for sticky header detection -->
+            <div ref="stickysentinel" class="dt__sticky-sentinel" />
+
+            <!-- Desktop: table layout -->
+            <table class="dt__table" :aria-busy="isLoading">
+                <data-table-head
+                    :columns="columns"
+                    :sort="sort"
+                    :selectable="selectable"
+                    :has-actions="hasActions"
+                    :row-ids="rowIds"
+                    :stuck="isStuck"
+                    @sort="onSort"
+                >
+                    <template v-for="name in headerSlotNames" :key="name" #[name]="slotProps">
+                        <slot :name="name" v-bind="slotProps" />
+                    </template>
+                </data-table-head>
+                <data-table-body
+                    :columns="columns"
+                    :rows="response.rows"
+                    :selectable="selectable"
+                    :has-actions="hasActions"
+                    @action="onAction"
+                >
+                    <template v-for="name in cellSlotNames" :key="name" #[name]="slotProps">
+                        <slot :name="name" v-bind="slotProps" />
+                    </template>
+                </data-table-body>
+            </table>
+
+            <!-- Mobile: card layout -->
+            <data-table-cards
+                :columns="columns"
+                :rows="response.rows"
+                :selectable="selectable"
+                :has-actions="hasActions"
+                @action="onAction"
+            >
+                <template v-for="name in cellSlotNames" :key="name" #[name]="slotProps">
+                    <slot :name="name" v-bind="slotProps" />
+                </template>
+            </data-table-cards>
+        </div>
+
+        <!-- Empty state -->
+        <div v-if="response.rows.length === 0 && !isLoading" class="dt__empty">
+            <slot name="empty" />
+        </div>
+
+        <!-- Pagination -->
+        <data-table-pagination
+            v-if="response.pageSize && response.total > 0"
+            :page="response.page"
+            :page-size="response.pageSize"
+            :total="response.total"
+            @navigate="onNavigate"
+            @page-size-change="onPageSizeChange"
+        />
+
+        <!-- Row action popover -->
+        <data-table-actions
+            v-if="hasActions"
+            ref="actionsRef"
+            :row="activeRow"
+            :trigger-el="actionButtonRef"
+            @close="onCloseActions"
+        >
+            <template v-if="activeRow" #default>
+                <slot name="actions" :row="activeRow" :close="closeActionsPopover" />
+            </template>
+        </data-table-actions>
+
+        <!-- Screen reader announcements -->
+        <div class="sr-only" aria-live="polite">{{ announcement }}</div>
+    </div>
+</template>
+
+<style scoped lang="scss">
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/colors" as c;
+@use "Abstracts/sizes" as s;
+@use "Abstracts/mixins" as m;
+
+@layer components {
+    .dt {
+        container-type: inline-size;
+
+        &--loading {
+            pointer-events: none;
+        }
+
+        &__wrapper {
+            position: relative;
+        }
+
+        &__sticky-sentinel {
+            height: 0;
+        }
+
+        &__overlay {
+            display: flex;
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            align-items: center;
+            justify-content: center;
+
+            background: map.get(c.$c-datatable, "overlay");
+        }
+
+        &__table {
+            display: table;
+
+            width: 100%;
+            border: map.get(s.$c-datatable, "border") solid map.get(c.$c-datatable, "border");
+
+            border-radius: map.get(s.$c-datatable, "radius");
+
+            border-spacing: 0;
+        }
+
+        &__empty {
+            padding: 2rem;
+
+            text-align: center;
+        }
+    }
+
+    // wide container → the table; narrow container → the cards (DataTableCards).
+    @include m.cq("desktop") {
+        .dt__table {
+            display: table;
+        }
+    }
+
+    @include m.cq("desktop", $mobile-first: false) {
+        .dt__table {
+            display: none;
+        }
+    }
+}
+</style>

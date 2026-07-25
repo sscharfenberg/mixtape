@@ -15,6 +15,24 @@
     box-sizing: border-box;
 }
 
+// visually-hidden but screen-reader-available: off-screen accessible names and
+// aria-live announcement regions (e.g. the DataTable's sort/page announcements).
+.sr-only {
+    position: absolute;
+
+    overflow: hidden;
+
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    border: 0;
+    margin: -1px;
+
+    clip-path: inset(50%);
+
+    white-space: nowrap;
+}
+
 html {
     scrollbar-gutter: stable;
 
