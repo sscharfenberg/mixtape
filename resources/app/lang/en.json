@@ -260,6 +260,7 @@
         "datatable": {
             "search": "Search",
             "search_placeholder": "Search …",
+            "no_results": "No results found",
             "select_all": "Select all",
             "select_row": "Select row",
             "actions": "Actions",

@@ -13,7 +13,7 @@
 @use "../global-size-tokens" as s;
 
 $select: (
-    "radius": map.get(s.$radius, "featured"),
+    "radius": map.get(s.$radius, "base"),
     "border": map.get(s.$border, "base"),
     "height": map.get(s.$icons, "medium"),
     "caret": math.round(s.$base * 0.4),

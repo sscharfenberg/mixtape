@@ -53,7 +53,7 @@ const columns = computed<ColumnDef<SongRow>[]>(() => [
     <container>
         <data-table :columns="columns" :response="table" base-url="/music/songs" :has-actions="false">
             <template #empty>
-                <p>{{ t("music.empty") }}</p>
+                <p>{{ t("components.datatable.no_results") }}</p>
             </template>
         </data-table>
     </container>

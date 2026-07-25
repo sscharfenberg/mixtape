@@ -27,6 +27,9 @@ $datatable: (
             color.adjust(map.get(c.$grey, "white"), $alpha: -0.4),
             color.adjust(map.get(c.$grey, "black"), $alpha: -0.4)
         ),
+    // the loading spinner tint — the shared neon (retro `c3`, the same brand
+    // accent as the button/inputs), so the loading state reads as branded.
+    "spinner": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
     "th": (
         "background": light-dark(
                 color.adjust(map.get(c.$grey, "iron"), $alpha: -0.25),

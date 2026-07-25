@@ -256,14 +256,14 @@ onBeforeUnmount(() => {
 
         <div class="dt__wrapper">
             <div v-if="isLoading" class="dt__overlay">
-                <loading-spinner :size="3" />
+                <loading-spinner :size="6" />
             </div>
 
             <!-- Sentinel for sticky header detection -->
             <div ref="stickysentinel" class="dt__sticky-sentinel" />
 
-            <!-- Desktop: table layout -->
-            <table class="dt__table" :aria-busy="isLoading">
+            <!-- Desktop: table layout — header + rows only when there ARE rows -->
+            <table v-if="response.rows.length > 0" class="dt__table" :aria-busy="isLoading">
                 <data-table-head
                     :columns="columns"
                     :sort="sort"
@@ -292,6 +292,7 @@ onBeforeUnmount(() => {
 
             <!-- Mobile: card layout -->
             <data-table-cards
+                v-if="response.rows.length > 0"
                 :columns="columns"
                 :rows="response.rows"
                 :selectable="selectable"
@@ -302,11 +303,11 @@ onBeforeUnmount(() => {
                     <slot :name="name" v-bind="slotProps" />
                 </template>
             </data-table-cards>
-        </div>
 
-        <!-- Empty state -->
-        <div v-if="response.rows.length === 0 && !isLoading" class="dt__empty">
-            <slot name="empty" />
+            <!-- Empty state — inside the wrapper so its min-height reserves the space -->
+            <div v-if="response.rows.length === 0 && !isLoading" class="dt__empty">
+                <slot name="empty" />
+            </div>
         </div>
 
         <!-- Pagination -->
@@ -353,6 +354,11 @@ onBeforeUnmount(() => {
 
         &__wrapper {
             position: relative;
+
+            // reserve the loading overlay's height in the flow so toggling the
+            // overlay / empty state never shifts the page ("no jump"), and the
+            // spinner always has room below the header on an empty result set.
+            min-height: map.get(s.$c-datatable, "overlay-min-height");
         }
 
         &__sticky-sentinel {
@@ -367,7 +373,11 @@ onBeforeUnmount(() => {
             align-items: center;
             justify-content: center;
 
+            border: map.get(s.$c-datatable, "border") dashed map.get(c.$c-datatable, "border");
+
             background: map.get(c.$c-datatable, "overlay");
+            color: map.get(c.$c-datatable, "spinner"); // brand-tints the spinner (it uses currentcolor)
+            border-radius: map.get(s.$c-datatable, "radius");
         }
 
         &__table {
@@ -382,6 +392,11 @@ onBeforeUnmount(() => {
         }
 
         &__empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            min-height: map.get(s.$c-datatable, "overlay-min-height");
             padding: 2rem;
 
             text-align: center;

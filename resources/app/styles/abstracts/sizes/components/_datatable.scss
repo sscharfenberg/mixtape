@@ -6,7 +6,7 @@
  * card grid — the `desktop` step (1024px), applied as a CONTAINER query (the
  * table adapts to its own width, not the viewport), so it also lives in the
  * $breakpoints scale the `cq` mixin reads. Borders/radii pick the shared scale
- * (`base` tube, `featured` corner); the small paddings and the page/jump/card
+ * (`base` tube + corner); the small paddings and the page/jump/card
  * dimensions are plain literals — one named decision per value, which sizes are
  * allowed to hold (unlike colours). consumed as s.$c-datatable via
  * `@use "Abstracts/sizes" as s;`.
@@ -17,20 +17,23 @@
 $datatable: (
     "breakpoint": map.get(s.$breakpoints, "desktop"),
     "border": map.get(s.$border, "base"),
-    "radius": map.get(s.$radius, "featured"),
+    "radius": map.get(s.$radius, "base"),
+    // min height for the loading overlay, so the spinner has room below the
+    // header instead of sitting on top of it when the result set is empty.
+    "overlay-min-height": 8rem,
     "padding": (
         "th": 0.25rem 0.5rem,
         "td": 0.25rem 0.5rem
     ),
     "pagination": (
         "border": map.get(s.$border, "base"),
-        "radius": map.get(s.$radius, "featured"),
+        "radius": map.get(s.$radius, "base"),
         "padding": 0.5rem,
-        "margin": 0.5rem 0 0,
+        "margin": 1rem 0 0,
         "gap": 0.5rem,
         "page": (
             "border": map.get(s.$border, "base"),
-            "radius": map.get(s.$radius, "featured"),
+            "radius": map.get(s.$radius, "base"),
             "padding": 0.45rem,
             "min-width": 39px
         ),
@@ -44,6 +47,6 @@ $datatable: (
         "padding": 0.5rem,
         "gap": 0.5rem,
         "border": map.get(s.$border, "base"),
-        "radius": map.get(s.$radius, "featured")
+        "radius": map.get(s.$radius, "base")
     )
 ) !default;
