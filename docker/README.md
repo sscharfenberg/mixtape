@@ -42,6 +42,12 @@ Stop with `Ctrl-C`, or `docker compose down` (add `-v` to also wipe the DB +
 
 ## Common tasks
 
+Run these on your **host** (the Mac), in a terminal at the project root — the
+folder with `docker-compose.yml`. The `exec <service>` prefix runs the command
+inside that already-running container, so the stack must be up first.
+
+PHP / Laravel / composer commands go to the `app` service:
+
 ```sh
 docker compose exec app php artisan migrate:fresh --seed   # reset the demo DB
 docker compose exec app php artisan test                   # test suite (sqlite :memory:)
@@ -49,6 +55,17 @@ docker compose exec app php artisan tinker
 docker compose exec app composer install                   # after composer.lock changes
 docker compose logs -f app                                 # watch app logs (mail goes here too)
 ```
+
+Node / npm commands go to the `vite` service (the `app` image has no Node):
+
+```sh
+docker compose exec vite npm run icons                     # rebuild the SVG icon sprite
+```
+
+`npm run icons` writes to `storage/app/public/sprite.svg` (served at
+`/storage/sprite.svg` via the `public/storage` symlink). The file lands on your
+Mac through the bind mount and is gitignored — re-run it only after you add or
+change an icon in `resources/app/assets/icons/`.
 
 ## Working with real data (optional)
 
