@@ -1,0 +1,11 @@
+/******************************************************************************
+ * contextual timing token — component:select
+ * @type {Sass}
+ * The Select trigger / option / caret / clear transition speed (ported from
+ * cantrip.me's MonoSelect, which used the `fast` rung directly). consumed as
+ * ti.$c-select via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$select: map.get(ti.$timings, "fast") !default;

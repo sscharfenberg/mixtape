@@ -1,0 +1,27 @@
+/******************************************************************************
+ * contextual size tokens — component:select
+ * @type {Sass}
+ * The custom single-select dropdown (Form/Select/Select.vue, ported from
+ * cantrip.me's MonoSelect). `caret` is the little triangle's border size; `clear`
+ * reserves room for the clear button so the button's right padding can clear both
+ * caret and clear; `height` is the trigger line-height (the medium icon step).
+ * The rest are plain literals. consumed as s.$c-select via
+ * `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:math"; // https://sass-lang.com/documentation/modules/math/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$select: (
+    "radius": map.get(s.$radius, "featured"),
+    "border": map.get(s.$border, "base"),
+    "height": map.get(s.$icons, "medium"),
+    "caret": math.round(s.$base * 0.4),
+    "option": 1ex 1ch,
+    "clear": map.get(s.$icons, "medium") * 2,
+    "image": (
+        "width": 1.25rem,
+        "height": 1.25rem,
+        "margin": 1ch
+    )
+) !default;

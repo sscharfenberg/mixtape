@@ -1,0 +1,13 @@
+/******************************************************************************
+ * contextual z-index token — component:select
+ * @type {Sass}
+ * The Select's floating options panel. It is promoted into the browser top layer
+ * via the Popover API (so it escapes ancestor overflow/clipping), but the token
+ * still pins it to the `popout` rung — the level for menus/selects that escape
+ * local overflow — so it orders correctly against sibling flow content. consumed
+ * as z.$c-select via `@use "Abstracts/z-indexes" as z;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-z-index-tokens" as z;
+
+$select: map.get(z.$scale, "popout") !default;

@@ -1,0 +1,48 @@
+/******************************************************************************
+ * contextual color tokens — component:select
+ * @type {Sass}
+ * The custom single-select dropdown (Form/Select/Select.vue, ported from
+ * cantrip.me's MonoSelect). The trigger `button` (resting + `open`), its `caret`,
+ * the floating `options` panel and each `option` (zebra rows + hover + selected)
+ * and the `clear` button. Greys come straight from the palette with opacity-only
+ * `color.adjust($alpha …)` (allowed — alpha only); the open border and the
+ * selected option pick the shared `$brand` pairs so the control reads in the app
+ * palette. consumed as c.$c-select via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$select: (
+    "border": light-dark(
+            color.adjust(map.get(c.$grey, "slate"), $alpha: -0.25),
+            color.adjust(map.get(c.$grey, "charcoal"), $alpha: -0.25)
+        ),
+    "background": light-dark(
+            color.adjust(map.get(c.$grey, "white"), $alpha: -0.5),
+            color.adjust(map.get(c.$grey, "black"), $alpha: -0.5)
+        ),
+    "surface": light-dark(map.get(c.$grey, "abbey"), map.get(c.$grey, "fog")),
+    "border-open": light-dark(map.get(c.$brand, "dark1", "color"), map.get(c.$brand, "light1", "color")),
+    "background-open": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "black")),
+    "surface-open": light-dark(map.get(c.$grey, "black"), map.get(c.$grey, "white")),
+    "caret": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral")),
+    "options-background": light-dark(
+            color.adjust(map.get(c.$grey, "white"), $alpha: -0.35),
+            color.adjust(map.get(c.$grey, "black"), $alpha: -0.35)
+        ),
+    "option": (
+        "background-odd": light-dark(map.get(c.$grey, "mystic"), map.get(c.$grey, "ebony")),
+        "background-even": light-dark(map.get(c.$grey, "infra"), map.get(c.$grey, "bunker")),
+        "surface": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral")),
+        "background-hover": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "black")),
+        "surface-hover": light-dark(map.get(c.$grey, "black"), map.get(c.$grey, "white")),
+        "background-selected": light-dark(map.get(c.$brand, "light1", "color"), map.get(c.$brand, "dark2", "color")),
+        "surface-selected": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$brand, "dark2", "contrast"))
+    ),
+    "clear-background": light-dark(
+            color.adjust(map.get(c.$grey, "white"), $alpha: -0.25),
+            color.adjust(map.get(c.$grey, "black"), $alpha: -0.25)
+        ),
+    "clear-surface": light-dark(map.get(c.$grey, "black"), map.get(c.$grey, "white"))
+) !default;
