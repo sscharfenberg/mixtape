@@ -305,6 +305,10 @@ When `selectable` is enabled:
 
 - Semantic `<table>`/`<thead>`/`<tbody>`/`<th>`/`<td>`.
 - Sort headers are `<button>`s with `aria-sort`.
+- Sort headers also carry a `v-tooltip:top` hint naming the direction the next click
+  applies (`components.datatable.sort_hint_asc` / `_desc`); above the header, so it never
+  covers the rows being sorted — see
+  [`UI/Tooltip/README.md`](../UI/Tooltip/README.md).
 - `aria-busy="true"` on the table during Inertia navigation.
 - An `aria-live="polite"` (`sr-only`) region announces sort and page changes.
 - The row-action popover returns focus to the three-dot button on close.

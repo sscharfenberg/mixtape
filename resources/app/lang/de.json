@@ -275,6 +275,8 @@
             "page_size": "Einträge pro Seite",
             "sorted_asc": "Nach {column} aufsteigend sortiert",
             "sorted_desc": "Nach {column} absteigend sortiert",
+            "sort_hint_asc": "{column}. Klicken um aufsteigend nach {column} zu sortieren",
+            "sort_hint_desc": "{column}. Klicken um absteigend nach {column} zu sortieren",
             "page_status": "Seite {page} von {total}, {size} Einträge"
         },
         "select": {

@@ -275,6 +275,8 @@
             "page_size": "Rows per page",
             "sorted_asc": "Sorted by {column} ascending",
             "sorted_desc": "Sorted by {column} descending",
+            "sort_hint_asc": "{column}. Click to sort by {column} ascending",
+            "sort_hint_desc": "{column}. Click to sort by {column} descending",
             "page_status": "Page {page} of {total}, {size} rows"
         },
         "select": {

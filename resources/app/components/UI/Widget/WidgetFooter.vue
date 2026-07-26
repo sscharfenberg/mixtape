@@ -15,7 +15,10 @@ import { router } from "@inertiajs/vue3";
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "Components/UI/Icon.vue";
-import Tooltip from "Components/UI/Tooltip.vue";
+// The wrapper form, not `v-tooltip` on the button: the button disables itself
+// while a refresh is in flight, and a disabled control emits no mouse events —
+// the hint has to hang off an enabled element around it.
+import Tooltip from "Components/UI/Tooltip/Tooltip.vue";
 
 const { t } = useI18n();
 

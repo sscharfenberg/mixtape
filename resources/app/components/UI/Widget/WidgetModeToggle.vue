@@ -16,7 +16,7 @@
  *****************************************************************************/
 import { useI18n } from "vue-i18n";
 import Icon from "Components/UI/Icon.vue";
-import Tooltip from "Components/UI/Tooltip.vue";
+import Tooltip from "Components/UI/Tooltip/Tooltip.vue";
 import type { WidgetMode } from "Types/music";
 
 const { t } = useI18n();

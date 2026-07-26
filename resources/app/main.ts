@@ -9,6 +9,7 @@ import { createApp, h } from "vue";
 import type { Composer } from "vue-i18n";
 import { getI18n, loadLocaleMessages, setupI18n } from "@/i18n";
 import FullLayout from "./components/Layout/FullLayout.vue";
+import { vTooltip } from "./directives/vTooltip";
 
 // Single source of truth: APP_NAME in .env, mirrored to the frontend via VITE_APP_NAME.
 const appName = import.meta.env.VITE_APP_NAME;
@@ -47,6 +48,12 @@ createInertiaApp({
         });
 
         const app = createApp({ render: () => h(App, props) }).use(plugin).use(i18n);
+
+        // Global because a tooltip is a cross-cutting affordance — registering it
+        // per SFC would mean importing it in nearly every component. Template
+        // types come from the GlobalDirectives augmentation in
+        // resources/types/directives.d.ts.
+        app.directive("tooltip", vTooltip);
 
         // Defer mount until the active locale's catalog is loaded, so the first
         // paint never shows raw translation keys.

@@ -1,15 +1,18 @@
 /******************************************************************************
  * contextual color tokens — component:tooltip
  * @type {Sass}
- * The floating hint's fill + text. A neutral chip that FOLLOWS the theme — a
- * light chip with dark text in light mode, a dark chip with light text in dark
- * mode — sitting a step off the page surface so a one-line label reads clearly.
+ * The floating hint's fill + text. A neutral chip that FOLLOWS the theme, taken
+ * to the palette's extremes — pure white in light mode, pure black in dark mode.
+ * The tip floats over arbitrary content (a table row, a widget, the header), so
+ * unlike a panel it can't rely on sitting one step off a known page surface: the
+ * maximum-contrast fill is what always separates it from whatever is behind it.
+ * The text keeps the softer near-black / near-white so the chip doesn't glare.
  * Consumed as c.$c-tooltip via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "../global-color-tokens" as c;
 
 $tooltip: (
-    "background": light-dark(map.get(c.$grey, "mystic"), map.get(c.$grey, "ebony")),
+    "background": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "black")),
     "surface": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral"))
 ) !default;

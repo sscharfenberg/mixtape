@@ -18,7 +18,7 @@
  *****************************************************************************/
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import Tooltip from "Components/UI/Tooltip.vue";
+import Tooltip from "Components/UI/Tooltip/Tooltip.vue";
 import Widget from "Components/UI/Widget/Widget.vue";
 import type { CollectionStats } from "Types/music";
 import { formatDecimals, formatDuration, formatFileSize } from "Utils/formatting";
