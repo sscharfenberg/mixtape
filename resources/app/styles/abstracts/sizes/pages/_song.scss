@@ -1,0 +1,17 @@
+/******************************************************************************
+ * contextual size tokens — page:song
+ * @type {Sass}
+ * The song detail page's facts list: the gutters of its label/value grid. Both
+ * step off the shared `$padding` rungs rather than inventing spacing, so the list
+ * breathes like every other box on the page — the row gutter is the tighter one
+ * because label and value belong together, the column gutter the wider one to
+ * keep the two columns apart.
+ * Consumed as s.$p-song via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$song: (
+    "facts-row-gap": map.get(s.$padding, "base"),
+    "facts-column-gap": map.get(s.$padding, "landscape")
+) !default;

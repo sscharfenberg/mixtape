@@ -12,6 +12,7 @@
  *****************************************************************************/
 import { router } from "@inertiajs/vue3";
 import { computed, inject, useSlots } from "vue";
+import { isRowNavigation } from "Components/DataTable/rowNavigation";
 import Checkbox from "Components/Form/Checkbox.vue";
 import Icon from "Components/UI/Icon.vue";
 import type { ColumnDef } from "Types/dataTable";
@@ -43,9 +44,13 @@ function visibleCardColumns(row: T) {
         return val !== null && val !== undefined && val !== "" && val !== 0;
     });
 }
-/** Navigate to the row's detail page when the card is tapped (only if href is set). */
-function onCardClick(row: T) {
-    if (row.href) router.visit(row.href);
+/**
+ * Navigate to the row's detail page when the card is tapped. Shares the row-click
+ * guard with DataTableBody, so a tap on the card's checkbox / actions button / the
+ * title's link doesn't also navigate — see rowNavigation.ts.
+ */
+function onCardClick(row: T, event: MouseEvent) {
+    if (row.href && isRowNavigation(event)) router.visit(row.href);
 }
 /** Emit the action event with the row + trigger button for popover anchoring. */
 function onActionClick(row: T, event: MouseEvent) {
@@ -60,7 +65,7 @@ function onActionClick(row: T, event: MouseEvent) {
             :key="row.id"
             class="dt-cards__card"
             :class="{ 'dt-cards__card--clickable': !!row.href }"
-            @click="row.href && onCardClick(row)"
+            @click="onCardClick(row, $event)"
         >
             <div class="dt-cards__header">
                 <div v-if="selectable" class="dt-cards__check" @click.stop>
@@ -103,6 +108,7 @@ function onActionClick(row: T, event: MouseEvent) {
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "Abstracts/colors" as c;
 @use "Abstracts/sizes" as s;
+@use "Abstracts/timings" as ti;
 @use "Abstracts/mixins" as m;
 
 @layer components {
@@ -129,6 +135,26 @@ function onActionClick(row: T, event: MouseEvent) {
 
             &--clickable {
                 cursor: pointer;
+
+                // Same fill + neon halo as the desktop row, so a hybrid device that
+                // both hovers and taps sees one behaviour. `position: relative` for
+                // the same reason as there: the halo has to paint over the sibling
+                // cards that come after it in the grid. On a touch-only device
+                // :hover never fires — the tap navigates instead.
+                &:hover {
+                    position: relative;
+
+                    background-color: map.get(c.$c-datatable, "row-hover");
+                    box-shadow:
+                        0 0 0.6em 0.1em map.get(c.$c-datatable, "row-glow"),
+                        0 0 1.5em 0.25em map.get(c.$c-datatable, "row-glow");
+                }
+
+                @media (prefers-reduced-motion: no-preference) {
+                    transition:
+                        background-color ti.$c-datatable ease-out,
+                        box-shadow ti.$c-datatable ease-out;
+                }
             }
         }
 

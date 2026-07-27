@@ -7,6 +7,7 @@ use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\Music\AlbumsController;
 use App\Http\Controllers\Music\ArtistsController;
 use App\Http\Controllers\Music\GenresController;
+use App\Http\Controllers\Music\SongController;
 use App\Http\Controllers\Music\SongsController;
 use App\Http\Controllers\MusicController;
 use App\Http\Controllers\PlaylistsController;
@@ -43,6 +44,14 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         Route::get('/music/artists', ArtistsController::class)->name('music.artists');
         Route::get('/music/genres', GenresController::class)->name('music.genres');
         Route::get('/music/songs', SongsController::class)->name('music.songs');
+
+        // One song's detail page — the row-click target of the Songs listing.
+        // Registered after the listing so `/music/songs` keeps matching it, and
+        // constrained to a UUID so a stray path segment 404s here instead of
+        // reaching the controller's model binding.
+        Route::get('/music/songs/{song}', SongController::class)
+            ->whereUuid('song')
+            ->name('music.songs.show');
     });
 
 // Authentication (login / logout). Kept in a dedicated file as the auth surface

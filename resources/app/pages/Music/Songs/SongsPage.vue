@@ -6,9 +6,15 @@
  * listing in the server-driven DataTable: sort / search / pagination all live in
  * the URL, so the controller (SongsController) owns the state and this page just
  * declares the columns and hands over the `table` response. Read-only for now
- * (`has-actions="false"`); a per-song detail page + clickable rows come later.
+ * (`has-actions="false"`).
+ *
+ * Rows are clickable: SongsController puts the song's detail URL on every row as
+ * `href`, which DataTable visits on a row click / card tap. The title cell renders
+ * that same URL as a real <Link> as well — that's the keyboard and
+ * open-in-new-tab path, neither of which a click handler on a <tr> can offer (see
+ * DataTable/README.md → Accessibility).
  *****************************************************************************/
-import { Head } from "@inertiajs/vue3";
+import { Head, Link } from "@inertiajs/vue3";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import DataTable from "Components/DataTable/DataTable.vue";
@@ -24,6 +30,8 @@ interface SongRow {
     album: string | null;
     genre: string | null;
     duration: string | null;
+    /** The song's detail page — makes the row clickable and backs the title link. */
+    href: string;
 }
 
 defineProps<{
@@ -52,9 +60,30 @@ const columns = computed<ColumnDef<SongRow>[]>(() => [
     <headline glow>{{ t("music.widgets.songs") }}</headline>
     <container>
         <data-table :columns="columns" :response="table" base-url="/music/songs" :has-actions="false">
+            <template #cell-name="{ row }">
+                <Link :href="row.href" class="songs__title">{{ row.name }}</Link>
+            </template>
             <template #empty>
                 <p>{{ t("components.datatable.no_results") }}</p>
             </template>
         </data-table>
     </container>
 </template>
+
+<style scoped lang="scss">
+/* The title link deliberately does NOT look like a link: the whole row is the
+   click target and already signals that (pointer cursor + hover wash), so a blue
+   underlined title on every row would be noise. It stays a real <a> for the
+   keyboard, the screen reader and ⌘-click, and says so on hover/focus. No colour
+   token needed — `inherit` keeps the cell's own themed text colour. */
+.songs__title {
+    color: inherit;
+
+    text-decoration: none;
+
+    &:hover,
+    &:focus-visible {
+        text-decoration: underline;
+    }
+}
+</style>

@@ -15,6 +15,10 @@ use Inertia\Response;
  * The Music → Songs sub-section (`GET /music/songs`, route `music.songs`, behind
  * auth) — the full song listing as a server-driven DataTable (sort / search /
  * paginate all in the URL). Linked from the SongsWidget footer.
+ *
+ * Every row also carries an `href` to its own detail page (SongController), which
+ * is what makes the table's rows clickable — the frontend only follows what the
+ * server puts there, so this controller owns where a row leads.
  */
 class SongsController extends Controller
 {
@@ -77,28 +81,16 @@ class SongsController extends Controller
                 'artist' => $song->artist_name,
                 'album' => $song->album_name,
                 'genre' => $song->genre_name,
-                'duration' => $song->duration !== null ? self::formatDuration((float) $song->duration) : null,
+                'duration' => $song->clockDuration(),
+                // Makes the row clickable in the frontend DataTable, which visits
+                // this on a row click / card tap (and the title cell renders it as
+                // a real link). Relative so it works whatever host serves the app.
+                'href' => route('music.songs.show', $song->id, absolute: false),
             ],
         );
 
         return Inertia::render('Music/Songs/SongsPage', [
             'table' => $table,
         ]);
-    }
-
-    /**
-     * Format a track length (seconds) as m:ss (or h:mm:ss past an hour) for
-     * display — the raw float seconds mean nothing to a listener.
-     */
-    private static function formatDuration(float $seconds): string
-    {
-        $total = (int) round($seconds);
-        $hours = intdiv($total, 3600);
-        $minutes = intdiv($total % 3600, 60);
-        $secs = $total % 60;
-
-        return $hours > 0
-            ? sprintf('%d:%02d:%02d', $hours, $minutes, $secs)
-            : sprintf('%d:%02d', $minutes, $secs);
     }
 }

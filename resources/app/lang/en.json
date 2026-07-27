@@ -247,8 +247,12 @@
             "title": "Title",
             "artist": "Artist",
             "album": "Album",
+            "year": "Year",
             "genre": "Genre",
             "duration": "Duration"
+        },
+        "song": {
+            "backToList": "Back to all songs"
         },
         "empty": "Nothing here yet",
         "notEnoughData": "Not enough data",

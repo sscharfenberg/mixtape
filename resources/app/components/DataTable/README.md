@@ -42,23 +42,23 @@ const columns: ColumnDef<SongRow>[] = [
 
 ## Props
 
-| Prop         | Type               | Default | Description                                                                                    |
-| ------------ | ------------------ | ------- | ---------------------------------------------------------------------------------------------- |
-| `columns`    | `ColumnDef<T>[]`   | —       | Column definitions (see below).                                                                |
-| `response`   | `TableResponse<T>` | —       | Server response containing rows, pagination, sort, and search state.                           |
-| `selectable` | `boolean`          | `false` | Enable row-selection checkboxes.                                                               |
+| Prop         | Type               | Default | Description                                                                                                                                         |
+| ------------ | ------------------ | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `columns`    | `ColumnDef<T>[]`   | —       | Column definitions (see below).                                                                                                                     |
+| `response`   | `TableResponse<T>` | —       | Server response containing rows, pagination, sort, and search state.                                                                                |
+| `selectable` | `boolean`          | `false` | Enable row-selection checkboxes.                                                                                                                    |
 | `hasActions` | `boolean`          | `true`  | Render the per-row actions column (header + three-dot button + popover). Pass `false` for read-only tables so non-owners don't see an empty column. |
-| `baseUrl`    | `string`           | `""`    | Base path for Inertia navigation. Falls back to `window.location.pathname`.                    |
+| `baseUrl`    | `string`           | `""`    | Base path for Inertia navigation. Falls back to `window.location.pathname`.                                                                         |
 
 ## Slots
 
-| Slot               | Scope                       | Description                                                                       |
-| ------------------ | --------------------------- | --------------------------------------------------------------------------------- |
-| `#header-{key}`    | `{ column: ColumnDef<T> }`  | Custom header content for a column. Fallback: `column.label` as text.             |
-| `#cell-{key}`      | `{ row: T }`                | Custom renderer for a column. Fallback: raw `row[key]` as text.                   |
+| Slot               | Scope                           | Description                                                                   |
+| ------------------ | ------------------------------- | ----------------------------------------------------------------------------- |
+| `#header-{key}`    | `{ column: ColumnDef<T> }`      | Custom header content for a column. Fallback: `column.label` as text.         |
+| `#cell-{key}`      | `{ row: T }`                    | Custom renderer for a column. Fallback: raw `row[key]` as text.               |
 | `#actions`         | `{ row: T, close: () => void }` | Row-action popover content (only when `hasActions`). Render as `<li>` items.  |
-| `#toolbar-actions` | `{ selectedIds: string[] }` | Toolbar buttons (e.g. bulk actions). Only rendered when the slot is provided.      |
-| `#empty`           | —                           | Content shown when `rows` is empty and not loading.                               |
+| `#toolbar-actions` | `{ selectedIds: string[] }`     | Toolbar buttons (e.g. bulk actions). Only rendered when the slot is provided. |
+| `#empty`           | —                               | Content shown when `rows` is empty and not loading.                           |
 
 ### Header Slots
 
@@ -96,7 +96,19 @@ navigate:
 ```vue
 <template #actions="{ row, close }">
     <li><button class="popover-list-item" @click="edit(row)">Edit</button></li>
-    <li><button class="popover-list-item popover-list-item--caution" @click="() => { remove(row); close(); }">Delete</button></li>
+    <li>
+        <button
+            class="popover-list-item popover-list-item--caution"
+            @click="
+                () => {
+                    remove(row);
+                    close();
+                }
+            "
+        >
+            Delete
+        </button>
+    </li>
 </template>
 ```
 
@@ -145,6 +157,66 @@ interface TableResponse<T> {
 Every row object **must** have an `id: string` field (UUID). Rows may optionally
 carry an `href: string` — when present the row/card becomes clickable and navigates
 to it (`router.visit`).
+
+### Clickable rows
+
+Put the detail URL on the row server-side and the rest follows — `SongsController`
+is the reference:
+
+```php
+rowMapper: fn (Track $song): array => [
+    'id' => $song->id,
+    // …cells…
+    'href' => route('music.songs.show', $song->id, absolute: false),
+],
+```
+
+The row then gets `cursor: pointer`, a hover state, and a click handler.
+
+**Hover = the app's neon halo, not a background tint.** A wash sitting between two
+zebra stripes is almost invisible, so a hovered row lights up with the same
+two-layer `box-shadow` an open popover / focused input / checked checkbox uses
+(`c.$c-datatable` → `row-glow`, the same `c3` neon as `c.$c-popover` → `glow`), over
+the slightly stronger `row-hover` fill. The `<tr>` and the mobile card both do it.
+
+Two implementation notes, both load-bearing:
+
+- **The hovered row is `position: relative`.** A `box-shadow` paints outside its own
+  border box, so the next row's opaque cells would cover the bottom half of the halo.
+  Positioning the row moves it into the positioned paint phase, above its
+  unpositioned siblings — and **without a `z-index` on purpose**, so it still passes
+  _under_ the sticky `<thead>` (`z.$c-main` = 1). Verified: with the header stuck, the
+  glow stops at its edge instead of bleeding over it.
+- **The fill lives on the `td`s, the glow on the `tr`** — so both need their own
+  `transition` line, and the fill rule needs one class more than the zebra rules to
+  win (see the comment in `DataTableBody.vue`).
+
+**Not every click on a row is a row click**, so both handlers go through
+`isRowNavigation()` in
+[`rowNavigation.ts`](./rowNavigation.ts), which ignores three cases:
+
+| Ignored                                                            | Why                                                                         |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------- |
+| the click landed on `a, button, input, select, textarea, label, …` | that control owns its click; navigating too would fight it or double-fire   |
+| a text selection is open (drag-select ending in a click)           | copying a song title must not throw the listing away                        |
+| ⌘/ctrl/shift/alt was held                                          | "open elsewhere" — which `router.visit()` can't do; leave it to a real link |
+
+The checkbox and actions cells additionally carry `@click.stop`, so the guard is
+belt-and-braces there — it exists for whatever a cell slot renders.
+
+**Give the primary column a real `<Link>` too** (see `SongsPage`'s `#cell-name`).
+A click handler on a `<tr>` is invisible to the keyboard and to a screen reader, and
+offers no ⌘-click; the link fixes all three and costs one slot:
+
+```vue
+<template #cell-name="{ row }">
+    <Link :href="row.href" class="songs__title">{{ row.name }}</Link>
+</template>
+```
+
+Style it to inherit the cell's colour and underline on hover/focus, rather than
+looking like a link on every row — the row's cursor and hover wash already say
+"clickable".
 
 ## URL State
 
@@ -242,11 +314,11 @@ travel with them. To port the component you must also create its **contextual
 tokens** (one partial per token group, `@forward`ed from that group's
 `components/_index.scss`, consumed as `*.$c-datatable`):
 
-| File                                           | Consumed as     | Holds                                                                                               |
-| ---------------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------- |
-| `colors/components/_datatable.scss`            | `c.$c-datatable`| A nested map: `border`, `overlay` (loading scrim), `th{background,surface,background-stuck,surface-stuck}`, `td{background{odd,even},surface}`, `pagination{border,background,surface,page{…},page-hover{…},page-current{…}}`, `cards{background,border,surface}`. |
-| `sizes/components/_datatable.scss`             | `s.$c-datatable`| `breakpoint` (the `desktop` step), `border` (`base`), `radius` (`featured`), `padding.{th,td}`, `pagination.{…,page.{…},jump.{…}}`, `cards.{min-width,padding,gap,border,radius}`. |
-| `timings/components/_datatable.scss`           | `ti.$c-datatable`| The pagination page-button hover duration (`fast`).                                               |
+| File                                 | Consumed as       | Holds                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------ | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `colors/components/_datatable.scss`  | `c.$c-datatable`  | A nested map: `border`, `overlay` (loading scrim), `spinner`, `row-hover` + `row-glow` (clickable row/card), `th{background,surface,background-stuck,surface-stuck}`, `td{background{odd,even},surface}`, `pagination{border,background,surface,page{…},page-hover{…},page-current{…}}`, `cards{background,border,surface}`. |
+| `sizes/components/_datatable.scss`   | `s.$c-datatable`  | `breakpoint` (the `desktop` step), `border` (`base`), `radius` (`featured`), `padding.{th,td}`, `pagination.{…,page.{…},jump.{…}}`, `cards.{min-width,padding,gap,border,radius}`.                                                                                                                                           |
+| `timings/components/_datatable.scss` | `ti.$c-datatable` | The hover duration (`fast`) — pagination page buttons and the clickable-row wash.                                                                                                                                                                                                                                            |
 
 Two rules apply (see `styles/abstracts/README.md`):
 
@@ -260,23 +332,24 @@ Two rules apply (see `styles/abstracts/README.md`):
 The **sticky header** reuses the existing `z.$c-main` z-index rung — no new
 z-index token. The component also depends on the **`sr-only`** utility (in
 `styles/layout/_base.scss`), the global **`popover-*`** classes (row-action popover
-+ three-dot button), and the **`Select`** component for the page-size picker (which
-carries its own `*.$c-select` token set — see `Components/Form/Select/Select.vue`).
+
+- three-dot button), and the **`Select`** component for the page-size picker (which
+  carries its own `*.$c-select` token set — see `Components/Form/Select/Select.vue`).
 
 ## Sub-Components
 
 All live in `Components/DataTable/`. The parent only imports `DataTable.vue`; the
 rest are internal.
 
-| Component               | Responsibility                                                                                                         |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Component               | Responsibility                                                                                                                     |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | **DataTable.vue**       | Orchestrator: selection state (provide/inject), slot forwarding, Inertia navigation, loading overlay, aria-live, sticky detection. |
-| **DataTableToolbar**    | Search input (600ms debounce), selection-count badge, `#toolbar-actions` slot.                                         |
-| **DataTableHead**       | Sticky `<thead>` with sort buttons, `aria-sort`, three-state select-all checkbox.                                      |
-| **DataTableBody**       | `<tbody>` with cell-slot rendering, row selection, clickable rows, three-dot action button.                            |
-| **DataTableCards**      | Mobile card layout via a container query. Renders `visibleInCard` columns.                                             |
-| **DataTablePagination** | First/prev/next/last, windowed page numbers with ellipsis, jump-to-page, "from–to / total", and a page-size `Select`.  |
-| **DataTableActions**    | Shared row-action popover (one instance, repositioned per click) via CSS anchor positioning + the `popover-content` classes. |
+| **DataTableToolbar**    | Search input (600ms debounce), selection-count badge, `#toolbar-actions` slot.                                                     |
+| **DataTableHead**       | Sticky `<thead>` with sort buttons, `aria-sort`, three-state select-all checkbox.                                                  |
+| **DataTableBody**       | `<tbody>` with cell-slot rendering, row selection, clickable rows, three-dot action button.                                        |
+| **DataTableCards**      | Mobile card layout via a container query. Renders `visibleInCard` columns.                                                         |
+| **DataTablePagination** | First/prev/next/last, windowed page numbers with ellipsis, jump-to-page, "from–to / total", and a page-size `Select`.              |
+| **DataTableActions**    | Shared row-action popover (one instance, repositioned per click) via CSS anchor positioning + the `popover-content` classes.       |
 
 ## Responsive Behavior
 
@@ -313,6 +386,12 @@ When `selectable` is enabled:
 - An `aria-live="polite"` (`sr-only`) region announces sort and page changes.
 - The row-action popover returns focus to the three-dot button on close.
 - All interactive controls have `aria-label`s from `components.datatable.*` i18n keys.
+- **A clickable row is a mouse/touch convenience, never the only way in.** The `<tr>`
+  gets no `tabindex`/`role="link"` — 25 rows of fake links would bloat the tab order
+  and announce badly. The primary cell carries a real `<Link>` instead, which is the
+  keyboard path, the screen-reader path and the ⌘-click path; the row click is the
+  large-target shortcut on top of it. A table with clickable rows and no link in a
+  cell is an accessibility bug, not a style choice.
 
 ## Sticky Header
 

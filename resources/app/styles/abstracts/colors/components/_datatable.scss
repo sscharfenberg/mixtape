@@ -4,8 +4,8 @@
  * The server-driven DataTable (ported from cantrip.me). One nested map holding
  * every surface the table paints: the outer `border`, the `th` header (resting +
  * its brand-tinted "stuck"/sticky state), the zebra-striped `td` body, the
- * `pagination` bar (page buttons, their hover + current states) and the mobile
- * `cards`. Greys are pulled straight from the palette with an opacity-only
+ * `row-hover` wash for clickable rows, the `pagination` bar (page buttons, their
+ * hover + current states) and the mobile `cards`. Greys are pulled straight from the palette with an opacity-only
  * `color.adjust($alpha …)` so the striped rows/header let the page background
  * bleed through (allowed under the "never mint a colour" rule — alpha only); the
  * accent states (stuck header, current page) pick the shared `$brand` pairs so
@@ -30,6 +30,22 @@ $datatable: (
     // the loading spinner tint — the shared neon (retro `c3`, the same brand
     // accent as the button/inputs), so the loading state reads as branded.
     "spinner": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
+    // hover wash for a *clickable* row (one carrying an `href`) — shared by the
+    // desktop <tr> and the mobile card. One rung further along the grey ladder
+    // than the darker/lighter of the two zebra stripes. On its own this was too
+    // quiet to read as "this row is the target" (a wash between two zebra stripes
+    // barely registers), so it now only carries the fill while `row-glow` below
+    // does the shouting.
+    "row-hover": light-dark(
+            color.adjust(map.get(c.$grey, "iron"), $alpha: -0.5),
+            color.adjust(map.get(c.$grey, "abbey"), $alpha: -0.25)
+        ),
+    // the halo around a hovered clickable row — deliberately the SAME entry the
+    // open popover, the focused input and the checked checkbox glow with (retro
+    // `c3`, the WCAG-tuned control neon), because it means the same thing: this
+    // element is lit up and about to do something. Consumed as a two-layer
+    // box-shadow in DataTableBody / DataTableCards, matching `.popover-content`.
+    "row-glow": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
     "th": (
         "background": light-dark(
                 color.adjust(map.get(c.$grey, "iron"), $alpha: -0.25),

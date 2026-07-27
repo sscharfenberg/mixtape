@@ -6,10 +6,12 @@
  * selection checkbox, an optional three-dot actions button (emits up so the
  * shared popover anchors to it), and clickable rows when the row carries an
  * `href` (navigates to the detail page). Styling — zebra striping, cell borders,
- * rounded last-row corners — lives in the scoped block (c/s.$c-datatable).
+ * rounded last-row corners, the clickable row's hover wash — lives in the scoped
+ * block (c/s/ti.$c-datatable).
  *****************************************************************************/
 import { router } from "@inertiajs/vue3";
 import { inject, useSlots } from "vue";
+import { isRowNavigation } from "Components/DataTable/rowNavigation";
 import Checkbox from "Components/Form/Checkbox.vue";
 import Icon from "Components/UI/Icon.vue";
 import type { ColumnDef } from "Types/dataTable";
@@ -30,9 +32,13 @@ const emit = defineEmits<{
 }>();
 const provided = inject(DATA_TABLE_KEY)!;
 const slots = useSlots();
-/** Navigate to the row's detail page when the row is clicked (only if href is set). */
-function onRowClick(row: T) {
-    if (row.href) router.visit(row.href);
+/**
+ * Navigate to the row's detail page when the row is clicked. `isRowNavigation`
+ * filters out the clicks that only *look* like row clicks — on a control inside a
+ * cell, at the end of a drag-select, or with a modifier held; see rowNavigation.ts.
+ */
+function onRowClick(row: T, event: MouseEvent) {
+    if (row.href && isRowNavigation(event)) router.visit(row.href);
 }
 /** Emit the action event with the row + trigger button element for popover anchoring. */
 function onActionClick(row: T, event: MouseEvent) {
@@ -46,7 +52,7 @@ function onActionClick(row: T, event: MouseEvent) {
             v-for="row in rows"
             :key="row.id"
             :class="{ 'dt-body__row--clickable': !!row.href }"
-            @click="row.href && onRowClick(row)"
+            @click="onRowClick(row, $event)"
         >
             <td v-if="selectable" class="dt-body__check" @click.stop>
                 <checkbox
@@ -79,11 +85,23 @@ function onActionClick(row: T, event: MouseEvent) {
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "Abstracts/colors" as c;
 @use "Abstracts/sizes" as s;
+@use "Abstracts/timings" as ti;
 
 @layer components {
     .dt-body {
         &__row--clickable {
             cursor: pointer;
+
+            // Only clickable rows animate, so a read-only table pays for nothing.
+            // The halo fades on the row, the fill on its cells — two rules because
+            // they sit on two different elements.
+            @media (prefers-reduced-motion: no-preference) {
+                transition: box-shadow ti.$c-datatable ease-out;
+
+                td {
+                    transition: background-color ti.$c-datatable ease-out;
+                }
+            }
         }
 
         &__check {
@@ -124,6 +142,38 @@ function onActionClick(row: T, event: MouseEvent) {
 
         tr:not(:last-child) td {
             border-bottom: map.get(s.$c-datatable, "border") solid map.get(c.$c-datatable, "border");
+        }
+
+        /* The hovered clickable row lights up like every other live control in the
+           app: the same two-layer neon halo as an open popover / a focused input /
+           a checked checkbox, over a slightly stronger fill. The whole row does it,
+           because the whole row is the click target (`:hover td`, never `td:hover`).
+
+           `position: relative` on the row is what makes the halo visible at all: a
+           box-shadow paints outside its own border box, so the next row's opaque
+           cells would cover the bottom half of it. Positioning the hovered row moves
+           it into the positioned paint phase, above its unpositioned siblings —
+           without a z-index on purpose, so it still passes UNDER the sticky <thead>
+           (z.$c-main = 1). The glow spreads are em-based effect constants living in
+           the component, per the note in sizes/components/_button.scss.
+
+           The fill rule is nested inside `.dt-body` rather than under the
+           `&__row--clickable` block above so it compiles to a DESCENDANT selector and
+           carries one class more than the zebra rules. Under `&__row--clickable` it
+           would be `.dt-body__row--clickable:hover td[data-v]` — an exact specificity
+           tie with `.dt-body tr:nth-child(odd) td[data-v]` (3 classes, 2 elements)
+           once Vue's scope attribute joins in, and a tie is settled by source order,
+           which the stripes won. Verified in the browser: the background didn't budge. */
+        .dt-body__row--clickable:hover {
+            position: relative;
+
+            box-shadow:
+                0 0 0.6em 0.1em map.get(c.$c-datatable, "row-glow"),
+                0 0 1.5em 0.25em map.get(c.$c-datatable, "row-glow");
+
+            td {
+                background-color: map.get(c.$c-datatable, "row-hover");
+            }
         }
 
         tr:last-child {
