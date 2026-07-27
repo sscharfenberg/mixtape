@@ -1,8 +1,9 @@
 /******************************************************************************
  * contextual size tokens — component:tooltip
  * @type {Sass}
- * The floating hint's padding, corner, cap width and its offset from the anchor
- * (`gap`, applied as the tip's margin so it doesn't touch the trigger).
+ * The floating hint's padding, corner, cap width, its offset from the anchor
+ * (`gap`, applied as the tip's margin so it doesn't touch the trigger) and the
+ * speech-bubble tail that bridges that gap.
  * Consumed as s.$c-tooltip via `@use "Abstracts/sizes" as s;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
@@ -12,5 +13,11 @@ $tooltip: (
     "padding": 0.35rem 0.6rem,
     "radius": map.get(s.$radius, "base"),
     "max-width": 22ch,
-    "gap": 0.35rem
+    "gap": 0.53rem,
+    // Side of the square that, rotated 45°, forms the tail. What protrudes past
+    // the tip's edge is half the square's *diagonal* — 0.75rem × √2 ÷ 2 ≈ 0.53rem
+    // — so this is tuned to bridge `gap` above: the tail's point lands exactly on
+    // the trigger. Change one of the two and re-check the other (the gap grew with
+    // the tail when it went from 0.5rem to 0.75rem, for exactly that reason).
+    "arrow": 0.75rem
 ) !default;

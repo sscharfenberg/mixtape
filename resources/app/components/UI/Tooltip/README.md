@@ -38,11 +38,11 @@ A hint that only answers to hover doesn't exist on a phone, so the trigger set i
 device**. The directive listens to _pointer_ events (not mouse events) precisely so it can tell them
 apart: `event.pointerType`.
 
-| Device        | Opens                                        | Closes                                                                              |
-| ------------- | -------------------------------------------- | ----------------------------------------------------------------------------------- |
-| **mouse**     | hover, after `delay`                         | leaving the trigger — **or a click**, which only ever dismisses (see below)          |
-| **touch/pen** | **tap** (immediately, no delay)              | tapping the trigger again, tapping/scrolling anywhere else, the trigger unmounting   |
-| **keyboard**  | focus (immediately) — real `:focus-visible`  | blur or <kbd>Esc</kbd>. An <kbd>Enter</kbd>/<kbd>Space</kbd> activation is ignored   |
+| Device        | Opens                                       | Closes                                                                             |
+| ------------- | ------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **mouse**     | hover, after `delay`                        | leaving the trigger — **or a click**, which only ever dismisses (see below)        |
+| **touch/pen** | **tap** (immediately, no delay)             | tapping the trigger again, tapping/scrolling anywhere else, the trigger unmounting |
+| **keyboard**  | focus (immediately) — real `:focus-visible` | blur or <kbd>Esc</kbd>. An <kbd>Enter</kbd>/<kbd>Space</kbd> activation is ignored |
 
 Two asymmetries, both deliberate:
 
@@ -108,9 +108,9 @@ options, same shared layer. A `class` lands on that span, so it can be a layout 
   on the element. When a trigger takes ownership, the layer's `position-anchor` / `position-area` are
   pointed at it through the `--tooltip-anchor` / `--tooltip-area` custom properties.
 - The tip is a native **`popover`**, so it renders in the **top layer** — no clipping by an
-  `overflow: hidden` or stacking-context ancestor (a widget frame, a sticky `<thead>`), and no
-  z-index anywhere. Positioning is pure CSS anchor positioning: **no JS positioning library**, and the
-  tip follows its anchor on scroll for free.
+  `overflow: hidden` or stacking-context ancestor (a widget frame, a sticky `<thead>`), and it needs no
+  z-index of its own (the one `z-index` in the file belongs to the tail). Positioning is pure CSS anchor
+  positioning: **no JS positioning library**, and the tip follows its anchor on scroll for free.
 - All state lives in the composable — which trigger owns the tip, which one has a reveal queued behind
   its delay, and whether the tip is **pinned** (tapped open). The directive only translates DOM events
   into `showFor` / `hideFor` / `toggleFor` / `updateFor`, and the components stay declarative.
@@ -127,21 +127,67 @@ it travels with the node into `<body>`.
 Per the repo's token convention (`styles/abstracts/README.md`) the SFC contains **no literals for
 colour, size or timing** — it reads three contextual token maps:
 
-| `@use` in the SFC           | Token           | Defined in                                          | Keys                                    |
-| --------------------------- | --------------- | --------------------------------------------------- | --------------------------------------- |
-| `"Abstracts/colors" as c`   | `c.$c-tooltip`  | `styles/abstracts/colors/components/_tooltip.scss`  | `background`, `surface`                 |
-| `"Abstracts/sizes" as s`    | `s.$c-tooltip`  | `styles/abstracts/sizes/components/_tooltip.scss`   | `padding`, `radius`, `max-width`, `gap` |
-| `"Abstracts/timings" as ti` | `ti.$c-tooltip` | `styles/abstracts/timings/components/_tooltip.scss` | (a single duration)                     |
+| `@use` in the SFC           | Token           | Defined in                                          | Keys                                             |
+| --------------------------- | --------------- | --------------------------------------------------- | ------------------------------------------------ |
+| `"Abstracts/colors" as c`   | `c.$c-tooltip`  | `styles/abstracts/colors/components/_tooltip.scss`  | `background`, `surface`                          |
+| `"Abstracts/sizes" as s`    | `s.$c-tooltip`  | `styles/abstracts/sizes/components/_tooltip.scss`   | `padding`, `radius`, `max-width`, `gap`, `arrow` |
+| `"Abstracts/timings" as ti` | `ti.$c-tooltip` | `styles/abstracts/timings/components/_tooltip.scss` | (a single duration)                              |
 
 `gap` is applied as the tip's **margin** — with anchor positioning that is what holds the tip off its
 trigger. Two values are deliberately literal because they're typographic proportions, not themeable
 decisions: `font-size: 0.85rem` and `line-height: 1.3`.
 
+### The speech-bubble tail
+
+`::after` on the layer, in the tip's own `background` colour: **one square rotated 45°, parked with its
+centre on the tip's edge.** The inner half hides behind the tip's background (`z-index: -1`, which is why
+the tip sets `isolation: isolate`), the outer half reads as a triangle. `arrow` (0.75rem) is tuned against
+`gap` (0.53rem) — what protrudes is half the square's _diagonal_, ≈0.53rem, so the point lands exactly on
+the trigger. **Change one, re-check the other**: the two are a pair, which is why growing the tail by 50%
+also moved the tip 50% further off its trigger.
+
+**Both insets are the same expression**, which is what makes one rule cover all four placements:
+
+```scss
+&::after {
+    top: clamp(
+        calc(anchor(--tooltip-self top) - var(--tail) / 2),
+        calc(anchor(center) - var(--tail) / 2),
+        // ← the trigger's centre
+        calc(anchor(--tooltip-self bottom) - var(--tail) / 2)
+    );
+    // left: the same expression, with left / right
+}
+```
+
+The trigger's centre, clamped between the tip's own two edges in that axis. The axis the trigger lies
+_outside_ of clamps to the near edge — that edge grows the tail — while the other axis stays on the
+trigger's centre, which aims it. Nothing anywhere reads `--tooltip-area`, so the tail **stays correct
+after `position-try-fallbacks` flips the tip** on a narrow viewport, a thing CSS gives you no way to
+query. (In JS it would mean re-measuring on every scroll — exactly what anchor positioning saves us.)
+
+Three traps, all found the hard way:
+
+1. **`anchor(--tooltip-anchor center)` is silently wrong.** `--tooltip-anchor` is the custom property
+   _holding_ the trigger's generated name, not an anchor name — that asks for an anchor called
+   `--tooltip-anchor`, which nothing has. Use the pseudo's own `position-anchor: var(--tooltip-anchor)`
+   and the **bare** `anchor(center)`; only the tip's own `--tooltip-self` can be named literally.
+2. **The tail must be `position: fixed`, not `absolute`.** An anchor has to be a descendant of the
+   querying element's containing block _unless_ that block is the viewport. Absolutely positioned, the
+   pseudo's containing block is the tip, the trigger isn't inside it, and every inset quietly falls back
+   to `auto` — the tail lands mid-text and nothing warns you.
+3. **A failed `anchor()` doesn't disappear, it becomes `auto`.** Both traps above render a tail, just in
+   the wrong place. When adjusting this, assert the used values (`getComputedStyle(tip, "::after").top`)
+   against the trigger's box rather than trusting the look of one screenshot.
+
+On a **white surface in light mode** the tail is invisible — but so is the whole bubble: the fill token is
+pure white and the tip carries no border or shadow. That's the colour token's business, not the tail's.
+
 ### Copying this folder into another project
 
 1. Copy `components/UI/Tooltip/`, `composables/useTooltipLayer.ts` and `directives/vTooltip.ts`.
 2. Register the directive (`app.directive("tooltip", vTooltip)`) and mount `<tooltip-layer />` **once**,
-   last in your root layout — see gotcha 3 about tree order.
+   last in your root layout — see the tree-order gotcha below.
 3. Provide the path aliases the imports use, or rewrite them: `Composables/*`, `Components/*` and the
    SCSS `Abstracts` alias (in both `vite.config.ts` and `tsconfig.json` here).
 4. Supply the three token entries above — either port the three `_tooltip.scss` partials and
