@@ -10,7 +10,7 @@ export type TooltipRequest = {
     text: string;
     /** Side of the trigger the tip sits on. */
     placement: TooltipPlacement;
-    /** ms of hover-intent before a pointer-triggered tip appears; focus is immediate. */
+    /** ms of hover-intent before a hovered tip appears; focus and taps are immediate. */
     delay: number;
     /** The trigger's CSS `anchor-name` (a dashed-ident), which the tip anchors to. */
     anchor: string;
@@ -32,6 +32,8 @@ export type UseTooltipLayerReturn = {
     showFor: (trigger: HTMLElement, request: TooltipRequest, immediate?: boolean) => void;
     /** Release the tip from `trigger` — hides it, or just drops its queued reveal. */
     hideFor: (trigger: HTMLElement) => void;
+    /** The tap/click path: pin the tip on `trigger`, or unpin it if it's already pinned there. */
+    toggleFor: (trigger: HTMLElement, request: TooltipRequest) => void;
     /** Refresh an already-open tip whose trigger's text/placement changed underneath it. */
     updateFor: (trigger: HTMLElement, request: TooltipRequest) => void;
 };
@@ -61,6 +63,14 @@ let activeTrigger: HTMLElement | null = null;
 let pendingTrigger: HTMLElement | null = null;
 let timer: ReturnType<typeof setTimeout> | undefined;
 
+// Whether the open tip was *pinned* by a tap/click rather than shown by hover.
+// This is what makes tooltips work on a touch screen: there is no hover to end, so
+// leaving can't be the dismissal signal — the browser emulates a pointerleave at
+// touch-end, milliseconds after the tap that opened the tip. A pinned tip instead
+// survives until the same trigger is tapped again or the next pointerdown lands
+// outside it (see setPinned / onOutsidePointerDown).
+let pinned = false;
+
 // Monotonic counter behind nextAnchorName(); never resets, so a name can't be
 // reused by a later trigger while an earlier one is still anchored.
 let anchorCounter = 0;
@@ -89,8 +99,13 @@ const clearTimer = (): void => {
  * which reads as the tip jumping when moving between two adjacent triggers (two
  * table headers, say). `showPopover()` is guarded on `:popover-open` because it
  * throws when the popover is already open.
+ *
+ * Every reveal starts *unpinned* — a hover or a tap on another trigger must not
+ * inherit the previous one's pin. `toggleFor` re-pins immediately afterwards, which
+ * is safe because everything up to the `await` below runs synchronously.
  */
 const reveal = async (trigger: HTMLElement, request: TooltipRequest): Promise<void> => {
+    setPinned(false);
     pendingTrigger = null;
     activeTrigger = trigger;
     text.value = request.text;
@@ -130,11 +145,56 @@ const hideFor = (trigger: HTMLElement): void => {
     }
     if (activeTrigger !== trigger) return;
 
+    setPinned(false);
     activeTrigger.removeAttribute("aria-describedby");
     activeTrigger = null;
     const el = tipRef.value;
     if (el && el.matches(":popover-open")) el.hidePopover();
     visible.value = false;
+};
+
+/**
+ * Dismiss a pinned tip when the next pointerdown lands anywhere else — the touch
+ * stand-in for "the pointer left". A pointerdown *inside* the trigger is left alone:
+ * that's the start of the tap whose `click` toggles the tip off, and this listener
+ * runs first, so hiding here would let that click re-open the tip instead. Scroll
+ * gestures dismiss for free, since a touch scroll starts with a pointerdown.
+ */
+const onOutsidePointerDown = (event: PointerEvent): void => {
+    const trigger = activeTrigger;
+    if (!trigger) return;
+    const target = event.target;
+    if (target instanceof Node && trigger.contains(target)) return;
+    hideFor(trigger);
+};
+
+/**
+ * Arm/disarm the pin, keeping the document listener paired with the flag so the app
+ * only carries a global pointerdown handler while a pinned tip is actually on screen.
+ * Capture phase, so a trigger that stops propagation on the way up can't strand one.
+ */
+const setPinned = (value: boolean): void => {
+    if (value === pinned) return;
+    pinned = value;
+    if (value) document.addEventListener("pointerdown", onOutsidePointerDown, true);
+    else document.removeEventListener("pointerdown", onOutsidePointerDown, true);
+};
+
+/**
+ * The tap/click path: pin the tip on `trigger`, or hide it when this trigger already
+ * has it pinned. Pinning a tip that is merely hover-shown (rather than toggling it
+ * straight off) is deliberate — on a touch screen the first tap may already have
+ * revealed the tip via focus, and that must still read as "the first tap opened it".
+ */
+const toggleFor = (trigger: HTMLElement, request: TooltipRequest): void => {
+    if (activeTrigger === trigger && pinned) {
+        hideFor(trigger);
+        return;
+    }
+    showFor(trigger, request, true);
+    // reveal() assigns activeTrigger synchronously, so this doubles as the
+    // empty-text guard: an inert trigger is never pinned open.
+    if (activeTrigger === trigger) setPinned(true);
 };
 
 /**
@@ -156,8 +216,8 @@ const updateFor = (trigger: HTMLElement, request: TooltipRequest): void => {
 /**
  * Access the app's single tooltip layer. TooltipLayer.vue consumes the state
  * (and owns `tipRef`); the `v-tooltip` directive drives it through
- * showFor/hideFor/updateFor. Both get the same module singleton, so no wiring or
- * provide/inject is needed between them.
+ * showFor/hideFor/toggleFor/updateFor. Both get the same module singleton, so no
+ * wiring or provide/inject is needed between them.
  */
 export const useTooltipLayer = (): UseTooltipLayerReturn => ({
     tipRef,
@@ -167,5 +227,6 @@ export const useTooltipLayer = (): UseTooltipLayerReturn => ({
     visible,
     showFor,
     hideFor,
+    toggleFor,
     updateFor
 });

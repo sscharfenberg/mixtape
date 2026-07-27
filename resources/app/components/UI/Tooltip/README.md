@@ -1,6 +1,7 @@
 # Tooltip
 
-A floating text hint. Two ways to attach one, **one** tip node for the whole app.
+A floating text hint — hovered with a mouse, **tapped** on a touch screen. Two ways to attach one,
+**one** tip node for the whole app.
 
 | Piece                                          | Role                                                                       |
 | ---------------------------------------------- | -------------------------------------------------------------------------- |
@@ -21,15 +22,64 @@ A floating text hint. Two ways to attach one, **one** tip node for the whole app
 <a v-tooltip="{ text: hint, placement: 'right', delay: 0 }">…</a>
 ```
 
-| Option      | Type                                     | Default | Notes                                                        |
-| ----------- | ---------------------------------------- | ------- | ------------------------------------------------------------ |
-| `text`      | `string \| null \| undefined`            | —       | Already translated. Empty/falsy ⇒ the element is **inert**.  |
-| `placement` | `"top" \| "bottom" \| "left" \| "right"` | `"top"` | A CSS `position-area`. Object form wins over the argument.   |
-| `delay`     | `number` (ms)                            | `300`   | Hover-intent only — keyboard focus always shows immediately. |
+| Option      | Type                                     | Default | Notes                                                       |
+| ----------- | ---------------------------------------- | ------- | ----------------------------------------------------------- |
+| `text`      | `string \| null \| undefined`            | —       | Already translated. Empty/falsy ⇒ the element is **inert**. |
+| `placement` | `"top" \| "bottom" \| "left" \| "right"` | `"top"` | A CSS `position-area`. Object form wins over the argument.  |
+| `delay`     | `number` (ms)                            | `300`   | Hover-intent only — focus and taps always show immediately. |
 
 It's registered globally in `main.ts`, so nothing to import. Template types come from the
 `GlobalDirectives` augmentation in `resources/types/directives.d.ts` — **add an entry there for any new
 global directive**, or `npm run type-check` fails on the unresolved name.
+
+## Triggers — what opens and closes the tip
+
+A hint that only answers to hover doesn't exist on a phone, so the trigger set is **split by input
+device**. The directive listens to _pointer_ events (not mouse events) precisely so it can tell them
+apart: `event.pointerType`.
+
+| Device        | Opens                                        | Closes                                                                              |
+| ------------- | -------------------------------------------- | ----------------------------------------------------------------------------------- |
+| **mouse**     | hover, after `delay`                         | leaving the trigger — **or a click**, which only ever dismisses (see below)          |
+| **touch/pen** | **tap** (immediately, no delay)              | tapping the trigger again, tapping/scrolling anywhere else, the trigger unmounting   |
+| **keyboard**  | focus (immediately) — real `:focus-visible`  | blur or <kbd>Esc</kbd>. An <kbd>Enter</kbd>/<kbd>Space</kbd> activation is ignored   |
+
+Two asymmetries, both deliberate:
+
+- **A mouse click dismisses, it never re-opens.** Hover already owns the reveal for a mouse, and most
+  triggers here _are_ clickable (a `DataTable` sort header, a `WidgetModeToggle` radio, the widget
+  refresh button). A symmetric toggle would flicker the tip on and off as you sort a column repeatedly;
+  dismiss-only just gets the tip out of the way, and it stays away until you move the pointer.
+  **That last clause is load-bearing** — see the re-dispatch trap below.
+- **A tap-opened tip is _pinned_.** Touch has no hover to end, and the emulated `pointerleave` arrives
+  at touch-end — milliseconds after the tap that opened the tip — so leaving can't be the dismissal
+  signal. While a tip is pinned the composable keeps one capture-phase `pointerdown` listener on
+  `document` and hides on the first press outside the trigger (which also covers scrolling, since a
+  touch scroll starts with a `pointerdown`). The listener exists only while something is pinned.
+
+Why `:focus-visible` for the focus reveal: clicking a button focuses it too, and revealing there would
+flash the tip for the few ms until the click dismisses it again. `:focus-visible` is the browser's own
+answer to "was this focus worth showing an affordance for", so the decision isn't guessed at here.
+
+### The re-dispatch trap (why a "dismissed" latch exists)
+
+**A DOM change under a stationary cursor makes Chrome re-fire `pointerleave` + `pointerenter`.** Traced
+on a `DataTable` sort header (Chrome 150) — the cursor never moved:
+
+```
+609ms  pointerdown          642ms  click → tip dismissed
+644ms  thead mutated  ← the Inertia sort visit re-renders the header
+649ms  pointerleave   ← Chrome recomputing which element is under the cursor…
+666ms  pointerenter   ← …and it's this button again
+966ms  tip re-opens    ← hover-intent fired, 300ms after the click that killed it
+```
+
+So "hides on click and stays hidden" can't be built on leave/enter alone. The directive latches the
+dismissal against a **document-wide count of real `pointermove` events** and ignores any `pointerenter`
+that arrives without one. Coordinates were tried first and don't work: a re-dispatched enter carries the
+unchanged cursor position, which is indistinguishable from "left and came back to the same pixel".
+Anything that mutates a hovered trigger's subtree hits this — remember it before adding another
+"stays hidden until X" rule.
 
 ## Usage — the wrapper component
 
@@ -61,7 +111,9 @@ options, same shared layer. A `class` lands on that span, so it can be a layout 
   `overflow: hidden` or stacking-context ancestor (a widget frame, a sticky `<thead>`), and no
   z-index anywhere. Positioning is pure CSS anchor positioning: **no JS positioning library**, and the
   tip follows its anchor on scroll for free.
-- Timing (hover-intent, focus-immediate) lives in the composable; the components stay declarative.
+- All state lives in the composable — which trigger owns the tip, which one has a reveal queued behind
+  its delay, and whether the tip is **pinned** (tapped open). The directive only translates DOM events
+  into `showFor` / `hideFor` / `toggleFor` / `updateFor`, and the components stay declarative.
 
 ## Styling
 
@@ -104,31 +156,44 @@ decisions: `font-size: 0.85rem` and `line-height: 1.3`.
   (`aria-label` on an icon button, real text in a header button).
 - While the tip is open the trigger gets `aria-describedby="app-tooltip"`, removed again on hide — so
   the hint isn't announced for something that isn't on screen.
-- Shows on `focusin` (immediately, no delay), hides on `focusout` and on **Escape**.
+- Shows on `focusin` (immediately, no delay) when the focused element matches `:focus-visible`, hides on
+  `focusout` and on **Escape**. Keyboard activation (<kbd>Enter</kbd>/<kbd>Space</kbd>) leaves the tip
+  alone — only a real pointer click dismisses it.
+- Touch users reach every hint by tapping the trigger, so nothing is hover-only.
 - The fade sits under `prefers-reduced-motion: no-preference`; with the preference set the tip just
   appears. Durations come from `ti.$c-tooltip`.
 
 ## Gotchas
 
-1. **Disabled controls emit no mouse events.** `v-tooltip` on a `<button :disabled>` goes quiet while
-   disabled — and if the tip is open when the button _becomes_ disabled, no `mouseleave` ever arrives.
+1. **Disabled controls emit no pointer events.** `v-tooltip` on a `<button :disabled>` goes quiet while
+   disabled — and if the tip is open when the button _becomes_ disabled, no `pointerleave` ever arrives.
    Put the hint on an enabled element around it: that's why `WidgetFooter`'s refresh button uses
    `Tooltip.vue`.
-2. **One tip at a time, by design.** A second trigger takes the tip over from the first. Intentional
-   (two hints on screen is never right), but it means you can't show two at once.
-3. **Tree order matters.** Anchor positioning only resolves an anchor that _precedes_ the positioned
+2. **One tip at a time, by design.** A second trigger takes the tip over from the first (and a fresh
+   reveal always starts unpinned, so it can't inherit the previous trigger's pin). Intentional — two
+   hints on screen is never right — but it means you can't show two at once.
+3. **On touch, a tap both activates the control and shows its hint.** Unavoidable for a hint hung on a
+   button: a tap is the only input a phone has. Tapping a `DataTable` header sorts _and_ pins the hint;
+   the next tap anywhere clears it. Don't hang a tooltip on something where that double effect would be
+   destructive — put the hint on a neighbouring element instead.
+4. **`click` is a directive-owned listener on the trigger.** It doesn't `preventDefault` or stop
+   propagation, so the element's own `@click` still runs — but a handler that calls `stopPropagation()`
+   in a _capture_ listener above the trigger would swallow the tap toggle.
+5. **Tree order matters.** Anchor positioning only resolves an anchor that _precedes_ the positioned
    element. `TooltipLayer` teleports to `<body>` and is mounted last in `FullLayout`, which satisfies
    this for anything inside the layout — a tooltip on something teleported _after_ the layer would not
    position.
-4. **The tip is `pointer-events: none`.** One shared tip roams the whole page, so it must never swallow
+6. **The tip is `pointer-events: none`.** One shared tip roams the whole page, so it must never swallow
    the hover or click of whatever it covers (a `bottom` tip on a sticky header sits over the first row).
+   That's also what lets a tap "through" a pinned tip land on the element underneath — and dismiss it.
    Don't put interactive content in a tooltip — use `PopOver` for that.
-5. **Needs CSS anchor positioning** (Chromium 125+). Where it's unsupported the tip still shows, but
-   unanchored (at its static position in `<body>`). Unchanged from the pre-directive implementation;
-   revisit if Firefox/Safari become a target.
-6. **`text` must already be translated** — the directive and the component take a plain string, neither
+7. **Needs CSS anchor positioning** (Chromium 125+). Where it's unsupported the tip still shows, but
+   unanchored (at its static position in `<body>`) — the _triggers_ work everywhere, it's only the
+   placement that degrades. Check current mobile-Safari / Firefox support before treating either as a
+   target; on iOS every browser is Safari's engine, so a phone is exactly as capable as its Safari.
+8. **`text` must already be translated** — the directive and the component take a plain string, neither
    calls `t()`.
-7. **Don't set `anchor-name` on the trigger yourself** — the directive owns that inline property.
-8. **Don't `v-tooltip` a `display: contents` element**: no box, nothing to anchor to. Same caution for a
-   component root — the directive lands on that component's root element, which may not be the box you
-   meant.
+9. **Don't set `anchor-name` on the trigger yourself** — the directive owns that inline property.
+10. **Don't `v-tooltip` a `display: contents` element**: no box, nothing to anchor to. Same caution for
+    a component root — the directive lands on that component's root element, which may not be the box
+    you meant.

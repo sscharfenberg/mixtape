@@ -11,6 +11,10 @@
  * table header cell): no extra DOM node, and no wrapper layout to work around.
  * See ./README.md.
  *
+ * Triggers come from the directive, so this wrapper is touch-capable for free: a
+ * tap on it toggles the tip (there is no hover on a phone), a mouse hovers, a
+ * keyboard focus shows it — see ./README.md → Triggers.
+ *
  * A11y: this is a *visual* affordance. The trigger must still carry its own
  * accessible name (e.g. `aria-label` on an icon button); the directive adds
  * `aria-describedby` to the wrapper only while the tip is on screen. All motion
@@ -25,7 +29,7 @@ const props = withDefaults(
         text: string;
         /** Side of the trigger the tip sits on (a CSS `position-area`). Default "top". */
         placement?: TooltipPlacement;
-        /** ms of hover-intent before showing; focus is always immediate. Default 300. */
+        /** ms of hover-intent before showing; focus and taps are always immediate. Default 300. */
         delay?: number;
     }>(),
     {
