@@ -95,6 +95,16 @@
         border-radius: inherit;
 
         content: "";
+
+        // Both pseudos are pure decoration and both reach OUTSIDE the element —
+        // the halo by a negative inset, the inner pad by a horizontal scale — so
+        // they lie over whatever follows in the layout. `.glowing-border` is
+        // `position: relative`, and a positioned element hit-tests above the
+        // static content after it, so without this the glow silently swallows
+        // clicks aimed at the next thing on the page: at some viewport widths the
+        // left third of the DataTable's search input was simply dead, its clicks
+        // landing on the headline. Decoration must never be a click target.
+        pointer-events: none;
     }
 
     // a blurred, surface-coloured pad that softens the inner edge of the border.
