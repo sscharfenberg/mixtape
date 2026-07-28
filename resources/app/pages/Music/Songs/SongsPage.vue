@@ -75,16 +75,20 @@ const columns = computed<ColumnDef<SongRow>[]>(() => [
 
 <style scoped lang="scss">
 /* The title link deliberately does NOT look like a link: the whole row is the
-   click target and already signals that (pointer cursor + hover wash), so a blue
+   click target and already signals that (pointer cursor + hover halo), so a blue
    underlined title on every row would be noise. It stays a real <a> for the
-   keyboard, the screen reader and ⌘-click, and says so on hover/focus. No colour
-   token needed — `inherit` keeps the cell's own themed text colour. */
+   keyboard, the screen reader and ⌘-click. No colour token needed — `inherit`
+   keeps the cell's own themed text colour.
+
+   Nothing changes on hover: the row's halo already answers "is this clickable?",
+   and a second, narrower highlight inside it only added noise. Focus is the
+   exception and keeps its underline — a keyboard user gets no halo to read, so
+   the link has to say where the caret is on its own. */
 .songs__title {
     color: inherit;
 
     text-decoration: none;
 
-    &:hover,
     &:focus-visible {
         text-decoration: underline;
     }
