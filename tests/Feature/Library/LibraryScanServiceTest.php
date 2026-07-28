@@ -304,4 +304,38 @@ class LibraryScanServiceTest extends TestCase
         $this->assertSame(1, Track::where('type', TrackType::Music)->where('path', 'Foo/01.mp3')->count());
         $this->assertSame(1, Track::where('type', TrackType::Audiobook)->where('path', 'Foo/01.mp3')->count());
     }
+
+    public function test_a_scan_populates_the_folded_search_columns(): void
+    {
+        // The guarantee behind "migrate:fresh + app:update on a clean database":
+        // every row the scanner writes must come out searchable, with no backfill
+        // step. The scanner never touches these columns itself — HasFoldedName
+        // hangs them off the `name` mutator, and this is what proves the scanner's
+        // write paths all go through it (Track::create + firstOrCreate here).
+        $this->media('metal/01.mp3', [
+            'hash' => 'f1', 'title' => 'Kroniksy', 'artist' => 'Mgła', 'album' => 'Straße der Besten', 'genre' => 'Métal',
+        ]);
+
+        $this->scan();
+
+        $track = Track::sole();
+        $this->assertSame('kroniksy', $track->name_fold);
+        $this->assertSame('mgla', Artist::sole()->name_fold);
+        $this->assertSame('strasse der besten', Collection::sole()->name_fold);
+        $this->assertSame('metal', Genre::sole()->name_fold);
+    }
+
+    public function test_a_retag_refolds_the_name(): void
+    {
+        // The other half: a re-tag is an UPDATE through fill()->save(), so the fold
+        // must follow the new title. A stale fold is a silent search miss — the row
+        // simply stops being findable under its own name, with nothing failing.
+        $this->media('metal/01.mp3', ['hash' => 'f1', 'title' => 'Wrong Titel', 'artist' => 'Mgła', 'album' => 'Exercises']);
+        $this->scan();
+
+        $this->media('metal/01.mp3', ['hash' => 'f1', 'title' => 'Gruzia', 'artist' => 'Mgła', 'album' => 'Exercises']);
+        $this->scan();
+
+        $this->assertSame('gruzia', Track::sole()->name_fold);
+    }
 }
