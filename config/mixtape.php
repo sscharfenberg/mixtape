@@ -64,4 +64,33 @@ return [
         'alert_email' => env('MIXTAPE_SCAN_ALERT_EMAIL'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Cover art
+    |--------------------------------------------------------------------------
+    |
+    | Covers are NOT stored in the database (the scanner only records whether a
+    | file has one, as `tracks.cover`) — they are extracted on first request and
+    | cached as JPEGs, the way the legacy CoverService did it. Two sources, in
+    | order: the audio file's own embedded picture, else `folder_image` sitting
+    | beside it in the album directory (what every ripper writes).
+    |
+    | `width` is the long edge the cached copy is scaled down to — a 1400px
+    | booklet scan is a needless megabyte on a detail page. Images smaller than
+    | that are cached as-is rather than upscaled.
+    |
+    */
+
+    'covers' => [
+
+        // Fallback image looked for in the audio file's own directory. Legacy
+        // `collection.coverFile.name`; Windows Media Player / most rippers
+        // write exactly this name.
+        'folder_image' => 'Folder.jpg',
+
+        // Long edge (px) of the cached copy, and its JPEG quality.
+        'width' => 450,
+        'quality' => 82,
+    ],
+
 ];

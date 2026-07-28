@@ -1,0 +1,36 @@
+/******************************************************************************
+ * contextual color tokens — page:song
+ * @type {Sass}
+ * The song detail page's hero (SongHero): the cover's halo, the placeholder drawn
+ * where a file has no cover, and the artist/album/year credits line.
+ *
+ * `cover-glow` is deliberately the SAME entry the DataTable's hovered row, the
+ * open popover and the focused input glow with (retro `c3`, the WCAG-tuned control
+ * neon), because it is the same gesture: this is the lit element on the page. It
+ * is pure decoration (a box-shadow behind an image), so the neon carries no text
+ * here and needs no contrast ratio.
+ *
+ * The credits line is a muted grey rather than a colour — the cover supplies the
+ * page's colour, and a second tinted line next to a tinted glow would fight it.
+ * Consumed as c.$p-song via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$song: (
+    "cover-glow": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
+    // The empty-cover square: the same neon, dialled back with an opacity-only
+    // adjust (the one colour maths the token rules allow outside the palette), so
+    // the placeholder reads as an outline rather than as a lit control.
+    "cover-placeholder-border": light-dark(
+            color.adjust(map.get(c.$retro, "c3", "light"), $alpha: -0.55),
+            color.adjust(map.get(c.$retro, "c3", "dark"), $alpha: -0.55)
+        ),
+    "cover-placeholder-background": light-dark(
+            color.adjust(map.get(c.$grey, "mystic"), $alpha: -0.4),
+            color.adjust(map.get(c.$grey, "bunker"), $alpha: -0.4)
+        ),
+    "cover-placeholder-icon": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher")),
+    "credits": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron"))
+) !default;

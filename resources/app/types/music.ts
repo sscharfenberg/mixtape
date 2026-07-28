@@ -90,6 +90,13 @@ export interface SongDetail {
     vbr: boolean;
     /** Whether the mp3 carries embedded cover art (an APIC frame). */
     cover: boolean;
+    /**
+     * Where to load the cover from (SongCoverController), or null when the song has
+     * no cover at all — neither embedded nor a Folder.jpg beside the file. Null is
+     * the hero's cue to draw its placeholder, so the page never requests an image
+     * that 404s.
+     */
+    coverUrl: string | null;
     /** File size in bytes. */
     sizeBytes: number | null;
     /**

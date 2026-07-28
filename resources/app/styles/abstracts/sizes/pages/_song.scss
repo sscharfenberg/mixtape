@@ -1,17 +1,34 @@
 /******************************************************************************
  * contextual size tokens — page:song
  * @type {Sass}
- * The song detail page's facts list: the gutters of its label/value grid. Both
- * step off the shared `$padding` rungs rather than inventing spacing, so the list
- * breathes like every other box on the page — the row gutter is the tighter one
- * because label and value belong together, the column gutter the wider one to
- * keep the two columns apart.
+ * The song detail page's own sizes: its hero row (SongHero) and the gap above the
+ * "back to the listing" link.
+ *
+ * The cover is the page's anchor, so its size is a per-breakpoint decision rather
+ * than one number — a 220px square is already most of a phone's width, while on a
+ * desktop it can carry the row next to a title without looking like a thumbnail.
+ * Literals rather than `$scale` rungs: these are picture sizes chosen by eye
+ * against the title beside them, which is exactly the case the scale doesn't
+ * decide. The gaps DO step off the shared `$padding` rungs, so the hero breathes
+ * like every other box on the page.
  * Consumed as s.$p-song via `@use "Abstracts/sizes" as s;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "../global-size-tokens" as s;
 
 $song: (
-    "facts-row-gap": map.get(s.$padding, "base"),
-    "facts-column-gap": map.get(s.$padding, "landscape")
+    "cover": (
+        "base": 220px,
+        "landscape": 200px,
+        "desktop": 240px
+    ),
+    "cover-radius": map.get(s.$radius, "base"),
+    "cover-placeholder-border": map.get(s.$border, "featured"),
+    "hero-gap": map.get(s.$padding, "landscape"),
+    "hero-meta-gap": map.get(s.$padding, "base"),
+    "title-font-size": 1.75rem,
+    // Gap between the page's stacked blocks (hero → facts → back link). The same
+    // rung WidgetGroup uses between cards, so the rhythm down the page doesn't
+    // change where one card grid ends and the next begins.
+    "block-gap": map.get(s.$padding, "portrait")
 ) !default;

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Music;
 use App\Enums\TrackType;
 use App\Http\Controllers\Controller;
 use App\Models\Track;
+use App\Services\Media\CoverService;
 use Illuminate\Database\Eloquent\Builder;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -24,8 +25,11 @@ use Inertia\Response;
  * so the page formats them against the viewer's locale (Utils/formatting.ts, the
  * same split MusicController uses for the stats widget).
  *
- * Still to come here (docs/app-rewrite.md): the player, cover art, play history
- * and the "also appears in N other places" clone list.
+ * Cover art is the one prop that is NOT a stored fact: `coverUrl` points at
+ * SongCoverController, which extracts the image from the file on first request.
+ *
+ * Still to come here (docs/app-rewrite.md): the player, play history and the
+ * "also appears in N other places" clone list.
  */
 class SongController extends Controller
 {
@@ -37,7 +41,7 @@ class SongController extends Controller
      * episodes, so a bare binding would happily serve an audiobook chapter under
      * /music/songs/… — the type check is what keeps this route about music.
      */
-    public function __invoke(Track $song): Response
+    public function __invoke(Track $song, CoverService $covers): Response
     {
         abort_unless($song->type === TrackType::Music, 404);
 
@@ -76,6 +80,12 @@ class SongController extends Controller
                 'bitRate' => $song->bit_rate,
                 'vbr' => $song->vbr,
                 'cover' => $song->cover,
+
+                // The hero's <img> source, or null when neither an embedded
+                // picture nor a Folder.jpg exists — decided HERE (one cheap stat,
+                // no extraction) so the page can render its placeholder instead
+                // of pointing an <img> at a 404.
+                'coverUrl' => $covers->exists($song) ? route('music.songs.cover', $song) : null,
 
                 // The file itself. `path` is area-relative (never the absolute
                 // server path — Track's docblock), which is also what a listener

@@ -1,15 +1,15 @@
 /******************************************************************************
  * contextual typography tokens — page:song
  * @type {Sass}
- * The song detail page. Its facts list is body text like everywhere else, with one
- * exception worth a named decision: the file path renders monospaced, so the
- * slashes, digits and extension line up and a path stays scannable as a path
- * (it is meant to be copied into a Samba share, not read as prose).
+ * The song detail page. One named decision: the hero's <h1> is set in the headline
+ * family, so the page's title matches every other page's heading even though this
+ * one isn't rendered by the Headline component (the title lives inside SongHero,
+ * beside the cover and the actions).
  * Consumed as t.$p-song via `@use "Abstracts/typography" as t;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "../global-typography-tokens" as t;
 
 $song: (
-    "path": map.get(t.$font, "mono")
+    "title": map.get(t.$font, "headline")
 ) !default;

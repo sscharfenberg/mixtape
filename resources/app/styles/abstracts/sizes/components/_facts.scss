@@ -1,0 +1,27 @@
+/******************************************************************************
+ * contextual size tokens — component:facts
+ * @type {Sass}
+ * The label/value list (Components/UI/Facts) that carries a detail page's stored
+ * facts — the song page today, album/artist next.
+ *
+ * The gutters step off the shared `$padding` rungs rather than inventing spacing,
+ * so the list breathes like every other box: the row gutter is the tighter rung
+ * because a label and its value belong together, the column gutter the wider one
+ * to hold the two columns apart. The two type sizes are the spec-sheet look —
+ * labels a step down from body (they are small caps, which read larger than their
+ * size), and the monospaced path a step further, because a mono face at body size
+ * looks oversized next to the same-size proportional text around it.
+ * Consumed as s.$c-facts via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$facts: (
+    "row-gap": map.get(s.$padding, "base"),
+    "column-gap": map.get(s.$padding, "landscape"),
+    "label-font-size": 0.8rem,
+    // Wide enough to read as deliberate small-caps spacing, tight enough that a
+    // long German label ("Eingebettetes Cover") doesn't dominate the card.
+    "label-tracking": 0.06em,
+    "mono-font-size": 0.85rem
+) !default;

@@ -1,0 +1,21 @@
+/******************************************************************************
+ * contextual color tokens — component:facts
+ * @type {Sass}
+ * The label/value list (Components/UI/Facts). Only the LABEL is tinted: the
+ * values inherit the Widget card's own surface colour, so they stay the readable
+ * half of every row and keep following the theme without this file knowing about
+ * it.
+ *
+ * The label is a muted grey rather than the retro cyan it would be tempting to
+ * use: these are small (0.8rem) uppercase captions, and `c3` — tuned for AA on
+ * the neon Button's fill and for glows — does not clear 4.5:1 as small text on
+ * the card's light background. The neon in this component comes from the card's
+ * gradient title strip instead, where it is large enough to carry it.
+ * Consumed as c.$c-facts via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-color-tokens" as c;
+
+$facts: (
+    "label": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron"))
+) !default;

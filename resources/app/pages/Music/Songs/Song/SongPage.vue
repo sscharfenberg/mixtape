@@ -10,23 +10,30 @@
  * the URL: the detail view lives *inside* the listing it came from, the same way
  * `music.songs.show` sits under `music.songs`.
  *
- * The body is every stored fact about the file as one label/value list: tags,
- * position in the album, the technical stream fields, size / mtime / path. The
+ * Two blocks: the hero (cover, title, the play / queue actions — SongHero), then
+ * every stored fact about the file, grouped into cards by what kind of fact it is
+ * — the tags, its place in the album, how it was encoded, the file on disk. The
  * controller sends raw values and the formatting happens here, with the active
- * locale — sizes, rates and dates all read differently per language.
+ * locale — sizes, rates and dates all read differently per language; the shared
+ * Facts component groups the finished rows and lays them out.
  *
- * Still a scaffold in what it *does*: the player, cover art, play history and the
- * clone list ("also appears in N other places") come later — see
- * docs/app-rewrite.md.
+ * The page has no <Headline>: its title lives in the hero next to the cover, which
+ * is what makes that first row read as one unit instead of a caption under a
+ * banner.
+ *
+ * Still a scaffold in what it *does*: the player (so the hero's buttons are inert),
+ * play history and the clone list ("also appears in N other places") come later —
+ * see docs/app-rewrite.md.
  *****************************************************************************/
 import { Head } from "@inertiajs/vue3";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import Container from "Components/UI/Container.vue";
-import Headline from "Components/UI/Headline.vue";
+import Facts, { type Fact } from "Components/UI/Facts.vue";
 import LabelledLink from "Components/UI/LabelledLink.vue";
 import type { SongDetail } from "Types/music";
 import { formatClock, formatDateTime, formatDecimals, formatFileSize } from "Utils/formatting";
+import SongHero from "./components/SongHero.vue";
 
 const props = defineProps<{
     /** The song being shown, as SongController shaped it — every value raw. */
@@ -34,9 +41,6 @@ const props = defineProps<{
 }>();
 
 const { t, locale } = useI18n();
-
-/** One row of the facts list: a label, its formatted value, and whether it needs the full width. */
-type Fact = { key: string; label: string; value: string | null; wide?: boolean };
 
 /**
  * A position within its set, as "2/8" — or the bare number when there is no
@@ -66,38 +70,59 @@ const bitRate = (): string | null => {
 };
 
 /**
- * The facts list, as label/value pairs. A `computed` so the (already-translated,
- * already-locale-formatted) rows follow a locale switch, and so an untagged field
- * simply drops out instead of rendering a row with an empty value — a page that
- * shows "Genre: —" a dozen times reads as broken rather than as sparse tags.
+ * The facts list, as label/value pairs. A `computed` so the rows — translated and
+ * locale-formatted right here — are rebuilt on a locale switch. Untagged fields
+ * are left in the list as nulls on purpose: Facts drops them, so this stays one
+ * flat description of the full row set rather than a pile of conditionals.
  *
- * Order is deliberate: what the song IS (tags, place in the album), then how it
- * was encoded, then the file on disk — widening from listener-facing to
- * server-facing, so the interesting rows are never below the fold.
+ * Every row carries a `group`, which is what Facts turns into cards. The order is
+ * deliberate twice over: the groups run from what the song IS to where it lives on
+ * the server (so the listener-facing rows are never below the fold), and within a
+ * group the rows keep the order they'd be read in.
+ *
+ * Named `songFacts`, not `facts`: a plain `facts` binding would shadow the Facts
+ * component in the template, since the compiler resolves the `<facts>` tag against
+ * the setup bindings and would find the ref first.
  */
-const facts = computed<Fact[]>(() => {
+const songFacts = computed<Fact[]>(() => {
     const song = props.song;
+    const tags = t("music.song.groups.tags");
+    const place = t("music.song.groups.position");
+    const audio = t("music.song.groups.audio");
+    const file = t("music.song.groups.file");
 
     return [
-        { key: "artist", label: t("music.columns.artist"), value: song.artist },
-        { key: "album", label: t("music.columns.album"), value: song.album },
-        { key: "year", label: t("music.columns.year"), value: song.year === null ? null : String(song.year) },
-        { key: "genre", label: t("music.columns.genre"), value: song.genre },
+        { key: "artist", group: tags, label: t("music.columns.artist"), value: song.artist },
+        { key: "album", group: tags, label: t("music.columns.album"), value: song.album },
+        {
+            key: "year",
+            group: tags,
+            label: t("music.columns.year"),
+            value: song.year === null ? null : String(song.year)
+        },
+        { key: "genre", group: tags, label: t("music.columns.genre"), value: song.genre },
+        { key: "composer", group: tags, label: t("music.song.labels.composer"), value: song.composer },
+        { key: "publisher", group: tags, label: t("music.song.labels.publisher"), value: song.publisher },
         {
             key: "disc",
+            group: place,
             label: t("music.song.labels.disc"),
             // Only a real multi-disc set earns a row: "1/1" on a single-CD album
             // is noise, and the whole point of the total is telling sets apart.
             value: song.discTotal !== null && song.discTotal > 1 ? position(song.disc, song.discTotal) : null
         },
-        { key: "track", label: t("music.song.labels.track"), value: position(song.track, song.trackTotal) },
-        { key: "duration", label: t("music.columns.duration"), value: formatClock(song.duration) },
-        { key: "composer", label: t("music.song.labels.composer"), value: song.composer },
-        { key: "publisher", label: t("music.song.labels.publisher"), value: song.publisher },
-        { key: "codec", label: t("music.song.labels.codec"), value: song.codec },
-        { key: "bitRate", label: t("music.song.labels.bitRate"), value: bitRate() },
+        {
+            key: "track",
+            group: place,
+            label: t("music.song.labels.track"),
+            value: position(song.track, song.trackTotal)
+        },
+        { key: "duration", group: place, label: t("music.columns.duration"), value: formatClock(song.duration) },
+        { key: "codec", group: audio, label: t("music.song.labels.codec"), value: song.codec },
+        { key: "bitRate", group: audio, label: t("music.song.labels.bitRate"), value: bitRate() },
         {
             key: "sampleRate",
+            group: audio,
             label: t("music.song.labels.sampleRate"),
             value:
                 song.sampleRate === null
@@ -106,77 +131,73 @@ const facts = computed<Fact[]>(() => {
         },
         {
             key: "channel",
+            group: audio,
             label: t("music.song.labels.channel"),
             value: song.channel === null ? null : t(`music.channel.${song.channel}`)
         },
         // A boolean, so it is never absent — and "no" is worth knowing: it is why
         // an album falls back to its Folder.jpg for artwork.
-        { key: "cover", label: t("music.song.labels.cover"), value: song.cover ? t("common.yes") : t("common.no") },
+        {
+            key: "cover",
+            group: audio,
+            label: t("music.song.labels.cover"),
+            value: song.cover ? t("common.yes") : t("common.no")
+        },
         {
             key: "size",
+            group: file,
             label: t("music.song.labels.size"),
             value: song.sizeBytes === null ? null : formatFileSize(song.sizeBytes, locale.value)
         },
         {
             key: "modifiedAt",
+            group: file,
             label: t("music.song.labels.modifiedAt"),
             value: formatDateTime(song.modifiedAt, locale.value)
         },
-        { key: "addedAt", label: t("music.song.labels.addedAt"), value: formatDateTime(song.addedAt, locale.value) },
-        // Last, and the full width of the list: a path is the longest value here
-        // and the one most likely to be copied somewhere else.
-        { key: "path", label: t("music.song.labels.path"), value: song.path, wide: true }
-    ].filter(fact => fact.value !== null && fact.value !== "");
+        {
+            key: "addedAt",
+            group: file,
+            label: t("music.song.labels.addedAt"),
+            value: formatDateTime(song.addedAt, locale.value)
+        },
+        // Last, and the full width of its card: a path is the longest value here and
+        // the one most likely to be copied somewhere else — monospaced so it stays
+        // scannable as a path. It is also why the file card spans two columns.
+        { key: "path", group: file, label: t("music.song.labels.path"), value: song.path, wide: true, mono: true }
+    ];
 });
 </script>
 
 <template>
     <Head :title="song.name" />
-    <headline glow>{{ song.name }}</headline>
     <container>
-        <dl class="song__facts">
-            <template v-for="fact in facts" :key="fact.key">
-                <dt class="song__label">{{ fact.label }}</dt>
-                <dd class="song__value" :class="{ 'song__value--wide': fact.wide }">{{ fact.value }}</dd>
-            </template>
-        </dl>
-        <p class="song__back">
-            <labelled-link href="/music/songs">{{ t("music.song.backToList") }}</labelled-link>
-        </p>
+        <div class="song">
+            <song-hero :song="song" />
+            <facts :facts="songFacts" wide-groups />
+            <p class="song__back">
+                <labelled-link href="/music/songs">{{ t("music.song.backToList") }}</labelled-link>
+            </p>
+        </div>
     </container>
 </template>
 
 <style scoped lang="scss">
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "Abstracts/sizes" as s;
-@use "Abstracts/typography" as t;
 
-/* Layout only — no colour of its own, so the list inherits the page's text
-   colour and keeps following the theme. Gutters come from s.$p-song
-   (styles/abstracts/sizes/pages/_song.scss). */
-.song__facts {
-    display: grid;
-    grid-template-columns: max-content 1fr;
+/* The hero and the facts cards each bring their own layout (they are both card
+   grids); the page only stacks its blocks and spaces them. The gap matches the
+   WidgetGroup's own gutter, so the vertical rhythm between hero and facts is the
+   same as between two facts cards. */
+.song {
+    display: flex;
+    flex-direction: column;
 
-    gap: map.get(s.$p-song, "facts-row-gap") map.get(s.$p-song, "facts-column-gap");
-}
-
-.song__label {
-    font-weight: bold;
-}
-
-/* The path row: spans the whole list (so it starts on its own line under its
-   label) and breaks anywhere, since a path has no spaces to wrap at and would
-   otherwise push the grid wider than the viewport on a phone. */
-.song__value--wide {
-    grid-column: 1 / -1;
-
-    overflow-wrap: anywhere;
-
-    font-family: map.get(t.$p-song, "path");
+    gap: map.get(s.$p-song, "block-gap");
 }
 
 .song__back {
-    margin-top: map.get(s.$p-song, "facts-column-gap");
+    margin: 0;
 }
 </style>

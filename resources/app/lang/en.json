@@ -261,6 +261,15 @@
         },
         "song": {
             "backToList": "Back to all songs",
+            "play": "Play",
+            "enqueue": "Add to queue",
+            "noCover": "No cover available",
+            "groups": {
+                "tags": "Tags",
+                "position": "Position in album",
+                "audio": "Audio",
+                "file": "File"
+            },
             "labels": {
                 "disc": "Disc",
                 "track": "Track",

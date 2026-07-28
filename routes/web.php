@@ -8,6 +8,7 @@ use App\Http\Controllers\Music\AlbumsController;
 use App\Http\Controllers\Music\ArtistsController;
 use App\Http\Controllers\Music\GenresController;
 use App\Http\Controllers\Music\SongController;
+use App\Http\Controllers\Music\SongCoverController;
 use App\Http\Controllers\Music\SongsController;
 use App\Http\Controllers\MusicController;
 use App\Http\Controllers\PlaylistsController;
@@ -52,6 +53,14 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         Route::get('/music/songs/{song}', SongController::class)
             ->whereUuid('song')
             ->name('music.songs.show');
+
+        // The song's cover art, extracted from the file on first request. A route
+        // rather than a URL under /storage: covers live behind the same auth as
+        // the page that shows them (and `public/storage` points at the *server's*
+        // storage dir, which doesn't exist on a dev machine).
+        Route::get('/music/songs/{song}/cover', SongCoverController::class)
+            ->whereUuid('song')
+            ->name('music.songs.cover');
     });
 
 // Authentication (login / logout). Kept in a dedicated file as the auth surface
