@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\CollectionType;
+use App\Models\Concerns\HasFoldedName;
 use Database\Factories\CollectionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -21,7 +22,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Collection extends Model
 {
     /** @use HasFactory<CollectionFactory> */
-    use HasFactory, HasUuids;
+    use HasFactory, HasFoldedName, HasUuids;
 
     /** @return array<string, string> */
     protected function casts(): array

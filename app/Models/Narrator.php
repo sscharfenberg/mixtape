@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasFoldedName;
 use Database\Factories\NarratorFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -18,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Narrator extends Model
 {
     /** @use HasFactory<NarratorFactory> */
-    use HasFactory, HasUuids;
+    use HasFactory, HasFoldedName, HasUuids;
 
     public $timestamps = false;
 

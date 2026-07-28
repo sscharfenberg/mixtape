@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasFoldedName;
 use Database\Factories\AuthorFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -19,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Author extends Model
 {
     /** @use HasFactory<AuthorFactory> */
-    use HasFactory, HasUuids;
+    use HasFactory, HasFoldedName, HasUuids;
 
     public $timestamps = false;
 

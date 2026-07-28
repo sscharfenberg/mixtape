@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\Channel;
 use App\Enums\TrackType;
+use App\Models\Concerns\HasFoldedName;
 use Database\Factories\TrackFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -33,7 +34,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Track extends Model
 {
     /** @use HasFactory<TrackFactory> */
-    use HasFactory, HasUuids;
+    use HasFactory, HasFoldedName, HasUuids;
 
     /**
      * Only `created_at` is tracked (a stable insert-time "date added"); there is

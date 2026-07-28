@@ -355,12 +355,23 @@ Recommended indexes:
   author_id)`: it covers dedup **and** doubles as the alphabetical browse index (`WHERE type = ? ORDER BY
   name`) — but, leading with `type`, it does *not* serve a bare `name` lookup; name *search* on
   collections rides the trgm GIN below.
-- **Substring search (`pg_trgm` GIN):** every legacy search is `LIKE '%segment%'` (leading wildcard,
-  non-sargable → full scan). Add `CREATE EXTENSION pg_trgm` + `USING gin (<col> gin_trgm_ops)` on every
-  searchable name: **`tracks.name`** (song / chapter titles — the primary target), `collections.name`,
-  `artists.name`, `authors.name`, `narrators.name`, `genres.name`. `gin_trgm_ops` does its own
-  case-folding for `ILIKE`, independent of the ICU collation, so the trgm GIN and the collated unique
-  coexist (substring-search vs equality-dedup).
+- **Substring search (`name_fold` + `pg_trgm` GIN)** — *implemented, migration
+  `2026_07_28_000000_add_name_fold_search_columns`.* Every legacy search is `LIKE '%segment%'` (leading
+  wildcard, non-sargable → full scan), and matching the raw `name` columns is a dead end besides:
+  Postgres refuses `LIKE` / `ILIKE` / regex on the nondeterministic `case_insensitive` ICU collation from
+  (b), which is why the first version needed a `COLLATE "C"` pin — Postgres-only SQL that could not run on
+  the SQLite test DB at all (`near "ILIKE": syntax error`), leaving search untested.
+  So each searchable name gains a **`name_fold` companion column** on the default (deterministic)
+  collation — `tracks`, `collections`, `artists`, `authors`, `narrators`, `genres` — holding
+  `FoldedSearch::fold(name)`: lowercased, diacritics stripped, and anything with no ASCII form (CJK)
+  **kept** rather than dropped, so the fold is a superset of the raw value and no second pass over `name`
+  is needed. `HasFoldedName` writes it from the `name` mutator, so the scanner's three write paths
+  (insert / re-tag / rename-match) cannot forget it. Search is then one plain `like` on both drivers, and
+  `USING gin (name_fold gin_trgm_ops)` gives it an index. Folding in PHP rather than via `unaccent()` is
+  deliberate: the value is *stored*, so it must be identical on every machine (no ICU-version drift), the
+  rule stays greppable and unit-tested, and it transliterates Cyrillic, which `unaccent()` does not.
+  `pg_trgm` is a *trusted* extension on PG13+, so the app's own DB user installs it in the migration —
+  no superuser step, as long as it holds `CREATE` on the database.
 - **Ordered album/book playback:** composite `(collection_id, disc, track)` on `tracks` — this is also
   the index that covers `collection_id` on its own. `disc` / `track` are nullable → nulls sort last,
   which is the right place for untracked files.

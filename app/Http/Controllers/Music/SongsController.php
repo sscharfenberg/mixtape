@@ -6,6 +6,7 @@ use App\Enums\TrackType;
 use App\Http\Controllers\Controller;
 use App\Models\Track;
 use App\Services\DataTableService;
+use App\Services\Search\FoldedSearch;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -59,22 +60,15 @@ class SongsController extends Controller
                 'duration' => 'tracks.duration',
             ],
             defaultSort: 'name',
-            searchCallback: function (Builder $q, string $search): void {
-                // The taxonomy `name` columns carry the case-insensitive, NON-
-                // deterministic ICU collation, and Postgres forbids ILIKE on that
-                // ("nondeterministic collations are not supported for ILIKE"). Pin
-                // each match to the deterministic "C" collation so ILIKE is legal;
-                // it case-folds ASCII, which is enough here. (`tracks.name` is
-                // default-collated already, but "C" is harmless.) The proper
-                // accent-aware substring search via pg_trgm is deferred.
-                $like = '%'.$search.'%';
-                $q->where(function (Builder $q) use ($like): void {
-                    $q->whereRaw('tracks.name COLLATE "C" ILIKE ?', [$like])
-                        ->orWhereRaw('artists.name COLLATE "C" ILIKE ?', [$like])
-                        ->orWhereRaw('collections.name COLLATE "C" ILIKE ?', [$like])
-                        ->orWhereRaw('genres.name COLLATE "C" ILIKE ?', [$like]);
-                });
-            },
+            // Searches exactly the four columns the table shows, so every hit is
+            // explainable from the row in front of you — a "Moto" that matched
+            // *Badmotorfinger* has that album sitting in its Album cell. Matching
+            // runs on the `name_fold` companions, which is what makes it accent-
+            // and case-insensitive ("Mgla" finds "Mgła") on one code path for both
+            // Postgres and sqlite — see FoldedSearch.
+            searchCallback: fn (Builder $q, string $search) => FoldedSearch::apply($q, $search, [
+                'tracks.name', 'artists.name', 'collections.name', 'genres.name',
+            ]),
             rowMapper: fn (Track $song): array => [
                 'id' => $song->id,
                 'name' => $song->name,
