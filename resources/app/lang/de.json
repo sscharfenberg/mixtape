@@ -7,6 +7,8 @@
             "minutes": "{n} Minute | {n} Minuten",
             "seconds": "{n} Sekunde | {n} Sekunden"
         },
+        "yes": "Ja",
+        "no": "Nein",
         "close": "Schließen",
         "show": "Anzeigen",
         "hide": "Verbergen",
@@ -251,8 +253,34 @@
             "genre": "Genre",
             "duration": "Dauer"
         },
+        "channel": {
+            "stereo": "Stereo",
+            "joint_stereo": "Joint Stereo",
+            "dual_mono": "Dual Mono",
+            "mono": "Mono"
+        },
         "song": {
-            "backToList": "Zurück zu allen Songs"
+            "backToList": "Zurück zu allen Songs",
+            "labels": {
+                "disc": "CD",
+                "track": "Track",
+                "composer": "Komponist",
+                "publisher": "Label",
+                "codec": "Codec",
+                "bitRate": "Bitrate",
+                "sampleRate": "Samplerate",
+                "channel": "Kanäle",
+                "cover": "Eingebettetes Cover",
+                "size": "Dateigröße",
+                "modifiedAt": "Datei geändert",
+                "addedAt": "Aufgenommen am",
+                "path": "Pfad"
+            },
+            "units": {
+                "bitRate": "kbit/s",
+                "sampleRate": "Hz"
+            },
+            "vbr": "VBR"
         },
         "empty": "Noch keine Einträge",
         "notEnoughData": "Noch nicht genug Daten",

@@ -74,29 +74,6 @@ class Track extends Model
         return $root.'/'.$this->path;
     }
 
-    /**
-     * The track's length as a clock string — `m:ss`, or `h:mm:ss` once past an
-     * hour — or null when the file carried no duration. Lives on the model rather
-     * than in a controller because every listing and detail view needs the same
-     * form (the raw float seconds mean nothing to a listener), and two callers
-     * formatting it separately is how the two drift apart.
-     */
-    public function clockDuration(): ?string
-    {
-        if ($this->duration === null) {
-            return null;
-        }
-
-        $total = (int) round((float) $this->duration);
-        $hours = intdiv($total, 3600);
-        $minutes = intdiv($total % 3600, 60);
-        $seconds = $total % 60;
-
-        return $hours > 0
-            ? sprintf('%d:%02d:%02d', $hours, $minutes, $seconds)
-            : sprintf('%d:%02d', $minutes, $seconds);
-    }
-
     /** @return BelongsTo<Collection, $this> */
     public function collection(): BelongsTo
     {

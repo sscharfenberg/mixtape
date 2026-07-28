@@ -33,7 +33,9 @@ class SongsPageTest extends TestCase
                 ->component('Music/Songs/SongsPage')
                 ->has('table.rows', 1)
                 ->where('table.rows.0.name', 'Lightning Strikes')
-                ->where('table.rows.0.duration', '3:05')
+                // Raw seconds, not a "3:05" clock: the page's cell-duration slot
+                // formats it (Utils/formatting.ts → formatClock).
+                ->where('table.rows.0.duration', 185.4)
                 // The row click and the title link both navigate to this; a
                 // relative path, so it holds whatever host serves the app.
                 ->where('table.rows.0.href', "/music/songs/{$song->id}")

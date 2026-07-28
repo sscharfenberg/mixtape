@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Music;
 
+use App\Enums\Channel;
 use App\Models\Artist;
 use App\Models\Collection;
 use App\Models\Genre;
@@ -47,9 +48,9 @@ class SongPageTest extends TestCase
                 ->where('song.album', 'Thunder Road')
                 ->where('song.year', 1994)
                 ->where('song.genre', 'Post-Rock')
-                // 185.4s → 3:05, the same clock form the listing's duration column
-                // uses (Track::clockDuration()).
-                ->where('song.duration', '3:05')
+                // Seconds as stored — the page clocks them to 3:05, the same way
+                // the listing's duration column does (both call formatClock).
+                ->where('song.duration', 185.4)
             );
     }
 
@@ -61,6 +62,14 @@ class SongPageTest extends TestCase
             'collection_id' => null,
             'genre_id' => null,
             'duration' => null,
+            'composer' => null,
+            'publisher' => null,
+            'codec' => null,
+            'channel' => null,
+            'sample_rate' => null,
+            'bit_rate' => null,
+            'size' => null,
+            'modified_at' => null,
         ]);
 
         $this->actingAs(User::factory()->create())
@@ -71,7 +80,107 @@ class SongPageTest extends TestCase
                 ->where('song.genre', null)
                 ->where('song.year', null)
                 ->where('song.duration', null)
+                ->where('song.composer', null)
+                ->where('song.publisher', null)
+                ->where('song.codec', null)
+                ->where('song.channel', null)
+                ->where('song.sampleRate', null)
+                ->where('song.bitRate', null)
+                ->where('song.sizeBytes', null)
+                ->where('song.modifiedAt', null)
+                // No collection ⇒ nothing to count a track/disc position against;
+                // a "2/1" would be worse than an omitted denominator.
+                ->where('song.trackTotal', null)
+                ->where('song.discTotal', null)
             );
+    }
+
+    public function test_the_technical_and_file_facts_are_passed_raw_for_the_page_to_format(): void
+    {
+        // Sizes, rates and timestamps go over unformatted: the page formats them
+        // against the viewer's locale (SongController's docblock).
+        $song = Track::factory()->create([
+            'composer' => 'Wendy Carlos',
+            'publisher' => 'Ableton Records',
+            'codec' => 'MPEG1 L3',
+            'channel' => Channel::JointStereo,
+            'sample_rate' => 44100,
+            'bit_rate' => 320000,
+            'vbr' => true,
+            'cover' => true,
+            'size' => 7_340_032,
+            'modified_at' => '2026-05-04 21:13:07',
+            'path' => 'The Storm/Thunder Road/02 - Lightning Strikes.mp3',
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/songs/{$song->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('song.composer', 'Wendy Carlos')
+                ->where('song.publisher', 'Ableton Records')
+                ->where('song.codec', 'MPEG1 L3')
+                // The enum's raw value — the page translates it via music.channel.*.
+                ->where('song.channel', 'joint_stereo')
+                ->where('song.sampleRate', 44100)
+                ->where('song.bitRate', 320000)
+                ->where('song.vbr', true)
+                ->where('song.cover', true)
+                ->where('song.sizeBytes', 7_340_032)
+                ->where('song.modifiedAt', '2026-05-04T21:13:07+00:00')
+                ->where('song.path', 'The Storm/Thunder Road/02 - Lightning Strikes.mp3')
+                ->has('song.addedAt')
+            );
+    }
+
+    public function test_track_and_disc_totals_count_the_songs_album(): void
+    {
+        $album = Collection::factory()->create();
+
+        // A two-disc album: 3 tracks on disc 1, 2 on disc 2. The song under test
+        // is disc 1 track 2, so it reads "2/3" and "1/2".
+        $song = Track::factory()->create(['collection_id' => $album->id, 'disc' => 1, 'track' => 2]);
+        Track::factory()->create(['collection_id' => $album->id, 'disc' => 1, 'track' => 1]);
+        Track::factory()->create(['collection_id' => $album->id, 'disc' => 1, 'track' => 3]);
+        Track::factory()->count(2)->create(['collection_id' => $album->id, 'disc' => 2]);
+
+        // A different album's tracks must not leak into either total.
+        Track::factory()->count(4)->create(['disc' => 1]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/songs/{$song->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('song.track', 2)
+                ->where('song.trackTotal', 3)
+                ->where('song.disc', 1)
+                ->where('song.discTotal', 2)
+            );
+    }
+
+    public function test_a_single_disc_album_reports_one_disc_and_untagged_discs_group_together(): void
+    {
+        $album = Collection::factory()->create();
+        $song = Track::factory()->create(['collection_id' => $album->id, 'disc' => 1, 'track' => 1]);
+        Track::factory()->create(['collection_id' => $album->id, 'disc' => 1, 'track' => 2]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/songs/{$song->id}")
+            ->assertOk()
+            // The page hides the disc row on anything but a real multi-disc set.
+            ->assertInertia(fn (Assert $page) => $page->where('song.discTotal', 1)->where('song.trackTotal', 2));
+
+        // An album whose files carry no disc tag at all: the siblings group on
+        // `disc IS NULL` (a `= NULL` comparison would total 0), and COUNT(DISTINCT
+        // disc) skips the nulls, so the disc count is 0 — read as "no disc info".
+        $untagged = Collection::factory()->create();
+        $first = Track::factory()->create(['collection_id' => $untagged->id, 'disc' => null, 'track' => 1]);
+        Track::factory()->count(2)->create(['collection_id' => $untagged->id, 'disc' => null]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/songs/{$first->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('song.trackTotal', 3)->where('song.discTotal', 0));
     }
 
     public function test_an_audiobook_chapter_is_not_reachable_as_a_song(): void

@@ -34,6 +34,54 @@ export const formatFileSize = (bytes: number, locale: string): string =>
         : `${formatDecimals(bytes / 1024 ** 2, locale, 1)} MB`;
 
 /**
+ * A track length in seconds as a clock string — `m:ss`, or `h:mm:ss` once past an
+ * hour. Null in, null out, so a file that carried no duration drops its row/cell
+ * instead of reading "0:00".
+ *
+ * Takes no locale: a colon-separated clock is written the same way in every
+ * language this app speaks, which is exactly why it lives client-side with the
+ * other formatters instead of being pre-rendered by the server. It is shared by
+ * the Songs listing and the song detail page — two callers formatting seconds
+ * separately is how the two drift apart.
+ *
+ * @param seconds playing time in seconds (fractional is fine — it is rounded)
+ */
+export const formatClock = (seconds: number | null): string | null => {
+    if (seconds === null || !Number.isFinite(seconds)) return null;
+
+    const total = Math.round(seconds);
+    const pad = (value: number) => String(value).padStart(2, "0");
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+
+    return hours > 0
+        ? `${hours}:${pad(minutes)}:${pad(total % 60)}`
+        : `${minutes}:${pad(total % 60)}`;
+};
+
+/**
+ * An ISO-8601 timestamp as a locale-formatted date + time, to the second
+ * (de → "28.07.2026, 14:23:05", en → "Jul 28, 2026, 2:23:05 PM").
+ *
+ * The server sends UTC instants with their offset, so `Date` parsing and
+ * `Intl.DateTimeFormat` together render them in the *viewer's* timezone — which is
+ * what a file's mtime should read as, no matter where the server sits. Returns
+ * null for a missing or unparseable value, so a caller can drop the row rather
+ * than print "Invalid Date".
+ *
+ * @param iso    ISO-8601 timestamp (with offset), or null
+ * @param locale BCP-47 locale tag (the app's active locale)
+ */
+export const formatDateTime = (iso: string | null, locale: string): string | null => {
+    if (!iso) return null;
+
+    const parsed = new Date(iso);
+    if (Number.isNaN(parsed.getTime())) return null;
+
+    return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "medium" }).format(parsed);
+};
+
+/**
  * A total-seconds duration as a human breakdown, e.g. "1 month, 4 days, 7 hours,
  * 12 minutes, 30 seconds". Uses flat 30-day months (a duration has no calendar),
  * so the parts always sum back to the exact total; leading zero units are dropped

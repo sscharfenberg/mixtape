@@ -81,7 +81,11 @@ class SongsController extends Controller
                 'artist' => $song->artist_name,
                 'album' => $song->album_name,
                 'genre' => $song->genre_name,
-                'duration' => $song->clockDuration(),
+                // Raw seconds — the page's `cell-duration` slot clocks it to m:ss
+                // (Utils/formatting.ts), so the listing and the detail page share
+                // one implementation. Sorting is unaffected: it happens in SQL on
+                // `tracks.duration`, which is these same seconds.
+                'duration' => $song->duration,
                 // Makes the row clickable in the frontend DataTable, which visits
                 // this on a row click / card tap (and the title cell renders it as
                 // a real link). Relative so it works whatever host serves the app.

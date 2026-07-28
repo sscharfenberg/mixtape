@@ -21,15 +21,17 @@ import DataTable from "Components/DataTable/DataTable.vue";
 import Container from "Components/UI/Container.vue";
 import Headline from "Components/UI/Headline.vue";
 import type { ColumnDef, TableResponse } from "Types/dataTable";
+import { formatClock } from "Utils/formatting";
 
-/** One song row as shaped by SongsController's rowMapper (duration pre-formatted to m:ss). */
+/** One song row as shaped by SongsController's rowMapper (duration in raw seconds). */
 interface SongRow {
     id: string;
     name: string;
     artist: string | null;
     album: string | null;
     genre: string | null;
-    duration: string | null;
+    /** Playing time in seconds — clocked to m:ss by the `cell-duration` slot. */
+    duration: number | null;
     /** The song's detail page — makes the row clickable and backs the title link. */
     href: string;
 }
@@ -63,6 +65,7 @@ const columns = computed<ColumnDef<SongRow>[]>(() => [
             <template #cell-name="{ row }">
                 <Link :href="row.href" class="songs__title">{{ row.name }}</Link>
             </template>
+            <template #cell-duration="{ row }">{{ formatClock(row.duration) }}</template>
             <template #empty>
                 <p>{{ t("components.datatable.no_results") }}</p>
             </template>
