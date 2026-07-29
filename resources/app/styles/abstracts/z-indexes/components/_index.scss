@@ -5,6 +5,7 @@
  * re-exports these with a "c-" prefix, so $main (in _main.scss) is consumed
  * as z.$c-main via `@use "Abstracts/z-indexes" as z;`.
  *****************************************************************************/
+@forward "breadcrumb";
 @forward "header";
 @forward "main";
 @forward "popover";

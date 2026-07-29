@@ -1,0 +1,19 @@
+/******************************************************************************
+ * contextual size tokens — component:breadcrumb
+ * @type {Sass}
+ * ported from cantrip.me's $components.breadcrumb. `border` is the arrow's
+ * outline, drawn on the two skewed pseudo-element halves (and re-used as the
+ * home chip's inset box-shadow, which has to match it exactly or the seam
+ * shows). `line-height` is pinned to the icon scale rather than left to the
+ * font, so a crumb with an icon and one without are the same height. cantrip's
+ * unused "radius" key is dropped — the chips are arrows, nothing is rounded.
+ * Consumed as s.$c-breadcrumb via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$breadcrumb: (
+    "padding": 0.5rem 1rem,
+    "border": map.get(s.$border, "base"),
+    "line-height": map.get(s.$icons, "medium")
+) !default;

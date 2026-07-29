@@ -1,0 +1,11 @@
+/******************************************************************************
+ * contextual timing token — component:breadcrumb
+ * @type {Sass}
+ * the crumb's hover transition speed — ink and both arrow halves fade together,
+ * so they share one duration by construction. consumed as ti.$c-breadcrumb via
+ * `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$breadcrumb: map.get(ti.$timings, "fast") !default;

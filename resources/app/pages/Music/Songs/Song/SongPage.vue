@@ -31,6 +31,7 @@ import { useI18n } from "vue-i18n";
 import Container from "Components/UI/Container.vue";
 import Facts, { type Fact } from "Components/UI/Facts.vue";
 import LabelledLink from "Components/UI/LabelledLink.vue";
+import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import type { SongDetail } from "Types/music";
 import { formatClock, formatDateTime, formatDecimals, formatFileSize } from "Utils/formatting";
 import SongHero from "./components/SongHero.vue";
@@ -41,6 +42,15 @@ const props = defineProps<{
 }>();
 
 const { t, locale } = useI18n();
+const { setBreadcrumbs } = useBreadcrumbs();
+// The song's own crumb is a raw label, not a key — its title is data, and it is
+// the page's only heading in the trail (the hero carries it visually instead of
+// a Headline, see the note above).
+setBreadcrumbs([
+    { labelKey: "header.siteMenu.music", href: "/music", icon: "music" },
+    { labelKey: "music.widgets.songs", href: "/music/songs", icon: "song" },
+    { label: props.song.name }
+]);
 
 /**
  * A position within its set, as "2/8" — or the bare number when there is no

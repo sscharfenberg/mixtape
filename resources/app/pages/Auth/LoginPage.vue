@@ -29,6 +29,7 @@ import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
 import LabelledLink from "Components/UI/LabelledLink.vue";
 import LinkGroup from "Components/UI/LinkGroup.vue";
+import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import { useLogin } from "Composables/useLogin";
 
 defineProps<{
@@ -38,6 +39,11 @@ defineProps<{
 
 const { t } = useI18n();
 const page = usePage();
+const { setBreadcrumbs } = useBreadcrumbs();
+// A single crumb: the guest recovery pages are siblings of this one, not
+// children — a reset link arrives by mail and is reached without ever passing
+// through login, so nesting them under it would describe a path nobody walked.
+setBreadcrumbs([{ labelKey: "auth.login.pageTitle", icon: "key" }]);
 /** Backend feature flags — gate the guest-only recovery links. */
 const features = computed(() => page.props.features);
 const showPassword = ref(false);

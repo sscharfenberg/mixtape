@@ -20,8 +20,11 @@ import FormLegend from "Components/Form/FormLegend.vue";
 import FormRow from "Components/Form/FormRow.vue";
 import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
+import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 
 const { t } = useI18n();
+const { setBreadcrumbs } = useBreadcrumbs();
+setBreadcrumbs([{ labelKey: "auth.resend.pageTitle", icon: "mail" }]);
 </script>
 
 <template>

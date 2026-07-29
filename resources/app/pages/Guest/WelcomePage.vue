@@ -4,6 +4,11 @@
  * The public landing page at `/` (rendered by HomeController). Currently a
  * placeholder — a single Container of filler copy — pending the real guest
  * welcome / browse experience.
+ *
+ * The one page that deliberately sets NO breadcrumbs: every trail already opens
+ * with a home chip pointing here, so a crumb for this page would be that chip
+ * repeating itself with nowhere to go. main.ts clears the trail on navigation,
+ * so Breadcrumb renders nothing at all here.
  *****************************************************************************/
 import { Head } from "@inertiajs/vue3";
 import Container from "Components/UI/Container.vue";

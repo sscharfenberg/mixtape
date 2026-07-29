@@ -1,0 +1,14 @@
+/******************************************************************************
+ * contextual z-index token — component:breadcrumb
+ * @type {Sass}
+ * The rung for the two pseudo-elements that draw a crumb's skewed arrow. They
+ * are the chip's *backdrop*, so they have to sit behind their own crumb's text
+ * — hence the "cellar" (negative) rung: the crumb itself is `position: relative`
+ * without a z-index, so it never opens a stacking context and the arrows drop
+ * behind the text inside <main>'s context instead of behind the page.
+ * Consumed as z.$c-breadcrumb via `@use "Abstracts/z-indexes" as z;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-z-index-tokens" as z;
+
+$breadcrumb: map.get(z.$scale, "cellar") !default;

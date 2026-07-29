@@ -10,8 +10,11 @@ import { useI18n } from "vue-i18n";
 import Container from "Components/UI/Container.vue";
 import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
+import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 
 const { t } = useI18n();
+const { setBreadcrumbs } = useBreadcrumbs();
+setBreadcrumbs([{ labelKey: "header.siteMenu.audiobooks", icon: "audiobook" }]);
 </script>
 
 <template>

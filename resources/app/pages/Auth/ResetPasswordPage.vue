@@ -20,6 +20,7 @@ import FormRow from "Components/Form/FormRow.vue";
 import PasswordStrength from "Components/Form/PasswordStrength.vue";
 import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
+import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import { usePasswordEntropy } from "Composables/usePasswordEntropy";
 
 const props = defineProps<{
@@ -30,6 +31,8 @@ const props = defineProps<{
 }>();
 
 const { t } = useI18n();
+const { setBreadcrumbs } = useBreadcrumbs();
+setBreadcrumbs([{ labelKey: "auth.reset.pageTitle", icon: "key" }]);
 const inputEmail = ref(props.email);
 const showPassword = ref(false);
 const showPasswordConfirmation = ref(false);

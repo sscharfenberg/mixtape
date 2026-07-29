@@ -11,6 +11,12 @@ import { Head } from "@inertiajs/vue3";
 import Container from "Components/UI/Container.vue";
 import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
+import { useBreadcrumbs } from "Composables/useBreadcrumbs";
+
+const { setBreadcrumbs } = useBreadcrumbs();
+// A raw label, not an i18n key: this dev-only page is English-only by design, so
+// there is nothing in the catalogs to translate it with.
+setBreadcrumbs([{ label: "Icon overview", icon: "system" }]);
 
 /** Lazy glob — we only read the keys, never import the modules. */
 const iconGlob = import.meta.glob("../../assets/icons/*.svg");

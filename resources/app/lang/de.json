@@ -21,6 +21,10 @@
         "loading": "Wird geladen",
         "requiredFieldsHint": "Felder, die mit einem {icon} gekennzeichnet sind, müssen ausgefüllt werden."
     },
+    "breadcrumb": {
+        "nav": "Brotkrumen-Navigation",
+        "home": "Startseite"
+    },
     "header": {
         "userMenu": {
             "nav": "Benutzermenü",

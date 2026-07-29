@@ -14,12 +14,15 @@ import { useI18n } from "vue-i18n";
 import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
 import StickyNav from "Components/UI/StickyNav.vue";
+import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import DashboardPassword from "./DashboardPassword.vue";
 import DashboardProfile from "./DashboardProfile.vue";
 import DeleteAccount from "./Delete/DeleteAccount.vue";
 import TwoFactor from "./TwoFactor/TwoFactor.vue";
 
 const { t } = useI18n();
+const { setBreadcrumbs } = useBreadcrumbs();
+setBreadcrumbs([{ labelKey: "dashboard.page.title", icon: "user-settings" }]);
 
 /** StickyNav jump-links, one per settings section below (labels localised). */
 const navItems = computed(() => [

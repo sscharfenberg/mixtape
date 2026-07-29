@@ -20,6 +20,7 @@ import { useI18n } from "vue-i18n";
 import DataTable from "Components/DataTable/DataTable.vue";
 import Container from "Components/UI/Container.vue";
 import Headline from "Components/UI/Headline.vue";
+import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import type { ColumnDef, TableResponse } from "Types/dataTable";
 import { formatClock } from "Utils/formatting";
 
@@ -42,6 +43,11 @@ defineProps<{
 }>();
 
 const { t } = useI18n();
+const { setBreadcrumbs } = useBreadcrumbs();
+setBreadcrumbs([
+    { labelKey: "header.siteMenu.music", href: "/music", icon: "music" },
+    { labelKey: "music.widgets.songs", icon: "song" }
+]);
 
 /**
  * Column definitions for the song table. A `computed` so the (already-translated)

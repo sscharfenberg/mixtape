@@ -55,6 +55,24 @@ resources/app/pages/
 - **Prefer an invokable controller** (`__invoke`) for a single-action page; group related actions in
   one controller otherwise.
 
+**Every page declares its breadcrumb trail.** `Breadcrumb.vue` is mounted once in `FullLayout`; a page
+calls `setBreadcrumbs([…])` (from `Composables/useBreadcrumbs`) in its `<script setup>` — parents carry
+an `href`, the current page doesn't:
+
+```ts
+const { setBreadcrumbs } = useBreadcrumbs();
+setBreadcrumbs([
+    { labelKey: "header.siteMenu.music", href: "/music", icon: "music" },
+    { labelKey: "music.widgets.songs", href: "/music/songs", icon: "song" },
+    { label: props.song.name } // raw label — data, not a catalog key
+]);
+```
+
+The trail is **declared, not derived from the URL**: only the page knows the *names* in its path and
+which parents this visitor can actually reach. `main.ts` clears it on every navigation, so a page that
+declares nothing shows nothing — which is exactly what `Guest/WelcomePage` (`/`) wants, since every
+trail already opens with a home chip pointing there.
+
 ## New and improved features (v2)
 
 Most of these are **user-scoped**, so they build directly on the new per-user auth model:

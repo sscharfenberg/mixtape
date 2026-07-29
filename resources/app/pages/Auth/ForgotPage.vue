@@ -24,9 +24,12 @@ import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
 import LabelledLink from "Components/UI/LabelledLink.vue";
 import LinkGroup from "Components/UI/LinkGroup.vue";
+import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 
 const { t } = useI18n();
 const page = usePage();
+const { setBreadcrumbs } = useBreadcrumbs();
+setBreadcrumbs([{ labelKey: "auth.forgot.pageTitle", icon: "support" }]);
 /** Backend feature flags — gates the "resend verification" link. */
 const features = computed(() => page.props.features);
 

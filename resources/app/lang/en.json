@@ -21,6 +21,10 @@
         "loading": "Loading",
         "requiredFieldsHint": "Fields marked with {icon} are required."
     },
+    "breadcrumb": {
+        "nav": "Breadcrumb navigation",
+        "home": "Home page"
+    },
     "header": {
         "userMenu": {
             "nav": "User menu",

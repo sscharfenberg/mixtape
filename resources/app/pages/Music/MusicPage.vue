@@ -21,9 +21,13 @@ import GenresWidget from "Components/UI/Widget/Consumers/GenresWidget.vue";
 import SongsWidget from "Components/UI/Widget/Consumers/SongsWidget.vue";
 import StatsWidget from "Components/UI/Widget/Consumers/StatsWidget.vue";
 import WidgetGroup from "Components/UI/Widget/WidgetGroup.vue";
+import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import type { AlbumEntry, CollectionStats, SongEntry, TaxonomyEntry, WidgetModes } from "Types/music";
 
 const { t } = useI18n();
+const { setBreadcrumbs } = useBreadcrumbs();
+// Top of the Music branch — one crumb, so the trail is just "home → Music".
+setBreadcrumbs([{ labelKey: "header.siteMenu.music", icon: "music" }]);
 
 defineProps<{
     albums: WidgetModes<AlbumEntry>;

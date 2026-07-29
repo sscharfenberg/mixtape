@@ -8,6 +8,7 @@ import type { DefineComponent } from "vue";
 import { createApp, h } from "vue";
 import type { Composer } from "vue-i18n";
 import { getI18n, loadLocaleMessages, setupI18n } from "@/i18n";
+import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import FullLayout from "./components/Layout/FullLayout.vue";
 import { vTooltip } from "./directives/vTooltip";
 
@@ -66,12 +67,13 @@ createInertiaApp({
 });
 
 /******************************************************************************
- * Progress bar
- * @sscharfenberg/progressbar, driven by Inertia's router events (styled by
- * styles/components/progress/_progress-bar.scss). Start is delayed 250ms so a
- * fast visit never flashes a bar; partial reloads (router.reload({ only: … }))
- * are skipped so an in-place prop refresh doesn't show a full-page bar. The bar
- * is position:fixed, so appending it to #app (the Inertia root) is immaterial.
+ * Router events — progress bar + breadcrumb reset
+ * The progress bar is @sscharfenberg/progressbar, driven by Inertia's router
+ * events (styled by styles/components/progress/_progress-bar.scss). Start is
+ * delayed 250ms so a fast visit never flashes a bar; partial reloads
+ * (router.reload({ only: … })) are skipped so an in-place prop refresh doesn't
+ * show a full-page bar. The bar is position:fixed, so appending it to #app (the
+ * Inertia root) is immaterial.
  *****************************************************************************/
 let progressTimeout: ReturnType<typeof setTimeout> | undefined;
 
@@ -80,6 +82,16 @@ const isPartialReload = (event: { detail: { visit: { only: string[] } } }): bool
     event.detail.visit.only.length > 0;
 
 router.on("start", event => {
+    // Clear the breadcrumb trail as a navigation begins, so the incoming page's
+    // own setBreadcrumbs() call is the only thing that can fill it — a page that
+    // declares none shows none, instead of inheriting the previous page's path.
+    // Skipped when the visit preserves state (a sort / filter / reload on the
+    // same page): there the component isn't re-created, so nothing would ever
+    // put the trail back.
+    if (!event.detail.visit.preserveState) {
+        useBreadcrumbs().setBreadcrumbs([]);
+    }
+
     if (isPartialReload(event)) return;
     // ariaLabel resolved lazily — i18n is initialised (in createInertiaApp's
     // setup) before any navigation can fire.
