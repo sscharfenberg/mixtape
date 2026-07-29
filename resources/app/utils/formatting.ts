@@ -14,24 +14,40 @@ export type DurationUnit = "months" | "days" | "hours" | "minutes" | "seconds";
  * (e.g. de → "1.234,5", en → "1,234.5"). Defaults to whole numbers — thousands
  * separators, no fraction; raise `maximumFractionDigits` to show decimals.
  *
+ * `minimumFractionDigits` PADS to that many places ("1,4" → "1,40"), which a
+ * maximum alone never does. Sizes want it (see formatFileSize) so a column of them
+ * lines up under `tabular-nums`; a plain count does not, hence the 0 default.
+ *
  * @param value                 the number to format
  * @param locale                BCP-47 locale tag (the app's active locale)
  * @param maximumFractionDigits most decimal places to show (default 0)
+ * @param minimumFractionDigits fewest decimal places to show, zero-padded (default 0)
  */
-export const formatDecimals = (value: number, locale: string, maximumFractionDigits = 0): string =>
-    new Intl.NumberFormat(locale, { maximumFractionDigits }).format(value);
+export const formatDecimals = (
+    value: number,
+    locale: string,
+    maximumFractionDigits = 0,
+    minimumFractionDigits = 0
+): string => new Intl.NumberFormat(locale, { maximumFractionDigits, minimumFractionDigits }).format(value);
+
+/** Decimal places on a file size — fixed, so "1,40 MB" and "12,00 MB" align digit for digit. */
+const SIZE_DECIMALS = 2;
 
 /**
  * Humanise a byte count to a locale-formatted size string: GB at or above 1 GiB,
- * otherwise MB — both binary (1024-based) units, rounded to one decimal.
+ * otherwise MB — both binary (1024-based) units, always to two decimals.
+ *
+ * The two places are FIXED rather than a maximum: these sizes are read in stacked
+ * rows (the song page's file card, the collection's stats tile), and a ragged
+ * "1,4 MB" over "12 MB" reads as sloppier data than it is.
  *
  * @param bytes  size in bytes
  * @param locale BCP-47 locale tag, for the number's separators
  */
 export const formatFileSize = (bytes: number, locale: string): string =>
     bytes >= 1024 ** 3
-        ? `${formatDecimals(bytes / 1024 ** 3, locale, 1)} GB`
-        : `${formatDecimals(bytes / 1024 ** 2, locale, 1)} MB`;
+        ? `${formatDecimals(bytes / 1024 ** 3, locale, SIZE_DECIMALS, SIZE_DECIMALS)} GB`
+        : `${formatDecimals(bytes / 1024 ** 2, locale, SIZE_DECIMALS, SIZE_DECIMALS)} MB`;
 
 /**
  * A track length in seconds as a clock string — `m:ss`, or `h:mm:ss` once past an

@@ -8,15 +8,20 @@
  * locale-formatting values, which only it knows how to do), this component
  * groups and lays them out.
  *
- * It draws its OWN cards and its own auto-fit grid. It used to render through
- * Widget / WidgetGroup to inherit them, but a Widget is a browse-page card — it
- * carries a loader overlay, a refresh footer and a skeleton state, none of which a
- * static list of stored facts will ever use, and a detail page shouldn't be pinned
- * to the browse pages' component to get a box. It keeps the Widget's SURFACE (same
- * fill, border, radius and 300px grid floor, via tokens that mirror its picks), so a
- * detail page still reads as the same app as the listing it was reached from — but
- * not its chrome: the group title is bare type in the app's h2 ink rather than a
+ * It draws its OWN cards and their layout. It used to render through Widget /
+ * WidgetGroup to inherit them, but a Widget is a browse-page card — it carries a
+ * loader overlay, a refresh footer and a skeleton state, none of which a static list
+ * of stored facts will ever use, and a detail page shouldn't be pinned to the browse
+ * pages' component to get a box. It keeps the Widget's SURFACE (same fill, border,
+ * radius, and the same ~300px minimum card width, via tokens that mirror its picks),
+ * so a detail page still reads as the same app as the listing it was reached from —
+ * but not its chrome: the group title is bare type in the app's h2 ink rather than a
  * filled cyan→pink strip, because a page of stored facts should be quiet.
+ *
+ * Two nested wrapping flex rows all the way down: cards wrap and share their line's
+ * width, and inside each card the tiles do the same. Why flex and not grid, in both
+ * cases, is spelled out at the rules below — it comes down to filling a line rather
+ * than filling a track.
  *
  * Grouping is driven by each row's optional `group`, in order of first
  * appearance, so a caller just tags its rows and never assembles a nested
@@ -30,8 +35,9 @@
  * untagged. A group left empty by that filter disappears with them.
  *****************************************************************************/
 import { computed } from "vue";
+import Icon from "Components/UI/Icon.vue";
 
-/** One row — `key` keys the v-for, `group` sorts it into a card, the two flags pick how the value is presented. */
+/** One fact — `key` keys the v-for, `group` sorts it into a card, the flags pick how the value is presented. */
 export type Fact = {
     key: string;
     label: string;
@@ -39,7 +45,13 @@ export type Fact = {
     value: string | null;
     /** Card title this row belongs under (already translated). Rows sharing one land in one card, in first-seen order. */
     group?: string;
-    /** Give the value the full width of the card, on its own line under its label — for values too long for a column. */
+    /** Sprite icon name for what KIND of fact this is, shown beside the label. Omit for none. */
+    icon?: string;
+    /**
+     * Marks a fact as carrying something long — a file path. With `wideGroups` its whole
+     * CARD takes a row to itself, so the value gets the room it needs. (Every value is
+     * full-width inside its own tile regardless; this is about the card.)
+     */
     wide?: boolean;
     /** Render the value monospaced — for values read character by character rather than as prose (paths, hashes). */
     mono?: boolean;
@@ -52,9 +64,9 @@ const props = defineProps<{
     /** The rows, in display order. Ones without a value are dropped — see the banner. */
     facts: Fact[];
     /**
-     * Let a card holding a `wide` row span two grid columns. Opt-in, because it only
+     * Let a card holding a `wide` row take a whole row to itself. Opt-in, because it only
      * pays off when a group really carries something long — a file path — and would
-     * otherwise leave a half-empty card.
+     * otherwise leave a mostly-empty card stretched across the page.
      */
     wideGroups?: boolean;
 }>();
@@ -86,8 +98,8 @@ const groups = computed<FactGroup[]>(() => {
 });
 
 /**
- * Whether a card should span two columns: only when asked for, and only when it
- * actually holds a full-width row — so the span follows the content that needs it
+ * Whether a card should take a row to itself: only when asked for, and only when it
+ * actually holds a `wide` fact — so the extra width follows the content that needs it
  * rather than a group's position in the list.
  */
 const spansWide = (group: FactGroup): boolean => props.wideGroups === true && group.facts.some(fact => fact.wide);
@@ -110,12 +122,11 @@ const spansWide = (group: FactGroup): boolean => props.wideGroups === true && gr
                  drops list semantics from a list without markers. -->
             <ul class="facts__list" role="list">
                 <li v-for="fact in group.facts" :key="fact.key" class="facts__fact">
-                    <span class="facts__label">{{ fact.label }}</span>
-                    <span
-                        class="facts__value"
-                        :class="{ 'facts__value--wide': fact.wide, 'facts__value--mono': fact.mono }"
-                        >{{ fact.value }}</span
-                    >
+                    <span class="facts__label">
+                        <icon v-if="fact.icon" :name="fact.icon" :size="0" />
+                        {{ fact.label }}
+                    </span>
+                    <span class="facts__value" :class="{ 'facts__value--mono': fact.mono }">{{ fact.value }}</span>
                 </li>
             </ul>
         </div>
@@ -125,55 +136,47 @@ const spansWide = (group: FactGroup): boolean => props.wideGroups === true && gr
 <style scoped lang="scss">
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "Abstracts/colors" as c;
-@use "Abstracts/mixins" as m;
 @use "Abstracts/sizes" as s;
 @use "Abstracts/typography" as t;
 
-/* The card grid: as many equal columns as fit, each at least `group-min` wide but
-   never wider than its row — `min(<group-min>, 100%)` keeps a lone card from
-   overflowing a narrow viewport. `dense` backfills the gaps a `--wide` card leaves. */
+/* The cards wrap as a flex row, NOT an auto-fit grid, and the difference is the
+   `--wide` card below. An auto-fit grid collapses tracks nothing is placed in, which is
+   what used to keep three cards filling a four-track row — but a card spanning `1 / -1`
+   occupies every track, so none collapse and the row ends in dead space the width of a
+   card. Grid has no way to say "span the tracks that are actually used".
+
+   Flex has no tracks to leave empty: every card carries the same `flex-basis`, so how
+   many fit a line is still decided by `group-min`, and `flex-grow` then hands the
+   leftover back to the cards on that line. Three cards on a line are three equal cards
+   filling it, whatever the viewport. */
 .facts {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(#{map.get(s.$c-facts, "group-min")}, 100%), 1fr));
-    grid-auto-flow: dense;
+    display: flex;
+    flex-wrap: wrap;
 
     gap: map.get(s.$c-facts, "group-gap");
 
-    /* One card per group. It spans two implicit row tracks (title / rows) and subgrids
-       into them, so the titles share a height across a row and the rows below start on
-       the same line even when one group's title wraps and another's doesn't.
-       `row-gap: 0` keeps the two bands flush — the title's and the list's own padding
-       do the spacing; only the grid's own gap holds cards apart.
+    /* One card per group, itself a column: title, then the tiles. Equal basis + equal
+       grow is what makes the cards sharing a line equal in width; `align-items`'s default
+       stretch makes them equal in height.
 
        Solid surface, no frosted glass: a detail page sits on a solid background, so
        there would be nothing behind it to blur. */
     &__card {
-        display: grid;
-        grid-template-rows: subgrid;
-        grid-row: span 2;
+        display: flex;
+        flex-direction: column;
+
+        flex: 1 1 map.get(s.$c-facts, "group-min");
 
         border: map.get(s.$c-facts, "card-border") solid map.get(c.$c-facts, "card-border");
-        row-gap: 0;
 
         background-color: map.get(c.$c-facts, "card-background");
         color: map.get(c.$c-facts, "card-surface");
         border-radius: map.get(s.$c-facts, "card-radius");
 
-        /* Opt-in `--wide`: span two columns, gated to `landscape` and up where the grid
-           reliably fits two of its tracks — below that it is a single column, so
-           spanning two would overflow. */
+        /* Opt-in `--wide`: a basis of the whole line, so the card takes a row to itself at
+           every width — no breakpoint needed, and no track left behind it. */
         &--wide {
-            @include m.mq("landscape") {
-                grid-column: span 2;
-            }
-        }
-
-        /* An untitled group (the catch-all bucket, or an entirely ungrouped caller) has
-           nothing to fill the first band, so its rows would sit in the title band and
-           start a line higher than every titled card's. Push them into the second band
-           to keep the row of cards aligned. */
-        &:not(:has(> .facts__title)) > .facts__list {
-            grid-row: 2;
+            flex-basis: 100%;
         }
     }
 
@@ -196,45 +199,71 @@ const spansWide = (group: FactGroup): boolean => props.wideGroups === true && gr
         font-weight: 600;
     }
 
-    /* The rows: two columns, labels sized to their content. The UA list marker and
-       margin are dropped (normalize.css leaves lists alone, so it happens here) and the
-       card's padding is applied here rather than on a wrapper, so the list itself is
-       the card's body.
+    /* Tiles flow and wrap, each only as wide as its own content — a flex row rather than
+       a grid, because a grid would impose shared column widths and these tiles have
+       nothing to line up with each other ("CD 1/1" has no business being as wide as an
+       album title). Flex items size to max-content and shrink only when a line is full,
+       which is exactly "as wide as the content dictates".
 
-       `align-content: start` is load-bearing, not tidiness. The list is a grid ITEM in
-       the card's subgrid band, so it stretches to the tallest card in the row — and a
-       grid container's default `align-content: normal` then stretches its own auto rows
-       to fill that height, spreading a two-row card's rows down the whole card. (The
-       Widget's body <div> used to absorb the stretch, so the list never saw it.) */
+       The UA list marker and margin are dropped (normalize.css leaves lists alone, so it
+       happens here) and the card's padding is applied here rather than on a wrapper, so
+       the list itself is the card's body.
+
+       `align-content: start` is load-bearing, not tidiness. `flex: 1` makes the list fill
+       whatever height its card was stretched to (so cards sharing a line stay equal), and
+       a wrapped flex container's default `align-content: normal` behaves as stretch —
+       which would spread its lines of tiles down that whole height instead of leaving
+       them packed at the top. `align-items` is left at its default, so tiles sharing a
+       line share a height. */
     &__list {
-        display: grid;
+        display: flex;
         align-content: start;
-        grid-template-columns: max-content 1fr;
+        flex-wrap: wrap;
+
+        flex: 1;
 
         padding: map.get(s.$c-facts, "card-padding");
         margin: 0;
-        gap: map.get(s.$c-facts, "row-gap") map.get(s.$c-facts, "column-gap");
+        gap: map.get(s.$c-facts, "tile-gap");
 
         list-style: none;
     }
 
-    /* Each fact is one <li> — so the markup stays a plain list — but its label and
-       value have to line up with every *other* row's, which a per-item grid can't do
-       (each row would size its own label column). `subgrid` is exactly that: the item
-       spans both of the list's columns and borrows them, inheriting the column gutter
-       from the parent too, so one wide label pushes the value column for all rows. */
-    &__fact {
-        display: grid;
-        grid-template-columns: subgrid;
-        grid-column: 1 / -1;
+    /* Each fact is a tile: one <li>, so the markup stays a plain list, washed and
+       rounded, with its label stacked over its value. Stacking is what removes the old
+       two-column/subgrid machinery entirely — there is no label column to align across
+       rows any more, and no baseline to reconcile between two different type sizes
+       sitting side by side, because they no longer sit side by side.
 
-        /* Only bites on a --wide row, where the value wraps onto a second line. */
-        row-gap: map.get(s.$c-facts, "row-gap");
+       `flex-grow: 1` over an `auto` basis: content still decides how the tiles on a line
+       divide it up (a long album title takes more than "CD 1/1"), but the leftover space
+       is handed back to them so every line reaches the card's edge instead of ending
+       ragged. The trade is that a line holding few tiles — the last one, usually —
+       stretches them wider than their content needs. */
+    &__fact {
+        display: flex;
+        flex-grow: 1;
+        flex-direction: column;
+
+        padding: map.get(s.$c-facts, "item-padding");
+        gap: map.get(s.$c-facts, "item-gap");
+
+        background-color: map.get(c.$c-facts, "item-background");
+        border-radius: map.get(s.$c-facts, "item-radius");
     }
 
-    /* Small letter-spaced caps in the muted label tint — the hi-fi spec-sheet look,
-       which also lets the values stay the loud half of each row at plain body size. */
+    /* Small letter-spaced caps in the muted label tint — the hi-fi spec-sheet look, and
+       the quiet half of the tile so the value below can be the loud one.
+
+       A flex row because the label may carry an icon for the KIND of fact it is; the
+       gap is set even when there is no icon, which costs nothing (flex gaps only apply
+       between items) and means adding one never shifts the text. */
     &__label {
+        display: flex;
+        align-items: center;
+
+        gap: map.get(s.$c-facts, "label-icon-gap");
+
         color: map.get(c.$c-facts, "label");
 
         font-size: map.get(s.$c-facts, "label-font-size");
@@ -242,22 +271,25 @@ const spansWide = (group: FactGroup): boolean => props.wideGroups === true && gr
         letter-spacing: map.get(s.$c-facts, "label-tracking");
     }
 
-    /* Tabular figures so digits in stacked rows (bit rate, sample rate, size, dates)
-       line up in columns instead of jittering by glyph width. */
+    /* The loud half of the tile: a step up in size from body text, which is what makes
+       it read as the fact and the label as its caption — no colour needed. Tabular
+       figures so digits in stacked tiles (bit rate, sample rate, size, dates) line up
+       instead of jittering by glyph width.
+
+       `overflow-wrap: anywhere` because values are mp3 tags, so an unbroken
+       80-character token is a thing that happens (a German compound, a glued-together
+       composer credit, a path). Without it the tile's min-content is that whole token
+       and the card grows ~600px past its grid column — measured, not hypothetical.
+       `anywhere` rather than `break-word` precisely because it also lowers min-content,
+       which is what lets the tile shrink in the first place. */
     &__value {
+        overflow-wrap: anywhere;
+
+        font-size: map.get(s.$c-facts, "value-font-size");
         font-variant-numeric: tabular-nums;
 
-        /* Spans the whole row, so the value starts on its own line under its label, and
-           breaks anywhere — a path has no spaces to wrap at and would otherwise push
-           the grid wider than the viewport on a phone. */
-        &--wide {
-            grid-column: 1 / -1;
-
-            overflow-wrap: anywhere;
-        }
-
-        /* Monospaced, a step down in size: a mono face at body size looks oversized
-           beside the proportional text around it. */
+        /* Monospaced, a step down from the value's own size: a mono face at the same
+           size looks oversized beside the proportional text around it. */
         &--mono {
             font-family: map.get(t.$c-facts, "mono");
             font-size: map.get(s.$c-facts, "mono-font-size");

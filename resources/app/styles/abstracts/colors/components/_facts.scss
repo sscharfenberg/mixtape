@@ -29,6 +29,7 @@
  * Consumed as c.$c-facts via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
 @use "../global-color-tokens" as c;
 
 $facts: (
@@ -38,6 +39,16 @@ $facts: (
     "card-border": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher")),
     // group title -----------------------------------------------------------
     "title-surface": light-dark(map.get(c.$brand, "dark2", "color"), map.get(c.$brand, "light2", "color")),
+    // one fact's tile -------------------------------------------------------
+    // The same wash the StatsWidget puts behind its stat tiles (c.$c-widget
+    // "cell-background") — a tile inside a card is the same object in both places, so
+    // it takes the same fill. Alpha-adjusted rather than a solid grey so the card's own
+    // surface still reads through it, which is what keeps a column of tiles from
+    // looking like a second set of cards.
+    "item-background": light-dark(
+            color.adjust(map.get(c.$grey, "mystic"), $alpha: -0.2),
+            color.adjust(map.get(c.$grey, "ebony"), $alpha: -0.2)
+        ),
     // rows ------------------------------------------------------------------
     "label": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron"))
 ) !default;

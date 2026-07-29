@@ -102,25 +102,44 @@ const songFacts = computed<Fact[]>(() => {
     const file = t("music.song.groups.file");
 
     return [
-        { key: "artist", group: tags, label: t("music.columns.artist"), value: song.artist },
+        { key: "artist", group: tags, icon: "artist", label: t("music.columns.artist"), value: song.artist },
         {
             key: "year",
             group: tags,
+            icon: "calendar",
             label: t("music.columns.year"),
             value: song.year === null ? null : String(song.year)
         },
-        { key: "genre", group: tags, label: t("music.columns.genre"), value: song.genre },
-        { key: "composer", group: tags, label: t("music.song.labels.composer"), value: song.composer },
+        { key: "genre", group: tags, icon: "genre", label: t("music.columns.genre"), value: song.genre },
+        {
+            key: "composer",
+            group: tags,
+            // No composer glyph in the sprite; `account` is the only person in it, and a
+            // composer is a person credited rather than the performing artist.
+            icon: "account",
+            label: t("music.song.labels.composer"),
+            value: song.composer
+        },
         {
             key: "track",
             group: album,
+            icon: "track",
             label: t("music.song.labels.track"),
             value: position(song.track, song.trackTotal)
         },
-        { key: "duration", group: album, label: t("music.columns.duration"), value: formatClock(song.duration) },
+        {
+            key: "duration",
+            group: album,
+            icon: "duration",
+            label: t("music.columns.duration"),
+            value: formatClock(song.duration)
+        },
         {
             key: "disc",
             group: album,
+            // The disc glyph goes to the DISC row, not the album row below it: here it
+            // means "which of the set", which is what the picture shows.
+            icon: "album",
             label: t("music.song.labels.disc"),
             // Shown even as "1/1" on a single-CD album (owner's call, reversing the
             // earlier "only a real multi-disc set earns a row"): the card is about the
@@ -130,13 +149,16 @@ const songFacts = computed<Fact[]>(() => {
         // The album's name lives HERE and only here (not up in `tags`): this card is
         // the release the song sits on, so its name heads the facts about it — and the
         // label that put the release out follows it, for the same reason.
-        { key: "album", group: album, label: t("music.columns.album"), value: song.album },
+        { key: "album", group: album, icon: "music", label: t("music.columns.album"), value: song.album },
+        // The one fact with no icon: a record label is a company, and the sprite has no
+        // company / tag glyph to stand for one. Better a gap than a misleading picture.
         { key: "publisher", group: album, label: t("music.song.labels.publisher"), value: song.publisher },
-        { key: "codec", group: audio, label: t("music.song.labels.codec"), value: song.codec },
-        { key: "bitRate", group: audio, label: t("music.song.labels.bitRate"), value: bitRate() },
+        { key: "codec", group: audio, icon: "codec", label: t("music.song.labels.codec"), value: song.codec },
+        { key: "bitRate", group: audio, icon: "bitrate", label: t("music.song.labels.bitRate"), value: bitRate() },
         {
             key: "sampleRate",
             group: audio,
+            icon: "samplerate",
             label: t("music.song.labels.sampleRate"),
             value:
                 song.sampleRate === null
@@ -146,6 +168,7 @@ const songFacts = computed<Fact[]>(() => {
         {
             key: "channel",
             group: audio,
+            icon: "channels",
             label: t("music.song.labels.channel"),
             value: song.channel === null ? null : t(`music.channel.${song.channel}`)
         },
@@ -154,31 +177,45 @@ const songFacts = computed<Fact[]>(() => {
         {
             key: "cover",
             group: audio,
+            icon: "cover",
             label: t("music.song.labels.cover"),
             value: song.cover ? t("common.yes") : t("common.no")
         },
         {
             key: "size",
             group: file,
+            icon: "file",
             label: t("music.song.labels.size"),
             value: song.sizeBytes === null ? null : formatFileSize(song.sizeBytes, locale.value)
         },
+        // Both timestamps take the calendar: they are the same kind of fact, and giving
+        // one of them a different glyph would imply a difference that isn't there.
         {
             key: "modifiedAt",
             group: file,
+            icon: "calendar",
             label: t("music.song.labels.modifiedAt"),
             value: formatDateTime(song.modifiedAt, locale.value)
         },
         {
             key: "addedAt",
             group: file,
+            icon: "calendar",
             label: t("music.song.labels.addedAt"),
             value: formatDateTime(song.addedAt, locale.value)
         },
-        // Last, and the full width of its card: a path is the longest value here and
-        // the one most likely to be copied somewhere else — monospaced so it stays
-        // scannable as a path. It is also why the file card spans two columns.
-        { key: "path", group: file, label: t("music.song.labels.path"), value: song.path, wide: true, mono: true }
+        // Last, and the longest value on the page — and the one most likely to be copied
+        // somewhere else, so it is monospaced to stay scannable as a path. `wide` is what
+        // makes the whole file card span the grid's full width to hold it.
+        {
+            key: "path",
+            group: file,
+            icon: "file",
+            label: t("music.song.labels.path"),
+            value: song.path,
+            wide: true,
+            mono: true
+        }
     ];
 });
 </script>
