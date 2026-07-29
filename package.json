@@ -19,7 +19,7 @@
         "type-check": "vue-tsc --build",
         "lint": "eslint 'resources/**/*.{js,ts,vue}' --fix && stylelint 'resources/**/*.{vue,scss}' --fix --quiet-deprecation-warnings",
         "icons": "node ./resources/build/icons.ts -v -i",
-        "format": "prettier --write 'resources/app/**/*.{ts,vue,scss,json,md}'",
+        "format": "prettier --write 'resources/{app,build}/**/*.{ts,vue,scss,json,md}'",
         "preinstall": "node ./resources/build/checkNodeVersion.ts"
     },
     "dependencies": {
