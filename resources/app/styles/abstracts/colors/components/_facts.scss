@@ -1,21 +1,43 @@
 /******************************************************************************
  * contextual color tokens — component:facts
  * @type {Sass}
- * The label/value list (Components/UI/Facts). Only the LABEL is tinted: the
- * values inherit the Widget card's own surface colour, so they stay the readable
- * half of every row and keep following the theme without this file knowing about
- * it.
+ * The titled cards of label/value rows (Components/UI/Facts): the card surface,
+ * its gradient title strip, and the row labels.
  *
- * The label is a muted grey rather than the retro cyan it would be tempting to
- * use: these are small (0.8rem) uppercase captions, and `c3` — tuned for AA on
- * the neon Button's fill and for glows — does not clear 4.5:1 as small text on
- * the card's light background. The neon in this component comes from the card's
- * gradient title strip instead, where it is large enough to carry it.
+ * The card picks MIRROR the Widget's (c.$c-widget "background" / "border"), because
+ * Facts used to render *through* Widget and keeps that surface now that it draws its
+ * own card — a detail page should read as the same app as the listing it was reached
+ * from. They are re-picked from the global palette rather than read off the Widget's
+ * token: a contextual partial consumes globals, never another partial's tokens (and
+ * `components/_facts` cannot reach `components/_widget` through the module graph
+ * anyway). If the card surface is retuned, both files move together.
+ *
+ * The group title is bare type on that surface — no filled strip, no rule under it —
+ * so its ink is the same pair the shared <Headline> gives an h2 (c.$c-headline "h2"
+ * "surface"): these titles ARE h2s, and a heading should read like every other
+ * heading in the app. That is also why it is not the Widget's old strip ink, which
+ * was picked for contrast against a saturated cyan→pink band and would sit at
+ * ~1.6:1 on white now.
+ *
+ * Only the LABEL is tinted among the rows: values inherit the card's own surface
+ * colour, so they stay the readable half of every row and keep following the theme.
+ * That label is a muted grey rather than the retro cyan it would be tempting to
+ * use — these are small (0.8rem) uppercase captions, and `c3` (tuned for AA on the
+ * neon Button's fill and for glows) does not clear 4.5:1 as small text on the
+ * card's light background. What colour the card carries comes from the title, where
+ * the type is large enough (1.3rem, 600) to be held to 3:1 rather than 4.5:1.
  * Consumed as c.$c-facts via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "../global-color-tokens" as c;
 
 $facts: (
+    // card ------------------------------------------------------------------
+    "card-background": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "black")),
+    "card-surface": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral")),
+    "card-border": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher")),
+    // group title -----------------------------------------------------------
+    "title-surface": light-dark(map.get(c.$brand, "dark2", "color"), map.get(c.$brand, "light2", "color")),
+    // rows ------------------------------------------------------------------
     "label": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron"))
 ) !default;

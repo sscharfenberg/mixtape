@@ -39,7 +39,7 @@ $song: (
     "hero-meta-gap": map.get(s.$padding, "base"),
     "title-font-size": 1.75rem,
     // Gap between the page's stacked blocks (hero → facts → back link). The same
-    // rung WidgetGroup uses between cards, so the rhythm down the page doesn't
-    // change where one card grid ends and the next begins.
+    // rung the facts grid uses between its own cards (s.$c-facts "group-gap"), so the
+    // rhythm down the page doesn't change where one block ends and the next begins.
     "block-gap": map.get(s.$padding, "portrait")
 ) !default;

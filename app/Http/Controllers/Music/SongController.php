@@ -63,9 +63,11 @@ class SongController extends Controller
                 'publisher' => $song->publisher,
                 'duration' => $song->duration, // seconds; the page clocks it to m:ss
 
-                // Position in the album, numerator + denominator apart: the page
-                // renders "2/8" and drops the disc row entirely on a single-disc
-                // album (docs say the CD number is noise when there's only one).
+                // Position in the album, numerator + denominator apart, so the page can
+                // render "2/8" — or just "2" where the total isn't trustworthy. Both
+                // totals are COMPUTED here (see totalsFor), not stored, so a
+                // single-disc album reports discTotal 1 rather than null; the page
+                // shows that "1/1" deliberately.
                 'track' => $song->track,
                 'trackTotal' => $totals['tracks'],
                 'disc' => $song->disc,

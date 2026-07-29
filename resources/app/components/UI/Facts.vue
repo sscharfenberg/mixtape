@@ -8,11 +8,15 @@
  * locale-formatting values, which only it knows how to do), this component
  * groups and lays them out.
  *
- * It renders through Widget / WidgetGroup rather than inventing a card: those
- * already give the responsive auto-fit grid, the solid card surface and the
- * cyan→pink gradient title strip the browse pages use, so a detail page reads as
- * the same app as the listing it was reached from — and any later change to the
- * card look lands here for free.
+ * It draws its OWN cards and its own auto-fit grid. It used to render through
+ * Widget / WidgetGroup to inherit them, but a Widget is a browse-page card — it
+ * carries a loader overlay, a refresh footer and a skeleton state, none of which a
+ * static list of stored facts will ever use, and a detail page shouldn't be pinned
+ * to the browse pages' component to get a box. It keeps the Widget's SURFACE (same
+ * fill, border, radius and 300px grid floor, via tokens that mirror its picks), so a
+ * detail page still reads as the same app as the listing it was reached from — but
+ * not its chrome: the group title is bare type in the app's h2 ink rather than a
+ * filled cyan→pink strip, because a page of stored facts should be quiet.
  *
  * Grouping is driven by each row's optional `group`, in order of first
  * appearance, so a caller just tags its rows and never assembles a nested
@@ -26,8 +30,6 @@
  * untagged. A group left empty by that filter disappears with them.
  *****************************************************************************/
 import { computed } from "vue";
-import Widget from "Components/UI/Widget/Widget.vue";
-import WidgetGroup from "Components/UI/Widget/WidgetGroup.vue";
 
 /** One row — `key` keys the v-for, `group` sorts it into a card, the two flags pick how the value is presented. */
 export type Fact = {
@@ -50,9 +52,9 @@ const props = defineProps<{
     /** The rows, in display order. Ones without a value are dropped — see the banner. */
     facts: Fact[];
     /**
-     * Let a card holding a `wide` row span two grid columns (Widget's own `wide`).
-     * Opt-in, because it only pays off when a group really carries something long —
-     * a file path — and would otherwise leave a half-empty card.
+     * Let a card holding a `wide` row span two grid columns. Opt-in, because it only
+     * pays off when a group really carries something long — a file path — and would
+     * otherwise leave a half-empty card.
      */
     wideGroups?: boolean;
 }>();
@@ -92,12 +94,21 @@ const spansWide = (group: FactGroup): boolean => props.wideGroups === true && gr
 </script>
 
 <template>
-    <widget-group>
-        <widget v-for="group in groups" :key="group.title" :wide="spansWide(group)">
-            <template v-if="group.title" #title>{{ group.title }}</template>
+    <div class="facts">
+        <div
+            v-for="group in groups"
+            :key="group.title"
+            class="facts__card"
+            :class="{ 'facts__card--wide': spansWide(group) }"
+        >
+            <!-- A real heading, not the <div> the Widget's title strip was: each group
+                 is a section of the page's content, so it belongs in the heading
+                 outline. h2 assumes the host page's own title is its h1 — true of the
+                 song page, whose h1 lives in its hero. -->
+            <h2 v-if="group.title" class="facts__title">{{ group.title }}</h2>
             <!-- role="list" because the list marker is styled away, and Safari/VoiceOver
                  drops list semantics from a list without markers. -->
-            <ul class="facts" role="list">
+            <ul class="facts__list" role="list">
                 <li v-for="fact in group.facts" :key="fact.key" class="facts__fact">
                     <span class="facts__label">{{ fact.label }}</span>
                     <span
@@ -107,72 +118,150 @@ const spansWide = (group: FactGroup): boolean => props.wideGroups === true && gr
                     >
                 </li>
             </ul>
-        </widget>
-    </widget-group>
+        </div>
+    </div>
 </template>
 
 <style scoped lang="scss">
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "Abstracts/colors" as c;
+@use "Abstracts/mixins" as m;
 @use "Abstracts/sizes" as s;
 @use "Abstracts/typography" as t;
 
-/* Layout only — the one colour is the label tint, so values inherit the card's
-   text colour and keep following the theme. Gutters come from s.$c-facts. The UA
-   list padding/margin is zeroed because the grid's own gap does all the spacing;
-   normalize.css leaves lists alone, so this is where it happens. */
+/* The card grid: as many equal columns as fit, each at least `group-min` wide but
+   never wider than its row — `min(<group-min>, 100%)` keeps a lone card from
+   overflowing a narrow viewport. `dense` backfills the gaps a `--wide` card leaves. */
 .facts {
     display: grid;
-    grid-template-columns: max-content 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(min(#{map.get(s.$c-facts, "group-min")}, 100%), 1fr));
+    grid-auto-flow: dense;
 
-    padding: 0;
-    margin: 0;
-    gap: map.get(s.$c-facts, "row-gap") map.get(s.$c-facts, "column-gap");
+    gap: map.get(s.$c-facts, "group-gap");
 
-    list-style: none;
-}
+    /* One card per group. It spans two implicit row tracks (title / rows) and subgrids
+       into them, so the titles share a height across a row and the rows below start on
+       the same line even when one group's title wraps and another's doesn't.
+       `row-gap: 0` keeps the two bands flush — the title's and the list's own padding
+       do the spacing; only the grid's own gap holds cards apart.
 
-/* Each fact is one <li> — so the markup stays a plain list — but its label and
-   value have to line up with every *other* row's, which a per-item grid can't do
-   (each row would size its own label column). `subgrid` is exactly that: the item
-   spans both of the list's columns and borrows them, inheriting the column gutter
-   from the parent too, so one wide label pushes the value column for all rows. */
-.facts__fact {
-    display: grid;
-    grid-template-columns: subgrid;
-    grid-column: 1 / -1;
+       Solid surface, no frosted glass: a detail page sits on a solid background, so
+       there would be nothing behind it to blur. */
+    &__card {
+        display: grid;
+        grid-template-rows: subgrid;
+        grid-row: span 2;
 
-    /* Only bites on a --wide row, where the value wraps onto a second line. */
-    row-gap: map.get(s.$c-facts, "row-gap");
-}
+        border: map.get(s.$c-facts, "card-border") solid map.get(c.$c-facts, "card-border");
+        row-gap: 0;
 
-/* Small letter-spaced caps in the muted label tint — the hi-fi spec-sheet look,
-   which also lets the values stay the loud half of each row at plain body size. */
-.facts__label {
-    color: map.get(c.$c-facts, "label");
+        background-color: map.get(c.$c-facts, "card-background");
+        color: map.get(c.$c-facts, "card-surface");
+        border-radius: map.get(s.$c-facts, "card-radius");
 
-    font-size: map.get(s.$c-facts, "label-font-size");
-    text-transform: uppercase;
-    letter-spacing: map.get(s.$c-facts, "label-tracking");
-}
+        /* Opt-in `--wide`: span two columns, gated to `landscape` and up where the grid
+           reliably fits two of its tracks — below that it is a single column, so
+           spanning two would overflow. */
+        &--wide {
+            @include m.mq("landscape") {
+                grid-column: span 2;
+            }
+        }
 
-/* Tabular figures so digits in stacked rows (bit rate, sample rate, size, dates)
-   line up in columns instead of jittering by glyph width. */
-.facts__value {
-    font-variant-numeric: tabular-nums;
-}
+        /* An untitled group (the catch-all bucket, or an entirely ungrouped caller) has
+           nothing to fill the first band, so its rows would sit in the title band and
+           start a line higher than every titled card's. Push them into the second band
+           to keep the row of cards aligned. */
+        &:not(:has(> .facts__title)) > .facts__list {
+            grid-row: 2;
+        }
+    }
 
-/* Spans the whole row, so the value starts on its own line under its label, and
-   breaks anywhere — a path has no spaces to wrap at and would otherwise push the
-   grid wider than the viewport on a phone. */
-.facts__value--wide {
-    grid-column: 1 / -1;
+    /* The group title: bare type on the card, no filled band and no rule under it. Its
+       padding omits the bottom side on purpose — the list below brings its own top
+       padding, and doubling the two would open a gap wider than the card's own inset.
+       `margin: 0` because this is an <h2> and the spacing here is padding, not UA
+       margins. */
+    &__title {
+        display: flex;
+        align-items: center;
 
-    overflow-wrap: anywhere;
-}
+        padding: map.get(s.$c-facts, "card-padding") map.get(s.$c-facts, "card-padding") 0;
+        margin: 0;
+        gap: 0.5ch;
 
-.facts__value--mono {
-    font-family: map.get(t.$c-facts, "mono");
-    font-size: map.get(s.$c-facts, "mono-font-size");
+        color: map.get(c.$c-facts, "title-surface");
+
+        font-size: map.get(s.$c-facts, "title-font-size");
+        font-weight: 600;
+    }
+
+    /* The rows: two columns, labels sized to their content. The UA list marker and
+       margin are dropped (normalize.css leaves lists alone, so it happens here) and the
+       card's padding is applied here rather than on a wrapper, so the list itself is
+       the card's body.
+
+       `align-content: start` is load-bearing, not tidiness. The list is a grid ITEM in
+       the card's subgrid band, so it stretches to the tallest card in the row — and a
+       grid container's default `align-content: normal` then stretches its own auto rows
+       to fill that height, spreading a two-row card's rows down the whole card. (The
+       Widget's body <div> used to absorb the stretch, so the list never saw it.) */
+    &__list {
+        display: grid;
+        align-content: start;
+        grid-template-columns: max-content 1fr;
+
+        padding: map.get(s.$c-facts, "card-padding");
+        margin: 0;
+        gap: map.get(s.$c-facts, "row-gap") map.get(s.$c-facts, "column-gap");
+
+        list-style: none;
+    }
+
+    /* Each fact is one <li> — so the markup stays a plain list — but its label and
+       value have to line up with every *other* row's, which a per-item grid can't do
+       (each row would size its own label column). `subgrid` is exactly that: the item
+       spans both of the list's columns and borrows them, inheriting the column gutter
+       from the parent too, so one wide label pushes the value column for all rows. */
+    &__fact {
+        display: grid;
+        grid-template-columns: subgrid;
+        grid-column: 1 / -1;
+
+        /* Only bites on a --wide row, where the value wraps onto a second line. */
+        row-gap: map.get(s.$c-facts, "row-gap");
+    }
+
+    /* Small letter-spaced caps in the muted label tint — the hi-fi spec-sheet look,
+       which also lets the values stay the loud half of each row at plain body size. */
+    &__label {
+        color: map.get(c.$c-facts, "label");
+
+        font-size: map.get(s.$c-facts, "label-font-size");
+        text-transform: uppercase;
+        letter-spacing: map.get(s.$c-facts, "label-tracking");
+    }
+
+    /* Tabular figures so digits in stacked rows (bit rate, sample rate, size, dates)
+       line up in columns instead of jittering by glyph width. */
+    &__value {
+        font-variant-numeric: tabular-nums;
+
+        /* Spans the whole row, so the value starts on its own line under its label, and
+           breaks anywhere — a path has no spaces to wrap at and would otherwise push
+           the grid wider than the viewport on a phone. */
+        &--wide {
+            grid-column: 1 / -1;
+
+            overflow-wrap: anywhere;
+        }
+
+        /* Monospaced, a step down in size: a mono face at body size looks oversized
+           beside the proportional text around it. */
+        &--mono {
+            font-family: map.get(t.$c-facts, "mono");
+            font-size: map.get(s.$c-facts, "mono-font-size");
+        }
+    }
 }
 </style>

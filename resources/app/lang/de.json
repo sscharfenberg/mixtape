@@ -268,7 +268,7 @@
             "noCover": "Kein Cover vorhanden",
             "groups": {
                 "tags": "Tags",
-                "position": "Position im Album",
+                "album": "Album",
                 "audio": "Audio",
                 "file": "Datei"
             },

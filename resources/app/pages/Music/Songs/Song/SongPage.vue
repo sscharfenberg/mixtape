@@ -97,13 +97,12 @@ const bitRate = (): string | null => {
 const songFacts = computed<Fact[]>(() => {
     const song = props.song;
     const tags = t("music.song.groups.tags");
-    const place = t("music.song.groups.position");
+    const album = t("music.song.groups.album");
     const audio = t("music.song.groups.audio");
     const file = t("music.song.groups.file");
 
     return [
         { key: "artist", group: tags, label: t("music.columns.artist"), value: song.artist },
-        { key: "album", group: tags, label: t("music.columns.album"), value: song.album },
         {
             key: "year",
             group: tags,
@@ -112,22 +111,27 @@ const songFacts = computed<Fact[]>(() => {
         },
         { key: "genre", group: tags, label: t("music.columns.genre"), value: song.genre },
         { key: "composer", group: tags, label: t("music.song.labels.composer"), value: song.composer },
-        { key: "publisher", group: tags, label: t("music.song.labels.publisher"), value: song.publisher },
-        {
-            key: "disc",
-            group: place,
-            label: t("music.song.labels.disc"),
-            // Only a real multi-disc set earns a row: "1/1" on a single-CD album
-            // is noise, and the whole point of the total is telling sets apart.
-            value: song.discTotal !== null && song.discTotal > 1 ? position(song.disc, song.discTotal) : null
-        },
         {
             key: "track",
-            group: place,
+            group: album,
             label: t("music.song.labels.track"),
             value: position(song.track, song.trackTotal)
         },
-        { key: "duration", group: place, label: t("music.columns.duration"), value: formatClock(song.duration) },
+        { key: "duration", group: album, label: t("music.columns.duration"), value: formatClock(song.duration) },
+        {
+            key: "disc",
+            group: album,
+            label: t("music.song.labels.disc"),
+            // Shown even as "1/1" on a single-CD album (owner's call, reversing the
+            // earlier "only a real multi-disc set earns a row"): the card is about the
+            // release now, and a release with one disc is a fact about it, not noise.
+            value: position(song.disc, song.discTotal)
+        },
+        // The album's name lives HERE and only here (not up in `tags`): this card is
+        // the release the song sits on, so its name heads the facts about it — and the
+        // label that put the release out follows it, for the same reason.
+        { key: "album", group: album, label: t("music.columns.album"), value: song.album },
+        { key: "publisher", group: album, label: t("music.song.labels.publisher"), value: song.publisher },
         { key: "codec", group: audio, label: t("music.song.labels.codec"), value: song.codec },
         { key: "bitRate", group: audio, label: t("music.song.labels.bitRate"), value: bitRate() },
         {
@@ -196,10 +200,10 @@ const songFacts = computed<Fact[]>(() => {
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "Abstracts/sizes" as s;
 
-/* The hero and the facts cards each bring their own layout (they are both card
-   grids); the page only stacks its blocks and spaces them. The gap matches the
-   WidgetGroup's own gutter, so the vertical rhythm between hero and facts is the
-   same as between two facts cards. */
+/* The hero is one panel and the facts are their own card grid; the page only stacks
+   its blocks and spaces them. The gap matches the facts grid's own gutter
+   (s.$c-facts "group-gap"), so the rhythm down the page doesn't change where one
+   card grid ends and the next block begins. */
 .song {
     display: flex;
     flex-direction: column;
