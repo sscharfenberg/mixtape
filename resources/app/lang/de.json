@@ -265,8 +265,6 @@
         },
         "song": {
             "backToList": "Zurück zu allen Songs",
-            "play": "Abspielen",
-            "enqueue": "In die Warteschlange",
             "noCover": "Kein Cover vorhanden",
             "groups": {
                 "tags": "Tags",

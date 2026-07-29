@@ -1,7 +1,7 @@
 /******************************************************************************
  * contextual size tokens — page:song
  * @type {Sass}
- * The song detail page's own sizes: its hero row (SongHero) and the gap above the
+ * The song detail page's own sizes: its hero row (SongPageHero) and the gap above the
  * "back to the listing" link.
  *
  * The cover is the page's anchor, so its size is a per-breakpoint decision rather
@@ -24,6 +24,17 @@ $song: (
     ),
     "cover-radius": map.get(s.$radius, "base"),
     "cover-placeholder-border": map.get(s.$border, "featured"),
+    // The hero is its own panel now, so it owns its inset and shape. Both match the
+    // Widget's own values (as does its fill — c.$p-song "hero-background"), so the
+    // hero and the facts cards below it read as one surface, differing only in the
+    // gradient ring around the hero.
+    "hero-padding": map.get(s.$padding, "portrait"),
+    "hero-radius": map.get(s.$radius, "featured"),
+    // A `featured` ring rather than the glass's hairline: at this width the border
+    // is the frame you see first, which is what carries the four-hue gradient
+    // (c.$p-song "hero-border") — a 2px line would render that ramp as one muddy
+    // colour.
+    "hero-border": map.get(s.$border, "featured"),
     "hero-gap": map.get(s.$padding, "landscape"),
     "hero-meta-gap": map.get(s.$padding, "base"),
     "title-font-size": 1.75rem,

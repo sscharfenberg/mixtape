@@ -75,7 +75,11 @@ error fails the build before anything compiles. **Always run `npm run lint` afte
 frontend file (Vue / TS / SCSS) — before calling a change done — so the build stays green.**
 
 **Pages (Inertia)** — every page is its own directory with a `*Page` entry file:
-`pages/Home/HomePage.vue` (not `pages/Home.vue`), holding page-local `components/`, composables, tests.
+`pages/Home/HomePage.vue` (not `pages/Home.vue`). Page-local parts (components, composables, tests) sit
+**directly beside** the page file — **never in a `components/` sub-directory.** A page's own children are
+already scoped by living in its folder; bucketing them one level deeper only adds a hop when reading the
+page. Sub-folders are for a *nested route* (`Songs/Song/SongPage.vue`) or a self-contained feature block
+(`Dashboard/TwoFactor/`), named after the thing — not after the kind of file.
 Controllers render the explicit path — `Inertia::render('Home/HomePage', …)` — and prefer an invokable
 (`__invoke`) controller for single-action pages. Full rationale:
 [`docs/app-rewrite.md`](docs/app-rewrite.md) → *Frontend conventions*.

@@ -1,0 +1,14 @@
+/******************************************************************************
+ * contextual timing token — page:song
+ * @type {Sass}
+ * How long the hero panel's gradient border takes to complete one full rotation.
+ * `tectonic` — the rung added for exactly this kind of duration: ambient
+ * decoration behind a page you came to READ, where the ramp should drift rather
+ * than spin. `glacial` (4s) was the slowest cantrip rung and still read as an
+ * animation demanding attention; a full turn now takes 20s, i.e. 18° a second.
+ * Consumed as ti.$p-song via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$song: map.get(ti.$timings, "tectonic") !default;

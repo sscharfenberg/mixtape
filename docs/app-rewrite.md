@@ -36,16 +36,26 @@ legacy app is already Vue 3 + TS + `<script setup>`, this is _not_ about "adding
 
 **Pages live in their own directory, with a `*Page` entry file.** Each Inertia page is a folder under
 `resources/app/pages/` named after the page, containing a `<Name>Page.vue` entry plus any page-local
-parts (`components/`, composables, tests):
+parts — components, composables, tests — **flat, beside the page file**:
 
 ```
 resources/app/pages/
   Home/
     HomePage.vue        <- route entry
-    components/         <- page-local components (when needed)
-    useHomeData.ts      <- page-local composable (when needed)
+    HomePageHero.vue    <- page-local component, beside the page
+    useHomeData.ts      <- page-local composable
+  Music/Songs/
+    SongsPage.vue       <- /music/songs
+    Song/
+      SongPage.vue      <- /music/songs/{song} — a sub-folder because it's a nested ROUTE
+      SongPageHero.vue
 ```
 
+- **No `components/` sub-directory inside a page.** Living in the page's folder is already what scopes
+  a part to that page; a generic bucket one level deeper adds a hop to every read and says nothing the
+  file name doesn't. A **named** sub-folder is fine where it means something — a nested route
+  (`Songs/Song/`) or a self-contained feature block (`Dashboard/TwoFactor/`) — i.e. named after the
+  thing, never after the kind of file.
 - **The `Page` suffix marks the route entry** — in a populated folder it's instantly clear which file
   is the page vs. its co-located children, and it reads unambiguously in Vue devtools / stack traces.
 - **Controllers render the explicit path**: `Inertia::render('Home/HomePage', [...])`. Kept explicit

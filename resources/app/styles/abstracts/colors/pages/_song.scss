@@ -1,17 +1,18 @@
 /******************************************************************************
  * contextual color tokens — page:song
  * @type {Sass}
- * The song detail page's hero (SongHero): the cover's halo, the placeholder drawn
- * where a file has no cover, and the artist/album/year credits line.
+ * The song detail page's hero (SongPageHero): its panel fill and featured gradient
+ * border, the placeholder drawn where a file has no cover, and the artist/album/year
+ * credits line.
  *
- * `cover-glow` is deliberately the SAME entry the DataTable's hovered row, the
- * open popover and the focused input glow with (retro `c3`, the WCAG-tuned control
- * neon), because it is the same gesture: this is the lit element on the page. It
- * is pure decoration (a box-shadow behind an image), so the neon carries no text
- * here and needs no contrast ratio.
+ * The cover itself is now untinted — it used to carry the app's control neon as a
+ * halo (retro `c3`, the same entry the hovered DataTable row and the open popover
+ * glow with), dropped because artwork is already the most saturated thing on the
+ * page and the halo only muddied its edge. The placeholder keeps that neon, at a
+ * fraction of the opacity, since there it IS the only mark on an empty square.
  *
  * The credits line is a muted grey rather than a colour — the cover supplies the
- * page's colour, and a second tinted line next to a tinted glow would fight it.
+ * page's colour, and a second tinted line beside it would fight it.
  * Consumed as c.$p-song via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
@@ -19,8 +20,35 @@
 @use "../global-color-tokens" as c;
 
 $song: (
-    "cover-glow": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
-    // The empty-cover square: the same neon, dialled back with an opacity-only
+    // The hero panel's fill. The SAME pick as the Widget's card surface
+    // (c.$c-widget "background") so the hero and the facts cards below it sit on one
+    // surface rather than two near-identical ones — deliberately re-picked from the
+    // global palette instead of reading the Widget's token, because a contextual
+    // partial consumes globals, never another partial's tokens. If the card surface
+    // is ever retuned, this is the second place to follow it.
+    "hero-background": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "black")),
+    // The hero panel's featured border: the ramp walks the retro hues in palette
+    // order, c2 → c3 → c4 → c5 → c6 → c7, so it runs blue → violet → magenta →
+    // steel and back round to blue where the component closes the loop. A
+    // comma-separated LIST of stops, not a finished gradient (the shape the Widget's
+    // title strip uses), because the hero ROTATES its gradient: the angle is an
+    // animated custom property owned by the component, so only the colours belong
+    // here. Each stop picks its own theme pair, so light and dark run the same ramp
+    // through each hue's own variant.
+    //
+    // NOTE for light mode: c2 and c3 share one light value (#007cb8 — c3 only
+    // diverges on the dark side), so light mode shows one band fewer than dark, with
+    // a wider blue plateau where those two meet. Give c3 a distinct light value in
+    // the palette if every stop should be visible on both sides.
+    "hero-border-ramp": (
+            light-dark(map.get(c.$retro, "c2", "light"), map.get(c.$retro, "c2", "dark")),
+            light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
+            light-dark(map.get(c.$retro, "c4", "light"), map.get(c.$retro, "c4", "dark")),
+            light-dark(map.get(c.$retro, "c5", "light"), map.get(c.$retro, "c5", "dark")),
+            light-dark(map.get(c.$retro, "c6", "light"), map.get(c.$retro, "c6", "dark")),
+            light-dark(map.get(c.$retro, "c7", "light"), map.get(c.$retro, "c7", "dark"))
+        ),
+    // The empty-cover square: the control neon, dialled back with an opacity-only
     // adjust (the one colour maths the token rules allow outside the palette), so
     // the placeholder reads as an outline rather than as a lit control.
     "cover-placeholder-border": light-dark(

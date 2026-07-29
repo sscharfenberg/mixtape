@@ -3,7 +3,7 @@
  * @type {Sass}
  * The song detail page. One named decision: the hero's <h1> is set in the headline
  * family, so the page's title matches every other page's heading even though this
- * one isn't rendered by the Headline component (the title lives inside SongHero,
+ * one isn't rendered by the Headline component (the title lives inside SongPageHero,
  * beside the cover and the actions).
  * Consumed as t.$p-song via `@use "Abstracts/typography" as t;`.
  *****************************************************************************/

@@ -1,0 +1,14 @@
+/******************************************************************************
+ * contextual z-index token — page:song
+ * @type {Sass}
+ * The rung for the hero panel's gradient border ring (SongPageHero's ::before).
+ * The ring has to paint ABOVE the panel's own content edges so it reads all the
+ * way around — including where the cover square meets it — hence "raised" rather
+ * than the cellar a decorative backdrop would take. The hero isolates its own
+ * stacking context, so this rung stays contained to that panel.
+ * Consumed as z.$p-song via `@use "Abstracts/z-indexes" as z;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-z-index-tokens" as z;
+
+$song: map.get(z.$scale, "raised") !default;

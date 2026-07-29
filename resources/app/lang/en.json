@@ -265,8 +265,6 @@
         },
         "song": {
             "backToList": "Back to all songs",
-            "play": "Play",
-            "enqueue": "Add to queue",
             "noCover": "No cover available",
             "groups": {
                 "tags": "Tags",

@@ -10,7 +10,7 @@
  * the URL: the detail view lives *inside* the listing it came from, the same way
  * `music.songs.show` sits under `music.songs`.
  *
- * Two blocks: the hero (cover, title, the play / queue actions — SongHero), then
+ * Two blocks: the hero (cover beside the title — SongPageHero), then
  * every stored fact about the file, grouped into cards by what kind of fact it is
  * — the tags, its place in the album, how it was encoded, the file on disk. The
  * controller sends raw values and the formatting happens here, with the active
@@ -21,9 +21,9 @@
  * is what makes that first row read as one unit instead of a caption under a
  * banner.
  *
- * Still a scaffold in what it *does*: the player (so the hero's buttons are inert),
- * play history and the clone list ("also appears in N other places") come later —
- * see docs/app-rewrite.md.
+ * Still a scaffold in what it *does*: the player (and with it the play / queue
+ * controls the hero will grow), play history and the clone list ("also appears in
+ * N other places") come later — see docs/app-rewrite.md.
  *****************************************************************************/
 import { Head } from "@inertiajs/vue3";
 import { computed } from "vue";
@@ -34,7 +34,7 @@ import LabelledLink from "Components/UI/LabelledLink.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import type { SongDetail } from "Types/music";
 import { formatClock, formatDateTime, formatDecimals, formatFileSize } from "Utils/formatting";
-import SongHero from "./components/SongHero.vue";
+import SongPageHero from "./SongPageHero.vue";
 
 const props = defineProps<{
     /** The song being shown, as SongController shaped it — every value raw. */
@@ -183,7 +183,7 @@ const songFacts = computed<Fact[]>(() => {
     <Head :title="song.name" />
     <container>
         <div class="song">
-            <song-hero :song="song" />
+            <song-page-hero :song="song" />
             <facts :facts="songFacts" wide-groups />
             <p class="song__back">
                 <labelled-link href="/music/songs">{{ t("music.song.backToList") }}</labelled-link>
