@@ -71,7 +71,11 @@ function iconName(type: ToastType): string {
                 >
                     <icon :name="iconName(toast.type)" />
                     <span>{{ toast.message }}</span>
-                    <button class="toast-container__close" :aria-label="t('common.close')" @click="removeToast(toast.id)">
+                    <button
+                        class="toast-container__close"
+                        :aria-label="t('common.close')"
+                        @click="removeToast(toast.id)"
+                    >
                         <icon name="close" :size="1" />
                     </button>
                     <div v-if="toast.duration > 0" class="toast-container__progress" />

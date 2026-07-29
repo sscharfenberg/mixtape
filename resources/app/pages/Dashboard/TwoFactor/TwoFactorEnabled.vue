@@ -93,7 +93,9 @@ const legendItems = computed(() => {
         <form-row>
             <Button variant="default" type="submit" :disabled="processing">
                 <icon name="security" :size="1" />
-                <span>{{ processing ? t("dashboard.twoFactor.enabled.submitting") : t("dashboard.twoFactor.enabled.submit") }}</span>
+                <span>{{
+                    processing ? t("dashboard.twoFactor.enabled.submitting") : t("dashboard.twoFactor.enabled.submit")
+                }}</span>
             </Button>
         </form-row>
     </form>

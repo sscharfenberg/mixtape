@@ -44,8 +44,7 @@ const { t } = useI18n();
     animation: widget-loader-reveal 0s linear map.get(ti.$c-widget, "loader-delay") forwards;
 
     @media (prefers-reduced-motion: no-preference) {
-        animation:
-            widget-loader-fade map.get(ti.$c-widget, "loader-fade") ease-out
+        animation: widget-loader-fade map.get(ti.$c-widget, "loader-fade") ease-out
             map.get(ti.$c-widget, "loader-delay") forwards;
     }
 }

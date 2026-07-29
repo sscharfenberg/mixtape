@@ -30,4 +30,3 @@ const appName = import.meta.env.VITE_APP_NAME;
         <span class="meta">{{ t("footer.copyright", { appName, date: copyrightDate, version }) }}</span>
     </footer>
 </template>
-

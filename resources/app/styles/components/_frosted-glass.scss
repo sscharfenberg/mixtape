@@ -35,8 +35,7 @@
 
         border: map.get(s.$c-frosted-glass, "border") solid transparent;
 
-        background:
-            linear-gradient(
+        background: linear-gradient(
                 to bottom right,
                 map.get(c.$c-frosted-glass, "border-from"),
                 map.get(c.$c-frosted-glass, "border-to")

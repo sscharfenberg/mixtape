@@ -118,12 +118,19 @@ const submitVerification = (): void => {
             </form-row>
 
             <loading-spinner v-if="!manualSetupKey" :size="2" />
-            <form-row v-else for-id="manualSetupKey" :label="t('dashboard.twoFactor.modal.manualKeyLabel')" addon-icon="key">
+            <form-row
+                v-else
+                for-id="manualSetupKey"
+                :label="t('dashboard.twoFactor.modal.manualKeyLabel')"
+                addon-icon="key"
+            >
                 <form-input id="manualSetupKey" :model-value="manualSetupKey ?? ''" name="manualSetupKey" readonly />
                 <template #button>
                     <button type="button" @click="copy(manualSetupKey ?? '')">
                         <icon :name="copied ? 'check' : 'copy'" />
-                        <span>{{ copied ? t("dashboard.twoFactor.modal.copied") : t("dashboard.twoFactor.modal.copy") }}</span>
+                        <span>{{
+                            copied ? t("dashboard.twoFactor.modal.copied") : t("dashboard.twoFactor.modal.copy")
+                        }}</span>
                     </button>
                 </template>
             </form-row>
@@ -173,7 +180,9 @@ const submitVerification = (): void => {
                     :disabled="processing || code.length < 6"
                 >
                     <icon name="check" :size="1" />
-                    <span>{{ processing ? t("dashboard.twoFactor.modal.confirming") : t("dashboard.twoFactor.modal.confirm") }}</span>
+                    <span>{{
+                        processing ? t("dashboard.twoFactor.modal.confirming") : t("dashboard.twoFactor.modal.confirm")
+                    }}</span>
                 </Button>
             </template>
         </template>

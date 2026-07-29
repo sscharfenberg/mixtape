@@ -132,7 +132,11 @@ function onChange(event: Event): void {
                 height: 0;
                 transform: translate(0, -50%);
 
-                background: radial-gradient(circle at 6px 6px, map.get(c.$c-radio, "inner"), map.get(c.$c-radio, "outer"));
+                background: radial-gradient(
+                    circle at 6px 6px,
+                    map.get(c.$c-radio, "inner"),
+                    map.get(c.$c-radio, "outer")
+                );
                 border-radius: 100dvw;
 
                 content: "";

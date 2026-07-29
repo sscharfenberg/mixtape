@@ -31,15 +31,27 @@ withDefaults(
 </script>
 
 <template>
-    <h2 v-if="size === 2" :id="anchorId" :class="{ 'glowing-border': glow, 'glowing-border--right': glow && align === 'right' }">
+    <h2
+        v-if="size === 2"
+        :id="anchorId"
+        :class="{ 'glowing-border': glow, 'glowing-border--right': glow && align === 'right' }"
+    >
         <slot />
         <span v-if="$slots.right" class="right"><slot name="right" /></span>
     </h2>
-    <h3 v-if="size === 3" :id="anchorId" :class="{ 'glowing-border': glow, 'glowing-border--right': glow && align === 'right' }">
+    <h3
+        v-if="size === 3"
+        :id="anchorId"
+        :class="{ 'glowing-border': glow, 'glowing-border--right': glow && align === 'right' }"
+    >
         <slot />
         <span v-if="$slots.right" class="right"><slot name="right" /></span>
     </h3>
-    <h4 v-if="size === 4" :id="anchorId" :class="{ 'glowing-border': glow, 'glowing-border--right': glow && align === 'right' }">
+    <h4
+        v-if="size === 4"
+        :id="anchorId"
+        :class="{ 'glowing-border': glow, 'glowing-border--right': glow && align === 'right' }"
+    >
         <slot />
         <span v-if="$slots.right" class="right"><slot name="right" /></span>
     </h4>

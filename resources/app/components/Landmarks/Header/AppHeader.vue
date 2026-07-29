@@ -22,7 +22,10 @@ const headerRef = ref<HTMLElement | null>(null);
 onMounted(() => {
     const setHeightVar = (): void => {
         if (headerRef.value) {
-            document.documentElement.style.setProperty("--app-header-height", `${headerRef.value.getBoundingClientRect().height}px`);
+            document.documentElement.style.setProperty(
+                "--app-header-height",
+                `${headerRef.value.getBoundingClientRect().height}px`
+            );
         }
     };
     setHeightVar();

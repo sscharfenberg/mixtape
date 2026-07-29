@@ -39,8 +39,12 @@ const legendItems = computed(() => {
         <form-legend :items="legendItems">
             <template #intro>
                 <i18n-t keypath="dashboard.twoFactor.disabled.intro" scope="global">
-                    <template #totp><strong>{{ t("dashboard.twoFactor.disabled.totpTerm") }}</strong></template>
-                    <template #bitwarden><labelled-link href="https://bitwarden.com/">Bitwarden</labelled-link></template>
+                    <template #totp
+                        ><strong>{{ t("dashboard.twoFactor.disabled.totpTerm") }}</strong></template
+                    >
+                    <template #bitwarden
+                        ><labelled-link href="https://bitwarden.com/">Bitwarden</labelled-link></template
+                    >
                     <template #enpass><labelled-link href="https://www.enpass.io/">Enpass</labelled-link></template>
                 </i18n-t>
             </template>
@@ -80,7 +84,9 @@ const legendItems = computed(() => {
         <form-row>
             <Button variant="default" type="submit" :disabled="processing">
                 <icon name="security" :size="1" />
-                <span>{{ processing ? t("dashboard.twoFactor.disabled.submitting") : t("dashboard.twoFactor.disabled.submit") }}</span>
+                <span>{{
+                    processing ? t("dashboard.twoFactor.disabled.submitting") : t("dashboard.twoFactor.disabled.submit")
+                }}</span>
             </Button>
         </form-row>
     </form>

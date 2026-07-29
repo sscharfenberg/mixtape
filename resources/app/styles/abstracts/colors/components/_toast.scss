@@ -13,6 +13,11 @@
 @use "sass:color"; // https://sass-lang.com/documentation/modules/color
 @use "../global-color-tokens" as c;
 
+// prettier drops the blank lines that separate the four variants, fusing
+// success / warning / error / info into one 40-line wall. the grouping is how
+// you find a variant in here, so this map stays hand-formatted.
+
+/* prettier-ignore */
 $toast: (
     "success-background": light-dark(
             color.adjust(map.get(c.$state, "light", "success", "color"), $alpha: -0.1),

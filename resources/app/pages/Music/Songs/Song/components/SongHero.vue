@@ -67,7 +67,12 @@ const soon = (): void => {
         <widget>
             <div class="song-hero">
                 <img v-if="song.coverUrl" class="song-hero__cover" :src="song.coverUrl" :alt="coverAlt" />
-                <div v-else class="song-hero__cover song-hero__cover--empty" role="img" :aria-label="t('music.song.noCover')">
+                <div
+                    v-else
+                    class="song-hero__cover song-hero__cover--empty"
+                    role="img"
+                    :aria-label="t('music.song.noCover')"
+                >
                     <icon name="album" :size="5" />
                 </div>
 

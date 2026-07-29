@@ -46,7 +46,9 @@ const showModal = ref(false);
         >
             <template #explanation>
                 <i18n-t keypath="dashboard.delete.explanation" scope="global">
-                    <template #warning><strong>{{ t("dashboard.delete.warning") }}</strong></template>
+                    <template #warning
+                        ><strong>{{ t("dashboard.delete.warning") }}</strong></template
+                    >
                 </i18n-t>
             </template>
             <template #no_soft_deletes>

@@ -47,7 +47,9 @@ createInertiaApp({
             messages: {}
         });
 
-        const app = createApp({ render: () => h(App, props) }).use(plugin).use(i18n);
+        const app = createApp({ render: () => h(App, props) })
+            .use(plugin)
+            .use(i18n);
 
         // Global because a tooltip is a cross-cutting affordance — registering it
         // per SFC would mean importing it in nearly every component. Template

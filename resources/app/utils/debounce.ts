@@ -22,11 +22,7 @@ export type Debounced<A extends unknown[]> = ((...args: A) => void) & {
  * @param delay   quiet period in ms before the trailing run fires
  * @param maxWait optional cap in ms on how long calls can be deferred
  */
-export function debounce<A extends unknown[]>(
-    fn: (...args: A) => void,
-    delay: number,
-    maxWait?: number
-): Debounced<A> {
+export function debounce<A extends unknown[]>(fn: (...args: A) => void, delay: number, maxWait?: number): Debounced<A> {
     let timer: ReturnType<typeof setTimeout> | null = null;
     let maxTimer: ReturnType<typeof setTimeout> | null = null;
     let lastArgs: A | null = null;

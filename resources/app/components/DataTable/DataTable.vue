@@ -68,7 +68,7 @@ defineSlots<{
     // Catch-all for the column-driven cell-*/header-* slots (their prop shapes vary
     // per column). `any` is required, not `unknown`: the index signature must be
     // assignable-from the typed named slots above, which `unknown` params break.
-     
+
     [name: string]: (props?: any) => unknown;
 }>();
 const { t } = useI18n();

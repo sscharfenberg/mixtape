@@ -35,6 +35,11 @@ $brand: (
 // — color.scale($lightness: -23%, $saturation: 12%), pre-baked to a literal so
 // the palette stays computation-free. Consume both sides through the CSS
 // `light-dark()` (e.g. `light-dark(map.get(c.$retro, "c2", "light"), map.get(c.$retro, "c2", "dark"))`).
+// prettier re-indents "c3" — the one entry carrying a comment — one level
+// deeper than its siblings, so the nested pairs stop lining up down the map.
+// this is a flat table of hues and reads as one; kept hand-formatted.
+
+/* prettier-ignore */
 $retro: (
     "c1": (
         "light": #02233e,

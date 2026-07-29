@@ -49,7 +49,8 @@ const showPassword = ref(false);
 /** Legend notes — intro always; the required-fields hint only while the password field is shown; the usage note once the codes are revealed. */
 const legendItems = computed(() => {
     const items = [{ slot: "intro", icon: "info" }];
-    if (requiresPasswordConfirmation.value && !isRecoveryCodesVisible.value) items.push({ slot: "required", icon: "info" });
+    if (requiresPasswordConfirmation.value && !isRecoveryCodesVisible.value)
+        items.push({ slot: "required", icon: "info" });
     if (isRecoveryCodesVisible.value) items.push({ slot: "usage", icon: "info" });
     return items;
 });

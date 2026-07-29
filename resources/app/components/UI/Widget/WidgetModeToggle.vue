@@ -40,7 +40,7 @@ const mode = defineModel<WidgetMode>({ required: true });
 const ICONS: Record<WidgetMode, string> = {
     latest: "recent",
     popular: "hot",
-    random: "shuffle",
+    random: "shuffle"
 };
 
 /**

@@ -54,9 +54,7 @@ export const formatClock = (seconds: number | null): string | null => {
     const hours = Math.floor(total / 3600);
     const minutes = Math.floor((total % 3600) / 60);
 
-    return hours > 0
-        ? `${hours}:${pad(minutes)}:${pad(total % 60)}`
-        : `${minutes}:${pad(total % 60)}`;
+    return hours > 0 ? `${hours}:${pad(minutes)}:${pad(total % 60)}` : `${minutes}:${pad(total % 60)}`;
 };
 
 /**
@@ -95,10 +93,7 @@ export const formatDateTime = (iso: string | null, locale: string): string | nul
  * @param totalSeconds total duration in seconds
  * @param unit         resolves a unit key + count to a localised, pluralised label
  */
-export const formatDuration = (
-    totalSeconds: number,
-    unit: (key: DurationUnit, count: number) => string
-): string => {
+export const formatDuration = (totalSeconds: number, unit: (key: DurationUnit, count: number) => string): string => {
     const MIN = 60;
     const HOUR = 60 * MIN;
     const DAY = 24 * HOUR;

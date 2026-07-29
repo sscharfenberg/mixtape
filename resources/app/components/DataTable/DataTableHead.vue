@@ -86,7 +86,12 @@ function onHeaderCheckbox() {
                     @update:model-value="onHeaderCheckbox"
                 />
             </th>
-            <th v-for="col in columns" :key="col.key" :style="{ width: col.width ?? 'auto' }" :aria-sort="ariaSort(col)">
+            <th
+                v-for="col in columns"
+                :key="col.key"
+                :style="{ width: col.width ?? 'auto' }"
+                :aria-sort="ariaSort(col)"
+            >
                 <button
                     v-if="col.sortable"
                     v-tooltip:top="sortHint(col)"

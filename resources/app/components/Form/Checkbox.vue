@@ -57,14 +57,7 @@ watch(
 </script>
 
 <template>
-    <input
-        :id="inputId"
-        ref="inputRef"
-        v-model="model"
-        type="checkbox"
-        :name="inputId"
-        :disabled="disabled"
-    />
+    <input :id="inputId" ref="inputRef" v-model="model" type="checkbox" :name="inputId" :disabled="disabled" />
     <label :for="inputId">{{ label }}</label>
 </template>
 

@@ -46,11 +46,7 @@ const refreshing = ref(false);
             <widget-skeleton v-if="refreshing" :rows="4" />
             <slot v-else />
         </widget-body>
-        <widget-footer
-            v-if="$slots.footer || refresh"
-            :refresh="refresh"
-            @refreshing="refreshing = $event"
-        >
+        <widget-footer v-if="$slots.footer || refresh" :refresh="refresh" @refreshing="refreshing = $event">
             <slot name="footer" />
         </widget-footer>
         <widget-loader v-if="loading" />

@@ -62,7 +62,12 @@ function onActionClick(row: T, event: MouseEvent) {
                     @update:model-value="provided.toggleSelection(row.id)"
                 />
             </td>
-            <td v-for="col in columns" :key="col.key" :class="col.cellClass" :style="{ textAlign: col.align ?? 'left' }">
+            <td
+                v-for="col in columns"
+                :key="col.key"
+                :class="col.cellClass"
+                :style="{ textAlign: col.align ?? 'left' }"
+            >
                 <slot v-if="slots[`cell-${col.key}`]" :name="`cell-${col.key}`" :row="row" />
                 <template v-else>{{ row[col.key] }}</template>
             </td>
