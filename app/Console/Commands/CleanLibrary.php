@@ -40,6 +40,12 @@ class CleanLibrary extends Command
         $removed = $cleanup->clean($areas);
         $this->narrate("Cleanup removed {$removed} junk file(s).");
 
+        // The cover cache is app storage, not share content, so it is swept whole
+        // regardless of `--area`: an entry is kept or dropped on whether its id is
+        // still in the database, which no area scoping would change.
+        $covers = $cleanup->pruneCoverCache();
+        $this->narrate("Cleanup dropped {$covers} stale cover cache entr(y|ies).");
+
         return self::SUCCESS;
     }
 }

@@ -347,6 +347,46 @@ final class CoverService
         return is_file($cached) ? $cached : null;
     }
 
+    /**
+     * Drop a track's cached cover, returning whether there was one to drop.
+     *
+     * This is the invalidation the cache key cannot do by itself, and the scanner is
+     * the only thing that knows when to call it. A track's key is its id — a hash of
+     * the audio FRAMES only ([avdataoffset, avdataend), see Id3TagReader), chosen
+     * precisely so a re-tag keeps the row's identity. The cost of that choice is here:
+     * replacing a file's embedded artwork changes the tag bytes and not the hash, so
+     * the key does not move and the OLD picture would be served for good. A re-tag is
+     * exactly the event the scanner detects in pass 1, so it deletes the entry there.
+     */
+    public function forget(Track $track): bool
+    {
+        $cached = $this->cachePath($track);
+
+        return is_file($cached) && @unlink($cached);
+    }
+
+    /**
+     * Drop every cached cover for an album — all mtime variants of its key — and return
+     * how many files went.
+     *
+     * A glob rather than one computed path, because the point is to catch the entries
+     * whose mtime suffix no longer matches anything: the album's art having been
+     * replaced is precisely when its old scaled copies become unreachable garbage.
+     */
+    public function forgetAlbum(Collection $album): int
+    {
+        $entries = glob(storage_path('app/private/'.self::CACHE_DIR.'/album-'.$album->id.'-*.jpg')) ?: [];
+        $removed = 0;
+
+        foreach ($entries as $entry) {
+            if (@unlink($entry)) {
+                $removed++;
+            }
+        }
+
+        return $removed;
+    }
+
     /** Where this track's extracted cover is cached (one JPEG per track id). */
     private function cachePath(Track $track): string
     {
@@ -357,13 +397,14 @@ final class CoverService
      * Where an album's scaled folder image is cached — keyed by album id AND by the
      * source image's mtime.
      *
-     * The mtime is what makes this safe to cache at all. A track's cache key is its
-     * id, which is a hash of the audio, so different bytes are automatically a
-     * different key; a collection's id is a plain UUID that survives someone dropping
-     * a new Folder.jpg into the directory, and without the mtime the old scaled copy
-     * would be served forever. A replaced image simply lands on a new key; the
-     * orphaned file is never read again (and is what the cover cache would be pruned
-     * for — legacy wiped it wholesale on a rescan).
+     * The mtime is what makes this safe to cache at all. A collection's id is a plain
+     * UUID that survives someone dropping a new Folder.jpg into the directory, so
+     * without the mtime in the key the old scaled copy would be served forever. A
+     * replaced image simply lands on a new key.
+     *
+     * That leaves the superseded file behind, which is why `forgetAlbum()` globs: the
+     * scanner drops an album's stale entries when its recorded path changes, and the
+     * cleanup step sweeps the rest (legacy wiped this cache wholesale on a rescan).
      */
     private function albumCachePath(Collection $album, string $folderImage): string
     {

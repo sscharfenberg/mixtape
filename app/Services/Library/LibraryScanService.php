@@ -170,6 +170,15 @@ final class LibraryScanService
 
                 $row->fill($this->buildAttributes($type, $meta, $relPath, $size, $mtime))->save();
                 $result->updated++;
+
+                // The file's bytes changed while its id — a hash of the audio frames
+                // only — did not, which is the ONE case the cover cache cannot notice
+                // on its own: a re-tag that replaced the embedded picture would keep
+                // being served from the old cached JPEG. Dropped here because this is
+                // the exact moment we know it happened.
+                if ($this->covers->forget($row)) {
+                    $result->coversForgotten++;
+                }
             }
 
             // Rename candidates = rows not claimed in pass 1, bucketed by hash.
@@ -445,6 +454,11 @@ final class LibraryScanService
             Play::query()->where('track_id', $row->getKey())->update(['track_id' => $survivor->getKey()]);
         }
 
+        // The row is going, so its cached cover is dead weight — nothing will ever ask
+        // for that id again. Safe even when a clone survives: the cache is keyed by
+        // ROW id, so the survivor has (or will extract) its own entry.
+        $this->covers->forget($row);
+
         $row->delete();
     }
 
@@ -549,6 +563,11 @@ final class LibraryScanService
             if ($container->cover_path !== $resolved) {
                 $container->update(['cover_path' => $resolved]);
                 $changed++;
+
+                // The album's art is a different file now (or gone), so every scaled
+                // copy cached under its id is stale — including the mtime variants no
+                // key will ever match again. The next request rebuilds exactly one.
+                $this->covers->forgetAlbum($container);
             }
         }
 

@@ -57,12 +57,22 @@ class UpdateLibrary extends Command
             if (! $this->option('skip-cleanup')) {
                 $removed = $cleanup->clean($areas);
                 $this->narrate("Cleanup removed {$removed} junk file(s).");
+
+                // Before the scan, deliberately: this sweep only removes entries whose
+                // id has ALREADY left the database, and the scan drops its own as it
+                // deletes and re-tags rows. Running it first therefore clears the
+                // backlog without racing what is about to happen.
+                $covers = $cleanup->pruneCoverCache();
+                if ($covers > 0) {
+                    $this->narrate("Cleanup dropped {$covers} stale cover cache entr(y|ies).");
+                }
             }
 
             $summary = $scanner->scan($areas, fn (string $line) => $this->narrate('  '.$line));
 
             $this->narrate(sprintf(
-                'Library scan finished in %s — %d new, %d changed, %d moved, %d removed, %d skipped, %d cover(s) recorded.',
+                'Library scan finished in %s — %d new, %d changed, %d moved, %d removed, %d skipped, '
+                    .'%d cover(s) recorded, %d cached cover(s) invalidated.',
                 $this->elapsed($startedAt),
                 $summary->inserted(),
                 $summary->updated(),
@@ -74,6 +84,10 @@ class UpdateLibrary extends Command
                 // cover_path migration it jumps to roughly the album count, and on
                 // every steady-state scan afterwards it should read 0.
                 $summary->covers(),
+                // Cached JPEGs thrown away because their source was re-tagged or
+                // deleted. Non-zero here is the visible half of a re-tag: it says the
+                // next request will re-extract rather than serve the old artwork.
+                $summary->coversForgotten(),
             ));
 
             // Skipped (unreadable) files are non-fatal, but never silent: e-mail a

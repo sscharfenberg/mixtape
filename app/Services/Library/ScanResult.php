@@ -37,6 +37,14 @@ final class ScanResult
      */
     public int $covers = 0;
 
+    /**
+     * Cached cover JPEGs dropped because the file behind them was re-tagged or removed
+     * — the invalidation the cache key cannot do itself (CoverService::forget explains
+     * why a re-tag keeps the key). Counted separately from `covers` above: that one is
+     * about which file an album POINTS at, this one about bytes thrown away.
+     */
+    public int $coversForgotten = 0;
+
     public int $errors = 0;
 
     /**

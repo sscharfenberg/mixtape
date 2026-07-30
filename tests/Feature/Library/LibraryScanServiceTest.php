@@ -35,9 +35,16 @@ class LibraryScanServiceTest extends TestCase
         $this->scanner = $this->app->make(LibraryScanService::class);
     }
 
+    /**
+     * Take the temp media area with us, and the cover cache too: the invalidation tests
+     * plant real files under `storage/app/private/covers`, which is app storage rather
+     * than a temp dir — left behind they would leak into the next test and into the
+     * working tree.
+     */
     protected function tearDown(): void
     {
         $this->removeLibraryRoot();
+        $this->removeDir(storage_path('app/private/covers'));
         parent::tearDown();
     }
 
@@ -337,6 +344,102 @@ class LibraryScanServiceTest extends TestCase
         $this->scan();
 
         $this->assertSame('gruzia', Track::sole()->name_fold);
+    }
+
+    /**
+     * Plant a cached cover for a track id, as if someone had viewed it. Returns the
+     * cache path so a test can assert on its fate.
+     */
+    private function cachedCover(string $id): string
+    {
+        $path = storage_path('app/private/covers/'.$id.'.jpg');
+        @mkdir(dirname($path), 0777, true);
+        file_put_contents($path, 'cached-jpeg');
+
+        return $path;
+    }
+
+    public function test_a_retag_drops_the_files_cached_cover(): void
+    {
+        // The invalidation the cache key cannot do itself: a track's id is a hash of
+        // the audio FRAMES, so re-tagging (which is how embedded art is replaced) keeps
+        // the id and therefore the cache key. Without this the old picture would be
+        // served for good — the file's bytes changed, the key did not.
+        $this->media('rock/01.mp3', ['hash' => 'h1', 'title' => 'One', 'artist' => 'A', 'album' => 'Debut']);
+        $this->scan();
+
+        $track = Track::sole();
+        $cached = $this->cachedCover($track->id);
+
+        // Same path, different bytes → pass 1 sees a re-tag.
+        $this->media('rock/01.mp3', ['hash' => 'h1', 'title' => 'One (Remastered)', 'artist' => 'A', 'album' => 'Debut']);
+        $summary = $this->scanner->scan([TrackType::Music]);
+
+        $this->assertSame(1, $summary->updated());
+        $this->assertSame(1, $summary->coversForgotten());
+        $this->assertFileDoesNotExist($cached);
+        // The row itself is untouched by the invalidation — same id, so playlists and
+        // play history still point at it.
+        $this->assertSame($track->id, Track::sole()->id);
+    }
+
+    public function test_an_unchanged_file_keeps_its_cached_cover(): void
+    {
+        // The other side of the same coin: the fast-path must not throw away work. A
+        // scan that changes nothing may not cost every viewed cover a re-extraction.
+        $this->media('rock/01.mp3', ['hash' => 'h1', 'title' => 'One', 'artist' => 'A', 'album' => 'Debut']);
+        $this->scan();
+
+        $cached = $this->cachedCover(Track::sole()->id);
+
+        $summary = $this->scanner->scan([TrackType::Music]);
+
+        $this->assertSame(0, $summary->coversForgotten());
+        $this->assertFileExists($cached);
+    }
+
+    public function test_a_deleted_track_takes_its_cached_cover_with_it(): void
+    {
+        // TWO files, because deleting the only one leaves the area empty and trips the
+        // "found 0 files but rows exist" guard, which protects every row instead of
+        // pruning — nothing would be deleted and the test would be measuring the guard.
+        $this->media('rock/01.mp3', ['hash' => 'h1', 'title' => 'One', 'artist' => 'A', 'album' => 'Debut']);
+        $this->media('rock/02.mp3', ['hash' => 'h2', 'title' => 'Two', 'artist' => 'A', 'album' => 'Debut']);
+        $this->scan();
+
+        $doomed = Track::query()->where('path', 'rock/01.mp3')->sole();
+        $survivor = Track::query()->where('path', 'rock/02.mp3')->sole();
+        $cached = $this->cachedCover($doomed->id);
+        $keep = $this->cachedCover($survivor->id);
+
+        unlink($this->root.'/rock/01.mp3');
+        $summary = $this->scanner->scan([TrackType::Music]);
+
+        $this->assertSame(1, $summary->deleted());
+        $this->assertFileDoesNotExist($cached);
+        // And only that one: the surviving track's cover is untouched.
+        $this->assertFileExists($keep);
+    }
+
+    public function test_changing_an_albums_art_drops_its_cached_variants(): void
+    {
+        // An album's cache key carries the source image's mtime, so a *replaced* image
+        // lands on a new key on its own. What needs dropping is the old variants, which
+        // no request can reach again — the album's recorded path changing is the signal.
+        $this->media('rock/01.mp3', ['hash' => 'h1', 'title' => 'One', 'artist' => 'A', 'album' => 'Debut']);
+        $this->rawFile('rock/folder.jpg', 'jpeg-bytes');
+        $this->scan();
+
+        $album = Collection::sole();
+        $stale = storage_path('app/private/covers/album-'.$album->id.'-1700000000.jpg');
+        @mkdir(dirname($stale), 0777, true);
+        file_put_contents($stale, 'old-scaled-copy');
+
+        unlink($this->root.'/rock/folder.jpg');
+        $this->rawFile('rock/cover.jpg', 'jpeg-bytes');
+        $this->scan();
+
+        $this->assertFileDoesNotExist($stale);
     }
 
     public function test_the_scan_records_the_albums_directory_image(): void

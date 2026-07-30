@@ -47,6 +47,12 @@ final class ScanSummary
         return $this->sum('covers');
     }
 
+    /** Total cached cover JPEGs dropped because their source was re-tagged or deleted. */
+    public function coversForgotten(): int
+    {
+        return $this->sum('coversForgotten');
+    }
+
     /** Total files skipped as unreadable across every area. */
     public function errors(): int
     {
