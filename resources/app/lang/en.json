@@ -255,7 +255,15 @@
             "album": "Album",
             "year": "Year",
             "genre": "Genre",
-            "duration": "Duration"
+            "duration": "Duration",
+            "cover": "Cover",
+            "songs": "Songs",
+            "discs": "Discs",
+            "modifiedAt": "Modified"
+        },
+        "album": {
+            "noCover": "No cover available",
+            "tracklistPending": "This album's track list follows once the player is in place."
         },
         "channel": {
             "stereo": "Stereo",

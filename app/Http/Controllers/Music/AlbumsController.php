@@ -2,20 +2,191 @@
 
 namespace App\Http\Controllers\Music;
 
+use App\Enums\CollectionType;
+use App\Enums\TrackType;
 use App\Http\Controllers\Controller;
+use App\Models\Collection;
+use App\Models\Track;
+use App\Services\DataTableService;
+use App\Services\Media\CoverService;
+use App\Services\Search\FoldedSearch;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * The Music → Albums sub-section (`GET /music/albums`, route `music.albums`,
- * behind auth) — the full album listing, linked from the AlbumsWidget footer.
- * Stub for now: renders Music/Albums/AlbumsPage with no data yet.
+ * The Music → Albums sub-section (`GET /music/albums`, route `music.albums`, behind
+ * auth) — the full album listing as a server-driven DataTable (sort / search /
+ * paginate all in the URL). Linked from the AlbumsWidget footer, and built on the
+ * same DataTableService as the Songs listing.
+ *
+ * An album row is mostly AGGREGATE: a collection row itself stores only name, year
+ * and its album-artist, while the four numbers a listener actually browses by — how
+ * many songs, how many discs, how long, how recently the files changed — all live in
+ * its tracks. They are computed as correlated subqueries rather than by joining and
+ * grouping, so the query stays one row per album and every one of them is sortable
+ * through DataTableService's plain `orderBy` on the alias.
+ *
+ * Every row also carries an `href` to the album's own page (AlbumController), which
+ * is what makes the table's rows clickable — the frontend only follows what the
+ * server puts there.
  */
 class AlbumsController extends Controller
 {
-    /** Render the Albums sub-section page (all albums). */
-    public function __invoke(): Response
+    /** Injected for the per-row "is there any art?" question — see the row mapper. */
+    public function __construct(private readonly CoverService $covers) {}
+
+    /**
+     * Render the Albums listing.
+     *
+     * The album-artist is a left join (so it is sortable and searchable as a column),
+     * everything track-derived is a subquery. `sample_path` and `embedded_cover_id`
+     * are not shown anywhere: they are what lets the row mapper decide whether a
+     * thumbnail exists without a query per row (see there).
+     */
+    public function __invoke(Request $request): Response
     {
-        return Inertia::render('Music/Albums/AlbumsPage');
+        // One reusable correlated base: "the tracks of the album in the current row".
+        $tracksOfAlbum = fn (): \Illuminate\Database\Query\Builder => Track::query()
+            ->whereColumn('tracks.collection_id', 'collections.id')
+            ->toBase();
+
+        // The album's own running order, so "first track" means disc 1 track 1 and not
+        // whatever the storage engine hands back. `name` breaks the tie for rips whose
+        // files carry no track numbers at all.
+        $inAlbumOrder = fn (\Illuminate\Database\Query\Builder $q): \Illuminate\Database\Query\Builder => $q
+            ->orderBy('disc')
+            ->orderBy('track')
+            ->orderBy('name');
+
+        $query = Collection::query()
+            ->where('collections.type', CollectionType::Album)
+            ->leftJoin('artists', 'collections.album_artist_id', '=', 'artists.id')
+            ->select([
+                'collections.id',
+                'collections.name',
+                'collections.year',
+                'artists.name as artist_name',
+            ])
+            // How many songs, and how long the album plays. `withSum` gives raw
+            // seconds, exactly as a single track's duration goes over — the page
+            // clocks it (Utils/formatting.ts → formatClock, which grows an hours
+            // part on its own, which an album total regularly needs).
+            ->withCount('tracks')
+            ->withSum('tracks', 'duration')
+            // "Modified at" for a container is its newest file's mtime: a collection
+            // row has no file date of its own, and after a bulk import an album's
+            // mtime is the truest "when did this last change" (the same choice the
+            // Music page's `latest` album mode makes).
+            ->withMax('tracks', 'modified_at')
+            ->addSelect([
+                // COUNT(DISTINCT disc) — the same count the song page's "1/2" comes
+                // from, so the two pages can never disagree about how many discs an
+                // album has. It counts 0 when no file carries a disc tag (SQL skips
+                // NULLs); the row mapper floors that to 1 rather than the SQL doing
+                // it, because the two dialects spell that function differently
+                // (Postgres GREATEST, SQLite MAX) and this query has to run on both.
+                'discs_count' => $tracksOfAlbum()->selectRaw('count(distinct disc)'),
+                // One file per album, for its DIRECTORY: the folder image the cover
+                // route prefers sits beside it. Selected here so the row mapper can
+                // stat it without hydrating a Track per row.
+                'sample_path' => $inAlbumOrder($tracksOfAlbum()->select('path'))->limit(1),
+                // …and whether any file carries embedded art, which is the cover
+                // route's fallback. A boolean would do; the id costs the same and
+                // says which file answered.
+                'embedded_cover_id' => $inAlbumOrder(
+                    $tracksOfAlbum()->select('id')->where('cover', true)
+                )->limit(1),
+            ]);
+
+        $table = DataTableService::buildResponse(
+            query: $query,
+            request: $request,
+            sortable: ['name', 'year', 'artist', 'songs', 'discs', 'modifiedAt', 'duration'],
+            // Sort keys → real columns. The aggregates sort by their SELECT alias,
+            // which both Postgres and SQLite resolve in ORDER BY; the two name
+            // columns sort on the raw (ICU-collated) name, which is fine for ORDER BY
+            // — only LIKE is not (see FoldedSearch).
+            sortColumnMap: [
+                'name' => 'collections.name',
+                'year' => 'collections.year',
+                'artist' => 'artists.name',
+                'songs' => 'tracks_count',
+                'discs' => 'discs_count',
+                'modifiedAt' => 'tracks_max_modified_at',
+                'duration' => 'tracks_sum_duration',
+            ],
+            defaultSort: 'name',
+            // The two text columns the table shows, matched through their `name_fold`
+            // companions so the search is accent- and case-insensitive on one code
+            // path for Postgres and SQLite alike.
+            searchCallback: fn (Builder $q, string $search) => FoldedSearch::apply($q, $search, [
+                'collections.name', 'artists.name',
+            ]),
+            rowMapper: fn (Collection $album): array => [
+                'id' => $album->id,
+                'name' => $album->name,
+                'artist' => $album->artist_name,
+                'year' => $album->year,
+                'songs' => $album->tracks_count,
+                // Floored to 1: an album whose files carry no disc tag counts 0
+                // discs, and "0" in a listing reads as missing data rather than as
+                // "nobody tagged the disc number". It is still one disc.
+                'discs' => max(1, (int) $album->discs_count),
+                // Raw seconds and a raw ISO-8601 instant — every formatter lives on
+                // the page (Utils/formatting.ts), against the viewer's locale and
+                // timezone.
+                'duration' => $album->tracks_sum_duration === null ? null : (float) $album->tracks_sum_duration,
+                // Parsed explicitly: an aggregate attribute is NOT the related
+                // model's own attribute, so Track's `modified_at` datetime cast does
+                // not reach it and `withMax` hands back whatever string the driver
+                // formats a timestamp as. (Read as a Carbon it fails outright — which
+                // is how this was found.)
+                'modifiedAt' => $album->tracks_max_modified_at === null
+                    ? null
+                    : Carbon::parse($album->tracks_max_modified_at)->toIso8601String(),
+                // The thumbnail, or null so the table draws its placeholder instead of
+                // pointing an <img> at a 404. Decided from what the query already
+                // fetched plus at most ONE stat per row: an album has art if a folder
+                // image sits beside its first file, or if any of its files carries an
+                // embedded picture. The stat is the same trade SongController makes
+                // for one row, here paid per row of the page — and it is what keeps
+                // the folder image discoverable at all, since `collections.cover`
+                // (the column that ought to hold this) is never written by the
+                // scanner.
+                'coverUrl' => $this->hasCover($album)
+                    ? route('music.albums.cover', $album->id, absolute: false)
+                    : null,
+                // Makes the row clickable in the frontend DataTable, which visits this
+                // on a row click / card tap (and the name cell renders it as a real
+                // link). Relative so it works whatever host serves the app.
+                'href' => route('music.albums.show', $album->id, absolute: false),
+            ],
+        );
+
+        return Inertia::render('Music/Albums/AlbumsPage', [
+            'table' => $table,
+        ]);
+    }
+
+    /**
+     * Whether this album can show a cover at all, in the order the cover route
+     * resolves them: a folder image beside its first file, else any file's embedded
+     * picture.
+     *
+     * Reads the two extra columns the listing query selected, so it costs no query —
+     * only the one `is_file()`, and only while there is a path to stat (an album with
+     * no tracks left after a scan has none).
+     */
+    private function hasCover(Collection $album): bool
+    {
+        if ($album->sample_path !== null
+            && $this->covers->folderImageExistsBeside($album->sample_path, TrackType::Music)) {
+            return true;
+        }
+
+        return $album->embedded_cover_id !== null;
     }
 }

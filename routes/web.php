@@ -4,6 +4,8 @@ use App\Http\Controllers\AudiobooksController;
 use App\Http\Controllers\Dashboard\DashboardController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LocaleController;
+use App\Http\Controllers\Music\AlbumController;
+use App\Http\Controllers\Music\AlbumCoverController;
 use App\Http\Controllers\Music\AlbumsController;
 use App\Http\Controllers\Music\ArtistsController;
 use App\Http\Controllers\Music\GenresController;
@@ -45,6 +47,18 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         Route::get('/music/artists', ArtistsController::class)->name('music.artists');
         Route::get('/music/genres', GenresController::class)->name('music.genres');
         Route::get('/music/songs', SongsController::class)->name('music.songs');
+
+        // One album's detail page — the row-click target of the Albums listing —
+        // and its cover art. Same shape and the same two reasons as the song pair
+        // below: registered after `/music/albums` so the listing keeps matching,
+        // and UUID-constrained so a stray segment 404s at the router.
+        Route::get('/music/albums/{album}', AlbumController::class)
+            ->whereUuid('album')
+            ->name('music.albums.show');
+
+        Route::get('/music/albums/{album}/cover', AlbumCoverController::class)
+            ->whereUuid('album')
+            ->name('music.albums.cover');
 
         // One song's detail page — the row-click target of the Songs listing.
         // Registered after the listing so `/music/songs` keeps matching it, and

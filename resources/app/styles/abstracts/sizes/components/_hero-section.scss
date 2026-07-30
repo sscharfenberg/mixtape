@@ -22,6 +22,15 @@ $hero-section: (
         "desktop": 240px
     ),
     "cover-radius": map.get(s.$radius, "featured"),
+    // The same artwork at LISTING size — the Albums table's leading column. It lives
+    // here rather than with the table because it is a cover before it is a cell: the
+    // page already reads `cover-radius` from this partial for the very same <img>, so
+    // the pair that shapes an album thumbnail stays in one place. A literal, like the
+    // hero's own cover sizes above and for the same reason — it is a picture size
+    // chosen by eye against the row it sits in, which is exactly the case the shared
+    // scale doesn't decide (the nearest rungs are 32px and 64px, one too small to read
+    // as artwork and one tall enough to set the height of every row in the table).
+    "cover-thumbnail": 48px,
     "cover-placeholder-border": map.get(s.$border, "featured"),
     // The hero is its own panel now, so it owns its inset and shape. Both match the
     // Widget's own values (as does its fill — c.$c-hero-section "background"), so the

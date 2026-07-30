@@ -255,7 +255,15 @@
             "album": "Album",
             "year": "Jahr",
             "genre": "Genre",
-            "duration": "Dauer"
+            "duration": "Dauer",
+            "cover": "Cover",
+            "songs": "Songs",
+            "discs": "CDs",
+            "modifiedAt": "Geändert"
+        },
+        "album": {
+            "noCover": "Kein Cover vorhanden",
+            "tracklistPending": "Die Titelliste dieses Albums folgt, sobald der Player steht."
         },
         "channel": {
             "stereo": "Stereo",
