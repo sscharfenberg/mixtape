@@ -57,6 +57,14 @@ $hero-section: (
             "landscape": 2rem,
             "desktop": 2.6rem
         ),
+    // Tight-leaded so a long title wraps into a block rather than a ladder — and a NAMED
+    // value rather than a literal at the call site, because the chrome gradient is tiled
+    // at exactly this height (one ramp per line box, see the `background-size` note in
+    // HeroSection). Unitless on purpose: the component multiplies it by 1em, which
+    // resolves against whichever "title-font-size" rung is in force, so one number keeps
+    // the leading and the gradient's tile in step at every breakpoint. Let the two drift
+    // and the chrome bands stop lining up with the lines they belong to.
+    "title-line-height": 1.1,
     // The synthwave treatment's dimensions, all in `em` so they scale with whichever
     // font-size above is in force — a glow measured in px would swamp the 1.75rem title
     // and disappear on the 2.6rem one.

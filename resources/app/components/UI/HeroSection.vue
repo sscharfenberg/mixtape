@@ -274,6 +274,8 @@
        drops back there via `theme-dark`. Its colour is already theme-split in the token;
        `light-dark()` does not do lengths, which is why the width takes a rule of its own. */
     &__title {
+        $line-height: map.get(s.$c-hero-section, "title-line-height");
+
         overflow-wrap: anywhere;
 
         background-color: map.get(c.$c-hero-section, "title-fill");
@@ -283,7 +285,7 @@
         -webkit-text-fill-color: transparent; // inherited by the slotted heading
 
         font-family: map.get(t.$c-hero-section, "title");
-        line-height: 1.1;
+        line-height: $line-height;
 
         @include m.mqset(
             "font-size",
@@ -298,6 +300,26 @@
 
             background-color: transparent;
             background-image: map.get(c.$c-hero-section, "title-gradient");
+
+            /* ONE ramp PER LINE, and this pair of lines is the whole reason a wrapped title
+               still reads as chrome. A background paints over the element's box, so left to
+               itself the ramp stretches across every line at once: the first line sits in the
+               dark-blue 25% region, the last in the pink 75% one, and the white specular line
+               that is supposed to cross the letters lands in the gap between two of them. Sized
+               to exactly one line box and tiled down instead, every line gets the full
+               dark-blue → specular → pink run — i.e. each line renders like the single-line
+               title, which is the effect the ramp was tuned for.
+
+               The height is `$line-height * 1em`, not `1lh`: `em` resolves against this
+               element's own font-size, and `line-height` above is the same unitless number
+               against the same font-size, so the tile matches the line box exactly at every
+               breakpoint — with no dependency on `lh` unit support. Tiles start at the
+               padding-box top, which is where the first line box starts (the title carries no
+               padding of its own), so tile n and line n stay aligned however many lines there
+               are. `repeat-y` rather than `repeat` states the intent: the tile is already full
+               width, so only the vertical repetition is doing anything. */
+            background-repeat: repeat-y;
+            background-size: 100% ($line-height * 1em);
 
             filter: drop-shadow($rim) drop-shadow($rim)
                 drop-shadow(
