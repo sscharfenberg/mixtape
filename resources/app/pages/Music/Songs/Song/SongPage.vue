@@ -28,6 +28,7 @@
 import { Head } from "@inertiajs/vue3";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import FactPair from "Components/UI/Card/FactPair.vue";
 import Facts, { type Fact } from "Components/UI/Card/Facts.vue";
 import Container from "Components/UI/Container.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
@@ -52,17 +53,6 @@ setBreadcrumbs([
     { labelKey: "music.widgets.songs", href: "/music/songs", icon: "song" },
     { label: props.song.name }
 ]);
-
-/**
- * The hero's metadata line: artist · album · year, with whatever is untagged left out
- * entirely (so a lone artist never renders as "The Storm · · "). Middle dots rather
- * than a comma list because the three parts are peers, not a sentence.
- */
-const metadata = computed(() =>
-    [props.song.artist, props.song.album, props.song.year === null ? null : String(props.song.year)]
-        .filter(part => part !== null && part !== "")
-        .join(" · ")
-);
 
 /**
  * Alt text for the cover: the album it belongs to, or the song when the file is filed
@@ -253,8 +243,29 @@ const songFacts = computed<Fact[]>(() => {
                 <!-- The page's h1 lives here rather than in a <Headline>: beside the cover
                      it reads as one unit with the artwork instead of a caption under a
                      banner. HeroSection sets the type; the level is ours to choose. -->
-                <template #title><h1>{{ song.name }}</h1></template>
-                <template #metadata>{{ metadata }}</template>
+                <template #title
+                    ><h1>{{ song.name }}</h1></template
+                >
+                <!-- The same three facts the cards below repeat, as the hero's own tiles:
+                     up here they are what identifies the song, down there they are part of
+                     its full tag set. FactPair is the facts' own tile, so the two agree by
+                     construction rather than by matching styles. Each is skipped when the
+                     file carried no such tag. -->
+                <template #metadata>
+                    <fact-pair
+                        v-if="song.artist"
+                        icon="artist"
+                        :label="t('music.columns.artist')"
+                        :value="song.artist"
+                    />
+                    <fact-pair v-if="song.album" icon="album" :label="t('music.columns.album')" :value="song.album" />
+                    <fact-pair
+                        v-if="song.year !== null"
+                        icon="calendar"
+                        :label="t('music.columns.year')"
+                        :value="String(song.year)"
+                    />
+                </template>
             </hero-section>
             <facts :facts="songFacts" wide-groups />
             <p class="song__back">

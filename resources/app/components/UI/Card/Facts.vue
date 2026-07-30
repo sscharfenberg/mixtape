@@ -24,9 +24,9 @@
  * empty by that filter disappears with them.
  *****************************************************************************/
 import { computed } from "vue";
-import Icon from "Components/UI/Icon.vue";
 import Card from "./Card.vue";
 import CardGroup from "./CardGroup.vue";
+import FactPair from "./FactPair.vue";
 
 /** One key/value pair — `key` keys the v-for, `group` sorts it into a card, the flags pick how the value is presented. */
 export type Fact = {
@@ -102,13 +102,14 @@ const spansWide = (group: FactGroup): boolean => props.wideGroups === true && gr
             <!-- role="list" because the list marker is styled away, and Safari/VoiceOver
                  drops list semantics from a list without markers. -->
             <ul class="facts" role="list">
-                <li v-for="fact in group.facts" :key="fact.key" class="facts__pair">
-                    <span class="facts__label">
-                        <icon v-if="fact.icon" :name="fact.icon" :size="0" />
-                        {{ fact.label }}
-                    </span>
-                    <span class="facts__value" :class="{ 'facts__value--mono': fact.mono }">{{ fact.value }}</span>
-                </li>
+                <fact-pair
+                    v-for="fact in group.facts"
+                    :key="fact.key"
+                    :label="fact.label"
+                    :value="fact.value!"
+                    :icon="fact.icon"
+                    :mono="fact.mono"
+                />
             </ul>
         </card>
     </card-group>
@@ -116,9 +117,7 @@ const spansWide = (group: FactGroup): boolean => props.wideGroups === true && gr
 
 <style scoped lang="scss">
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
-@use "Abstracts/colors" as c;
 @use "Abstracts/sizes" as s;
-@use "Abstracts/typography" as t;
 
 /* Tiles flow and wrap, each only as wide as its own content. Flex items size to
    max-content and shrink only when a line is full, which is exactly that.
@@ -142,69 +141,13 @@ const spansWide = (group: FactGroup): boolean => props.wideGroups === true && gr
 
     list-style: none;
 
-    /* One pair, stacked: label over value. Stacking is why there is no label column to
-       align across tiles and no baseline to reconcile between the two type sizes — they
-       are not side by side.
-
-       `flex-grow: 1` over an `auto` basis: content still decides how the tiles on a line
-       divide it up (a long album title takes more than "CD 1/1"), but the leftover space
-       is handed back to them so every line reaches the card's edge instead of ending
-       ragged. The trade is that a line holding few tiles — the last one, usually —
-       stretches them wider than their content needs. */
-    &__pair {
-        display: flex;
+    /* The tiles are FactPairs; whether they stretch to fill a line is this row's call,
+       and here it is yes — content still decides how a line divides up (a long album title
+       takes more than "CD 1/1"), but the leftover is handed back so no line ends ragged.
+       The trade is that a line holding few tiles — the last one, usually — stretches them
+       wider than their content needs. */
+    > :deep(.fact-pair) {
         flex-grow: 1;
-        flex-direction: column;
-
-        padding: map.get(s.$c-facts, "tile-padding");
-        gap: map.get(s.$c-facts, "pair-gap");
-
-        background-color: map.get(c.$c-facts, "tile-background");
-        border-radius: map.get(s.$c-facts, "tile-radius");
-    }
-
-    /* Small letter-spaced caps in the muted label tint — the hi-fi spec-sheet look, and
-       the quiet half of the tile so the value below can be the loud one.
-
-       A flex row because the label may carry an icon for the KIND of fact it is; the gap
-       is set even when there is no icon, which costs nothing (flex gaps only apply
-       between items) and means adding one never shifts the text. */
-    &__label {
-        display: flex;
-        align-items: center;
-
-        gap: map.get(s.$c-facts, "label-icon-gap");
-
-        color: map.get(c.$c-facts, "label");
-
-        font-size: map.get(s.$c-facts, "label-font-size");
-        text-transform: uppercase;
-        letter-spacing: map.get(s.$c-facts, "label-tracking");
-    }
-
-    /* The loud half of the tile: a step up in size from body text, which is what makes it
-       read as the fact and the label as its caption — no colour needed. Tabular figures
-       so digits in stacked tiles (bit rate, sample rate, size, dates) line up instead of
-       jittering by glyph width.
-
-       `overflow-wrap: anywhere` because values are file tags, so an unbroken
-       80-character token is a thing that happens (a German compound, a glued-together
-       composer credit, a path). Without it the tile's min-content is that whole token and
-       the card grows ~600px past its line — measured, not hypothetical. `anywhere` rather
-       than `break-word` precisely because it also lowers min-content, which is what lets
-       the tile shrink in the first place. */
-    &__value {
-        overflow-wrap: anywhere;
-
-        font-size: map.get(s.$c-facts, "value-font-size");
-        font-variant-numeric: tabular-nums;
-
-        /* Monospaced, a step down from the value's own size: a mono face at the same size
-           looks oversized beside the proportional text around it. */
-        &--mono {
-            font-family: map.get(t.$c-facts, "mono");
-            font-size: map.get(s.$c-facts, "mono-font-size");
-        }
     }
 }
 </style>

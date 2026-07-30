@@ -11,8 +11,8 @@
  * the halo only muddied its own edge. The placeholder keeps that neon, at a fraction
  * of the opacity, since there it IS the only mark on an empty square.
  *
- * The metadata line is a muted grey rather than a colour — the cover supplies the page's
- * colour, and a second tinted line beside it would fight it.
+ * Nothing here dresses the metadata row: those are FactPair tiles now, and they bring
+ * their own colours (c.$c-facts) so a tile looks the same in a hero as in a facts card.
  * Consumed as c.$c-hero-section via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
@@ -60,7 +60,21 @@ $hero-section: (
             color.adjust(map.get(c.$grey, "bunker"), $alpha: -0.4)
         ),
     "cover-placeholder-icon": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher")),
-    "metadata": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
+    // A faint halo around each metadata tile — the app's control neon (retro `c3`, the same
+    // entry the hovered DataTable row and the open popover glow with), dialled back with an
+    // opacity-only adjust. It ties the tiles to the lit title above them without competing
+    // with it; the same tile inside a facts card gets none, because there the card's own
+    // border already separates it from the page.
+    //
+    // Both alphas were found by looking rather than reasoning, and both landed higher than
+    // the quarter-opacity they started at: on white it all but vanished, and on black — the
+    // panel where a neon "should" carry — it read at 4x zoom but not at reading size, which
+    // is the only size that counts. They sit close together now, so if one is retuned the
+    // other probably wants the same treatment.
+    "metadata-halo": light-dark(
+            color.adjust(map.get(c.$retro, "c3", "light"), $alpha: -0.6),
+            color.adjust(map.get(c.$retro, "c3", "dark"), $alpha: -0.55)
+        ),
     // The title's synthwave treatment, walking the same hues the app wordmark does
     // (AppHeaderTitle) — but picked HERE from the global palette rather than read off
     // c.$c-title: a contextual partial consumes globals, never another partial's tokens.

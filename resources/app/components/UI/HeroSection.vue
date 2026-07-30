@@ -16,8 +16,17 @@
  *              headline face and size win, which lets the caller choose the level
  *              (an <h1> on a page whose title lives here, and nothing else has to
  *              know).
- *   #metadata  the line under the title — artist · album · year for a song. Rendered
- *              in the muted tint, because the cover already supplies the colour.
+ *   #metadata  the labelled values under the title — artist / album / year for a song.
+ *              Rendered as a wrapping row of list items, so pass `FactPair`s (the same
+ *              tile the facts cards are built from) and they will line up here; the row
+ *              only decides the flow and the gap.
+ *
+ * Every wrapper is rendered only when its slot was actually passed, so a consumer with
+ * no art — or with nothing to say under its title — gets no empty box holding a padding,
+ * a gap or a halo open. One consequence worth knowing: the dashed cover placeholder shows
+ * when the slot EXISTS but holds something other than an image, and not at all when the
+ * slot was left out, which is the difference between "no artwork on file" and "this kind
+ * of page has no artwork".
  *
  * It is a panel of its own rather than a Card: same fill, but framed by the rotating
  * ring instead of a flat border, which is what makes the top of a detail page read as
@@ -27,11 +36,15 @@
 
 <template>
     <div class="hero-section">
-        <div class="hero-section__cover"><slot name="cover" /></div>
+        <div v-if="$slots.cover" class="hero-section__cover"><slot name="cover" /></div>
 
-        <div class="hero-section__meta">
-            <div class="hero-section__title"><slot name="title" /></div>
-            <p class="hero-section__metadata"><slot name="metadata" /></p>
+        <div v-if="$slots.title || $slots.metadata" class="hero-section__meta">
+            <div v-if="$slots.title" class="hero-section__title"><slot name="title" /></div>
+            <!-- role="list" because the marker is styled away, and Safari/VoiceOver drop
+                 list semantics from an unmarked list. -->
+            <ul v-if="$slots.metadata" class="hero-section__metadata" role="list">
+                <slot name="metadata" />
+            </ul>
         </div>
     </div>
 </template>
@@ -309,10 +322,29 @@
         -webkit-text-stroke-width: map.get(s.$c-hero-section, "title-effect", "stroke-dark");
     }
 
+    /* A wrapping row of tiles rather than one line of prose. The UA list marker and padding
+       go (normalize.css leaves lists alone). */
     &__metadata {
-        margin: 0;
+        display: flex;
+        flex-wrap: wrap;
 
-        color: map.get(c.$c-hero-section, "metadata");
+        padding: 0;
+        margin: 0;
+        gap: map.get(s.$c-hero-section, "metadata-gap");
+
+        list-style: none;
+
+        /* `flex-grow: 0`, unlike the same tile inside a facts card, where growing is what
+           stops a line ending ragged: here a few chips sit against a wide panel, and
+           stretching them across it would read as a table nobody asked for.
+
+           The halo is the hero's own addition to a tile that is flat everywhere else — see
+           c.$c-hero-section "metadata-halo" for why it belongs here and not in the card. */
+        > :slotted(*) {
+            flex-grow: 0;
+
+            box-shadow: 0 0 map.get(s.$c-hero-section, "metadata-halo") map.get(c.$c-hero-section, "metadata-halo");
+        }
     }
 }
 </style>
