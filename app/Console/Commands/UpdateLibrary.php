@@ -62,13 +62,18 @@ class UpdateLibrary extends Command
             $summary = $scanner->scan($areas, fn (string $line) => $this->narrate('  '.$line));
 
             $this->narrate(sprintf(
-                'Library scan finished in %s — %d new, %d changed, %d moved, %d removed, %d skipped.',
+                'Library scan finished in %s — %d new, %d changed, %d moved, %d removed, %d skipped, %d cover(s) recorded.',
                 $this->elapsed($startedAt),
                 $summary->inserted(),
                 $summary->updated(),
                 $summary->renamed(),
                 $summary->deleted(),
                 $summary->errors(),
+                // Album covers whose recorded path changed. Reported because it is the
+                // only way to see that step ran: on the scan right after the
+                // cover_path migration it jumps to roughly the album count, and on
+                // every steady-state scan afterwards it should read 0.
+                $summary->covers(),
             ));
 
             // Skipped (unreadable) files are non-fatal, but never silent: e-mail a

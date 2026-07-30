@@ -28,6 +28,15 @@ final class ScanResult
 
     public int $deleted = 0;
 
+    /**
+     * Containers whose recorded cover path CHANGED this scan (a new directory image, a
+     * renamed one, or one that has gone). Reported separately from `updated` because
+     * it counts collections, not tracks — and because a steady-state rescan is
+     * expected to report 0 here, which is the cheap signal that the step is doing
+     * nothing when nothing moved.
+     */
+    public int $covers = 0;
+
     public int $errors = 0;
 
     /**

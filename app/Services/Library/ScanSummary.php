@@ -41,6 +41,12 @@ final class ScanSummary
         return $this->sum('deleted');
     }
 
+    /** Total containers whose recorded cover path changed, across every area. */
+    public function covers(): int
+    {
+        return $this->sum('covers');
+    }
+
     /** Total files skipped as unreadable across every area. */
     public function errors(): int
     {

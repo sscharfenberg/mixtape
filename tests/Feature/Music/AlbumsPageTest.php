@@ -192,6 +192,21 @@ class AlbumsPageTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page->where('table.rows.0.coverUrl', null));
     }
 
+    public function test_a_recorded_cover_path_is_what_makes_the_listing_link_a_thumbnail(): void
+    {
+        // The column the scanner writes, doing its job: no track here carries embedded
+        // art and no filesystem is involved at all, so the recorded path is the only
+        // thing that can produce a cover URL.
+        $album = $this->album('Luciferian Towers');
+        $album->update(['cover_path' => 'Godspeed You! Black Emperor/Luciferian Towers/folder.jpg']);
+
+        $this->actingAs(User::factory()->create())
+            ->get('/music/albums')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('table.rows.0.coverUrl', "/music/albums/{$album->id}/cover")
+            );
+    }
+
     public function test_an_album_whose_tracks_carry_embedded_art_links_its_cover(): void
     {
         $album = $this->album('Luciferian Towers');

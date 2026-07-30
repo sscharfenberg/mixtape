@@ -226,7 +226,7 @@ collections
   type             album | audiobook | podcast_show          # enum → varchar + CHECK
   name             string
   year             int   nullable
-  cover            bool
+  cover_path       string nullable                              # RELATIVE to the area root — the album's own directory image
   album_artist_id  uuid  fk → artists   nullable  (music)       # container owner
   author_id        uuid  fk → authors   nullable  (audiobook)   # fixes b#3
   timestamps
@@ -256,6 +256,37 @@ kind* (`music` / `audiobook` / `podcast`), its collection's `type` is the *conta
 `audiobook` / `podcast_show`), mapping `music↔album`, `audiobook↔audiobook`, `podcast↔podcast_show`. The
 guard now covers a **smaller** set of columns than literal B (the container and both owners moved to
 `collections`), and `collections` carries its own small type-guard for the two owner FKs.
+
+### Cover art: a bool on `tracks`, a path on `collections`
+
+The asymmetry is deliberate, and it is about where the bytes live.
+
+A **track's** art is *inside the file whose path is already stored*, so `tracks.cover` only has to
+answer "is there one?" — `cover` (bool) + `path` is already a complete location, and a path column
+there would just repeat `path`.
+
+An **album's** art is a *sibling file whose name cannot be derived*. Measured on the real collection
+(951 album directories holding mp3s): `folder.jpg` in 923, `cover.jpg` in 63, sometimes named after the
+album, and 15 with no image at all — plus `back.jpg` / `cd.jpg` / `inlay.jpg` / `booklet.jpg`, every one
+of which sorts *before* `folder.jpg`. So the name is the fact worth storing, and
+`collections.cover_path` (nullable, area-relative like `tracks.path`) stores it.
+
+Recording it moves the resolution — candidate names in configured order
+(`mixtape.covers.folder_images`), matched case-insensitively, then a lone unrecognised image — from
+**every page render to once per scan** (`LibraryScanService::syncCollectionCovers`, step 6). A page of
+50 albums used to need 50 directory reads just to decide whether to show a thumbnail; it now reads a
+column. Nothing is extracted at scan time: the column holds a filename, and cover *bytes* stay lazily
+cached on first request, as they always were. Pre-extracting the 12060 embedded pictures instead would
+have cost ~330 MB and minutes per scan for art nobody may ever open.
+
+Two consequences, both accepted: art added **without** a rescan is unseen until the next `app:update`
+(cover art arrives with the music it belongs to, which is when you scan anyway); and a **stale** path
+degrades rather than 404s, because the cover route re-resolves live when the recorded file has gone
+(`CoverService::albumFolderImage`).
+
+An album whose only art is embedded has `cover_path = null` — that half of the question is answered by
+`tracks.cover`, and an album prefers its directory image over any embedded picture precisely because
+per-song inline art would otherwise decide the album's thumbnail by sort order.
 
 ---
 

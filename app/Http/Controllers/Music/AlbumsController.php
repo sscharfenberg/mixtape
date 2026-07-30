@@ -3,12 +3,10 @@
 namespace App\Http\Controllers\Music;
 
 use App\Enums\CollectionType;
-use App\Enums\TrackType;
 use App\Http\Controllers\Controller;
 use App\Models\Collection;
 use App\Models\Track;
 use App\Services\DataTableService;
-use App\Services\Media\CoverService;
 use App\Services\Search\FoldedSearch;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -35,16 +33,14 @@ use Inertia\Response;
  */
 class AlbumsController extends Controller
 {
-    /** Injected for the per-row "is there any art?" question — see the row mapper. */
-    public function __construct(private readonly CoverService $covers) {}
-
     /**
      * Render the Albums listing.
      *
      * The album-artist is a left join (so it is sortable and searchable as a column),
-     * everything track-derived is a subquery. `sample_path` and `embedded_cover_id`
-     * are not shown anywhere: they are what lets the row mapper decide whether a
-     * thumbnail exists without a query per row (see there).
+     * everything track-derived is a subquery. `embedded_cover_id` is not shown
+     * anywhere: together with the recorded `cover_path` it is what lets the row mapper
+     * decide whether a thumbnail exists — from this one query, with no filesystem
+     * access at all.
      */
     public function __invoke(Request $request): Response
     {
@@ -68,6 +64,11 @@ class AlbumsController extends Controller
                 'collections.id',
                 'collections.name',
                 'collections.year',
+                // The album's directory image, as the scanner recorded it. Selected —
+                // not read off disk — which is the whole point of the column: a page
+                // of 50 albums used to cost 50 directory reads to answer "is there
+                // artwork?", and now costs none.
+                'collections.cover_path',
                 'artists.name as artist_name',
             ])
             // How many songs, and how long the album plays. `withSum` gives raw
@@ -89,13 +90,9 @@ class AlbumsController extends Controller
                 // it, because the two dialects spell that function differently
                 // (Postgres GREATEST, SQLite MAX) and this query has to run on both.
                 'discs_count' => $tracksOfAlbum()->selectRaw('count(distinct disc)'),
-                // One file per album, for its DIRECTORY: the folder image the cover
-                // route prefers sits beside it. Selected here so the row mapper can
-                // stat it without hydrating a Track per row.
-                'sample_path' => $inAlbumOrder($tracksOfAlbum()->select('path'))->limit(1),
-                // …and whether any file carries embedded art, which is the cover
-                // route's fallback. A boolean would do; the id costs the same and
-                // says which file answered.
+                // Whether any file carries embedded art, which is the cover route's
+                // fallback when the directory has no image. A boolean would do; the id
+                // costs the same and says which file answered.
                 'embedded_cover_id' => $inAlbumOrder(
                     $tracksOfAlbum()->select('id')->where('cover', true)
                 )->limit(1),
@@ -148,15 +145,11 @@ class AlbumsController extends Controller
                     ? null
                     : Carbon::parse($album->tracks_max_modified_at)->toIso8601String(),
                 // The thumbnail, or null so the table draws its placeholder instead of
-                // pointing an <img> at a 404. Decided from what the query already
-                // fetched plus at most ONE stat per row: an album has art if a folder
-                // image sits beside its first file, or if any of its files carries an
-                // embedded picture. The stat is the same trade SongController makes
-                // for one row, here paid per row of the page — and it is what keeps
-                // the folder image discoverable at all, since `collections.cover`
-                // (the column that ought to hold this) is never written by the
-                // scanner.
-                'coverUrl' => $this->hasCover($album)
+                // pointing an <img> at a 404. Answered entirely from this query: an
+                // album has art if the scanner recorded a directory image for it, or if
+                // any of its files carries an embedded picture. No stat, no second
+                // query — which is what the `cover_path` column bought.
+                'coverUrl' => $album->cover_path !== null || $album->embedded_cover_id !== null
                     ? route('music.albums.cover', $album->id, absolute: false)
                     : null,
                 // Makes the row clickable in the frontend DataTable, which visits this
@@ -169,24 +162,5 @@ class AlbumsController extends Controller
         return Inertia::render('Music/Albums/AlbumsPage', [
             'table' => $table,
         ]);
-    }
-
-    /**
-     * Whether this album can show a cover at all, in the order the cover route
-     * resolves them: a folder image beside its first file, else any file's embedded
-     * picture.
-     *
-     * Reads the two extra columns the listing query selected, so it costs no query —
-     * only the one `is_file()`, and only while there is a path to stat (an album with
-     * no tracks left after a scan has none).
-     */
-    private function hasCover(Collection $album): bool
-    {
-        if ($album->sample_path !== null
-            && $this->covers->folderImageExistsBeside($album->sample_path, TrackType::Music)) {
-            return true;
-        }
-
-        return $album->embedded_cover_id !== null;
     }
 }

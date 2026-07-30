@@ -2,7 +2,6 @@
 
 namespace App\Services\Media;
 
-use App\Enums\TrackType;
 use App\Models\Collection;
 use App\Models\Track;
 use getID3;
@@ -28,6 +27,13 @@ use Illuminate\Support\Facades\Log;
  * At the ALBUM grain (`albumPath`) that order is deliberately inverted — the folder
  * image wins there, because an album whose files each carry their own inline picture
  * would otherwise get a thumbnail decided by sort order. See that method.
+ *
+ * WHICH directory image an album has is no longer worked out per request: the scanner
+ * resolves it once (`directoryImage`, called from
+ * LibraryScanService::syncCollectionCovers) and records the path in
+ * `collections.cover_path`, so a listing answers "is there artwork?" from a column.
+ * The resolution still lives here, and still runs live when a recorded path has gone
+ * stale — one implementation, two callers.
  *
  * Deliberately NOT a queued job: the extraction is a single getID3 read of one
  * file, the request that needs it is the one that pays, and a missing cover must
@@ -82,17 +88,18 @@ final class CoverService
     }
 
     /**
-     * Whether this album can show a cover at all, WITHOUT extracting anything — the
-     * `exists()` above, at the album grain, for a page that is showing one album.
+     * Whether this album can show a cover at all — the `exists()` above at the album
+     * grain, and now with NO filesystem access whatsoever: the directory image was
+     * resolved and recorded by the scanner, so this is a column read plus one indexed
+     * EXISTS for the embedded fallback.
      *
-     * Costs two queries (the sample track, then an EXISTS on embedded art), which is
-     * the right trade for a detail page and the wrong one for a listing: a table of 50
-     * albums asks the same question from columns it already selected, see
-     * AlbumsController::hasCover.
+     * A listing asks the same question of columns it already selected rather than
+     * calling this per row (AlbumsController), because the EXISTS would be a query per
+     * row there; here it is one query for the one album the page is about.
      */
     public function existsForAlbum(Collection $album): bool
     {
-        return $this->albumFolderImage($album) !== null
+        return $album->cover_path !== null
             || $album->tracks()->where('cover', true)->exists();
     }
 
@@ -145,15 +152,32 @@ final class CoverService
     }
 
     /**
-     * The album's own directory image, or null if there isn't one.
+     * The album's directory image as an absolute path, or null.
      *
-     * A collection row stores no path — only its tracks do — so the directory is read
-     * off the album's first track. Any track would name the same directory for a
-     * normally-filed album; the first is chosen so a multi-disc set whose discs sit in
-     * subdirectories resolves to disc 1's, which is where a ripper puts the album art.
+     * Normally just the path the scanner recorded, resolved against the area root — no
+     * directory read at all. It re-resolves LIVE whenever the column has nothing usable
+     * to offer, which is two situations and both matter: the path names a file that has
+     * since been renamed or deleted, and the path was never recorded (every album, in
+     * the window between this migration and the first `app:update`). Either way a
+     * direct request for the image still finds it, at the cost of one directory read per
+     * IMAGE REQUEST — never per row, which is the cost the column exists to remove.
+     *
+     * The live branch reads the directory of the album's FIRST track by
+     * `(disc, track, name)` — the same rule syncCollectionCovers applies, so the answer
+     * cannot depend on whether it came from the column or from disk. A multi-disc set
+     * whose discs sit in subdirectories therefore resolves to disc 1's, where a ripper
+     * puts the album art.
      */
     private function albumFolderImage(Collection $album): ?string
     {
+        if ($album->cover_path !== null) {
+            $recorded = Track::absolutePathFor($album->cover_path, $album->type->trackType());
+
+            if (is_file($recorded)) {
+                return $recorded;
+            }
+        }
+
         $sample = $album->tracks()
             ->orderBy('disc')
             ->orderBy('track')
@@ -164,21 +188,14 @@ final class CoverService
     }
 
     /**
-     * Whether a directory image sits beside this area-relative track path — the
-     * question a listing asks, once per row.
-     *
-     * Takes the raw path + type instead of a Track because the Albums table already
-     * selects one representative path per album in its own query: hydrating a Track
-     * per row just to read one directory would add a query per row to every page
-     * render.
-     */
-    public function folderImageExistsBeside(string $areaRelativePath, TrackType $type): bool
-    {
-        return $this->directoryImage(Track::absolutePathFor($areaRelativePath, $type)) !== null;
-    }
-
-    /**
      * The album image sitting in the same directory as an audio file, or null.
+     *
+     * PUBLIC because the scanner is the main caller now: `app:update` runs this once
+     * per album directory and records the answer in `collections.cover_path`
+     * (LibraryScanService::syncCollectionCovers), so a page render doesn't repeat it.
+     * The request side still calls it as a fallback when a recorded path has gone
+     * stale — which is exactly why the rules live in one method instead of being
+     * reimplemented in the scanner.
      *
      * Resolution is a directory READ rather than a stat per candidate name, and that
      * is deliberate: names have to match case-insensitively (measured on the real
@@ -195,7 +212,7 @@ final class CoverService
      *      guess: `back.jpg`, `cd.jpg`, `inlay.jpg` and `booklet.jpg` all exist in
      *      this collection, and every one of them sorts before `folder.jpg`.
      */
-    private function directoryImage(string $absoluteTrackPath): ?string
+    public function directoryImage(string $absoluteTrackPath): ?string
     {
         $directory = dirname($absoluteTrackPath);
         $entries = @scandir($directory);

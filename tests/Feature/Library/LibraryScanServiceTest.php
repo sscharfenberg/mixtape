@@ -338,4 +338,101 @@ class LibraryScanServiceTest extends TestCase
 
         $this->assertSame('gruzia', Track::sole()->name_fold);
     }
+
+    public function test_the_scan_records_the_albums_directory_image(): void
+    {
+        // The step that keeps cover lookup off the filesystem at request time: the
+        // resolved image is stored AREA-RELATIVE, like every other path here, so
+        // moving the collection to a new root doesn't invalidate it.
+        $this->media('rock/01.mp3', ['hash' => 'h1', 'title' => 'One', 'artist' => 'A', 'album' => 'Debut']);
+        $this->rawFile('rock/folder.jpg', 'jpeg-bytes');
+
+        $summary = $this->scanner->scan([TrackType::Music]);
+
+        $this->assertSame(1, $summary->covers());
+        $this->assertSame('rock/folder.jpg', Collection::sole()->cover_path);
+    }
+
+    public function test_it_records_a_lone_differently_named_image(): void
+    {
+        // Art named after the album, which is only safe to take because it is the
+        // directory's ONLY image — the same rule CoverService applies live.
+        $this->media('rock/01.mp3', ['hash' => 'h1', 'title' => 'One', 'artist' => 'A', 'album' => 'Debut']);
+        $this->rawFile('rock/Debut.jpg', 'jpeg-bytes');
+
+        $this->scan();
+
+        $this->assertSame('rock/Debut.jpg', Collection::sole()->cover_path);
+    }
+
+    public function test_it_records_nothing_for_a_directory_with_no_image(): void
+    {
+        $this->media('rock/01.mp3', ['hash' => 'h1', 'title' => 'One', 'artist' => 'A', 'album' => 'Debut']);
+
+        $summary = $this->scanner->scan([TrackType::Music]);
+
+        $this->assertNull(Collection::sole()->cover_path);
+        // Nothing to record is not a change — an all-null area must report 0, or the
+        // counter would read as work done on every scan of a coverless library.
+        $this->assertSame(0, $summary->covers());
+    }
+
+    public function test_a_multi_disc_set_records_the_first_discs_image(): void
+    {
+        // Discs in subdirectories: the album resolves to disc 1's image, where a
+        // ripper puts the album art — and deterministically, not "whichever file the
+        // storage engine returned first".
+        $this->media('rock/[Disc 1]/01.mp3', ['hash' => 'h1', 'title' => 'One', 'artist' => 'A', 'album' => 'Debut', 'disc' => 1, 'track' => 1]);
+        $this->media('rock/[Disc 2]/01.mp3', ['hash' => 'h2', 'title' => 'Two', 'artist' => 'A', 'album' => 'Debut', 'disc' => 2, 'track' => 1]);
+        $this->rawFile('rock/[Disc 1]/folder.jpg', 'disc-one');
+        $this->rawFile('rock/[Disc 2]/folder.jpg', 'disc-two');
+
+        $this->scan();
+
+        $this->assertSame('rock/[Disc 1]/folder.jpg', Collection::sole()->cover_path);
+    }
+
+    public function test_a_steady_state_rescan_records_no_cover_changes(): void
+    {
+        // The counter is the cheap signal that this step does nothing when nothing
+        // moved — the same philosophy as pass 1's fast-path.
+        $this->media('rock/01.mp3', ['hash' => 'h1', 'title' => 'One', 'artist' => 'A', 'album' => 'Debut']);
+        $this->rawFile('rock/folder.jpg', 'jpeg-bytes');
+        $this->scan();
+
+        $summary = $this->scanner->scan([TrackType::Music]);
+
+        $this->assertSame(0, $summary->covers());
+        $this->assertSame('rock/folder.jpg', Collection::sole()->cover_path);
+    }
+
+    public function test_removing_the_image_clears_the_recorded_path(): void
+    {
+        // A recorded path that has gone must be UNRECORDED, not left behind: a
+        // listing decides whether to show a thumbnail from this column, and a
+        // lingering path would advertise an image that 404s.
+        $this->media('rock/01.mp3', ['hash' => 'h1', 'title' => 'One', 'artist' => 'A', 'album' => 'Debut']);
+        $this->rawFile('rock/folder.jpg', 'jpeg-bytes');
+        $this->scan();
+
+        unlink($this->root.'/rock/folder.jpg');
+        $summary = $this->scanner->scan([TrackType::Music]);
+
+        $this->assertSame(1, $summary->covers());
+        $this->assertNull(Collection::sole()->cover_path);
+    }
+
+    public function test_a_renamed_image_is_re_recorded(): void
+    {
+        $this->media('rock/01.mp3', ['hash' => 'h1', 'title' => 'One', 'artist' => 'A', 'album' => 'Debut']);
+        $this->rawFile('rock/folder.jpg', 'jpeg-bytes');
+        $this->scan();
+
+        unlink($this->root.'/rock/folder.jpg');
+        $this->rawFile('rock/cover.jpg', 'jpeg-bytes');
+        $summary = $this->scanner->scan([TrackType::Music]);
+
+        $this->assertSame(1, $summary->covers());
+        $this->assertSame('rock/cover.jpg', Collection::sole()->cover_path);
+    }
 }

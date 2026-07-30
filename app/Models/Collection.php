@@ -18,19 +18,24 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * a DB CHECK ties the owner FK to it: `album_artist` only on albums, `author`
  * only on audiobooks (podcast shows have neither).
  */
-#[Fillable(['type', 'name', 'year', 'cover', 'album_artist_id', 'author_id'])]
+#[Fillable(['type', 'name', 'year', 'cover_path', 'album_artist_id', 'author_id'])]
 class Collection extends Model
 {
     /** @use HasFactory<CollectionFactory> */
     use HasFactory, HasFoldedName, HasUuids;
 
-    /** @return array<string, string> */
+    /**
+     * `cover_path` needs no cast: it is a plain area-relative path (like
+     * `tracks.path`), nullable when this container has no directory image — see the
+     * migration for why it holds a path where `tracks.cover` holds a boolean.
+     *
+     * @return array<string, string>
+     */
     protected function casts(): array
     {
         return [
             'type' => CollectionType::class,
             'year' => 'integer',
-            'cover' => 'boolean',
         ];
     }
 

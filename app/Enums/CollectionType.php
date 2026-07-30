@@ -16,4 +16,21 @@ enum CollectionType: string
     case Album = 'album';
     case Audiobook = 'audiobook';
     case PodcastShow = 'podcast_show';
+
+    /**
+     * The playable kind this container holds — the exact inverse of
+     * TrackType::collectionType().
+     *
+     * Needed because a container's own stored paths (`collections.cover_path`) are
+     * relative to an AREA root, and the area is keyed by the track type: resolving one
+     * back to an absolute path means asking a collection which area it belongs to.
+     */
+    public function trackType(): TrackType
+    {
+        return match ($this) {
+            self::Album => TrackType::Music,
+            self::Audiobook => TrackType::Audiobook,
+            self::PodcastShow => TrackType::Podcast,
+        };
+    }
 }

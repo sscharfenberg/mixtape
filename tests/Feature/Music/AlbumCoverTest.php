@@ -239,6 +239,45 @@ class AlbumCoverTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_the_recorded_path_answers_without_resolving_anything(): void
+    {
+        // The point of `collections.cover_path`: the scanner already decided, so the
+        // request must not decide again. Proven by making the two answers DIFFER — the
+        // directory holds a `folder.jpg` that live resolution would pick, while the
+        // column names `chosen.jpg`, which no rule would ever choose on its own (it is
+        // not a candidate name, and it is not the only image). Only a column read gets
+        // 360 back.
+        [$album, , $directory] = $this->album();
+        File::put($directory.'/folder.jpg', $this->jpeg(300));
+        File::put($directory.'/chosen.jpg', $this->jpeg(360));
+
+        $album->update(['cover_path' => 'Godspeed You! Black Emperor/Luciferian Towers/chosen.jpg']);
+
+        $response = $this->actingAs(User::factory()->create())
+            ->get("/music/albums/{$album->id}/cover")
+            ->assertOk();
+
+        $this->assertSame(360, getimagesizefromstring($response->streamedContent())[0]);
+    }
+
+    public function test_a_recorded_path_that_has_gone_falls_back_to_a_live_resolve(): void
+    {
+        // Art renamed since the last `app:update`. The row still points at the old
+        // name, and rather than 404 the route re-resolves the directory — which is why
+        // the resolution rules stayed in CoverService instead of moving into the
+        // scanner.
+        [$album, , $directory] = $this->album();
+        File::put($directory.'/folder.jpg', $this->jpeg(300));
+
+        $album->update(['cover_path' => 'Godspeed You! Black Emperor/Luciferian Towers/gone.jpg']);
+
+        $response = $this->actingAs(User::factory()->create())
+            ->get("/music/albums/{$album->id}/cover")
+            ->assertOk();
+
+        $this->assertSame(300, getimagesizefromstring($response->streamedContent())[0]);
+    }
+
     public function test_a_replaced_directory_image_is_not_served_from_the_old_cache(): void
     {
         // An album id is a plain UUID, not a content hash, so the cache key carries

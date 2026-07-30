@@ -13,6 +13,7 @@ use App\Models\Play;
 use App\Models\PlaylistTrack;
 use App\Models\Track;
 use App\Services\Library\Contracts\TagReader;
+use App\Services\Media\CoverService;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
@@ -41,6 +42,9 @@ use Symfony\Component\Finder\SplFileInfo;
  *        · none                             → genuinely new audio: INSERT.
  *   4. Orphans — rows whose file is gone → relink-then-cascade → hard delete.
  *   5. Prune orphaned taxonomy + empty collections the diff left behind.
+ *   6. Record each surviving container's cover image as a path (see
+ *      syncCollectionCovers) — the step that keeps cover lookup off the
+ *      filesystem at request time.
  *
  * Identity is the audio-frame hash, so a rename OR a re-tag keeps the row's id —
  * the guarantee every downstream feature (playlists, most-played, share links)
@@ -48,8 +52,17 @@ use Symfony\Component\Finder\SplFileInfo;
  */
 final class LibraryScanService
 {
-    /** The tag reader is injected (not `new`ed) so the scan tests can swap getID3 for a fake reader. */
-    public function __construct(private readonly TagReader $reader) {}
+    /**
+     * The tag reader is injected (not `new`ed) so the scan tests can swap getID3 for a
+     * fake reader. CoverService comes in for one method — the directory-image
+     * resolution the cover routes also use — so the candidate-name rules have exactly
+     * one implementation, whether they run per scan or (as a stale-path fallback) per
+     * request.
+     */
+    public function __construct(
+        private readonly TagReader $reader,
+        private readonly CoverService $covers,
+    ) {}
 
     /**
      * @param  TrackType[]  $areas  areas to scan
@@ -198,11 +211,16 @@ final class LibraryScanService
 
             // --- Prune taxonomy/collections the diff orphaned -----------------
             $this->pruneOrphans($type);
+
+            // --- Record each container's cover image --------------------------
+            // After the prune, so the collections still standing are the real ones.
+            $result->covers = $this->syncCollectionCovers($type);
         });
 
         $this->announce($progress, sprintf(
-            '%s: %d new, %d changed, %d moved, %d removed, %d skipped',
-            $type->value, $result->inserted, $result->updated, $result->renamed, $result->deleted, $result->errors
+            '%s: %d new, %d changed, %d moved, %d removed, %d skipped, %d cover(s) recorded',
+            $type->value, $result->inserted, $result->updated, $result->renamed, $result->deleted, $result->errors,
+            $result->covers
         ));
 
         return $result;
@@ -461,6 +479,86 @@ final class LibraryScanService
                 // No contributor taxonomy for podcasts yet.
                 break;
         }
+    }
+
+    /**
+     * Record each container's cover image, and return how many rows changed.
+     *
+     * This is the scan step that exists so a page render never has to touch the
+     * filesystem: `collections.cover_path` holds the area-relative path of the
+     * directory image, resolved by the one implementation the request side also uses
+     * (CoverService::directoryImage — candidate names in configured order, matched
+     * case-insensitively, then a lone unrecognised image). Nothing is extracted or
+     * written; the column holds a filename, so the cost is one directory read per
+     * album rather than 12060 image decodes.
+     *
+     * The directory comes from each container's FIRST track by `(disc, track, name)`,
+     * which is deliberately the same rule CoverService applies when it has to resolve
+     * live: a multi-disc set whose discs sit in subdirectories then resolves to disc
+     * 1's, where a ripper puts the album art. One query gets every container plus that
+     * path — a correlated subselect, not a query per row — so the whole step costs one
+     * SELECT and one directory read per container (923 of each on the live collection),
+     * against the 12060 files the scan has already stat'ed by this point.
+     *
+     * Only rows whose value actually CHANGED are written, so a steady-state rescan of
+     * a 923-album collection issues no UPDATEs at all — matching the fast-path
+     * philosophy of pass 1.
+     */
+    private function syncCollectionCovers(TrackType $type): int
+    {
+        $containers = MediaCollection::query()
+            ->where('type', $type->collectionType())
+            ->select(['id', 'cover_path'])
+            ->addSelect(['sample_path' => Track::query()
+                ->select('path')
+                ->whereColumn('tracks.collection_id', 'collections.id')
+                ->orderBy('disc')
+                ->orderBy('track')
+                ->orderBy('name')
+                ->limit(1),
+            ])
+            ->get();
+
+        $root = $this->areaRoot($type);
+        $seen = []; // absolute directory → resolved image path (or null), per scan
+        $changed = 0;
+
+        foreach ($containers as $container) {
+            $resolved = null;
+
+            if ($container->sample_path !== null) {
+                $absolute = Track::absolutePathFor($container->sample_path, $type);
+                $directory = dirname($absolute);
+
+                // Memoised because two containers CAN share a directory — a folder
+                // holding tracks tagged with two different album names, which is what a
+                // mis-tagged compilation looks like on disk. `array_key_exists` rather
+                // than `??=`, since "no image here" memoises as NULL and `??=` would
+                // read that directory again for the second album.
+                if (! array_key_exists($directory, $seen)) {
+                    $seen[$directory] = $this->covers->directoryImage($absolute);
+                }
+
+                // Stored area-relative, like every other path here, so moving the
+                // collection to another root doesn't invalidate the column.
+                $resolved = $seen[$directory] === null
+                    ? null
+                    : $this->relativePath($root, $seen[$directory]);
+            }
+
+            if ($container->cover_path !== $resolved) {
+                $container->update(['cover_path' => $resolved]);
+                $changed++;
+            }
+        }
+
+        return $changed;
+    }
+
+    /** The configured, trailing-slash-trimmed root of an area — the prefix a stored path hangs off. */
+    private function areaRoot(TrackType $type): string
+    {
+        return rtrim(trim((string) config('mixtape.library.paths.'.$type->libraryPathKey())), '/');
     }
 
     /** Forward a milestone line to the optional progress callback — a no-op when the caller (e.g. a test) passed none. */

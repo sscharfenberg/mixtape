@@ -24,7 +24,11 @@ class CollectionFactory extends Factory
             'type' => CollectionType::Album,
             'name' => fake()->unique()->sentence(3),
             'year' => fake()->numberBetween(1960, 2024),
-            'cover' => fake()->boolean(80),
+            // No directory image by default: a factory cannot put a real file on disk,
+            // and a path pointing at nothing would make every test that renders a
+            // cover URL link an image that 404s. Tests that want one set it (and write
+            // the file) themselves — see AlbumCoverTest.
+            'cover_path' => null,
             'album_artist_id' => Artist::factory(),
             'author_id' => null,
         ];
