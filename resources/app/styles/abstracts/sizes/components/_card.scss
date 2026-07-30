@@ -1,0 +1,23 @@
+/******************************************************************************
+ * contextual size tokens — component:card
+ * @type {Sass}
+ * The generic titled panel (Components/UI/Card) and the CardGroup that wraps a row of
+ * them. The metrics mirror the Widget's (s.$c-widget), the card these grew out of.
+ *
+ * `basis` is each card's `flex-basis` — the width a card asks for before the leftover
+ * space on its line is shared out, so it is what decides how many cards fit a line. A
+ * plain literal, since it is a layout threshold rather than a step off the scale.
+ * Consumed as s.$c-card via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$card: (
+    "border": map.get(s.$border, "base"),
+    "radius": map.get(s.$radius, "featured"),
+    "padding": map.get(s.$padding, "portrait"),
+    "basis": 18.75rem,
+    // 300px at the 16px base
+    "gap": map.get(s.$padding, "portrait"),
+    "title-font-size": 1.3rem
+) !default;

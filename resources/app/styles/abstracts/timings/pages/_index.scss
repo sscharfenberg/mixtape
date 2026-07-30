@@ -1,8 +1,9 @@
 /******************************************************************************
  * contextual timing tokens — pages
  * @type {Sass}
- * one partial per page; @forward each one below. the parent index re-exports
- * these with a "p-" prefix, so $home (in _home.scss) is consumed as
- * ti.$p-home via `@use "Abstracts/timings" as ti;`.
+ * Deliberately EMPTY. Tokens are scoped to the component that consumes them, so a
+ * page-scoped layer would only ever hold tokens that belong to one of a page's own
+ * components — the song page's hero became the shared `components/_hero-section`, not
+ * `pages/_song`. The barrel and its `p-*` prefix stay wired up in the entrypoint so
+ * the layer costs nothing while unused.
  *****************************************************************************/
-@forward "song";

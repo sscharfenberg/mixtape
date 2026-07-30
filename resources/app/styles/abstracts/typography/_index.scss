@@ -8,8 +8,9 @@
  * @use "Abstracts/typography" as t;
  *****************************************************************************/
 
-// per-component / per-page token partials, re-exported transparently.
-// the "c-*" / "p-*" prefixes namespace them, so $body (components/_body.scss)
-// is consumed as t.$c-body, and $home (pages/_home.scss) as t.$p-home.
+// per-component token partials, re-exported transparently: the "c-*" prefix
+// namespaces them, so $body (components/_body.scss) is consumed as t.$c-body.
+// the "pages" layer stays wired up but is empty — a token belongs to the component
+// that consumes it, so there is nothing a page could own on its own (see pages/_index).
 @forward "components" as c-*;
 @forward "pages" as p-*;

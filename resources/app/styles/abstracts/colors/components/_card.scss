@@ -1,0 +1,29 @@
+/******************************************************************************
+ * contextual color tokens — component:card
+ * @type {Sass}
+ * The generic titled panel (Components/UI/Card) that detail pages lay their content
+ * out in — a song's facts today, an album's / artist's / genre's next.
+ *
+ * The surface picks MIRROR the Widget's (c.$c-widget "background" / "surface" /
+ * "border"), because a detail page should read as the same app as the listing it was
+ * reached from — but they are re-picked from the global palette rather than read off
+ * the Widget's token: a contextual partial consumes globals, never another partial's
+ * tokens (and `components/_card` cannot reach `components/_widget` through the module
+ * graph anyway). If the card surface is retuned, both files move together.
+ *
+ * The title is bare type on that surface — no filled strip, no rule under it — so its
+ * ink is the pair the shared <Headline> gives an h2 (c.$c-headline "h2" "surface"):
+ * a Card title IS an h2, and a heading should read like every other heading in the
+ * app. That is also why it is not the Widget's title-strip ink, which was picked for
+ * contrast against a saturated cyan→pink band and would sit near 1.6:1 on white.
+ * Consumed as c.$c-card via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-color-tokens" as c;
+
+$card: (
+    "background": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "black")),
+    "surface": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral")),
+    "border": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher")),
+    "title": light-dark(map.get(c.$brand, "dark2", "color"), map.get(c.$brand, "light2", "color"))
+) !default;

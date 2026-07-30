@@ -10,8 +10,9 @@
 @use "sass:color"; // https://sass-lang.com/documentation/modules/color
 @use "global-color-tokens" as c;
 
-// per-component / per-page token partials, re-exported transparently.
-// the "c-*" / "p-*" prefixes namespace them, so $button (components/_button.scss)
-// is consumed as c.$c-button, and $home (pages/_home.scss) as c.$p-home.
+// per-component token partials, re-exported transparently: the "c-*" prefix
+// namespaces them, so $button (components/_button.scss) is consumed as c.$c-button.
+// the "pages" layer stays wired up but is empty — a token belongs to the component
+// that consumes it, so there is nothing a page could own on its own (see pages/_index).
 @forward "components" as c-*;
 @forward "pages" as p-*;

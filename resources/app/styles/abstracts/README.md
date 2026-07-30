@@ -3,8 +3,8 @@
 How design tokens are organised under `abstracts/`, and the one rule that keeps them maintainable.
 **Every** token group follows the same three-stage pipeline:
 
-> **global tokens** (the raw palette/scale) **→ contextual tokens** (per-component / per-page partials,
-> plus any shared cross-cutting tokens) **→ consumed** by a component's own SCSS or a `.vue <style>` block.
+> **global tokens** (the raw palette/scale) **→ contextual tokens** (per-component partials, plus any
+> shared cross-cutting tokens) **→ consumed** by a component's own SCSS or a `.vue <style>` block.
 
 The shape is identical across groups. It applies **today** to `colors/`, `sizes/`, and `z-indexes/`, and
 will apply **unchanged** to any future group (`typography/`, `shadows/`, …). Learn it once here — the
@@ -22,18 +22,24 @@ abstracts/colors/
     _index.scss               2b. barrel — one @forward per component partial
     _button.scss              2c. CONTEXTUAL partial — $button, derived from globals
   pages/
-    _index.scss               barrel — one @forward per page partial
-    _home.scss                CONTEXTUAL partial — $home, derived from globals
+    _index.scss               barrel — wired up, but EMPTY (see below)
 ```
 
 1. **Global tokens** (`_global-<group>-tokens.scss`) — the raw, meaningless palette/scale
    (`$grey`, `$brand`, `$radius`, `$padding`, …). Values, no intent.
-2. **Contextual partials** (`components/_*.scss`, `pages/_*.scss`, plus the shared `$glass`/`$shadows`
+2. **Contextual partials** (`components/_*.scss`, plus the shared `$glass`/`$shadows`
    in `_index.scss`) — semantic tokens that **pick and theme** the globals (`light-dark()`, `map.get()`,
-   opacity-only `color.adjust()`, `math.round()` off a scale). One file per component / page. They pick
+   opacity-only `color.adjust()`, `math.round()` off a scale). One file per component. They pick
    globals — they don't mint new colours; see [the second hard rule](#the-second-hard-rule-contextual-tokens-pick-they-dont-compute).
 3. **Consumers** — a component's own SCSS or a `.vue <style>` block. These read **only** contextual
    tokens, through the group entrypoint.
+
+**Tokens are component-scoped, and the `pages/` layer is deliberately empty.** Every group still
+forwards it (`@forward "pages" as p-*;`) so it costs nothing, but nothing lives there: whatever a page
+appears to own really belongs to one of its own components, and naming it after the page hides that. The
+song page's hero is the shared `components/_hero-section.scss`, not `pages/_song.scss`; where a page genuinely
+needs a value — the gap between its stacked blocks — it reads the token of the component that already
+defines that rhythm (`s.$c-card "gap"`) rather than minting a second one that has to be kept in step.
 
 ## The one hard rule
 
@@ -43,7 +49,7 @@ abstracts/colors/
 Globals are consumed in exactly two places, both _inside_ the token group:
 
 - the group's `_index.scss` — for cross-cutting tokens not tied to one component (`$glass`, `$shadows`);
-- a `components/` or `pages/` partial — for that one component's / page's tokens.
+- a `components/` partial — for that one component's tokens.
 
 To give a component a colour or size you therefore **create (or edit) its contextual partial** — you
 never reach for `$grey` from a `.vue` file. Why this matters:
@@ -116,8 +122,8 @@ Say you need tokens for a new `card` component.
     @forward "card";
     ```
 
-That's the whole ceremony. Same steps under `pages/`, and identically for every other group (`sizes/`,
-`z-indexes/`, …) — only the value you derive from the globals changes.
+That's the whole ceremony, identically for every other group (`sizes/`, `z-indexes/`, …) — only the
+value you derive from the globals changes.
 
 ## Consuming a token
 
@@ -139,11 +145,11 @@ leaf partials stay prefix-free (`$card`, not `$c-card`).
 | origin                                  | colors (`as c`) | sizes (`as s`) | z-indexes (`as z`) |
 | --------------------------------------- | --------------- | -------------- | ------------------ |
 | component partial (`$button` / `$main`) | `c.$c-button`   | `s.$c-button`  | `z.$c-main`        |
-| page partial `$home`                    | `c.$p-home`     | `s.$p-home`    | `z.$p-home`        |
 | shared (in `_index.scss`) `$glass`      | `c.$glass`      | `s.$glass`     | (none)             |
 
-`c-` = component, `p-` = page — the suffix means the same thing in every group; only the namespace
-prefix (`c.` / `s.` / `z.`) changes.
+`c-` = component — the prefix means the same thing in every group; only the namespace (`c.` / `s.` /
+`z.`) changes. A `p-` prefix is still stamped on the (empty) `pages/` layer, so the mechanism is there
+if a genuinely page-only token ever turns up.
 
 ## What varies between groups
 
@@ -161,7 +167,7 @@ group. Only two surface details differ, both by group:
   consumed directly as `z.$c-main` — no `map.get` at the call site. Use a map when the component needs
   several related values, a scalar when one value says it all.
 
-Everything else — the three layers, the `c-*` / `p-*` prefixes, "never read a global outside its
+Everything else — the three layers, the `c-*` prefix, "never read a global outside its
 group", one `@forward` line per partial — carries over unchanged. A future `typography/` or `shadows/`
 group is created by copying any existing group's folder shape; no new concepts.
 
@@ -169,12 +175,13 @@ group is created by copying any existing group's folder shape; no new concepts.
 
 `@forward` re-exports a partial's members **transparently**, so a downstream `@use "Abstracts/colors"`
 sees `c.$c-button` directly. `@use … as co` would instead trap the members behind a `co.` namespace,
-forcing the entrypoint to re-declare every one — pure boilerplate. The `as c-*` / `as p-*` prefixes add
+forcing the entrypoint to re-declare every one — pure boilerplate. The `as c-*` prefix adds
 two things for free:
 
-- **collision safety** — a component `$button` and a page `$button` would otherwise clash once both
-  flatten onto the `c.` namespace; the prefixes guarantee they can't.
-- **origin at the call site** — `c.$c-button` vs `c.$p-home` tells you where the token is defined.
+- **collision safety** — two partials with the same variable name would otherwise clash once both
+  flatten onto the `c.` namespace; the prefix guarantees they can't.
+- **origin at the call site** — the `c-` in `c.$c-button` says the token is a component's, which is
+  where every token lives.
 
 Dart Sass has no directory globbing in the module system, so the **one `@forward "<name>";` line per
 partial** is the irreducible minimum — and the only registration step you ever repeat.

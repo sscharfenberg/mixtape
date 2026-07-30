@@ -7,8 +7,9 @@
  * @use "Abstracts/timings" as ti;
  *****************************************************************************/
 
-// per-component / per-page token partials, re-exported transparently.
-// the "c-*" / "p-*" prefixes namespace them, so $button (components/_button.scss)
-// is consumed as ti.$c-button, and $home (pages/_home.scss) as ti.$p-home.
+// per-component token partials, re-exported transparently: the "c-*" prefix
+// namespaces them, so $button (components/_button.scss) is consumed as ti.$c-button.
+// the "pages" layer stays wired up but is empty — a token belongs to the component
+// that consumes it, so there is nothing a page could own on its own (see pages/_index).
 @forward "components" as c-*;
 @forward "pages" as p-*;

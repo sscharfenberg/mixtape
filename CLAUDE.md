@@ -85,7 +85,7 @@ Controllers render the explicit path — `Inertia::render('Home/HomePage', …)`
 [`docs/app-rewrite.md`](docs/app-rewrite.md) → *Frontend conventions*.
 
 **Design tokens (SCSS)** — three layers, two hard rules. **Every** token group is identical:
-**global tokens → contextual partial (components/pages) → consumed by SCSS/Vue.** Applies today to
+**global tokens → contextual partial (per component) → consumed by SCSS/Vue.** Applies today to
 `colors/`, `sizes/`, `z-indexes/`, `typography/`, `timings/`; future groups (`shadows/`, …) are created
 the same way. Full guide: [`resources/app/styles/abstracts/README.md`](resources/app/styles/abstracts/README.md).
 
@@ -101,13 +101,18 @@ the same way. Full guide: [`resources/app/styles/abstracts/README.md`](resources
   a size token may also hold a plain literal (`2rem`) or a CSS keyword (`auto`) when that's what the
   component actually needs. It's still one named decision in one place; only the **colours** rule is
   hard (never mint a colour outside the global palette).
-- To give a component/page a colour, size, or z-index, **create a contextual partial**
-  (`colors/components/_button.scss`, `sizes/pages/_home.scss`, `z-indexes/components/_main.scss`) that
-  `@use`s the globals and **picks/themes** the value (`light-dark()`, `map.get($scale, …)`, opacity-only
-  `color.adjust()`), then `@forward` it from that folder's `_index.scss` (one line).
-- Components/pages **consume only contextual tokens** via the entrypoint: `@use "Abstracts/colors" as c;`
+- To give something a colour, size, or z-index, **create a contextual partial**
+  (`colors/components/_button.scss`, `z-indexes/components/_main.scss`) that `@use`s the globals and
+  **picks/themes** the value (`light-dark()`, `map.get($scale, …)`, opacity-only `color.adjust()`), then
+  `@forward` it from that folder's `_index.scss` (one line).
+- **Tokens are scoped to a component, never to a page.** The `pages/` layer exists and is
+  **deliberately empty**: whatever a page looks like it owns belongs to one of its own components (the
+  song page's hero is the shared `components/_hero-section.scss`), and where a page needs a value of its own it reads
+  the token of the component that already defines it (`s.$c-card "gap"` for the gap between blocks)
+  rather than minting a duplicate to keep in step.
+- Components and pages **consume only contextual tokens** via the entrypoint: `@use "Abstracts/colors" as c;`
   → `c.$c-button`; `@use "Abstracts/sizes" as s;` → `s.$c-button`; `@use "Abstracts/z-indexes" as z;`
-  → `z.$c-main` (`c-*` = component, `p-*` = page). Timings use `@use "Abstracts/timings" as ti;` → `ti.$c-*`.
+  → `z.$c-main` (`c-*` = component). Timings use `@use "Abstracts/timings" as ti;` → `ti.$c-*`.
 
 **Motion (transitions & animations)** — **every `transition` must live inside
 `@media (prefers-reduced-motion: no-preference) { … }`**, so a user who asks to reduce motion gets none.

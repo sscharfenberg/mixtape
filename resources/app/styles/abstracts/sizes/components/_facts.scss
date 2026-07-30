@@ -1,23 +1,17 @@
 /******************************************************************************
  * contextual size tokens — component:facts
  * @type {Sass}
- * The titled cards of label/value rows (Components/UI/Facts) that carry a detail
- * page's stored facts — the song page today, album/artist next.
- *
- * The card metrics mirror the Widget's (s.$c-widget), which is what Facts used to
- * render through: `group-min` is each card's `flex-basis`, i.e. the width a card wants
- * before the leftover space on its line is shared out — so it decides how many cards
- * fit a line. A plain literal, since it's a layout threshold rather than a step off
- * the scale.
+ * The key/value tiles inside a Card (Components/UI/Facts). The card around them owns
+ * its own metrics (s.$c-card); these are the tiles and their type.
  *
  * One fact is a TILE — a washed panel holding its label above its value — so its
- * metrics mirror the StatsWidget's stat tiles (s.$c-widget "cell-padding" /
- * "cell-radius"), the same object in the same kind of card. `item-gap` is deliberately
- * far tighter than `row-gap`: inside a tile the label and value are one statement, so
- * they must read closer together than two neighbouring tiles do, or the pairing breaks.
+ * padding and radius mirror the StatsWidget's stat tiles (s.$c-widget "cell-padding" /
+ * "cell-radius"), the same object in the same kind of card. `pair-gap` is deliberately
+ * far tighter than `gap`: inside a tile the label and value are one statement, so they
+ * must read closer together than two neighbouring tiles do, or the pairing breaks.
  *
  * The gutters step off the shared `$padding` rungs rather than inventing spacing, so
- * the list breathes like every other box. The type sizes are the spec-sheet look: the
+ * the tiles breathe like every other box. The type sizes are the spec-sheet look: the
  * label a step DOWN from body (small caps read larger than their size) and the value a
  * step UP, which is what makes the value the loud half of a tile without any colour.
  * The monospaced path sits just under the value — a mono face at the same size looks
@@ -28,23 +22,14 @@
 @use "../global-size-tokens" as s;
 
 $facts: (
-    // card + grid -----------------------------------------------------------
-    "card-border": map.get(s.$border, "base"),
-    "card-radius": map.get(s.$radius, "featured"),
-    "card-padding": map.get(s.$padding, "portrait"),
-    "group-min": 18.75rem,
-    // 300px at the 16px base
-    "group-gap": map.get(s.$padding, "portrait"),
-    "title-font-size": 1.3rem,
-    // one fact's tile -------------------------------------------------------
-    "item-padding": map.get(s.$padding, "base"),
-    "item-radius": map.get(s.$radius, "base"),
+    "tile-padding": map.get(s.$padding, "base"),
+    "tile-radius": map.get(s.$radius, "base"),
     // Label → value inside one tile. A fraction of the gap BETWEEN tiles, so the pair
     // reads as one unit rather than as two stacked rows.
-    "item-gap": 0.15rem,
+    "pair-gap": 0.15rem,
     // Between tiles, on BOTH axes — they wrap, so this is a column gutter as often as
     // it is a row one.
-    "tile-gap": map.get(s.$padding, "base"),
+    "gap": map.get(s.$padding, "base"),
     "label-font-size": 0.8rem,
     // Wide enough to read as deliberate small-caps spacing, tight enough that a
     // long German label ("Eingebettetes Cover") doesn't dominate the tile.

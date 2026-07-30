@@ -10,12 +10,12 @@
  * the URL: the detail view lives *inside* the listing it came from, the same way
  * `music.songs.show` sits under `music.songs`.
  *
- * Two blocks: the hero (cover beside the title — SongPageHero), then
- * every stored fact about the file, grouped into cards by what kind of fact it is
- * — the tags, its place in the album, how it was encoded, the file on disk. The
- * controller sends raw values and the formatting happens here, with the active
- * locale — sizes, rates and dates all read differently per language; the shared
- * Facts component groups the finished rows and lays them out.
+ * Two blocks, both shared components this page only fills in: the HeroSection (its
+ * cover, title and metadata line handed over as slots), then every stored fact about
+ * the file, grouped into cards by what kind of fact it is — the tags, its place in the
+ * album, how it was encoded, the file on disk. The controller sends raw values and the
+ * formatting happens here, with the active locale — sizes, rates and dates all read
+ * differently per language; Facts groups the finished pairs and lays them out.
  *
  * The page has no <Headline>: its title lives in the hero next to the cover, which
  * is what makes that first row read as one unit instead of a caption under a
@@ -30,11 +30,12 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import Container from "Components/UI/Container.vue";
 import Facts, { type Fact } from "Components/UI/Facts.vue";
+import HeroSection from "Components/UI/HeroSection.vue";
+import Icon from "Components/UI/Icon.vue";
 import LabelledLink from "Components/UI/LabelledLink.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import type { SongDetail } from "Types/music";
 import { formatClock, formatDateTime, formatDecimals, formatFileSize } from "Utils/formatting";
-import SongPageHero from "./SongPageHero.vue";
 
 const props = defineProps<{
     /** The song being shown, as SongController shaped it — every value raw. */
@@ -51,6 +52,23 @@ setBreadcrumbs([
     { labelKey: "music.widgets.songs", href: "/music/songs", icon: "song" },
     { label: props.song.name }
 ]);
+
+/**
+ * The hero's metadata line: artist · album · year, with whatever is untagged left out
+ * entirely (so a lone artist never renders as "The Storm · · "). Middle dots rather
+ * than a comma list because the three parts are peers, not a sentence.
+ */
+const metadata = computed(() =>
+    [props.song.artist, props.song.album, props.song.year === null ? null : String(props.song.year)]
+        .filter(part => part !== null && part !== "")
+        .join(" · ")
+);
+
+/**
+ * Alt text for the cover: the album it belongs to, or the song when the file is filed
+ * under no album. Not "cover of …" — a screen reader already says "image".
+ */
+const coverAlt = computed(() => props.song.album ?? props.song.name);
 
 /**
  * A position within its set, as "2/8" — or the bare number when there is no
@@ -224,7 +242,20 @@ const songFacts = computed<Fact[]>(() => {
     <Head :title="song.name" />
     <container>
         <div class="song">
-            <song-page-hero :song="song" />
+            <hero-section>
+                <!-- An <img> when the file carried artwork, and an icon when it did not:
+                     HeroSection draws the square as a dashed placeholder around whatever
+                     is not an image, so the choice of glyph stays this page's. -->
+                <template #cover>
+                    <img v-if="song.coverUrl" :src="song.coverUrl" :alt="coverAlt" />
+                    <icon v-else name="album" :size="5" :aria-label="t('music.song.noCover')" role="img" />
+                </template>
+                <!-- The page's h1 lives here rather than in a <Headline>: beside the cover
+                     it reads as one unit with the artwork instead of a caption under a
+                     banner. HeroSection sets the type; the level is ours to choose. -->
+                <template #title><h1>{{ song.name }}</h1></template>
+                <template #metadata>{{ metadata }}</template>
+            </hero-section>
             <facts :facts="songFacts" wide-groups />
             <p class="song__back">
                 <labelled-link href="/music/songs">{{ t("music.song.backToList") }}</labelled-link>
@@ -237,15 +268,15 @@ const songFacts = computed<Fact[]>(() => {
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "Abstracts/sizes" as s;
 
-/* The hero is one panel and the facts are their own card grid; the page only stacks
-   its blocks and spaces them. The gap matches the facts grid's own gutter
-   (s.$c-facts "group-gap"), so the rhythm down the page doesn't change where one
-   card grid ends and the next block begins. */
+/* The hero is one panel and the facts are a row of cards; the page only stacks its
+   blocks and spaces them. It takes the CardGroup's own gutter (s.$c-card "gap") rather
+   than a token of its own, so the rhythm down the page cannot drift from the rhythm
+   between two cards. */
 .song {
     display: flex;
     flex-direction: column;
 
-    gap: map.get(s.$p-song, "block-gap");
+    gap: map.get(s.$c-card, "gap");
 }
 
 .song__back {

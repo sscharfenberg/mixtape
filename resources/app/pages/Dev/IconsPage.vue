@@ -60,7 +60,7 @@ const iconNames = Object.keys(iconGlob)
         padding: 1ch;
         gap: 0.5rem;
 
-        background-color: map.get(c.$p-icons, "item-background");
+        background-color: map.get(c.$c-icon-overview, "item-background");
         border-radius: 1rem;
     }
 

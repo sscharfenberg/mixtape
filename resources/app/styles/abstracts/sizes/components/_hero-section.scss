@@ -1,0 +1,40 @@
+/******************************************************************************
+ * contextual size tokens — component:hero-section
+ * @type {Sass}
+ * A detail page's hero (Components/UI/HeroSection): its panel, and the square its
+ * cover slot is framed in.
+ *
+ * The cover is the page's anchor, so its size is a per-breakpoint decision rather than
+ * one number — a 220px square is already most of a phone's width, while on a desktop
+ * it can carry the row next to a title without looking like a thumbnail. Literals
+ * rather than `$scale` rungs: these are picture sizes chosen by eye against the title
+ * beside them, which is exactly the case the scale doesn't decide. The gaps DO step
+ * off the shared `$padding` rungs, so the hero breathes like every other box.
+ * Consumed as s.$c-hero-section via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$hero-section: (
+    "cover": (
+        "base": 220px,
+        "landscape": 200px,
+        "desktop": 240px
+    ),
+    "cover-radius": map.get(s.$radius, "base"),
+    "cover-placeholder-border": map.get(s.$border, "featured"),
+    // The hero is its own panel now, so it owns its inset and shape. Both match the
+    // Widget's own values (as does its fill — c.$c-hero-section "background"), so the
+    // hero and the facts cards below it read as one surface, differing only in the
+    // gradient ring around the hero.
+    "padding": map.get(s.$padding, "portrait"),
+    "radius": map.get(s.$radius, "featured"),
+    // A `featured` ring rather than the glass's hairline: at this width the border
+    // is the frame you see first, which is what carries the four-hue gradient
+    // (c.$c-hero-section "border") — a 2px line would render that ramp as one muddy
+    // colour.
+    "border": map.get(s.$border, "featured"),
+    "gap": map.get(s.$padding, "landscape"),
+    "meta-gap": map.get(s.$padding, "base"),
+    "title-font-size": 1.75rem
+) !default;

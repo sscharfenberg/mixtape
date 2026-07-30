@@ -6,5 +6,7 @@
  * consumed as t.$c-body via `@use "Abstracts/typography" as t;`.
  *****************************************************************************/
 @forward "body";
+@forward "card";
 @forward "facts";
 @forward "headline";
+@forward "hero-section";
