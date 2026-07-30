@@ -338,9 +338,7 @@ final class CoverService
                 }
             }
 
-            if (! is_dir(dirname($cached))) {
-                mkdir(dirname($cached), 0o755, true);
-            }
+            $this->ensureCacheDirectory(dirname($cached));
 
             imagejpeg($image, $cached, (int) config('mixtape.covers.quality'));
         } finally {
@@ -547,6 +545,35 @@ final class CoverService
         }
 
         return (string) (getenv('USER') ?: 'unknown');
+    }
+
+    /**
+     * Create the cache directory if it isn't there, group-writable and setgid.
+     *
+     * The mode is the point. This directory is created by whichever process first serves a
+     * cover — the web server — while the thing that has to DELETE from it is `app:update`,
+     * which on a dev box runs as the admin user instead. Deleting needs write permission
+     * on the directory, so a default 0755 hands the invalidation an unwritable cache and
+     * costs an operator a manual `chmod` (it cost this project exactly one: see
+     * cacheIsWritable). `2775` gives the shared group that write bit, and the setgid bit
+     * keeps files created here in the directory's group rather than the writer's primary
+     * one, so the next process can still clean up after this one.
+     *
+     * `chmod` EXPLICITLY rather than trusting mkdir's mode, because umask narrows it — the
+     * usual 022 turns a requested 0775 into 0755, which is the very thing being avoided.
+     * Only on creation: a directory that already exists carries whatever mode an operator
+     * chose, and this is not the place to overrule it. Both calls are best-effort — a
+     * cover that cannot be cached is already handled as a logged non-event, and a
+     * permission problem here surfaces through the writability guard rather than as a 500.
+     */
+    private function ensureCacheDirectory(string $directory): void
+    {
+        if (is_dir($directory)) {
+            return;
+        }
+
+        @mkdir($directory, 0o775, true);
+        @chmod($directory, 0o2775);
     }
 
     /** The one place that knows where cached covers live. */

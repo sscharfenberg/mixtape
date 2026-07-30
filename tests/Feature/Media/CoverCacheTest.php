@@ -134,6 +134,50 @@ class CoverCacheTest extends TestCase
         $this->assertFileExists($orphan);
     }
 
+    public function test_a_freshly_created_cache_directory_is_group_writable(): void
+    {
+        // Because the process that CREATES this directory (the web server, serving the
+        // first cover) is not always the one that has to DELETE from it (`app:update`,
+        // running as the admin user on a dev box) — and deleting needs write permission on
+        // the directory. A default 0755 is what left the invalidation dead and needed a
+        // manual chmod; if the directory is ever removed and recreated, this is what stops
+        // that happening twice.
+        $root = sys_get_temp_dir().'/mixtape-cache-mode-'.uniqid();
+        File::ensureDirectoryExists($root.'/Artist/Album');
+        config(['mixtape.library.paths.music' => $root]);
+
+        // A folder image is enough to exercise the write path: the mp3 itself is never
+        // opened for it, so no fixture audio (or getID3) is involved.
+        File::put($root.'/Artist/Album/folder.jpg', $this->jpeg(120));
+        $track = Track::factory()->create(['path' => 'Artist/Album/01.mp3', 'cover' => false]);
+
+        File::deleteDirectory($this->cache);
+        $cached = app(CoverService::class)->path($track);
+
+        File::deleteDirectory($root);
+
+        $this->assertNotNull($cached, 'the folder image should have been cached');
+        $this->assertDirectoryExists($this->cache);
+        // Group-writable AND setgid, so files written here keep the directory's group and
+        // the next process can still clean them up.
+        $this->assertSame('2775', substr(sprintf('%o', fileperms($this->cache)), -4));
+    }
+
+    /** A square JPEG of the given size as raw bytes — a stand-in folder image. */
+    private function jpeg(int $size): string
+    {
+        $image = imagecreatetruecolor($size, $size);
+        imagefill($image, 0, 0, imagecolorallocate($image, 255, 16, 134));
+
+        ob_start();
+        imagejpeg($image, null, 90);
+        $bytes = (string) ob_get_clean();
+
+        imagedestroy($image);
+
+        return $bytes;
+    }
+
     public function test_forgetting_one_track_is_refused_quietly_but_not_falsely(): void
     {
         // The same guard on the single-file path the scanner uses for a re-tag: it must
