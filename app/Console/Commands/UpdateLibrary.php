@@ -9,6 +9,7 @@ use App\Mail\LibraryScanSkipped;
 use App\Services\Library\LibraryCleanupService;
 use App\Services\Library\LibraryScanService;
 use App\Services\Library\ScanResult;
+use App\Services\Media\CoverService;
 use Illuminate\Console\Command;
 use Illuminate\Mail\Mailable;
 use Illuminate\Support\Facades\Log;
@@ -22,7 +23,8 @@ use Throwable;
  * found X files …" lines to both console and the `library` log channel) and owns
  * the failure path (log critical + e-mail the configured address + exit
  * non-zero). All the domain logic lives in the services:
- *   1. LibraryCleanupService — delete OS/Samba junk from the shares.
+ *   1. LibraryCleanupService — delete OS/Samba junk from the shares, and
+ *      CoverService::pruneCache — drop cached covers nothing can reach.
  *   2. LibraryScanService     — the content-hash diff (insert/update/rename/
  *      delete + orphan prune), keeping stable ids across renames and re-tags.
  */
@@ -43,7 +45,7 @@ class UpdateLibrary extends Command
      * non-zero so it's noticed. Any thrown error is the fatal path: log critical,
      * e-mail the alert, and return FAILURE so a broken nightly scan is never silent.
      */
-    public function handle(LibraryCleanupService $cleanup, LibraryScanService $scanner): int
+    public function handle(LibraryCleanupService $cleanup, LibraryScanService $scanner, CoverService $covers): int
     {
         $areas = $this->resolveAreas();
         if ($areas === null) {
@@ -62,9 +64,19 @@ class UpdateLibrary extends Command
                 // id has ALREADY left the database, and the scan drops its own as it
                 // deletes and re-tags rows. Running it first therefore clears the
                 // backlog without racing what is about to happen.
-                $covers = $cleanup->pruneCoverCache();
-                if ($covers > 0) {
-                    $this->narrate("Cleanup dropped {$covers} stale cover cache entr(y|ies).");
+                $cache = $covers->pruneCache();
+                if ($cache['removed'] > 0) {
+                    $this->narrate("Cleanup dropped {$cache['removed']} stale cover cache entr(y|ies).");
+                }
+                // Refusals are the permission case (CoverService::cacheIsWritable) and get
+                // said out loud, not just logged: a silently un-invalidatable cache serves
+                // stale artwork indefinitely, and the scan's own "0 invalidated" cannot
+                // distinguish that from a clean run.
+                if ($cache['refused'] > 0) {
+                    $this->narrate(
+                        "Could not delete {$cache['refused']} stale cover cache entr(y|ies) — "
+                        .'check the library log; artisan is probably not running as the cache owner.'
+                    );
                 }
             }
 

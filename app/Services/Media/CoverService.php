@@ -51,6 +51,9 @@ final class CoverService
      */
     private const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif'];
 
+    /** Memoised answer to "can this process delete from the cache?" — see cacheIsWritable(). */
+    private ?bool $cacheWritable = null;
+
     /**
      * Whether this track can show a cover at all — used by the controller to
      * decide between a real image URL and the placeholder, WITHOUT extracting
@@ -362,7 +365,7 @@ final class CoverService
     {
         $cached = $this->cachePath($track);
 
-        return is_file($cached) && @unlink($cached);
+        return is_file($cached) && $this->cacheIsWritable() && @unlink($cached);
     }
 
     /**
@@ -375,7 +378,11 @@ final class CoverService
      */
     public function forgetAlbum(Collection $album): int
     {
-        $entries = glob(storage_path('app/private/'.self::CACHE_DIR.'/album-'.$album->id.'-*.jpg')) ?: [];
+        if (! $this->cacheIsWritable()) {
+            return 0;
+        }
+
+        $entries = glob($this->cacheDirectory().'/album-'.$album->id.'-*.jpg') ?: [];
         $removed = 0;
 
         foreach ($entries as $entry) {
@@ -385,6 +392,167 @@ final class CoverService
         }
 
         return $removed;
+    }
+
+    /**
+     * Delete cached covers that can never be served again, returning how many went and
+     * how many were REFUSED by the filesystem.
+     *
+     * Two kinds go:
+     *   · an entry whose id is not in the database any more — the track or album it was
+     *     extracted for is gone. `migrate:fresh` + a rescan makes every entry an orphan
+     *     in one step, since a rebuilt row gets a fresh UUID;
+     *   · an album's SUPERSEDED mtime variants. `album-<id>-<mtime>.jpg` keys on the
+     *     source image's mtime, so replacing the art in place leaves the old scaled copy
+     *     behind, unreachable but on disk. Only the newest stamp per album can still
+     *     match a request, so the rest go.
+     *
+     * Surgical rather than legacy's "wipe the cache on every rescan", because these files
+     * cost real work to rebuild: a full sweep would re-extract from every mp3 someone
+     * happens to view next, and this cache is the reason a page render doesn't decode
+     * audio at all.
+     *
+     * Two queries and one directory listing whatever the cache size — the id sets come
+     * back as flat plucks and everything else is array work. It lives HERE, not in the
+     * cleanup service that calls it, because the answers depend on this class's own cache
+     * layout (where the files are, and how a filename encodes what it belongs to).
+     *
+     * @return array{removed: int, refused: int}
+     */
+    public function pruneCache(): array
+    {
+        $directory = $this->cacheDirectory();
+
+        if (! is_dir($directory)) {
+            return ['removed' => 0, 'refused' => 0];
+        }
+
+        $entries = glob($directory.'/*.jpg') ?: [];
+
+        if ($entries === []) {
+            return ['removed' => 0, 'refused' => 0];
+        }
+
+        $known = array_fill_keys(
+            array_merge(Track::query()->pluck('id')->all(), Collection::query()->pluck('id')->all()),
+            true
+        );
+
+        // Highest mtime stamp seen per album id, so the current entry is spared.
+        $newest = [];
+
+        foreach ($entries as $entry) {
+            [$id, $stamp] = $this->parseCacheName(basename($entry));
+
+            if ($stamp !== null && (! isset($newest[$id]) || $stamp > $newest[$id])) {
+                $newest[$id] = $stamp;
+            }
+        }
+
+        $removed = 0;
+        $refused = 0;
+
+        foreach ($entries as $entry) {
+            [$id, $stamp] = $this->parseCacheName(basename($entry));
+
+            $orphaned = $id === null || ! isset($known[$id]);
+            $superseded = $stamp !== null && $id !== null && $stamp < ($newest[$id] ?? $stamp);
+
+            if (! $orphaned && ! $superseded) {
+                continue;
+            }
+
+            if ($this->cacheIsWritable() && @unlink($entry)) {
+                $removed++;
+                Log::channel('library')->info('cleanup: dropped stale cover cache entry '.basename($entry));
+            } else {
+                $refused++;
+            }
+        }
+
+        return ['removed' => $removed, 'refused' => $refused];
+    }
+
+    /**
+     * Split a cache filename into the id it belongs to and its mtime stamp (null for a
+     * track entry, which has none).
+     *
+     * `<uuid>.jpg` is a track's; `album-<uuid>-<mtime>.jpg` is an album's. An
+     * unrecognised name yields a null id, which the caller treats as orphaned — this
+     * directory is ours alone, so anything else in it is not something to keep.
+     *
+     * @return array{0: string|null, 1: int|null}
+     */
+    private function parseCacheName(string $name): array
+    {
+        if (preg_match('/^album-([0-9a-f-]{36})-(\d+)\.jpg$/i', $name, $matches) === 1) {
+            return [strtolower($matches[1]), (int) $matches[2]];
+        }
+
+        if (preg_match('/^([0-9a-f-]{36})\.jpg$/i', $name, $matches) === 1) {
+            return [strtolower($matches[1]), null];
+        }
+
+        return [null, null];
+    }
+
+    /**
+     * Whether this process can delete from the cache directory — checked once and, when
+     * the answer is no, WARNED about once.
+     *
+     * This guard exists because its absence was a real silent failure, found on the dev
+     * box: the cache directory is created at runtime by the web server, so it is
+     * www-data's, while `app:update` on that host runs as the admin user. Deleting a file
+     * needs write permission on its DIRECTORY, not on the file, so every invalidation
+     * `@unlink`ed, failed, returned false, and was counted as "nothing to do" — the scan
+     * cheerfully reported `0 cached cover(s) invalidated` while serving stale artwork.
+     * (Production is unaffected: there artisan runs `sudo -u www-data`, the same identity
+     * that wrote the files.)
+     *
+     * A warning rather than an exception, because a stale cache is a cosmetic problem and
+     * a scan that aborts over one would be worse. Once rather than per file, because a
+     * mass re-tag would otherwise write a line per track.
+     */
+    private function cacheIsWritable(): bool
+    {
+        if ($this->cacheWritable !== null) {
+            return $this->cacheWritable;
+        }
+
+        $directory = $this->cacheDirectory();
+        $this->cacheWritable = ! is_dir($directory) || is_writable($directory);
+
+        if (! $this->cacheWritable) {
+            Log::channel('library')->warning(sprintf(
+                'Cover cache %s is not writable by "%s" — stale covers cannot be invalidated and will keep '
+                .'being served. Run artisan as the user that owns the cache (the web server), or make the '
+                .'directory group-writable for both.',
+                $directory,
+                $this->processUser(),
+            ));
+        }
+
+        return $this->cacheWritable;
+    }
+
+    /** The effective user, for that warning — the one fact that makes a permission problem diagnosable. */
+    private function processUser(): string
+    {
+        if (function_exists('posix_geteuid') && function_exists('posix_getpwuid')) {
+            $user = posix_getpwuid(posix_geteuid());
+
+            if (is_array($user) && isset($user['name'])) {
+                return (string) $user['name'];
+            }
+        }
+
+        return (string) (getenv('USER') ?: 'unknown');
+    }
+
+    /** The one place that knows where cached covers live. */
+    private function cacheDirectory(): string
+    {
+        return storage_path('app/private/'.self::CACHE_DIR);
     }
 
     /** Where this track's extracted cover is cached (one JPEG per track id). */

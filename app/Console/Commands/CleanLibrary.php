@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Console\Commands\Concerns\ResolvesLibraryAreas;
 use App\Services\Library\LibraryCleanupService;
+use App\Services\Media\CoverService;
 use Illuminate\Console\Command;
 
 /**
@@ -29,7 +30,7 @@ class CleanLibrary extends Command
      * the count removed. Returns INVALID on an unknown `--area`; otherwise SUCCESS —
      * cleanup is best-effort and has no failure path of its own.
      */
-    public function handle(LibraryCleanupService $cleanup): int
+    public function handle(LibraryCleanupService $cleanup, CoverService $covers): int
     {
         $areas = $this->resolveAreas();
         if ($areas === null) {
@@ -42,9 +43,17 @@ class CleanLibrary extends Command
 
         // The cover cache is app storage, not share content, so it is swept whole
         // regardless of `--area`: an entry is kept or dropped on whether its id is
-        // still in the database, which no area scoping would change.
-        $covers = $cleanup->pruneCoverCache();
-        $this->narrate("Cleanup dropped {$covers} stale cover cache entr(y|ies).");
+        // still in the database, which no area scoping would change. Owned by
+        // CoverService, since only that class knows the cache's layout.
+        $cache = $covers->pruneCache();
+        $this->narrate("Cleanup dropped {$cache['removed']} stale cover cache entr(y|ies).");
+
+        if ($cache['refused'] > 0) {
+            $this->narrate(
+                "Could not delete {$cache['refused']} entr(y|ies) — check the library log; artisan is "
+                .'probably not running as the cache owner.'
+            );
+        }
 
         return self::SUCCESS;
     }
