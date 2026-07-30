@@ -21,7 +21,7 @@ $hero-section: (
         "landscape": 200px,
         "desktop": 240px
     ),
-    "cover-radius": map.get(s.$radius, "base"),
+    "cover-radius": map.get(s.$radius, "featured"),
     "cover-placeholder-border": map.get(s.$border, "featured"),
     // The hero is its own panel now, so it owns its inset and shape. Both match the
     // Widget's own values (as does its fill — c.$c-hero-section "background"), so the
@@ -36,5 +36,44 @@ $hero-section: (
     "border": map.get(s.$border, "featured"),
     "gap": map.get(s.$padding, "landscape"),
     "meta-gap": map.get(s.$padding, "base"),
-    "title-font-size": 1.75rem
+    // A per-breakpoint set, tracking the app title's scale (s.$c-title "font-size":
+    // 1.2 / 1.4 / 2.2 / 3rem) a step below it at the widths where that title is the
+    // bigger of the two. The page's h1 should be the loudest thing on the page without
+    // out-shouting the app's own name in the header above it.
+    //
+    // The two lower rungs are deliberately NOT below the header's: its lockup is a
+    // compact 1.2rem on a phone, and a page's h1 shrinking to match that would read as
+    // a caption. So this scale holds its current size there and only steps up.
+    "title-font-size": (
+            "base": 1.75rem,
+            "portrait": 1.9rem,
+            "landscape": 2rem,
+            "desktop": 2.6rem
+        ),
+    // The synthwave treatment's dimensions, all in `em` so they scale with whichever
+    // font-size above is in force — a glow measured in px would swamp the 1.75rem title
+    // and disappear on the 2.6rem one.
+    "title-effect": (
+            // Light mode needs a real outline, and a pale one (see c.$c-hero-section
+            // "title-stroke") only registers at this width. Dark mode keeps the hairline it
+            // already reads well with, so the two are separate values rather than one
+            // compromise. `light-dark()` is colours only, hence a second key and the
+            // theme-dark override at the call site.
+            "stroke": 0.03em,
+            "stroke-dark": 0.01em,
+            // The dark rim that does the legibility work. Barely blurred on purpose: it has to
+            // read as an edge on the letters, not as a shadow near them. Applied TWICE in the
+            // filter chain, because one pass at this radius is too faint to hold an edge
+            // against the bloom further out.
+            "rim": 0.025em,
+            // Then the neon at the glyphs, and the bloom around them.
+            "glow": 0.1em,
+            // Kept SHORT because the metadata tiles sit right under the title, and a filter
+            // blur reaches its full radius: at 1em the bloom washed blue over their top
+            // edges, at 0.5em it still lifted them, and at 0.3em they come back clean while
+            // the letters keep their halo. Measured, not derived — the gap below the title
+            // is smaller than even this radius, so what matters is where the blur's density
+            // falls off, not where it ends.
+            "bloom": 0.3em
+        )
 ) !default;

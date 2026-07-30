@@ -1,9 +1,9 @@
 /******************************************************************************
  * contextual color tokens — component:hero-section
  * @type {Sass}
- * A detail page's hero (Components/UI/HeroSection): the panel fill and its featured
- * gradient border, the placeholder drawn when nothing fills the cover slot, and the
- * metadata line under the title.
+ * A detail page's hero (Components/UI/HeroSection): the panel fill, its featured gradient
+ * border, the placeholder drawn when nothing fills the cover slot, and the synthwave
+ * treatment on the title.
  *
  * The cover art itself is untinted. It used to carry the app's control neon as a halo
  * (retro `c3`, the same entry the hovered DataTable row and the open popover glow
@@ -11,8 +11,8 @@
  * the halo only muddied its own edge. The placeholder keeps that neon, at a fraction
  * of the opacity, since there it IS the only mark on an empty square.
  *
- * The metadata line is a muted grey rather than a colour — the cover supplies the
- * page's colour, and a second tinted line beside it would fight it.
+ * The metadata line is a muted grey rather than a colour — the cover supplies the page's
+ * colour, and a second tinted line beside it would fight it.
  * Consumed as c.$c-hero-section via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
@@ -60,5 +60,46 @@ $hero-section: (
             color.adjust(map.get(c.$grey, "bunker"), $alpha: -0.4)
         ),
     "cover-placeholder-icon": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher")),
-    "metadata": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron"))
+    "metadata": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
+    // The title's synthwave treatment, walking the same hues the app wordmark does
+    // (AppHeaderTitle) — but picked HERE from the global palette rather than read off
+    // c.$c-title: a contextual partial consumes globals, never another partial's tokens.
+    // The two files therefore have to be retuned together, which is the trade for each
+    // owning its own decision.
+    //
+    // `title-fill` is the flat version for small type: the chrome gradient below splits
+    // at its own midline, and a 24px heading is not tall enough for that split to read as
+    // anything but noise, so the effect is gated to `landscape` and up exactly as the
+    // wordmark's is.
+    "title-fill": light-dark(map.get(c.$retro, "c5", "light"), map.get(c.$retro, "c6", "dark")),
+    // Dark blue → blue → a white specular line at the midline → violet → purple → pink:
+    // chrome lettering, and the reason the stops double up at 50%.
+    "title-gradient": linear-gradient(
+            light-dark(map.get(c.$retro, "c1", "light"), map.get(c.$retro, "c1", "dark")) 25%,
+            light-dark(map.get(c.$retro, "c2", "light"), map.get(c.$retro, "c2", "dark")) 35%,
+            map.get(c.$grey, "white") 50%,
+            light-dark(map.get(c.$retro, "c4", "light"), map.get(c.$retro, "c4", "dark")) 50%,
+            light-dark(map.get(c.$retro, "c5", "light"), map.get(c.$retro, "c5", "dark")) 55%,
+            light-dark(map.get(c.$retro, "c6", "light"), map.get(c.$retro, "c6", "dark")) 75%
+        ),
+    // The outline around the letters, THEME-SPLIT in colour and (in the sizes partial) in
+    // width. Dark mode needs almost nothing — the neon fill separates from a black panel
+    // on its own, so a mid grey hairline is the whole edge. Light mode does need an
+    // outline, because the ramp's own pale stops (a white specular line at the midline,
+    // blue above it) run out of contrast on a white panel — and it is a LIGHT one by
+    // choice: a near-black outline reads heavier and dirtier against the chrome, where fog
+    // separates the glyphs from the panel without adding weight to them. It only works at
+    // the wider width, though; a hairline this pale would be invisible.
+    //
+    // Two things that did NOT help light mode, measured, so they needn't be retried: a
+    // thicker glow rim (a blurred shadow outside the glyphs cannot make an edge) and
+    // neutralising the white specular stop (barely any difference).
+    "title-stroke": light-dark(map.get(c.$grey, "fog"), map.get(c.$grey, "slate")),
+    // The neon immediately around the glyphs, then a wider bloom that reads as the sign
+    // lighting the panel rather than as an outline.
+    "title-glow": light-dark(map.get(c.$retro, "c7", "light"), map.get(c.$retro, "c7", "dark")),
+    "title-bloom": light-dark(map.get(c.$retro, "c8", "light"), map.get(c.$retro, "c8", "dark")),
+    // Between the two, a tight black shadow: it is what keeps the letters legible where
+    // the glow would otherwise wash their edges out.
+    "title-contour": map.get(c.$grey, "black")
 ) !default;

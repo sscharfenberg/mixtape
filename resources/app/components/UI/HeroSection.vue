@@ -1,11 +1,11 @@
 <script setup lang="ts">
 /******************************************************************************
  * HeroSection
- * The first row of a detail page: a square of art beside a title and one line of
- * metadata, in a panel framed by a slowly rotating gradient ring. Generic by
- * construction — a song fills it today, an album / artist / genre will fill it with
- * their own art and credits — so it takes everything through slots and knows nothing
- * about what it is describing.
+ * The first row of a detail page: a title and one line of metadata, with a square of
+ * art on the trailing edge, in a panel framed by a slowly rotating gradient ring.
+ * Generic by construction — a song fills it today, an album / artist / genre will fill
+ * it with their own art and credits — so it takes everything through slots and knows
+ * nothing about what it is describing.
  *
  * Three slots, all optional:
  *   #cover     the artwork. Pass an <img> and it is sized to fill the square; pass
@@ -70,17 +70,16 @@
 }
 
 /* Stacked on a phone (cover, then title — the reading order), side-by-side from
-   `portrait` up, where a square cover plus a title line fit across without either being
-   squeezed.
+   `portrait` up, where a title plus a square cover fit across without either being
+   squeezed. The art sits on the TRAILING edge there, so the text starts at the panel's
+   leading edge where a reader's eye already is.
 
-   The meta column is CENTRED against the cover rather than stretched to its height: it
-   holds two short lines next to a ~240px square, and top-aligning them leaves a tall
-   well of empty space under the text that reads as a missing element. Centred, the two
-   halves of the row balance. */
+   Both halves take the row's full height (the grid default) rather than being centred in
+   it, so the title starts at the top of the panel — the metadata line then reads as
+   hanging off the title rather than as floating in the middle of the row. */
 .hero-section {
     display: grid;
     position: relative; // positioning context for the border ring below
-    align-items: center;
     isolation: isolate; // keep the ring's rung contained to this panel
 
     padding: map.get(s.$c-hero-section, "padding");
@@ -90,7 +89,7 @@
     border-radius: map.get(s.$c-hero-section, "radius");
 
     @include m.mq("portrait") {
-        grid-template-columns: auto 1fr;
+        grid-template-columns: 1fr auto;
     }
 
     /* The featured border, drawn as a gradient ring: fill the ::before with the hue ramp
@@ -120,8 +119,7 @@
 
         border: map.get(s.$c-hero-section, "border") solid transparent;
 
-        background: conic-gradient(from var(--hero-section-border-angle), #{$ramp}, #{list.nth($ramp, 1)})
-            border-box;
+        background: conic-gradient(from var(--hero-section-border-angle), #{$ramp}, #{list.nth($ramp, 1)}) border-box;
 
         border-radius: inherit;
         mask:
@@ -140,91 +138,181 @@
             animation: hero-section-border-rotate ti.$c-hero-section linear infinite;
         }
     }
-}
 
-/* The frame around the cover slot: a fixed square that grows a step at the wider
-   breakpoints, capped at 100% so the stacked phone layout can't push it past the
-   panel's padding. `place-items: center` is for whatever a caller slots in that ISN'T
-   an image — an icon standing in for missing art. */
-.hero-section__cover {
-    display: grid;
-    place-items: center;
+    /* The frame around the cover slot: a fixed square that grows a step at the wider
+    breakpoints, capped at 100% so the stacked phone layout can't push it past the
+    panel's padding. `place-items: center` is for whatever a caller slots in that ISN'T
+    an image — an icon standing in for missing art.
 
-    overflow: hidden; // clip a non-square scan to the frame's corners
+    `align-self: start` keeps the square SQUARE. Without it the frame takes the grid's
+    default stretch, which hands it a definite height — and a definite height beats
+    `aspect-ratio`, so a title long enough to make the text column the taller of the two
+    (four wrapped lines happens in a ripped collection) would pull the art into a
+    rectangle. Column 2 because the art sits on the trailing edge from `portrait` up;
+    below that the grid is one column and the DOM order (cover first) stands. */
+    &__cover {
+        display: grid;
+        align-self: start;
+        place-items: center;
 
-    width: map.get(s.$c-hero-section, "cover", "base");
-    max-width: 100%;
-    aspect-ratio: 1;
+        overflow: hidden; // clip a non-square scan to the frame's corners
 
-    border-radius: map.get(s.$c-hero-section, "cover-radius");
+        width: map.get(s.$c-hero-section, "cover", "base");
+        max-width: 100%;
+        aspect-ratio: 1;
 
-    @include m.mq("landscape") {
-        width: map.get(s.$c-hero-section, "cover", "landscape");
+        border-radius: map.get(s.$c-hero-section, "cover-radius");
+
+        @include m.mq("portrait") {
+            grid-column: 2;
+            grid-row: 1;
+        }
+
+        @include m.mq("landscape") {
+            width: map.get(s.$c-hero-section, "cover", "landscape");
+        }
+
+        @include m.mq("desktop") {
+            width: map.get(s.$c-hero-section, "cover", "desktop");
+        }
+
+        /* Art fills the frame; `object-fit: cover` keeps a non-square scan from distorting.
+           `:slotted` because the <img> belongs to the caller's scope, not this one — it is the
+           supported way for a component to size what it was handed. */
+        > :slotted(img) {
+            width: 100%;
+            height: 100%;
+
+            object-fit: cover;
+        }
+
+        /* No art on disk: the same square, drawn as a dashed neon outline around whatever the
+           caller put there instead (a muted icon), so the hero keeps its shape and the gap
+           reads as "nothing here" rather than as a failed image.
+
+           Keyed off `:has(img)` rather than a prop, because the DOM already answers the
+           question — the caller decides by what it slots in, and cannot get the two out of
+           sync by passing an image and forgetting the flag. */
+        &:not(:has(img)) {
+            border: map.get(s.$c-hero-section, "cover-placeholder-border") dashed
+                map.get(c.$c-hero-section, "cover-placeholder-border");
+
+            background-color: map.get(c.$c-hero-section, "cover-placeholder-background");
+            color: map.get(c.$c-hero-section, "cover-placeholder-icon");
+        }
     }
 
-    @include m.mq("desktop") {
-        width: map.get(s.$c-hero-section, "cover", "desktop");
+    /* Column 1 — the text leads, the art follows. Explicit rather than left to
+       auto-placement, so the pair can't drift out of the row if a third block is ever
+       slotted in beside them. */
+    &__meta {
+        display: flex;
+        flex-direction: column;
+
+        gap: map.get(s.$c-hero-section, "meta-gap");
+
+        @include m.mq("portrait") {
+            grid-column: 1;
+            grid-row: 1;
+        }
     }
 
-    /* Art fills the frame; `object-fit: cover` keeps a non-square scan from distorting.
-       `:slotted` because the <img> belongs to the caller's scope, not this one — it is the
-       supported way for a component to size what it was handed. */
-    > :slotted(img) {
-        width: 100%;
-        height: 100%;
+    /* The page's heading, wherever the caller puts its <h1>. Bigger than body text and
+       tight-leaded so a long title wraps into a block rather than a ladder;
+       `overflow-wrap` because titles do contain single unbroken monsters (a URL, a
+       40-character German compound).
 
-        object-fit: cover;
+       The slotted heading has its UA type and margin flattened so this type wins: the
+       caller picks the ELEMENT (which level belongs in the document outline) and the hero
+       decides how it looks.
+
+       The letters are painted the way the app wordmark is (AppHeaderTitle): the fill is a
+       BACKGROUND clipped to the glyphs, with the text itself transparent, which is the
+       only way to run a gradient through type. Small sizes get the flat tint and the
+       chrome gradient waits for `landscape`, exactly as the wordmark's does — the gradient
+       splits at its own midline, and a 24px heading isn't tall enough for that split to
+       read as anything but noise.
+
+       The glow is a `filter`, not the wordmark's `text-shadow`, and that is forced by the
+       slot. `text-shadow` paints ABOVE an element's background, so on a single element it
+       would wash over the gradient it is supposed to be lighting; the wordmark dodges that
+       by stacking two copies of its text, which needs the text twice in the markup — and
+       here the text is the caller's, once. `drop-shadow` filters the element as already
+       rendered, so the glow follows the glyph shapes and sits behind them, gradient
+       intact. The bloom is a fraction of the wordmark's 5em: a filter blurs the real painted
+       result, so a wide radius costs far more than a shadow, reads as fog rather than as
+       neon, and — the reason it is as short as it is — spills over the metadata tiles
+       sitting directly beneath the title.
+
+       The chain's ORDER is the legibility. Each filter takes the previous result, so the
+       near-black rim has to come first to hug the letters — put it after the neon and it
+       ends up ringing the glow instead of the glyphs, which is what made this title read
+       as softer than the wordmark. It is applied twice because a single pass at that radius
+       can't hold an edge against the bloom. Two passes stand in for the second
+       `-webkit-text-stroke` the wordmark can afford (0.06em black at 50%, on the copy of
+       the text underneath its gradient copy) and this can't: one element has one stroke,
+       and it is the one below.
+
+       That STROKE is what carries light mode, and its width is worth the extra rule: measured
+       side by side, a thicker rim barely helped on the white panel (a blurred shadow outside
+       the glyphs cannot produce an edge) and neutralising the ramp's white specular stop
+       changed almost nothing — the outline is what holds the letters together, and at the
+       hairline width it does nothing at all. The dark panel needs none of it, so the width
+       drops back there via `theme-dark`. Its colour is already theme-split in the token;
+       `light-dark()` does not do lengths, which is why the width takes a rule of its own. */
+    &__title {
+        overflow-wrap: anywhere;
+
+        background-color: map.get(c.$c-hero-section, "title-fill");
+        background-clip: text;
+        -webkit-text-stroke: map.get(s.$c-hero-section, "title-effect", "stroke")
+            map.get(c.$c-hero-section, "title-stroke");
+        -webkit-text-fill-color: transparent; // inherited by the slotted heading
+
+        font-family: map.get(t.$c-hero-section, "title");
+        line-height: 1.1;
+
+        @include m.mqset(
+            "font-size",
+            #{map.get(s.$c-hero-section, "title-font-size", "base")},
+            #{map.get(s.$c-hero-section, "title-font-size", "portrait")},
+            #{map.get(s.$c-hero-section, "title-font-size", "landscape")},
+            #{map.get(s.$c-hero-section, "title-font-size", "desktop")}
+        );
+
+        @include m.mq("landscape") {
+            $rim: 0 0 map.get(s.$c-hero-section, "title-effect", "rim") map.get(c.$c-hero-section, "title-contour");
+
+            background-color: transparent;
+            background-image: map.get(c.$c-hero-section, "title-gradient");
+
+            filter: drop-shadow($rim) drop-shadow($rim)
+                drop-shadow(
+                    0 0 map.get(s.$c-hero-section, "title-effect", "glow") map.get(c.$c-hero-section, "title-glow")
+                )
+                drop-shadow(
+                    0 0 map.get(s.$c-hero-section, "title-effect", "bloom") map.get(c.$c-hero-section, "title-bloom")
+                );
+        }
+
+        > :slotted(*) {
+            margin: 0;
+
+            font-size: inherit;
+            line-height: inherit;
+        }
     }
 
-    /* No art on disk: the same square, drawn as a dashed neon outline around whatever the
-       caller put there instead (a muted icon), so the hero keeps its shape and the gap
-       reads as "nothing here" rather than as a failed image.
-
-       Keyed off `:has(img)` rather than a prop, because the DOM already answers the
-       question — the caller decides by what it slots in, and cannot get the two out of
-       sync by passing an image and forgetting the flag. */
-    &:not(:has(img)) {
-        border: map.get(s.$c-hero-section, "cover-placeholder-border") dashed
-            map.get(c.$c-hero-section, "cover-placeholder-border");
-
-        background-color: map.get(c.$c-hero-section, "cover-placeholder-background");
-        color: map.get(c.$c-hero-section, "cover-placeholder-icon");
+    // Dark mode keeps the hairline: the neon fill already separates from a black panel, and
+    // light mode's heavier outline would only grey the letters down here.
+    @include m.theme-dark(".hero-section__title") {
+        -webkit-text-stroke-width: map.get(s.$c-hero-section, "title-effect", "stroke-dark");
     }
-}
 
-.hero-section__meta {
-    display: flex;
-    flex-direction: column;
-
-    gap: map.get(s.$c-hero-section, "meta-gap");
-}
-
-/* The page's heading, wherever the caller puts its <h1>. Bigger than body text and
-   tight-leaded so a long title wraps into a block rather than a ladder;
-   `overflow-wrap` because titles do contain single unbroken monsters (a URL, a
-   40-character German compound).
-
-   The slotted heading has its UA type and margin flattened so this type wins: the
-   caller picks the ELEMENT (which level belongs in the document outline) and the hero
-   decides how it looks. */
-.hero-section__title {
-    overflow-wrap: anywhere;
-
-    font-family: map.get(t.$c-hero-section, "title");
-    font-size: map.get(s.$c-hero-section, "title-font-size");
-    line-height: 1.1;
-
-    > :slotted(*) {
+    &__metadata {
         margin: 0;
 
-        font-size: inherit;
-        line-height: inherit;
+        color: map.get(c.$c-hero-section, "metadata");
     }
-}
-
-.hero-section__metadata {
-    margin: 0;
-
-    color: map.get(c.$c-hero-section, "metadata");
 }
 </style>
