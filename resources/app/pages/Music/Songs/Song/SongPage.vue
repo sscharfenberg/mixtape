@@ -156,7 +156,19 @@ const songFacts = computed<Fact[]>(() => {
         // The album's name lives HERE and only here (not up in `tags`): this card is
         // the release the song sits on, so its name heads the facts about it — and the
         // label that put the release out follows it, for the same reason.
-        { key: "album", group: album, icon: "music", label: t("music.columns.album"), value: song.album },
+        //
+        // The one fact on this page that LEADS somewhere, so it is the one filled tile:
+        // `href` comes from the server (`albumUrl`), which is null for a song filed
+        // under no album — and then the tile is a plain fact again, with no dead link
+        // and no special colour.
+        {
+            key: "album",
+            group: album,
+            icon: "music",
+            label: t("music.columns.album"),
+            value: song.album,
+            href: song.albumUrl ?? undefined
+        },
         // The one fact with no icon: a record label is a company, and the sprite has no
         // company / tag glyph to stand for one. Better a gap than a misleading picture.
         { key: "publisher", group: album, label: t("music.song.labels.publisher"), value: song.publisher },
@@ -260,7 +272,16 @@ const songFacts = computed<Fact[]>(() => {
                         :label="t('music.columns.artist')"
                         :value="song.artist"
                     />
-                    <fact-pair v-if="song.album" icon="album" :label="t('music.columns.album')" :value="song.album" />
+                    <!-- The album tile links to the album's page, the same `albumUrl` the
+                         facts card below uses — so the two tiles for the one fact stay the
+                         one thing, filled and clickable in both places. -->
+                    <fact-pair
+                        v-if="song.album"
+                        icon="album"
+                        :label="t('music.columns.album')"
+                        :value="song.album"
+                        :href="song.albumUrl ?? undefined"
+                    />
                     <fact-pair
                         v-if="song.year !== null"
                         icon="calendar"

@@ -60,6 +60,12 @@ export interface SongDetail {
     artist: string | null;
     /** Album (collection) name, or null when the song isn't filed under one. */
     album: string | null;
+    /**
+     * The album's own page, or null when there is no album. Decided server-side like a
+     * DataTable row's `href`, so the page links the name when it is given a URL and
+     * prints it plainly when it isn't.
+     */
+    albumUrl: string | null;
     /** Genre name, or null when untagged. */
     genre: string | null;
     /** The album's release year, or null when unknown. */

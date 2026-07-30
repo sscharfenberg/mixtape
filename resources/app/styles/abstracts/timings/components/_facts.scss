@@ -1,0 +1,15 @@
+/******************************************************************************
+ * contextual timing token — component:facts
+ * @type {Sass}
+ * How fast a LINKING fact tile inverts on hover (Components/UI/Card/FactPair) — the
+ * only motion in an otherwise static block of tiles. The `fast` rung, the same one the
+ * text link uses (ti.$c-textlink), because this is the same event at a larger scale: a
+ * pointer arriving on a link. A slower swap would trail the cursor across a card full
+ * of tiles; an instant one flickers when the pointer merely crosses a tile on its way
+ * somewhere else.
+ * Consumed as ti.$c-facts via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$facts: map.get(ti.$timings, "fast") !default;

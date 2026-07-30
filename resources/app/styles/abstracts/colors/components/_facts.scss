@@ -28,5 +28,24 @@ $facts: (
             color.adjust(map.get(c.$grey, "mystic"), $alpha: -0.2),
             color.adjust(map.get(c.$grey, "ebony"), $alpha: -0.2)
         ),
-    "label": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron"))
+    "label": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
+    // A tile that LEADS somewhere (a song's album, linking to the album page) is filled
+    // instead of washed, which is the whole signal: every other tile is a dead end, and
+    // one of them being a different object entirely is easier to read than a link
+    // underline inside a value.
+    //
+    // Each side takes a whole BRAND pair rather than a hue picked by hand: `$brand`
+    // stores every colour with the `contrast` it was chosen to carry, so a filled chip
+    // is one decision and its ink can never be the weak half of a guess. Light mode
+    // takes `light1` (pale blue, navy ink), dark mode `dark2` (dark green, yellow ink).
+    //
+    // The hues therefore DIFFER by theme, which looks like an inconsistency and is the
+    // point: the tile's job is to read as a different kind of object from the washed
+    // tiles around it, and how loudly a fill says that depends entirely on what it sits
+    // on. Two rejections got here — a yellow fill on the dark panel (`light2`) was
+    // louder than the neon beside it, and the dark green that works on black was still
+    // too heavy against a white card, where a near-black block reads as a button. A
+    // pale fill does the separating on white; a dark one does it on black.
+    "link-background": light-dark(map.get(c.$brand, "light1", "color"), map.get(c.$brand, "dark2", "color")),
+    "link-surface": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$brand, "dark2", "contrast"))
 ) !default;

@@ -46,6 +46,12 @@ export type Fact = {
     wide?: boolean;
     /** Render the value monospaced — for values read character by character rather than as prose (paths, hashes). */
     mono?: boolean;
+    /**
+     * Where this fact leads, if anywhere — an Inertia path. The tile is then filled and
+     * clickable (FactPair). Set it only for a fact whose subject HAS a page: a song's
+     * album does, its bit rate does not.
+     */
+    href?: string;
 };
 
 /** One card's worth: its title (empty for the untitled catch-all group) and the pairs that survived the filter. */
@@ -109,6 +115,7 @@ const spansWide = (group: FactGroup): boolean => props.wideGroups === true && gr
                     :value="fact.value!"
                     :icon="fact.icon"
                     :mono="fact.mono"
+                    :href="fact.href"
                 />
             </ul>
         </card>

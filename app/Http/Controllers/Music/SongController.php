@@ -57,6 +57,15 @@ class SongController extends Controller
                 'name' => $song->name,
                 'artist' => $song->artist?->name,
                 'album' => $song->collection?->name,
+                // Where the album name LEADS — the same shape a DataTable row's `href`
+                // takes, and here for the same reason: the server owns which links exist,
+                // so the page renders a link when it is handed one and plain text when it
+                // is not. Null for a song filed under no album, and the only one of these
+                // names that gets a URL at all, because the artist and genre pages are
+                // still listings with no detail page behind them.
+                'albumUrl' => $song->collection_id === null
+                    ? null
+                    : route('music.albums.show', $song->collection_id, absolute: false),
                 'genre' => $song->genre?->name,
                 'year' => $song->collection?->year,
                 'composer' => $song->composer,

@@ -378,6 +378,21 @@
 
             box-shadow: 0 0 map.get(s.$c-hero-section, "metadata-halo") map.get(c.$c-hero-section, "metadata-halo");
         }
+
+        /* A tile that LINKS gets the same halo in a different colour, because the neon one
+           vanishes on it: in light mode that glow is blue drawn around a pale blue chip, and
+           in dark mode it is a low-alpha blue with a dark tile behind it. Its own ink is the
+           one colour guaranteed to read in both — see c.$c-hero-section
+           "metadata-halo-link".
+
+           Naming FactPair's class from here is deliberate, and the narrowest way to say it:
+           the halo is the HERO's decision (the tile is flat in a card), so the exception has
+           to live where the rule does. Same shape as the `:slotted(img)` test in the cover
+           slot above — this component keys off what it was actually handed. */
+        > :slotted(.fact-pair--link) {
+            box-shadow: 0 0 map.get(s.$c-hero-section, "metadata-halo")
+                map.get(c.$c-hero-section, "metadata-halo-link");
+        }
     }
 }
 </style>

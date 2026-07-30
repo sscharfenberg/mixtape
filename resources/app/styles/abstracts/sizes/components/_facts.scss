@@ -36,5 +36,10 @@ $facts: (
     "label-tracking": 0.06em,
     "label-icon-gap": 0.5ch,
     "value-font-size": 1.1rem,
-    "mono-font-size": 1rem
+    "mono-font-size": 1rem,
+    // The keyboard focus ring on a LINKING tile, used as both width and offset so the
+    // ring sits one line-width clear of the fill it surrounds — a ring drawn tight
+    // against a saturated chip reads as part of the chip. The `base` border rung, so it
+    // matches every other hairline in the app.
+    "link-outline": map.get(s.$border, "base")
 ) !default;

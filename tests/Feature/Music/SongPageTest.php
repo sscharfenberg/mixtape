@@ -54,6 +54,37 @@ class SongPageTest extends TestCase
             );
     }
 
+    public function test_the_album_fact_carries_a_link_to_the_albums_page(): void
+    {
+        // The album is the one fact on this page that leads somewhere, and the server
+        // decides that — the page renders a filled, clickable tile when handed a URL and
+        // a plain fact when not, so this prop IS the feature.
+        $album = Collection::factory()->create(['name' => 'Thunder Road']);
+        $song = Track::factory()->create(['collection_id' => $album->id]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/songs/{$song->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('song.album', 'Thunder Road')
+                ->where('song.albumUrl', "/music/albums/{$album->id}")
+            );
+    }
+
+    public function test_a_song_under_no_album_gets_no_album_link(): void
+    {
+        // No album, no URL — and therefore no dead link and no filled tile on the page.
+        $song = Track::factory()->create(['collection_id' => null]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/songs/{$song->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('song.album', null)
+                ->where('song.albumUrl', null)
+            );
+    }
+
     public function test_untagged_fields_come_through_as_null_rather_than_failing(): void
     {
         // A music file whose tags named no album/genre: the FKs are nullable, and

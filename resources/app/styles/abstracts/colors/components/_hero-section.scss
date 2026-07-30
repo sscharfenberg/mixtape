@@ -92,6 +92,33 @@ $hero-section: (
             color.adjust(map.get(c.$retro, "c3", "light"), $alpha: -0.6),
             color.adjust(map.get(c.$retro, "c3", "dark"), $alpha: -0.55)
         ),
+    // The same halo for a tile that LINKS somewhere (FactPair's `--link` variant, filled in
+    // a brand pair instead of washed). It cannot be the neon above, because that glow
+    // disappears on one: in light mode it is a blue glow drawn around a pale BLUE chip, so
+    // the two merge into a single soft edge, and in dark mode a 45%-alpha blue has nothing
+    // to push against once the tile behind it is dark too.
+    //
+    // So a linked tile glows in its OWN INK, which is what makes one rule work in both
+    // themes: a brand pair's `contrast` is chosen to sit on its own fill, and in each theme
+    // that also puts it at the opposite lightness to the panel — navy around a pale chip on
+    // white, yellow around a dark chip on black. No single fixed hue can do both.
+    //
+    // Re-picked from `$brand` rather than read off c.$c-facts, per the token rules (a
+    // contextual partial consumes globals, never another partial's tokens), so if the chip's
+    // pair is retuned this is the second place to follow it.
+    //
+    // The alphas are FAR apart, and the first attempt at this token set them nearly equal —
+    // repeating the exact mistake the neon halo above already records. A glow is blurred
+    // over 8px, so what reaches the eye is a fraction of the stated alpha, and on white
+    // that fraction has to fight a panel already at maximum lightness: 40% navy simply
+    // wasn't there. The dark side has the opposite problem, or rather none — a bright ink
+    // on a black panel reads at almost any alpha, and pushing it would turn a halo into a
+    // lamp. So: heavy on white, light on black, which is upside-down from what "keep the
+    // two in step" suggests and is what actually looks even.
+    "metadata-halo-link": light-dark(
+            color.adjust(map.get(c.$brand, "light1", "contrast"), $alpha: -0.25),
+            color.adjust(map.get(c.$brand, "dark2", "contrast"), $alpha: -0.55)
+        ),
     // The title's synthwave treatment, walking the same hues the app wordmark does
     // (AppHeaderTitle) — but picked HERE from the global palette rather than read off
     // c.$c-title: a contextual partial consumes globals, never another partial's tokens.

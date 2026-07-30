@@ -14,7 +14,15 @@
  * Its width is left to the parent — Facts lets the tiles grow to fill a card's line,
  * the hero has them hug their content — because "how wide" is the row's decision, not
  * the tile's.
+ *
+ * Pass `href` and the tile becomes a LINK — filled in the brand pair rather than washed,
+ * because a fact that leads somewhere is a different kind of object from the dead ends
+ * around it. The anchor wraps only the value, but is stretched over the whole tile by a
+ * pseudo-element (see the styles), so the padding is clickable while the link's
+ * accessible name stays just the value — "Luciferian Towers", not "ALBUM Luciferian
+ * Towers".
  *****************************************************************************/
+import { Link } from "@inertiajs/vue3";
 import Icon from "Components/UI/Icon.vue";
 
 defineProps<{
@@ -26,16 +34,30 @@ defineProps<{
     icon?: string;
     /** Render the value monospaced — for values read character by character (paths, hashes). */
     mono?: boolean;
+    /**
+     * Where this fact leads, if anywhere — an Inertia path, so the tile navigates
+     * client-side like any other <Link>. Omit for the normal, unclickable tile; the
+     * caller decides, because only it knows whether the thing behind the value has a page
+     * (a song's album does, its codec does not).
+     */
+    href?: string;
 }>();
 </script>
 
 <template>
-    <li class="fact-pair">
+    <li class="fact-pair" :class="{ 'fact-pair--link': href }">
         <span class="fact-pair__label">
             <icon v-if="icon" :name="icon" :size="0" />
             {{ label }}
         </span>
-        <span class="fact-pair__value" :class="{ 'fact-pair__value--mono': mono }">{{ value }}</span>
+        <Link
+            v-if="href"
+            :href="href"
+            class="fact-pair__value fact-pair__value--link"
+            :class="{ 'fact-pair__value--mono': mono }"
+            >{{ value }}</Link
+        >
+        <span v-else class="fact-pair__value" :class="{ 'fact-pair__value--mono': mono }">{{ value }}</span>
     </li>
 </template>
 
@@ -43,6 +65,7 @@ defineProps<{
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "Abstracts/colors" as c;
 @use "Abstracts/sizes" as s;
+@use "Abstracts/timings" as ti;
 @use "Abstracts/typography" as t;
 
 /* Stacked: label over value. Stacking is why there is no label column to align across
@@ -102,5 +125,75 @@ defineProps<{
 .fact-pair__value--mono {
     font-family: map.get(t.$c-facts, "mono");
     font-size: map.get(s.$c-facts, "mono-font-size");
+}
+
+/* A tile that leads somewhere: FILLED in the brand pair instead of washed. Both halves
+   take the pair's ink — including the label, which normally wears a muted grey that has
+   no contrast to spare on a saturated fill; the size and the caps keep the hierarchy
+   without needing a second colour.
+
+   `position: relative` is the anchor of the stretched link below. */
+.fact-pair--link {
+    position: relative;
+
+    background-color: map.get(c.$c-facts, "link-background");
+    color: map.get(c.$c-facts, "link-surface");
+
+    .fact-pair__label {
+        color: inherit;
+    }
+
+    /* Hover INVERTS the tile — fill and ink swap places — rather than underlining the
+       value. Two reasons it is the better signal here: the tile is the click target, so
+       the feedback should be the tile's, not the text's; and an underline inside a
+       coloured chip adds a second link cue to something the fill already announced.
+       Reading the swap out of the same two tokens means it cannot drift from the resting
+       state, and the label follows for free (it inherits).
+
+       Hovering the TILE, not the anchor: the pointer is over the tile whenever it is
+       over the stretched hit box, so this fires for the padding too. */
+    &:hover {
+        background-color: map.get(c.$c-facts, "link-surface");
+        color: map.get(c.$c-facts, "link-background");
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+        transition:
+            background-color ti.$c-facts ease-out,
+            color ti.$c-facts ease-out;
+    }
+
+    /* The focus ring belongs to the TILE, not to the value inside it: the anchor's own box
+       is just the text, while what a keyboard user sees highlighted has to be the thing
+       they are about to activate — which the stretched pseudo-element made the whole tile.
+       `:has()` is how the outline gets from the focused child onto the parent. */
+    &:has(.fact-pair__value--link:focus-visible) {
+        outline: map.get(s.$c-facts, "link-outline") solid currentcolor;
+        outline-offset: map.get(s.$c-facts, "link-outline");
+    }
+}
+
+/* The link itself is bare type — no blue, and no underline in any state — because the
+   FILL is the affordance and the hover inversion above is the feedback. Both colours come
+   from the tile (`inherit`), so the anchor never has an opinion of its own to keep in
+   step.
+
+   `::after` is the click target: it covers the tile, so the padding and the label
+   activate the link too, without wrapping the label in the anchor (which would make the
+   link's accessible name "ALBUM Luciferian Towers"). `border-radius: inherit` keeps the
+   hit box off the tile's rounded corners. */
+.fact-pair__value--link {
+    color: inherit;
+
+    text-decoration: none;
+
+    &::after {
+        position: absolute;
+        inset: 0;
+
+        border-radius: inherit;
+
+        content: "";
+    }
 }
 </style>
