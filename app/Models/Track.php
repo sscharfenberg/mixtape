@@ -70,9 +70,23 @@ class Track extends Model
      */
     public function absolutePath(): string
     {
-        $root = rtrim((string) config('mixtape.library.paths.'.$this->type->libraryPathKey()), '/');
+        return self::absolutePathFor($this->path, $this->type);
+    }
 
-        return $root.'/'.$this->path;
+    /**
+     * The same resolution for a path a caller is holding WITHOUT its Track row.
+     *
+     * Exists for the listings: the Albums table needs one file's directory per album
+     * (to look for the sibling folder image) and gets that path out of the same query
+     * as the rest of the row, so hydrating a representative Track per row would cost a
+     * query per row for a string it already has. Instance method delegates here, so
+     * there is still one place that knows how a stored path becomes a real one.
+     */
+    public static function absolutePathFor(string $path, TrackType $type): string
+    {
+        $root = rtrim((string) config('mixtape.library.paths.'.$type->libraryPathKey()), '/');
+
+        return $root.'/'.$path;
     }
 
     /** @return BelongsTo<Collection, $this> */

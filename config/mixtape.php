@@ -71,9 +71,10 @@ return [
     |
     | Covers are NOT stored in the database (the scanner only records whether a
     | file has one, as `tracks.cover`) — they are extracted on first request and
-    | cached as JPEGs, the way the legacy CoverService did it. Two sources, in
-    | order: the audio file's own embedded picture, else `folder_image` sitting
-    | beside it in the album directory (what every ripper writes).
+    | cached as JPEGs, the way the legacy CoverService did it. Two sources: the
+    | audio file's own embedded picture, and an image sitting beside it in the
+    | album directory. A SONG prefers its own embedded picture; an ALBUM prefers
+    | the directory image (CoverService::albumPath says why).
     |
     | `width` is the long edge the cached copy is scaled down to — a 1400px
     | booklet scan is a needless megabyte on a detail page. Images smaller than
@@ -83,10 +84,31 @@ return [
 
     'covers' => [
 
-        // Fallback image looked for in the audio file's own directory. Legacy
-        // `collection.coverFile.name`; Windows Media Player / most rippers
-        // write exactly this name.
-        'folder_image' => 'Folder.jpg',
+        // Directory images to look for beside the audio file, in this ORDER — the
+        // first that matches wins. Matched CASE-INSENSITIVELY, and that is the whole
+        // reason this is a list of lower-case names rather than the single
+        // "Folder.jpg" it started as (legacy `collection.coverFile.name`, the name
+        // Windows Media Player is documented to write). Measured against the real
+        // collection: of 951 album directories, 923 hold `folder.jpg` in lower case
+        // and exactly ONE holds the capitalised spelling — so on a case-sensitive
+        // filesystem the old exact-name lookup found art in 1 directory out of 951.
+        // It went unnoticed because 12051 of 12060 files carry embedded art, which is
+        // checked first for a song and so almost never reaches this list.
+        //
+        // The order matters where a directory holds several images: 63 of them have
+        // `cover.jpg` beside `folder.jpg`, and the collection also contains
+        // `back.jpg`, `cd.jpg`, `inlay.jpg` and `booklet.jpg` — a back cover or a
+        // disc scan must never become an album's thumbnail by sorting earlier than
+        // the front. Names NOT on this list are therefore only ever used when the
+        // directory holds exactly one image (see CoverService::directoryImage).
+        'folder_images' => [
+            'folder.jpg',
+            'cover.jpg',
+            'front.jpg',
+            'folder.png',
+            'cover.png',
+            'front.png',
+        ],
 
         // Long edge (px) of the cached copy, and its JPEG quality.
         'width' => 450,
