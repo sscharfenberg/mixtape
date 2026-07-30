@@ -11,14 +11,15 @@ use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 /**
- * One album's detail page (`/music/albums/{album}`, behind auth) — the scaffold the
- * Albums listing's rows lead to.
+ * One album's detail page (`/music/albums/{album}`, behind auth) — where the Albums
+ * listing's rows lead.
  *
- * The page itself is still a hero and a "coming soon" line, so what is worth testing
- * is what the controller decides: the container's own totals (which must agree with
- * what the listing reports for the same album), the type guard that keeps the other
- * two collection kinds off this route, and the cover URL being decided without any
- * extraction.
+ * Two halves to cover. The container's own facts: its totals (which must agree with what
+ * the listing reports for the same album), the type guard keeping the other two
+ * collection kinds off this route, and a cover URL decided without extracting anything.
+ * Then its TRACK TABLE: the album's running order (disc, then track — the reason
+ * DataTableService grew tiebreakers), the raw values each row carries, and that a
+ * user-chosen sort or search still only ever sees this album's tracks.
  */
 class AlbumPageTest extends TestCase
 {
@@ -94,6 +95,157 @@ class AlbumPageTest extends TestCase
                 ->where('album.duration', null)
                 ->where('album.modifiedAt', null)
                 ->where('album.coverUrl', null)
+            );
+    }
+
+    public function test_the_track_table_is_ordered_by_disc_then_track(): void
+    {
+        // The album's running order, and the reason DataTableService grew tiebreakers: the
+        // frontend can only ask for ONE sort key, so "disc" alone would leave the tracks
+        // within a disc in whatever order the engine felt like. Inserted deliberately
+        // scrambled, so passing means the ORDER BY did the work and not the insert order.
+        $album = Collection::factory()->create();
+
+        foreach ([[2, 1, 'Disc two, first'], [1, 2, 'Disc one, second'], [2, 2, 'Disc two, second'], [1, 1, 'Disc one, first']] as [$disc, $track, $name]) {
+            Track::factory()->create([
+                'collection_id' => $album->id,
+                'disc' => $disc,
+                'track' => $track,
+                'name' => $name,
+                'cover' => false,
+            ]);
+        }
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/albums/{$album->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('table.rows', 4)
+                ->where('table.sort.key', 'disc')
+                ->where('table.rows.0.name', 'Disc one, first')
+                ->where('table.rows.1.name', 'Disc one, second')
+                ->where('table.rows.2.name', 'Disc two, first')
+                ->where('table.rows.3.name', 'Disc two, second')
+            );
+    }
+
+    public function test_the_table_reports_which_columns_also_order_it(): void
+    {
+        // What lets the header mark CD *and* Track as sorted. The primary is skipped, so
+        // the default view reports only the keys that are genuinely secondary…
+        $album = Collection::factory()->create();
+        Track::factory()->count(2)->create(['collection_id' => $album->id]);
+
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get("/music/albums/{$album->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('table.sort.key', 'disc')
+                ->where('table.tiebreakers', ['track', 'name'])
+            );
+
+        // …and under another sort, all three are secondary and all three are reported.
+        $this->actingAs($user)
+            ->get("/music/albums/{$album->id}?sort=duration&dir=desc")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('table.sort.key', 'duration')
+                ->where('table.tiebreakers', ['disc', 'track', 'name'])
+            );
+    }
+
+    public function test_a_track_row_carries_its_raw_values_and_a_link_to_the_song(): void
+    {
+        $album = Collection::factory()->create();
+        $track = Track::factory()->create([
+            'collection_id' => $album->id,
+            'name' => 'Teen Age Riot',
+            'artist_id' => Artist::factory()->create(['name' => 'Sonic Youth'])->id,
+            'disc' => 1,
+            'track' => 1,
+            'duration' => 419.5,
+            'size' => 16_785_408,
+            'cover' => true,
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/albums/{$album->id}")
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('table.rows.0.name', 'Teen Age Riot')
+                ->where('table.rows.0.artist', 'Sonic Youth')
+                ->where('table.rows.0.disc', 1)
+                ->where('table.rows.0.track', 1)
+                // Raw seconds and raw bytes — the page clocks and humanises them.
+                ->where('table.rows.0.duration', 419.5)
+                ->where('table.rows.0.size', 16_785_408)
+                // The track's OWN embedded art, from the scan-time flag with no
+                // filesystem access.
+                ->where('table.rows.0.coverUrl', "/music/songs/{$track->id}/cover")
+                // What makes the row clickable, and where it goes.
+                ->where('table.rows.0.href', "/music/songs/{$track->id}")
+            );
+    }
+
+    public function test_a_track_with_no_embedded_art_gets_no_cover_url(): void
+    {
+        // Deliberately NOT falling back to the album's directory image: that one is the
+        // hero right above the table, and repeating it down every row says nothing about
+        // the track. The page draws its placeholder instead.
+        $album = Collection::factory()->create(['cover_path' => 'Some Artist/Some Album/folder.jpg']);
+        Track::factory()->create(['collection_id' => $album->id, 'cover' => false]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/albums/{$album->id}")
+            ->assertInertia(fn (Assert $page) => $page->where('table.rows.0.coverUrl', null));
+    }
+
+    public function test_the_track_table_can_be_sorted_and_searched(): void
+    {
+        $album = Collection::factory()->create();
+        $short = Track::factory()->create([
+            'collection_id' => $album->id, 'name' => 'Providence', 'duration' => 145.0, 'disc' => 1, 'track' => 9,
+        ]);
+        $long = Track::factory()->create([
+            'collection_id' => $album->id, 'name' => 'Trilogy', 'duration' => 800.0, 'disc' => 1, 'track' => 10,
+        ]);
+
+        $user = User::factory()->create();
+
+        // A user-chosen sort must beat the default disc order…
+        $this->actingAs($user)
+            ->get("/music/albums/{$album->id}?sort=duration&dir=desc")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('table.rows.0.id', $long->id)
+                ->where('table.rows.1.id', $short->id)
+            );
+
+        // …and search narrows to this album's own tracks. `assertOk` before `assertInertia`
+        // on purpose: a 500 here reports as the unhelpful "Not a valid Inertia response",
+        // which is exactly how this test's first version hid a TypeError in the search
+        // callback (a HasMany where FoldedSearch wanted a Builder).
+        $this->actingAs($user)
+            ->get("/music/albums/{$album->id}?search=Providence")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('table.rows', 1)
+                ->where('table.rows.0.id', $short->id)
+            );
+    }
+
+    public function test_another_albums_tracks_stay_out_of_the_table(): void
+    {
+        $album = Collection::factory()->create();
+        Track::factory()->count(2)->create(['collection_id' => $album->id]);
+        Track::factory()->count(3)->create(['collection_id' => Collection::factory()->create()->id]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/albums/{$album->id}")
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('table.rows', 2)
+                ->where('table.total', 2)
             );
     }
 

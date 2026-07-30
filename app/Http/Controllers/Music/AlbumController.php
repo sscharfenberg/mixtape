@@ -6,7 +6,11 @@ use App\Enums\CollectionType;
 use App\Http\Controllers\Controller;
 use App\Models\Collection;
 use App\Models\Track;
+use App\Services\DataTableService;
 use App\Services\Media\CoverService;
+use App\Services\Search\FoldedSearch;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -15,10 +19,9 @@ use Inertia\Response;
  * One album's detail page (`GET /music/albums/{album}`, route
  * `music.albums.show`, behind auth) — the row-click target of the Albums listing.
  *
- * A SCAFFOLD for now, and deliberately the same shape the song page had at this
- * stage: it identifies the album (art, title, the handful of facts that describe the
- * whole container) and stops there. The track listing — which is the actual point of
- * an album page — comes next, together with the play/queue controls the hero will
+ * Two blocks: the hero identifies the album (art, title, and the handful of facts that
+ * describe the whole container), then its TRACK LISTING as a server-driven DataTable —
+ * the thing the page is for. Still to come are the play/queue controls the hero will
  * grow once there is a player at all (docs/app-rewrite.md).
  *
  * Sends RAW values like every other controller here: seconds for the playing time,
@@ -35,7 +38,7 @@ class AlbumController extends Controller
      * or a podcast show — same table — from being served as an album, exactly as
      * SongController guards the track table's other types.
      */
-    public function __invoke(Collection $album, CoverService $covers): Response
+    public function __invoke(Request $request, Collection $album, CoverService $covers): Response
     {
         abort_unless($album->type === CollectionType::Album, 404);
 
@@ -44,6 +47,7 @@ class AlbumController extends Controller
         $totals = $this->trackTotals($album);
 
         return Inertia::render('Music/Albums/Album/AlbumPage', [
+            'table' => $this->trackTable($request, $album),
             'album' => [
                 'id' => $album->id,
                 'name' => $album->name,
@@ -66,6 +70,98 @@ class AlbumController extends Controller
                     : null,
             ],
         ]);
+    }
+
+    /**
+     * The album's own track listing, as a server-driven DataTable — the thing an album
+     * page is actually for.
+     *
+     * Sorted disc-then-track by default, which is the album's RUNNING ORDER and the one
+     * ordering a listener expects to find; expressing it needs DataTableService's
+     * tiebreakers, since the frontend can only ask for a single sort key. `name` trails
+     * both as the last tiebreak, for rips whose files carry no numbers at all — without
+     * it those rows would page non-deterministically.
+     *
+     * The artist is a left join (so it sorts and searches as a column) because on a
+     * compilation it differs per track, which is exactly when this column earns its
+     * place. Everything else is the track's own row.
+     *
+     * @return array<string, mixed>
+     */
+    private function trackTable(Request $request, Collection $album): array
+    {
+        // An explicit query rather than `$album->tracks()`, and the reason is the search
+        // callback: a HasMany is not a Builder, so FoldedSearch — which takes one — throws
+        // a TypeError the moment someone types in the box. DataTableService accepts either,
+        // so the failure only shows up on the search path, i.e. not until a user searches.
+        $query = Track::query()
+            ->where('tracks.collection_id', $album->id)
+            ->leftJoin('artists', 'tracks.artist_id', '=', 'artists.id')
+            ->select([
+                'tracks.id',
+                'tracks.name',
+                'tracks.disc',
+                'tracks.track',
+                'tracks.duration',
+                'tracks.size',
+                // Not shown as a column: it is what decides whether the artwork cell gets
+                // a URL or the placeholder, without touching the filesystem.
+                'tracks.cover',
+                'artists.name as artist_name',
+            ]);
+
+        return DataTableService::buildResponse(
+            query: $query,
+            request: $request,
+            sortable: ['disc', 'track', 'name', 'artist', 'duration', 'size'],
+            sortColumnMap: [
+                'disc' => 'tracks.disc',
+                'track' => 'tracks.track',
+                'name' => 'tracks.name',
+                'artist' => 'artists.name',
+                'duration' => 'tracks.duration',
+                'size' => 'tracks.size',
+            ],
+            defaultSort: 'disc',
+            // The two text columns on show, matched through their `name_fold` companions
+            // so the search is accent- and case-insensitive (FoldedSearch). Worth having
+            // even here: a 154-track soundtrack is a listing, not a glance.
+            searchCallback: fn (Builder $q, string $search) => FoldedSearch::apply($q, $search, [
+                'tracks.name', 'artists.name',
+            ]),
+            rowMapper: fn (Track $track): array => [
+                'id' => $track->id,
+                'disc' => $track->disc,
+                'track' => $track->track,
+                'name' => $track->name,
+                'artist' => $track->artist_name,
+                // Raw seconds and raw bytes; the page clocks and humanises them against
+                // the viewer's locale (Utils/formatting.ts).
+                'duration' => $track->duration,
+                'size' => $track->size,
+                // Offered only when the FILE claims a picture of its own (`tracks.cover`,
+                // the scan-time flag) — so this costs no filesystem access at all, which a
+                // 154-row soundtrack would otherwise pay per row. A file with no embedded
+                // art gets no thumbnail and the page draws its placeholder, which on an
+                // album whose art varies per song is the informative reading.
+                //
+                // Note what this decides and what it does not: it decides whether a
+                // thumbnail is OFFERED. The bytes still come from the song cover route,
+                // which resolves a track's own order — embedded picture first, the
+                // directory image as its fallback — so a file whose tag turns out to be
+                // unreadable can still answer with the album's image rather than 404.
+                'coverUrl' => $track->cover
+                    ? route('music.songs.cover', $track->id, absolute: false)
+                    : null,
+                // Makes the row clickable — the frontend visits this on a row click / card
+                // tap, and the name cell renders it as a real link.
+                'href' => route('music.songs.show', $track->id, absolute: false),
+            ],
+            // Sort KEYS, not columns — the service maps them like the primary, and hands
+            // the surviving ones back so the table's header can mark CD *and* Track as
+            // sorted rather than pretending only the first one is.
+            tiebreakers: ['disc', 'track', 'name'],
+        );
     }
 
     /**

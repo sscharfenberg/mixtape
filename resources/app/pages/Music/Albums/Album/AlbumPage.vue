@@ -6,26 +6,32 @@
  * the same reason SongPage is: the detail view lives *inside* the listing it came
  * from, mirroring the URL.
  *
- * A SCAFFOLD, deliberately at the stage SongPage started from: the HeroSection
- * identifies the album — its art, its title, and the handful of facts that describe
- * the container rather than any one file — and nothing else. The track list, which
- * is the actual point of an album page, and the play/queue controls the hero will
- * grow, both wait for the player (docs/app-rewrite.md); the placeholder paragraph
- * says so rather than leaving the page looking finished.
+ * Two blocks: the HeroSection identifies the album — its art, its title, and the
+ * handful of facts that describe the container rather than any one file — and below it
+ * the album's TRACK LISTING in the server-driven DataTable, which is what the page is
+ * for. Only the play/queue controls are still missing, and they wait for the player
+ * (docs/app-rewrite.md).
  *
- * The controller sends raw values (seconds, an ISO-8601 instant, plain counts) and
- * the formatting happens here with the active locale — the same split every other
+ * The track rows are clickable: each carries the song's detail URL as `href`, so a row
+ * click / card tap goes to the song, and the title cell renders that same URL as a real
+ * <Link> for the keyboard and open-in-new-tab (DataTable/README.md → Accessibility).
+ * The default order is the album's own — disc, then track number.
+ *
+ * The controller sends raw values (seconds, bytes, an ISO-8601 instant, plain counts)
+ * and the formatting happens here with the active locale — the same split every other
  * page here uses (Utils/formatting.ts).
  *****************************************************************************/
-import { Head } from "@inertiajs/vue3";
-import { computed } from "vue";
+import { Head, Link } from "@inertiajs/vue3";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import DataTable from "Components/DataTable/DataTable.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Container from "Components/UI/Container.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
 import Icon from "Components/UI/Icon.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
-import { formatClock, formatDateTime } from "Utils/formatting";
+import type { ColumnDef, TableResponse } from "Types/dataTable";
+import { formatClock, formatDateTime, formatFileSize } from "Utils/formatting";
 
 /** One album as AlbumController shaped it — every value raw. */
 interface AlbumDetail {
@@ -46,9 +52,31 @@ interface AlbumDetail {
     coverUrl: string | null;
 }
 
+/** One of the album's tracks, as AlbumController's rowMapper shaped it — every value raw. */
+interface TrackRow {
+    id: string;
+    /** Disc number, or null for a rip whose files carry no disc tag. */
+    disc: number | null;
+    /** Track number within its disc, or null when untagged. */
+    track: number | null;
+    name: string;
+    /** The performing artist — differs per row on a compilation, which is why it is a column. */
+    artist: string | null;
+    /** Playing time in seconds. */
+    duration: number | null;
+    /** File size in bytes. */
+    size: number | null;
+    /** The track's OWN embedded art, or null when the file carries none. */
+    coverUrl: string | null;
+    /** The song's detail page — makes the row clickable and backs the title link. */
+    href: string;
+}
+
 const props = defineProps<{
     /** The album being shown, as AlbumController shaped it. */
     album: AlbumDetail;
+    /** Its tracks, as the server-driven table payload (rows + pagination + sort + search). */
+    table: TableResponse<TrackRow>;
 }>();
 
 const { t, locale } = useI18n();
@@ -69,6 +97,47 @@ const playingTime = computed(() => formatClock(props.album.duration));
 
 /** The newest file's mtime in the viewer's own locale and timezone. */
 const modified = computed(() => formatDateTime(props.album.modifiedAt, locale.value));
+
+/**
+ * Tracks whose thumbnail failed to load, so the row falls back to the placeholder glyph
+ * — the same guard the Albums listing carries, and for the same reason: `coverUrl` rests
+ * on `tracks.cover`, a scan-time flag, so a file re-tagged or deleted since the last
+ * `app:update` is still advertised and then 404s.
+ */
+const failedCovers = ref(new Set<string>());
+
+/** Remember a row whose <img> errored, which swaps it to the placeholder glyph. */
+const onCoverError = (id: string) => {
+    // A new Set rather than .add(): a Set mutated in place is not a reactive change.
+    failedCovers.value = new Set(failedCovers.value).add(id);
+};
+
+/**
+ * Column definitions for the track table. A `computed` so the (already-translated) labels
+ * re-evaluate on a locale switch.
+ *
+ * `name` is the card heading and the artwork is the card's media (`cardMedia`), the same
+ * split the Albums listing uses. The numbers — disc, track, playing time, size — are
+ * right-aligned, which is what lets a reader scan a column of them.
+ *
+ * DISC is deliberately still shown on a single-disc album, matching the song page's "1/1"
+ * (the owner's call there): a column that appears and disappears with the album is harder
+ * to read across pages than one that always says which disc you are looking at.
+ *
+ * The two differ in the CARD view, though. The track number goes in — it is the album's
+ * running order, which is the whole point of reading a track list — while the disc stays
+ * out, because most albums are one disc and "CD 1" repeated down every card is noise. The
+ * desktop table keeps both, where a narrow column costs nothing.
+ */
+const columns = computed<ColumnDef<TrackRow>[]>(() => [
+    { key: "coverUrl", label: t("music.columns.cover"), width: "4rem", align: "center", cardMedia: true },
+    { key: "disc", label: t("music.song.labels.disc"), sortable: true, align: "right" },
+    { key: "track", label: t("music.song.labels.track"), sortable: true, visibleInCard: true, align: "right" },
+    { key: "name", label: t("music.columns.title"), sortable: true, visibleInCard: true, cardPrimary: true },
+    { key: "artist", label: t("music.columns.artist"), sortable: true, visibleInCard: true },
+    { key: "duration", label: t("music.columns.duration"), sortable: true, visibleInCard: true, align: "right" },
+    { key: "size", label: t("music.song.labels.size"), sortable: true, visibleInCard: true, align: "right" }
+]);
 </script>
 
 <template>
@@ -123,13 +192,50 @@ const modified = computed(() => formatDateTime(props.album.modifiedAt, locale.va
                     />
                 </template>
             </hero-section>
-            <p class="album__pending">{{ t("music.album.tracklistPending") }}</p>
+
+            <!-- The album's tracks. `base-url` is this page, so sorting / paging /
+                 searching navigate back here with the state in the URL — the same
+                 server-driven contract the listings use, on a detail page. -->
+            <data-table :columns="columns" :response="table" :base-url="`/music/albums/${album.id}`" :has-actions="false">
+                <!-- The track's own artwork, or the music glyph when the file carries
+                     none — and the same @error fallback the Albums listing has, since a
+                     cover advertised from a scan-time flag can 404. `alt=""`: the title
+                     is in the next cell, so naming the art again makes a screen reader
+                     read every row twice. -->
+                <template #cell-coverUrl="{ row }">
+                    <img
+                        v-if="row.coverUrl && !failedCovers.has(row.id)"
+                        :src="row.coverUrl"
+                        alt=""
+                        class="album__cover"
+                        loading="lazy"
+                        @error="onCoverError(row.id)"
+                    />
+                    <icon
+                        v-else
+                        name="music"
+                        :size="2"
+                        class="album__cover-placeholder"
+                        :aria-label="t('music.song.noCover')"
+                        role="img"
+                    />
+                </template>
+                <template #cell-name="{ row }">
+                    <Link :href="row.href" class="album__title">{{ row.name }}</Link>
+                </template>
+                <template #cell-duration="{ row }">{{ formatClock(row.duration) }}</template>
+                <template #cell-size="{ row }">{{ row.size === null ? "" : formatFileSize(row.size, locale) }}</template>
+                <template #empty>
+                    <p>{{ t("components.datatable.no_results") }}</p>
+                </template>
+            </data-table>
         </div>
     </container>
 </template>
 
 <style scoped lang="scss">
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/colors" as c;
 @use "Abstracts/sizes" as s;
 
 /* Stacks the page's blocks and spaces them, taking the CardGroup's own gutter
@@ -142,7 +248,40 @@ const modified = computed(() => formatDateTime(props.album.modifiedAt, locale.va
     gap: map.get(s.$c-card, "gap");
 }
 
-.album__pending {
-    margin: 0;
+/* The row thumbnail: identical rules to the Albums listing's, reading the same
+   hero-section tokens — it is the same artwork at the same listing size, so the two
+   tables have no business looking different. See AlbumsPage for why `border-box` and
+   `display: block` are load-bearing (the frame and the inline baseline gap would each
+   make the row taller than 48px). */
+.album__cover {
+    display: block;
+
+    box-sizing: border-box;
+
+    width: map.get(s.$c-hero-section, "cover-thumbnail");
+    height: map.get(s.$c-hero-section, "cover-thumbnail");
+    border: map.get(s.$c-hero-section, "cover-thumbnail-border") solid
+        map.get(c.$c-hero-section, "cover-border");
+
+    border-radius: map.get(s.$c-hero-section, "cover-thumbnail-radius");
+
+    object-fit: cover;
+}
+
+.album__cover-placeholder {
+    color: map.get(c.$c-hero-section, "cover-placeholder-icon");
+}
+
+/* The title link deliberately does NOT look like a link — the whole row is the click
+   target and already signals it. Same rule as both listings; see SongsPage for the
+   reasoning, including why only focus draws an underline. */
+.album__title {
+    color: inherit;
+
+    text-decoration: none;
+
+    &:focus-visible {
+        text-decoration: underline;
+    }
 }
 </style>

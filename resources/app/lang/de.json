@@ -262,8 +262,7 @@
             "modifiedAt": "Geändert"
         },
         "album": {
-            "noCover": "Kein Cover vorhanden",
-            "tracklistPending": "Die Titelliste dieses Albums folgt, sobald der Player steht."
+            "noCover": "Kein Cover vorhanden"
         },
         "channel": {
             "stereo": "Stereo",
