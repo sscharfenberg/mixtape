@@ -87,13 +87,13 @@ const onCoverError = (id: string) => {
  * labels re-evaluate if the locale changes.
  *
  * `name` is the card-view heading; the counts and the playing time are right-aligned
- * as numbers. The artwork column is NOT sortable (there is nothing to sort by) and
- * deliberately stays out of the card view: a card renders its fields as a
- * label/value list, and "Cover: <img>" in a <dl> reads worse than no thumbnail —
- * cards would need a media slot of their own, which the component doesn't have yet.
+ * as numbers. The artwork column is NOT sortable (there is nothing to sort by) and is
+ * `cardMedia` rather than `visibleInCard`: in the narrow layout it belongs BESIDE the
+ * heading as artwork, not in the label/value list as "Cover: <img>". Both layouts
+ * render it through the one `#cell-coverUrl` slot below.
  */
 const columns = computed<ColumnDef<AlbumRow>[]>(() => [
-    { key: "coverUrl", label: t("music.columns.cover"), width: "4rem", align: "center" },
+    { key: "coverUrl", label: t("music.columns.cover"), width: "4rem", align: "center", cardMedia: true },
     { key: "year", label: t("music.columns.year"), sortable: true, visibleInCard: true },
     { key: "name", label: t("music.columns.album"), sortable: true, visibleInCard: true, cardPrimary: true },
     { key: "artist", label: t("music.columns.artist"), sortable: true, visibleInCard: true },
@@ -154,18 +154,25 @@ const columns = computed<ColumnDef<AlbumRow>[]>(() => [
 @use "Abstracts/colors" as c;
 @use "Abstracts/sizes" as s;
 
-/* A square thumbnail, taking its size and its corners from the same partial that
-   shapes the hero's cover (s.$c-hero-section) — it is the same artwork, one step
-   down. `object-fit: cover` so a non-square scan crops instead of distorting, and
-   `display: block` kills the inline baseline gap that would otherwise make this row
-   taller than the others. */
+/* A square thumbnail, taking its size, corners, border and colour from the same partial
+   that shapes the hero's cover (s/c.$c-hero-section) — it is the same artwork, one step
+   down, so the two differ only where a 48px square genuinely needs different numbers
+   than a 240px one (the `-thumbnail-` rungs: a smaller radius and a hairline frame).
+
+   `object-fit: cover` so a non-square scan crops instead of distorting; `border-box` so
+   the frame doesn't push the row taller than 48px; and `display: block` kills the inline
+   baseline gap that would otherwise do the same. */
 .albums__cover {
     display: block;
 
+    box-sizing: border-box;
+
     width: map.get(s.$c-hero-section, "cover-thumbnail");
     height: map.get(s.$c-hero-section, "cover-thumbnail");
+    border: map.get(s.$c-hero-section, "cover-thumbnail-border") solid
+        map.get(c.$c-hero-section, "cover-border");
 
-    border-radius: map.get(s.$c-hero-section, "cover-radius");
+    border-radius: map.get(s.$c-hero-section, "cover-thumbnail-radius");
 
     object-fit: cover;
 }

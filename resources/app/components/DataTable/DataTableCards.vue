@@ -35,8 +35,21 @@ const provided = inject(DATA_TABLE_KEY)!;
 const slots = useSlots();
 /** The primary column shown at the top of each card. First match wins. */
 const primaryCol = computed(() => props.columns.find(c => c.cardPrimary) ?? null);
-/** Columns visible in card mode, excluding the primary. */
-const cardColumns = computed(() => props.columns.filter(c => c.visibleInCard && c.key !== primaryCol.value?.key));
+/**
+ * The column rendered as the card's leading artwork rather than as a field. First match
+ * wins. A desktop table shows this as a column of its own, which is exactly why a card
+ * needs it POSITIONED instead: "Cover: <img>" as a row of a label/value list reads worse
+ * than no thumbnail at all — see the note on the excluded key below.
+ */
+const mediaCol = computed(() => props.columns.find(c => c.cardMedia) ?? null);
+/**
+ * Columns rendered as the card's label/value fields — everything `visibleInCard` that
+ * isn't already placed somewhere else. Both the primary and the media column are
+ * excluded by key, since a card would otherwise show each of them twice.
+ */
+const cardColumns = computed(() => props.columns.filter(
+    c => c.visibleInCard && c.key !== primaryCol.value?.key && c.key !== mediaCol.value?.key
+));
 /** Card columns that actually have a non-empty value for the given row. */
 function visibleCardColumns(row: T) {
     return cardColumns.value.filter(col => {
@@ -75,6 +88,14 @@ function onActionClick(row: T, event: MouseEvent) {
                         :label="$t('components.datatable.select_row')"
                         @update:model-value="provided.toggleSelection(row.id)"
                     />
+                </div>
+                <!-- Artwork, before the heading it belongs to. Rendered through the
+                     column's OWN `cell-` slot, so the page writes the <img> (and its
+                     placeholder) once and both layouts show the same thing. Sized by
+                     the page too — slot content keeps its parent's scope, so the
+                     caller's own class applies. -->
+                <div v-if="mediaCol && slots[`cell-${mediaCol.key}`]" class="dt-cards__media">
+                    <slot :name="`cell-${mediaCol.key}`" :row="row" />
                 </div>
                 <div v-if="primaryCol" class="dt-cards__primary">
                     <slot v-if="slots[`cell-${primaryCol.key}`]" :name="`cell-${primaryCol.key}`" :row="row" />
@@ -165,6 +186,15 @@ function onActionClick(row: T, event: MouseEvent) {
             margin-bottom: 0.5rem;
 
             gap: 1ch;
+        }
+
+        /* Holds whatever the page slotted in at its own size — no dimensions here, since
+           a media column could be artwork, an avatar or a status glyph. `flex-shrink: 0`
+           so a long heading beside it crops the TEXT rather than squashing the picture,
+           and `display: flex` to kill the inline baseline gap under an <img>. */
+        .dt-cards__media {
+            display: flex;
+            flex-shrink: 0;
         }
 
         .dt-cards__primary {

@@ -14,6 +14,13 @@ export interface ColumnDef<T extends { id: string }> {
     visibleInCard?: boolean;
     /** Primary column shown at the top of the card view. Only the first wins. */
     cardPrimary?: boolean;
+    /**
+     * Render this column as the card's leading MEDIA — artwork beside the card's
+     * heading — instead of as one of its label/value fields. Only the first wins, and
+     * it needs a `#cell-{key}` slot to render (a bare value would be a URL string).
+     * Independent of `visibleInCard`: a media column is positioned, not listed.
+     */
+    cardMedia?: boolean;
     /** Text alignment. Default 'left'. */
     align?: "left" | "center" | "right";
     /** Extra CSS class(es) applied to the <td> for this column. */

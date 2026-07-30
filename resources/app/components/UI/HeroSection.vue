@@ -191,10 +191,21 @@
 
         /* Art fills the frame; `object-fit: cover` keeps a non-square scan from distorting.
            `:slotted` because the <img> belongs to the caller's scope, not this one — it is the
-           supported way for a component to size what it was handed. */
+           supported way for a component to size what it was handed.
+
+           The border is what stops a cover dissolving into the panel: artwork is a
+           photograph, so its own edge can be any colour — a sleeve fading to white has no
+           edge on the light panel, a black-metal cover none on the dark one. `border-box`
+           because the frame is a fixed square: without it the border would be added OUTSIDE
+           the 240px and push the panel wider. */
         > :slotted(img) {
+            box-sizing: border-box;
             width: 100%;
             height: 100%;
+            border: map.get(s.$c-hero-section, "cover-border") solid
+                map.get(c.$c-hero-section, "cover-border");
+
+            border-radius: inherit;
 
             object-fit: cover;
         }

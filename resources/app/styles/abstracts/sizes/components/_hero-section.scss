@@ -22,6 +22,11 @@ $hero-section: (
         "desktop": 240px
     ),
     "cover-radius": map.get(s.$radius, "featured"),
+    // The frame around real artwork, at the hero's size: the `featured` width, because
+    // at 240px a hairline reads as an artefact of the image rather than as a frame
+    // around it. The thumbnail's own width is below — one colour (c.$c-hero-section
+    // "cover-border"), two widths, chosen per size.
+    "cover-border": map.get(s.$border, "featured"),
     // The same artwork at LISTING size — the Albums table's leading column. It lives
     // here rather than with the table because it is a cover before it is a cell: the
     // page already reads `cover-radius` from this partial for the very same <img>, so
@@ -31,6 +36,14 @@ $hero-section: (
     // scale doesn't decide (the nearest rungs are 32px and 64px, one too small to read
     // as artwork and one tall enough to set the height of every row in the table).
     "cover-thumbnail": 48px,
+    // A thumbnail's corners are the `base` rung, not the `featured` one the hero's own
+    // cover uses: the same 12px radius that reads as a deliberate rounding on a 240px
+    // square eats a visible bite out of a 48px one, where it lands somewhere between
+    // "rounded square" and "circle". Same decision, two sizes, so it needs two values.
+    "cover-thumbnail-radius": map.get(s.$radius, "base"),
+    // …and its frame is the `base` width for the mirror-image reason: the hero's 5px
+    // border around a 48px square would be a tenth of the picture.
+    "cover-thumbnail-border": map.get(s.$border, "base"),
     "cover-placeholder-border": map.get(s.$border, "featured"),
     // The hero is its own panel now, so it owns its inset and shape. Both match the
     // Widget's own values (as does its fill — c.$c-hero-section "background"), so the

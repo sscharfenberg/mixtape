@@ -134,9 +134,30 @@ interface ColumnDef<T extends { id: string }> {
     align?: "left" | "center" | "right"; // default 'left'
     visibleInCard?: boolean; // show in mobile card layout, default false
     cardPrimary?: boolean; // main column at the top of the card, first wins
+    cardMedia?: boolean; // render as the card's leading artwork instead of a field, first wins
     cellClass?: string; // extra CSS class(es) for the <td>
 }
 ```
+
+### Card media (artwork)
+
+A column of images — an album cover, an avatar — works as a table column but not as a
+card *field*: the card renders `visibleInCard` columns as a label/value `<dl>`, and
+"Cover: `<img>`" reads worse than no thumbnail. Mark it `cardMedia` instead and the card
+places it beside its heading:
+
+```ts
+{ key: "coverUrl", label: t("music.columns.cover"), width: "4rem", cardMedia: true }
+```
+
+Three things follow from it:
+
+- it renders through the column's own **`#cell-{key}` slot**, so the `<img>` (and
+  whatever stands in when there is none) is written once and both layouts show it;
+- the slot content keeps the **page's** style scope, so the page sizes its own
+  artwork — the card only positions it (`flex-shrink: 0`, no dimensions);
+- it is independent of `visibleInCard`, and the column is dropped from the field list
+  either way, so a card can't show the same value twice.
 
 ## Server Response Contract
 
