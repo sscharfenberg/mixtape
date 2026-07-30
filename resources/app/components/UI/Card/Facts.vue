@@ -24,9 +24,9 @@
  * empty by that filter disappears with them.
  *****************************************************************************/
 import { computed } from "vue";
-import Card from "Components/UI/Card/Card.vue";
-import CardGroup from "Components/UI/Card/CardGroup.vue";
 import Icon from "Components/UI/Icon.vue";
+import Card from "./Card.vue";
+import CardGroup from "./CardGroup.vue";
 
 /** One key/value pair — `key` keys the v-for, `group` sorts it into a card, the flags pick how the value is presented. */
 export type Fact = {

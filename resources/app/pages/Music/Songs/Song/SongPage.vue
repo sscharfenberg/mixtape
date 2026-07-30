@@ -28,8 +28,8 @@
 import { Head } from "@inertiajs/vue3";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import Facts, { type Fact } from "Components/UI/Card/Facts.vue";
 import Container from "Components/UI/Container.vue";
-import Facts, { type Fact } from "Components/UI/Facts.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
 import Icon from "Components/UI/Icon.vue";
 import LabelledLink from "Components/UI/LabelledLink.vue";
