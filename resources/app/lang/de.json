@@ -264,7 +264,6 @@
             "mono": "Mono"
         },
         "song": {
-            "backToList": "Zurück zu allen Songs",
             "noCover": "Kein Cover vorhanden",
             "groups": {
                 "tags": "Tags",

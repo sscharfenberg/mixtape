@@ -33,7 +33,6 @@ import Facts, { type Fact } from "Components/UI/Card/Facts.vue";
 import Container from "Components/UI/Container.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
 import Icon from "Components/UI/Icon.vue";
-import LabelledLink from "Components/UI/LabelledLink.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import type { SongDetail } from "Types/music";
 import { formatClock, formatDateTime, formatDecimals, formatFileSize } from "Utils/formatting";
@@ -235,10 +234,13 @@ const songFacts = computed<Fact[]>(() => {
             <hero-section>
                 <!-- An <img> when the file carried artwork, and an icon when it did not:
                      HeroSection draws the square as a dashed placeholder around whatever
-                     is not an image, so the choice of glyph stays this page's. -->
+                     is not an image, so the choice of glyph stays this page's. `music`
+                     rather than `album`: the album glyph is a disc, which at this size
+                     reads as a *thing that failed to load* in the slot where a cover
+                     belongs — the music note says "audio, no picture" instead. -->
                 <template #cover>
                     <img v-if="song.coverUrl" :src="song.coverUrl" :alt="coverAlt" />
-                    <icon v-else name="album" :size="5" :aria-label="t('music.song.noCover')" role="img" />
+                    <icon v-else name="music" :size="5" :aria-label="t('music.song.noCover')" role="img" />
                 </template>
                 <!-- The page's h1 lives here rather than in a <Headline>: beside the cover
                      it reads as one unit with the artwork instead of a caption under a
@@ -268,9 +270,6 @@ const songFacts = computed<Fact[]>(() => {
                 </template>
             </hero-section>
             <facts :facts="songFacts" wide-groups />
-            <p class="song__back">
-                <labelled-link href="/music/songs">{{ t("music.song.backToList") }}</labelled-link>
-            </p>
         </div>
     </container>
 </template>
@@ -288,9 +287,5 @@ const songFacts = computed<Fact[]>(() => {
     flex-direction: column;
 
     gap: map.get(s.$c-card, "gap");
-}
-
-.song__back {
-    margin: 0;
 }
 </style>
