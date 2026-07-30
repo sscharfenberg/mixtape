@@ -170,6 +170,7 @@ interface TableResponse<T> {
     page: number; // current page (1-based)
     pageSize: number | null; // null = no pagination
     sort: { key: string; direction: "asc" | "desc" } | null;
+    tiebreakers?: string[]; // extra keys ordering the table after `sort`, always ascending
     search: string | null;
     filters: Record<string, string | string[]> | null; // reserved; currently always null
 }
@@ -178,6 +179,38 @@ interface TableResponse<T> {
 Every row object **must** have an `id: string` field (UUID). Rows may optionally
 carry an `href: string` — when present the row/card becomes clickable and navigates
 to it (`router.visit`).
+
+### Tiebreakers — more than one sorted column
+
+The component sorts by **one** key, because that is all a header click can express. Some
+tables have a natural order that needs two: an album's tracks read *disc, then track*.
+`DataTableService` takes an optional `tiebreakers` list of sort **keys**, appends them
+after the chosen sort (always ascending, mapped through `sortColumnMap` like the primary,
+and skipping one that IS the primary), and echoes back the ones it applied:
+
+```php
+DataTableService::buildResponse(
+    …,
+    defaultSort: 'disc',
+    tiebreakers: ['disc', 'track', 'name'],   // AlbumController — the album's running order
+);
+```
+
+The header then marks **every** column that is really ordering the table, not just the
+first — CD *and* Track both show the ascending marker. Three things worth knowing:
+
+- a tiebreak column is marked but is **not** the sort: clicking it sorts by it from
+  scratch (ascending), rather than toggling to descending as it would if it were already
+  the sorted column;
+- `aria-sort` stays on the primary column alone, since ARIA asks for one sorted column at
+  a time; a tiebreak column carries the same fact as `sr-only` text instead;
+- they apply under **every** sort, not only the default — so with `sort=duration` the
+  album's table is still disc/track/name-ordered within equal durations, and says so.
+
+**Pass tiebreakers even when you don't need a multi-column order.** SQL guarantees no
+order at all between rows the sort column cannot separate, so with hundreds of albums
+sharing a year, one row can appear on page 1 *and* page 2 across two requests. A
+unique-ish trailing key makes paging deterministic.
 
 ### Clickable rows
 

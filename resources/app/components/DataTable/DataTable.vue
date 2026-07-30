@@ -267,6 +267,7 @@ onBeforeUnmount(() => {
                 <data-table-head
                     :columns="columns"
                     :sort="sort"
+                    :tiebreakers="response.tiebreakers ?? []"
                     :selectable="selectable"
                     :has-actions="hasActions"
                     :row-ids="rowIds"

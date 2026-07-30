@@ -35,6 +35,13 @@ export interface TableResponse<T> {
     /** null means no pagination. */
     pageSize: number | null;
     sort: { key: string; direction: "asc" | "desc" } | null;
+    /**
+     * Column keys the server appended AFTER the chosen sort, always ascending — an
+     * album's tracks are ordered disc-then-track, and both headers should say so. They
+     * are marked as sorted but are not the sort: clicking one still sorts by it from
+     * scratch, so only `sort` drives the toggle. Absent for tables that pass none.
+     */
+    tiebreakers?: string[];
     search: string | null;
     /** Reserved for future column/faceted filtering. v1: always null. */
     filters: Record<string, string | string[]> | null;

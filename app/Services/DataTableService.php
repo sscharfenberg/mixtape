@@ -38,7 +38,10 @@ class DataTableService
      * @param  string  $defaultSort  Fallback sort key when none/invalid is given.
      * @param  (callable(Builder, string): void)|null  $searchCallback  Applies search filtering; null disables search.
      * @param  callable(mixed): array<string, mixed>  $rowMapper  Transforms each model into a plain row array (must include a string `id`).
-     * @return array{rows: array<int, array<string, mixed>>, total: int, page: int, pageSize: int, sort: array{key: string, direction: string}, search: string|null, filters: null}
+     * @param  string[]  $tiebreakers  Sort KEYS appended after the chosen sort, always ascending;
+     *                                 mapped through $sortColumnMap like the primary, and echoed
+     *                                 back (minus any that IS the primary) in `tiebreakers`.
+     * @return array{rows: array<int, array<string, mixed>>, total: int, page: int, pageSize: int, sort: array{key: string, direction: string}, tiebreakers: string[], search: string|null, filters: null}
      */
     public static function buildResponse(
         Builder|HasMany $query,
@@ -49,6 +52,7 @@ class DataTableService
         ?callable $searchCallback,
         callable $rowMapper,
         string $defaultDirection = self::DEFAULT_SORT_DIR,
+        array $tiebreakers = [],
     ): array {
         $sortKey = $request->input('sort', $defaultSort);
         $sortDir = $request->input('dir', $defaultDirection);
@@ -73,9 +77,35 @@ class DataTableService
 
         $sortColumn = $sortColumnMap[$sortKey] ?? $sortKey;
 
-        $paginator = $query
-            ->orderBy($sortColumn, $sortDir)
-            ->paginate($pageSize);
+        $query->orderBy($sortColumn, $sortDir);
+
+        // Tiebreakers, and they do two jobs. The obvious one is a multi-column natural
+        // order the frontend cannot express with a single sort key: an album's tracks read
+        // disc-then-track, not "disc, then whatever the engine returns". The quiet one
+        // matters to every table — SQL guarantees no order at all between rows the sort
+        // column can't separate, so with hundreds of albums sharing a year, or two songs
+        // sharing a title, a row can appear on page 1 AND page 2 across two requests.
+        // Appending a unique-ish column makes paging deterministic.
+        //
+        // Always ascending: a tiebreak is about determinism, not about the reader's intent,
+        // and tracks within a disc still read 1, 2, 3 when the discs are reversed. The
+        // chosen column is skipped, since ordering by it twice is noise in the SQL — and
+        // the ones that survive that skip are reported back, so the header can mark every
+        // column that is really ordering the table instead of only the first.
+        $applied = [];
+
+        foreach ($tiebreakers as $tiebreakKey) {
+            $tiebreakColumn = $sortColumnMap[$tiebreakKey] ?? $tiebreakKey;
+
+            if ($tiebreakColumn === $sortColumn) {
+                continue;
+            }
+
+            $query->orderBy($tiebreakColumn);
+            $applied[] = $tiebreakKey;
+        }
+
+        $paginator = $query->paginate($pageSize);
 
         return [
             'rows' => $paginator->map($rowMapper)->values()->all(),
@@ -83,6 +113,10 @@ class DataTableService
             'page' => $paginator->currentPage(),
             'pageSize' => $pageSize,
             'sort' => ['key' => $sortKey, 'direction' => $sortDir],
+            // The tiebreak SORT KEYS actually in force, so the frontend can mark every
+            // header that is ordering the table — "disc, then track" reads as one
+            // decision on screen only if both say so.
+            'tiebreakers' => $applied,
             'search' => $search,
             'filters' => null,
         ];
