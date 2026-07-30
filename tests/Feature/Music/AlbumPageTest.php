@@ -129,10 +129,10 @@ class AlbumPageTest extends TestCase
             );
     }
 
-    public function test_the_table_reports_which_columns_also_order_it(): void
+    public function test_the_table_advertises_its_natural_order_only_while_it_is_in_it(): void
     {
-        // What lets the header mark CD *and* Track as sorted. The primary is skipped, so
-        // the default view reports only the keys that are genuinely secondary…
+        // What lets the header mark CD *and* Track as sorted: in the default view the extra
+        // keys ARE the order being read, so they are reported (minus the primary itself).
         $album = Collection::factory()->create();
         Track::factory()->count(2)->create(['collection_id' => $album->id]);
 
@@ -146,13 +146,39 @@ class AlbumPageTest extends TestCase
                 ->where('table.tiebreakers', ['track', 'name'])
             );
 
-        // …and under another sort, all three are secondary and all three are reported.
+        // Under a chosen sort they are NOT reported, though they still order the query.
+        // Marking four columns ascending when the reader picked one makes the marking mean
+        // less, and disc/track almost never separates two rows of distinct durations.
         $this->actingAs($user)
             ->get("/music/albums/{$album->id}?sort=duration&dir=desc")
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->where('table.sort.key', 'duration')
-                ->where('table.tiebreakers', ['disc', 'track', 'name'])
+                ->where('table.tiebreakers', [])
+            );
+    }
+
+    public function test_the_tiebreakers_still_order_the_query_under_a_chosen_sort(): void
+    {
+        // The half that must NOT follow the marking: not advertising them cannot mean not
+        // applying them, or paging would stop being deterministic the moment a reader
+        // sorts by anything. Two tracks with the SAME duration, so only the disc/track
+        // tiebreak can decide their order.
+        $album = Collection::factory()->create();
+        $second = Track::factory()->create([
+            'collection_id' => $album->id, 'name' => 'Second', 'disc' => 1, 'track' => 2, 'duration' => 200.0,
+        ]);
+        $first = Track::factory()->create([
+            'collection_id' => $album->id, 'name' => 'First', 'disc' => 1, 'track' => 1, 'duration' => 200.0,
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/albums/{$album->id}?sort=duration&dir=desc")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('table.tiebreakers', [])
+                ->where('table.rows.0.id', $first->id)
+                ->where('table.rows.1.id', $second->id)
             );
     }
 

@@ -36,10 +36,13 @@ export interface TableResponse<T> {
     pageSize: number | null;
     sort: { key: string; direction: "asc" | "desc" } | null;
     /**
-     * Column keys the server appended AFTER the chosen sort, always ascending — an
-     * album's tracks are ordered disc-then-track, and both headers should say so. They
-     * are marked as sorted but are not the sort: clicking one still sorts by it from
-     * scratch, so only `sort` drives the toggle. Absent for tables that pass none.
+     * Column keys to mark as also sorted ascending — an album's tracks are ordered
+     * disc-then-track, and both headers should say so. Marked but not the sort: clicking
+     * one sorts by it from scratch, so only `sort` drives the toggle.
+     *
+     * The server sends these only while the table is on its DEFAULT sort, where they are
+     * the order being read. Under a chosen sort it sends none, even though they still
+     * order the query — see DataTableService. Absent for tables that pass no tiebreakers.
      */
     tiebreakers?: string[];
     search: string | null;

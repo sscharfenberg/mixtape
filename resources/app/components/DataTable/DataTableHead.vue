@@ -15,10 +15,11 @@
  * data the user is about to sort.
  *
  * A column can also be marked ascending WITHOUT being the sorted column: the server
- * reports its `tiebreakers`, the extra keys it orders by afterwards, and those get the
- * same marker because they are equally true — an album's tracks are ordered by disc and
- * then track, so showing only "disc" would understate it. They stay out of the sort
- * state proper, though, so clicking one sorts by it from scratch (see isTiebreaker).
+ * reports its `tiebreakers`, and those get the same marker — an album's tracks are
+ * ordered by disc and then track, so showing only "disc" would understate it. It sends
+ * them only while the table is in that natural order, so a reader who sorts by something
+ * else sees exactly the one column they picked. They stay out of the sort state either
+ * way, so clicking one sorts by it from scratch (see isTiebreaker).
  *****************************************************************************/
 import { computed, inject } from "vue";
 import { useI18n } from "vue-i18n";
@@ -31,10 +32,14 @@ const props = defineProps<{
     /** Current sort state, used to display sort indicators. */
     sort: SortEntry[];
     /**
-     * Column keys the server is ordering by AFTER the chosen sort, always ascending.
-     * Marked exactly like the primary, because on screen they are just as true — an
-     * album's tracks really are ordered by disc AND track — but kept out of `sort` so
-     * clicking one still sorts by it from scratch rather than toggling to descending.
+     * Column keys to mark as also sorted ascending, marked exactly like the primary
+     * because on screen they are just as true — an album's tracks really are ordered by
+     * disc AND track. Kept out of `sort` so clicking one still sorts by it from scratch
+     * rather than toggling to descending.
+     *
+     * Empty unless the table is on its default sort: the server stops advertising them
+     * once a reader picks a column, even though they still order the query. So this is
+     * "what to show", not "what is ordering" — see DataTableService.
      */
     tiebreakers: string[];
     /** Whether to render the select-all checkbox column. */

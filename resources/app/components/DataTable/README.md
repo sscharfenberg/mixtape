@@ -196,16 +196,20 @@ DataTableService::buildResponse(
 );
 ```
 
-The header then marks **every** column that is really ordering the table, not just the
-first — CD *and* Track both show the ascending marker. Three things worth knowing:
+The header then marks CD *and* Track with the ascending marker, so the compound order is
+visible rather than implied. Three things worth knowing:
 
 - a tiebreak column is marked but is **not** the sort: clicking it sorts by it from
   scratch (ascending), rather than toggling to descending as it would if it were already
   the sorted column;
 - `aria-sort` stays on the primary column alone, since ARIA asks for one sorted column at
   a time; a tiebreak column carries the same fact as `sr-only` text instead;
-- they apply under **every** sort, not only the default — so with `sort=duration` the
-  album's table is still disc/track/name-ordered within equal durations, and says so.
+- **marking is limited to the default sort, while applying is not.** The response reports
+  `tiebreakers` only while the table sits on its `defaultSort` — there the extra keys are
+  the order a reader is actually looking at. Sort by something else and they still order
+  the query (paging stability isn't optional) but go unadvertised: durations are near
+  unique, so disc/track almost never separates two rows, and four columns wearing an
+  ascending arrow when the reader picked one makes the marking mean less.
 
 **Pass tiebreakers even when you don't need a multi-column order.** SQL guarantees no
 order at all between rows the sort column cannot separate, so with hundreds of albums

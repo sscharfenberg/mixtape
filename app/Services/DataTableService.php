@@ -39,8 +39,9 @@ class DataTableService
      * @param  (callable(Builder, string): void)|null  $searchCallback  Applies search filtering; null disables search.
      * @param  callable(mixed): array<string, mixed>  $rowMapper  Transforms each model into a plain row array (must include a string `id`).
      * @param  string[]  $tiebreakers  Sort KEYS appended after the chosen sort, always ascending;
-     *                                 mapped through $sortColumnMap like the primary, and echoed
-     *                                 back (minus any that IS the primary) in `tiebreakers`.
+     *                                 mapped through $sortColumnMap like the primary. Always
+     *                                 applied; echoed back in `tiebreakers` only while the table
+     *                                 is on its default sort — see there.
      * @return array{rows: array<int, array<string, mixed>>, total: int, page: int, pageSize: int, sort: array{key: string, direction: string}, tiebreakers: string[], search: string|null, filters: null}
      */
     public static function buildResponse(
@@ -89,9 +90,7 @@ class DataTableService
         //
         // Always ascending: a tiebreak is about determinism, not about the reader's intent,
         // and tracks within a disc still read 1, 2, 3 when the discs are reversed. The
-        // chosen column is skipped, since ordering by it twice is noise in the SQL — and
-        // the ones that survive that skip are reported back, so the header can mark every
-        // column that is really ordering the table instead of only the first.
+        // chosen column is skipped, since ordering by it twice is noise in the SQL.
         $applied = [];
 
         foreach ($tiebreakers as $tiebreakKey) {
@@ -113,10 +112,17 @@ class DataTableService
             'page' => $paginator->currentPage(),
             'pageSize' => $pageSize,
             'sort' => ['key' => $sortKey, 'direction' => $sortDir],
-            // The tiebreak SORT KEYS actually in force, so the frontend can mark every
-            // header that is ordering the table — "disc, then track" reads as one
-            // decision on screen only if both say so.
-            'tiebreakers' => $applied,
+            // Which tiebreakers to ADVERTISE, which is not the same as which are applied
+            // (they all are, always — paging stability doesn't get to be optional).
+            //
+            // Only while the table sits on its DEFAULT sort. There, the extra keys are the
+            // natural order a reader is looking at — an album's tracks really are disc,
+            // then track, and marking only "disc" understates it. Once someone sorts by
+            // something else, those same keys are invisible plumbing: durations are near
+            // unique, so disc/track almost never separates two rows, and four columns
+            // wearing an ascending arrow while the reader picked one is noise that makes
+            // the marking mean less rather than more.
+            'tiebreakers' => $sortKey === $defaultSort ? $applied : [],
             'search' => $search,
             'filters' => null,
         ];
