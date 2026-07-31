@@ -64,14 +64,13 @@ class ArtistController extends Controller
                 // with no tracks of their own has no genre to derive one from, and
                 // neither does one whose files all left the genre frame empty.
                 'genre' => $genre?->genre_name,
-                // Where that genre WOULD lead. Null today because the genre area is
-                // still a listing with no detail page behind it (`music.genres` has no
-                // `.show` sibling) — the same shape SongController's `albumUrl` takes, so
-                // the page renders a link when it is handed one and plain text when it is
-                // not. Once a GenreController exists this becomes
-                // `route('music.genres.show', $genre->genre_id)` and the tile becomes
-                // clickable with no change to the page at all.
-                'genreUrl' => null,
+                // Where that genre leads — the same server-decided shape SongController
+                // uses for `albumUrl`, so the page renders a link when it is handed one and
+                // plain text when it is not. Null only when there is no genre to lead to,
+                // which is why it is derived from the same row rather than from the artist.
+                'genreUrl' => $genre === null
+                    ? null
+                    : route('music.genres.show', $genre->genre_id, absolute: false),
             ],
         ]);
     }

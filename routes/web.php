@@ -9,6 +9,7 @@ use App\Http\Controllers\Music\AlbumCoverController;
 use App\Http\Controllers\Music\AlbumsController;
 use App\Http\Controllers\Music\ArtistController;
 use App\Http\Controllers\Music\ArtistsController;
+use App\Http\Controllers\Music\GenreController;
 use App\Http\Controllers\Music\GenresController;
 use App\Http\Controllers\Music\SongController;
 use App\Http\Controllers\Music\SongCoverController;
@@ -42,8 +43,8 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         Route::get('/podcasts', PodcastsController::class)->name('podcasts');
         Route::get('/playlists', PlaylistsController::class)->name('playlists');
 
-        // Music sub-sections — the "see all" targets from the browse widgets. Albums,
-        // artists and songs are real server-driven listings; genres is still a stub.
+        // Music sub-sections — the "see all" targets from the browse widgets. All four
+        // are real server-driven listings.
         Route::get('/music/albums', AlbumsController::class)->name('music.albums');
         Route::get('/music/artists', ArtistsController::class)->name('music.artists');
         Route::get('/music/genres', GenresController::class)->name('music.genres');
@@ -69,6 +70,14 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         Route::get('/music/artists/{artist}', ArtistController::class)
             ->whereUuid('artist')
             ->name('music.artists.show');
+
+        // One genre's detail page — the row-click target of the Genres listing, and where
+        // the genre tile on an artist's page leads. Same shape and the same two reasons as
+        // its siblings: after the listing so that keeps matching, UUID-constrained so a
+        // stray segment 404s at the router.
+        Route::get('/music/genres/{genre}', GenreController::class)
+            ->whereUuid('genre')
+            ->name('music.genres.show');
 
         // One song's detail page — the row-click target of the Songs listing.
         // Registered after the listing so `/music/songs` keeps matching it, and

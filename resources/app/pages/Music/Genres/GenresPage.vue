@@ -7,10 +7,10 @@
  * URL, so GenresController owns the state and this page only declares the columns and
  * hands over the `table` response. Read-only (`has-actions="false"`).
  *
- * Rows are NOT clickable here, unlike the songs / albums / artists listings — there is no
- * genre detail page yet, so the server puts no `href` on a row and the table stays a
- * table. Nothing to undo when that page lands: a row becomes clickable the moment it
- * carries a URL.
+ * Rows are clickable: GenresController puts the genre's detail URL on every row as `href`,
+ * which DataTable visits on a row click / card tap. The name cell renders that same URL as
+ * a real <Link> as well — the keyboard and open-in-new-tab path, neither of which a click
+ * handler on a <tr> can offer (see DataTable/README.md → Accessibility).
  *
  * Every column but the name is an aggregate, and one of them needs reading carefully:
  * ARTISTS counts the artists whose MAIN genre this is, not everyone who ever recorded a
@@ -18,7 +18,7 @@
  * library's artists — and a genre with hundreds of songs can still show 0, meaning it is
  * nobody's main genre rather than that something is missing.
  *****************************************************************************/
-import { Head } from "@inertiajs/vue3";
+import { Head, Link } from "@inertiajs/vue3";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import DataTable from "Components/DataTable/DataTable.vue";
@@ -41,6 +41,8 @@ interface GenreRow {
     duration: number;
     /** Total size of those files in bytes. */
     size: number;
+    /** The genre's detail page — makes the row clickable and backs the name link. */
+    href: string;
 }
 
 defineProps<{
@@ -77,6 +79,9 @@ const columns = computed<ColumnDef<GenreRow>[]>(() => [
     <headline glow>{{ t("music.widgets.genres") }}</headline>
     <container>
         <data-table :columns="columns" :response="table" base-url="/music/genres" :has-actions="false">
+            <template #cell-name="{ row }">
+                <Link :href="row.href" class="genres__name">{{ row.name }}</Link>
+            </template>
             <!-- Raw seconds and raw bytes from the server, formatted here against the
                  viewer's locale. Neither is nullable: the controller COALESCEs both sums,
                  so a genre whose tracks were all pruned reads "0:00" rather than blank. -->
@@ -88,3 +93,19 @@ const columns = computed<ColumnDef<GenreRow>[]>(() => [
         </data-table>
     </container>
 </template>
+
+<style scoped lang="scss">
+/* The name link deliberately does NOT look like a link — the whole row is the click
+   target and already signals that. Identical to the other listings' rule, and for the
+   same reasons (see SongsPage): `inherit` keeps the cell's themed colour, and only focus
+   draws an underline, because a keyboard user gets no hover halo to read. */
+.genres__name {
+    color: inherit;
+
+    text-decoration: none;
+
+    &:focus-visible {
+        text-decoration: underline;
+    }
+}
+</style>

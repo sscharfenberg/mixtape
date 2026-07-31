@@ -50,8 +50,8 @@ interface ArtistDetail {
      */
     genre: string | null;
     /**
-     * Where that genre leads, if anywhere. Null until the genre area grows a detail page;
-     * the tile is then plain text instead of a link, with nothing else to change here.
+     * That genre's own page. Null exactly when `genre` is — there is nothing to lead to —
+     * and then the tile is plain text instead of a link.
      */
     genreUrl: string | null;
 }
@@ -104,8 +104,8 @@ const totalSize = computed(() => formatFileSize(props.artist.size, locale.value)
 
                      The genre leads first: it is the one fact that says what this artist
                      *is*, where the rest say how much of them there is. It is also the one
-                     tile that will become a link, the moment the genre area has a page for
-                     it to lead to (`genreUrl`). -->
+                     tile that LEADS somewhere — to that genre's page, via the URL the
+                     server decided (`genreUrl`) — which is what fills it. -->
                 <template #metadata>
                     <fact-pair
                         v-if="artist.genre"

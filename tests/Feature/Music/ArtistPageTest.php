@@ -91,8 +91,10 @@ class ArtistPageTest extends TestCase
         // the tile summarises rather than picking whichever row the engine returned first.
         $artist = Artist::factory()->create(['name' => 'Ulver']);
 
+        $ambient = Genre::factory()->create(['name' => 'Ambient']);
+
         $this->tracks($artist, Genre::factory()->create(['name' => 'Black Metal']), 2);
-        $this->tracks($artist, Genre::factory()->create(['name' => 'Ambient']), 5);
+        $this->tracks($artist, $ambient, 5);
         $this->tracks($artist, Genre::factory()->create(['name' => 'Folk']), 1);
 
         $this->actingAs(User::factory()->create())
@@ -102,9 +104,9 @@ class ArtistPageTest extends TestCase
                 // Not "Black Metal" (what they are known for) and not "Folk" (the first
                 // one alphabetically) — the one five of the eight files are tagged with.
                 ->where('artist.genre', 'Ambient')
-                // No URL yet: the genre area is still a listing with no detail page behind
-                // it, so the page renders the tile as plain text rather than a dead link.
-                ->where('artist.genreUrl', null)
+                // And it LEADS to that genre's page — the tile is the link, so the URL is
+                // the feature. Pointing at Ambient, not at whichever genre came first.
+                ->where('artist.genreUrl', "/music/genres/{$ambient->id}")
             );
     }
 

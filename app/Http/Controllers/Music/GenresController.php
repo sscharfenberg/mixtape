@@ -35,9 +35,9 @@ use Inertia\Response;
  * and still count 0 artists — it is nobody's *main* genre, only everybody's second one.
  * That is the intended reading, not missing data.
  *
- * Rows are NOT clickable: there is no genre detail page yet, so no row carries an `href`
- * (which is what the frontend DataTable keys off). When one lands, rows grow that `href`
- * and the artist page's genre tile gets its link at the same time.
+ * Every row also carries an `href` to the genre's own page (GenreController), which is
+ * what makes the table's rows clickable — the frontend only follows what the server puts
+ * there.
  */
 class GenresController extends Controller
 {
@@ -109,6 +109,10 @@ class GenresController extends Controller
                 // the viewer's locale (Utils/formatting.ts), like every other listing.
                 'duration' => (float) $genre->duration_total,
                 'size' => (int) $genre->size_total,
+                // Makes the row clickable in the frontend DataTable, which visits this on
+                // a row click / card tap (and the name cell renders it as a real link).
+                // Relative so it works whatever host serves the app.
+                'href' => route('music.genres.show', $genre->id, absolute: false),
             ],
             // Paging stability first, and on the default sort it doubles as the compound
             // order the header advertises ("most audio, then A–Z"). Genre names are

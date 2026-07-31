@@ -68,9 +68,9 @@ class GenresPageTest extends TestCase
                 ->where('table.rows.0.songs', 3)
                 ->where('table.rows.0.duration', 271.5)
                 ->where('table.rows.0.size', 14_000_000)
-                // No detail page yet, so no row URL — which is what keeps the frontend
-                // from making the row clickable.
-                ->missing('table.rows.0.href')
+                // What makes the row clickable — the frontend visits this on a row click,
+                // and the name cell renders it as a real link.
+                ->where('table.rows.0.href', "/music/genres/{$jazz->id}")
             );
     }
 
