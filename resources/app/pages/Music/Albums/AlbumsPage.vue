@@ -169,8 +169,7 @@ const columns = computed<ColumnDef<AlbumRow>[]>(() => [
 
     width: map.get(s.$c-hero-section, "cover-thumbnail");
     height: map.get(s.$c-hero-section, "cover-thumbnail");
-    border: map.get(s.$c-hero-section, "cover-thumbnail-border") solid
-        map.get(c.$c-hero-section, "cover-border");
+    border: map.get(s.$c-hero-section, "cover-thumbnail-border") solid map.get(c.$c-hero-section, "cover-border");
 
     border-radius: map.get(s.$c-hero-section, "cover-thumbnail-radius");
 

@@ -142,7 +142,7 @@ interface ColumnDef<T extends { id: string }> {
 ### Card media (artwork)
 
 A column of images — an album cover, an avatar — works as a table column but not as a
-card *field*: the card renders `visibleInCard` columns as a label/value `<dl>`, and
+card _field_: the card renders `visibleInCard` columns as a label/value `<dl>`, and
 "Cover: `<img>`" reads worse than no thumbnail. Mark it `cardMedia` instead and the card
 places it beside its heading:
 
@@ -183,7 +183,7 @@ to it (`router.visit`).
 ### Tiebreakers — more than one sorted column
 
 The component sorts by **one** key, because that is all a header click can express. Some
-tables have a natural order that needs two: an album's tracks read *disc, then track*.
+tables have a natural order that needs two: an album's tracks read _disc, then track_.
 `DataTableService` takes an optional `tiebreakers` list of sort **keys**, appends them
 after the chosen sort (always ascending, mapped through `sortColumnMap` like the primary,
 and skipping one that IS the primary), and echoes back the ones it applied:
@@ -196,7 +196,7 @@ DataTableService::buildResponse(
 );
 ```
 
-The header then marks CD *and* Track with the ascending marker, so the compound order is
+The header then marks CD _and_ Track with the ascending marker, so the compound order is
 visible rather than implied. Three things worth knowing:
 
 - a tiebreak column is marked but is **not** the sort: clicking it sorts by it from
@@ -213,7 +213,7 @@ visible rather than implied. Three things worth knowing:
 
 **Pass tiebreakers even when you don't need a multi-column order.** SQL guarantees no
 order at all between rows the sort column cannot separate, so with hundreds of albums
-sharing a year, one row can appear on page 1 *and* page 2 across two requests. A
+sharing a year, one row can appear on page 1 _and_ page 2 across two requests. A
 unique-ish trailing key makes paging deterministic.
 
 ### Clickable rows

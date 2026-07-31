@@ -47,9 +47,9 @@ const mediaCol = computed(() => props.columns.find(c => c.cardMedia) ?? null);
  * isn't already placed somewhere else. Both the primary and the media column are
  * excluded by key, since a card would otherwise show each of them twice.
  */
-const cardColumns = computed(() => props.columns.filter(
-    c => c.visibleInCard && c.key !== primaryCol.value?.key && c.key !== mediaCol.value?.key
-));
+const cardColumns = computed(() =>
+    props.columns.filter(c => c.visibleInCard && c.key !== primaryCol.value?.key && c.key !== mediaCol.value?.key)
+);
 /** Card columns that actually have a non-empty value for the given row. */
 function visibleCardColumns(row: T) {
     return cardColumns.value.filter(col => {

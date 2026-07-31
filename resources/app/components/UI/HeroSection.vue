@@ -202,8 +202,7 @@
             box-sizing: border-box;
             width: 100%;
             height: 100%;
-            border: map.get(s.$c-hero-section, "cover-border") solid
-                map.get(c.$c-hero-section, "cover-border");
+            border: map.get(s.$c-hero-section, "cover-border") solid map.get(c.$c-hero-section, "cover-border");
 
             border-radius: inherit;
 
@@ -390,8 +389,7 @@
            to live where the rule does. Same shape as the `:slotted(img)` test in the cover
            slot above — this component keys off what it was actually handed. */
         > :slotted(.fact-pair--link) {
-            box-shadow: 0 0 map.get(s.$c-hero-section, "metadata-halo")
-                map.get(c.$c-hero-section, "metadata-halo-link");
+            box-shadow: 0 0 map.get(s.$c-hero-section, "metadata-halo") map.get(c.$c-hero-section, "metadata-halo-link");
         }
     }
 }
