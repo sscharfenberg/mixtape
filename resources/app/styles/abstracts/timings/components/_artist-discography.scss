@@ -1,0 +1,12 @@
+/******************************************************************************
+ * contextual timing token — component:ArtistDiscography.vue
+ * @type {Sass}
+ * the album row's hover-wash transition speed. `fast`, matching the DataTable
+ * row it shares its look with — a pointer affordance has to land immediately or
+ * it reads as lag rather than as feedback.
+ * consumed as ti.$c-artist-discography via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$artist-discography: map.get(ti.$timings, "fast") !default;

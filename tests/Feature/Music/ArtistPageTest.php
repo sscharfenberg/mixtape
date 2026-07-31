@@ -173,4 +173,133 @@ class ArtistPageTest extends TestCase
                 ->where('artist.genre', null)
             );
     }
+
+    public function test_the_discography_lists_their_credited_albums_oldest_first(): void
+    {
+        $artist = Artist::factory()->create();
+
+        Collection::factory()->create(['album_artist_id' => $artist->id, 'name' => 'Third', 'year' => 2007]);
+        Collection::factory()->create(['album_artist_id' => $artist->id, 'name' => 'First', 'year' => 1994]);
+        Collection::factory()->create(['album_artist_id' => $artist->id, 'name' => 'Second', 'year' => 2001]);
+        // Somebody else's album — it must not appear, since the tab is the artist's
+        // DISCOGRAPHY (what they are credited with), not every album they turn up on.
+        Collection::factory()->create(['album_artist_id' => Artist::factory()->create()->id]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/artists/{$artist->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('discography', 3)
+                ->where('discography.0.name', 'First')
+                ->where('discography.1.name', 'Second')
+                ->where('discography.2.name', 'Third')
+                // The tab and the hero tile count the same relation, so they can never
+                // disagree about how many albums this artist has.
+                ->where('artist.albums', 3)
+            );
+    }
+
+    public function test_an_album_with_no_year_sorts_last_rather_than_leading_the_discography(): void
+    {
+        // The ordering case a single engine cannot prove: Postgres and SQLite disagree on
+        // where NULLs land by default, so the controller sorts on an explicit CASE flag.
+        // Without it an untagged rip would head the list on one engine and tail it on the
+        // other — and the suite runs on SQLite, so only asserting the intent catches it.
+        $artist = Artist::factory()->create();
+
+        Collection::factory()->create(['album_artist_id' => $artist->id, 'name' => 'Untagged', 'year' => null]);
+        Collection::factory()->create(['album_artist_id' => $artist->id, 'name' => 'Dated', 'year' => 1999]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/artists/{$artist->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('discography.0.name', 'Dated')
+                ->where('discography.1.name', 'Untagged')
+                ->where('discography.1.year', null)
+            );
+    }
+
+    public function test_each_discography_row_totals_its_own_tracks_and_links_to_the_album(): void
+    {
+        $artist = Artist::factory()->create();
+        $album = Collection::factory()->create(['album_artist_id' => $artist->id, 'cover_path' => null]);
+
+        Track::factory()->create([
+            'artist_id' => $artist->id, 'collection_id' => $album->id, 'duration' => 120.5, 'cover' => false,
+        ]);
+        Track::factory()->create([
+            'artist_id' => $artist->id, 'collection_id' => $album->id, 'duration' => 121.0, 'cover' => false,
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/artists/{$artist->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('discography.0.songs', 2)
+                // Raw seconds, and deliberately summing to a FRACTION: a whole-number float
+                // crosses the wire as an int, so only a fractional total actually shows that
+                // the sum went over unrounded for the page to clock.
+                ->where('discography.0.duration', 241.5)
+                ->where('discography.0.href', "/music/albums/{$album->id}")
+                // No directory image and no file claiming embedded art, so the row is handed
+                // no URL at all rather than one that would 404 (the page draws a placeholder).
+                ->where('discography.0.coverUrl', null)
+            );
+    }
+
+    public function test_the_songs_tab_holds_only_this_artists_music_and_links_each_row_to_its_album(): void
+    {
+        $artist = Artist::factory()->create();
+        $album = Collection::factory()->create(['album_artist_id' => $artist->id, 'name' => 'Loveless']);
+
+        Track::factory()->create([
+            'artist_id' => $artist->id, 'collection_id' => $album->id, 'name' => 'Only Shallow',
+        ]);
+        // Another artist's track on the same album — the tab is by ARTIST, not by album.
+        Track::factory()->create([
+            'artist_id' => Artist::factory()->create()->id, 'collection_id' => $album->id,
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/artists/{$artist->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('table.rows', 1)
+                ->where('table.rows.0.name', 'Only Shallow')
+                ->where('table.rows.0.album', 'Loveless')
+                // Two destinations in one row: the row opens the song, the album cell the
+                // album. Both are asserted because the cell is only a link when it is given
+                // a URL, and a null here would silently turn it into plain text.
+                ->where('table.rows.0.albumUrl', "/music/albums/{$album->id}")
+                ->where('table.rows.0.href', '/music/songs/'.$page->toArray()['props']['table']['rows'][0]['id'])
+            );
+    }
+
+    public function test_the_songs_tab_is_the_only_thing_reading_the_pages_sort_params(): void
+    {
+        // The page deliberately carries ONE server-driven table, because DataTableService
+        // reads unprefixed sort/dir/page/search and two tables here would drive each other
+        // from the same params. This pins that contract: `sort` moves the songs table, and
+        // the discography — a plain array, not a TableResponse — is untouched by it.
+        $artist = Artist::factory()->create();
+
+        Collection::factory()->create(['album_artist_id' => $artist->id, 'name' => 'Early', 'year' => 1990]);
+        Collection::factory()->create(['album_artist_id' => $artist->id, 'name' => 'Late', 'year' => 2010]);
+
+        Track::factory()->create(['artist_id' => $artist->id, 'name' => 'Alpha']);
+        Track::factory()->create(['artist_id' => $artist->id, 'name' => 'Omega']);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/artists/{$artist->id}?sort=name&dir=desc")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('table.sort.key', 'name')
+                ->where('table.sort.direction', 'desc')
+                ->where('table.rows.0.name', 'Omega')
+                // Still chronological: the discography has no sort to be hijacked.
+                ->where('discography.0.name', 'Early')
+                ->where('discography.1.name', 'Late')
+            );
+    }
 }

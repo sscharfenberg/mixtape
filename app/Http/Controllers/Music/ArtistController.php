@@ -2,11 +2,17 @@
 
 namespace App\Http\Controllers\Music;
 
+use App\Enums\CollectionType;
 use App\Enums\TrackType;
 use App\Http\Controllers\Controller;
 use App\Models\Artist;
+use App\Models\Collection;
 use App\Models\Track;
+use App\Services\DataTableService;
 use App\Services\Music\DominantGenre;
+use App\Services\Search\FoldedSearch;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -19,10 +25,22 @@ use Inertia\Response;
  * same namespace, singular name for the single-record view, so the pair reads like the
  * routes do (`music.artists` / `music.artists.show`).
  *
- * ONE block for now — the hero, holding the artist's name and the same numbers the
- * listing shows, plus the dominant genre. Their SONGS and ALBUMS listings are
- * deliberately still to come (owner's call: ship the page and the links into it first),
- * which is why this controller sends no table at all yet.
+ * TWO blocks: the hero, holding the artist's name and the same numbers the listing
+ * shows plus the dominant genre — and below it their catalogue, split across two tabs.
+ *
+ * The two tabs are shaped DIFFERENTLY on purpose, because the two sets are different
+ * sizes. SONGS is the server-driven DataTable every other listing uses: an artist can
+ * have hundreds (406 is the collection's current worst case, and 42 artists are over one
+ * page), so it needs real sorting, searching and paging. ALBUMS is a plain discography
+ * list with none of that machinery — the collection's biggest discography is 26 and the
+ * average is 1.5, so a search box and a pager over a handful of rows would be furniture
+ * around nothing.
+ *
+ * That split also keeps the page's URL coherent. Both panels render at once (the open tab
+ * is client-side state the server never sees), and DataTableService reads unprefixed
+ * `sort` / `dir` / `page` / `search` — so a second server-driven table here would silently
+ * re-sort and re-paginate the first one from the same params. One table on the page means
+ * one owner of the query string.
  *
  * Sends RAW values like every other controller here: seconds for the playing time, bytes
  * for the size, counts as counts. Formatting happens on the page against the viewer's
@@ -40,12 +58,18 @@ class ArtistController extends Controller
      * music-only by construction (the tracks CHECK bars an audiobook from carrying an
      * `artist_id` at all), so there is nothing to exclude.
      */
-    public function __invoke(Artist $artist): Response
+    public function __invoke(Request $request, Artist $artist): Response
     {
         $totals = $this->trackTotals($artist);
         $genre = $this->dominantGenre($artist);
 
         return Inertia::render('Music/Artists/Artist/ArtistPage', [
+            // The albums tab: every album they are credited with, in one go. No paging
+            // because there is nothing to page — see the class docblock.
+            'discography' => $this->discography($artist),
+            // The songs tab, as the same server-driven payload every listing sends. It owns
+            // the page's query params outright, for the reason given in the class docblock.
+            'table' => $this->songTable($request, $artist),
             'artist' => [
                 'id' => $artist->id,
                 'name' => $artist->name,
@@ -73,6 +97,153 @@ class ArtistController extends Controller
                     : route('music.genres.show', $genre->genre_id, absolute: false),
             ],
         ]);
+    }
+
+    /**
+     * The artist's discography — every album credited to them, oldest first.
+     *
+     * Unpaginated and unsorted-by-the-reader by design (class docblock): the biggest
+     * discography in the collection is 26 albums. So this is a plain array, not a
+     * TableResponse, and the page renders it as a list rather than a DataTable — which is
+     * also what lets the songs table keep the query string to itself.
+     *
+     * Credited via `collections.album_artist_id`, the same relation the hero's album count
+     * uses, so the tab can never disagree with the number above it about how many albums
+     * this artist has.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function discography(Artist $artist): array
+    {
+        return $artist->albums()
+            ->where('collections.type', CollectionType::Album)
+            ->select(['collections.id', 'collections.name', 'collections.year', 'collections.cover_path'])
+            // Raw seconds, like every duration that goes over the wire; the page clocks it.
+            ->withCount('tracks')
+            ->withSum('tracks', 'duration')
+            ->addSelect([
+                // Whether ANY of its files carries embedded art — the cover route's fallback
+                // when the directory has no image. Selected here so the list costs no
+                // filesystem access at all, the same trade AlbumsController makes.
+                'embedded_cover_id' => Track::query()
+                    ->select('id')
+                    ->whereColumn('tracks.collection_id', 'collections.id')
+                    ->where('tracks.cover', true)
+                    ->limit(1)
+                    ->toBase(),
+            ])
+            // Chronological, which is how a discography reads. The NULL flag comes first and
+            // is spelled as a CASE rather than `NULLS LAST`: Postgres and SQLite disagree on
+            // where NULLs land by default, and an untagged album drifting to the top of the
+            // list on one engine and the bottom on the other is the kind of difference the
+            // test suite (SQLite) would never show. Then name, so the order is total.
+            ->orderByRaw('case when collections.year is null then 1 else 0 end')
+            ->orderBy('collections.year')
+            ->orderBy('collections.name')
+            ->get()
+            ->map(fn (Collection $album): array => [
+                'id' => $album->id,
+                'name' => $album->name,
+                'year' => $album->year,
+                'songs' => (int) $album->tracks_count,
+                'duration' => $album->tracks_sum_duration === null ? null : (float) $album->tracks_sum_duration,
+                'coverUrl' => $album->cover_path !== null || $album->embedded_cover_id !== null
+                    ? route('music.albums.cover', $album->id, absolute: false)
+                    : null,
+                'href' => route('music.albums.show', $album->id, absolute: false),
+            ])
+            ->all();
+    }
+
+    /**
+     * The artist's songs, as the server-driven table payload.
+     *
+     * An explicit query rather than `$artist->tracks()` for the reason AlbumController
+     * documents: a HasMany is not a Builder, so FoldedSearch would throw the moment
+     * somebody typed in the search box — a failure that only shows up on the search path.
+     *
+     * No ARTIST column, unlike the album's track table: every row here is by the artist
+     * whose page this is, so the column would repeat one name down the whole table. The
+     * ALBUM takes its place, and links to it — on this page that is the fact worth having
+     * per row, and the one destination that differs from where the row itself goes.
+     *
+     * @return array<string, mixed>
+     */
+    private function songTable(Request $request, Artist $artist): array
+    {
+        $query = Track::query()
+            ->where('tracks.artist_id', $artist->id)
+            // Scoped to music like everything else in this namespace: a podcast episode may
+            // legally carry an `artist_id`, and only audiobooks are barred by the CHECK.
+            ->where('tracks.type', TrackType::Music)
+            ->leftJoin('collections', 'tracks.collection_id', '=', 'collections.id')
+            ->select([
+                'tracks.id',
+                'tracks.name',
+                'tracks.track',
+                'tracks.duration',
+                'tracks.size',
+                // Decides whether the artwork cell gets a URL or the placeholder, without
+                // touching the filesystem.
+                'tracks.cover',
+                // Where the album CELL links to; off `tracks`, so the join above pays for it.
+                'tracks.collection_id',
+                'collections.name as album_name',
+                'collections.year as album_year',
+            ]);
+
+        return DataTableService::buildResponse(
+            query: $query,
+            request: $request,
+            sortable: ['name', 'album', 'year', 'track', 'duration', 'size'],
+            sortColumnMap: [
+                'name' => 'tracks.name',
+                'album' => 'collections.name',
+                'year' => 'collections.year',
+                'track' => 'tracks.track',
+                'duration' => 'tracks.duration',
+                'size' => 'tracks.size',
+            ],
+            // Alphabetical by song. Unlike the listings' "most audio first", the useful
+            // default for one artist's songs is the one that makes a named song findable —
+            // a reader who arrived here usually has a title in mind.
+            defaultSort: 'name',
+            // Both text columns on show, matched through their `name_fold` companions so the
+            // search is accent- and case-insensitive on one code path for Postgres and
+            // SQLite alike (FoldedSearch).
+            searchCallback: fn (Builder $q, string $search) => FoldedSearch::apply($q, $search, [
+                'tracks.name', 'collections.name',
+            ]),
+            rowMapper: fn (Track $track): array => [
+                'id' => $track->id,
+                'name' => $track->name,
+                'track' => $track->track,
+                'album' => $track->album_name,
+                'year' => $track->album_year,
+                // The one cell leading somewhere other than the row's own destination: the
+                // row opens the song, this opens the album. The DataTable supports that on
+                // purpose — its row-click guard stands down on an anchor. Null for a track
+                // filed under no collection, and then the cell is plain text.
+                'albumUrl' => $track->collection_id === null
+                    ? null
+                    : route('music.albums.show', $track->collection_id, absolute: false),
+                // Raw seconds and raw bytes; the page formats both against the viewer's
+                // locale (Utils/formatting.ts).
+                'duration' => $track->duration,
+                'size' => $track->size,
+                // Offered only when the FILE claims a picture of its own (`tracks.cover`,
+                // the scan-time flag), so a long table costs no per-row filesystem access.
+                'coverUrl' => $track->cover
+                    ? route('music.songs.cover', $track->id, absolute: false)
+                    : null,
+                // Makes the row clickable, and backs the title link.
+                'href' => route('music.songs.show', $track->id, absolute: false),
+            ],
+            // Song titles repeat across albums (live versions, re-recordings), so the sort
+            // alone is not a total order — without a tiebreaker a duplicate title could
+            // appear on two pages across two requests. Album then track settles it.
+            tiebreakers: ['name', 'album', 'track'],
+        );
     }
 
     /**

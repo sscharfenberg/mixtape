@@ -1,0 +1,20 @@
+/******************************************************************************
+ * contextual size tokens — component:ArtistDiscography.vue
+ * @type {Sass}
+ * Metrics for the albums-tab rows: `border`/`radius` match the DataTable's so
+ * the two tabs agree, `row-padding` sizes one row and `row-gap` spaces the
+ * artwork from the text beside it. `meta-gap` separates the secondary facts from
+ * each other. Literals where the row needs a comfortable target rather than a
+ * step of the page's rhythm, which is what the sizes rule allows.
+ * Consumed as s.$c-artist-discography via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$artist-discography: (
+    "border": map.get(s.$border, "base"),
+    "radius": map.get(s.$radius, "base"),
+    "row-padding": 0.5rem,
+    "row-gap": 1ch,
+    "meta-gap": 2ch
+) !default;

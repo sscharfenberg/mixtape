@@ -6,6 +6,7 @@
  * consumed as s.$c-button via `@use "Abstracts/sizes" as s;`.
  *****************************************************************************/
 @forward "app";
+@forward "artist-discography";
 @forward "badge";
 @forward "breadcrumb";
 @forward "button";
@@ -32,6 +33,7 @@
 @forward "select";
 @forward "site-menu-links";
 @forward "sticky-nav";
+@forward "tabbed-navigation";
 @forward "textlink";
 @forward "theme-switch";
 @forward "title";

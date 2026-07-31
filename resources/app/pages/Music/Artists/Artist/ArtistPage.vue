@@ -7,11 +7,19 @@
  * AlbumPage are: the detail view lives *inside* the listing it came from, mirroring
  * the URL.
  *
- * ONE block for now — the hero, holding the artist's name and the facts that describe
- * their catalogue: two album counts, their songs, and what those files add up to in
- * time and on disk. Their SONGS and ALBUMS listings are still to come (owner's call:
- * the page and the links into it first), which is the one way this page is not yet the
- * shape of its two siblings.
+ * TWO blocks: the hero, holding the artist's name and the facts that describe their
+ * catalogue — albums, songs, and what those files add up to in time and on disk — and
+ * below it their catalogue itself, split across an ALBUMS and a SONGS tab.
+ *
+ * Each tab is its own sibling component — ArtistDiscography and ArtistSongs — so this file
+ * stays the page: the hero, the two tabs, and nothing about how either panel renders. The
+ * two are shaped differently because the two sets are different sizes, and the reasoning
+ * lives in ArtistController (the short version: 26 albums at the very worst against 406
+ * songs). Albums are a plain list, songs the server-driven DataTable — which also means
+ * only one thing on this page owns the URL's query params.
+ *
+ * Which tab is open is local state, deliberately not URL state: it is a view of one page
+ * rather than a destination, and the songs table already owns the URL.
  *
  * No `#cover` slot at all, and that is deliberate rather than missing: MixTape stores no
  * artist images, so there is nothing to point an <img> at. HeroSection draws its dashed
@@ -24,13 +32,17 @@
  * (Utils/formatting.ts).
  *****************************************************************************/
 import { Head } from "@inertiajs/vue3";
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Container from "Components/UI/Container.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
+import TabbedNavigation, { type TabDefinition } from "Components/UI/TabbedNavigation.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
+import type { TableResponse } from "Types/dataTable";
 import { formatClock, formatFileSize } from "Utils/formatting";
+import ArtistDiscography, { type DiscographyAlbum } from "./ArtistDiscography.vue";
+import ArtistSongs, { type SongRow } from "./ArtistSongs.vue";
 
 /** One artist as ArtistController shaped it — every value raw. */
 interface ArtistDetail {
@@ -59,6 +71,10 @@ interface ArtistDetail {
 const props = defineProps<{
     /** The artist being shown, as ArtistController shaped it. */
     artist: ArtistDetail;
+    /** Every album credited to them, for the albums tab. Unpaginated — see ArtistDiscography. */
+    discography: DiscographyAlbum[];
+    /** Their songs, as the server-driven table payload (rows + pagination + sort + search). */
+    table: TableResponse<SongRow>;
 }>();
 
 const { t, locale } = useI18n();
@@ -85,6 +101,26 @@ const playingTime = computed(() => formatClock(props.artist.duration) ?? "");
 
 /** What their files add up to on disk, in the viewer's locale. Never null, as above. */
 const totalSize = computed(() => formatFileSize(props.artist.size, locale.value));
+
+/**
+ * The open tab. Plain local state, not a URL param: the songs table already owns this
+ * page's query string, and a tab is a view of one page rather than a place to link to.
+ * Starts unset, which TabbedNavigation resolves to the first tab (albums).
+ */
+const openTab = ref<string>();
+
+/**
+ * The two tabs, with the counts from the hero on them so a reader can see how much is
+ * behind each before opening it. A `computed` so the labels re-evaluate on a locale switch.
+ *
+ * Albums leads because it is the smaller, structural view of the same catalogue — the shape
+ * of an artist's work before its contents — and it matches the legacy app's order, where
+ * this page's tabs were Alben then Songs.
+ */
+const tabs = computed<TabDefinition[]>(() => [
+    { id: "albums", label: t("music.columns.albums"), icon: "album", count: props.artist.albums },
+    { id: "songs", label: t("music.columns.songs"), icon: "song", count: props.artist.songs }
+]);
 </script>
 
 <template>
@@ -120,6 +156,23 @@ const totalSize = computed(() => formatFileSize(props.artist.size, locale.value)
                     <fact-pair icon="file" :label="t('music.columns.size')" :value="totalSize" />
                 </template>
             </hero-section>
+
+            <!-- The catalogue. One tab per way of reading it; the component owns which
+                 panel shows and all of the ARIA, so this only supplies the two slots. -->
+            <tabbed-navigation
+                v-model:selected-tab="openTab"
+                name="artist"
+                :tabs="tabs"
+                :label="t('music.artist.tabs.label')"
+            >
+                <template #albums>
+                    <artist-discography :albums="discography" />
+                </template>
+
+                <template #songs>
+                    <artist-songs :table="table" :base-url="`/music/artists/${artist.id}`" />
+                </template>
+            </tabbed-navigation>
         </div>
     </container>
 </template>
@@ -131,7 +184,8 @@ const totalSize = computed(() => formatFileSize(props.artist.size, locale.value)
 /* Stacks the page's blocks and spaces them, taking the CardGroup's own gutter
    (s.$c-card "gap") so the rhythm down the page matches the rhythm between two cards —
    the same rule, for the same reason, as SongPage's `.song` and AlbumPage's `.album`.
-   One block today; the songs and albums listings land under it. */
+   Each tab's own styling lives with the component that owns it — ArtistDiscography and
+   ArtistSongs — so there is nothing here but the page's own vertical rhythm. */
 .artist {
     display: flex;
     flex-direction: column;

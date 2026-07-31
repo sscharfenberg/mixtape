@@ -1,0 +1,41 @@
+/******************************************************************************
+ * contextual size tokens — component:TabbedNavigation.vue
+ * @type {Sass}
+ * Two nested sets of metrics, each borrowed from the thing it should look like.
+ *
+ * **The frame** (`frame-*`, `padding`, `gap`) takes the Card's metrics — the same
+ * base border, the same `featured` radius, the same padding — so a tabbed panel is
+ * the same kind of object as a Card and rounds off to the same degree.
+ *
+ * **A tab pill** (`tab-*`) takes the SiteMenuLinks metrics: base border, `base`
+ * radius (a pill inside a panel, so tighter than the frame it sits in), and the
+ * same responsive `$padding` map, which the component thins to a quarter
+ * block-wise and a half inline exactly as the header links do. `tab-min-width` is
+ * a literal floor so a two-tab strip does not read as two words adrift, with
+ * `min()` keeping it from overflowing a narrow phone. `tab-border-accent` is the
+ * extra weight the selected pill's edge gains without gaining any size.
+ * Consumed as s.$c-tabbed-navigation via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$tabbed-navigation: (
+    // the panel frame — Card metrics
+    "frame-border": map.get(s.$border, "base"),
+    "frame-radius": map.get(s.$radius, "featured"),
+    "padding": map.get(s.$padding, "portrait"),
+    "gap": map.get(s.$padding, "portrait"),
+    // a tab pill — SiteMenuLinks metrics
+    "tab-border": map.get(s.$border, "base"),
+    // The SELECTED pill's edge reads at `featured` weight while its layout box still only
+    // spends `base`: this is the DIFFERENCE between the two, drawn as an inset ring rather
+    // than added to `border-width` (see the component). Kept as the subtraction rather than
+    // a literal so the two ends stay tied to the border scale — retune either and the
+    // selected edge still lands exactly on `featured`.
+    "tab-border-accent": map.get(s.$border, "featured") - map.get(s.$border, "base"),
+    "tab-radius": map.get(s.$radius, "base"),
+    "tab-padding": s.$padding,
+    "tab-gap": 1ch,
+    "tab-inner-gap": 0.5ch,
+    "tab-min-width": min(8rem, 100%)
+) !default;

@@ -1,0 +1,35 @@
+/******************************************************************************
+ * contextual color tokens — component:ArtistDiscography.vue
+ * @type {Sass}
+ * The artist page's albums tab — a list of album rows, each linking to that
+ * album. It sits one tab away from the songs DataTable, so `border` and
+ * `row-hover` deliberately re-pick the SAME values as c.$c-datatable's: the two
+ * tabs show one artist's catalogue two ways, and a reader flipping between them
+ * should not see the rules and the hover wash change colour. Re-picked from the
+ * globals rather than read off that component's tokens, so this partial stays
+ * self-contained (the same call SiteMenuLinks and WidgetModeToggle make about
+ * their shared look).
+ *
+ * `surface-meta` is the muted grey for a row's secondary facts — the year and
+ * the song-count / playing-time pair — so the album NAME is the only thing at
+ * full contrast and the row has one obvious thing to read first.
+ * Consumed as c.$c-artist-discography via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$artist-discography: (
+    // the rule between two rows — the DataTable's own border value
+    "border": light-dark(
+            color.adjust(map.get(c.$grey, "slate"), $alpha: -0.25),
+            color.adjust(map.get(c.$grey, "charcoal"), $alpha: -0.25)
+        ),
+    // hover — the DataTable's row wash, quiet enough to read as "this row is the target"
+    "row-hover": light-dark(
+            color.adjust(map.get(c.$grey, "iron"), $alpha: -0.5),
+            color.adjust(map.get(c.$grey, "abbey"), $alpha: -0.25)
+        ),
+    // the row's secondary facts, one step down from the album name
+    "surface-meta": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron"))
+) !default;

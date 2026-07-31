@@ -306,7 +306,16 @@
         "notEnoughData": "Not enough data",
         "refresh": "Refresh",
         "reloadServerData": "Reload server data",
-        "seeAll": "See all"
+        "seeAll": "See all",
+        "artist": {
+            "tabs": {
+                "label": "This artist's albums and songs"
+            },
+            "discography": {
+                "songCount": "{n} song | {n} songs",
+                "empty": "No albums are credited to this artist."
+            }
+        }
     },
     "components": {
         "datatable": {
@@ -334,6 +343,9 @@
         "select": {
             "placeholder": "Please select …",
             "clear": "Clear selection"
+        },
+        "tabs": {
+            "label": "Tabs"
         }
     }
 }

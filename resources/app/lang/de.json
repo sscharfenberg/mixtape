@@ -306,7 +306,16 @@
         "notEnoughData": "Noch nicht genug Daten",
         "refresh": "Aktualisieren",
         "reloadServerData": "Server-Daten neu laden",
-        "seeAll": "Alle anzeigen"
+        "seeAll": "Alle anzeigen",
+        "artist": {
+            "tabs": {
+                "label": "Alben und Songs des Künstlers"
+            },
+            "discography": {
+                "songCount": "{n} Song | {n} Songs",
+                "empty": "Diesem Künstler ist kein Album zugeordnet."
+            }
+        }
     },
     "components": {
         "datatable": {
@@ -334,6 +343,9 @@
         "select": {
             "placeholder": "Bitte auswählen …",
             "clear": "Auswahl entfernen"
+        },
+        "tabs": {
+            "label": "Registerkarten"
         }
     }
 }

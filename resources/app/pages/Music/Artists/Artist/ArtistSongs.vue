@@ -1,0 +1,196 @@
+<script setup lang="ts">
+/******************************************************************************
+ * ArtistSongs
+ * The songs tab of the artist page — every music track crediting this artist, in
+ * the server-driven DataTable the listings use (sort / search / paginate all in
+ * the URL). Lives beside ArtistPage.vue because it is that page's own part, not a
+ * shared component (CLAUDE.md → Pages), and sits next to ArtistDiscography as the
+ * other half of the same catalogue.
+ *
+ * It IS a DataTable where the discography tab deliberately is not, because the two
+ * sets are different sizes: an artist can have hundreds of songs (406 is the
+ * collection's current worst case, and 42 artists are over one page), so this one
+ * needs real paging where a handful of albums does not. The consequence worth
+ * knowing is that this component OWNS the page's query params — DataTableService
+ * reads them unprefixed, so a second server-driven table on the page would drive
+ * this one from the same `sort` / `dir` / `page` / `search`. See ArtistController.
+ *
+ * No ARTIST column, unlike the album page's track table: every row here is by the
+ * artist whose page this is, so the column would repeat one name down the whole
+ * table. The ALBUM takes that slot instead, and links to it.
+ *****************************************************************************/
+import { Link } from "@inertiajs/vue3";
+import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import DataTable from "Components/DataTable/DataTable.vue";
+import Icon from "Components/UI/Icon.vue";
+import type { ColumnDef, TableResponse } from "Types/dataTable";
+import { formatClock, formatFileSize } from "Utils/formatting";
+
+/** One of the artist's songs, as ArtistController's rowMapper shaped it — every value raw. */
+export interface SongRow {
+    id: string;
+    name: string;
+    /** Track number within its album, or null when untagged. */
+    track: number | null;
+    /** The album it is filed under, or null for a track belonging to no collection. */
+    album: string | null;
+    /** That album's release year, or null when the album is untagged or absent. */
+    year: number | null;
+    /**
+     * That album's own page, or null when the track belongs to no collection. A different
+     * destination from the row's own `href`, which is what makes the album cell a real link.
+     */
+    albumUrl: string | null;
+    /** Playing time in seconds. */
+    duration: number | null;
+    /** File size in bytes. */
+    size: number | null;
+    /** The track's OWN embedded art, or null when the file carries none. */
+    coverUrl: string | null;
+    /** The song's detail page — makes the row clickable and backs the title link. */
+    href: string;
+}
+
+defineProps<{
+    /** The songs, as the server-driven table payload (rows + pagination + sort + search). */
+    table: TableResponse<SongRow>;
+    /**
+     * Where the table's own navigation goes — the artist page's URL. Passed in rather than
+     * built here, so this component knows nothing about routes and the page keeps ownership
+     * of its own address.
+     */
+    baseUrl: string;
+}>();
+
+const { t, locale } = useI18n();
+
+/**
+ * Column definitions for the table. A `computed` so the (already-translated) labels
+ * re-evaluate on a locale switch.
+ */
+const columns = computed<ColumnDef<SongRow>[]>(() => [
+    { key: "coverUrl", label: t("music.columns.cover"), width: "4rem", align: "center", cardMedia: true },
+    { key: "name", label: t("music.columns.title"), sortable: true, visibleInCard: true, cardPrimary: true },
+    { key: "album", label: t("music.columns.album"), sortable: true, visibleInCard: true },
+    { key: "year", label: t("music.columns.year"), sortable: true, align: "right" },
+    { key: "duration", label: t("music.columns.duration"), sortable: true, visibleInCard: true, align: "right" },
+    { key: "size", label: t("music.song.labels.size"), sortable: true, visibleInCard: true, align: "right" }
+]);
+
+/**
+ * Songs whose thumbnail failed to load, so the row falls back to the placeholder glyph —
+ * the same guard every other cover-bearing table carries, since `coverUrl` rests on
+ * `tracks.cover`, a scan-time flag that a re-tagged or deleted file leaves stale.
+ */
+const failedCovers = ref(new Set<string>());
+
+/** Remember a row whose <img> errored, which swaps it to the placeholder glyph. */
+const onCoverError = (id: string) => {
+    // A new Set rather than .add(): a Set mutated in place is not a reactive change.
+    failedCovers.value = new Set(failedCovers.value).add(id);
+};
+</script>
+
+<template>
+    <!-- `base-url` is the artist page, so sorting / paging / searching navigate back there
+         with the state in the URL — the same server-driven contract the listings use. Note
+         the open TAB is not in that URL: reloading a sorted songs view lands on the albums
+         tab again, which is the trade for keeping tab state out of the query string. -->
+    <data-table :columns="columns" :response="table" :base-url="baseUrl" :has-actions="false">
+        <!-- alt="": the title is in the next cell, so naming the art again makes a screen
+             reader read every row twice. -->
+        <template #cell-coverUrl="{ row }">
+            <img
+                v-if="row.coverUrl && !failedCovers.has(row.id)"
+                :src="row.coverUrl"
+                alt=""
+                class="artist-songs__cover"
+                loading="lazy"
+                @error="onCoverError(row.id)"
+            />
+            <icon
+                v-else
+                name="music"
+                :size="2"
+                class="artist-songs__cover-placeholder"
+                :aria-label="t('music.song.noCover')"
+                role="img"
+            />
+        </template>
+        <template #cell-name="{ row }">
+            <Link :href="row.href" class="artist-songs__title">{{ row.name }}</Link>
+        </template>
+        <!-- The one cell leading somewhere OTHER than where its row leads: the row opens the
+             song, this opens the album. Which is why it underlines on hover as well as on
+             focus — a cell that looks like its neighbours but navigates elsewhere is a trap.
+             Plain text when the track belongs to no collection. -->
+        <template #cell-album="{ row }">
+            <Link v-if="row.albumUrl" :href="row.albumUrl" class="artist-songs__album">{{ row.album }}</Link>
+            <template v-else>{{ row.album }}</template>
+        </template>
+        <template #cell-duration="{ row }">{{ formatClock(row.duration) }}</template>
+        <template #cell-size="{ row }">{{ row.size === null ? "" : formatFileSize(row.size, locale) }}</template>
+        <template #empty>
+            <p>{{ t("components.datatable.no_results") }}</p>
+        </template>
+    </data-table>
+</template>
+
+<style scoped lang="scss">
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/colors" as c;
+@use "Abstracts/sizes" as s;
+
+/* The row thumbnail: identical rules to the other tables', reading the same hero-section
+   tokens — it is the same artwork at the same listing size. See AlbumsPage for why
+   `border-box` and `display: block` are load-bearing. */
+.artist-songs__cover {
+    display: block;
+
+    box-sizing: border-box;
+
+    width: map.get(s.$c-hero-section, "cover-thumbnail");
+    height: map.get(s.$c-hero-section, "cover-thumbnail");
+    border: map.get(s.$c-hero-section, "cover-thumbnail-border") solid map.get(c.$c-hero-section, "cover-border");
+
+    border-radius: map.get(s.$c-hero-section, "cover-thumbnail-radius");
+
+    object-fit: cover;
+}
+
+.artist-songs__cover-placeholder {
+    color: map.get(c.$c-hero-section, "cover-placeholder-icon");
+}
+
+/* The title link deliberately does NOT look like a link — the whole row is the click
+   target and already signals it. Same rule as every listing; see SongsPage for the
+   reasoning, including why only focus draws an underline. */
+.artist-songs__title {
+    color: inherit;
+
+    text-decoration: none;
+
+    &:focus-visible {
+        text-decoration: underline;
+    }
+}
+
+/* The deliberate exception to the rule above, and the same one AlbumPage makes for its
+   artist cell: this is the one link that does NOT share its row's destination — the row
+   opens the song, this opens the album. So it has to say so BEFORE it is clicked, hence
+   the underline on hover as well as on focus. Still `color: inherit`: on a prolific artist
+   this cell is filled on every row, and a column of coloured album names would outshout
+   the titles the table is actually about. No transition, so no reduced-motion guard is
+   needed — the underline appears at once, which is what a pointer affordance should do. */
+.artist-songs__album {
+    color: inherit;
+
+    text-decoration: none;
+
+    &:hover,
+    &:focus-visible {
+        text-decoration: underline;
+    }
+}
+</style>

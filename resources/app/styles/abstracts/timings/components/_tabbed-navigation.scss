@@ -1,0 +1,12 @@
+/******************************************************************************
+ * contextual timing token — component:TabbedNavigation.vue
+ * @type {Sass}
+ * the tab pill's fill / ink / border transition speed. `fast`, matching the
+ * SiteMenuLinks pill it borrows its look from — and a tab strip is navigation a
+ * reader moves along with arrow keys, so anything slower lags behind held keys.
+ * consumed as ti.$c-tabbed-navigation via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$tabbed-navigation: map.get(ti.$timings, "fast") !default;

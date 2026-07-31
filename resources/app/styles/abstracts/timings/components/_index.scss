@@ -5,6 +5,7 @@
  * re-exports these with a "c-" prefix, so $button (in _button.scss) is
  * consumed as ti.$c-button via `@use "Abstracts/timings" as ti;`.
  *****************************************************************************/
+@forward "artist-discography";
 @forward "breadcrumb";
 @forward "button";
 @forward "checkbox";
@@ -22,6 +23,7 @@
 @forward "select";
 @forward "site-menu-links";
 @forward "sticky-nav";
+@forward "tabbed-navigation";
 @forward "textlink";
 @forward "theme-switch";
 @forward "toast";

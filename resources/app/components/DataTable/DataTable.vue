@@ -180,6 +180,11 @@ function closeActionsPopover() {
 /**
  * Merge new params into the current URL, preserving existing query state
  * (e.g. pageSize survives a page navigation). Params set to null are removed.
+ *
+ * The FRAGMENT is carried over too, though nothing about the table reads it. A hash is
+ * client-only state the server never sees and the table has no business owning — an
+ * in-page anchor the reader followed, or whatever a future consumer keeps there — so a
+ * sort or a page change has no business silently discarding it.
  */
 function buildUrl(params: Record<string, string | number | null>) {
     const base = props.baseUrl || window.location.pathname;
@@ -195,7 +200,7 @@ function buildUrl(params: Record<string, string | number | null>) {
             url.searchParams.set(key, String(value));
         }
     }
-    return url.pathname + url.search;
+    return url.pathname + url.search + window.location.hash;
 }
 /** Toggle sort direction for a column and navigate to page 1. */
 function onSort(key: string) {
