@@ -2,21 +2,73 @@
 /******************************************************************************
  * GenresPage
  * The Music → Genres sub-section (ALL genres), reached at /music/genres (route
- * `music.genres`) and linked from the GenresWidget footer. Stub for now — a
- * glowing headline over placeholder copy, pending the real listing. (A single
- * genre's detail page will be a separate GenrePage later.)
+ * `music.genres`) and linked from the GenresWidget footer. The same shape as the other
+ * three listings: the server-driven DataTable, with sort / search / pagination in the
+ * URL, so GenresController owns the state and this page only declares the columns and
+ * hands over the `table` response. Read-only (`has-actions="false"`).
+ *
+ * Rows are NOT clickable here, unlike the songs / albums / artists listings — there is no
+ * genre detail page yet, so the server puts no `href` on a row and the table stays a
+ * table. Nothing to undo when that page lands: a row becomes clickable the moment it
+ * carries a URL.
+ *
+ * Every column but the name is an aggregate, and one of them needs reading carefully:
+ * ARTISTS counts the artists whose MAIN genre this is, not everyone who ever recorded a
+ * song in it (see GenresController / DominantGenre). So the column adds up to the
+ * library's artists — and a genre with hundreds of songs can still show 0, meaning it is
+ * nobody's main genre rather than that something is missing.
  *****************************************************************************/
 import { Head } from "@inertiajs/vue3";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import DataTable from "Components/DataTable/DataTable.vue";
 import Container from "Components/UI/Container.vue";
 import Headline from "Components/UI/Headline.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
+import type { ColumnDef, TableResponse } from "Types/dataTable";
+import { formatClock, formatFileSize } from "Utils/formatting";
 
-const { t } = useI18n();
+/** One genre row as shaped by GenresController's rowMapper — every value raw. */
+interface GenreRow {
+    id: string;
+    /** The genre's name; the card view's heading. */
+    name: string;
+    /** How many artists have this as their MAIN genre — each artist counted once. */
+    artists: number;
+    /** How many music tracks are tagged with it. */
+    songs: number;
+    /** Total playing time of those tracks in seconds — clocked by the slot below. */
+    duration: number;
+    /** Total size of those files in bytes. */
+    size: number;
+}
+
+defineProps<{
+    /** The server-driven table payload (rows + pagination + sort + search state). */
+    table: TableResponse<GenreRow>;
+}>();
+
+const { t, locale } = useI18n();
 const { setBreadcrumbs } = useBreadcrumbs();
 setBreadcrumbs([
     { labelKey: "header.siteMenu.music", href: "/music", icon: "music" },
     { labelKey: "music.widgets.genres", icon: "genre" }
+]);
+
+/**
+ * Column definitions for the genre table. A `computed` so the (already-translated) labels
+ * re-evaluate if the locale changes.
+ *
+ * `name` is the card-view heading; the two counts and the two totals are right-aligned as
+ * numbers, which is what lets a reader scan a column of them. Every column is in the card
+ * view — there are only five, and each is a number the listing exists to compare.
+ */
+const columns = computed<ColumnDef<GenreRow>[]>(() => [
+    { key: "name", label: t("music.columns.genre"), sortable: true, visibleInCard: true, cardPrimary: true },
+    { key: "artists", label: t("music.columns.artists"), sortable: true, visibleInCard: true, align: "right" },
+    { key: "songs", label: t("music.columns.songs"), sortable: true, visibleInCard: true, align: "right" },
+    { key: "duration", label: t("music.columns.duration"), sortable: true, visibleInCard: true, align: "right" },
+    { key: "size", label: t("music.columns.size"), sortable: true, visibleInCard: true, align: "right" }
 ]);
 </script>
 
@@ -24,9 +76,15 @@ setBreadcrumbs([
     <Head :title="t('music.widgets.genres')" />
     <headline glow>{{ t("music.widgets.genres") }}</headline>
     <container>
-        <p>
-            Lorem ipsum dolor sit amet, consectetur adipisicing elit. Asperiores commodi dolor eum, labore omnis
-            pariatur quaerat quis veritatis? Animi aperiam consectetur deleniti facilis hic id ipsum.
-        </p>
+        <data-table :columns="columns" :response="table" base-url="/music/genres" :has-actions="false">
+            <!-- Raw seconds and raw bytes from the server, formatted here against the
+                 viewer's locale. Neither is nullable: the controller COALESCEs both sums,
+                 so a genre whose tracks were all pruned reads "0:00" rather than blank. -->
+            <template #cell-duration="{ row }">{{ formatClock(row.duration) }}</template>
+            <template #cell-size="{ row }">{{ formatFileSize(row.size, locale) }}</template>
+            <template #empty>
+                <p>{{ t("components.datatable.no_results") }}</p>
+            </template>
+        </data-table>
     </container>
 </template>

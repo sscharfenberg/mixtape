@@ -6,6 +6,7 @@ use App\Enums\TrackType;
 use App\Http\Controllers\Controller;
 use App\Models\Artist;
 use App\Models\Track;
+use App\Services\Music\DominantGenre;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -62,14 +63,14 @@ class ArtistController extends Controller
                 // What this artist mostly IS, tag-wise. Nullable in two ways: an artist
                 // with no tracks of their own has no genre to derive one from, and
                 // neither does one whose files all left the genre frame empty.
-                'genre' => $genre?->name,
+                'genre' => $genre?->genre_name,
                 // Where that genre WOULD lead. Null today because the genre area is
                 // still a listing with no detail page behind it (`music.genres` has no
                 // `.show` sibling) — the same shape SongController's `albumUrl` takes, so
                 // the page renders a link when it is handed one and plain text when it is
                 // not. Once a GenreController exists this becomes
-                // `route('music.genres.show', $genre->id)` and the tile becomes clickable
-                // with no change to the page at all.
+                // `route('music.genres.show', $genre->genre_id)` and the tile becomes
+                // clickable with no change to the page at all.
                 'genreUrl' => null,
             ],
         ]);
@@ -114,40 +115,27 @@ class ArtistController extends Controller
     }
 
     /**
-     * The genre most of this artist's songs carry, or null when none of them carry one.
+     * The genre most of this artist's songs carry, as a row of `(genre_id, genre_name)`,
+     * or null when none of them carry one.
      *
      * A derived fact, not a stored one: MixTape tags genre per TRACK, so an artist has no
-     * genre of their own — and plenty of them vary it across their catalogue (a band with
-     * one acoustic record, a soundtrack composer filed half under Score and half under
-     * Electronic). Picking the modal genre is what makes the tile a useful summary rather
-     * than a coin toss.
+     * genre of their own — and plenty of them vary it (a band with one acoustic record, a
+     * composer filed half under Score and half under Electronic). Picking the modal genre
+     * is what makes the tile a useful summary rather than a coin toss.
      *
-     * GROUPed and ordered in SQL, limit 1, so it costs one query and never hydrates the
-     * catalogue. The second ORDER BY is the load-bearing half: a two-genre artist split
-     * 6/6 would otherwise show whichever row the engine happened to hand back first and
-     * could show a DIFFERENT one on the next request — so the tie breaks on the genre's
-     * own name, and the page is at least stable and explainable.
+     * The rule itself lives in DominantGenre, NOT here, because the Genres listing reads
+     * it from the other end — counting the artists each genre is the main genre of. Two
+     * implementations would eventually disagree about the same artist, with this page
+     * saying "Ambient" while the listing files them under "Jazz"; there is no way for a
+     * reader to tell which one is lying. See that service for the tie-break rule and why
+     * it is load-bearing.
      *
-     * Returns the raw row (id + name) rather than a Genre model: the id is here for the
-     * link this tile will get once the genre area has a detail page, and hydrating a
-     * model to read two columns off it buys nothing.
+     * Still one query, and it hands back the genre's NAME as well as its id — so the tile
+     * has its label without a second lookup, and the id is ready for the link this tile
+     * gets once the genre area has a detail page.
      */
     private function dominantGenre(Artist $artist): ?object
     {
-        return Track::query()
-            ->where('artist_id', $artist->id)
-            ->where('type', TrackType::Music)
-            ->whereNotNull('genre_id')
-            ->toBase()
-            ->join('genres', 'tracks.genre_id', '=', 'genres.id')
-            ->select(['genres.id', 'genres.name'])
-            ->selectRaw('count(*) as songs')
-            // Both columns, not just the id: Postgres would accept grouping by the PK
-            // alone, SQLite is laxer still, but naming every selected column is the only
-            // form that is valid SQL on both.
-            ->groupBy('genres.id', 'genres.name')
-            ->orderByDesc('songs')
-            ->orderBy('genres.name')
-            ->first();
+        return DominantGenre::winners($artist->id)->first();
     }
 }

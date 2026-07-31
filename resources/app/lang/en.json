@@ -260,6 +260,7 @@
             "songs": "Songs",
             "discs": "Discs",
             "albums": "Albums",
+            "artists": "Artists",
             "size": "Size",
             "modifiedAt": "Modified"
         },
