@@ -127,7 +127,17 @@ const songFacts = computed<Fact[]>(() => {
             label: t("music.columns.year"),
             value: song.year === null ? null : String(song.year)
         },
-        { key: "genre", group: tags, icon: "genre", label: t("music.columns.genre"), value: song.genre },
+        // Leads to the genre's page — the third and last of this page's facts that names
+        // something with a page of its own. It appears only here, not in the hero, so
+        // unlike the artist and album there is one tile to keep in step rather than two.
+        {
+            key: "genre",
+            group: tags,
+            icon: "genre",
+            label: t("music.columns.genre"),
+            value: song.genre,
+            href: song.genreUrl ?? undefined
+        },
         {
             key: "composer",
             group: tags,
@@ -167,10 +177,10 @@ const songFacts = computed<Fact[]>(() => {
         // the release the song sits on, so its name heads the facts about it — and the
         // label that put the release out follows it, for the same reason.
         //
-        // One of the two facts on this page that LEAD somewhere (the artist above is the
-        // other), so it is a filled tile: `href` comes from the server (`albumUrl`),
-        // which is null for a song filed under no album — and then the tile is a plain
-        // fact again, with no dead link and no special colour.
+        // One of the three facts on this page that LEAD somewhere (the artist and the genre
+        // above are the others), so it is a filled tile: `href` comes from the server
+        // (`albumUrl`), which is null for a song filed under no album — and then the tile
+        // is a plain fact again, with no dead link and no special colour.
         {
             key: "album",
             group: album,

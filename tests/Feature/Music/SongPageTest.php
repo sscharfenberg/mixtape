@@ -85,6 +85,37 @@ class SongPageTest extends TestCase
             );
     }
 
+    public function test_the_genre_fact_carries_a_link_to_the_genre_page(): void
+    {
+        // The third and last of this page's facts that names something with a page of its
+        // own. Same contract as the other two: the server decides, the page renders a
+        // filled clickable tile when handed a URL and a plain fact when not.
+        $genre = Genre::factory()->create(['name' => 'Post-Rock']);
+        $song = Track::factory()->create(['genre_id' => $genre->id]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/songs/{$song->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('song.genre', 'Post-Rock')
+                ->where('song.genreUrl', "/music/genres/{$genre->id}")
+            );
+    }
+
+    public function test_a_song_with_no_genre_gets_no_genre_link(): void
+    {
+        // Untagged genre frame, no URL — and therefore no dead link and no filled tile.
+        $song = Track::factory()->create(['genre_id' => null]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/songs/{$song->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('song.genre', null)
+                ->where('song.genreUrl', null)
+            );
+    }
+
     public function test_the_album_fact_carries_a_link_to_the_albums_page(): void
     {
         // One of the two facts on this page that lead somewhere (the artist above is the

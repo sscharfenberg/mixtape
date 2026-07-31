@@ -73,6 +73,11 @@ export interface SongDetail {
     albumUrl: string | null;
     /** Genre name, or null when untagged. */
     genre: string | null;
+    /**
+     * That genre's own page, or null when the file carried no genre. Same
+     * server-decided shape as the two URLs above.
+     */
+    genreUrl: string | null;
     /** The album's release year, or null when unknown. */
     year: number | null;
     /** Composer tag, or null — set on classical rips far more often than on pop. */

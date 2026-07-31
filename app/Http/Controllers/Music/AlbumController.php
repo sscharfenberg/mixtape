@@ -114,6 +114,9 @@ class AlbumController extends Controller
                 // Not shown as a column: it is what decides whether the artwork cell gets
                 // a URL or the placeholder, without touching the filesystem.
                 'tracks.cover',
+                // Also not a column — it is where the artist CELL links to. Off `tracks`,
+                // so the existing join pays for it.
+                'tracks.artist_id',
                 'artists.name as artist_name',
             ]);
 
@@ -142,6 +145,19 @@ class AlbumController extends Controller
                 'track' => $track->track,
                 'name' => $track->name,
                 'artist' => $track->artist_name,
+                // Where the artist cell leads. A SECOND destination inside a row whose own
+                // click goes to the song, which the DataTable supports on purpose: its
+                // `isRowNavigation()` guard stands down for a click that landed on an
+                // anchor, so the link wins over the row rather than fighting it
+                // (DataTable/README.md → Clickable rows).
+                //
+                // It earns that complication on a COMPILATION, which is the case this
+                // column exists for at all: 20 tracks by 20 different performers, and the
+                // performer is exactly what a listener wants to follow. Null for a file
+                // crediting nobody, and then the cell is plain text.
+                'artistUrl' => $track->artist_id === null
+                    ? null
+                    : route('music.artists.show', $track->artist_id, absolute: false),
                 // Raw seconds and raw bytes; the page clocks and humanises them against
                 // the viewer's locale (Utils/formatting.ts).
                 'duration' => $track->duration,

@@ -17,6 +17,11 @@
  * <Link> for the keyboard and open-in-new-tab (DataTable/README.md → Accessibility).
  * The default order is the album's own — disc, then track number.
  *
+ * The ARTIST cell is the one link that leaves this row's destination: it opens the
+ * performer, not the song. The DataTable expects that (its click guard stands down on an
+ * anchor), and the cell is styled to look like a link on hover so a reader can tell the
+ * two destinations apart before clicking — see the `#cell-artist` slot and its styles.
+ *
  * The controller sends raw values (seconds, bytes, an ISO-8601 instant, plain counts)
  * and the formatting happens here with the active locale — the same split every other
  * page here uses (Utils/formatting.ts).
@@ -67,6 +72,12 @@ interface TrackRow {
     name: string;
     /** The performing artist — differs per row on a compilation, which is why it is a column. */
     artist: string | null;
+    /**
+     * That artist's own page, or null when the file credits nobody. A different destination
+     * from the row's own `href`, which is what makes the artist cell a real link rather
+     * than plain text (see the `#cell-artist` slot).
+     */
+    artistUrl: string | null;
     /** Playing time in seconds. */
     duration: number | null;
     /** File size in bytes. */
@@ -206,7 +217,12 @@ const columns = computed<ColumnDef<TrackRow>[]>(() => [
             <!-- The album's tracks. `base-url` is this page, so sorting / paging /
                  searching navigate back here with the state in the URL — the same
                  server-driven contract the listings use, on a detail page. -->
-            <data-table :columns="columns" :response="table" :base-url="`/music/albums/${album.id}`" :has-actions="false">
+            <data-table
+                :columns="columns"
+                :response="table"
+                :base-url="`/music/albums/${album.id}`"
+                :has-actions="false"
+            >
                 <!-- The track's own artwork, or the music glyph when the file carries
                      none — and the same @error fallback the Albums listing has, since a
                      cover advertised from a scan-time flag can 404. `alt=""`: the title
@@ -233,8 +249,21 @@ const columns = computed<ColumnDef<TrackRow>[]>(() => [
                 <template #cell-name="{ row }">
                     <Link :href="row.href" class="album__title">{{ row.name }}</Link>
                 </template>
+                <!-- The one cell on the page that leads somewhere OTHER than where its row
+                     leads: the row goes to the song, this goes to the performer. Which is
+                     why it is styled as a visible link on hover, unlike the title above —
+                     a cell that looks like its neighbours but navigates elsewhere is a
+                     trap, and the underline is what distinguishes "this is a different
+                     destination" from "this is the row". Plain text when the file credits
+                     nobody, so there is no dead link. -->
+                <template #cell-artist="{ row }">
+                    <Link v-if="row.artistUrl" :href="row.artistUrl" class="album__artist">{{ row.artist }}</Link>
+                    <template v-else>{{ row.artist }}</template>
+                </template>
                 <template #cell-duration="{ row }">{{ formatClock(row.duration) }}</template>
-                <template #cell-size="{ row }">{{ row.size === null ? "" : formatFileSize(row.size, locale) }}</template>
+                <template #cell-size="{ row }">{{
+                    row.size === null ? "" : formatFileSize(row.size, locale)
+                }}</template>
                 <template #empty>
                     <p>{{ t("components.datatable.no_results") }}</p>
                 </template>
@@ -270,8 +299,7 @@ const columns = computed<ColumnDef<TrackRow>[]>(() => [
 
     width: map.get(s.$c-hero-section, "cover-thumbnail");
     height: map.get(s.$c-hero-section, "cover-thumbnail");
-    border: map.get(s.$c-hero-section, "cover-thumbnail-border") solid
-        map.get(c.$c-hero-section, "cover-border");
+    border: map.get(s.$c-hero-section, "cover-thumbnail-border") solid map.get(c.$c-hero-section, "cover-border");
 
     border-radius: map.get(s.$c-hero-section, "cover-thumbnail-radius");
 
@@ -290,6 +318,27 @@ const columns = computed<ColumnDef<TrackRow>[]>(() => [
 
     text-decoration: none;
 
+    &:focus-visible {
+        text-decoration: underline;
+    }
+}
+
+/* The artist link is the deliberate exception to the rule above, because it is the one
+   link on the page that does NOT share its row's destination: the row opens the song, this
+   opens the performer. The title can afford to look like plain text precisely because
+   clicking it and clicking its row do the same thing; here they don't, so the cell has to
+   say so before it is clicked — hence the underline on hover as well as on focus.
+
+   Still `color: inherit` rather than a link colour: on a compilation this cell is filled
+   on every row, and 20 coloured names would read as the loudest thing in a table whose
+   subject is the titles. No transition, so no reduced-motion guard is needed — the
+   underline appears at once, which is what a pointer affordance should do. */
+.album__artist {
+    color: inherit;
+
+    text-decoration: none;
+
+    &:hover,
     &:focus-visible {
         text-decoration: underline;
     }

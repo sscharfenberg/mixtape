@@ -204,10 +204,11 @@ class AlbumPageTest extends TestCase
     public function test_a_track_row_carries_its_raw_values_and_a_link_to_the_song(): void
     {
         $album = Collection::factory()->create();
+        $artist = Artist::factory()->create(['name' => 'Sonic Youth']);
         $track = Track::factory()->create([
             'collection_id' => $album->id,
             'name' => 'Teen Age Riot',
-            'artist_id' => Artist::factory()->create(['name' => 'Sonic Youth'])->id,
+            'artist_id' => $artist->id,
             'disc' => 1,
             'track' => 1,
             'duration' => 419.5,
@@ -230,6 +231,34 @@ class AlbumPageTest extends TestCase
                 ->where('table.rows.0.coverUrl', "/music/songs/{$track->id}/cover")
                 // What makes the row clickable, and where it goes.
                 ->where('table.rows.0.href', "/music/songs/{$track->id}")
+                // And the one cell that goes somewhere ELSE: the performer, not the song.
+                ->where('table.rows.0.artistUrl', "/music/artists/{$artist->id}")
+            );
+    }
+
+    public function test_each_track_links_its_own_performer_and_a_track_crediting_nobody_gets_no_link(): void
+    {
+        // The case the artist column exists for, and the case the link exists for: a
+        // compilation where every track is a different performer, so the cell is a
+        // per-row destination rather than a repeat of the hero's album-artist.
+        $album = Collection::factory()->create(['album_artist_id' => null]);
+
+        $first = Artist::factory()->create(['name' => 'Dinosaur Jr.']);
+        $second = Artist::factory()->create(['name' => 'Mudhoney']);
+
+        Track::factory()->create(['collection_id' => $album->id, 'artist_id' => $first->id, 'disc' => 1, 'track' => 1]);
+        Track::factory()->create(['collection_id' => $album->id, 'artist_id' => $second->id, 'disc' => 1, 'track' => 2]);
+        // Untagged performer: the cell must stay plain text rather than link nowhere.
+        Track::factory()->create(['collection_id' => $album->id, 'artist_id' => null, 'disc' => 1, 'track' => 3]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/albums/{$album->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('table.rows.0.artistUrl', "/music/artists/{$first->id}")
+                ->where('table.rows.1.artistUrl', "/music/artists/{$second->id}")
+                ->where('table.rows.2.artist', null)
+                ->where('table.rows.2.artistUrl', null)
             );
     }
 

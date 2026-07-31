@@ -61,7 +61,12 @@ class SongController extends Controller
                 // and here for the same reason: the server owns which links exist, so the
                 // page renders a link when it is handed one and plain text when it is not.
                 // Each is null when the tag was missing (a song filed under no album, a
-                // file crediting no performer).
+                // file crediting no performer, a file whose genre frame was empty).
+                //
+                // All THREE of the song's taxonomy names now lead to their own page, which
+                // is the whole of this file's contribution to the cross-linking: everything
+                // else the page shows — year, composer, publisher, codec, path — names
+                // something MixTape has no page for, and a link is not worth inventing one.
                 'albumUrl' => $song->collection_id === null
                     ? null
                     : route('music.albums.show', $song->collection_id, absolute: false),
@@ -69,10 +74,9 @@ class SongController extends Controller
                     ? null
                     : route('music.artists.show', $song->artist_id, absolute: false),
                 'genre' => $song->genre?->name,
-                // The genre gets no URL yet: it is the last of the three names whose area
-                // is still a listing with no detail page behind it. When one lands, this
-                // grows a `genreUrl` beside the two above and the page changes nowhere
-                // else.
+                'genreUrl' => $song->genre_id === null
+                    ? null
+                    : route('music.genres.show', $song->genre_id, absolute: false),
                 'year' => $song->collection?->year,
                 'composer' => $song->composer,
                 'publisher' => $song->publisher,
