@@ -2,10 +2,15 @@
 /******************************************************************************
  * IconsPage (dev)
  * A gallery of every icon in the sprite, ported from cantrip.me's Dev/Icons
- * page. It globs the source SVGs at build time purely to harvest their file
- * names, then renders each through the shared Icon component so the list can
+ * page. Renders each name through the shared Icon component, so the list can
  * never drift from what actually ships. Not linked from anywhere — reached
  * directly at /icons (see the dev section in routes/web.php).
+ *
+ * The names arrive as a prop rather than from an `import.meta.glob` of the
+ * icon directory, which is how this page used to find them. A glob would pull
+ * all 55 SVGs into the Vite build as emitted assets for the image optimizer to
+ * re-optimize, even though they only ever ship inlined in the sprite — see
+ * IconsController for the full reasoning.
  *****************************************************************************/
 import { Head } from "@inertiajs/vue3";
 import Container from "Components/UI/Container.vue";
@@ -18,12 +23,10 @@ const { setBreadcrumbs } = useBreadcrumbs();
 // there is nothing in the catalogs to translate it with.
 setBreadcrumbs([{ label: "Icon overview", icon: "system" }]);
 
-/** Lazy glob — we only read the keys, never import the modules. */
-const iconGlob = import.meta.glob("../../assets/icons/*.svg");
-// Strip each globbed path down to its bare file name (the sprite symbol id), then sort alphabetically.
-const iconNames = Object.keys(iconGlob)
-    .map(path => path.replace(/^.*\/(.+)\.svg$/, "$1"))
-    .sort();
+defineProps<{
+    /** Sprite symbol ids (the icon files' bare names), already sorted by the controller. */
+    iconNames: string[];
+}>();
 </script>
 
 <template>

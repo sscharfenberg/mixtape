@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AudiobooksController;
 use App\Http\Controllers\Dashboard\DashboardController;
+use App\Http\Controllers\Dev\IconsController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\Music\AlbumController;
@@ -18,7 +19,6 @@ use App\Http\Controllers\MusicController;
 use App\Http\Controllers\PlaylistsController;
 use App\Http\Controllers\PodcastsController;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 use Laravel\Fortify\Features;
 
 // Guest landing page.
@@ -103,5 +103,5 @@ require __DIR__.'/web.auth.php';
 // Dev pages — not linked from anywhere. Registered only outside production so
 // the public instance never exposes them (this app is internet-facing).
 if (! app()->isProduction()) {
-    Route::get('/icons', fn () => Inertia::render('Dev/IconsPage'))->name('dev.icons');
+    Route::get('/icons', IconsController::class)->name('dev.icons');
 }

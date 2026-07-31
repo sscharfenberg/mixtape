@@ -67,7 +67,14 @@ export default defineConfig(({ mode }) => {
             // https://www.npmjs.com/package/vite-plugin-image-optimizer
             ViteImageOptimizer({
                 test: /\.(jpe?g|png|webp|svg|avif)$/i,
-                exclude: undefined,
+                // Belt-and-braces: the icons in resources/app/assets/icons are never
+                // served as individual files — resources/build/icons.ts already runs
+                // svgo over each and merges them into storage/app/public/sprite.svg,
+                // which app.blade.php inlines. Nothing imports them any more (the Dev
+                // icon gallery gets its names from IconsController), so nothing should
+                // reach this plugin; if a future import.meta.glob pulls them back into
+                // the graph, this at least stops the redundant second svgo pass.
+                exclude: /app[\\/]assets[\\/]icons[\\/]/,
                 include: undefined,
                 includePublic: true,
                 logStats: true,
