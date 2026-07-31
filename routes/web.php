@@ -7,6 +7,7 @@ use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\Music\AlbumController;
 use App\Http\Controllers\Music\AlbumCoverController;
 use App\Http\Controllers\Music\AlbumsController;
+use App\Http\Controllers\Music\ArtistController;
 use App\Http\Controllers\Music\ArtistsController;
 use App\Http\Controllers\Music\GenresController;
 use App\Http\Controllers\Music\SongController;
@@ -41,8 +42,8 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         Route::get('/podcasts', PodcastsController::class)->name('podcasts');
         Route::get('/playlists', PlaylistsController::class)->name('playlists');
 
-        // Music sub-sections — the "see all" targets from the browse widgets
-        // (stub pages for now).
+        // Music sub-sections — the "see all" targets from the browse widgets. Albums,
+        // artists and songs are real server-driven listings; genres is still a stub.
         Route::get('/music/albums', AlbumsController::class)->name('music.albums');
         Route::get('/music/artists', ArtistsController::class)->name('music.artists');
         Route::get('/music/genres', GenresController::class)->name('music.genres');
@@ -59,6 +60,15 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         Route::get('/music/albums/{album}/cover', AlbumCoverController::class)
             ->whereUuid('album')
             ->name('music.albums.cover');
+
+        // One artist's detail page — the row-click target of the Artists listing, and
+        // where the artist tile on a song or album page leads. Same two reasons for the
+        // shape as the pairs above: registered after `/music/artists` so the listing
+        // keeps matching, UUID-constrained so a stray segment 404s at the router. No
+        // cover route beside it — MixTape stores no artist images.
+        Route::get('/music/artists/{artist}', ArtistController::class)
+            ->whereUuid('artist')
+            ->name('music.artists.show');
 
         // One song's detail page — the row-click target of the Songs listing.
         // Registered after the listing so `/music/songs` keeps matching it, and

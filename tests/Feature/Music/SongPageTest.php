@@ -54,11 +54,42 @@ class SongPageTest extends TestCase
             );
     }
 
+    public function test_the_artist_fact_carries_a_link_to_the_artist_page(): void
+    {
+        // The second of the two facts on this page that lead somewhere. Same contract as
+        // the album below: the server decides, the page renders a filled clickable tile
+        // when handed a URL and a plain fact when not — so this prop IS the feature.
+        $artist = Artist::factory()->create(['name' => 'The Storm']);
+        $song = Track::factory()->create(['artist_id' => $artist->id]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/songs/{$song->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('song.artist', 'The Storm')
+                ->where('song.artistUrl', "/music/artists/{$artist->id}")
+            );
+    }
+
+    public function test_a_song_crediting_no_artist_gets_no_artist_link(): void
+    {
+        // No performer tag, no URL — and therefore no dead link and no filled tile.
+        $song = Track::factory()->create(['artist_id' => null]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/songs/{$song->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('song.artist', null)
+                ->where('song.artistUrl', null)
+            );
+    }
+
     public function test_the_album_fact_carries_a_link_to_the_albums_page(): void
     {
-        // The album is the one fact on this page that leads somewhere, and the server
-        // decides that — the page renders a filled, clickable tile when handed a URL and
-        // a plain fact when not, so this prop IS the feature.
+        // One of the two facts on this page that lead somewhere (the artist above is the
+        // other), and the server decides that — the page renders a filled, clickable tile
+        // when handed a URL and a plain fact when not, so this prop IS the feature.
         $album = Collection::factory()->create(['name' => 'Thunder Road']);
         $song = Track::factory()->create(['collection_id' => $album->id]);
 

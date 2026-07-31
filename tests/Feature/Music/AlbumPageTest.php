@@ -60,6 +60,9 @@ class AlbumPageTest extends TestCase
                 ->component('Music/Albums/Album/AlbumPage')
                 ->where('album.name', 'Mellon Collie and the Infinite Sadness')
                 ->where('album.artist', 'The Smashing Pumpkins')
+                // The hero's one tile that leads somewhere — decided server-side, like a
+                // table row's `href`, so the page links the name only when handed a URL.
+                ->where('album.artistUrl', '/music/artists/'.$album->album_artist_id)
                 ->where('album.year', 1995)
                 ->where('album.songs', 3)
                 ->where('album.discs', 2)
@@ -67,6 +70,22 @@ class AlbumPageTest extends TestCase
                 // The NEWEST file's mtime, not the first one's.
                 ->where('album.modifiedAt', fn (?string $iso) => str_starts_with((string) $iso, '2024-06-07T08:09:10'))
                 ->where('album.coverUrl', null)
+            );
+    }
+
+    public function test_a_compilation_filed_under_no_album_artist_gets_no_artist_link(): void
+    {
+        // `album_artist_id` is nullable — a various-artists compilation is filed under
+        // none — so there is nobody to link to, and the hero must render the tile away
+        // rather than point at a route with an empty parameter.
+        $album = Collection::factory()->create(['album_artist_id' => null]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/albums/{$album->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('album.artist', null)
+                ->where('album.artistUrl', null)
             );
     }
 

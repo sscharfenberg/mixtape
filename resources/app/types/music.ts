@@ -58,6 +58,11 @@ export interface SongDetail {
     name: string;
     /** Performing artist's name, or null for a file whose tags carried none. */
     artist: string | null;
+    /**
+     * The artist's own page, or null when the file credits no performer. Same
+     * server-decided shape as `albumUrl` below.
+     */
+    artistUrl: string | null;
     /** Album (collection) name, or null when the song isn't filed under one. */
     album: string | null;
     /**

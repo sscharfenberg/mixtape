@@ -52,6 +52,13 @@ class AlbumController extends Controller
                 'id' => $album->id,
                 'name' => $album->name,
                 'artist' => $album->albumArtist?->name,
+                // Where that name leads — the same server-decided shape SongController
+                // uses for `albumUrl`, so the page links the artist when it is handed a
+                // URL and prints the name plainly when it is not. Null for a compilation
+                // filed under no album-artist.
+                'artistUrl' => $album->album_artist_id === null
+                    ? null
+                    : route('music.artists.show', $album->album_artist_id, absolute: false),
                 'year' => $album->year,
 
                 'songs' => $totals['songs'],

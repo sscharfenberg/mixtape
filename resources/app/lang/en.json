@@ -259,6 +259,8 @@
             "cover": "Cover",
             "songs": "Songs",
             "discs": "Discs",
+            "albums": "Albums",
+            "size": "Size",
             "modifiedAt": "Modified"
         },
         "album": {

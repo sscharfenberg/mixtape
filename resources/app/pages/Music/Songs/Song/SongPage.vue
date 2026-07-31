@@ -109,7 +109,17 @@ const songFacts = computed<Fact[]>(() => {
     const file = t("music.song.groups.file");
 
     return [
-        { key: "artist", group: tags, icon: "artist", label: t("music.columns.artist"), value: song.artist },
+        // Leads to the artist's page, the same `artistUrl` the hero tile uses — so the
+        // two tiles for the one fact stay the one thing, filled and clickable in both
+        // places (exactly as `album` does further down).
+        {
+            key: "artist",
+            group: tags,
+            icon: "artist",
+            label: t("music.columns.artist"),
+            value: song.artist,
+            href: song.artistUrl ?? undefined
+        },
         {
             key: "year",
             group: tags,
@@ -157,10 +167,10 @@ const songFacts = computed<Fact[]>(() => {
         // the release the song sits on, so its name heads the facts about it — and the
         // label that put the release out follows it, for the same reason.
         //
-        // The one fact on this page that LEADS somewhere, so it is the one filled tile:
-        // `href` comes from the server (`albumUrl`), which is null for a song filed
-        // under no album — and then the tile is a plain fact again, with no dead link
-        // and no special colour.
+        // One of the two facts on this page that LEAD somewhere (the artist above is the
+        // other), so it is a filled tile: `href` comes from the server (`albumUrl`),
+        // which is null for a song filed under no album — and then the tile is a plain
+        // fact again, with no dead link and no special colour.
         {
             key: "album",
             group: album,
@@ -264,17 +274,20 @@ const songFacts = computed<Fact[]>(() => {
                      up here they are what identifies the song, down there they are part of
                      its full tag set. FactPair is the facts' own tile, so the two agree by
                      construction rather than by matching styles. Each is skipped when the
-                     file carried no such tag. -->
+                     file carried no such tag.
+
+                     The artist and album tiles both LEAD somewhere — to that artist's page
+                     and that album's page — via the URLs the server decided; the facts
+                     cards below link the same two facts to the same two places, so a
+                     reader gets the link wherever they happen to be looking. -->
                 <template #metadata>
                     <fact-pair
                         v-if="song.artist"
                         icon="artist"
                         :label="t('music.columns.artist')"
                         :value="song.artist"
+                        :href="song.artistUrl ?? undefined"
                     />
-                    <!-- The album tile links to the album's page, the same `albumUrl` the
-                         facts card below uses — so the two tiles for the one fact stay the
-                         one thing, filled and clickable in both places. -->
                     <fact-pair
                         v-if="song.album"
                         icon="album"

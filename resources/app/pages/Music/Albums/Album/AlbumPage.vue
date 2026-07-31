@@ -39,6 +39,11 @@ interface AlbumDetail {
     name: string;
     /** Its album-artist, or null for a compilation filed under none. */
     artist: string | null;
+    /**
+     * That artist's own page, or null when there is no album-artist. Decided server-side
+     * like a DataTable row's `href`, so the tile links the name when it is given a URL.
+     */
+    artistUrl: string | null;
     year: number | null;
     /** How many tracks are filed under it. */
     songs: number;
@@ -162,13 +167,18 @@ const columns = computed<ColumnDef<TrackRow>[]>(() => [
                 >
                 <!-- The facts that belong to the album as a whole. Each is skipped
                      when there is nothing to say: a compilation has no album-artist,
-                     an untagged rip no year. The counts always exist. -->
+                     an untagged rip no year. The counts always exist.
+
+                     The album-artist is the one tile that LEADS somewhere — to that
+                     artist's page, via the URL the server decided (`artistUrl`), the same
+                     way the song page links its album and its artist. -->
                 <template #metadata>
                     <fact-pair
                         v-if="album.artist"
                         icon="artist"
                         :label="t('music.columns.artist')"
                         :value="album.artist"
+                        :href="album.artistUrl ?? undefined"
                     />
                     <fact-pair
                         v-if="album.year !== null"
