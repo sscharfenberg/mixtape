@@ -115,7 +115,19 @@ class AlbumsController extends Controller
                 'modifiedAt' => 'tracks_max_modified_at',
                 'duration' => 'tracks_sum_duration',
             ],
-            defaultSort: 'name',
+            // Newest first: what a listener wants from a 1200-album listing is "what
+            // has changed lately", not the top of the alphabet — and since an album's
+            // mtime is its newest file's, a fresh import or a re-tag surfaces itself
+            // without anyone sorting for it. Alphabetical is one header click away.
+            defaultSort: 'modifiedAt',
+            defaultDirection: 'desc',
+            // Which makes a tiebreak necessary rather than merely tidy: a bulk copy
+            // stamps a whole batch of files with the same second, so hundreds of albums
+            // can share the sorted value, and SQL orders tied rows arbitrarily — the
+            // same album could appear on page 1 and page 2 of one browse. `name` is
+            // near-unique and reads as the natural second key ("newest, then A–Z"),
+            // which is also what the header advertises while the table is on this sort.
+            tiebreakers: ['name'],
             // The two text columns the table shows, matched through their `name_fold`
             // companions so the search is accent- and case-insensitive on one code
             // path for Postgres and SQLite alike.

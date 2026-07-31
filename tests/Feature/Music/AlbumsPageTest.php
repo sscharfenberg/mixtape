@@ -124,6 +124,49 @@ class AlbumsPageTest extends TestCase
             );
     }
 
+    public function test_the_listing_opens_on_the_most_recently_changed_albums(): void
+    {
+        // The default sort, and the one column where "default" is a real decision: the
+        // listing answers "what changed lately" before it answers "what starts with A".
+        $older = $this->album('Aardvark', modifiedAt: '2019-01-02 03:04:05');
+        $newer = $this->album('Zzyzx', modifiedAt: '2024-06-07 08:09:10');
+
+        $this->actingAs(User::factory()->create())
+            ->get('/music/albums')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                // Alphabetically these two are the wrong way round, which is the point:
+                // Zzyzx leads because its files are newer.
+                ->where('table.rows.0.id', $newer->id)
+                ->where('table.rows.1.id', $older->id)
+                ->where('table.sort.key', 'modifiedAt')
+                ->where('table.sort.direction', 'desc')
+                // And the name tiebreak is advertised here (it only is on the default
+                // sort), so the header can show the compound "newest, then A–Z" order.
+                ->where('table.tiebreakers', ['name'])
+            );
+    }
+
+    public function test_albums_sharing_an_mtime_fall_back_to_a_stable_alphabetical_order(): void
+    {
+        // The reason the tiebreak exists: one bulk copy stamps a whole batch of files
+        // with the same second, and without a trailing key SQL may order those rows
+        // differently on each request — enough for one album to show up on two pages of
+        // the same browse.
+        $sameSecond = '2024-06-07 08:09:10';
+        $this->album('Charlie', modifiedAt: $sameSecond);
+        $this->album('Alpha', modifiedAt: $sameSecond);
+        $this->album('Bravo', modifiedAt: $sameSecond);
+
+        $this->actingAs(User::factory()->create())
+            ->get('/music/albums')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('table.rows.0.name', 'Alpha')
+                ->where('table.rows.1.name', 'Bravo')
+                ->where('table.rows.2.name', 'Charlie')
+            );
+    }
+
     public function test_every_aggregate_column_can_be_sorted_by(): void
     {
         // Short album, long album — then ask for each aggregate in both directions
