@@ -7,22 +7,23 @@
  * block reads as the same kind of object as every other panel on a detail page —
  * white on light, black on dark, with the same quiet grey edge.
  *
- * **The tabs** deliberately reuse the SITE MENU's link scheme, so the control that
- * switches a page's content looks like the control that switches the site's
- * sections. That includes the site menu's owner-decided light/dark SWAP:
+ * **An unselected tab** is neutral GREY — the same colourless pair the
+ * WidgetModeToggle gives its unselected segment, where `surface` doubles as the
+ * pill's border colour. Deliberately drained of hue so that only the SELECTED tab
+ * carries brand colour and "this one is open" cannot be mistaken for "this one is
+ * merely a tab". light: light-grey fill / dark-grey ink+border; dark: the inverse.
  *
- * - light — an unselected tab is brand light1 (light-blue fill / dark-navy ink)
- *   and the selected one the light2 / retro-c4 "current" highlight (yellow fill /
- *   near-black indigo ink).
- * - dark — the two swap: an unselected tab takes the current-link look (dark-navy
- *   fill / pink ink) and the selected one the normal look (dark-green fill /
- *   yellow ink).
+ * **The selected tab** takes the SITE MENU's "current link" highlight, so the tab
+ * that says which content you are looking at matches the header pill that says
+ * which section you are in — including that scheme's owner-decided light/dark
+ * SWAP: light is the light2 / retro-c4 pair (yellow fill / near-black indigo ink),
+ * dark the brand dark2 pair (dark-green fill / yellow ink).
  *
  * Both `*-hover` pairs invert their resting state (fill↔ink), the same flip the
  * site menu and the WidgetModeToggle already do. Values are re-picked from the
- * globals rather than read off c.$c-site-menu-links — a contextual partial
- * consumes globals, never another partial's tokens — so if that scheme is
- * retuned, the two files move together.
+ * globals rather than read off c.$c-site-menu-links or c.$c-widget-mode-toggle —
+ * a contextual partial consumes globals, never another partial's tokens — so if
+ * either scheme is retuned, the files move together.
  * Consumed as c.$c-tabbed-navigation via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
@@ -32,12 +33,14 @@ $tabbed-navigation: (
     // the panel frame — the Card / Widget surface
     "frame-background": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "black")),
     "frame-border": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher")),
-    // an unselected tab — light: brand light1; dark: SWAPPED to the current-link look
-    "border": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$retro, "c6", "dark")),
-    "background": light-dark(map.get(c.$brand, "light1", "color"), map.get(c.$brand, "dark1", "color")),
-    "surface": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$retro, "c6", "dark")),
-    "background-hover": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$retro, "c6", "dark")),
-    "surface-hover": light-dark(map.get(c.$brand, "light1", "color"), map.get(c.$brand, "dark1", "color")),
+    // an unselected tab — muted, colourless grey; `border` takes the ink so the pill's
+    // edge and its label are the one grey. light: light-grey fill / dark-grey ink.
+    "border": light-dark(map.get(c.$grey, "abbey"), map.get(c.$grey, "iron")),
+    "background": light-dark(map.get(c.$grey, "infra"), map.get(c.$grey, "bunker")),
+    "surface": light-dark(map.get(c.$grey, "abbey"), map.get(c.$grey, "iron")),
+    // hover — invert the resting grey (fill↔ink)
+    "background-hover": light-dark(map.get(c.$grey, "abbey"), map.get(c.$grey, "iron")),
+    "surface-hover": light-dark(map.get(c.$grey, "infra"), map.get(c.$grey, "bunker")),
     // the selected tab — light: light2 / c4 highlight; dark: SWAPPED to the normal look
     "active-background": light-dark(map.get(c.$brand, "light2", "color"), map.get(c.$brand, "dark2", "color")),
     "active-surface": light-dark(map.get(c.$retro, "c4", "light"), map.get(c.$brand, "dark2", "contrast")),
