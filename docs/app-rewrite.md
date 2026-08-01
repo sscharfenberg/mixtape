@@ -83,6 +83,34 @@ which parents this visitor can actually reach. `main.ts` clears it on every navi
 declares nothing shows nothing — which is exactly what `Guest/WelcomePage` (`/`) wants, since every
 trail already opens with a home chip pointing there.
 
+**Tabbed pages use `TabbedNavigation` + `useTabParam`.** `Components/UI/TabbedNavigation.vue` declares
+its tabs as data and fills each panel from a **named slot matching the tab's `id`**, so a consumer
+never touches panel visibility or ARIA — the component owns the whole `tablist` / `tab` / `tabpanel`
+wiring, roving tabindex, and arrow / Home / End keys:
+
+```vue
+<tabbed-navigation v-model:selected-tab="openTab" name="artist" :tabs="tabs" :label="…">
+    <template #albums><artist-discography :albums="discography" /></template>
+    <template #songs><artist-songs :table="table" :base-url="…" /></template>
+</tabbed-navigation>
+```
+
+- **Ids, not indices** — `songs` says what it selects, which matters the moment a selection is stored
+  or read back out of a URL. An unknown or absent `selectedTab` resolves to the first tab, so the
+  strip is self-healing and the common case configures nothing.
+- **The selection is a model** (`v-model:selected-tab`), left unbound for internal state or bound to
+  let the page own it. Pages bind it to `Composables/useTabParam`, which mirrors it into `?tab=` so a
+  reload or a shared link reopens the same tab.
+- **Switching tabs must not cost a request.** `useTabParam` rewrites the URL with
+  `history.replaceState`, never an Inertia visit — the controller sends **every** panel's data on
+  every request, so there is nothing to fetch, and a visit would raise `DataTable`'s loading overlay
+  (it listens to *any* `router.on("start")`) over content already on screen. `replace` rather than
+  `push`, because a tab is a view of one page, not a destination worth a history entry.
+- **Only one panel may hold a server-driven `DataTable`.** `DataTableService` reads `sort` / `dir` /
+  `page` / `search` **unprefixed**, so two tables on one page would drive each other from the same
+  params. Size the second panel's presentation to its data instead — the artist page's albums tab is a
+  plain list because the biggest discography is 26 rows (`ArtistController` carries the reasoning).
+
 ## New and improved features (v2)
 
 Most of these are **user-scoped**, so they build directly on the new per-user auth model:

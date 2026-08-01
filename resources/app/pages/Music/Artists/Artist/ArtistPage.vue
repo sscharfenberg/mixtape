@@ -18,8 +18,10 @@
  * songs). Albums are a plain list, songs the server-driven DataTable — which also means
  * only one thing on this page owns the URL's query params.
  *
- * Which tab is open is local state, deliberately not URL state: it is a view of one page
- * rather than a destination, and the songs table already owns the URL.
+ * Which tab is open lives in `?tab=`, so a reload or a shared link reopens it — but it is
+ * only ever CLIENT state written into the URL: the controller sends both panels whatever
+ * the param says, so switching tabs costs no request and raises no loading state over
+ * content that is already on screen. See useTabParam.
  *
  * No `#cover` slot at all, and that is deliberate rather than missing: MixTape stores no
  * artist images, so there is nothing to point an <img> at. HeroSection draws its dashed
@@ -32,13 +34,14 @@
  * (Utils/formatting.ts).
  *****************************************************************************/
 import { Head } from "@inertiajs/vue3";
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Container from "Components/UI/Container.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
 import TabbedNavigation, { type TabDefinition } from "Components/UI/TabbedNavigation.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
+import { useTabParam } from "Composables/useTabParam";
 import type { TableResponse } from "Types/dataTable";
 import { formatClock, formatFileSize } from "Utils/formatting";
 import ArtistDiscography, { type DiscographyAlbum } from "./ArtistDiscography.vue";
@@ -103,11 +106,11 @@ const playingTime = computed(() => formatClock(props.artist.duration) ?? "");
 const totalSize = computed(() => formatFileSize(props.artist.size, locale.value));
 
 /**
- * The open tab. Plain local state, not a URL param: the songs table already owns this
- * page's query string, and a tab is a view of one page rather than a place to link to.
- * Starts unset, which TabbedNavigation resolves to the first tab (albums).
+ * The open tab, mirrored into `?tab=` so a reload or a shared link reopens it. Starts
+ * unset when the URL names none, which TabbedNavigation resolves to the first tab
+ * (albums). Costs no request to change — see useTabParam.
  */
-const openTab = ref<string>();
+const { tab: openTab } = useTabParam();
 
 /**
  * The two tabs, with the counts from the hero on them so a reader can see how much is

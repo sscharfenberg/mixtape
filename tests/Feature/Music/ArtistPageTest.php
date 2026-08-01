@@ -276,6 +276,28 @@ class ArtistPageTest extends TestCase
             );
     }
 
+    public function test_both_panels_are_sent_whatever_the_tab_param_says(): void
+    {
+        // `?tab=` is the frontend's own state, written into the URL so a reload reopens the
+        // right tab (useTabParam). The obvious saving — answer only the open tab — is the
+        // wrong trade, because then every tab click needs a request and a spinner over
+        // content already on screen. This pins that: both panels come back regardless, and
+        // an unknown tab changes nothing either.
+        $artist = Artist::factory()->create();
+        Collection::factory()->create(['album_artist_id' => $artist->id]);
+        Track::factory()->create(['artist_id' => $artist->id]);
+
+        foreach (['', '?tab=albums', '?tab=songs', '?tab=nonsense'] as $query) {
+            $this->actingAs(User::factory()->create())
+                ->get("/music/artists/{$artist->id}{$query}")
+                ->assertOk()
+                ->assertInertia(fn (Assert $page) => $page
+                    ->has('discography', 1)
+                    ->has('table.rows', 1)
+                );
+        }
+    }
+
     public function test_the_songs_tab_is_the_only_thing_reading_the_pages_sort_params(): void
     {
         // The page deliberately carries ONE server-driven table, because DataTableService

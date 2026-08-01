@@ -36,11 +36,18 @@ use Inertia\Response;
  * average is 1.5, so a search box and a pager over a handful of rows would be furniture
  * around nothing.
  *
- * That split also keeps the page's URL coherent. Both panels render at once (the open tab
- * is client-side state the server never sees), and DataTableService reads unprefixed
- * `sort` / `dir` / `page` / `search` — so a second server-driven table here would silently
- * re-sort and re-paginate the first one from the same params. One table on the page means
- * one owner of the query string.
+ * That split also keeps the page's URL coherent. Both panels render at once, and
+ * DataTableService reads unprefixed `sort` / `dir` / `page` / `search` — so a second
+ * server-driven table here would silently re-sort and re-paginate the first one from the
+ * same params. One table on the page means one owner of the query string.
+ *
+ * BOTH panels are sent on every request, and the `?tab=` param is deliberately IGNORED
+ * here even though it reaches us. Answering only the open tab would be the obvious saving
+ * and is the wrong trade: the frontend then has to fetch on every tab click, which means a
+ * spinner over content the reader can already see, and a page that is slower exactly when
+ * they are comparing the two halves. The cost of sending both is one extra count-and-sum
+ * query over at most 26 albums (see above), which is not worth a loading state. The param
+ * exists purely so a reload or a shared link reopens the right tab — see useTabParam.
  *
  * Sends RAW values like every other controller here: seconds for the playing time, bytes
  * for the size, counts as counts. Formatting happens on the page against the viewer's
