@@ -4,7 +4,7 @@
  * The songs tab of the artist page — every music track crediting this artist, in
  * the server-driven DataTable the listings use (sort / search / paginate all in
  * the URL). Lives beside ArtistPage.vue because it is that page's own part, not a
- * shared component (CLAUDE.md → Pages), and sits next to ArtistDiscography as the
+ * shared component (CLAUDE.md → Pages), and pairs with the shared Discography as the
  * other half of the same catalogue.
  *
  * It IS a DataTable where the discography tab deliberately is not, because the two
@@ -30,7 +30,7 @@ import { Link } from "@inertiajs/vue3";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import DataTable from "Components/DataTable/DataTable.vue";
-import CoverImage from "Components/UI/CoverImage.vue";
+import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import type { ColumnDef, TableResponse } from "Types/dataTable";
 import { formatClock, formatFileSize, formatPosition } from "Utils/formatting";
 

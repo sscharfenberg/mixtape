@@ -306,11 +306,11 @@
         "artist": {
             "tabs": {
                 "label": "Alben und Songs des Künstlers"
-            },
-            "discography": {
-                "songCount": "{n} Song | {n} Songs",
-                "empty": "Diesem Künstler ist kein Album zugeordnet."
             }
+        },
+        "discography": {
+            "songCount": "{n} Song | {n} Songs",
+            "empty": "Diesem Künstler ist kein Album zugeordnet."
         }
     },
     "components": {

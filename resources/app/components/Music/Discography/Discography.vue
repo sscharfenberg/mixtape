@@ -1,30 +1,35 @@
 <script setup lang="ts">
 /******************************************************************************
- * ArtistDiscography
- * The albums tab of the artist page — one row per album they are credited with,
- * each linking to that album's own page. Lives beside ArtistPage.vue because it
- * is that page's own part, not a shared component (CLAUDE.md → Pages).
+ * Discography
+ * A compact list of albums — artwork, name, year, and what the record adds up to —
+ * each row linking to that album's own page. It belongs to whatever is showing the
+ * albums, not to one page: an artist's own records today, a genre's next, and any
+ * other "here are some albums" block after that. See README.md.
  *
- * Deliberately NOT a DataTable, which is what every other album listing in the
- * app is. Two reasons, and the second is the load-bearing one:
+ * Deliberately NOT a DataTable, which is what every full album listing in the app
+ * is. Two reasons, and the second is the load-bearing one:
  *
- * 1. There is nothing to page. The biggest discography in the collection is 26
- *    albums and the average is 1.5 — a toolbar, a search box and a pager around
- *    a couple of rows is furniture around nothing.
- * 2. The songs tab beside this one IS a DataTable, and DataTableService reads
- *    unprefixed `sort` / `dir` / `page` / `search`. Both tabs render at once
- *    (which tab is open is client-side state), so a second server-driven table
- *    here would re-sort and re-paginate the songs table from the same params.
- *    Keeping this one plain leaves a single owner of the query string.
+ * 1. There is usually nothing to page. The biggest discography in the collection
+ *    is 26 albums and the average is 1.5 — a toolbar, a search box and a pager
+ *    around a couple of rows is furniture around nothing.
+ * 2. It can share a page with a server-driven table, and DataTableService reads
+ *    `sort` / `dir` / `page` / `search` UNPREFIXED. On the artist page both tabs
+ *    render at once (which tab is open is client-side state), so a second
+ *    server-driven table would re-sort and re-paginate the songs table from the
+ *    same params. Staying plain leaves a single owner of the query string.
+ *
+ * That second reason is also the limit worth knowing before reusing this: it shows
+ * everything it is handed, so the CALLER must keep the set small. A page that needs
+ * paging or sorting over albums wants the DataTable instead.
  *
  * Rows are <Link>s rather than clickable divs, so they are real links: keyboard
- * reachable, middle-clickable, and open-in-new-tab — the affordances the
- * DataTable has to rebuild by hand for its clickable rows, and which come free
- * here because there is only ever one destination per row.
+ * reachable, middle-clickable, and open-in-new-tab — the affordances the DataTable
+ * has to rebuild by hand for its clickable rows, and which come free here because
+ * there is only ever one destination per row.
  *****************************************************************************/
 import { Link } from "@inertiajs/vue3";
 import { useI18n } from "vue-i18n";
-import CoverImage from "Components/UI/CoverImage.vue";
+import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import { formatClock } from "Utils/formatting";
 
 /** One album of the discography, as ArtistController shaped it — every value raw. */
@@ -58,7 +63,7 @@ const { t } = useI18n();
  * "0:00" for a whole album.
  */
 const albumMeta = (album: DiscographyAlbum): string => {
-    const songs = t("music.artist.discography.songCount", album.songs);
+    const songs = t("music.discography.songCount", album.songs);
     const clock = formatClock(album.duration);
     return clock === null ? songs : `${songs} · ${clock}`;
 };
@@ -82,7 +87,7 @@ const albumMeta = (album: DiscographyAlbum): string => {
             </Link>
         </li>
     </ul>
-    <p v-else>{{ t("music.artist.discography.empty") }}</p>
+    <p v-else>{{ t("music.discography.empty") }}</p>
 </template>
 
 <style scoped lang="scss">
@@ -101,7 +106,7 @@ const albumMeta = (album: DiscographyAlbum): string => {
 /* A rule between rows rather than around each: the list reads as one block, and the last
    row does not need a floor under it. */
 .discography__item + .discography__item {
-    border-top: map.get(s.$c-artist-discography, "border") solid map.get(c.$c-artist-discography, "border");
+    border-top: map.get(s.$c-discography, "border") solid map.get(c.$c-discography, "border");
 }
 
 /* The whole row is the link, so the target is the row and not just the title — the same
@@ -110,21 +115,21 @@ const albumMeta = (album: DiscographyAlbum): string => {
     display: flex;
     align-items: center;
 
-    padding: map.get(s.$c-artist-discography, "row-padding");
-    gap: map.get(s.$c-artist-discography, "row-gap");
+    padding: map.get(s.$c-discography, "row-padding");
+    gap: map.get(s.$c-discography, "row-gap");
 
     color: inherit;
 
-    border-radius: map.get(s.$c-artist-discography, "radius");
+    border-radius: map.get(s.$c-discography, "radius");
 
     text-decoration: none;
 
     @media (prefers-reduced-motion: no-preference) {
-        transition: background-color ti.$c-artist-discography linear;
+        transition: background-color ti.$c-discography linear;
     }
 
     &:hover {
-        background-color: map.get(c.$c-artist-discography, "row-hover");
+        background-color: map.get(c.$c-discography, "row-hover");
     }
 
     /* The row is already the target, so it needs no underline — but it does need a visible
@@ -148,9 +153,9 @@ const albumMeta = (album: DiscographyAlbum): string => {
 
     flex-wrap: wrap;
 
-    gap: map.get(s.$c-artist-discography, "meta-gap");
+    gap: map.get(s.$c-discography, "meta-gap");
 
-    color: map.get(c.$c-artist-discography, "surface-meta");
+    color: map.get(c.$c-discography, "surface-meta");
 
     font-variant-numeric: tabular-nums;
 }

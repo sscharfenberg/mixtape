@@ -381,8 +381,13 @@
 
            Naming FactPair's class from here is deliberate, and the narrowest way to say it:
            the halo is the HERO's decision (the tile is flat in a card), so the exception has
-           to live where the rule does. Same shape as the `:slotted(img)` test in the cover
-           slot above — this component keys off what it was actually handed. */
+           to live where the rule does. Same shape as the `:has(img)` test in the cover slot
+           above — this component keys off what it was actually handed.
+
+           Note this reaches INTO a slotted component on purpose, by naming its own class,
+           and only to paint. That is the safe version of what the cover slot got wrong: a
+           `:slotted` rule that sets SIZE lands on the component's root and outranks the
+           sizing that component declares for itself. */
         > :slotted(.fact-pair--link) {
             box-shadow: 0 0 map.get(s.$c-hero-section, "metadata-halo") map.get(c.$c-hero-section, "metadata-halo-link");
         }

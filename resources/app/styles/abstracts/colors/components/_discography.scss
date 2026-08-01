@@ -1,5 +1,5 @@
 /******************************************************************************
- * contextual color tokens — component:ArtistDiscography.vue
+ * contextual color tokens — component:Discography.vue
  * @type {Sass}
  * The artist page's albums tab — a list of album rows, each linking to that
  * album. It sits one tab away from the songs DataTable, so `border` and
@@ -13,13 +13,13 @@
  * `surface-meta` is the muted grey for a row's secondary facts — the year and
  * the song-count / playing-time pair — so the album NAME is the only thing at
  * full contrast and the row has one obvious thing to read first.
- * Consumed as c.$c-artist-discography via `@use "Abstracts/colors" as c;`.
+ * Consumed as c.$c-discography via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "sass:color"; // https://sass-lang.com/documentation/modules/color
 @use "../global-color-tokens" as c;
 
-$artist-discography: (
+$discography: (
     // the rule between two rows — the DataTable's own border value
     "border": light-dark(
             color.adjust(map.get(c.$grey, "slate"), $alpha: -0.25),

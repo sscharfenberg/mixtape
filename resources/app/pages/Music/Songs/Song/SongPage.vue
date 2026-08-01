@@ -28,10 +28,10 @@
 import { Head } from "@inertiajs/vue3";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Facts, { type Fact } from "Components/UI/Card/Facts.vue";
 import Container from "Components/UI/Container.vue";
-import CoverImage from "Components/UI/CoverImage.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import type { SongDetail } from "Types/music";

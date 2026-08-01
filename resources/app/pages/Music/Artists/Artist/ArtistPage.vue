@@ -11,7 +11,7 @@
  * catalogue — albums, songs, and what those files add up to in time and on disk — and
  * below it their catalogue itself, split across an ALBUMS and a SONGS tab.
  *
- * Each tab is its own sibling component — ArtistDiscography and ArtistSongs — so this file
+ * Each tab is its own component — the shared Discography and the page-local ArtistSongs — so this file
  * stays the page: the hero, the two tabs, and nothing about how either panel renders. The
  * two are shaped differently because the two sets are different sizes, and the reasoning
  * lives in ArtistController (the short version: 26 albums at the very worst against 406
@@ -36,15 +36,15 @@
 import { Head } from "@inertiajs/vue3";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import Discography, { type DiscographyAlbum } from "Components/Music/Discography/Discography.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Container from "Components/UI/Container.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
-import TabbedNavigation, { type TabDefinition } from "Components/UI/TabbedNavigation.vue";
+import TabbedNavigation, { type TabDefinition } from "Components/UI/TabbedNavigation/TabbedNavigation.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import { useTabParam } from "Composables/useTabParam";
 import type { TableResponse } from "Types/dataTable";
 import { formatClock, formatFileSize } from "Utils/formatting";
-import ArtistDiscography, { type DiscographyAlbum } from "./ArtistDiscography.vue";
 import ArtistSongs, { type SongRow } from "./ArtistSongs.vue";
 
 /** One artist as ArtistController shaped it — every value raw. */
@@ -74,7 +74,7 @@ interface ArtistDetail {
 const props = defineProps<{
     /** The artist being shown, as ArtistController shaped it. */
     artist: ArtistDetail;
-    /** Every album credited to them, for the albums tab. Unpaginated — see ArtistDiscography. */
+    /** Every album credited to them, for the albums tab. Unpaginated — see Discography. */
     discography: DiscographyAlbum[];
     /** Their songs, as the server-driven table payload (rows + pagination + sort + search). */
     table: TableResponse<SongRow>;
@@ -169,7 +169,7 @@ const tabs = computed<TabDefinition[]>(() => [
                 :label="t('music.artist.tabs.label')"
             >
                 <template #albums>
-                    <artist-discography :albums="discography" />
+                    <discography :albums="discography" />
                 </template>
 
                 <template #songs>
@@ -187,7 +187,7 @@ const tabs = computed<TabDefinition[]>(() => [
 /* Stacks the page's blocks and spaces them, taking the CardGroup's own gutter
    (s.$c-card "gap") so the rhythm down the page matches the rhythm between two cards —
    the same rule, for the same reason, as SongPage's `.song` and AlbumPage's `.album`.
-   Each tab's own styling lives with the component that owns it — ArtistDiscography and
+   Each tab's own styling lives with the component that owns it — Discography and
    ArtistSongs — so there is nothing here but the page's own vertical rhythm. */
 .artist {
     display: flex;

@@ -1,0 +1,76 @@
+# CoverImage
+
+Album / track artwork. The **only** place the app draws a cover — never hand-roll an `<img>` for one.
+
+```vue
+<!-- a table row: the title is in the next cell, so the artwork is decorative -->
+<cover-image :src="row.coverUrl" :title="row.name" size="small" decorative />
+
+<!-- a hero: here the picture IS the subject, so it keeps its alt text -->
+<cover-image :src="album.coverUrl" :title="album.name" size="xlarge" />
+```
+
+## Props
+
+| Prop         | Type                                       | Default   | Notes                                                                |
+| ------------ | ------------------------------------------ | --------- | -------------------------------------------------------------------- |
+| `src`        | `string \| null`                           | `null`    | The artwork URL. `null` ⇒ the placeholder glyph, not a broken image. |
+| `title`      | `string`                                   | —         | What the picture is _of_ — an album or song name. Becomes the `alt`. |
+| `size`       | `"tiny" \| "small" \| "large" \| "xlarge"` | `"small"` | See below — a size is a triple, not just a width.                    |
+| `decorative` | `boolean`                                  | `false`   | Renders `alt=""` and hides the placeholder from assistive tech.      |
+
+## Sizes — a triple, not a width
+
+The corner radius and frame width move **with** the size, which is why they aren't separate props: the
+12px rounding that reads as deliberate on a 240px sleeve eats a visible bite out of a 48px thumbnail,
+and the hero's 5px frame around a 48px square would be a tenth of the picture.
+
+| Size     | Width                     | Radius     | Frame      | Used for               |
+| -------- | ------------------------- | ---------- | ---------- | ---------------------- |
+| `tiny`   | 24px                      | `base`     | `base`     | (no consumer yet)      |
+| `small`  | 48px                      | `base`     | `base`     | every table / list row |
+| `large`  | 96px                      | `base`     | `base`     | (no consumer yet)      |
+| `xlarge` | **100%, capped at 240px** | `featured` | `featured` | the detail-page hero   |
+
+`xlarge` is a **ceiling, not a width**. It takes the width of whatever it is placed in and stops
+growing, kept square by `aspect-ratio` — so it fills `HeroSection`'s frame at every breakpoint
+_without this component knowing that frame's sizes_ (220 / 200 / 240px), and fits any narrower
+container it is ever dropped into. The three small sizes stay fixed on purpose: they sit in rows whose
+height must not move with the viewport, or the column stops scanning as a column.
+
+Metrics live in `abstracts/sizes/components/_cover-image.scss`, colours in the `colors` twin.
+
+## Three states, all owned here
+
+1. **The artwork** — an `<img>`, lazily loaded.
+2. **No artwork** (`src` is `null`) — a muted `music` glyph.
+3. **Failed artwork** — the same glyph. This is the one that earns the component: `coverUrl` rests on
+   scan-time flags (`tracks.cover`, `collections.cover_path`), so a file re-tagged or deleted since
+   the last `app:update` is still advertised and then 404s. Every consumer used to keep a
+   `failedCovers` `Set` keyed by row id plus an `@error` handler, purely because the `<img>` sat
+   inside a `v-for`. A component instance already has that identity, so it is one boolean here.
+
+The `src` watcher that resets that boolean is **load-bearing**: Vue reuses a component instance when a
+keyed list re-orders, so without it a row that once 404'd would keep its placeholder after being handed
+a different album's artwork.
+
+The placeholder is deliberately **just a glyph**, with no frame of its own — inside a `HeroSection` the
+hero draws its own dashed square around whatever is not an `<img>`, and in a table row the bare icon is
+the whole signal. A frame here would be drawn twice in one place and be wrong in the other.
+
+## Accessibility
+
+Pass `decorative` wherever the title is **already adjacent** — a table row, a card heading, a link that
+names the album — so a screen reader doesn't read every row twice. It renders `alt=""` and drops the
+placeholder's `role="img"` / label. A hero omits it: there the picture is the subject.
+
+## Gotcha — never size this from the outside
+
+`HeroSection` used to, via `> :slotted(img)`, and that rule **silently outranked this component's own
+sizing**: Vue puts the slot scope id on a slotted component's _root element_, and this component's root
+is the `<img>`, so `:slotted` reached straight through it and won on specificity ((0,2,1) against
+(0,2,0)). The two only appeared to agree because the numbers happened to match.
+
+The general rule: a `:slotted` selector that sets **size** is a trap once slots receive components
+rather than bare elements. Reaching in deliberately to _paint_ is fine — `HeroSection` still does it
+for `FactPair`'s link halo, by naming that component's own class.
