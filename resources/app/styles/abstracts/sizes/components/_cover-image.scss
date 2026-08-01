@@ -12,13 +12,17 @@
  * and list rows, where a picture that resized with the viewport would take the row
  * height with it and stop the column scanning as a column.
  *
- * `xlarge` is the opposite — a CAP, not a width. The component asks for 100% of
- * whatever it is placed in and stops growing here, so the page-anchor cover is
- * responsive by default: it fills the hero's frame (itself 220/200/240 per
+ * `xlarge` has NO width here at all, which is why it is absent from this map. It
+ * fills whatever it is placed in — the hero's frame (itself 220/200/240 per
  * breakpoint, because 220px is already most of a phone's width while a desktop can
- * carry 240 beside a title), and it fits any other container it is ever dropped into
- * without overflowing. That is why this is one number and not a copy of the hero's
- * breakpoint map: the frame decides the size, this only decides how big it may get.
+ * carry 240 beside a title), or a card in a fluid grid, whose width is whatever the
+ * column works out to. The container decides; a caller needing a bound puts it
+ * there, alongside the rest of that layout's sizing.
+ *
+ * It briefly carried a 240px ceiling, and that was wrong in exactly the case a fluid
+ * grid produces: any column wider than the cap left the cover short of its own card.
+ * Only `border-xlarge` and `radius-xlarge` remain, because those two really are the
+ * size's own decisions rather than the container's.
  * Consumed as s.$c-cover-image via `@use "Abstracts/sizes" as s;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
@@ -28,8 +32,7 @@ $cover-image: (
     "tiny": 24px,
     "small": 48px,
     "large": 96px,
-    // A ceiling, not a width — see the note above.
-    "xlarge": 240px,
+    // NB: no "xlarge" width — it fills its container. See the note above.
     // Corners: the `base` rung up to `large`, the `featured` rung only at hero size.
     "radius": map.get(s.$radius, "base"),
     "radius-xlarge": map.get(s.$radius, "featured"),

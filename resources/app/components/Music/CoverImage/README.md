@@ -25,18 +25,24 @@ The corner radius and frame width move **with** the size, which is why they aren
 12px rounding that reads as deliberate on a 240px sleeve eats a visible bite out of a 48px thumbnail,
 and the hero's 5px frame around a 48px square would be a tenth of the picture.
 
-| Size     | Width                     | Radius     | Frame      | Used for               |
-| -------- | ------------------------- | ---------- | ---------- | ---------------------- |
-| `tiny`   | 24px                      | `base`     | `base`     | (no consumer yet)      |
-| `small`  | 48px                      | `base`     | `base`     | every table / list row |
-| `large`  | 96px                      | `base`     | `base`     | (no consumer yet)      |
-| `xlarge` | **100%, capped at 240px** | `featured` | `featured` | the detail-page hero   |
+| Size     | Width                     | Radius     | Frame      | Used for                          |
+| -------- | ------------------------- | ---------- | ---------- | --------------------------------- |
+| `tiny`   | 24px                      | `base`     | `base`     | (no consumer yet)                 |
+| `small`  | 48px                      | `base`     | `base`     | every table / list row            |
+| `large`  | 96px                      | `base`     | `base`     | (no consumer yet)                 |
+| `xlarge` | **100% of its container** | `featured` | `featured` | the detail-page hero, album cards |
 
-`xlarge` is a **ceiling, not a width**. It takes the width of whatever it is placed in and stops
-growing, kept square by `aspect-ratio` — so it fills `HeroSection`'s frame at every breakpoint
-_without this component knowing that frame's sizes_ (220 / 200 / 240px), and fits any narrower
-container it is ever dropped into. The three small sizes stay fixed on purpose: they sit in rows whose
-height must not move with the viewport, or the column stops scanning as a column.
+`xlarge` has **no width of its own** — it fills whatever it is placed in, kept square by
+`aspect-ratio`. **The container decides the size**, which is the whole contract: it fills
+`HeroSection`'s frame at every breakpoint _without this component knowing that frame's sizes_
+(220 / 200 / 240px), and it spans a `Discography` card whatever its grid column works out to.
+
+It briefly carried a 240px ceiling, and that was wrong in exactly the case a fluid grid produces: any
+column wider than the cap left the cover short of its own card. A caller that needs a bound puts it on
+the **container**, where the rest of that layout's sizing already lives.
+
+The three small sizes stay fixed on purpose: they sit in rows whose height must not move with the
+viewport, or the column stops scanning as a column.
 
 Metrics live in `abstracts/sizes/components/_cover-image.scss`, colours in the `colors` twin.
 

@@ -36,8 +36,8 @@ import Icon from "Components/UI/Icon.vue";
 
 /**
  * The sizes artwork is shown at. The three small ones are fixed, because they sit in rows
- * whose height should not move; `xlarge` is the page anchor and is responsive — it fills
- * its container up to a ceiling.
+ * whose height should not move; `xlarge` is the page anchor and has no width of its own —
+ * it fills whatever container it is given.
  */
 export type CoverSize = "tiny" | "small" | "large" | "xlarge";
 
@@ -55,8 +55,9 @@ const props = withDefaults(
          */
         title: string;
         /**
-         * How big to draw it: tiny 24px, small 48px, large 96px — or `xlarge`, which fills
-         * its container and stops at 240px, so the page-anchor cover adapts on its own.
+         * How big to draw it: tiny 24px, small 48px, large 96px — or `xlarge`, which has no
+         * width of its own and fills its container, so the page-anchor cover adapts on its
+         * own and the CONTAINER is what bounds it.
          */
         size?: CoverSize;
         /**
@@ -149,19 +150,23 @@ const ICON_SIZE: Record<CoverSize, number> = { tiny: 1, small: 2, large: 3, xlar
         height: map.get(s.$c-cover-image, "large");
     }
 
-    /* The page anchor: a heavier frame, a wider rounding, and RESPONSIVE by default —
-       it takes the width of whatever it is placed in and simply stops growing at the
-       token's ceiling. So it fills the hero's frame at every breakpoint without this
-       file knowing that frame's sizes, and it fits any narrower container it is ever
-       dropped into instead of overflowing it.
+    /* The page anchor: a heavier frame, a wider rounding, and no width of its own — it
+       fills whatever it is placed in, always. THE CONTAINER DECIDES THE SIZE, which is
+       the whole contract: the hero's frame is 220/200/240 per breakpoint and this fills
+       it without knowing those numbers, and a card in a grid column gets a cover that
+       spans the card whatever the column works out to.
 
-       `aspect-ratio` rather than a matching height, because there is no height to
-       match once the width is inherited — it is what keeps the box square while only
-       one of its dimensions is known. `height: auto` is the default for an <img> but
-       is stated so a later rule can't quietly break the ratio. */
+       It deliberately carries no ceiling. One used to live here, and it was wrong in
+       exactly the case a fluid grid produces: any column wider than the cap left the
+       cover short of its own card. A caller that needs a bound puts it on the container,
+       where the rest of that layout's sizing already lives.
+
+       `aspect-ratio` rather than a matching height, because there is no height to match
+       once the width is inherited — it is what keeps the box square while only one of
+       its dimensions is known. `height: auto` is the default for an <img> but is stated
+       so a later rule can't quietly break the ratio. */
     &--xlarge {
         width: 100%;
-        max-width: map.get(s.$c-cover-image, "xlarge");
         height: auto;
         border-width: map.get(s.$c-cover-image, "border-xlarge");
         aspect-ratio: 1;

@@ -1,11 +1,20 @@
 /******************************************************************************
  * contextual size tokens — component:Discography.vue
  * @type {Sass}
- * Metrics for the albums-tab rows: `border`/`radius` match the DataTable's so
- * the two tabs agree, `row-padding` sizes one row and `row-gap` spaces the
- * artwork from the text beside it. `meta-gap` separates the secondary facts from
- * each other. Literals where the row needs a comfortable target rather than a
- * step of the page's rhythm, which is what the sizes rule allows.
+ * Metrics for the album tiles, in both of the component's layouts: rows on a
+ * phone, a card grid from `landscape` up.
+ *
+ * `radius` is the `featured` rung, NOT the `base` one a tile this size would
+ * usually take — it deliberately matches the panel these sit inside (the
+ * TabbedNavigation frame, s.$c-tabbed-navigation "frame-radius"). Tiles stacked
+ * inside a rounded panel read as part of it when their corners agree and as
+ * something dropped into it when they don't. `border` stays the hairline `base`
+ * width: the tile is separated by its FILL, so the edge only has to contain it.
+ *
+ * `card-min` is the grid's per-column floor for `minmax(min(<card-min>, 100%),
+ * 1fr)`; a plain literal, since it is a layout threshold rather than a step off
+ * the scale — chosen so a column holds a cover at its 240px ceiling plus the
+ * tile's own padding without the last row going sparse.
  * Consumed as s.$c-discography via `@use "Abstracts/sizes" as s;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
@@ -13,8 +22,22 @@
 
 $discography: (
     "border": map.get(s.$border, "base"),
-    "radius": map.get(s.$radius, "base"),
-    "row-padding": 0.5rem,
+    // matches the TabbedNavigation frame these tiles sit in — see above
+    "radius": map.get(s.$radius, "featured"),
+    "item-padding": map.get(s.$padding, "base"),
+    // between tiles, in both layouts
+    "gap": map.get(s.$padding, "base"),
+    // row layout — artwork to text
     "row-gap": 1ch,
-    "meta-gap": 2ch
+    // the secondary facts, each in its own chip: the gap BETWEEN chips, and each chip's own
+    // padding and rounding. The `base` radius, not the tile's `featured` one — a chip is a
+    // small object inside a big one, and the wide rounding that frames the tile would eat
+    // most of a two-word pill. Padding is a literal for the same reason: what a chip needs
+    // is enough room to read as a pill, not a step of the page's rhythm.
+    "meta-gap": 0.5ch,
+    "meta-padding": 0.1rem 0.6rem,
+    "meta-radius": map.get(s.$radius, "base"),
+    // card layout — the grid's column floor, and artwork to text inside a card
+    "card-min": 14rem,
+    "card-gap": 0.5rem
 ) !default;

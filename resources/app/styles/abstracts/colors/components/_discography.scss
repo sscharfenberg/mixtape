@@ -1,18 +1,28 @@
 /******************************************************************************
  * contextual color tokens — component:Discography.vue
  * @type {Sass}
- * The artist page's albums tab — a list of album rows, each linking to that
- * album. It sits one tab away from the songs DataTable, so `border` and
- * `row-hover` deliberately re-pick the SAME values as c.$c-datatable's: the two
- * tabs show one artist's catalogue two ways, and a reader flipping between them
- * should not see the rules and the hover wash change colour. Re-picked from the
- * globals rather than read off that component's tokens, so this partial stays
- * self-contained (the same call SiteMenuLinks and WidgetModeToggle make about
- * their shared look).
+ * A list of albums, shown as rows on a phone and as a card grid from `landscape`
+ * up. Both layouts draw the same object: a filled, bordered tile.
  *
- * `surface-meta` is the muted grey for a row's secondary facts — the year and
+ * The two `background-*` entries ALTERNATE down the row layout, and are the
+ * DataTable's own zebra values re-picked from the globals (a contextual partial
+ * consumes globals, never another partial's tokens). That is deliberate: on the
+ * artist page this sits one tab away from that table, and a reader flipping
+ * between them should not meet two different ideas of what a striped list looks
+ * like. The card grid takes the `odd` value uniformly — alternation helps an eye
+ * track ACROSS a wide row, but in a grid whose column count changes with the
+ * viewport it only produces a pattern that reshuffles as you resize.
+ *
+ * `hover-background` is deliberately QUIETER than the DataTable's row wash: a
+ * tile here already carries its own fill, so the hover has to shift it, not paint
+ * it from nothing. `glow` is the same halo that table uses — the retro `c3`
+ * control neon, the one entry the open popover, the focused input and the checked
+ * checkbox all light up with, because it means the same thing here: this is about
+ * to do something.
+ *
+ * `surface-meta` is the muted grey for a tile's secondary facts — the year and
  * the song-count / playing-time pair — so the album NAME is the only thing at
- * full contrast and the row has one obvious thing to read first.
+ * full contrast and the tile has one obvious thing to read first.
  * Consumed as c.$c-discography via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
@@ -20,16 +30,39 @@
 @use "../global-color-tokens" as c;
 
 $discography: (
-    // the rule between two rows — the DataTable's own border value
+    // the tile's own fill, alternating down the rows — the DataTable's zebra pair
+    "background-odd": light-dark(
+            color.adjust(map.get(c.$grey, "astral"), $alpha: -0.25),
+            color.adjust(map.get(c.$grey, "ebony"), $alpha: -0.25)
+        ),
+    "background-even": light-dark(
+            color.adjust(map.get(c.$grey, "infra"), $alpha: -0.35),
+            color.adjust(map.get(c.$grey, "bunker"), $alpha: -0.25)
+        ),
+    // the tile's edge — the DataTable's border value, so the two read as one family
     "border": light-dark(
             color.adjust(map.get(c.$grey, "slate"), $alpha: -0.25),
             color.adjust(map.get(c.$grey, "charcoal"), $alpha: -0.25)
         ),
-    // hover — the DataTable's row wash, quiet enough to read as "this row is the target"
-    "row-hover": light-dark(
-            color.adjust(map.get(c.$grey, "iron"), $alpha: -0.5),
-            color.adjust(map.get(c.$grey, "abbey"), $alpha: -0.25)
+    // hover — a shift of the tile's own fill, not a repaint, so lighter than the
+    // table's equivalent (which paints a bare row from nothing)
+    "hover-background": light-dark(
+            color.adjust(map.get(c.$grey, "iron"), $alpha: -0.65),
+            color.adjust(map.get(c.$grey, "abbey"), $alpha: -0.4)
         ),
-    // the row's secondary facts, one step down from the album name
-    "surface-meta": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron"))
+    // the halo around a hovered tile — the same control neon the DataTable's clickable
+    // rows glow with, consumed as the same two-layer box-shadow
+    "glow": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
+    // the tile's secondary facts, one step down from the album name
+    "surface-meta": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
+    // …each of which sits in its own chip. A neutral wash rather than a fill picked to sit
+    // on one background: the tile under it is `background-odd` on some rows and
+    // `background-even` on others, so a chip that suits one would be invisible on the
+    // other. This darkens whatever is beneath it on light and lifts it on dark, which
+    // reads the same on both. Opacity-only adjust, the one colour maths the token rules
+    // allow outside the palette.
+    "meta-background": light-dark(
+            color.adjust(map.get(c.$grey, "iron"), $alpha: -0.6),
+            color.adjust(map.get(c.$grey, "asher"), $alpha: -0.5)
+        )
 ) !default;
