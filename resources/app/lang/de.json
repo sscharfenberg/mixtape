@@ -264,9 +264,6 @@
             "size": "Größe",
             "modifiedAt": "Geändert"
         },
-        "album": {
-            "noCover": "Kein Cover vorhanden"
-        },
         "channel": {
             "stereo": "Stereo",
             "joint_stereo": "Joint Stereo",
@@ -274,7 +271,6 @@
             "mono": "Mono"
         },
         "song": {
-            "noCover": "Kein Cover vorhanden",
             "groups": {
                 "tags": "Tags",
                 "album": "Album",
@@ -346,6 +342,9 @@
         },
         "tabs": {
             "label": "Registerkarten"
+        },
+        "cover": {
+            "empty": "Kein Cover vorhanden"
         }
     }
 }

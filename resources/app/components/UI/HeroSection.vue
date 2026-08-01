@@ -8,10 +8,16 @@
  * nothing about what it is describing.
  *
  * Three slots, all optional:
- *   #cover     the artwork. Pass an <img> and it is sized to fill the square; pass
- *              anything else (an <Icon>, say) and the square is drawn as a dashed
- *              neon placeholder around it instead — see the `:has(img)` note in the
- *              styles for how that switch works without a prop.
+ *   #cover     the artwork — a <CoverImage size="xlarge">, which sizes and frames
+ *              ITSELF to this square. Pass anything that is not an <img> (a bare
+ *              <Icon>, or a CoverImage with no art, which renders its glyph) and the
+ *              square is drawn as a dashed neon placeholder around it instead — see
+ *              the `:has(img)` note in the styles for how that switch works without
+ *              a prop. This slot deliberately does NOT size what it is handed: it
+ *              used to, and that rule silently outranked CoverImage's own (a slotted
+ *              component's ROOT element carries the slot scope id, so `:slotted(img)`
+ *              reached inside it), leaving two places declaring one square with the
+ *              hero quietly winning.
  *   #title     the heading element. Its UA type is flattened so the hero's own
  *              headline face and size win, which lets the caller choose the level
  *              (an <h1> on a page whose title lives here, and nothing else has to
@@ -189,25 +195,14 @@
             width: map.get(s.$c-hero-section, "cover", "desktop");
         }
 
-        /* Art fills the frame; `object-fit: cover` keeps a non-square scan from distorting.
-           `:slotted` because the <img> belongs to the caller's scope, not this one — it is the
-           supported way for a component to size what it was handed.
-
-           The border is what stops a cover dissolving into the panel: artwork is a
-           photograph, so its own edge can be any colour — a sleeve fading to white has no
-           edge on the light panel, a black-metal cover none on the dark one. `border-box`
-           because the frame is a fixed square: without it the border would be added OUTSIDE
-           the 240px and push the panel wider. */
-        > :slotted(img) {
-            box-sizing: border-box;
-            width: 100%;
-            height: 100%;
-            border: map.get(s.$c-hero-section, "cover-border") solid map.get(c.$c-hero-section, "cover-border");
-
-            border-radius: inherit;
-
-            object-fit: cover;
-        }
+        /* Nothing sizes the slotted artwork here, on purpose. CoverImage declares its own
+           square, frame and rounding per size (s.$c-cover-image), and a rule in this block
+           would OVERRIDE it rather than back it up: Vue puts the slot scope id on a slotted
+           component's ROOT element, and CoverImage's root is the <img> itself — so the
+           obvious `> :slotted(img) { width: 100% }` matched straight through the component
+           and won on specificity, leaving one square declared in two places with this file
+           quietly deciding it. The frame below still carries its own width for the case that
+           needs it: when there is no art to fill it. */
 
         /* No art on disk: the same square, drawn as a dashed neon outline around whatever the
            caller put there instead (a muted icon), so the hero keeps its shape and the gap

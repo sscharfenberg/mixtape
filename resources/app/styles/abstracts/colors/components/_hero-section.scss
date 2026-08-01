@@ -48,23 +48,6 @@ $hero-section: (
             light-dark(map.get(c.$retro, "c6", "light"), map.get(c.$retro, "c6", "dark")),
             light-dark(map.get(c.$retro, "c7", "light"), map.get(c.$retro, "c7", "dark"))
         ),
-    // The frame around real artwork, at either size (the hero's 240px square and the
-    // Albums table's 48px thumbnail — same colour, different widths, see the sizes
-    // partial).
-    //
-    // Artwork needs a frame for a reason the placeholder doesn't: a cover is a
-    // photograph, so its own edge can be any colour at all — a sleeve that fades to
-    // white dissolves into the light panel, and a black metal cover into the dark one.
-    // The border is what keeps the square reading as a square either way.
-    //
-    // The light side is the Card's own border pick (`iron`); the dark side is NOT
-    // (`bunker`, two rungs darker than the card's `asher`). Deliberately asymmetric,
-    // because the two sides have different jobs: on white, the frame separates pale
-    // artwork from a pale panel, and the card's mid-grey does that. On black it sits
-    // around something usually far brighter than its surroundings, where a mid-grey
-    // reads as a lit ring competing with the picture — the darker rung still separates
-    // the square from the panel without adding a second bright edge to look at.
-    "cover-border": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "bunker")),
     // The empty-cover square: the control neon, dialled back with an opacity-only
     // adjust (the one colour maths the token rules allow outside the palette), so
     // the placeholder reads as an outline rather than as a lit control.

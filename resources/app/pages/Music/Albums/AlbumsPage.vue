@@ -19,12 +19,12 @@
  * and are formatted here against the viewer's locale and timezone.
  *****************************************************************************/
 import { Head, Link } from "@inertiajs/vue3";
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import DataTable from "Components/DataTable/DataTable.vue";
 import Container from "Components/UI/Container.vue";
+import CoverImage from "Components/UI/CoverImage.vue";
 import Headline from "Components/UI/Headline.vue";
-import Icon from "Components/UI/Icon.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import type { ColumnDef, TableResponse } from "Types/dataTable";
 import { formatClock, formatDateTime } from "Utils/formatting";
@@ -63,24 +63,7 @@ setBreadcrumbs([
     { labelKey: "music.widgets.albums", icon: "album" }
 ]);
 
-/**
- * Albums whose thumbnail failed to load, so the row can fall back to the same
- * placeholder a coverless album gets.
- *
- * Needed because `coverUrl` is a PROMISE, not a guarantee: the server decides it from
- * `tracks.cover` (a scan-time flag) plus one directory read, so a file re-tagged or
- * deleted since the last `app:update` can still be advertised and then 404. Without
- * this, that row renders the browser's broken-image glyph with the alt text wrapped
- * beside it, which is both ugly and taller than every other row — the failure looks
- * like a layout bug rather than like missing art.
- */
-const failedCovers = ref(new Set<string>());
 
-/** Remember a row whose <img> errored, which swaps it to the placeholder glyph. */
-const onCoverError = (id: string) => {
-    // A new Set rather than .add(): a Set mutated in place is not a reactive change.
-    failedCovers.value = new Set(failedCovers.value).add(id);
-};
 
 /**
  * Column definitions for the album table. A `computed` so the (already-translated)
@@ -109,33 +92,16 @@ const columns = computed<ColumnDef<AlbumRow>[]>(() => [
     <headline glow>{{ t("music.widgets.albums") }}</headline>
     <container>
         <data-table :columns="columns" :response="table" base-url="/music/albums" :has-actions="false">
-            <!-- Artwork, or the same music glyph the song page's hero falls back to,
-                 so a coverless album reads as "no picture" rather than as a broken
-                 image — and so does an album whose advertised cover 404s (see
-                 failedCovers). `loading="lazy"` because a page of 50 rows is 50
-                 requests to the cover route, each of which may extract on first hit.
+            <!-- Artwork, or the music glyph when the album has none — and the same when an
+                 advertised cover 404s, which happens because `coverUrl` rests on a scan-time
+                 flag. CoverImage owns all three cases, the frame and the lazy loading.
 
-                 `alt=""` deliberately: the album's name sits in the very next cell of
-                 the same row, so naming the artwork again only makes a screen reader
-                 read every row twice. Decorative here, load-bearing on the album page
-                 where the image IS the subject. -->
+                 `decorative` deliberately: the album's name sits in the very next cell of
+                 the same row, so naming the artwork again only makes a screen reader read
+                 every row twice. Decorative here, load-bearing on the album page where the
+                 image IS the subject. -->
             <template #cell-coverUrl="{ row }">
-                <img
-                    v-if="row.coverUrl && !failedCovers.has(row.id)"
-                    :src="row.coverUrl"
-                    alt=""
-                    class="albums__cover"
-                    loading="lazy"
-                    @error="onCoverError(row.id)"
-                />
-                <icon
-                    v-else
-                    name="music"
-                    :size="2"
-                    class="albums__cover-placeholder"
-                    :aria-label="t('music.album.noCover')"
-                    role="img"
-                />
+                <cover-image :src="row.coverUrl" :title="row.name" size="small" decorative />
             </template>
             <template #cell-name="{ row }">
                 <Link :href="row.href" class="albums__title">{{ row.name }}</Link>
@@ -150,38 +116,6 @@ const columns = computed<ColumnDef<AlbumRow>[]>(() => [
 </template>
 
 <style scoped lang="scss">
-@use "sass:map"; // https://sass-lang.com/documentation/modules/map
-@use "Abstracts/colors" as c;
-@use "Abstracts/sizes" as s;
-
-/* A square thumbnail, taking its size, corners, border and colour from the same partial
-   that shapes the hero's cover (s/c.$c-hero-section) — it is the same artwork, one step
-   down, so the two differ only where a 48px square genuinely needs different numbers
-   than a 240px one (the `-thumbnail-` rungs: a smaller radius and a hairline frame).
-
-   `object-fit: cover` so a non-square scan crops instead of distorting; `border-box` so
-   the frame doesn't push the row taller than 48px; and `display: block` kills the inline
-   baseline gap that would otherwise do the same. */
-.albums__cover {
-    display: block;
-
-    box-sizing: border-box;
-
-    width: map.get(s.$c-hero-section, "cover-thumbnail");
-    height: map.get(s.$c-hero-section, "cover-thumbnail");
-    border: map.get(s.$c-hero-section, "cover-thumbnail-border") solid map.get(c.$c-hero-section, "cover-border");
-
-    border-radius: map.get(s.$c-hero-section, "cover-thumbnail-radius");
-
-    object-fit: cover;
-}
-
-/* The placeholder is the hero's colour, at the hero's own opacity — a muted glyph
-   rather than a second dashed box: at 32px a dashed frame is all frame. */
-.albums__cover-placeholder {
-    color: map.get(c.$c-hero-section, "cover-placeholder-icon");
-}
-
 /* The title link deliberately does NOT look like a link — the whole row is the click
    target and already signals that. Identical to SongsPage's rule, and for the same
    reasons (see the comment there): `inherit` keeps the cell's themed colour, and only

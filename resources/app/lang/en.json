@@ -264,9 +264,6 @@
             "size": "Size",
             "modifiedAt": "Modified"
         },
-        "album": {
-            "noCover": "No cover available"
-        },
         "channel": {
             "stereo": "Stereo",
             "joint_stereo": "Joint stereo",
@@ -274,7 +271,6 @@
             "mono": "Mono"
         },
         "song": {
-            "noCover": "No cover available",
             "groups": {
                 "tags": "Tags",
                 "album": "Album",
@@ -346,6 +342,9 @@
         },
         "tabs": {
             "label": "Tabs"
+        },
+        "cover": {
+            "empty": "No cover available"
         }
     }
 }

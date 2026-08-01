@@ -27,10 +27,10 @@
  * reason consecutive rows sit in the order they do. See ArtistController.
  *****************************************************************************/
 import { Link } from "@inertiajs/vue3";
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import DataTable from "Components/DataTable/DataTable.vue";
-import Icon from "Components/UI/Icon.vue";
+import CoverImage from "Components/UI/CoverImage.vue";
 import type { ColumnDef, TableResponse } from "Types/dataTable";
 import { formatClock, formatFileSize, formatPosition } from "Utils/formatting";
 
@@ -103,18 +103,6 @@ const columns = computed<ColumnDef<SongRow>[]>(() => [
     { key: "size", label: t("music.song.labels.size"), sortable: true, visibleInCard: true, align: "right" }
 ]);
 
-/**
- * Songs whose thumbnail failed to load, so the row falls back to the placeholder glyph —
- * the same guard every other cover-bearing table carries, since `coverUrl` rests on
- * `tracks.cover`, a scan-time flag that a re-tagged or deleted file leaves stale.
- */
-const failedCovers = ref(new Set<string>());
-
-/** Remember a row whose <img> errored, which swaps it to the placeholder glyph. */
-const onCoverError = (id: string) => {
-    // A new Set rather than .add(): a Set mutated in place is not a reactive change.
-    failedCovers.value = new Set(failedCovers.value).add(id);
-};
 </script>
 
 <template>
@@ -123,25 +111,10 @@ const onCoverError = (id: string) => {
          the open TAB is not in that URL: reloading a sorted songs view lands on the albums
          tab again, which is the trade for keeping tab state out of the query string. -->
     <data-table :columns="columns" :response="table" :base-url="baseUrl" :has-actions="false">
-        <!-- alt="": the title is in the next cell, so naming the art again makes a screen
-             reader read every row twice. -->
+        <!-- `decorative`: the title is in the next cell, so naming the art again makes a
+             screen reader read every row twice. -->
         <template #cell-coverUrl="{ row }">
-            <img
-                v-if="row.coverUrl && !failedCovers.has(row.id)"
-                :src="row.coverUrl"
-                alt=""
-                class="artist-songs__cover"
-                loading="lazy"
-                @error="onCoverError(row.id)"
-            />
-            <icon
-                v-else
-                name="music"
-                :size="2"
-                class="artist-songs__cover-placeholder"
-                :aria-label="t('music.song.noCover')"
-                role="img"
-            />
+            <cover-image :src="row.coverUrl" :title="row.name" size="small" decorative />
         </template>
         <template #cell-name="{ row }">
             <Link :href="row.href" class="artist-songs__title">{{ row.name }}</Link>
@@ -169,31 +142,6 @@ const onCoverError = (id: string) => {
 </template>
 
 <style scoped lang="scss">
-@use "sass:map"; // https://sass-lang.com/documentation/modules/map
-@use "Abstracts/colors" as c;
-@use "Abstracts/sizes" as s;
-
-/* The row thumbnail: identical rules to the other tables', reading the same hero-section
-   tokens — it is the same artwork at the same listing size. See AlbumsPage for why
-   `border-box` and `display: block` are load-bearing. */
-.artist-songs__cover {
-    display: block;
-
-    box-sizing: border-box;
-
-    width: map.get(s.$c-hero-section, "cover-thumbnail");
-    height: map.get(s.$c-hero-section, "cover-thumbnail");
-    border: map.get(s.$c-hero-section, "cover-thumbnail-border") solid map.get(c.$c-hero-section, "cover-border");
-
-    border-radius: map.get(s.$c-hero-section, "cover-thumbnail-radius");
-
-    object-fit: cover;
-}
-
-.artist-songs__cover-placeholder {
-    color: map.get(c.$c-hero-section, "cover-placeholder-icon");
-}
-
 /* The title link deliberately does NOT look like a link — the whole row is the click
    target and already signals it. Same rule as every listing; see SongsPage for the
    reasoning, including why only focus draws an underline. */

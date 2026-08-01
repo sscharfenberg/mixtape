@@ -23,9 +23,8 @@
  * here because there is only ever one destination per row.
  *****************************************************************************/
 import { Link } from "@inertiajs/vue3";
-import { ref } from "vue";
 import { useI18n } from "vue-i18n";
-import Icon from "Components/UI/Icon.vue";
+import CoverImage from "Components/UI/CoverImage.vue";
 import { formatClock } from "Utils/formatting";
 
 /** One album of the discography, as ArtistController shaped it — every value raw. */
@@ -52,20 +51,6 @@ const props = defineProps<{
 const { t } = useI18n();
 
 /**
- * Albums whose thumbnail failed to load, so the row falls back to the placeholder glyph.
- * The same guard the listings carry, for the same reason: `coverUrl` rests on scan-time
- * state, so a file re-tagged or deleted since the last `app:update` is still advertised
- * and then 404s.
- */
-const failedCovers = ref(new Set<string>());
-
-/** Remember an album whose <img> errored, which swaps it to the placeholder glyph. */
-const onCoverError = (id: string) => {
-    // A new Set rather than .add(): a Set mutated in place is not a reactive change.
-    failedCovers.value = new Set(failedCovers.value).add(id);
-};
-
-/**
  * One album's secondary line: how many songs, and how long it plays.
  *
  * Built as one string so the row has exactly two things to read — name, then facts — and
@@ -86,24 +71,9 @@ const albumMeta = (album: DiscographyAlbum): string => {
     <ul v-if="props.albums.length > 0" class="discography">
         <li v-for="album in props.albums" :key="album.id" class="discography__item">
             <Link :href="album.href" class="discography__link">
-                <!-- alt="": the album's name is the next thing in the same link, so naming
-                     the artwork too would have a screen reader read every row twice. -->
-                <img
-                    v-if="album.coverUrl && !failedCovers.has(album.id)"
-                    :src="album.coverUrl"
-                    alt=""
-                    class="discography__cover"
-                    loading="lazy"
-                    @error="onCoverError(album.id)"
-                />
-                <icon
-                    v-else
-                    name="music"
-                    :size="2"
-                    class="discography__cover-placeholder"
-                    :aria-label="t('music.album.noCover')"
-                    role="img"
-                />
+                <!-- `decorative`: the album's name is the next thing inside the same link, so
+                     naming the artwork too would have a screen reader read every row twice. -->
+                <cover-image :src="album.coverUrl" :title="album.name" size="small" decorative />
                 <span class="discography__name">{{ album.name }}</span>
                 <span class="discography__meta">
                     <span v-if="album.year !== null">{{ album.year }}</span>
@@ -163,28 +133,6 @@ const albumMeta = (album: DiscographyAlbum): string => {
         outline: 2px solid currentcolor;
         outline-offset: -2px;
     }
-}
-
-/* Identical rules to the listings' row thumbnails, reading the same hero-section tokens —
-   it is the same artwork at the same size, so the tabs have no business looking different.
-   `border-box` and `display: block` are both load-bearing (see AlbumsPage: the frame and
-   the inline baseline gap would each make the row taller). */
-.discography__cover {
-    display: block;
-
-    box-sizing: border-box;
-
-    width: map.get(s.$c-hero-section, "cover-thumbnail");
-    height: map.get(s.$c-hero-section, "cover-thumbnail");
-    border: map.get(s.$c-hero-section, "cover-thumbnail-border") solid map.get(c.$c-hero-section, "cover-border");
-
-    border-radius: map.get(s.$c-hero-section, "cover-thumbnail-radius");
-
-    object-fit: cover;
-}
-
-.discography__cover-placeholder {
-    color: map.get(c.$c-hero-section, "cover-placeholder-icon");
 }
 
 /* Takes the slack so the meta block sits hard against the trailing edge, which is what

@@ -27,13 +27,13 @@
  * page here uses (Utils/formatting.ts).
  *****************************************************************************/
 import { Head, Link } from "@inertiajs/vue3";
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import DataTable from "Components/DataTable/DataTable.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Container from "Components/UI/Container.vue";
+import CoverImage from "Components/UI/CoverImage.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
-import Icon from "Components/UI/Icon.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import type { ColumnDef, TableResponse } from "Types/dataTable";
 import { formatClock, formatDateTime, formatFileSize } from "Utils/formatting";
@@ -114,19 +114,7 @@ const playingTime = computed(() => formatClock(props.album.duration));
 /** The newest file's mtime in the viewer's own locale and timezone. */
 const modified = computed(() => formatDateTime(props.album.modifiedAt, locale.value));
 
-/**
- * Tracks whose thumbnail failed to load, so the row falls back to the placeholder glyph
- * — the same guard the Albums listing carries, and for the same reason: `coverUrl` rests
- * on `tracks.cover`, a scan-time flag, so a file re-tagged or deleted since the last
- * `app:update` is still advertised and then 404s.
- */
-const failedCovers = ref(new Set<string>());
 
-/** Remember a row whose <img> errored, which swaps it to the placeholder glyph. */
-const onCoverError = (id: string) => {
-    // A new Set rather than .add(): a Set mutated in place is not a reactive change.
-    failedCovers.value = new Set(failedCovers.value).add(id);
-};
 
 /**
  * Column definitions for the track table. A `computed` so the (already-translated) labels
@@ -161,17 +149,13 @@ const columns = computed<ColumnDef<TrackRow>[]>(() => [
     <container>
         <div class="album">
             <hero-section>
-                <!-- An <img> when the album has art, and an icon when it does not:
-                     HeroSection draws the square as a dashed placeholder around
-                     whatever is not an image. Same `music` glyph as the song page,
-                     for the same reason — a disc reads as a failed image in the slot
-                     where a cover belongs. -->
+                <!-- The album's own name as the alt text, not "cover of …" — a screen
+                     reader already says "image". Not `decorative`: here the artwork IS
+                     the subject of the page, unlike a listing row where the title sits
+                     in the next cell. CoverImage draws the music glyph when there is no
+                     art, and HeroSection frames that in its dashed square. -->
                 <template #cover>
-                    <!-- The album's own name as the alt text, not "cover of …" — the
-                         same call SongPage makes, and for the same reason: a screen
-                         reader already says "image". -->
-                    <img v-if="album.coverUrl" :src="album.coverUrl" :alt="album.name" />
-                    <icon v-else name="music" :size="5" :aria-label="t('music.album.noCover')" role="img" />
+                    <cover-image :src="album.coverUrl" :title="album.name" size="xlarge" />
                 </template>
                 <template #title
                     ><h1>{{ album.name }}</h1></template
@@ -223,28 +207,12 @@ const columns = computed<ColumnDef<TrackRow>[]>(() => [
                 :base-url="`/music/albums/${album.id}`"
                 :has-actions="false"
             >
-                <!-- The track's own artwork, or the music glyph when the file carries
-                     none — and the same @error fallback the Albums listing has, since a
-                     cover advertised from a scan-time flag can 404. `alt=""`: the title
-                     is in the next cell, so naming the art again makes a screen reader
-                     read every row twice. -->
+                <!-- The track's OWN artwork, or the glyph when the file carries none — on
+                     an album whose art varies per song that difference is the informative
+                     reading. `decorative`: the title is in the next cell, so naming the art
+                     again makes a screen reader read every row twice. -->
                 <template #cell-coverUrl="{ row }">
-                    <img
-                        v-if="row.coverUrl && !failedCovers.has(row.id)"
-                        :src="row.coverUrl"
-                        alt=""
-                        class="album__cover"
-                        loading="lazy"
-                        @error="onCoverError(row.id)"
-                    />
-                    <icon
-                        v-else
-                        name="music"
-                        :size="2"
-                        class="album__cover-placeholder"
-                        :aria-label="t('music.song.noCover')"
-                        role="img"
-                    />
+                    <cover-image :src="row.coverUrl" :title="row.name" size="small" decorative />
                 </template>
                 <template #cell-name="{ row }">
                     <Link :href="row.href" class="album__title">{{ row.name }}</Link>
@@ -274,7 +242,6 @@ const columns = computed<ColumnDef<TrackRow>[]>(() => [
 
 <style scoped lang="scss">
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
-@use "Abstracts/colors" as c;
 @use "Abstracts/sizes" as s;
 
 /* Stacks the page's blocks and spaces them, taking the CardGroup's own gutter
@@ -285,29 +252,6 @@ const columns = computed<ColumnDef<TrackRow>[]>(() => [
     flex-direction: column;
 
     gap: map.get(s.$c-card, "gap");
-}
-
-/* The row thumbnail: identical rules to the Albums listing's, reading the same
-   hero-section tokens — it is the same artwork at the same listing size, so the two
-   tables have no business looking different. See AlbumsPage for why `border-box` and
-   `display: block` are load-bearing (the frame and the inline baseline gap would each
-   make the row taller than 48px). */
-.album__cover {
-    display: block;
-
-    box-sizing: border-box;
-
-    width: map.get(s.$c-hero-section, "cover-thumbnail");
-    height: map.get(s.$c-hero-section, "cover-thumbnail");
-    border: map.get(s.$c-hero-section, "cover-thumbnail-border") solid map.get(c.$c-hero-section, "cover-border");
-
-    border-radius: map.get(s.$c-hero-section, "cover-thumbnail-radius");
-
-    object-fit: cover;
-}
-
-.album__cover-placeholder {
-    color: map.get(c.$c-hero-section, "cover-placeholder-icon");
 }
 
 /* The title link deliberately does NOT look like a link — the whole row is the click

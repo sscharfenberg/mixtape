@@ -1,0 +1,36 @@
+/******************************************************************************
+ * contextual color tokens — component:CoverImage.vue
+ * @type {Sass}
+ * Album / track artwork wherever it is shown. Only two colours, and the artwork
+ * itself is untinted — a cover is somebody else's picture, so the app's job is to
+ * frame it, not to style it.
+ *
+ * `border` is that frame, and it earns its place: a cover is a photograph, so its
+ * own edge can be any colour — a sleeve fading to white has no edge against the
+ * light panel, a black-metal cover none against the dark one. Without the frame the
+ * picture dissolves into the page at exactly the sizes it is smallest.
+ *
+ * The two sides are deliberately ASYMMETRIC: the light side is the Card's own border
+ * pick (`iron`), the dark side two rungs darker (`bunker`, not the card's `asher`),
+ * because the sides have different jobs. On white the frame separates pale artwork
+ * from a pale panel, which the card's mid-grey does. On black it sits around
+ * something usually far brighter than its surroundings, where that same mid-grey
+ * reads as a lit ring competing with the picture — the darker rung still separates
+ * the square from the panel without adding a second bright edge to look at.
+ *
+ * `placeholder` is the muted ink for the glyph shown when a file carries no art. A
+ * glyph and nothing else: at hero size the HeroSection draws its own dashed square
+ * around whatever is not an `<img>`, and in a table row the bare icon is the whole
+ * signal — so a frame here would be drawn twice in one place and be wrong in the
+ * other. Values mirror c.$c-hero-section's, re-picked from the globals rather than
+ * read across (a contextual partial consumes globals, never another partial's
+ * tokens), so the hero's placeholder and this one stay the one look.
+ * Consumed as c.$c-cover-image via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-color-tokens" as c;
+
+$cover-image: (
+    "border": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "bunker")),
+    "placeholder": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher"))
+) !default;

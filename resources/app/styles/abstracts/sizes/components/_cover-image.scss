@@ -1,0 +1,40 @@
+/******************************************************************************
+ * contextual size tokens — component:CoverImage.vue
+ * @type {Sass}
+ * Album / track artwork at the four sizes the app shows it in. Each size is a
+ * TRIPLE — width, corner radius and frame width — because the three cannot be
+ * chosen independently: the 12px `featured` radius that reads as a deliberate
+ * rounding on a 240px sleeve eats a visible bite out of a 48px thumbnail, and the
+ * hero's 5px frame around a 48px square would be a tenth of the picture. Same
+ * decision at four scales, so it needs four sets of values.
+ *
+ * The three small sizes are FIXED, and should stay that way: they sit in table rows
+ * and list rows, where a picture that resized with the viewport would take the row
+ * height with it and stop the column scanning as a column.
+ *
+ * `xlarge` is the opposite — a CAP, not a width. The component asks for 100% of
+ * whatever it is placed in and stops growing here, so the page-anchor cover is
+ * responsive by default: it fills the hero's frame (itself 220/200/240 per
+ * breakpoint, because 220px is already most of a phone's width while a desktop can
+ * carry 240 beside a title), and it fits any other container it is ever dropped into
+ * without overflowing. That is why this is one number and not a copy of the hero's
+ * breakpoint map: the frame decides the size, this only decides how big it may get.
+ * Consumed as s.$c-cover-image via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$cover-image: (
+    "tiny": 24px,
+    "small": 48px,
+    "large": 96px,
+    // A ceiling, not a width — see the note above.
+    "xlarge": 240px,
+    // Corners: the `base` rung up to `large`, the `featured` rung only at hero size.
+    "radius": map.get(s.$radius, "base"),
+    "radius-xlarge": map.get(s.$radius, "featured"),
+    // Frames: a hairline at thumbnail sizes, the `featured` width at hero size, where a
+    // hairline would read as an artefact of the image rather than a frame around it.
+    "border": map.get(s.$border, "base"),
+    "border-xlarge": map.get(s.$border, "featured")
+) !default;

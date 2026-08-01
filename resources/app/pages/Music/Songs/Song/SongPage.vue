@@ -31,8 +31,8 @@ import { useI18n } from "vue-i18n";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Facts, { type Fact } from "Components/UI/Card/Facts.vue";
 import Container from "Components/UI/Container.vue";
+import CoverImage from "Components/UI/CoverImage.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
-import Icon from "Components/UI/Icon.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import type { SongDetail } from "Types/music";
 import { formatClock, formatDateTime, formatDecimals, formatFileSize, formatPosition } from "Utils/formatting";
@@ -251,15 +251,13 @@ const songFacts = computed<Fact[]>(() => {
     <container>
         <div class="song">
             <hero-section>
-                <!-- An <img> when the file carried artwork, and an icon when it did not:
-                     HeroSection draws the square as a dashed placeholder around whatever
-                     is not an image, so the choice of glyph stays this page's. `music`
-                     rather than `album`: the album glyph is a disc, which at this size
-                     reads as a *thing that failed to load* in the slot where a cover
-                     belongs — the music note says "audio, no picture" instead. -->
+                <!-- The artwork, or the music glyph when the file carried none —
+                     CoverImage picks between them, and HeroSection frames whatever is not
+                     an <img> in its dashed square. Not `decorative`: on this page the
+                     artwork IS the subject, unlike a listing row where the title sits in
+                     the next cell. -->
                 <template #cover>
-                    <img v-if="song.coverUrl" :src="song.coverUrl" :alt="coverAlt" />
-                    <icon v-else name="music" :size="5" :aria-label="t('music.song.noCover')" role="img" />
+                    <cover-image :src="song.coverUrl" :title="coverAlt" size="xlarge" />
                 </template>
                 <!-- The page's h1 lives here rather than in a <Headline>: beside the cover
                      it reads as one unit with the artwork instead of a caption under a
