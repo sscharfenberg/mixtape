@@ -311,6 +311,12 @@
         "discography": {
             "songCount": "{n} Song | {n} Songs",
             "empty": "Diesem Künstler ist kein Album zugeordnet."
+        },
+        "genre": {
+            "tabs": {
+                "label": "Alben, Künstler und Songs des Genres"
+            },
+            "noArtists": "Kein Künstler hat dieses Genre als Hauptgenre."
         }
     },
     "components": {

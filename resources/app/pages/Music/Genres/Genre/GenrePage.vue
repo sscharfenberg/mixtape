@@ -6,10 +6,22 @@
  * Nested under the listing's folder like the other three detail pages: the detail view
  * lives *inside* the listing it came from, mirroring the URL.
  *
- * ONE block for now — the hero, holding the genre's name and the four numbers its listing
- * row shows: how many artists call it their main genre, how many songs carry it, and what
- * those files add up to in time and on disk. The ARTISTS and SONGS listings that belong
- * under it are still to come, exactly as on the artist page.
+ * TWO blocks, the same shape the artist page has: the hero — the genre's name and the four
+ * numbers its listing row shows — and below it the genre's contents across an ALBUMS, an
+ * ARTISTS and a SONGS tab.
+ *
+ * The three panels are shaped by their sizes, and only SONGS is a server-driven DataTable:
+ * DataTableService reads its params unprefixed and every tab renders at once, so a second
+ * table would drive the first from the same query string. Albums are the shared Discography
+ * list and artists a plain list of links.
+ *
+ * Which tab is open lives in `?tab=`, so a reload or a shared link reopens it — but it is
+ * only ever CLIENT state written into the URL: the controller sends all three panels
+ * whatever the param says, so switching tabs costs no request (see useTabParam).
+ *
+ * Worth knowing while reading the tabs: ARTISTS are those whose MAIN genre this is, not
+ * everyone who recorded a song in it, while ALBUMS is every album holding one such song.
+ * Two different rules, and GenreController explains why each is the one it is.
  *
  * No `#cover` slot, and deliberately so: a genre is a name other rows point at, with no
  * artwork of its own anywhere on disk. HeroSection draws its dashed placeholder only when
@@ -19,14 +31,19 @@
  * The controller sends raw values (seconds, bytes, plain counts); the formatting happens
  * here against the active locale (Utils/formatting.ts).
  *****************************************************************************/
-import { Head } from "@inertiajs/vue3";
+import { Head, Link } from "@inertiajs/vue3";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import Discography, { type DiscographyAlbum } from "Components/Music/Discography/Discography.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Container from "Components/UI/Container.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
+import TabbedNavigation, { type TabDefinition } from "Components/UI/TabbedNavigation/TabbedNavigation.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
+import { useTabParam } from "Composables/useTabParam";
+import type { TableResponse } from "Types/dataTable";
 import { formatClock, formatFileSize } from "Utils/formatting";
+import GenreSongs, { type GenreSongRow } from "./GenreSongs.vue";
 
 /** One genre as GenreController shaped it — every value raw. */
 interface GenreDetail {
@@ -46,9 +63,23 @@ interface GenreDetail {
     size: number;
 }
 
+/** One artist whose main genre this is, as GenreController shaped it. */
+interface GenreArtist {
+    id: string;
+    name: string;
+    /** That artist's own page — the whole row is a link to it. */
+    href: string;
+}
+
 const props = defineProps<{
     /** The genre being shown, as GenreController shaped it. */
     genre: GenreDetail;
+    /** Every album holding a song of this genre, for the albums tab. Unpaginated — see Discography. */
+    discography: DiscographyAlbum[];
+    /** The artists whose MAIN genre this is, A–Z — the same rows the hero's count came from. */
+    artists: GenreArtist[];
+    /** Its songs, as the server-driven table payload (rows + pagination + sort + search). */
+    table: TableResponse<GenreSongRow>;
 }>();
 
 const { t, locale } = useI18n();
@@ -70,6 +101,29 @@ const playingTime = computed(() => formatClock(props.genre.duration) ?? "");
 
 /** What its files add up to on disk, in the viewer's locale. Never null, as above. */
 const totalSize = computed(() => formatFileSize(props.genre.size, locale.value));
+
+/**
+ * The open tab, mirrored into `?tab=` so a reload or a shared link reopens it. Starts unset
+ * when the URL names none, which TabbedNavigation resolves to the first tab (albums).
+ * Costs no request to change — see useTabParam.
+ */
+const { tab: openTab } = useTabParam();
+
+/**
+ * The three tabs, with the counts on them so a reader can see how much is behind each
+ * before opening it. A `computed` so the labels re-evaluate on a locale switch.
+ *
+ * Albums leads for the reason it does on the artist page: it is the most structural view of
+ * the same material, the shape of the genre before its contents. The counts come from
+ * different places on purpose — `discography.length` and `artists.length` are the panels
+ * themselves, while songs is the hero's number, since that panel is paginated and its rows
+ * are only ever one page of the whole.
+ */
+const tabs = computed<TabDefinition[]>(() => [
+    { id: "albums", label: t("music.columns.albums"), icon: "album", count: props.discography.length },
+    { id: "artists", label: t("music.columns.artists"), icon: "artist", count: props.artists.length },
+    { id: "songs", label: t("music.columns.songs"), icon: "song", count: props.genre.songs }
+]);
 </script>
 
 <template>
@@ -92,6 +146,38 @@ const totalSize = computed(() => formatFileSize(props.genre.size, locale.value))
                     <fact-pair icon="file" :label="t('music.columns.size')" :value="totalSize" />
                 </template>
             </hero-section>
+
+            <!-- The genre's contents. One tab per way of reading it; the component owns
+                 which panel shows and all of the ARIA, so this only supplies the slots. -->
+            <tabbed-navigation
+                v-model:selected-tab="openTab"
+                name="genre"
+                :tabs="tabs"
+                :label="t('music.genre.tabs.label')"
+            >
+                <template #albums>
+                    <discography :albums="discography" />
+                </template>
+
+                <!-- Names only for now — a placeholder for the artist listing this tab will
+                     grow. Real links rather than clickable text, so they are keyboard
+                     reachable and open-in-new-tab like every other route into an artist. -->
+                <template #artists>
+                    <ul v-if="artists.length > 0" class="genre__artists">
+                        <li v-for="artist in artists" :key="artist.id">
+                            <Link :href="artist.href">{{ artist.name }}</Link>
+                        </li>
+                    </ul>
+                    <p v-else>{{ t("music.genre.noArtists") }}</p>
+                </template>
+
+                <!-- `base-url` is this page, so sorting / paging / searching navigate back
+                     here with the state in the URL — the same server-driven contract the
+                     listings use. -->
+                <template #songs>
+                    <genre-songs :table="table" :base-url="`/music/genres/${genre.id}`" />
+                </template>
+            </tabbed-navigation>
         </div>
     </container>
 </template>
@@ -102,12 +188,25 @@ const totalSize = computed(() => formatFileSize(props.genre.size, locale.value))
 
 /* Stacks the page's blocks and spaces them, taking the CardGroup's own gutter
    (s.$c-card "gap") so the rhythm down the page matches the rhythm between two cards —
-   the same rule, for the same reason, as the other three detail pages. One block today;
-   the artists and songs listings land under it. */
+   the same rule, for the same reason, as the other three detail pages. Each tab's own
+   styling lives with the component that owns it. */
 .genre {
     display: flex;
     flex-direction: column;
 
     gap: map.get(s.$c-card, "gap");
+}
+
+/* The artists tab, until it grows a listing of its own: a plain wrapping row of names, so a
+   genre with two hundred of them stays one readable block rather than two hundred lines. */
+.genre__artists {
+    display: flex;
+    flex-wrap: wrap;
+
+    padding: 0;
+    margin: 0;
+    gap: map.get(s.$c-card, "gap");
+
+    list-style: none;
 }
 </style>

@@ -311,6 +311,12 @@
         "discography": {
             "songCount": "{n} song | {n} songs",
             "empty": "No albums are credited to this artist."
+        },
+        "genre": {
+            "tabs": {
+                "label": "This genre's albums, artists and songs"
+            },
+            "noArtists": "No artist has this as their main genre."
         }
     },
     "components": {

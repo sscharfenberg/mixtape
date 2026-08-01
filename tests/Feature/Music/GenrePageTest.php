@@ -184,6 +184,135 @@ class GenrePageTest extends TestCase
             );
     }
 
+    public function test_the_albums_tab_holds_every_album_carrying_a_song_of_the_genre(): void
+    {
+        // The rule this tab exists to pin: an album belongs to a genre if it holds even ONE
+        // track of it. That deliberately includes the compilation a reader opening a genre
+        // is most likely hunting for — and it is a DIFFERENT rule from the artists tab
+        // beside it, which counts only main-genre artists (see GenreController).
+        $blues = Genre::factory()->create();
+        $other = Genre::factory()->create();
+
+        $mostly = Collection::factory()->create(['name' => 'Mostly Blues', 'year' => 1970]);
+        $oneOff = Collection::factory()->create(['name' => 'Compilation', 'year' => 1990]);
+        $none = Collection::factory()->create(['name' => 'No Blues At All', 'year' => 1980]);
+
+        Track::factory()->count(2)->create(['collection_id' => $mostly->id, 'genre_id' => $blues->id]);
+        // One blues track among four — still an album of the genre.
+        Track::factory()->create(['collection_id' => $oneOff->id, 'genre_id' => $blues->id]);
+        Track::factory()->count(3)->create(['collection_id' => $oneOff->id, 'genre_id' => $other->id]);
+        Track::factory()->create(['collection_id' => $none->id, 'genre_id' => $other->id]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/genres/{$blues->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('discography', 2)
+                // Newest first, like every discography.
+                ->where('discography.0.name', 'Compilation')
+                ->where('discography.1.name', 'Mostly Blues')
+                // The count describes the RECORD, not the slice of it in this genre: the
+                // compilation holds four songs, only one of which is Blues.
+                ->where('discography.0.songs', 4)
+            );
+    }
+
+    public function test_an_album_with_many_tracks_of_the_genre_appears_once(): void
+    {
+        // Why the query uses whereExists rather than a join: a join would return the album
+        // once per matching track, and the aggregates would be multiplied with it.
+        $genre = Genre::factory()->create();
+        $album = Collection::factory()->create();
+
+        Track::factory()->count(5)->create(['collection_id' => $album->id, 'genre_id' => $genre->id]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/genres/{$genre->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('discography', 1)
+                ->where('discography.0.songs', 5)
+            );
+    }
+
+    public function test_the_artists_tab_lists_exactly_the_artists_the_hero_counted(): void
+    {
+        // The two must agree by construction — they are the same rows — because the count
+        // sits directly above the list. A dabbler is in neither: their main genre is the
+        // other one.
+        $genre = Genre::factory()->create();
+        $other = Genre::factory()->create();
+
+        $mainly = Artist::factory()->create(['name' => 'Aaron Mainly']);
+        $dabbler = Artist::factory()->create(['name' => 'Zoe Dabbler']);
+
+        Track::factory()->count(3)->create(['artist_id' => $mainly->id, 'genre_id' => $genre->id]);
+        Track::factory()->create(['artist_id' => $dabbler->id, 'genre_id' => $genre->id]);
+        Track::factory()->count(4)->create(['artist_id' => $dabbler->id, 'genre_id' => $other->id]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/genres/{$genre->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('artists', 1)
+                ->where('artists.0.name', 'Aaron Mainly')
+                ->where('artists.0.href', "/music/artists/{$mainly->id}")
+                // The hero's number and the tab's list are the same rows.
+                ->where('genre.artists', 1)
+            );
+    }
+
+    public function test_the_songs_tab_is_the_only_thing_reading_the_pages_sort_params(): void
+    {
+        // The page carries ONE server-driven table on purpose: DataTableService reads
+        // sort/dir/page/search unprefixed and all three tabs render at once, so a second
+        // one would drive this from the same params. Sorting moves the songs table and
+        // leaves the other two panels exactly where they were.
+        $genre = Genre::factory()->create();
+        $early = Collection::factory()->create(['name' => 'Early', 'year' => 1970]);
+        $late = Collection::factory()->create(['name' => 'Late', 'year' => 2010]);
+
+        Track::factory()->create(['collection_id' => $early->id, 'genre_id' => $genre->id, 'name' => 'Alpha']);
+        Track::factory()->create(['collection_id' => $late->id, 'genre_id' => $genre->id, 'name' => 'Omega']);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/genres/{$genre->id}?sort=name&dir=desc")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('table.sort.key', 'name')
+                ->where('table.sort.direction', 'desc')
+                ->where('table.rows.0.name', 'Omega')
+                // Still newest-first — the discography has no sort to be hijacked.
+                ->where('discography.0.name', 'Late')
+                ->where('discography.1.name', 'Early')
+            );
+    }
+
+    public function test_all_three_panels_are_sent_whatever_the_tab_param_says(): void
+    {
+        // `?tab=` is the frontend's own state, written into the URL so a reload reopens the
+        // right tab. Answering only the open tab would mean a request and a spinner on
+        // every tab click, so all three come back regardless — including for a tab that
+        // does not exist.
+        $genre = Genre::factory()->create();
+        $album = Collection::factory()->create();
+        $artist = Artist::factory()->create();
+        Track::factory()->create([
+            'collection_id' => $album->id, 'artist_id' => $artist->id, 'genre_id' => $genre->id,
+        ]);
+
+        foreach (['', '?tab=albums', '?tab=artists', '?tab=songs', '?tab=nonsense'] as $query) {
+            $this->actingAs(User::factory()->create())
+                ->get("/music/genres/{$genre->id}{$query}")
+                ->assertOk()
+                ->assertInertia(fn (Assert $page) => $page
+                    ->has('discography', 1)
+                    ->has('artists', 1)
+                    ->has('table.rows', 1)
+                );
+        }
+    }
+
     public function test_an_unknown_or_malformed_id_is_a_404(): void
     {
         $user = User::factory()->create();

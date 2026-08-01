@@ -40,23 +40,40 @@ Beware NULL ordering if you sort by `year`: Postgres and SQLite put NULLs at opp
 directions. `ArtistController` sorts on a `CASE` flag (discography) or a COALESCEd alias (songs table)
 rather than the raw column — see the comments there.
 
+## Paging
+
+It pages **on the client**: the caller hands over the whole set, this slices it, and
+`DiscographyPagination` draws the control — which is the `DataTable`'s own pager, reused as the pure
+presentation it is. So the albums tab gets the same control in the same place as the songs tab beside
+it, while a page change stays a slice rather than a request.
+
+| Prop       | Default | Notes                                                                             |
+| ---------- | ------- | --------------------------------------------------------------------------------- |
+| `pageSize` | `25`    | Must be one of the pager's own sizes (25 / 50 / 100) or its Select shows nothing. |
+
+The pager is hidden entirely below one page, so the common case — an artist averaging under two albums
+— never sees it. Changing page size keeps the reader's position rather than resetting to page 1, and
+the page resets **only** when the album set itself changes (a different artist arriving in the same
+mounted component; without it, a link from a 60-album genre to a 3-album one while on page 3 renders
+nothing).
+
 ## Why this is not a DataTable
 
-Every _full_ album listing in the app is a `DataTable`. This deliberately isn't, for two reasons — and
-the second is the one that constrains reuse:
+A server-paged list would be wrong here twice:
 
-1. **There is usually nothing to page.** The biggest discography in the collection is 26 albums and the
-   average is 1.5. A toolbar, a search box and a pager around a couple of rows is furniture around
-   nothing.
-2. **It can share a page with a server-driven table.** `DataTableService` reads `sort` / `dir` /
-   `page` / `search` **unprefixed**, so two server-driven tables on one page drive each other from the
-   same params. On the artist page both tabs render at once (which tab is open is client-side state),
-   so a second table there would re-sort and re-paginate the songs table. Staying plain leaves a single
+1. **The data is already on the client.** A tabbed page sends every panel's data on every request
+   precisely so switching tabs costs nothing (`useTabParam`), and fetching a page of albums would give
+   that back for a set measured in dozens.
+2. **It shares a page with a real `DataTable`.** `DataTableService` reads `sort` / `dir` / `page` /
+   `search` **unprefixed**, and both the artist and genre pages render every tab at once, so a second
+   server-paged thing would drive the songs table from the same params. Local state leaves a single
    owner of the query string.
 
-**The limit that follows:** this component shows everything it is handed, so the **caller** must keep
-the set small. A view that genuinely needs paging, sorting or search over albums wants the `DataTable`
-instead — see `../../DataTable/README.md`.
+The sizes it is built for: an artist has at most **26** albums, a genre reaches **66** — enough that
+showing them all at once was too much, nowhere near enough to be worth a round trip.
+
+**What it still does not do is sort or search.** A view needing either wants the `DataTable` instead —
+see `../../DataTable/README.md`.
 
 ## Markup and accessibility
 

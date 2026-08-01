@@ -6,21 +6,26 @@
  * albums, not to one page: an artist's own records today, a genre's next, and any
  * other "here are some albums" block after that. See README.md.
  *
- * Deliberately NOT a DataTable, which is what every full album listing in the app
- * is. Two reasons, and the second is the load-bearing one:
+ * It PAGES, but on the client: the caller hands over the whole set and this slices
+ * it, reusing the DataTable's own pager for the control. So a page change is a
+ * slice rather than a request — instant, and with no loading state over content
+ * that is already on screen.
  *
- * 1. There is usually nothing to page. The biggest discography in the collection
- *    is 26 albums and the average is 1.5 — a toolbar, a search box and a pager
- *    around a couple of rows is furniture around nothing.
- * 2. It can share a page with a server-driven table, and DataTableService reads
- *    `sort` / `dir` / `page` / `search` UNPREFIXED. On the artist page both tabs
- *    render at once (which tab is open is client-side state), so a second
- *    server-driven table would re-sort and re-paginate the songs table from the
- *    same params. Staying plain leaves a single owner of the query string.
+ * That is the shape it is because a server-paged list would be wrong here twice:
  *
- * That second reason is also the limit worth knowing before reusing this: it shows
- * everything it is handed, so the CALLER must keep the set small. A page that needs
- * paging or sorting over albums wants the DataTable instead.
+ * 1. The data is already on the client. A tabbed page sends EVERY panel on every
+ *    request precisely so switching tabs costs nothing (see useTabParam), and
+ *    fetching a page of albums would give that back for a set measured in dozens.
+ * 2. It can share a page with a real DataTable, and DataTableService reads
+ *    `sort` / `dir` / `page` / `search` UNPREFIXED. Both the artist and genre pages
+ *    render every tab at once, so a second server-paged thing would drive the songs
+ *    table from the same params. Local state leaves one owner of the query string.
+ *
+ * The sizes it is built for: an artist has at most 26 albums (the average is under
+ * two, so most never page at all), while a genre reaches 66 — enough that showing
+ * them all at once was too much, and nowhere near enough to be worth a round trip.
+ * What it still does NOT do is sort or search; a view needing either wants the
+ * DataTable instead.
  *
  * Rows are <Link>s rather than clickable divs, so they are real links: keyboard
  * reachable, middle-clickable, and open-in-new-tab — the affordances the DataTable
@@ -28,15 +33,17 @@
  * there is only ever one destination per row.
  *****************************************************************************/
 import { Link } from "@inertiajs/vue3";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import { formatClock } from "Utils/formatting";
+import DiscographyPagination from "./DiscographyPagination.vue";
 
 /** One album of the discography, as ArtistController shaped it — every value raw. */
 export interface DiscographyAlbum {
     id: string;
     name: string;
-    /** Release year, or null for an untagged rip (those sort last). */
+    /** Release year, or null for an untagged rip (those sort last, whichever way the years run). */
     year: number | null;
     /** How many tracks are filed under it. */
     songs: number;
@@ -48,12 +55,83 @@ export interface DiscographyAlbum {
     href: string;
 }
 
-const props = defineProps<{
-    /** The albums to list, already ordered by the server (oldest first). */
-    albums: DiscographyAlbum[];
-}>();
+const props = withDefaults(
+    defineProps<{
+        /** The albums to list, already ordered by the server (newest first). */
+        albums: DiscographyAlbum[];
+        /**
+         * How many albums a page holds. One of the DataTable's own page sizes (25/50/100),
+         * because the pager below offers exactly those and a value outside them would leave
+         * its Select showing nothing.
+         */
+        pageSize?: number;
+    }>(),
+    { pageSize: 25 }
+);
 
 const { t } = useI18n();
+
+/**
+ * Which page is showing, and how big it is. Both are LOCAL state, and deliberately not in
+ * the URL or on the server — see the banner: the whole set is already here, so a page
+ * change is a slice, not a request.
+ */
+const page = ref(1);
+const perPage = ref(props.pageSize);
+
+/** The slice actually rendered. */
+const visibleAlbums = computed(() => {
+    const start = (page.value - 1) * perPage.value;
+    return props.albums.slice(start, start + perPage.value);
+});
+
+const list = ref<HTMLElement | null>(null);
+
+/**
+ * Set while the page is being reset because the ALBUM SET changed, so the scroll below can
+ * tell the two apart. A reset is not a page turn: the reader has just arrived on a new
+ * artist or genre at the top of the page, and scrolling them down to the list would be the
+ * opposite of helpful.
+ */
+let resetting = false;
+
+/**
+ * Bring the top of the list into view when the reader turns a page.
+ *
+ * Client-side paging replaces the rows in place, and the pager is UNDER them — so without
+ * this you click "next" from the bottom of page 1 and land at the bottom of page 2, having
+ * silently skipped everything on it. The document scroll position never moved; only the
+ * content under it did, which is what reads as a jump.
+ *
+ * The list rather than the top of the DOCUMENT: on both pages that use this, the albums sit
+ * below a hero and a tab strip, so scrolling all the way up would hide the very thing that
+ * just changed and force a scroll back down on every page turn. `scroll-margin-top` (in the
+ * styles) keeps the first row clear of the sticky header.
+ *
+ * Smooth only under `prefers-reduced-motion: no-preference` — a scroll animation is motion
+ * like any other, and the app's rule is that motion is opt-in (CLAUDE.md → Motion).
+ */
+watch(page, () => {
+    if (resetting) {
+        resetting = false;
+        return;
+    }
+    const smooth = window.matchMedia("(prefers-reduced-motion: no-preference)").matches;
+    list.value?.scrollIntoView({ block: "start", behavior: smooth ? "smooth" : "auto" });
+});
+
+/**
+ * Back to page 1 when the SET changes — a different artist or genre arriving in the same
+ * mounted component. Without it, following a link from a 60-album genre to a 3-album one
+ * while on page 3 would render an empty list.
+ */
+watch(
+    () => props.albums,
+    () => {
+        resetting = true;
+        page.value = 1;
+    }
+);
 
 /**
  * How many songs an album holds, already pluralised — e.g. "4 Songs".
@@ -68,8 +146,8 @@ const songCount = (album: DiscographyAlbum): string => t("music.discography.song
     <!-- A list, semantically: a screen reader gets "list, 4 items" before the rows, which
          is the one thing the DataTable's <table> would have said better and everything
          else here says worse. -->
-    <ul v-if="props.albums.length > 0" class="discography">
-        <li v-for="album in props.albums" :key="album.id" class="discography__item">
+    <ul v-if="props.albums.length > 0" ref="list" class="discography">
+        <li v-for="album in visibleAlbums" :key="album.id" class="discography__item">
             <Link :href="album.href" class="discography__link">
                 <!-- The artwork twice, one per layout, with the OTHER one display:none at any
                      given width. Not a duplicate render for its own sake: a size in CoverImage
@@ -103,6 +181,9 @@ const songCount = (album: DiscographyAlbum): string => t("music.discography.song
         </li>
     </ul>
     <p v-else>{{ t("music.discography.empty") }}</p>
+    <!-- Owns whether it draws at all and what a page-size change does to the reader's
+         position; this file only reads the two back out and slices. -->
+    <discography-pagination v-model:page="page" v-model:page-size="perPage" :total="props.albums.length" />
 </template>
 
 <style scoped lang="scss">
@@ -118,6 +199,11 @@ const songCount = (album: DiscographyAlbum): string => t("music.discography.song
 .discography {
     display: flex;
     flex-direction: column;
+
+    /* Where a page turn scrolls to (see the watcher). The app header is `position: sticky`
+       and publishes its live height as `--app-header-height`, so clearing it by that much
+       is what stops the first row landing underneath it. */
+    scroll-margin-top: calc(var(--app-header-height, 0px) + #{map.get(s.$c-discography, "gap")});
 
     padding: 0;
     margin: 0;

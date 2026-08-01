@@ -174,7 +174,7 @@ class ArtistPageTest extends TestCase
             );
     }
 
-    public function test_the_discography_lists_their_credited_albums_oldest_first(): void
+    public function test_the_discography_lists_their_credited_albums_newest_first(): void
     {
         $artist = Artist::factory()->create();
 
@@ -190,9 +190,10 @@ class ArtistPageTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->has('discography', 3)
-                ->where('discography.0.name', 'First')
+                // Newest first — the reverse of the order they were created in above.
+                ->where('discography.0.name', 'Third')
                 ->where('discography.1.name', 'Second')
-                ->where('discography.2.name', 'Third')
+                ->where('discography.2.name', 'First')
                 // The tab and the hero tile count the same relation, so they can never
                 // disagree about how many albums this artist has.
                 ->where('artist.albums', 3)
@@ -477,9 +478,9 @@ class ArtistPageTest extends TestCase
                 ->where('table.sort.key', 'name')
                 ->where('table.sort.direction', 'desc')
                 ->where('table.rows.0.name', 'Omega')
-                // Still chronological: the discography has no sort to be hijacked.
-                ->where('discography.0.name', 'Early')
-                ->where('discography.1.name', 'Late')
+                // Still newest-first: the discography has no sort to be hijacked.
+                ->where('discography.0.name', 'Late')
+                ->where('discography.1.name', 'Early')
             );
     }
 }

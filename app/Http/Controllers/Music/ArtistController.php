@@ -108,7 +108,7 @@ class ArtistController extends Controller
     }
 
     /**
-     * The artist's discography — every album credited to them, oldest first.
+     * The artist's discography — every album credited to them, newest first.
      *
      * Unpaginated and unsorted-by-the-reader by design (class docblock): the biggest
      * discography in the collection is 26 albums. So this is a plain array, not a
@@ -140,13 +140,17 @@ class ArtistController extends Controller
                     ->limit(1)
                     ->toBase(),
             ])
-            // Chronological, which is how a discography reads. The NULL flag comes first and
-            // is spelled as a CASE rather than `NULLS LAST`: Postgres and SQLite disagree on
-            // where NULLs land by default, and an untagged album drifting to the top of the
-            // list on one engine and the bottom on the other is the kind of difference the
-            // test suite (SQLite) would never show. Then name, so the order is total.
+            // Newest first (owner's call), so a discography opens on the most recent record
+            // rather than on whatever came out first.
+            //
+            // The NULL flag stays ASCENDING while the year reverses, and that is exactly why
+            // it is spelled as a CASE rather than left to the engine: undated albums sit at
+            // the END in both directions, instead of leading the list the moment the sort
+            // flips (Postgres puts NULLs FIRST under DESC). It also makes the two engines
+            // agree, where their default NULL placement does not — a difference the SQLite
+            // suite would never show. Then name, so the order is total.
             ->orderByRaw('case when collections.year is null then 1 else 0 end')
-            ->orderBy('collections.year')
+            ->orderByDesc('collections.year')
             ->orderBy('collections.name')
             ->get()
             ->map(fn (Collection $album): array => [
