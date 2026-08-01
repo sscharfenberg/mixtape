@@ -276,6 +276,164 @@ class ArtistPageTest extends TestCase
             );
     }
 
+    public function test_the_songs_tab_defaults_to_newest_year_then_album_then_disc_then_track(): void
+    {
+        // The fixture is built so each level of the order can only be satisfied by that
+        // level: the album NAMES run opposite to their years, so a table sorted by album
+        // name would come back in a different order than one sorted by year; and the tracks
+        // are created out of sequence, so insertion order proves nothing either.
+        $artist = Artist::factory()->create();
+
+        $zebra = Collection::factory()->create(['album_artist_id' => $artist->id, 'name' => 'Zebra', 'year' => 1990]);
+        $aard = Collection::factory()->create(['album_artist_id' => $artist->id, 'name' => 'Aardvark', 'year' => 1990]);
+        $alpha = Collection::factory()->create(['album_artist_id' => $artist->id, 'name' => 'Alpha', 'year' => 2010]);
+
+        $song = function (Collection $album, int $disc, int $track, string $name) use ($artist): void {
+            Track::factory()->create([
+                'artist_id' => $artist->id, 'collection_id' => $album->id,
+                'disc' => $disc, 'track' => $track, 'name' => $name,
+            ]);
+        };
+
+        // Deliberately scrambled on the way in.
+        $song($alpha, 1, 1, 'alpha-1-1');
+        $song($zebra, 2, 1, 'zebra-2-1');
+        $song($zebra, 1, 2, 'zebra-1-2');
+        $song($aard, 1, 1, 'aardvark-1-1');
+        $song($zebra, 1, 1, 'zebra-1-1');
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/artists/{$artist->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('table.sort.key', 'year')
+                ->where('table.sort.direction', 'desc')
+                // Echoed back so the header can mark all four as sorted, not just `year`.
+                ->where('table.tiebreakers', ['album', 'disc', 'track', 'name'])
+                // ONLY the year reverses. 2010 leads, then the two 1990 albums A–Z, and
+                // inside Zebra the discs and tracks still climb — which is the whole point
+                // of the tiebreakers staying ascending.
+                ->where('table.rows.0.name', 'alpha-1-1')      // 2010 — newest first
+                ->where('table.rows.1.name', 'aardvark-1-1')   // 1990, album A…
+                ->where('table.rows.2.name', 'zebra-1-1')      // 1990, album Z, disc 1 track 1
+                ->where('table.rows.3.name', 'zebra-1-2')      // …then track 2, NOT reversed
+                ->where('table.rows.4.name', 'zebra-2-1')      // …then disc 2
+            );
+    }
+
+    public function test_an_undated_album_sorts_last_in_the_songs_tab_rather_than_leading_it(): void
+    {
+        // The whole reason the controller sorts on a COALESCEd alias instead of the raw
+        // column. The default is DESCENDING and Postgres puts NULLs FIRST under DESC, so on
+        // the raw column an artist with one untagged rip would open their songs tab on that
+        // rip instead of on their newest record — GenresController's trap, same fix.
+        //
+        // Worth asserting on SQLite precisely BECAUSE of the coalesce: sorting on a column
+        // that is never null is the thing that makes the two engines agree, so this test
+        // means in production what it means here. Without it, it would only have proved
+        // SQLite's own null placement.
+        $artist = Artist::factory()->create();
+        $dated = Collection::factory()->create(['album_artist_id' => $artist->id, 'year' => 2001]);
+        $undated = Collection::factory()->create(['album_artist_id' => $artist->id, 'year' => null]);
+
+        Track::factory()->create([
+            'artist_id' => $artist->id, 'collection_id' => $undated->id,
+            'disc' => 1, 'track' => 1, 'name' => 'undated-song',
+        ]);
+        Track::factory()->create([
+            'artist_id' => $artist->id, 'collection_id' => $dated->id,
+            'disc' => 1, 'track' => 1, 'name' => 'dated-song',
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/artists/{$artist->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('table.rows.0.name', 'dated-song')
+                ->where('table.rows.1.name', 'undated-song')
+                // The row still reports the real year — only the SORT folds null to 0.
+                ->where('table.rows.1.year', null)
+            );
+    }
+
+    public function test_the_songs_tab_carries_the_disc_and_track_numbers_with_their_totals(): void
+    {
+        // A two-disc album: disc 1 holds three tracks, disc 2 holds one. The page renders
+        // these as "1/2" and "3/3", so both denominators have to be per-SET, not per-album —
+        // discTotal counts the album's discs, trackTotal only the row's own disc.
+        $artist = Artist::factory()->create();
+        $album = Collection::factory()->create(['album_artist_id' => $artist->id]);
+
+        foreach ([[1, 1], [1, 2], [1, 3], [2, 1]] as [$disc, $track]) {
+            Track::factory()->create([
+                'artist_id' => $artist->id, 'collection_id' => $album->id,
+                'disc' => $disc, 'track' => $track, 'name' => "d{$disc}t{$track}",
+            ]);
+        }
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/artists/{$artist->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('table.rows.0.disc', 1)
+                ->where('table.rows.0.discTotal', 2)
+                ->where('table.rows.0.track', 1)
+                // Disc 1's own count, NOT the album's four tracks.
+                ->where('table.rows.0.trackTotal', 3)
+                // The lone track on disc 2 reads "1/1", not "1/3".
+                ->where('table.rows.3.disc', 2)
+                ->where('table.rows.3.trackTotal', 1)
+            );
+    }
+
+    public function test_untagged_discs_are_counted_together_rather_than_reporting_zero(): void
+    {
+        // The NULL-safety in the trackTotal subquery. `sib.disc = tracks.disc` matches
+        // nothing when both are NULL, so a plain equality would report a total of 0 for a
+        // whole album of files that simply carry no disc tag — and the page would print a
+        // bare "2" where it could say "2/3".
+        $artist = Artist::factory()->create();
+        $album = Collection::factory()->create(['album_artist_id' => $artist->id]);
+
+        foreach ([1, 2, 3] as $track) {
+            Track::factory()->create([
+                'artist_id' => $artist->id, 'collection_id' => $album->id,
+                'disc' => null, 'track' => $track, 'name' => "t{$track}",
+            ]);
+        }
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/artists/{$artist->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('table.rows.0.trackTotal', 3)
+                ->where('table.rows.0.disc', null)
+                // COUNT(DISTINCT disc) skips NULLs, so an album nobody tagged reports 0
+                // discs — and with `disc` null the cell renders blank either way.
+                ->where('table.rows.0.discTotal', 0)
+            );
+    }
+
+    public function test_a_track_filed_under_no_album_reports_no_totals(): void
+    {
+        // With no container there is nothing to count against, so both totals are null and
+        // the page prints the bare numbers rather than "2/0".
+        $artist = Artist::factory()->create();
+
+        Track::factory()->create([
+            'artist_id' => $artist->id, 'collection_id' => null, 'disc' => 1, 'track' => 2,
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/artists/{$artist->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('table.rows.0.track', 2)
+                ->where('table.rows.0.trackTotal', null)
+                ->where('table.rows.0.discTotal', null)
+            );
+    }
+
     public function test_both_panels_are_sent_whatever_the_tab_param_says(): void
     {
         // `?tab=` is the frontend's own state, written into the URL so a reload reopens the

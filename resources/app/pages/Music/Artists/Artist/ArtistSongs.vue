@@ -18,6 +18,13 @@
  * No ARTIST column, unlike the album page's track table: every row here is by the
  * artist whose page this is, so the column would repeat one name down the whole
  * table. The ALBUM takes that slot instead, and links to it.
+ *
+ * The default order is the catalogue's own — newest year first, then album, disc and
+ * track — so the tab opens on the most recent record and reads as a catalogue rather
+ * than a bag of songs. Only the YEAR reverses: track 1 still precedes track 2 inside
+ * each album, which is what makes it readable rather than merely backwards. That is
+ * also what makes the disc and track columns worth their width here — they are the
+ * reason consecutive rows sit in the order they do. See ArtistController.
  *****************************************************************************/
 import { Link } from "@inertiajs/vue3";
 import { computed, ref } from "vue";
@@ -25,14 +32,20 @@ import { useI18n } from "vue-i18n";
 import DataTable from "Components/DataTable/DataTable.vue";
 import Icon from "Components/UI/Icon.vue";
 import type { ColumnDef, TableResponse } from "Types/dataTable";
-import { formatClock, formatFileSize } from "Utils/formatting";
+import { formatClock, formatFileSize, formatPosition } from "Utils/formatting";
 
 /** One of the artist's songs, as ArtistController's rowMapper shaped it — every value raw. */
 export interface SongRow {
     id: string;
     name: string;
-    /** Track number within its album, or null when untagged. */
+    /** Disc number, or null for a rip whose files carry no disc tag. */
+    disc: number | null;
+    /** How many discs the row's album has — the denominator in "1/2". Null when it has no album. */
+    discTotal: number | null;
+    /** Track number within its disc, or null when untagged. */
     track: number | null;
+    /** How many tracks share the row's disc — the denominator in "3/12". Null as above. */
+    trackTotal: number | null;
     /** The album it is filed under, or null for a track belonging to no collection. */
     album: string | null;
     /** That album's release year, or null when the album is untagged or absent. */
@@ -68,12 +81,24 @@ const { t, locale } = useI18n();
 /**
  * Column definitions for the table. A `computed` so the (already-translated) labels
  * re-evaluate on a locale switch.
+ *
+ * Reading order is the song, then the album context that places it — which album, from
+ * when, and where inside it — then the file's own facts. That middle group is the table's
+ * default sort (year, album, disc, track), so the columns a reader would use to explain
+ * why the rows are grouped as they are sit together.
+ *
+ * DISC is out of the CARD view while TRACK is in, the same split AlbumPage makes: the
+ * track number is the album's running order and worth having, while most albums are one
+ * disc and "CD 1" repeated down every card is noise. The desktop table keeps both, where a
+ * narrow numeric column costs nothing.
  */
 const columns = computed<ColumnDef<SongRow>[]>(() => [
     { key: "coverUrl", label: t("music.columns.cover"), width: "4rem", align: "center", cardMedia: true },
     { key: "name", label: t("music.columns.title"), sortable: true, visibleInCard: true, cardPrimary: true },
     { key: "album", label: t("music.columns.album"), sortable: true, visibleInCard: true },
     { key: "year", label: t("music.columns.year"), sortable: true, align: "right" },
+    { key: "disc", label: t("music.song.labels.disc"), sortable: true, align: "right" },
+    { key: "track", label: t("music.song.labels.track"), sortable: true, visibleInCard: true, align: "right" },
     { key: "duration", label: t("music.columns.duration"), sortable: true, visibleInCard: true, align: "right" },
     { key: "size", label: t("music.song.labels.size"), sortable: true, visibleInCard: true, align: "right" }
 ]);
@@ -129,6 +154,12 @@ const onCoverError = (id: string) => {
             <Link v-if="row.albumUrl" :href="row.albumUrl" class="artist-songs__album">{{ row.album }}</Link>
             <template v-else>{{ row.album }}</template>
         </template>
+        <!-- Both read as "position in its set" — "1/1", "3/12" — rather than a bare number,
+             so a row says how far into the record it sits without the reader holding the
+             album's length in their head. The denominator is dropped where it would lie
+             (see formatPosition), and the whole cell is blank for an untagged file. -->
+        <template #cell-disc="{ row }">{{ formatPosition(row.disc, row.discTotal) }}</template>
+        <template #cell-track="{ row }">{{ formatPosition(row.track, row.trackTotal) }}</template>
         <template #cell-duration="{ row }">{{ formatClock(row.duration) }}</template>
         <template #cell-size="{ row }">{{ row.size === null ? "" : formatFileSize(row.size, locale) }}</template>
         <template #empty>

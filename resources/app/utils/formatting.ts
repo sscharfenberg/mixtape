@@ -129,3 +129,25 @@ export const formatDuration = (totalSeconds: number, unit: (key: DurationUnit, c
 
     return shown.map(([key, value]) => unit(key, value)).join(", ");
 };
+
+/**
+ * A position within its set, as "2/8" — or the bare number when there is no
+ * trustworthy total.
+ *
+ * The denominator is DROPPED when the index runs past it, because some rips number
+ * tracks straight through a multi-disc set and a track can legitimately sit past its
+ * own disc's count. "17/8" would read as a bug in the app rather than as sloppy tags,
+ * so it degrades to "17" (the same guard the legacy song page had).
+ *
+ * Null in, null out, so a file with no disc or track number drops its cell instead of
+ * reading "0". Shared by the song page's facts and the artist page's songs table, so
+ * the two can never disagree about how a "1/1" is written.
+ *
+ * @param index the position, e.g. the track number
+ * @param total the size of the set it sits in, e.g. how many tracks the disc holds
+ */
+export const formatPosition = (index: number | null, total: number | null): string | null => {
+    if (index === null) return null;
+
+    return total !== null && index <= total ? `${index}/${total}` : `${index}`;
+};

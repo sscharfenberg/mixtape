@@ -13,6 +13,7 @@ use App\Services\Music\DominantGenre;
 use App\Services\Search\FoldedSearch;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -187,6 +188,7 @@ class ArtistController extends Controller
             ->select([
                 'tracks.id',
                 'tracks.name',
+                'tracks.disc',
                 'tracks.track',
                 'tracks.duration',
                 'tracks.size',
@@ -197,24 +199,76 @@ class ArtistController extends Controller
                 'tracks.collection_id',
                 'collections.name as album_name',
                 'collections.year as album_year',
+            ])
+            // The year the default sort actually orders by, with "no year" folded to 0 so the
+            // column it sorts on is never NULL. That is not tidiness — the default is
+            // DESCENDING, and Postgres puts NULLs FIRST under DESC, so without this an artist
+            // with one untagged rip would open their songs tab on that rip instead of on their
+            // newest record. Exactly the trap GenresController documents for its descending
+            // sums, and the same fix: never sort on a nullable expression.
+            //
+            // 0 rather than a high sentinel because the DEFAULT view is what has to be right:
+            // descending, undated material lands last. Flipping to ascending puts it first,
+            // which is the honest mirror of "oldest first" and is at least the SAME on both
+            // engines — which sorting on the raw column never was (Postgres and SQLite put
+            // NULLs at opposite ends in both directions).
+            ->selectRaw('coalesce(collections.year, 0) as year_sort')
+            // The denominators behind "1/1" and "3/12" — how many discs the row's album has,
+            // and how many tracks share the row's disc. Same two definitions SongController
+            // computes for its facts card, so a song's own page and this table can never
+            // disagree about the "3/12" they both print.
+            //
+            // As correlated subqueries rather than a per-row lookup: this is a paginated
+            // table, so the N+1 SongController can afford for ONE song would be up to a
+            // hundred round trips here. Both ride the (collection_id, disc, track) index.
+            // Aliased to `sib` because the outer query is over `tracks` too.
+            ->addSelect([
+                'disc_total' => DB::table('tracks as sib')
+                    ->selectRaw('count(distinct sib.disc)')
+                    ->whereColumn('sib.collection_id', 'tracks.collection_id'),
+                // NULL-safe on purpose: an untagged disc has to group with the other
+                // untagged ones, and `sib.disc = tracks.disc` matches nothing when both are
+                // NULL — which would report 0 tracks for a whole album's worth of files.
+                // Spelled as the explicit OR rather than `IS NOT DISTINCT FROM`, which
+                // Postgres has and SQLite does not.
+                'track_total' => DB::table('tracks as sib')
+                    ->selectRaw('count(*)')
+                    ->whereColumn('sib.collection_id', 'tracks.collection_id')
+                    ->whereRaw('(sib.disc = tracks.disc or (sib.disc is null and tracks.disc is null))'),
             ]);
 
         return DataTableService::buildResponse(
             query: $query,
             request: $request,
-            sortable: ['name', 'album', 'year', 'track', 'duration', 'size'],
+            sortable: ['name', 'album', 'year', 'disc', 'track', 'duration', 'size'],
             sortColumnMap: [
                 'name' => 'tracks.name',
                 'album' => 'collections.name',
-                'year' => 'collections.year',
+                // The COALESCEd alias, not the raw column — see the select above. Both
+                // Postgres and SQLite resolve a SELECT alias in ORDER BY.
+                'year' => 'year_sort',
+                'disc' => 'tracks.disc',
                 'track' => 'tracks.track',
                 'duration' => 'tracks.duration',
                 'size' => 'tracks.size',
             ],
-            // Alphabetical by song. Unlike the listings' "most audio first", the useful
-            // default for one artist's songs is the one that makes a named song findable —
-            // a reader who arrived here usually has a title in mind.
-            defaultSort: 'name',
+            // Newest first, then each album in its own running order — year desc, then album,
+            // disc, track (owner's call). It makes the tab read as the catalogue rather than
+            // as a bag of songs: the reader lands on the most recent record, and inside any
+            // one album gets the sequence it was meant to be heard in. Alphabetical would
+            // scatter every album's tracks across the whole table.
+            //
+            // `year` first rather than `album` because two albums can share a name across a
+            // career (a re-recording, a live version) while the pairing with a year is what
+            // separates them — and because ordering by album name alone is chronologically
+            // arbitrary, which is the thing this order exists to avoid.
+            //
+            // Only the YEAR reverses. The tiebreakers stay ascending (DataTableService does
+            // that on purpose), which is what makes this order readable rather than merely
+            // reversed: the albums come newest-first, but track 1 still precedes track 2
+            // inside each of them. A wholesale DESC would hand back every album backwards.
+            defaultSort: 'year',
+            defaultDirection: 'desc',
             // Both text columns on show, matched through their `name_fold` companions so the
             // search is accent- and case-insensitive on one code path for Postgres and
             // SQLite alike (FoldedSearch).
@@ -224,7 +278,15 @@ class ArtistController extends Controller
             rowMapper: fn (Track $track): array => [
                 'id' => $track->id,
                 'name' => $track->name,
+                // Position + denominator apart, so the page renders "1/1" and "3/12" — or
+                // just the bare number where the total isn't trustworthy (formatPosition).
+                // Both totals are null for a track filed under no collection: with no
+                // container there is nothing to count against, and a "2/0" would be worse
+                // than a blank. The same rule, and the same reason, as SongController's.
+                'disc' => $track->disc,
+                'discTotal' => $track->collection_id === null ? null : (int) $track->disc_total,
                 'track' => $track->track,
+                'trackTotal' => $track->collection_id === null ? null : (int) $track->track_total,
                 'album' => $track->album_name,
                 'year' => $track->album_year,
                 // The one cell leading somewhere other than the row's own destination: the
@@ -246,10 +308,24 @@ class ArtistController extends Controller
                 // Makes the row clickable, and backs the title link.
                 'href' => route('music.songs.show', $track->id, absolute: false),
             ],
-            // Song titles repeat across albums (live versions, re-recordings), so the sort
-            // alone is not a total order — without a tiebreaker a duplicate title could
-            // appear on two pages across two requests. Album then track settles it.
-            tiebreakers: ['name', 'album', 'track'],
+            // The rest of the default order — sort KEYS, not columns, mapped like the
+            // primary, and handed back so the header can mark all four as sorted rather
+            // than pretending only `year` is.
+            //
+            // `name` last is the determinism backstop every table here carries: a year, an
+            // album and a disc/track pair still tie for an untagged rip where disc and track
+            // are both null, and SQL guarantees no order at all between rows the sort cannot
+            // separate — so without it a row could appear on page 1 AND page 2 across two
+            // requests.
+            //
+            // These three are still nullable and their NULLs are left to the engine, unlike
+            // the primary (see `year_sort` above). It matters far less here and the trade is
+            // different: they are always ASCENDING, where Postgres puts NULLs LAST — so on
+            // production an untagged rip sits at the END of its album, which is the reading
+            // we want. SQLite puts them first, so the suite sees the opposite; don't assert
+            // where a null disc or track lands. Making these agree too would mean
+            // null-ordering in DataTableService, which touches all six tables.
+            tiebreakers: ['album', 'disc', 'track', 'name'],
         );
     }
 

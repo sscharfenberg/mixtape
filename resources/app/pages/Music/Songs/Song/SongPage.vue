@@ -35,7 +35,7 @@ import HeroSection from "Components/UI/HeroSection.vue";
 import Icon from "Components/UI/Icon.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import type { SongDetail } from "Types/music";
-import { formatClock, formatDateTime, formatDecimals, formatFileSize } from "Utils/formatting";
+import { formatClock, formatDateTime, formatDecimals, formatFileSize, formatPosition } from "Utils/formatting";
 
 const props = defineProps<{
     /** The song being shown, as SongController shaped it — every value raw. */
@@ -58,19 +58,6 @@ setBreadcrumbs([
  * under no album. Not "cover of …" — a screen reader already says "image".
  */
 const coverAlt = computed(() => props.song.album ?? props.song.name);
-
-/**
- * A position within its set, as "2/8" — or the bare number when there is no
- * trustworthy total. Some rips number tracks straight through a multi-disc set,
- * so a track can sit past its own disc's count; "17/8" would read as a bug in the
- * app rather than as sloppy tags, so the denominator is dropped instead (the same
- * guard the legacy song page had).
- */
-const position = (index: number | null, total: number | null): string | null => {
-    if (index === null) return null;
-
-    return total !== null && index <= total ? `${index}/${total}` : `${index}`;
-};
 
 /**
  * The bit-rate reading, e.g. "320 kbit/s" — stored in bits per second, shown in
@@ -152,7 +139,7 @@ const songFacts = computed<Fact[]>(() => {
             group: album,
             icon: "track",
             label: t("music.song.labels.track"),
-            value: position(song.track, song.trackTotal)
+            value: formatPosition(song.track, song.trackTotal)
         },
         {
             key: "duration",
@@ -171,7 +158,7 @@ const songFacts = computed<Fact[]>(() => {
             // Shown even as "1/1" on a single-CD album (owner's call, reversing the
             // earlier "only a real multi-disc set earns a row"): the card is about the
             // release now, and a release with one disc is a fact about it, not noise.
-            value: position(song.disc, song.discTotal)
+            value: formatPosition(song.disc, song.discTotal)
         },
         // The album's name lives HERE and only here (not up in `tags`): this card is
         // the release the song sits on, so its name heads the facts about it — and the
