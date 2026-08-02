@@ -127,7 +127,18 @@ class GenreController extends Controller
                 ->fromSub(DominantGenre::albumWinners(), 'album_genre')
                 ->where('album_genre.genre_id', $genre->id)
                 ->select('album_genre.collection_id'))
-            ->select(['collections.id', 'collections.name', 'collections.year', 'collections.cover_path'])
+            // The album-artist comes along because a genre's albums are by different people,
+            // and the name is what tells one tile from the next (the artist page's own
+            // discography needs no such column — see the component's `showArtist`). LEFT, so
+            // a compilation filed under no album-artist still lists; the tile drops the chip.
+            ->leftJoin('artists', 'collections.album_artist_id', '=', 'artists.id')
+            ->select([
+                'collections.id',
+                'collections.name',
+                'collections.year',
+                'collections.cover_path',
+                'artists.name as artist_name',
+            ])
             ->withCount('tracks')
             ->withSum('tracks', 'duration')
             ->addSelect([
@@ -154,6 +165,7 @@ class GenreController extends Controller
             ->map(fn (Collection $album): array => [
                 'id' => $album->id,
                 'name' => $album->name,
+                'artist' => $album->artist_name,
                 'year' => $album->year,
                 'songs' => (int) $album->tracks_count,
                 'duration' => $album->tracks_sum_duration === null ? null : (float) $album->tracks_sum_duration,

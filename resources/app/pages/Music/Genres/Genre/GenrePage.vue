@@ -74,7 +74,7 @@ interface GenreArtist {
 const props = defineProps<{
     /** The genre being shown, as GenreController shaped it. */
     genre: GenreDetail;
-    /** Every album holding a song of this genre, for the albums tab. Unpaginated — see Discography. */
+    /** Every album whose MAIN genre this is, for the albums tab. Carries its album-artist. */
     discography: DiscographyAlbum[];
     /** The artists whose MAIN genre this is, A–Z — the same rows the hero's count came from. */
     artists: GenreArtist[];
@@ -155,8 +155,10 @@ const tabs = computed<TabDefinition[]>(() => [
                 :tabs="tabs"
                 :label="t('music.genre.tabs.label')"
             >
+                <!-- `show-artist`: unlike an artist's own discography, these records are by
+                     different people, so the name is the fact that tells one from the next. -->
                 <template #albums>
-                    <discography :albums="discography" />
+                    <discography :albums="discography" show-artist />
                 </template>
 
                 <!-- Names only for now — a placeholder for the artist listing this tab will

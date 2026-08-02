@@ -216,6 +216,29 @@ class GenrePageTest extends TestCase
             );
     }
 
+    public function test_each_album_carries_its_artist_for_the_genre_page_to_show(): void
+    {
+        // The artist page's discography has no use for this — every row would name the same
+        // person — so it is the genre page that asks for it (Discography's `showArtist`).
+        // A compilation filed under no album-artist still lists; its tile just drops the chip.
+        $genre = Genre::factory()->create();
+        $artist = Artist::factory()->create(['name' => 'Blind Guardian']);
+
+        $credited = Collection::factory()->create(['album_artist_id' => $artist->id, 'year' => 2010]);
+        $compilation = Collection::factory()->create(['album_artist_id' => null, 'year' => 1990]);
+
+        Track::factory()->create(['collection_id' => $credited->id, 'genre_id' => $genre->id]);
+        Track::factory()->create(['collection_id' => $compilation->id, 'genre_id' => $genre->id]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/genres/{$genre->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('discography.0.artist', 'Blind Guardian')
+                ->where('discography.1.artist', null)
+            );
+    }
+
     public function test_the_compilation_still_appears_under_the_genre_that_owns_it(): void
     {
         // The other half of the rule: the album is not lost, it is filed where it belongs.

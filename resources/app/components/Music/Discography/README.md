@@ -10,22 +10,35 @@ records today, a genre's next.
 
 ## Props
 
-| Prop     | Type                 | Notes                                                              |
-| -------- | -------------------- | ------------------------------------------------------------------ |
-| `albums` | `DiscographyAlbum[]` | Already ordered by the server. Empty ⇒ renders the empty sentence. |
+| Prop         | Type                 | Default | Notes                                                              |
+| ------------ | -------------------- | ------- | ------------------------------------------------------------------ |
+| `albums`     | `DiscographyAlbum[]` | —       | Already ordered by the server. Empty ⇒ renders the empty sentence. |
+| `showArtist` | `boolean`            | `false` | Show each album's artist as one of its facts — see below.          |
 
 `DiscographyAlbum` is exported from the component. Every value is **raw** — seconds, not a clock —
 because formatting is the client's job against the active locale (`Utils/formatting.ts`):
 
-| Field      | Type             | Notes                                                 |
-| ---------- | ---------------- | ----------------------------------------------------- |
-| `id`       | `string`         |                                                       |
-| `name`     | `string`         |                                                       |
-| `year`     | `number \| null` | `null` for an untagged rip.                           |
-| `songs`    | `number`         | How many tracks are filed under it.                   |
-| `duration` | `number \| null` | Raw seconds; `null` when no file carried one.         |
-| `coverUrl` | `string \| null` | `null` ⇒ `CoverImage` draws its placeholder.          |
-| `href`     | `string`         | The album's own page — this row's single destination. |
+| Field      | Type             | Notes                                                              |
+| ---------- | ---------------- | ------------------------------------------------------------------ |
+| `id`       | `string`         |                                                                    |
+| `name`     | `string`         |                                                                    |
+| `year`     | `number \| null` | `null` for an untagged rip.                                        |
+| `artist`   | `string \| null` | Optional; only needed when `showArtist`. `null` for a compilation. |
+| `songs`    | `number`         | How many tracks are filed under it.                                |
+| `duration` | `number \| null` | Raw seconds; `null` when no file carried one.                      |
+| `coverUrl` | `string \| null` | `null` ⇒ `CoverImage` draws its placeholder.                       |
+| `href`     | `string`         | The album's own page — this row's single destination.              |
+
+### `showArtist`
+
+Off by default, because the first caller was an **artist's** own discography — the answer is the same
+on every row there, and printing it down the list says nothing. A **genre's** albums are by different
+people, so the genre page turns it on and the name becomes the fact that tells one tile from the next.
+
+It renders as **plain text**, not a link to the artist, and cannot become one: the whole tile is
+already an `<a>` to the album, and an anchor inside an anchor is invalid HTML that browsers silently
+un-nest. Reaching the artist is a hop through the album — the trade for a tile-sized click target.
+(`DataTable` affords both because its rows are not anchors; see its README on clickable rows.)
 
 ## Server side
 

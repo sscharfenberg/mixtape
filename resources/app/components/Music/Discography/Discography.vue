@@ -53,6 +53,12 @@ export interface DiscographyAlbum {
     name: string;
     /** Release year, or null for an untagged rip (those sort last, whichever way the years run). */
     year: number | null;
+    /**
+     * The album-artist, shown only when the caller asks for it via `showArtist`. Optional
+     * because a list of ONE artist's records has no use for it — see that prop. Null for a
+     * compilation filed under no album-artist, which drops the chip.
+     */
+    artist?: string | null;
     /** How many tracks are filed under it. */
     songs: number;
     /** Total playing time in seconds, or null when not one file carried a duration. */
@@ -73,8 +79,15 @@ const props = withDefaults(
          * its Select showing nothing.
          */
         pageSize?: number;
+        /**
+         * Show each album's artist as one of its facts. Off by default, because the first
+         * caller was an ARTIST's own discography, where the answer is the same on every row
+         * and printing it down the list says nothing. A genre's albums are by different
+         * people, and there the name is the fact that tells one record from the next.
+         */
+        showArtist?: boolean;
     }>(),
-    { pageSize: 25 }
+    { pageSize: 25, showArtist: false }
 );
 
 const { t } = useI18n();
@@ -167,6 +180,12 @@ const songCount = (album: DiscographyAlbum): string => t("music.discography.song
                      all lack a duration would otherwise claim "0:00". `formatClock` is
                      null-in/null-out, so the guard on `duration` is enough for both. -->
                 <span class="discography__meta">
+                    <!-- Plain text, not a link to the artist: the whole tile is already an
+                         <a> to the album, and an anchor inside an anchor is invalid HTML the
+                         browser silently un-nests. Reaching the artist from here is a hop
+                         through the album, which is the trade for a tile-sized click target
+                         (the DataTable can afford both because its rows are not anchors). -->
+                    <span v-if="showArtist && album.artist" class="discography__fact">{{ album.artist }}</span>
                     <span v-if="album.year !== null" class="discography__fact">{{ album.year }}</span>
                     <span class="discography__fact">{{ songCount(album) }}</span>
                     <span v-if="album.duration !== null" class="discography__fact">{{
