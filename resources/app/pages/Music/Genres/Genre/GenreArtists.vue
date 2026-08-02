@@ -187,19 +187,32 @@ const total = computed(() => formatDecimals(props.artists.length, locale.value))
 
         @media (prefers-reduced-motion: no-preference) {
             transition:
-                background-color ti.$c-discography,
-                box-shadow ti.$c-discography;
+                background-color ti.$c-discography ease-out,
+                box-shadow ti.$c-discography ease-out;
         }
 
-        &:hover,
-        &:focus-visible {
-            background-color: map.get(c.$c-genre-artists, "hover-background");
+        /* The house treatment, identical to the Discography tile one tab away and to the
+           DataTable's clickable rows: the two-layer control-neon halo over a wash that only
+           SHIFTS the card's existing fill. Both layers are soft and em-based — this was
+           first written as a hard `0 0 0 1px` ring plus a tight blur, which reads as an
+           outline drawn around the card rather than as the card lighting up.
 
-            /* The same two-layer halo the Discography's tiles and the DataTable's clickable
-               rows use, because it answers the same question: this goes somewhere. */
+           `position: relative` so the glow paints above the neighbouring cards rather than
+           under them. */
+        &:hover {
+            position: relative;
+
+            background-color: map.get(c.$c-genre-artists, "hover-background");
             box-shadow:
-                0 0 0 1px map.get(c.$c-genre-artists, "glow"),
-                0 0 12px -2px map.get(c.$c-genre-artists, "glow");
+                0 0 0.6em 0.1em map.get(c.$c-genre-artists, "glow"),
+                0 0 1.5em 0.25em map.get(c.$c-genre-artists, "glow");
+        }
+
+        /* The card is already the target, so it needs no underline — but it does need a
+           visible keyboard focus ring, since nothing else here says which card is focused.
+           Same as the Discography tile's. */
+        &:focus-visible {
+            outline: 2px solid currentcolor;
         }
     }
 
