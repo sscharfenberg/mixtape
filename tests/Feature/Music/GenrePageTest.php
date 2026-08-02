@@ -184,12 +184,12 @@ class GenrePageTest extends TestCase
             );
     }
 
-    public function test_the_albums_tab_holds_every_album_carrying_a_song_of_the_genre(): void
+    public function test_the_albums_tab_holds_albums_whose_main_genre_this_is(): void
     {
-        // The rule this tab exists to pin: an album belongs to a genre if it holds even ONE
-        // track of it. That deliberately includes the compilation a reader opening a genre
-        // is most likely hunting for — and it is a DIFFERENT rule from the artists tab
-        // beside it, which counts only main-genre artists (see GenreController).
+        // The rule this tab exists to pin, and the bug it was changed for. A compilation
+        // holding ONE track of the genre is not an album of that genre — the live library
+        // had a twenty-track contest album with fifteen Pop songs and one each of five
+        // others, and under the old "holds at least one" rule it appeared in all six.
         $blues = Genre::factory()->create();
         $other = Genre::factory()->create();
 
@@ -198,7 +198,7 @@ class GenrePageTest extends TestCase
         $none = Collection::factory()->create(['name' => 'No Blues At All', 'year' => 1980]);
 
         Track::factory()->count(2)->create(['collection_id' => $mostly->id, 'genre_id' => $blues->id]);
-        // One blues track among four — still an album of the genre.
+        // One blues track among four — NOT an album of this genre.
         Track::factory()->create(['collection_id' => $oneOff->id, 'genre_id' => $blues->id]);
         Track::factory()->count(3)->create(['collection_id' => $oneOff->id, 'genre_id' => $other->id]);
         Track::factory()->create(['collection_id' => $none->id, 'genre_id' => $other->id]);
@@ -207,20 +207,58 @@ class GenrePageTest extends TestCase
             ->get("/music/genres/{$blues->id}")
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->has('discography', 2)
-                // Newest first, like every discography.
-                ->where('discography.0.name', 'Compilation')
-                ->where('discography.1.name', 'Mostly Blues')
-                // The count describes the RECORD, not the slice of it in this genre: the
-                // compilation holds four songs, only one of which is Blues.
-                ->where('discography.0.songs', 4)
+                ->has('discography', 1)
+                ->where('discography.0.name', 'Mostly Blues')
+                // …while the compilation's one blues SONG still shows on the songs tab,
+                // alongside the two from the album that owns the genre. The two tabs answer
+                // different questions, and only the album one is about what a record IS.
+                ->has('table.rows', 3)
             );
     }
 
-    public function test_an_album_with_many_tracks_of_the_genre_appears_once(): void
+    public function test_the_compilation_still_appears_under_the_genre_that_owns_it(): void
     {
-        // Why the query uses whereExists rather than a join: a join would return the album
-        // once per matching track, and the aggregates would be multiplied with it.
+        // The other half of the rule: the album is not lost, it is filed where it belongs.
+        $blues = Genre::factory()->create();
+        $pop = Genre::factory()->create();
+
+        $compilation = Collection::factory()->create(['name' => 'Compilation']);
+        Track::factory()->create(['collection_id' => $compilation->id, 'genre_id' => $blues->id]);
+        Track::factory()->count(3)->create(['collection_id' => $compilation->id, 'genre_id' => $pop->id]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/genres/{$pop->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('discography', 1)
+                ->where('discography.0.name', 'Compilation')
+            );
+    }
+
+    public function test_an_album_split_evenly_breaks_the_tie_on_the_genre_name(): void
+    {
+        // Half and half has no majority, and SQL orders tied rows arbitrarily — so without
+        // the second ORDER BY the album could file itself under a different genre on each
+        // request. The tie-break is the genre's own name, the same rule artists use.
+        $ambient = Genre::factory()->create(['name' => 'Ambient']);
+        $jazz = Genre::factory()->create(['name' => 'Jazz']);
+
+        $album = Collection::factory()->create(['name' => 'Evenly Split']);
+        Track::factory()->count(3)->create(['collection_id' => $album->id, 'genre_id' => $ambient->id]);
+        Track::factory()->count(3)->create(['collection_id' => $album->id, 'genre_id' => $jazz->id]);
+
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->get("/music/genres/{$ambient->id}")->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->has('discography', 1));
+        $this->actingAs($user)->get("/music/genres/{$jazz->id}")->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->has('discography', 0));
+    }
+
+    public function test_an_album_of_the_genre_appears_once_however_many_tracks_it_has(): void
+    {
+        // Why the filter is a whereIn against the ranked set rather than a join to it: a
+        // join would return the album once per matching row and multiply the aggregates.
         $genre = Genre::factory()->create();
         $album = Collection::factory()->create();
 

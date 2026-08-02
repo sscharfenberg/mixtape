@@ -70,7 +70,10 @@ A server-paged list would be wrong here twice:
    owner of the query string.
 
 The sizes it is built for: an artist has at most **26** albums, a genre reaches **66** — enough that
-showing them all at once was too much, nowhere near enough to be worth a round trip.
+showing them all at once was too much, nowhere near enough to be worth a round trip. That 66 is
+measured under the current rule (an album belongs to its **main** genre only) and is unchanged from
+the looser rule that preceded it: albums here are near-uniformly single-genre, so the two readings
+diverge only on a real compilation.
 
 **What it still does not do is sort or search.** A view needing either wants the `DataTable` instead —
 see `../../DataTable/README.md`.

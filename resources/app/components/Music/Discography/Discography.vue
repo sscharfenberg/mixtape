@@ -23,7 +23,14 @@
  *
  * The sizes it is built for: an artist has at most 26 albums (the average is under
  * two, so most never page at all), while a genre reaches 66 — enough that showing
- * them all at once was too much, and nowhere near enough to be worth a round trip.
+ * them all at once was too much, nowhere near enough to be worth a round trip.
+ *
+ * That 66 is measured under the CURRENT rule, where an album belongs to its main
+ * genre only. It is unchanged from the looser "holds at least one track" rule that
+ * preceded it, and so are the next four genres down: albums in this collection are
+ * near-uniformly single-genre, so the two readings only ever diverge on a real
+ * compilation. Which is why the one that did — fifteen Pop songs and one each of
+ * five other genres — went unnoticed until it turned up under Power Metal.
  * What it still does NOT do is sort or search; a view needing either wants the
  * DataTable instead.
  *

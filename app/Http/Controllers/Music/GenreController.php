@@ -35,17 +35,24 @@ use Inertia\Response;
  * panels are sent on every request and `?tab=` is ignored here, so switching tabs costs no
  * request and raises no loading state over content already on screen (see useTabParam).
  *
- * TWO DIFFERENT RULES decide what belongs to a genre, and the difference is deliberate:
+ * ONE RULE decides what belongs to a genre, for both the artists and the albums tab: the
+ * thing's MAIN genre is this one (DominantGenre). Not everyone who ever recorded a song in
+ * it, and not every album that happens to hold one.
  *
- * - ARTISTS are those whose MAIN genre this is (DominantGenre) — NOT everyone who ever
- *   recorded a song in it. That rule is not a free choice here: the hero's artist count
- *   and the Genres listing's artists column already use it, and a tab listing everyone who
- *   ever touched the genre would contradict the number printed directly above it.
- * - ALBUMS are every album carrying at least one music track of this genre. There is no
- *   prior commitment to contradict, and this is the direct companion to the songs tab:
- *   these are the records those songs come from. A "dominant genre per album" rule would
- *   be tighter, but it would hide exactly the compilation a reader opening a genre is
- *   most likely hunting for.
+ * The artists half was never a free choice — the hero's artist count and the Genres
+ * listing's column already use that rule, and a tab listing everyone who ever touched the
+ * genre would contradict the number printed directly above it.
+ *
+ * The albums half started as the looser "holds at least one track of this genre", on the
+ * grounds that it would surface compilations. It surfaced them far too well: a twenty-track
+ * Bundesvision compilation carrying fifteen Pop songs and one each of five other genres
+ * appeared in the album tab of all six. One incidental track is not what a reader browsing
+ * Power Metal is looking for, so an album now belongs where most of it belongs.
+ *
+ * The SONGS tab keeps the literal reading — every track tagged with the genre, wherever it
+ * lives — because that is a question about tracks, not about what a record is. So the
+ * compilation's one Power Metal song still appears under Power Metal; only the album stops
+ * claiming to be one.
  *
  * Sends RAW values like every other controller here: seconds for the playing time, bytes
  * for the size, counts as counts (Utils/formatting.ts does the rest).
@@ -90,12 +97,17 @@ class GenreController extends Controller
     }
 
     /**
-     * Every album carrying at least one music track of this genre, newest first.
+     * Every album whose MAIN genre is this one, newest first.
      *
-     * `whereExists` rather than a join: an album with twelve tracks of this genre must
-     * appear once, and a join would need a DISTINCT to promise that — which would then
-     * fight the aggregates below. The subquery asks the only question that matters (is
-     * there one?) and stops at the first hit.
+     * Note where the filter sits: on the OUTER query, after the ranking — the same trap
+     * mainGenreArtists documents. Restricting to one genre BEFORE the ranking would change
+     * the answer entirely, since an album that is mostly Pop would win Power Metal in a
+     * query that could only see its Power Metal track. Every genre has to compete for an
+     * album before we ask which genre won.
+     *
+     * `whereIn` against that subquery rather than a join: an album must appear once, and a
+     * join to the ranked set would need a DISTINCT to promise it — which would then fight
+     * the aggregates below.
      *
      * `tracks_count` deliberately counts ALL the album's tracks, not just this genre's:
      * the Discography component prints it as "N Songs" about the RECORD, and a compilation
@@ -111,12 +123,10 @@ class GenreController extends Controller
     {
         return Collection::query()
             ->where('collections.type', CollectionType::Album)
-            ->whereExists(
-                fn ($query) => $query->from('tracks')
-                    ->whereColumn('tracks.collection_id', 'collections.id')
-                    ->where('tracks.genre_id', $genre->id)
-                    ->where('tracks.type', TrackType::Music)
-            )
+            ->whereIn('collections.id', DB::query()
+                ->fromSub(DominantGenre::albumWinners(), 'album_genre')
+                ->where('album_genre.genre_id', $genre->id)
+                ->select('album_genre.collection_id'))
             ->select(['collections.id', 'collections.name', 'collections.year', 'collections.cover_path'])
             ->withCount('tracks')
             ->withSum('tracks', 'duration')
