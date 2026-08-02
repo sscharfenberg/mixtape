@@ -1,0 +1,12 @@
+/******************************************************************************
+ * contextual z-index token — component:player-bar
+ * @type {Sass}
+ * the "sticky" rung — the bar takes the footer's place, so it takes the footer's
+ * rung. it shares the rung with the PlayQueue panel and sits after it in the DOM,
+ * which is what keeps the bar painted over the narrow-screen queue sheet.
+ * consumed as z.$c-player-bar via `@use "Abstracts/z-indexes" as z;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-z-index-tokens" as z;
+
+$player-bar: map.get(z.$scale, "sticky") !default;

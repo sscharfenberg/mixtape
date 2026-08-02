@@ -34,13 +34,20 @@ main {
     position: relative;
     z-index: z.$c-main;
 
+    width: 100%;
+    min-height: 20rem;
+
+    // Room for the PlayerBar, which is FIXED to the bottom of the viewport and so
+    // out of the flow — without this it sits on top of the last rows of a page.
+    // The variable is published by PlayerBar (mirroring the header's
+    // `--app-header-height`) and removed when it unmounts, so the fallback of 0 is
+    // what applies whenever the ordinary footer is showing instead.
+    padding-bottom: var(--app-player-height, 0);
+    margin: 2lh auto;
+
     // Any DataTable on any page pins its sticky header just below the app header
     // (which publishes its live height as --app-header-height, like StickyNav),
     // instead of behind it. Consumed by .dt-head's `top`; set here once, app-wide.
     --datatable-sticky-offset: var(--app-header-height);
-
-    width: 100%;
-    min-height: 20rem;
-    margin: 2lh auto;
 }
 </style>

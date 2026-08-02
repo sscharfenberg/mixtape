@@ -1,0 +1,40 @@
+/******************************************************************************
+ * contextual color tokens — component:play-queue
+ * @type {Sass}
+ * The queue panel beside the page (a bottom sheet on narrow screens): its own
+ * surface and border, plus the three states a row can be in — resting, hovered,
+ * and the one the player has loaded.
+ *
+ * The loaded row reuses `$retro c3`, the WCAG-tuned control neon, exactly as the
+ * DataTable's hovered row and the open popover do, because it says the same
+ * thing: this is the live one. Rule 2-compliant throughout — greys and the neon
+ * are picked from the palette and only ever alpha-adjusted, never re-scaled into
+ * a new hue. Consumed as c.$c-play-queue via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$play-queue: (
+    // panel -----------------------------------------------------------------
+    "background": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "black")),
+    "surface": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral")),
+    "border": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher")),
+    // the quieter second line (artist, the running total in the header)
+    "muted": light-dark(map.get(c.$grey, "slate"), map.get(c.$grey, "slate")),
+    // rows ------------------------------------------------------------------
+    "row-hover": light-dark(
+            color.adjust(map.get(c.$grey, "iron"), $alpha: -0.5),
+            color.adjust(map.get(c.$grey, "abbey"), $alpha: -0.25)
+        ),
+    // the loaded track: the same neon the DataTable's live row and an open
+    // popover use, as a fill at low alpha plus the full-strength glow.
+    "current-background": light-dark(
+            color.adjust(map.get(c.$retro, "c3", "light"), $alpha: -0.85),
+            color.adjust(map.get(c.$retro, "c3", "dark"), $alpha: -0.85)
+        ),
+    "current-glow": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
+    // per-row remove control, which stays quiet until the row is hovered
+    "control": light-dark(map.get(c.$grey, "slate"), map.get(c.$grey, "slate")),
+    "control-hover": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "white"))
+) !default;

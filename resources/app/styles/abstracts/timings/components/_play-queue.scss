@@ -1,0 +1,12 @@
+/******************************************************************************
+ * contextual timing token — component:play-queue
+ * @type {Sass}
+ * the queue row's hover / current-track transition. "fast", matching the
+ * DataTable row it behaves like — a row that lights up on hover should do it at
+ * the same speed everywhere in the app. consumed as ti.$c-play-queue via
+ * `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$play-queue: map.get(ti.$timings, "fast") !default;

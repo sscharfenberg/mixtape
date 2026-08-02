@@ -46,10 +46,13 @@ describe("CoverImage", () => {
         const withArt = cover({ src: "/covers/x.jpg", size });
         expect(withArt.find("img").classes()).toContain(`cover-image--${size}`);
 
-        // The glyph size has to sit comfortably inside the cover size.
+        // The glyph size has to sit comfortably inside the cover size — and it is the
+        // GLYPH that carries it, not the box around it: the box is the cover's square,
+        // the glyph is deliberately smaller and centred in it.
         const iconClasses = ["tiny", "small", "medium", "large", "xlarge", "max"];
         const withoutArt = cover({ src: null, size });
-        expect(withoutArt.classes()).toContain(iconClasses[iconStep]);
+        expect(withoutArt.find(".cover-image__placeholder").classes()).toContain(iconClasses[iconStep]);
+        expect(withoutArt.classes()).toContain(`cover-image__box--${size}`);
     });
 
     it("defaults to the small size", () => {
@@ -61,22 +64,37 @@ describe("CoverImage", () => {
             const wrapper = cover({ src: null });
 
             expect(wrapper.find("img").exists()).toBe(false);
-            expect(wrapper.classes()).toContain("cover-image__placeholder");
+            expect(wrapper.find(".cover-image__placeholder").exists()).toBe(true);
+        });
+
+        it("gives the placeholder the same square the image would have had", () => {
+            // Otherwise the glyph IS the box, and it is far smaller than the cover it
+            // stands in for: a list mixing tagged and untagged files gets rows of two
+            // heights, and a flex row of cover-then-text starts its text in a different
+            // place per row.
+            expect(cover({ src: null, size: "small" }).classes()).toContain("cover-image__box--small");
+        });
+
+        it("keeps the hero size out of the flow, since its container decides the square", () => {
+            // `display: contents` at xlarge — HeroSection draws its own dashed square
+            // around whatever is not an <img>, and a box here would be a second
+            // declaration of the one square.
+            expect(cover({ src: null, size: "xlarge" }).classes()).toContain("cover-image__box--xlarge");
         });
 
         it("labels the placeholder as an image when it is not decorative", () => {
-            const wrapper = cover({ src: null });
+            const glyph = cover({ src: null }).find(".cover-image__placeholder");
 
-            expect(wrapper.attributes("role")).toBe("img");
-            expect(wrapper.attributes("aria-label")).toBe(translate("components.cover.empty"));
+            expect(glyph.attributes("role")).toBe("img");
+            expect(glyph.attributes("aria-label")).toBe(translate("components.cover.empty"));
         });
 
         it("hides a decorative placeholder from assistive tech entirely", () => {
-            const wrapper = cover({ src: null, decorative: true });
+            const glyph = cover({ src: null, decorative: true }).find(".cover-image__placeholder");
 
-            expect(wrapper.attributes("aria-hidden")).toBe("true");
-            expect(wrapper.attributes("role")).toBeUndefined();
-            expect(wrapper.attributes("aria-label")).toBeUndefined();
+            expect(glyph.attributes("aria-hidden")).toBe("true");
+            expect(glyph.attributes("role")).toBeUndefined();
+            expect(glyph.attributes("aria-label")).toBeUndefined();
         });
     });
 
@@ -87,7 +105,7 @@ describe("CoverImage", () => {
             await wrapper.find("img").trigger("error");
 
             expect(wrapper.find("img").exists()).toBe(false);
-            expect(wrapper.classes()).toContain("cover-image__placeholder");
+            expect(wrapper.find(".cover-image__placeholder").exists()).toBe(true);
         });
 
         it("keeps the failure to itself, so one bad row does not blank its neighbours", async () => {

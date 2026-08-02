@@ -108,6 +108,17 @@ is no rule of ours to put behind a media query.
 > — the progress bar in `main.ts` and DataTable's overlay both did not, and merely running the pointer
 > across a table flashed a spinner over rows nobody was going to.
 
+**The layout is where anything that outlives a page goes.** Inertia swaps the *page* component on
+navigation and keeps `FullLayout`, so the play queue, the player bar and (later) the audio element
+live there and nowhere else — a player inside a page would stop the music on every click. The body is
+a two-column grid: the page, and a **240px** queue column that exists only while the queue does. 240px
+is a fixed sidebar rather than the "right third" it started as, because a literal third is 850px of
+queue on a wide monitor *and* squeezes `<main>` under the DataTable's container breakpoint. Below the
+`landscape` step there is no width to give it, so the panel becomes a bottom sheet over the lower half
+of the viewport instead. The footer and the player bar are alternatives: the bar takes the footer's
+place once the queue has a **current track** — not when audio is playing, or pausing would take the
+play button off screen with it.
+
 **Shared components document themselves.** A component with a contract worth explaining carries a
 `README.md` beside it; this file records the _convention_, not the API. The ones a page author meets
 most often:

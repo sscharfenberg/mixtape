@@ -1,0 +1,27 @@
+/******************************************************************************
+ * contextual color tokens — component:player-bar
+ * @type {Sass}
+ * The transport bar that stands in for the footer once a track is loaded. It
+ * paints the same frosted, blurred surface the header does — it is the other end
+ * of the same affixed chrome, and reading as one family is the point — so the
+ * background is an alpha-adjusted grey rather than a solid one.
+ *
+ * Rule 2-compliant: palette entries picked and alpha-adjusted only. Consumed as
+ * c.$c-player-bar via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$player-bar: (
+    "background": light-dark(
+            color.adjust(map.get(c.$grey, "white"), $alpha: -0.15),
+            color.adjust(map.get(c.$grey, "bunker"), $alpha: -0.15)
+        ),
+    "surface": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral")),
+    "border": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher")),
+    // the artist line under the title, and the not-yet-wired transport glyphs
+    "muted": light-dark(map.get(c.$grey, "slate"), map.get(c.$grey, "slate")),
+    "control": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral")),
+    "control-hover": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark"))
+) !default;

@@ -1,0 +1,11 @@
+/******************************************************************************
+ * contextual timing token — component:player-bar
+ * @type {Sass}
+ * the transport controls' hover transition, on the same "fast" rung as every
+ * other control in the app. consumed as ti.$c-player-bar via
+ * `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$player-bar: map.get(ti.$timings, "fast") !default;

@@ -14,7 +14,10 @@ declare module "@inertiajs/core" {
             auth: {
                 // `null` until a user is logged in (prep for Fortify).
                 user: {
-                    id: number;
+                    // A UUID string, not an integer: User uses HasUuids (see the
+                    // create_users_table migration). Typed `number` until the play
+                    // queue became the first thing to actually read it.
+                    id: string;
                     name: string;
                     email: string;
                 } | null;

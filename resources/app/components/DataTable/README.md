@@ -375,7 +375,7 @@ tokens** (one partial per token group, `@forward`ed from that group's
 | File                                 | Consumed as       | Holds                                                                                                                                                                                                                                                                                                                        |
 | ------------------------------------ | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `colors/components/_datatable.scss`  | `c.$c-datatable`  | A nested map: `border`, `overlay` (loading scrim), `spinner`, `row-hover` + `row-glow` (clickable row/card), `th{background,surface,background-stuck,surface-stuck}`, `td{background{odd,even},surface}`, `pagination{border,background,surface,page{…},page-hover{…},page-current{…}}`, `cards{background,border,surface}`. |
-| `sizes/components/_datatable.scss`   | `s.$c-datatable`  | `breakpoint` (the `desktop` step), `border` (`base`), `radius` (`featured`), `padding.{th,td}`, `pagination.{…,page.{…},jump.{…}}`, `cards.{min-width,padding,gap,border,radius}`.                                                                                                                                           |
+| `sizes/components/_datatable.scss`   | `s.$c-datatable`  | `breakpoint` (the `landscape` step — a breakpoint NAME, read by the three `m.cq()` calls), `border` (`base`), `radius` (`featured`), `padding.{th,td}`, `pagination.{…,page.{…},jump.{…}}`, `cards.{min-width,padding,gap,border,radius}`.                                                                                                                                           |
 | `timings/components/_datatable.scss` | `ti.$c-datatable` | The hover duration (`fast`) — pagination page buttons and the clickable-row wash.                                                                                                                                                                                                                                            |
 
 Two rules apply (see `styles/abstracts/README.md`):
@@ -412,8 +412,9 @@ rest are internal.
 ## Responsive Behavior
 
 The component uses CSS **container queries** (not media queries), so it adapts to
-its own width, not the viewport, via the `cq` mixin at the `desktop` breakpoint
-(**1024px** container width). Both the `<table>` and the card grid are always in the
+its own width, not the viewport, via the `cq` mixin at the `landscape` breakpoint
+(**768px** container width — lowered from `desktop`/1024px when the play queue
+started taking 240px out of `<main>`; see the token's own note). Both the `<table>` and the card grid are always in the
 DOM; `display` toggles which shows. With ≤100 rows per page the DOM duplication is
 negligible.
 

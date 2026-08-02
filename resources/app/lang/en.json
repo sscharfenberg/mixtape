@@ -363,5 +363,22 @@
         "cover": {
             "empty": "No cover available"
         }
+    },
+    "player": {
+        "queue": {
+            "label": "Play queue",
+            "summary": "1 track | {count} tracks",
+            "clear": "Clear the queue",
+            "load": "Play {name}",
+            "remove": "Remove {name} from the queue"
+        },
+        "bar": {
+            "label": "Now playing",
+            "play": "Play",
+            "previous": "Previous track",
+            "next": "Next track"
+        },
+        "enqueue": "Add to queue",
+        "enqueued": "“{name}” was added to the queue."
     }
 }

@@ -3,9 +3,16 @@
  * @type {Sass}
  * The server-driven DataTable (ported from cantrip.me). `breakpoint` is the
  * container-width at which the layout flips from the `<table>` to the mobile
- * card grid — the `desktop` step (1024px), applied as a CONTAINER query (the
- * table adapts to its own width, not the viewport), so it also lives in the
- * $breakpoints scale the `cq` mixin reads. Borders/radii pick the shared scale
+ * card grid, applied as a CONTAINER query (the table adapts to its own width,
+ * not the viewport), so it also lives in the $breakpoints scale the `cq` mixin
+ * reads.
+ *
+ * The `landscape` step (768px) rather than `desktop` (1024px), and the play queue
+ * is why. With the queue panel open <main> loses 240px, which on a 1280px laptop
+ * leaves the table roughly 1000px — a hair under the old line, so every listing
+ * in the app would have flipped to cards the moment something was queued. 768px
+ * puts that back with room to spare, at the cost of asking a five-column table to
+ * fit into a narrower column before it gives up. Borders/radii pick the shared scale
  * (`base` tube + corner); the small paddings and the page/jump/card
  * dimensions are plain literals — one named decision per value, which sizes are
  * allowed to hold (unlike colours). consumed as s.$c-datatable via
@@ -15,7 +22,12 @@
 @use "../global-size-tokens" as s;
 
 $datatable: (
-    "breakpoint": map.get(s.$breakpoints, "desktop"),
+    // A breakpoint NAME, not a width: `m.cq()` takes a key into $breakpoints and
+    // resolves it itself. It used to hold the resolved px value, which nothing
+    // could consume — the three container queries in DataTable / DataTableCards
+    // each passed the literal "desktop" instead, so the token documented a
+    // decision it did not actually make. They read this now.
+    "breakpoint": "landscape",
     "border": map.get(s.$border, "base"),
     "radius": map.get(s.$radius, "base"),
     // min height for the loading overlay, so the spinner has room below the

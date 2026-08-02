@@ -1,0 +1,15 @@
+/******************************************************************************
+ * contextual z-index token — component:play-queue
+ * @type {Sass}
+ * the "sticky" rung — the same affixed-chrome rung as the app header and footer.
+ * on desktop the panel is an ordinary grid column and needs no lift at all; the
+ * rung is for the narrow-screen form, where it becomes a bottom sheet OVER the
+ * page and has to clear <main> (which sits on "raised", one rung below). the
+ * PlayerBar shares this rung and comes later in the DOM, so the bar stays on top
+ * of the sheet — which is what you want, since the bar is how you close it.
+ * consumed as z.$c-play-queue via `@use "Abstracts/z-indexes" as z;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-z-index-tokens" as z;
+
+$play-queue: map.get(z.$scale, "sticky") !default;

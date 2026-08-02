@@ -467,13 +467,13 @@ onBeforeUnmount(() => {
     }
 
     // wide container → the table; narrow container → the cards (DataTableCards).
-    @include m.cq("desktop") {
+    @include m.cq(map.get(s.$c-datatable, "breakpoint")) {
         .dt__table {
             display: table;
         }
     }
 
-    @include m.cq("desktop", $mobile-first: false) {
+    @include m.cq(map.get(s.$c-datatable, "breakpoint"), $mobile-first: false) {
         .dt__table {
             display: none;
         }

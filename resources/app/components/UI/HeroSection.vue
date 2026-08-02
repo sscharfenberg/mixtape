@@ -7,7 +7,7 @@
  * it with their own art and credits — so it takes everything through slots and knows
  * nothing about what it is describing.
  *
- * Three slots, all optional:
+ * Four slots, all optional:
  *   #cover     the artwork — a <CoverImage size="xlarge">, which sizes and frames
  *              ITSELF to this square. Pass anything that is not an <img> (a bare
  *              <Icon>, or a CoverImage with no art, which renders its glyph) and the
@@ -26,6 +26,11 @@
  *              Rendered as a wrapping row of list items, so pass `FactPair`s (the same
  *              tile the facts cards are built from) and they will line up here; the row
  *              only decides the flow and the gap.
+ *   #actions   what the reader can DO with the subject — enqueue it, and in time play
+ *              it and share it. Sits last, under the facts, because the controls act on
+ *              the thing those facts have just identified. A wrapping row like
+ *              #metadata, and equally layout-only: pass `Button`s and they keep their
+ *              own look.
  *
  * Every wrapper is rendered only when its slot was actually passed, so a consumer with
  * no art — or with nothing to say under its title — gets no empty box holding a padding,
@@ -44,13 +49,16 @@
     <div class="hero-section">
         <div v-if="$slots.cover" class="hero-section__cover"><slot name="cover" /></div>
 
-        <div v-if="$slots.title || $slots.metadata" class="hero-section__meta">
+        <div v-if="$slots.title || $slots.metadata || $slots.actions" class="hero-section__meta">
             <div v-if="$slots.title" class="hero-section__title"><slot name="title" /></div>
             <!-- role="list" because the marker is styled away, and Safari/VoiceOver drop
                  list semantics from an unmarked list. -->
             <ul v-if="$slots.metadata" class="hero-section__metadata" role="list">
                 <slot name="metadata" />
             </ul>
+            <!-- Last, under the facts: the controls act on the thing the facts have just
+                 finished identifying, and a reader meets them in that order. -->
+            <div v-if="$slots.actions" class="hero-section__actions"><slot name="actions" /></div>
         </div>
     </div>
 </template>
@@ -223,6 +231,16 @@
     /* Column 1 — the text leads, the art follows. Explicit rather than left to
        auto-placement, so the pair can't drift out of the row if a third block is ever
        slotted in beside them. */
+
+    /* What acts on the subject — play, enqueue, share. Wraps, because at hero width a
+       row of buttons is the first thing to run out of room. */
+    &__actions {
+        display: flex;
+        flex-wrap: wrap;
+
+        gap: map.get(s.$c-hero-section, "metadata-gap");
+    }
+
     &__meta {
         display: flex;
         flex-direction: column;

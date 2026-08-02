@@ -138,7 +138,7 @@ function onActionClick(row: T, event: MouseEvent) {
         display: none;
     }
 
-    @include m.cq("desktop", $mobile-first: false) {
+    @include m.cq(map.get(s.$c-datatable, "breakpoint"), $mobile-first: false) {
         .dt-cards {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(map.get(s.$c-datatable, "cards", "min-width"), 1fr));

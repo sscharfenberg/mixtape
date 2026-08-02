@@ -363,5 +363,22 @@
         "cover": {
             "empty": "Kein Cover vorhanden"
         }
+    },
+    "player": {
+        "queue": {
+            "label": "Warteschlange",
+            "summary": "1 Titel | {count} Titel",
+            "clear": "Warteschlange leeren",
+            "load": "{name} abspielen",
+            "remove": "{name} aus der Warteschlange entfernen"
+        },
+        "bar": {
+            "label": "Wiedergabe",
+            "play": "Abspielen",
+            "previous": "Vorheriger Titel",
+            "next": "Nächster Titel"
+        },
+        "enqueue": "In die Warteschlange",
+        "enqueued": "„{name}“ wurde in die Warteschlange gestellt."
     }
 }

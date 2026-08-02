@@ -1,0 +1,32 @@
+/******************************************************************************
+ * contextual size tokens — component:player-bar
+ * @type {Sass}
+ * The transport bar's geometry. `height` is published to the document as
+ * `--app-player-height` by PlayerBar (the mirror of the header's
+ * `--app-header-height`), so <main> can reserve room for a bar that is fixed to
+ * the viewport and would otherwise sit on top of the end of the page.
+ *
+ * `height` is DERIVED from CoverImage's `small` step plus the padding either side,
+ * not written as a round number. It was `4rem` first, and that was wrong: this app
+ * sets a root font-size of ~13.6px, so 4rem is 54px — narrower than the 48px cover
+ * the bar has to hold, which pushed the artwork out through the bar's own edges.
+ * Reading the cover token means the two can never drift again.
+ *
+ * The cover itself is not a token here — CoverImage owns its sizes, and picking one
+ * of its steps is the contract its README asks for. Consumed as s.$c-player-bar via
+ * `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+@use "cover-image" as ci;
+
+// Pulled out so `height` below can be derived from it rather than restated: the
+// bar is exactly as tall as the cover it holds plus the padding either side.
+$padding: 0.5rem;
+$player-bar: (
+    "height": calc(#{map.get(ci.$cover-image, "small")} + 2 * #{$padding}),
+    "border": map.get(s.$border, "base"),
+    "padding": $padding,
+    "gap": 0.75rem,
+    "radius": map.get(s.$radius, "base")
+) !default;
