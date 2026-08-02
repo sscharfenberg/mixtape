@@ -83,6 +83,26 @@ const sort = computed<SortEntry[]>(() => {
     if (!props.response.sort) return [];
     return [props.response.sort];
 });
+/** The smallest page size the pager's Select offers (DataTableService::ALLOWED_PAGE_SIZES). */
+const SMALLEST_PAGE_SIZE = 25;
+
+/**
+ * Whether the pagination bar is worth drawing at all.
+ *
+ * It is not, for a table whose whole contents fit on one page at EVERY page size the Select
+ * offers: there is no page to go to, and no page size that would change anything, so the
+ * control reduces to "1–7 / 7" beside a dropdown that does nothing. A genre with three
+ * albums or an EP with four tracks is the common case for that.
+ *
+ * Decided on `totalUnfiltered`, not `total`. A search narrowing five hundred rows to one
+ * still wants its pager — both to say so and to offer a page size — and deciding on the
+ * filtered count would make the whole bar appear and disappear as the reader types, moving
+ * everything below it on every keystroke.
+ */
+const showPagination = computed(
+    () => Boolean(props.response.pageSize) && props.response.totalUnfiltered > SMALLEST_PAGE_SIZE
+);
+
 /** IDs of currently selected rows, shared with child components via provide/inject. */
 const selectedIds = ref<string[]>([]);
 /** Toggle a single row's selection state. */
@@ -338,9 +358,10 @@ onBeforeUnmount(() => {
             </div>
         </div>
 
-        <!-- Pagination -->
+        <!-- Pagination. Dropped entirely for a table small enough that none of it could do
+             anything — see `showPagination`. -->
         <data-table-pagination
-            v-if="response.pageSize && response.total > 0"
+            v-if="showPagination && response.pageSize"
             :page="response.page"
             :page-size="response.pageSize"
             :total="response.total"

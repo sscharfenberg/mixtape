@@ -33,6 +33,7 @@ const table = (overrides: Record<string, unknown> = {}) => ({
         }
     ],
     total: 1,
+    totalUnfiltered: 1,
     page: 1,
     pageSize: 25,
     sort: { key: "name", direction: "asc" as const },

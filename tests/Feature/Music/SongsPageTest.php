@@ -129,6 +129,38 @@ class SongsPageTest extends TestCase
             );
     }
 
+    public function test_the_table_reports_its_unfiltered_size_alongside_the_filtered_one(): void
+    {
+        // What the frontend hides the pager by. The two numbers are the same until a search
+        // narrows the table, and then they must differ — judged on the filtered count the
+        // control would appear and vanish as somebody types.
+        Track::factory()->count(3)->create(['name' => 'Sundowning']);
+        Track::factory()->count(5)->create(['name' => 'Something Else']);
+
+        $this->actingAs(User::factory()->create())
+            ->get('/music/songs?search=Sundown')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('table.total', 3)
+                ->where('table.totalUnfiltered', 8)
+            );
+    }
+
+    public function test_an_unsearched_table_reports_the_same_number_twice(): void
+    {
+        // The common request pays for no second COUNT: with no search the filtered total
+        // already IS the unfiltered one.
+        Track::factory()->count(4)->create();
+
+        $this->actingAs(User::factory()->create())
+            ->get('/music/songs')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('table.total', 4)
+                ->where('table.totalUnfiltered', 4)
+            );
+    }
+
     public function test_search_leaves_the_media_type_scope_alone(): void
     {
         // The OR'd column matches are nested inside their own where(), so they

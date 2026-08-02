@@ -96,6 +96,7 @@ const props = (overrides: Record<string, unknown> = {}) => ({
             }
         ],
         total: 42,
+        totalUnfiltered: 42,
         page: 1,
         pageSize: 25,
         sort: null,

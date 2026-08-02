@@ -58,6 +58,7 @@ const page = (albumOverrides: Record<string, unknown> = {}, rows = [row()]) =>
             table: {
                 rows,
                 total: rows.length,
+                totalUnfiltered: rows.length,
                 page: 1,
                 pageSize: 50,
                 sort: null,

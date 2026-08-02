@@ -31,6 +31,15 @@ export interface ColumnDef<T extends { id: string }> {
 export interface TableResponse<T> {
     rows: T[];
     total: number;
+    /**
+     * How many rows the table holds with NO search applied — the same number as `total`
+     * unless a search is narrowing it.
+     *
+     * What the pager's visibility is decided by, and deliberately not `total`: a search that
+     * leaves one row out of five hundred still wants its pager, and deciding on the filtered
+     * count would make the whole control appear and disappear as the reader types.
+     */
+    totalUnfiltered: number;
     page: number;
     /** null means no pagination. */
     pageSize: number | null;

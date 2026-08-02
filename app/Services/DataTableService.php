@@ -42,7 +42,7 @@ class DataTableService
      *                                 mapped through $sortColumnMap like the primary. Always
      *                                 applied; echoed back in `tiebreakers` only while the table
      *                                 is on its default sort — see there.
-     * @return array{rows: array<int, array<string, mixed>>, total: int, page: int, pageSize: int, sort: array{key: string, direction: string}, tiebreakers: string[], search: string|null, filters: null}
+     * @return array{rows: array<int, array<string, mixed>>, total: int, totalUnfiltered: int, page: int, pageSize: int, sort: array{key: string, direction: string}, tiebreakers: string[], search: string|null, filters: null}
      */
     public static function buildResponse(
         Builder|HasMany $query,
@@ -71,6 +71,17 @@ class DataTableService
         }
 
         $search = $request->input('search');
+
+        /*
+         * How big the table is with NO search applied, which is what decides whether the
+         * pager is worth drawing at all (see `totalUnfiltered` in the response).
+         *
+         * Counted BEFORE the search callback runs, and only when there is a search to
+         * matter: with no search the filtered total already IS the unfiltered one, so the
+         * common request pays nothing. When there is one, this is a second COUNT — the
+         * price of a pager that does not appear and vanish as somebody types.
+         */
+        $totalUnfiltered = $search && $searchCallback ? (clone $query)->toBase()->count() : null;
 
         if ($search && $searchCallback) {
             $searchCallback($query, $search);
@@ -109,6 +120,14 @@ class DataTableService
         return [
             'rows' => $paginator->map($rowMapper)->values()->all(),
             'total' => $paginator->total(),
+            /*
+             * The same number as `total` unless a search is narrowing the table, and the one
+             * the frontend hides the pager by. Deliberately the UNFILTERED count: a search
+             * that leaves one row out of five hundred still wants its pager, both to say so
+             * and to offer a page size — and deciding on the filtered count instead would
+             * make the whole control appear and disappear while the reader types.
+             */
+            'totalUnfiltered' => $totalUnfiltered ?? $paginator->total(),
             'page' => $paginator->currentPage(),
             'pageSize' => $pageSize,
             'sort' => ['key' => $sortKey, 'direction' => $sortDir],
