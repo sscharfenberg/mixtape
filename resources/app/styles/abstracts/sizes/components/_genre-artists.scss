@@ -1,0 +1,60 @@
+/******************************************************************************
+ * contextual size tokens — component:GenreArtists.vue
+ * @type {Sass}
+ * Metrics for the genre page's artist cards, and for the fan of covers each one
+ * leads with.
+ *
+ * `radius` is the `featured` rung, matching the TabbedNavigation frame these cards
+ * sit inside — the same reasoning the Discography's tiles follow: corners that agree
+ * with the panel read as part of it, corners that don't read as something dropped
+ * into it.
+ *
+ * The fan is the only unusual part. `fan-size` is the middle sleeve's edge length and
+ * a plain literal, because it is the card's visual anchor rather than a step of the
+ * page's rhythm — it wants to be big enough that a cover is recognisable and small
+ * enough that a hundred of them still grid. `fan-offset` is how far the outer two
+ * slide sideways and `fan-angle` how far they tip; both are deliberately modest,
+ * since the effect should read as a stack of records rather than a card trick.
+ * `fan-box` reserves the width the rotated stack actually occupies — a rotated square
+ * is wider than its side, so without it the outer sleeves would be clipped by the
+ * card's padding.
+ * Consumed as s.$c-genre-artists via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$genre-artists: (
+    "border": map.get(s.$border, "base"),
+    // matches the TabbedNavigation frame these cards sit in — see above
+    "radius": map.get(s.$radius, "featured"),
+    "card-padding": map.get(s.$padding, "base"),
+    // between cards
+    "gap": map.get(s.$padding, "base"),
+    // the grid's per-column floor for `minmax(min(<card-min>, 100%), 1fr)`; a literal,
+    // since it is a layout threshold rather than a step off the scale — wide enough for
+    // the fan plus the card's padding
+    "card-min": 15rem,
+    // inside a card: fan to name, name to numbers
+    "stack-gap": 0.75ch,
+    // the fan ————————————————————————————————————————————————————
+    // the fan's own height. Matches CoverImage's `large` step, which is what a sleeve is
+    // here — the sleeves size themselves from the artwork, so this only has to reserve the
+    // row they sit in.
+    "fan-size": 6rem,
+    // the box the rotated stack is given, so the tipped outer sleeves are not clipped
+    "fan-box": 9.5rem,
+    // how far the outer sleeves slide out from behind the middle one
+    "fan-offset": 1.75rem,
+    // and how far they tip. Mirrored left/right by the component.
+    "fan-angle": 9deg,
+    // each sleeve's rounding — the `base` rung, matching what CoverImage gives its own
+    // `large` step, so the shadow traces the same shape as the artwork it lifts. The
+    // sleeve draws no border of its own: CoverImage already carries one.
+    "fan-radius": map.get(s.$radius, "base"),
+    // the numbers, each in its own chip: the gap between them, and each chip's padding
+    // and rounding. Literals for the padding for the reason the Discography's are —
+    // what a chip needs is enough room to read as a pill, not a step of the rhythm.
+    "meta-gap": 0.5ch,
+    "meta-padding": 0.1rem 0.6rem,
+    "meta-radius": map.get(s.$radius, "base")
+) !default;

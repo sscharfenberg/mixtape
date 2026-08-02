@@ -12,6 +12,8 @@ use App\Services\DataTableService;
 use App\Services\Music\DominantGenre;
 use App\Services\Search\FoldedSearch;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\DB;
@@ -72,13 +74,16 @@ class GenreController extends Controller
     public function __invoke(Request $request, Genre $genre): Response
     {
         $totals = $this->trackTotals($genre);
+        // Fetched ONCE and used three times: the hero's album count, the albums tab, and
+        // each artist card's album count and cover fan. Three readings of "this genre's
+        // albums" that must agree, and the cheapest way to guarantee they do is for them to
+        // be the same rows rather than three queries carrying the same condition.
+        $albums = $this->mainGenreAlbums($genre);
+        $discography = $this->discographyPayload($albums);
         // Fetched once and counted in PHP rather than counted again in SQL: the hero's
         // number and the tab's list are then the same rows by construction, where two
         // queries could drift the moment one grew a condition the other didn't.
-        $artists = $this->mainGenreArtists($genre);
-        // Same rows the albums tab renders, so the hero's count and the tab's contents agree
-        // by construction — the artists pair does the same, one line up.
-        $discography = $this->discography($genre);
+        $artists = $this->mainGenreArtists($genre, $albums);
 
         return Inertia::render('Music/Genres/Genre/GenrePage', [
             'genre' => [
@@ -86,16 +91,15 @@ class GenreController extends Controller
                 'name' => $genre->name,
 
                 'artists' => $artists->count(),
-                'albums' => count($discography),
+                'albums' => $albums->count(),
                 'songs' => $totals['songs'],
                 'duration' => $totals['duration'],
                 'size' => $totals['size'],
             ],
             // The albums tab — every album whose main genre this is, in one go.
             'discography' => $discography,
-            // The artists tab — the same rows the hero counted. The tab itself is a
-            // deliberate placeholder (see GenrePage): it lists names and nothing else until
-            // the owner specifies what it should be, so this payload is likely to grow.
+            // The artists tab — the same rows the hero counted, each with the numbers that
+            // describe it WITHIN this genre and a handful of its covers to fan out.
             'artists' => $artists->all(),
             // The songs tab, as the payload that owns the page's query params.
             'table' => $this->songTable($request, $genre),
@@ -123,9 +127,13 @@ class GenreController extends Controller
      * Unpaginated, like the artist page's — see the component's README for why it is a
      * plain list rather than a table, and for the limit that follows from it.
      *
-     * @return array<int, array<string, mixed>>
+     * Returns the MODELS rather than the page payload, because three separate things need
+     * these rows: the albums tab, the hero's album count, and each artist card (its album
+     * count and the covers it fans out). Mapping to the payload is discographyPayload's job.
+     *
+     * @return EloquentCollection<int, Collection>
      */
-    private function discography(Genre $genre): array
+    private function mainGenreAlbums(Genre $genre): EloquentCollection
     {
         return Collection::query()
             ->where('collections.type', CollectionType::Album)
@@ -143,6 +151,9 @@ class GenreController extends Controller
                 'collections.name',
                 'collections.year',
                 'collections.cover_path',
+                // Not sent to the client — it is what lets the artist cards group these same
+                // rows by the artist they belong to, without a second query.
+                'collections.album_artist_id',
                 'artists.name as artist_name',
             ])
             ->withCount('tracks')
@@ -167,7 +178,22 @@ class GenreController extends Controller
             ->orderByRaw('case when collections.year is null then 1 else 0 end')
             ->orderByDesc('collections.year')
             ->orderBy('collections.name')
-            ->get()
+            ->get();
+    }
+
+    /**
+     * The albums tab's payload — the rows above in the shape Discography.vue reads.
+     *
+     * `album_artist_id` is deliberately dropped here: it earns its place in the query
+     * because the artist cards group by it, but the component has no use for it and an
+     * unused key in a payload is a claim the page does not make.
+     *
+     * @param  EloquentCollection<int, Collection>  $albums
+     * @return array<int, array<string, mixed>>
+     */
+    private function discographyPayload(EloquentCollection $albums): array
+    {
+        return $albums
             ->map(fn (Collection $album): array => [
                 'id' => $album->id,
                 'name' => $album->name,
@@ -175,16 +201,29 @@ class GenreController extends Controller
                 'year' => $album->year,
                 'songs' => (int) $album->tracks_count,
                 'duration' => $album->tracks_sum_duration === null ? null : (float) $album->tracks_sum_duration,
-                'coverUrl' => $album->cover_path !== null || $album->embedded_cover_id !== null
-                    ? route('music.albums.cover', $album->id, absolute: false)
-                    : null,
+                'coverUrl' => $this->coverUrl($album),
                 'href' => route('music.albums.show', $album->id, absolute: false),
             ])
             ->all();
     }
 
     /**
-     * The artists whose MAIN genre this is, A–Z, as rows of `(id, name, href)`.
+     * Where an album's artwork is served from, or null when it has none.
+     *
+     * One definition, because two readings of "does this album have a picture" — the tab's
+     * and the artist card's — drifting apart would show a cover in one place and a
+     * placeholder in the other for the same record. Costs no filesystem access: both flags
+     * come off the query above.
+     */
+    private function coverUrl(Collection $album): ?string
+    {
+        return $album->cover_path !== null || $album->embedded_cover_id !== null
+            ? route('music.albums.cover', $album->id, absolute: false)
+            : null;
+    }
+
+    /**
+     * The artists whose MAIN genre this is — busiest first, then alphabetically.
      *
      * Note where the filter sits: on the OUTER query, after the ranking. Unlike the artist
      * page's filter — which DominantGenre pushes down into the innermost count, because
@@ -194,22 +233,116 @@ class GenreController extends Controller
      * this page would claim them. Every genre has to compete for an artist before we ask
      * which genre won.
      *
+     * Every number on the card is scoped to THIS GENRE, not to the artist's whole
+     * catalogue (owner's call): the songs are their songs tagged with it, the albums are
+     * their albums it won. On a genre page that is the honest reading — a card claiming an
+     * artist's full discography while sitting under one genre would describe something the
+     * page is not about. The two numbers therefore come from different places, and have to:
+     * a song belongs to a genre by its own tag, an album by which genre most of it is.
+     *
+     * @param  EloquentCollection<int, Collection>  $albums  this genre's albums, already fetched
      * @return SupportCollection<int, array<string, mixed>>
      */
-    private function mainGenreArtists(Genre $genre): SupportCollection
+    private function mainGenreArtists(Genre $genre, EloquentCollection $albums): SupportCollection
     {
+        // The same rows the albums tab shows, indexed by whose they are. A compilation
+        // filed under no album-artist groups under an empty key and matches no artist,
+        // which is right: nobody's card should claim it.
+        $albumsByArtist = $albums->groupBy('album_artist_id');
+
         return DB::query()
             ->fromSub(DominantGenre::winners(), 'winners')
             ->join('artists', 'artists.id', '=', 'winners.artist_id')
+            // Joined rather than looked up per card, so the ORDER BY below can see the
+            // count — and so the names sort under the DATABASE's collation. Sorting them in
+            // PHP afterwards would order umlauts and accents by byte value, which is not
+            // where a German reader expects to find "Ärzte".
+            ->leftJoinSub($this->artistSongTotals($genre), 'totals', 'totals.artist_id', '=', 'artists.id')
             ->where('winners.genre_id', $genre->id)
+            /*
+             * Biggest contributors first, then alphabetically (owner's call). The tab answers
+             * "who makes this genre" before "who is in it", and on a genre with a hundred
+             * artists an A–Z list buries the five that account for most of it behind ninety
+             * that have one track from a compilation.
+             *
+             * COALESCEd, and not for tidiness: an artist wins a genre on their track counts
+             * across ALL types, so one whose only tracks here are podcast episodes joins to
+             * no row — and Postgres sorts NULLs FIRST under DESC, which would open the tab
+             * with exactly the artists who have nothing in it.
+             */
+            ->orderByRaw('coalesce(totals.songs, 0) desc')
             ->orderBy('artists.name')
-            ->select(['artists.id', 'artists.name'])
+            ->select(['artists.id', 'artists.name', 'totals.songs', 'totals.duration_total'])
             ->get()
-            ->map(fn (object $artist): array => [
-                'id' => $artist->id,
-                'name' => $artist->name,
-                'href' => route('music.artists.show', $artist->id, absolute: false),
-            ]);
+            ->map(function (object $artist) use ($albumsByArtist): array {
+                $own = $albumsByArtist->get($artist->id) ?? new EloquentCollection;
+
+                return [
+                    'id' => $artist->id,
+                    'name' => $artist->name,
+                    'songs' => (int) ($artist->songs ?? 0),
+                    'albums' => $own->count(),
+                    // Raw seconds, formatted by the page against the viewer's locale.
+                    'duration' => (float) ($artist->duration_total ?? 0),
+                    'covers' => $this->fannedCovers($own),
+                    'href' => route('music.artists.show', $artist->id, absolute: false),
+                ];
+            });
+    }
+
+    /**
+     * Up to three of an artist's covers, picked at RANDOM (owner's call) from the albums
+     * they have in this genre.
+     *
+     * Random per request, which is a real trade and worth naming: the fan is different on
+     * every visit, and there is deliberately nothing to cache. It is a decorative flourish
+     * whose only job is to look like a stack of records, so a stable pick would buy
+     * cacheability the page does not otherwise need — and re-shuffling is the point.
+     *
+     * Albums with no artwork are dropped rather than fanned as placeholders: a card showing
+     * two sleeves and a grey square reads as a rendering fault, where two sleeves reads as
+     * an artist with two records. An artist whose albums ALL lack artwork yields an empty
+     * list, and the card falls back to a single placeholder — see GenreArtists.vue, which
+     * owns how one, two or three covers are laid out.
+     *
+     * @param  EloquentCollection<int, Collection>  $albums  one artist's albums in this genre
+     * @return array<int, string>
+     */
+    private function fannedCovers(EloquentCollection $albums): array
+    {
+        return $albums
+            ->map(fn (Collection $album): ?string => $this->coverUrl($album))
+            ->filter()
+            ->shuffle()
+            ->take(3)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * How many songs each artist has IN THIS GENRE, and how long they run — as a QUERY, for
+     * the caller to join against.
+     *
+     * One grouped aggregate rather than a count per card: the biggest genre here carries
+     * getting on for a hundred artists, so a per-artist query would be a hundred round trips
+     * for two numbers. Returned unexecuted so the join can order by `songs`, which a PHP-side
+     * lookup could not.
+     *
+     * Aliased away from the model's own `duration` attribute, for the reason trackTotals
+     * spells out below: an aggregate landing on an attribute that HAS a cast gets that cast
+     * applied to it.
+     */
+    private function artistSongTotals(Genre $genre): QueryBuilder
+    {
+        return Track::query()
+            ->where('tracks.genre_id', $genre->id)
+            ->where('tracks.type', TrackType::Music)
+            ->whereNotNull('tracks.artist_id')
+            ->groupBy('tracks.artist_id')
+            ->selectRaw('tracks.artist_id as artist_id')
+            ->selectRaw('count(*) as songs')
+            ->selectRaw('coalesce(sum(tracks.duration), 0) as duration_total')
+            ->toBase();
     }
 
     /**

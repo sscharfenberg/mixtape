@@ -18,8 +18,8 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
  * whole. Wiring any of them to the wrong source produces a plausible-looking number that
  * silently disagrees with the panel it labels, which no visual check would catch.
  *
- * Note the ARTISTS tab is a deliberate placeholder (names only) — the owner has their own
- * plans for it. The tests below pin what it does today without implying it is finished.
+ * The ARTISTS tab renders GenreArtists; its own spec covers the card. What is asserted here
+ * is only that this page wires the panel up and passes it the right rows.
  */
 
 /** A genre with its aggregates, plus the three panel payloads. */
@@ -56,8 +56,24 @@ const props = (overrides: Record<string, unknown> = {}) => ({
         }
     ],
     artists: [
-        { id: "artist-1", name: "Radiohead", href: "/music/artists/artist-1" },
-        { id: "artist-2", name: "Blur", href: "/music/artists/artist-2" }
+        {
+            id: "artist-1",
+            name: "Radiohead",
+            songs: 24,
+            albums: 2,
+            duration: 6296,
+            covers: ["/music/albums/album-1/cover", "/music/albums/album-2/cover"],
+            href: "/music/artists/artist-1"
+        },
+        {
+            id: "artist-2",
+            name: "Blur",
+            songs: 10,
+            albums: 1,
+            duration: 2400,
+            covers: ["/music/albums/album-3/cover"],
+            href: "/music/artists/artist-2"
+        }
     ],
     table: {
         rows: [
@@ -173,20 +189,20 @@ describe("GenrePage", () => {
             const wrapper = page();
             await nextTick();
 
-            expect(wrapper.findAll(".genre__artists a").map(node => node.text())).toStrictEqual([
+            expect(wrapper.findAll(".genre-artists__name").map(node => node.text())).toStrictEqual([
                 "Radiohead",
                 "Blur"
             ]);
         });
 
-        it("makes the placeholder artists list real links, so it stays navigable", async () => {
-            // A stand-in should not be the one route into an artist that is not
-            // keyboard-reachable or open-in-new-tab.
+        it("makes each artist card a real link, so it is keyboard-reachable", async () => {
+            // The whole card is the target; a clickable div would take it away from the
+            // keyboard and from open-in-new-tab.
             history.replaceState(null, "", "/music/genres/genre-1?tab=artists");
             const wrapper = page();
             await nextTick();
 
-            expect(wrapper.find(".genre__artists a").attributes("href")).toBe("/music/artists/artist-1");
+            expect(wrapper.find(".genre-artists__link").attributes("href")).toBe("/music/artists/artist-1");
         });
 
         it("says so when no artist calls this their main genre", async () => {

@@ -10,9 +10,9 @@ import { clockToSeconds, columnValues, expectOnTablePage, fold, pageHeading } fr
  * BACK button. None of that is observable in happy-dom: no navigation, no history, no
  * server.
  *
- * The library is a FIXED fixture (database/seeders/E2ESeeder.php) — 65 music tracks across
- * six real albums, with fixed names, durations and timestamps — so these specs can name a
- * song and assert an exact result rather than comparing the page against itself.
+ * The library is a FIXED fixture (database/seeders/E2ESeeder.php) — real albums with fixed
+ * names, durations and timestamps — so these specs can name a song and assert an exact
+ * result rather than comparing the page against itself.
  *
  * Ordering is still asserted on the DURATION column rather than the title, and that is not
  * about determinism: text ordering depends on the database's collation and the app's
@@ -25,7 +25,7 @@ import { clockToSeconds, columnValues, expectOnTablePage, fold, pageHeading } fr
 /** Fixture facts these specs rely on. See database/seeders/E2ESeeder.php. */
 const LIBRARY = {
     /** Total music tracks — more than one page at the default size of 50. */
-    tracks: 65,
+    tracks: 67,
     /** A title that appears exactly once, for an unambiguous search. */
     uniqueTitle: "Paranoid Android",
     /** The one track seeded with no duration, composer or publisher. */

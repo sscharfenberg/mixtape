@@ -316,6 +316,11 @@
             "tabs": {
                 "label": "This genre's albums, artists and songs"
             },
+            "artists": {
+                "label": "{total} artists with this as their main genre",
+                "songCount": "{n} song | {n} songs",
+                "albumCount": "{n} album | {n} albums"
+            },
             "noArtists": "No artist has this as their main genre."
         }
     },

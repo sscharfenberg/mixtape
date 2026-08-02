@@ -27,8 +27,12 @@ use Illuminate\Database\Seeder;
  *
  * The fixture is also SHAPED for the tests, and each choice below is load-bearing:
  *
- * - 65 music tracks, comfortably past DataTableService's default page size of 50, so a
+ * - 67 music tracks, comfortably past DataTableService's default page size of 50, so a
  *   listing really pages and "go to page 2" is not a no-op.
+ * - One artist is a long COLLABORATION credit rather than a band name. Those are real —
+ *   this collection's longest runs to 106 characters, four performers and their
+ *   instruments — and they are what the genre page's artist cards have to wrap rather
+ *   than truncate, so the fixture carries one to guard that.
  * - Durations are unique, so ordering by them is total — with ties, two correct
  *   orderings exist and an equality assertion picks one arbitrarily.
  * - Exactly one track carries no duration, composer or publisher: the untagged rip
@@ -109,6 +113,16 @@ class E2ESeeder extends Seeder
                 'There Is a Light That Never Goes Out', 'Some Girls Are Bigger Than Others',
             ],
         ],
+        // The long-credit case: an artist whose name is a collaboration rather than a band,
+        // in a genre of its own so it always has a card to assert against. Two tracks, not
+        // one, to keep the "every genre holds at least two" invariant above true.
+        'Sessions' => [
+            'year' => 2004,
+            'artist' => 'Jóhann Jóhannsson, Hildur Guðnadóttir & The Cinema Orchestra',
+            'genre' => 'Modern Classical',
+            'bitRate' => 256000,
+            'tracks' => ['Theme', 'Reprise'],
+        ],
         'Ágætis byrjun' => [
             'year' => 1999,
             'artist' => 'Sigur Rós',
@@ -168,7 +182,7 @@ class E2ESeeder extends Seeder
     private function seedGenres(): array
     {
         $ids = [];
-        foreach (['Alternative Rock', 'Britpop', 'Post-Rock', 'Trip Hop'] as $index => $name) {
+        foreach (['Alternative Rock', 'Britpop', 'Modern Classical', 'Post-Rock', 'Trip Hop'] as $index => $name) {
             $ids[$name] = Genre::query()->create([
                 'id' => $this->id(1, $index + 1),
                 'name' => $name,
@@ -189,7 +203,14 @@ class E2ESeeder extends Seeder
     private function seedArtists(): array
     {
         $ids = [];
-        foreach (['Blur', 'Portishead', 'Radiohead', 'Sigur Rós', 'The Smiths'] as $index => $name) {
+        foreach ([
+            'Blur',
+            'Jóhann Jóhannsson, Hildur Guðnadóttir & The Cinema Orchestra',
+            'Portishead',
+            'Radiohead',
+            'Sigur Rós',
+            'The Smiths',
+        ] as $index => $name) {
             $ids[$name] = Artist::query()->create([
                 'id' => $this->id(2, $index + 1),
                 'name' => $name,

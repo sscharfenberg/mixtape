@@ -39,6 +39,85 @@ test.describe("a genre's tabs", () => {
         await expect(page.getByRole("tab", { name: /Künstler/u })).toHaveAttribute("aria-selected", "true");
     });
 
+    test("shows an artist card per artist, with a fan of covers and its numbers", async ({ page }) => {
+        /*
+         * The fan degrades honestly, so a one-album artist must show ONE sleeve rather than a
+         * padded stack of three. Asserted as a range against the cards actually rendered
+         * rather than a fixed number, because which artists a genre holds is the seeder's
+         * business — what this pins is that no card is ever empty or over-fanned.
+         */
+        await openFirstGenre(page);
+        await page.getByRole("tab", { name: /Künstler/u }).click();
+        await expect(page).toHaveURL(/tab=artists/u);
+
+        const cards = page.locator(".genre-artists__item");
+        await expect(cards.first()).toBeVisible();
+
+        for (const card of await cards.all()) {
+            const sleeves = await card.locator(".genre-artists__sleeve").count();
+            expect(sleeves).toBeGreaterThan(0);
+            expect(sleeves).toBeLessThanOrEqual(3);
+            // Three chips — songs, albums, playing time — under a non-empty name.
+            await expect(card.locator(".genre-artists__fact")).toHaveCount(3);
+            await expect(card.locator(".genre-artists__name")).not.toBeEmpty();
+        }
+    });
+
+    test("wraps a long collaboration credit instead of clipping it", async ({ page }) => {
+        /*
+         * Guards a bug that is invisible to a text assertion: CSS truncation does not change
+         * the DOM, so `toHaveText` still passes on a name rendered as "Jóhann Jóhannsson, Hil…".
+         *
+         * The LINE COUNT is what actually catches it — verified by putting the old
+         * `white-space: nowrap` back and watching this fail. The clipping check below does
+         * not, and that is worth knowing rather than assuming: with `text-overflow: ellipsis`
+         * the box is exactly as wide as its clipped content, so `scrollWidth` equals
+         * `clientWidth` and nothing looks wrong. It is kept for the OTHER failure — a name
+         * that overflows with no ellipsis at all — but it is not the one doing the work here.
+         *
+         * The fixture carries one deliberately long collaboration credit for this.
+         */
+        await page.goto("/music/genres");
+        await expect(page.locator("tbody tr").first()).toBeVisible();
+        await page.getByRole("searchbox").fill("Modern Classical");
+        await page.waitForURL(/search=/u);
+        await page.locator("tbody tr").first().click();
+        await page.waitForURL(/\/music\/genres\/[0-9a-f-]{36}/u);
+        await page.getByRole("tab", { name: /Künstler/u }).click();
+
+        const name = page.locator(".genre-artists__name").first();
+        await expect(name).toBeVisible();
+
+        const geometry = await name.evaluate(node => ({
+            text: (node as HTMLElement).innerText,
+            clipped: node.scrollWidth > node.clientWidth + 1,
+            lines: Math.round(node.getBoundingClientRect().height / parseFloat(getComputedStyle(node).lineHeight))
+        }));
+
+        // The whole credit is there, it is not cut off, and it really did wrap.
+        expect(geometry.text).toContain("The Cinema Orchestra");
+        expect(geometry.clipped).toBe(false);
+        expect(geometry.lines).toBeGreaterThan(1);
+
+        // ...and it did not widen its card: every card in the grid is the same width.
+        const widths = await page
+            .locator(".genre-artists__item")
+            .evaluateAll(items => items.map(item => Math.round(item.getBoundingClientRect().width)));
+        expect(new Set(widths).size).toBe(1);
+    });
+
+    test("opens an artist from their card", async ({ page }) => {
+        await openFirstGenre(page);
+        await page.getByRole("tab", { name: /Künstler/u }).click();
+        await expect(page).toHaveURL(/tab=artists/u);
+
+        const name = await page.locator(".genre-artists__name").first().innerText();
+        await page.locator(".genre-artists__link").first().click();
+
+        await page.waitForURL(/\/music\/artists\/[0-9a-f-]{36}/u);
+        await expect(page.locator("main h1").first()).toHaveText(name);
+    });
+
     test("reopens the same tab after a reload", async ({ page }) => {
         await openFirstGenre(page);
         await page.getByRole("tab", { name: /Songs/u }).click();

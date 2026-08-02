@@ -316,6 +316,11 @@
             "tabs": {
                 "label": "Alben, Künstler und Songs des Genres"
             },
+            "artists": {
+                "label": "{total} Künstler mit diesem Hauptgenre",
+                "songCount": "{n} Song | {n} Songs",
+                "albumCount": "{n} Album | {n} Alben"
+            },
             "noArtists": "Kein Künstler hat dieses Genre als Hauptgenre."
         }
     },

@@ -323,6 +323,202 @@ class GenrePageTest extends TestCase
             );
     }
 
+    public function test_an_artist_cards_numbers_are_scoped_to_this_genre(): void
+    {
+        // The point of the card: it describes the artist WITHIN this genre, not their whole
+        // catalogue. The two numbers come from different places and have to — a song belongs
+        // to a genre by its own tag, an album by which genre most of it is — so this pins
+        // both against an artist who is also busy somewhere else.
+        $genre = Genre::factory()->create(['name' => 'Doom']);
+        $other = Genre::factory()->create(['name' => 'Polka']);
+        $artist = Artist::factory()->create(['name' => 'Candlemass']);
+
+        // Two albums of this genre, six songs, ten minutes.
+        foreach (range(1, 2) as $ignored) {
+            $album = Collection::factory()->create(['album_artist_id' => $artist->id]);
+            Track::factory()->count(3)->create([
+                'collection_id' => $album->id,
+                'artist_id' => $artist->id,
+                'genre_id' => $genre->id,
+                'duration' => 100.0,
+            ]);
+        }
+
+        // And one album that is mostly the OTHER genre — its songs and its album must not
+        // land on this card, even though the same artist made it.
+        $elsewhere = Collection::factory()->create(['album_artist_id' => $artist->id]);
+        Track::factory()->count(5)->create([
+            'collection_id' => $elsewhere->id,
+            'artist_id' => $artist->id,
+            'genre_id' => $other->id,
+            'duration' => 999.0,
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/genres/{$genre->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('artists', 1)
+                ->where('artists.0.name', 'Candlemass')
+                // Six songs tagged Doom, not the eleven they have in total.
+                ->where('artists.0.songs', 6)
+                // Two albums Doom won, not the three they are credited on.
+                ->where('artists.0.albums', 2)
+                // 6 x 100s, so the other album's 999s never entered the sum.
+                ->where('artists.0.duration', 600)
+            );
+    }
+
+    public function test_the_artists_tab_leads_with_the_biggest_contributors(): void
+    {
+        // Busiest first, then alphabetically (owner's call). On a genre with a hundred
+        // artists an A–Z list buries the few that account for most of it behind the many
+        // with one track from a compilation.
+        $genre = Genre::factory()->create();
+
+        // Deliberately named so that alphabetical and by-song order DISAGREE — otherwise
+        // the test would pass under either rule.
+        $this->tracks(Artist::factory()->create(['name' => 'Zebra']), $genre, 9);
+        $this->tracks(Artist::factory()->create(['name' => 'Aardvark']), $genre, 2);
+        $this->tracks(Artist::factory()->create(['name' => 'Mongoose']), $genre, 5);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/genres/{$genre->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('artists.0.name', 'Zebra')
+                ->where('artists.1.name', 'Mongoose')
+                ->where('artists.2.name', 'Aardvark')
+            );
+    }
+
+    public function test_artists_with_the_same_song_count_fall_back_to_their_name(): void
+    {
+        // The tiebreaker, which is also the determinism backstop: without it two artists on
+        // the same count could swap places between requests, so a reader refreshing the page
+        // would see the list shuffle for no reason.
+        $genre = Genre::factory()->create();
+
+        $this->tracks(Artist::factory()->create(['name' => 'Charlie']), $genre, 4);
+        $this->tracks(Artist::factory()->create(['name' => 'Alpha']), $genre, 4);
+        $this->tracks(Artist::factory()->create(['name' => 'Bravo']), $genre, 4);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/genres/{$genre->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('artists.0.name', 'Alpha')
+                ->where('artists.1.name', 'Bravo')
+                ->where('artists.2.name', 'Charlie')
+            );
+    }
+
+    public function test_an_artist_card_fans_at_most_three_covers_from_this_genres_albums(): void
+    {
+        // The fan is capped and drawn from the artist's albums IN THIS GENRE. Five albums
+        // here, so the cap is doing real work rather than being satisfied by the data.
+        $genre = Genre::factory()->create();
+        $artist = Artist::factory()->create();
+
+        $covers = [];
+        foreach (range(1, 5) as $ignored) {
+            $album = Collection::factory()->create([
+                'album_artist_id' => $artist->id,
+                'cover_path' => 'Artist/Album/folder.jpg',
+            ]);
+            Track::factory()->create([
+                'collection_id' => $album->id,
+                'artist_id' => $artist->id,
+                'genre_id' => $genre->id,
+            ]);
+            $covers[] = "/music/albums/{$album->id}/cover";
+        }
+
+        $response = $this->actingAs(User::factory()->create())
+            ->get("/music/genres/{$genre->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->has('artists.0.covers', 3));
+
+        // Whichever three were drawn, each must be one of this artist's own albums and each
+        // must be distinct — a repeated sleeve would read as a bug.
+        $drawn = $response->viewData('page')['props']['artists'][0]['covers'];
+
+        $this->assertSame(array_values(array_unique($drawn)), $drawn, 'the fan must not repeat a cover');
+        foreach ($drawn as $cover) {
+            $this->assertContains($cover, $covers);
+        }
+    }
+
+    public function test_an_artist_card_offers_no_covers_when_no_album_carries_artwork(): void
+    {
+        // Dropped rather than fanned as placeholders: two sleeves and a grey square reads as
+        // a rendering fault, where the page's own fallback (a single placeholder) does not.
+        $genre = Genre::factory()->create();
+        $artist = Artist::factory()->create();
+        $album = Collection::factory()->create(['album_artist_id' => $artist->id, 'cover_path' => null]);
+        Track::factory()->create([
+            'collection_id' => $album->id,
+            'artist_id' => $artist->id,
+            'genre_id' => $genre->id,
+            'cover' => false,
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/genres/{$genre->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->has('artists.0.covers', 0));
+    }
+
+    public function test_an_artist_with_songs_but_no_album_of_this_genre_still_gets_a_card(): void
+    {
+        // Loose tracks: tagged with the genre, filed under no collection. The songs are
+        // theirs, the album count is honestly 0, and the card must still render — the tab
+        // lists artists, and this one qualifies.
+        $genre = Genre::factory()->create();
+        $artist = Artist::factory()->create(['name' => 'Loose Ends']);
+        Track::factory()->count(2)->create([
+            'collection_id' => null,
+            'artist_id' => $artist->id,
+            'genre_id' => $genre->id,
+            'duration' => 60.0,
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/genres/{$genre->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('artists.0.name', 'Loose Ends')
+                ->where('artists.0.songs', 2)
+                ->where('artists.0.albums', 0)
+                ->has('artists.0.covers', 0)
+                ->where('artists.0.duration', 120)
+            );
+    }
+
+    public function test_a_compilation_is_credited_to_nobodys_card(): void
+    {
+        // An album filed under no album-artist groups under an empty key. Nobody's card may
+        // claim it, even though the artist has a track on it.
+        $genre = Genre::factory()->create();
+        $artist = Artist::factory()->create();
+        $compilation = Collection::factory()->create(['album_artist_id' => null]);
+        Track::factory()->create([
+            'collection_id' => $compilation->id,
+            'artist_id' => $artist->id,
+            'genre_id' => $genre->id,
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/genres/{$genre->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                // The album is in the genre's discography...
+                ->has('discography', 1)
+                // ...but on nobody's card.
+                ->where('artists.0.albums', 0)
+            );
+    }
+
     public function test_the_songs_tab_is_the_only_thing_reading_the_pages_sort_params(): void
     {
         // The page carries ONE server-driven table on purpose: DataTableService reads

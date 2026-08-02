@@ -1,0 +1,62 @@
+/******************************************************************************
+ * contextual color tokens — component:GenreArtists.vue
+ * @type {Sass}
+ * The genre page's artist cards: a fanned stack of that artist's covers, their
+ * name, and the three numbers describing them WITHIN this genre.
+ *
+ * The tile values are the Discography's, re-picked from the globals (a contextual
+ * partial consumes globals, never another partial's tokens). Deliberately so: these
+ * cards sit one tab away from that component on the same page, and a reader flipping
+ * between ALBUMS and ARTISTS should not meet two different ideas of what a tile is.
+ * Unlike the Discography there is no zebra pair — these are only ever a grid, and
+ * alternation in a grid whose column count changes with the viewport produces a
+ * pattern that reshuffles as you resize rather than one that helps.
+ *
+ * `fan-shadow` is what makes the fan read as three separate records rather than one
+ * smeared image: the rotated covers overlap, so the middle one needs to be lifted off
+ * its neighbours. The sleeve's own hairline edge comes from CoverImage — drawing a
+ * second one here is what made the first attempt look like picture frames.
+ * Consumed as c.$c-genre-artists via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$genre-artists: (
+    // the card's own fill — the Discography tile's `odd` value, uniformly
+    "background": light-dark(
+            color.adjust(map.get(c.$grey, "astral"), $alpha: -0.25),
+            color.adjust(map.get(c.$grey, "ebony"), $alpha: -0.25)
+        ),
+    // the card's edge, matching the Discography tile's
+    "border": light-dark(
+            color.adjust(map.get(c.$grey, "slate"), $alpha: -0.25),
+            color.adjust(map.get(c.$grey, "charcoal"), $alpha: -0.25)
+        ),
+    // hover — a shift of the card's own fill rather than a repaint, since it already
+    // carries one
+    "hover-background": light-dark(
+            color.adjust(map.get(c.$grey, "iron"), $alpha: -0.65),
+            color.adjust(map.get(c.$grey, "abbey"), $alpha: -0.4)
+        ),
+    // the halo around a hovered card — the same control neon the DataTable's clickable
+    // rows and the Discography's tiles light up with, because it means the same thing
+    "glow": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
+    // the artist's numbers, one step down from their name so the name reads first
+    "surface-meta": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
+    // each number sits in its own chip — a neutral wash that darkens on light and lifts
+    // on dark, so it reads the same against either theme's card fill
+    "meta-background": light-dark(
+            color.adjust(map.get(c.$grey, "iron"), $alpha: -0.6),
+            color.adjust(map.get(c.$grey, "asher"), $alpha: -0.5)
+        ),
+    // what lifts each sleeve off the one beneath it — the other half of the illusion, and
+    // the half this component owns (CoverImage draws the sleeve's own hairline edge). Both rungs are dark
+    // and translucent: a shadow is an absence of light on either theme, so this
+    // deepens rather than inverting — it is only the strength that differs, since a
+    // dark surface needs more of it to register at all.
+    "fan-shadow": light-dark(
+            color.adjust(map.get(c.$grey, "asher"), $alpha: -0.7),
+            color.adjust(map.get(c.$grey, "black"), $alpha: -0.5)
+        )
+) !default;

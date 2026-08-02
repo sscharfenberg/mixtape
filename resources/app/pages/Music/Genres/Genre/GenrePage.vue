@@ -13,15 +13,16 @@
  * The three panels are shaped by their sizes, and only SONGS is a server-driven DataTable:
  * DataTableService reads its params unprefixed and every tab renders at once, so a second
  * table would drive the first from the same query string. Albums are the shared Discography
- * list and artists a plain list of links.
+ * list; artists are cards of their own (GenreArtists), each fanning a few of that artist's
+ * covers over the numbers describing them within this genre.
  *
  * Which tab is open lives in `?tab=`, so a reload or a shared link reopens it — but it is
  * only ever CLIENT state written into the URL: the controller sends all three panels
  * whatever the param says, so switching tabs costs no request (see useTabParam).
  *
- * Worth knowing while reading the tabs: ARTISTS are those whose MAIN genre this is, not
- * everyone who recorded a song in it, while ALBUMS is every album holding one such song.
- * Two different rules, and GenreController explains why each is the one it is.
+ * Worth knowing while reading the tabs: ARTISTS and ALBUMS both mean "whose MAIN genre this
+ * is" — not everyone who recorded a song in it, and not every record holding one. SONGS keeps
+ * the literal reading, since that is a question about tracks. GenreController explains why.
  *
  * No `#cover` slot, and deliberately so: a genre is a name other rows point at, with no
  * artwork of its own anywhere on disk. HeroSection draws its dashed placeholder only when
@@ -31,7 +32,7 @@
  * The controller sends raw values (seconds, bytes, plain counts); the formatting happens
  * here against the active locale (Utils/formatting.ts).
  *****************************************************************************/
-import { Head, Link } from "@inertiajs/vue3";
+import { Head } from "@inertiajs/vue3";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import Discography, { type DiscographyAlbum } from "Components/Music/Discography/Discography.vue";
@@ -43,6 +44,7 @@ import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import { useTabParam } from "Composables/useTabParam";
 import type { TableResponse } from "Types/dataTable";
 import { formatClock, formatFileSize } from "Utils/formatting";
+import GenreArtists, { type GenreArtist } from "./GenreArtists.vue";
 import GenreSongs, { type GenreSongRow } from "./GenreSongs.vue";
 
 /** One genre as GenreController shaped it — every value raw. */
@@ -68,20 +70,12 @@ interface GenreDetail {
     size: number;
 }
 
-/** One artist whose main genre this is, as GenreController shaped it. */
-interface GenreArtist {
-    id: string;
-    name: string;
-    /** That artist's own page — the whole row is a link to it. */
-    href: string;
-}
-
 const props = defineProps<{
     /** The genre being shown, as GenreController shaped it. */
     genre: GenreDetail;
     /** Every album whose MAIN genre this is, for the albums tab. Carries its album-artist. */
     discography: DiscographyAlbum[];
-    /** The artists whose MAIN genre this is, A–Z — the same rows the hero's count came from. */
+    /** The artists whose MAIN genre this is, busiest first — the same rows the hero counted. */
     artists: GenreArtist[];
     /** Its songs, as the server-driven table payload (rows + pagination + sort + search). */
     table: TableResponse<GenreSongRow>;
@@ -167,22 +161,12 @@ const tabs = computed<TabDefinition[]>(() => [
                     <discography :albums="discography" show-artist />
                 </template>
 
-                <!-- DELIBERATELY UNFINISHED, and parked rather than half-built: names only,
-                     because the owner has their own ideas for what this tab should become
-                     and will specify them. Do not grow it into a listing or a card grid on
-                     the assumption it was left incomplete by accident.
-
-                     Real links rather than clickable text even so, so the placeholder is
-                     keyboard reachable and open-in-new-tab like every other route into an
-                     artist — a stand-in should not be the one thing on the page that is not
-                     navigable. -->
+                <!-- One card per artist, each fanning a few of their covers. The component
+                     owns the whole card, including how a fan of one, two or three sleeves is
+                     laid out — which is not a detail this page should know, since half of all
+                     artists here have a single album. -->
                 <template #artists>
-                    <ul v-if="artists.length > 0" class="genre__artists">
-                        <li v-for="artist in artists" :key="artist.id">
-                            <Link :href="artist.href">{{ artist.name }}</Link>
-                        </li>
-                    </ul>
-                    <p v-else>{{ t("music.genre.noArtists") }}</p>
+                    <genre-artists :artists="artists" />
                 </template>
 
                 <!-- `base-url` is this page, so sorting / paging / searching navigate back
@@ -211,16 +195,4 @@ const tabs = computed<TabDefinition[]>(() => [
     gap: map.get(s.$c-card, "gap");
 }
 
-/* The artists tab, until it grows a listing of its own: a plain wrapping row of names, so a
-   genre with two hundred of them stays one readable block rather than two hundred lines. */
-.genre__artists {
-    display: flex;
-    flex-wrap: wrap;
-
-    padding: 0;
-    margin: 0;
-    gap: map.get(s.$c-card, "gap");
-
-    list-style: none;
-}
 </style>
