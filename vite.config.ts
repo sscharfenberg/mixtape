@@ -6,6 +6,7 @@ import { Features } from "lightningcss";
 import { defineConfig, loadEnv } from "vite";
 import { ViteImageOptimizer } from "vite-plugin-image-optimizer";
 import vitePluginVueDevtools from "vite-plugin-vue-devtools";
+import { aliases } from "./resources/build/aliases";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -131,16 +132,8 @@ export default defineConfig(({ mode }) => {
          * https://vite.dev/config/shared-options.html#resolve-alias
          */
         resolve: {
-            alias: {
-                "~": path.resolve(__dirname, "node_modules"),
-                "@": path.resolve(__dirname, "resources/app"),
-                Assets: path.resolve(__dirname, "resources/app/assets"),
-                Components: path.resolve(__dirname, "resources/app/components"),
-                Composables: path.resolve(__dirname, "resources/app/composables"),
-                Utils: path.resolve(__dirname, "resources/app/utils"),
-                Abstracts: path.resolve(__dirname, "resources/app/styles/abstracts"),
-                Types: path.resolve(__dirname, "resources/app/types")
-            }
+            // shared with vitest.config.ts — see resources/build/aliases.ts
+            alias: aliases
         },
 
         optimizeDeps: {

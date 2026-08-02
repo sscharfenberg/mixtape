@@ -38,7 +38,8 @@
             "Composables/*": ["./resources/app/composables/*"],
             "Utils/*": ["./resources/app/utils/*"],
             "Abstracts/*": ["./resources/app/styles/abstracts/*"],
-            "Types/*": ["./resources/app/types/*"]
+            "Types/*": ["./resources/app/types/*"],
+            "Testing/*": ["./resources/app/testing/*"]
         },
         // "rootDirs": [],                                   /* Allow multiple folders to be treated as one when resolving modules. */
         // "typeRoots": [],                                  /* Specify multiple folders that act like './node_modules/@types'. */
@@ -122,6 +123,7 @@
         "resources/types/**/*.d.ts",
         "resources/**/*.vue",
         "resources/**/*.ts",
-        "vite.config.ts"
+        "vite.config.ts",
+        "vitest.config.ts"
     ]
 }
