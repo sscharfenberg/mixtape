@@ -141,11 +141,20 @@ provide(DATA_TABLE_KEY, {
 const rowIds = computed(() => props.response.rows.map(row => row.id));
 /** True while an Inertia navigation is in flight — shows the loading overlay. */
 const isLoading = ref(false);
-router.on("start", () => {
-    isLoading.value = true;
+/*
+ * Prefetches are NOT navigations, and Inertia fires the same `start` / `finish` events for
+ * them. Without this guard, merely running the pointer across the table — which is what
+ * arms DataTableBody's hover prefetch — flashed the overlay over rows that were not going
+ * anywhere. `finish` is guarded too, and for the opposite reason: a prefetch completing
+ * while a real visit is in flight would otherwise clear the overlay early.
+ */
+const isNavigation = (event: { detail: { visit: { prefetch: boolean } } }): boolean =>
+    !event.detail.visit.prefetch;
+router.on("start", event => {
+    if (isNavigation(event)) isLoading.value = true;
 });
-router.on("finish", () => {
-    isLoading.value = false;
+router.on("finish", event => {
+    if (isNavigation(event)) isLoading.value = false;
 });
 /** Screen reader announcement text, updated on sort and page changes. */
 const announcement = ref("");

@@ -66,7 +66,7 @@ const emptyText = computed(() =>
         </template>
         <widget-list :items="items" :empty-text="emptyText" />
         <template #footer>
-            <Link href="/music/songs" class="btn btn-primary">{{ t("music.seeAll") }}</Link>
+            <Link href="/music/songs" class="btn btn-primary" prefetch>{{ t("music.seeAll") }}</Link>
         </template>
     </widget>
 </template>

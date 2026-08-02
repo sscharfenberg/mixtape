@@ -53,7 +53,7 @@ const items = computed<WidgetListItem[]>(() =>
         </template>
         <widget-list :items="items" />
         <template #footer>
-            <Link href="/music/albums" class="btn btn-primary">{{ t("music.seeAll") }}</Link>
+            <Link href="/music/albums" class="btn btn-primary" prefetch>{{ t("music.seeAll") }}</Link>
         </template>
     </widget>
 </template>

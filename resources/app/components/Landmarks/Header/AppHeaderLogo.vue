@@ -15,7 +15,7 @@ const appName = import.meta.env.VITE_APP_NAME;
 </script>
 
 <template>
-    <Link href="/"><img src="./logo.svg" :alt="t('header.logoAlt', { appName })" /></Link>
+    <Link href="/" prefetch><img src="./logo.svg" :alt="t('header.logoAlt', { appName })" /></Link>
 </template>
 
 <style scoped lang="scss">

@@ -170,10 +170,11 @@ this is the record of *why* that code exists.
 
 **Frontend unit**
 
-- **Module singletons leak between tests.** `useToast`, `useBreadcrumbs` and `useTooltipLayer` are
-  module-level state (the no-Pinia store), so drain them in `beforeEach`. A still-mounted wrapper
-  also re-renders when the singleton changes — assert one case fully, `unmount()`, then set up the
-  next.
+- **Module singletons leak between tests.** `useToast` and `useTooltipLayer` are module-level state
+  (the no-Pinia store), so drain them in `beforeEach`. A still-mounted wrapper also re-renders when
+  the singleton changes — assert one case fully, `unmount()`, then set up the next. (`useBreadcrumbs`
+  used to be one of these; it now writes to Inertia's layout-prop store, which `resetInertia()`
+  empties. Assert what a page published with `getLayoutProps().breadcrumbs`.)
 - **happy-dom has no `localStorage`** (it does have `sessionStorage`), no `execCommand` and no
   Popover API. Polyfilled in `setup.ts`. The polyfill is installed *unconditionally* because Node's
   own experimental `localStorage` prints a warning when merely **read**.

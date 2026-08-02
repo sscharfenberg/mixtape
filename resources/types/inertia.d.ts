@@ -1,7 +1,8 @@
-export {};
+import type { BreadcrumbItem } from "Composables/useBreadcrumbs";
 
 /**
- * Props shared with every Inertia page by `HandleInertiaRequests::share()`.
+ * Props shared with every Inertia page by `HandleInertiaRequests::share()`,
+ * plus the layout props a page publishes for itself.
  * Extend this as more shared data is added on the server side.
  */
 declare module "@inertiajs/core" {
@@ -42,6 +43,16 @@ declare module "@inertiajs/core" {
                 duration: number | null;
                 nonce: string | null;
             };
+        };
+        // Props a PAGE publishes to its layout, rather than anything the server
+        // sends. Inertia spreads these onto FullLayout and — crucially — resets
+        // them inside `swapComponent`, so the outgoing page's values survive
+        // until the incoming one is actually on screen (see useBreadcrumbs).
+        layoutProps: {
+            // The trail declared by the current page, read by FullLayout and
+            // handed to the single <Breadcrumb>. Absent on a page that declares
+            // none, which is how the trail hides itself.
+            breadcrumbs: BreadcrumbItem[];
         };
     }
 }

@@ -14,7 +14,7 @@ const appName = import.meta.env.VITE_APP_NAME;
 
 <template>
     <h1>
-        <Link href="/">
+        <Link href="/" prefetch>
             <span>{{ appName }}</span>
             <span>{{ appName }}</span>
         </Link>

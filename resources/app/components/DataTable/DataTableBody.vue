@@ -5,17 +5,23 @@
  * (slot-driven via `cell-{key}`, falling back to the raw value), optional
  * selection checkbox, an optional three-dot actions button (emits up so the
  * shared popover anchors to it), and clickable rows when the row carries an
- * `href` (navigates to the detail page). Styling — zebra striping, cell borders,
- * rounded last-row corners, the clickable row's hover wash — lives in the scoped
- * block (c/s/ti.$c-datatable).
+ * `href` (navigates to the detail page — prefetched on hover, see onRowEnter).
+ * Styling — zebra striping, cell borders, rounded last-row corners, the
+ * clickable row's hover wash — lives in the scoped block (c/s/ti.$c-datatable).
  *****************************************************************************/
 import { router } from "@inertiajs/vue3";
-import { inject, useSlots } from "vue";
+import { inject, onUnmounted, useSlots } from "vue";
 import { isRowNavigation } from "Components/DataTable/rowNavigation";
 import Checkbox from "Components/Form/Checkbox.vue";
 import Icon from "Components/UI/Icon.vue";
 import type { ColumnDef } from "Types/dataTable";
 import { DATA_TABLE_KEY } from "Types/dataTable";
+
+// How long the pointer must rest on a row before its page is fetched. This is
+// Inertia's own default for <Link prefetch> (config `prefetch.hoverDelay`),
+// matched deliberately so a row and a link inside one behave identically — and
+// so sweeping the pointer down a 25-row table fires nothing.
+const HOVER_INTENT = 75;
 defineProps<{
     /** Column definitions controlling which cells to render per row. */
     columns: ColumnDef<T>[];
@@ -32,6 +38,7 @@ const emit = defineEmits<{
 }>();
 const provided = inject(DATA_TABLE_KEY)!;
 const slots = useSlots();
+let prefetchTimer: ReturnType<typeof setTimeout> | undefined;
 /**
  * Navigate to the row's detail page when the row is clicked. `isRowNavigation`
  * filters out the clicks that only *look* like row clicks — on a control inside a
@@ -40,6 +47,25 @@ const slots = useSlots();
 function onRowClick(row: T, event: MouseEvent) {
     if (row.href && isRowNavigation(event)) router.visit(row.href);
 }
+/**
+ * Fetch the row's detail page while the pointer is resting on it, so the click
+ * that usually follows already has its response in hand — no progress bar, no
+ * wait, just the new page. A row is the app's main way into a detail page, and
+ * it is a `router.visit` rather than a <Link>, so it gets none of Inertia's
+ * built-in link prefetching for free. Inertia caches the response for 30s and
+ * dedupes repeats, so re-entering a row costs nothing.
+ */
+function onRowEnter(row: T) {
+    const href = row.href;
+    if (!href) return;
+    clearTimeout(prefetchTimer);
+    prefetchTimer = setTimeout(() => router.prefetch(href), HOVER_INTENT);
+}
+/** Drop a prefetch the pointer left before the intent delay was up — including one still pending at unmount. */
+function cancelPrefetch() {
+    clearTimeout(prefetchTimer);
+}
+onUnmounted(cancelPrefetch);
 /** Emit the action event with the row + trigger button element for popover anchoring. */
 function onActionClick(row: T, event: MouseEvent) {
     emit("action", row, event.currentTarget as HTMLElement);
@@ -53,6 +79,8 @@ function onActionClick(row: T, event: MouseEvent) {
             :key="row.id"
             :class="{ 'dt-body__row--clickable': !!row.href }"
             @click="onRowClick(row, $event)"
+            @mouseenter="onRowEnter(row)"
+            @mouseleave="cancelPrefetch"
         >
             <td v-if="selectable" class="dt-body__check" @click.stop>
                 <checkbox

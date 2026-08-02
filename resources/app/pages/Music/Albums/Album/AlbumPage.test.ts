@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import { resetInertia } from "Testing/inertia";
 import { mountApp, translate } from "Testing/mount";
 import AlbumPage from "./AlbumPage.vue";
@@ -75,7 +74,6 @@ const heroTile = (wrapper: ReturnType<typeof page>, label: string) =>
 describe("AlbumPage", () => {
     beforeEach(() => {
         resetInertia();
-        useBreadcrumbs().setBreadcrumbs([]);
     });
 
     describe("the genre tile", () => {

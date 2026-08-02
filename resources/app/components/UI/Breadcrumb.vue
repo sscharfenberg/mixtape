@@ -1,10 +1,11 @@
 <script setup lang="ts">
 /******************************************************************************
  * Breadcrumb
- * The breadcrumb trail, ported from cantrip.me. Mounted ONCE in FullLayout and
- * fed by the module-level useBreadcrumbs store, so a page declares its path in
- * `<script setup>` and this renders it — see Composables/useBreadcrumbs for why
- * the trail is declared rather than derived from the URL.
+ * The breadcrumb trail, ported from cantrip.me. Mounted ONCE in FullLayout,
+ * which hands it the trail the current page declared via useBreadcrumbs (an
+ * Inertia layout prop — see that composable for why the trail is declared by the
+ * page rather than derived from the URL, and why layout props are what keep it
+ * on screen for the whole of a navigation).
  *
  * Renders nothing at all when the trail is empty (the site root, which *is* the
  * home chip, and any page that hasn't declared a path). Otherwise: a fixed home
@@ -29,10 +30,14 @@
 import { Link } from "@inertiajs/vue3";
 import { useI18n } from "vue-i18n";
 import Icon from "Components/UI/Icon.vue";
-import { useBreadcrumbs } from "Composables/useBreadcrumbs";
+import type { BreadcrumbItem } from "Composables/useBreadcrumbs";
+
+defineProps<{
+    /** The trail to draw, in display order — the last item is the page you are on. Empty renders nothing. */
+    crumbs: BreadcrumbItem[];
+}>();
 
 const { t } = useI18n();
-const { crumbs } = useBreadcrumbs();
 
 /**
  * Resolve a breadcrumb's displayed text: prefer the raw `label` if set,
@@ -40,20 +45,21 @@ const { crumbs } = useBreadcrumbs();
  * wins because it carries the values that are never in the catalog — a song's
  * title, an album name.
  */
-function resolveLabel(crumb: (typeof crumbs.value)[number]): string {
+function resolveLabel(crumb: BreadcrumbItem): string {
     return crumb.label ?? t(crumb.labelKey ?? "", crumb.params ?? {});
 }
 </script>
 
 <template>
     <nav v-if="crumbs.length" class="breadcrumb" :aria-label="t('breadcrumb.nav')">
-        <Link href="/" class="breadcrumb__item" :aria-label="t('breadcrumb.home')"
+        <Link href="/" class="breadcrumb__item" prefetch :aria-label="t('breadcrumb.home')"
             ><span><icon name="home" /></span
         ></Link>
         <template v-for="(crumb, index) in crumbs" :key="crumb.labelKey ?? crumb.label">
             <Link
                 v-if="crumb.href"
                 :href="crumb.href"
+                prefetch
                 :class="['breadcrumb__item', { 'breadcrumb__item--parent': index === crumbs.length - 2 }]"
             >
                 <span

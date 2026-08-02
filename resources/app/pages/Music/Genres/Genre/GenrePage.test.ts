@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
-import { useBreadcrumbs } from "Composables/useBreadcrumbs";
-import { resetInertia } from "Testing/inertia";
+import { getLayoutProps, resetInertia } from "Testing/inertia";
 import { mountApp, translate } from "Testing/mount";
 import GenrePage from "./GenrePage.vue";
 
@@ -116,7 +115,6 @@ const tabLabels = (wrapper: ReturnType<typeof page>): string[] =>
 describe("GenrePage", () => {
     beforeEach(() => {
         resetInertia();
-        useBreadcrumbs().setBreadcrumbs([]);
         history.replaceState(null, "", "/music/genres/genre-1");
         Element.prototype.scrollIntoView = vi.fn();
         vi.stubGlobal(
@@ -132,7 +130,7 @@ describe("GenrePage", () => {
     it("declares a trail whose parent is the listing this row came from", () => {
         page();
 
-        expect(useBreadcrumbs().crumbs.value).toStrictEqual([
+        expect(getLayoutProps().breadcrumbs).toStrictEqual([
             { labelKey: "header.siteMenu.music", href: "/music", icon: "music" },
             { labelKey: "music.widgets.genres", href: "/music/genres", icon: "genre" },
             { label: "Alternative Rock" }

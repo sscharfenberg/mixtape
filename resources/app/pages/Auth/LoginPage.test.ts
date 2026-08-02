@@ -1,7 +1,6 @@
 import { flushPromises } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useBreadcrumbs } from "Composables/useBreadcrumbs";
-import { resetInertia, routerCalls, setPage } from "Testing/inertia";
+import { getLayoutProps, resetInertia, routerCalls, setPage } from "Testing/inertia";
 import { mountApp, translate } from "Testing/mount";
 import LoginPage from "./LoginPage.vue";
 
@@ -55,7 +54,6 @@ const signIn = async (wrapper: ReturnType<typeof page>, name = "Ashaltiriak", pa
 describe("LoginPage", () => {
     beforeEach(() => {
         resetInertia();
-        useBreadcrumbs().setBreadcrumbs([]);
         vi.unstubAllGlobals();
     });
 
@@ -63,7 +61,7 @@ describe("LoginPage", () => {
         page();
 
         // A reset link arrives by mail and is reached without passing through login.
-        expect(useBreadcrumbs().crumbs.value).toStrictEqual([{ labelKey: "auth.login.pageTitle", icon: "key" }]);
+        expect(getLayoutProps().breadcrumbs).toStrictEqual([{ labelKey: "auth.login.pageTitle", icon: "key" }]);
     });
 
     it("renders the credential fields", () => {

@@ -111,7 +111,7 @@ const total = computed(() => formatDecimals(props.artists.length, locale.value))
          one thing a bare grid of links would say worse. -->
     <ul v-if="artists.length > 0" class="genre-artists" :aria-label="t('music.genre.artists.label', { total })">
         <li v-for="artist in artists" :key="artist.id" class="genre-artists__item">
-            <Link :href="artist.href" class="genre-artists__link">
+            <Link :href="artist.href" class="genre-artists__link" prefetch>
                 <!-- `aria-hidden`: the fan is decoration for the artist's name, which is the
                      next thing inside the same link. Naming each sleeve would have a screen
                      reader read three album titles before reaching the person. -->

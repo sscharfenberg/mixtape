@@ -53,7 +53,7 @@ defineProps<{
 <template>
     <ul v-if="items.length" class="widget-list">
         <li v-for="item in items" :key="item.id">
-            <Link :href="item.href" class="widget-list__item">
+            <Link :href="item.href" class="widget-list__item" prefetch>
                 <span class="widget-list__name">{{ item.name }}</span>
                 <span v-if="item.pips.length" class="widget-list__pips">
                     <!-- The tip sits on the whole pip, not on the icon: the value is part of

@@ -43,19 +43,19 @@ function closePopover(): void {
         >
             <ul class="popover-list">
                 <li v-if="!user">
-                    <Link class="popover-list-item" href="/login" @click="closePopover">
+                    <Link class="popover-list-item" href="/login" prefetch @click="closePopover">
                         <icon name="login" :size="1" />
                         {{ t("header.userMenu.login") }}
                     </Link>
                 </li>
                 <li v-if="!user && features.resetPasswords">
-                    <Link class="popover-list-item" href="/forgot" @click="closePopover">
+                    <Link class="popover-list-item" href="/forgot" prefetch @click="closePopover">
                         <icon name="support" :size="1" />
                         {{ t("header.userMenu.loginHelp") }}
                     </Link>
                 </li>
                 <li v-if="user">
-                    <Link class="popover-list-item" href="/dashboard" @click="closePopover">
+                    <Link class="popover-list-item" href="/dashboard" prefetch @click="closePopover">
                         <icon name="user-settings" :size="1" />
                         {{ t("header.userMenu.dashboard") }}
                     </Link>

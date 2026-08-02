@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
 import type { Component } from "vue";
-import { resetInertia } from "Testing/inertia";
+import { emitRouterEvent, resetInertia, routerCalls } from "Testing/inertia";
 import { mountApp } from "Testing/mount";
 import type { ColumnDef, TableResponse } from "Types/dataTable";
 import DataTable from "./DataTable.vue";
@@ -20,10 +21,11 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
  * even when a search has narrowed it to a single row.
  */
 
-/** One row of the throwaway table. */
+/** One row of the throwaway table. `href` makes it clickable, and so prefetchable. */
 interface Row {
     id: string;
     name: string;
+    href?: string;
 }
 
 const columns: ColumnDef<Row>[] = [{ key: "name", label: "Name", sortable: true }];
@@ -101,5 +103,124 @@ describe("DataTable pagination visibility", () => {
     it("hides it when the server paginates nothing at all", () => {
         // `pageSize: null` is the server's "this table is not paginated" signal.
         expect(hasPager(table({ pageSize: null, total: 500, totalUnfiltered: 500 }))).toBe(false);
+    });
+});
+
+/*
+ * Hovering a row warms the page it leads to.
+ *
+ * A row is the app's main way into a detail page and it navigates through `router.visit`,
+ * not a <Link>, so it gets none of Inertia's built-in link prefetching for free — this is
+ * the code that stands in for it. What is worth pinning is the *intent delay*: without it,
+ * running the pointer down a 25-row table on the way to the scrollbar would fire 25
+ * requests at the server.
+ */
+describe("DataTable row prefetching", () => {
+    beforeEach(() => {
+        resetInertia();
+        vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    /** The clickable-row table these tests hover over. */
+    const clickable = () => table({ rows: [{ id: "row-1", name: "Only Row", href: "/music/songs/row-1" }] });
+
+    /** Every URL handed to router.prefetch so far. */
+    const prefetched = (): (string | undefined)[] =>
+        routerCalls.filter(call => call.method === "prefetch").map(call => call.url);
+
+    it("fetches the row's page once the pointer has rested on it", async () => {
+        const wrapper = clickable();
+
+        await wrapper.find(".dt-body__row--clickable").trigger("mouseenter");
+        vi.advanceTimersByTime(100);
+
+        expect(prefetched()).toStrictEqual(["/music/songs/row-1"]);
+    });
+
+    it("fetches nothing while the pointer is only passing through", async () => {
+        // The reason the delay exists: a pointer crossing the table is not a reader
+        // choosing a row.
+        const wrapper = clickable();
+        const row = wrapper.find(".dt-body__row--clickable");
+
+        await row.trigger("mouseenter");
+        vi.advanceTimersByTime(50);
+        await row.trigger("mouseleave");
+        vi.advanceTimersByTime(100);
+
+        expect(prefetched()).toStrictEqual([]);
+    });
+
+    it("fetches nothing for a row that leads nowhere", async () => {
+        const wrapper = table({ rows: [{ id: "row-1", name: "Only Row" }] });
+
+        await wrapper.find("tbody tr").trigger("mouseenter");
+        vi.advanceTimersByTime(100);
+
+        expect(prefetched()).toStrictEqual([]);
+    });
+});
+
+/*
+ * The loading overlay belongs to NAVIGATIONS, and a prefetch is not one.
+ *
+ * Inertia fires the same `start` / `finish` events for a hover prefetch as for a real visit,
+ * so before this guard existed, running the pointer across the table — which is exactly what
+ * arms the row prefetch above — flashed the spinner over rows nobody was going to. Caught in
+ * the browser, pinned here because the events are indistinguishable without reading `prefetch`.
+ */
+describe("DataTable loading overlay", () => {
+    beforeEach(() => {
+        resetInertia();
+    });
+
+    /** An Inertia router event carrying a visit, as the real ones do. */
+    const visitEvent = (prefetch: boolean) => ({ detail: { visit: { prefetch, only: [], completed: true } } });
+
+    /** Is the spinner overlay on screen? */
+    const hasOverlay = (wrapper: ReturnType<typeof table>): boolean => wrapper.find(".dt__overlay").exists();
+
+    it("covers the table while a real visit is in flight", async () => {
+        const wrapper = table();
+
+        emitRouterEvent("start", visitEvent(false));
+        await nextTick();
+
+        expect(hasOverlay(wrapper)).toBe(true);
+    });
+
+    it("stays out of the way for a hover prefetch", async () => {
+        const wrapper = table();
+
+        emitRouterEvent("start", visitEvent(true));
+        await nextTick();
+
+        expect(hasOverlay(wrapper)).toBe(false);
+    });
+
+    it("is not lifted early by a prefetch finishing during a real visit", async () => {
+        // The mirror case: guard only `start` and a prefetch settling mid-navigation clears
+        // an overlay that should still be up.
+        const wrapper = table();
+
+        emitRouterEvent("start", visitEvent(false));
+        emitRouterEvent("finish", visitEvent(true));
+        await nextTick();
+
+        expect(hasOverlay(wrapper)).toBe(true);
+    });
+
+    it("lifts when the real visit finishes", async () => {
+        const wrapper = table();
+
+        emitRouterEvent("start", visitEvent(false));
+        emitRouterEvent("finish", visitEvent(false));
+        await nextTick();
+
+        expect(hasOverlay(wrapper)).toBe(false);
     });
 });

@@ -30,6 +30,7 @@ const isActive = (href: string): boolean => {
                     class="site-menu-links__link"
                     :class="{ 'site-menu-links__link--active': isActive(area.href) }"
                     :href="area.href"
+                    prefetch
                 >
                     <icon :name="area.icon" :size="1" />
                     {{ area.label }}

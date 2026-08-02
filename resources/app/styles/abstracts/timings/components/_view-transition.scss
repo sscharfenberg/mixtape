@@ -1,0 +1,14 @@
+/******************************************************************************
+ * contextual timing token — component:view-transition
+ * @type {Sass}
+ * how long one page takes to dissolve into the next when Inertia swaps them
+ * (main.ts opts every real navigation into the View Transitions API). "fast"
+ * rather than the browser's own 250ms default: links are prefetched on hover, so
+ * the incoming page is usually already in hand and a quarter-second fade is time
+ * spent waiting on decoration. 150ms still reads as a dissolve rather than a cut.
+ * consumed as ti.$c-view-transition via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$view-transition: map.get(ti.$timings, "fast") !default;

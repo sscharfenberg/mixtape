@@ -45,6 +45,7 @@ function closePopover(): void {
                         class="popover-list-item"
                         :class="{ 'popover-list-item--active': isActive(area.href) }"
                         :href="area.href"
+                        prefetch
                         @click="closePopover"
                     >
                         <icon :name="area.icon" :size="1" />

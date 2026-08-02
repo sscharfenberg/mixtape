@@ -55,6 +55,7 @@ defineProps<{
             :href="href"
             class="fact-pair__value fact-pair__value--link"
             :class="{ 'fact-pair__value--mono': mono }"
+            prefetch
             >{{ value }}</Link
         >
         <span v-else class="fact-pair__value" :class="{ 'fact-pair__value--mono': mono }">{{ value }}</span>

@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useBreadcrumbs } from "Composables/useBreadcrumbs";
-import { resetInertia } from "Testing/inertia";
+import { getLayoutProps, resetInertia } from "Testing/inertia";
 import { mountApp, translate } from "Testing/mount";
 import type { SongDetail } from "Types/music";
 import SongPage from "./SongPage.vue";
@@ -69,7 +68,6 @@ const factValue = (wrapper: ReturnType<typeof page>, label: string): string | un
 describe("SongPage", () => {
     beforeEach(() => {
         resetInertia();
-        useBreadcrumbs().setBreadcrumbs([]);
     });
 
     it("shows the song's title as the page heading", () => {
@@ -80,7 +78,7 @@ describe("SongPage", () => {
         page();
 
         // The title is DATA, so it must be a raw label rather than a catalog key.
-        expect(useBreadcrumbs().crumbs.value).toStrictEqual([
+        expect(getLayoutProps().breadcrumbs).toStrictEqual([
             { labelKey: "header.siteMenu.music", href: "/music", icon: "music" },
             { labelKey: "music.widgets.songs", href: "/music/songs", icon: "song" },
             { label: "Paranoid Android" }

@@ -1,0 +1,27 @@
+/******************************************************************************
+ * ::view-transition — the page-to-page cross-fade
+ * @type {Sass}
+ * main.ts opts every real navigation into the View Transitions API, which makes
+ * the browser hold the outgoing page on screen and dissolve it into the incoming
+ * one instead of replacing it in a single frame. The animation is the UA's own
+ * default cross-fade; all this does is take its duration from the timing tokens
+ * rather than the browser's hard-coded 250ms.
+ *
+ * `::view-transition-*` are document-level pseudo-elements belonging to no
+ * component, which is why they live here rather than in a scoped block — there
+ * is no element to scope them to.
+ *
+ * The reduced-motion guard is belt-and-braces: main.ts already declines to start
+ * a transition at all unless the user has expressed no preference, so under
+ * `reduce` there is nothing here to run. It stays anyway, because a reader who
+ * finds this file should not have to open main.ts to learn whether the app
+ * respects the preference.
+ *****************************************************************************/
+@use "Abstracts/timings" as ti;
+
+@media (prefers-reduced-motion: no-preference) {
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
+        animation-duration: ti.$c-view-transition;
+    }
+}

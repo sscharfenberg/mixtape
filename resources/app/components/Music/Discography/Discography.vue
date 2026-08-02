@@ -162,7 +162,7 @@ const songCount = (album: DiscographyAlbum): string => t("music.discography.song
          else here says worse. -->
     <ul v-if="props.albums.length > 0" ref="list" class="discography">
         <li v-for="album in visibleAlbums" :key="album.id" class="discography__item">
-            <Link :href="album.href" class="discography__link">
+            <Link :href="album.href" class="discography__link" prefetch>
                 <!-- The artwork twice, one per layout, with the OTHER one display:none at any
                      given width. Not a duplicate render for its own sake: a size in CoverImage
                      carries its radius and frame width with it, so the two layouts genuinely

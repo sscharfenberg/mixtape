@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useBreadcrumbs } from "Composables/useBreadcrumbs";
-import { resetInertia } from "Testing/inertia";
+import { getLayoutProps, resetInertia } from "Testing/inertia";
 import { mountApp, translate } from "Testing/mount";
 import SongsPage from "./SongsPage.vue";
 
@@ -48,7 +47,6 @@ const page = (overrides: Record<string, unknown> = {}) => mountApp(SongsPage, { 
 describe("SongsPage", () => {
     beforeEach(() => {
         resetInertia();
-        useBreadcrumbs().setBreadcrumbs([]);
     });
 
     it("heads the page with the songs label", () => {
@@ -58,7 +56,7 @@ describe("SongsPage", () => {
     it("declares a breadcrumb trail whose last crumb is not a link", () => {
         page();
 
-        expect(useBreadcrumbs().crumbs.value).toStrictEqual([
+        expect(getLayoutProps().breadcrumbs).toStrictEqual([
             { labelKey: "header.siteMenu.music", href: "/music", icon: "music" },
             { labelKey: "music.widgets.songs", icon: "song" }
         ]);

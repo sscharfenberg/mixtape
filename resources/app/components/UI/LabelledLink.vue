@@ -43,7 +43,14 @@ const resolvedIcon = computed(() => {
 </script>
 
 <template>
-    <Link v-if="!isExternal && !isMailto" class="text-link" :href="href" :method="method" :data="data">
+    <Link
+        v-if="!isExternal && !isMailto"
+        class="text-link"
+        :href="href"
+        :method="method"
+        :data="data"
+        :prefetch="method === 'get'"
+    >
         <icon v-if="resolvedIcon" :name="resolvedIcon" :size="1" />
         <slot />
     </Link>

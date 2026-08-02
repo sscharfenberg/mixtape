@@ -1,19 +1,30 @@
 /******************************************************************************
  * useBreadcrumbs
- * The breadcrumb trail's single source of truth, ported from cantrip.me. State
- * lives at MODULE level (the same no-Pinia singleton pattern as useToast): a
- * page writes the trail in its own `<script setup>`, and the Breadcrumb
- * component — mounted once in FullLayout, nowhere near that page in the tree —
- * reads it back without any prop-drilling or provide/inject.
+ * The breadcrumb trail's writer, ported from cantrip.me and since rebuilt on
+ * Inertia's layout props. A page declares its own trail in `<script setup>`;
+ * Breadcrumb — mounted once in FullLayout, nowhere near that page in the tree —
+ * receives it as a prop, with no prop-drilling in between.
  *
  * The trail is deliberately declared by the page rather than derived from the
  * URL: only the page knows the *names* of the things in its path (a song's
  * title, its album) and which parents are actually reachable for this visitor.
- * main.ts clears it on every Inertia navigation start, so a page that forgets to
- * set crumbs shows none instead of inheriting the previous page's trail.
+ *
+ * Why layout props rather than the module-level ref this used to be: the trail
+ * has to be emptied between pages, or a page that declares none would inherit
+ * the previous one's path — and *when* that emptying happens is the whole
+ * experience. Clearing it ourselves on Inertia's `start` event blanked it the
+ * instant a link was clicked, so the <nav> unmounted and the content jumped up
+ * while the request was still in flight, then jumped back when the new page
+ * declared its own. Inertia resets layout props inside `swapComponent` instead
+ * — the exact moment the incoming page replaces the outgoing one — so the old
+ * trail stays put for the whole visit and is *replaced*, never blanked.
+ *
+ * `setLayoutProps` merges rather than overwrites, which is invisible here: that
+ * reset wipes the store between pages, and a page hands over its complete path
+ * in a single call. The typed `breadcrumbs` key comes from the `layoutProps`
+ * augmentation in resources/types/inertia.d.ts.
  *****************************************************************************/
-import type { Ref } from "vue";
-import { ref } from "vue";
+import { setLayoutProps } from "@inertiajs/vue3";
 
 /** A single breadcrumb item. Provide either `label` (raw string) or `labelKey` (i18n key). */
 export type BreadcrumbItem = {
@@ -31,20 +42,16 @@ export type BreadcrumbItem = {
 
 /** Return type of the {@link useBreadcrumbs} composable. */
 export type UseBreadcrumbsReturn = {
-    /** The current trail, in display order — the last item is the page you are on. */
-    crumbs: Ref<BreadcrumbItem[]>;
-    /** Replace the trail wholesale (there is no incremental API on purpose — a page owns its full path). */
+    /** Publish the page's full path (there is no incremental API on purpose — a page owns its whole trail). */
     setBreadcrumbs: (items: BreadcrumbItem[]) => void;
 };
 
-// Module-level state — all consumers share the same singleton instance.
-const crumbs = ref<BreadcrumbItem[]>([]);
-
 /**
- * Read / write the shared breadcrumb trail.
+ * Declare the current page's breadcrumb trail.
  *
- * Returns the module-level `crumbs` ref itself (not a copy), which is what lets
- * any page and the single Breadcrumb component agree on one list.
+ * Kept as a composable rather than a bare `setLayoutProps` call at every call
+ * site so pages name the thing they are setting — and so the trail's shape stays
+ * defined in one place, next to the reasoning above.
  *
  * @example
  * ```ts
@@ -59,10 +66,10 @@ const crumbs = ref<BreadcrumbItem[]>([]);
  * ```
  */
 export function useBreadcrumbs(): UseBreadcrumbsReturn {
-    /** Swap in a new trail — called by a page during setup, and by main.ts (with []) on navigation. */
+    /** Publish the trail as a layout prop, where FullLayout picks it up and hands it to Breadcrumb. */
     function setBreadcrumbs(items: BreadcrumbItem[]) {
-        crumbs.value = items;
+        setLayoutProps({ breadcrumbs: items });
     }
 
-    return { crumbs, setBreadcrumbs };
+    return { setBreadcrumbs };
 }
