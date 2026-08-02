@@ -1,4 +1,4 @@
-import { ensureBuiltAssets, resetDatabase, resetRateLimiter, stashStaleHotFile } from "./environment";
+import { buildAssets, resetDatabase, resetRateLimiter, stashStaleHotFile } from "./environment";
 
 /**
  * Prepare the machine for a run: assets, the `public/hot` guard, and a freshly seeded
@@ -11,7 +11,7 @@ import { ensureBuiltAssets, resetDatabase, resetRateLimiter, stashStaleHotFile }
  */
 export default async function globalSetup(): Promise<void> {
     await stashStaleHotFile();
-    ensureBuiltAssets();
+    buildAssets();
     resetDatabase();
     // Must come after the migration: the limiter lives in the cache, not the database, so
     // a fresh schema does not clear it. See resetRateLimiter for why that matters.

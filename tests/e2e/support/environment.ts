@@ -111,14 +111,19 @@ export const stashStaleHotFile = async (): Promise<void> => {
 };
 
 /**
- * Make sure built assets exist, since with no `public/hot` the app serves from the
- * manifest. Only builds when it has to — a build is slow, and the common case is that
- * the developer already has one.
+ * Rebuild the bundle, since with no `public/hot` the app serves from the manifest.
+ *
+ * ALWAYS, not only when the manifest is missing — which is what this did first, and it was
+ * wrong in the most confusing way available: after any frontend change the suite would run
+ * against the PREVIOUS bundle, so a brand-new component simply was not on the page and every
+ * selector for it timed out. Nothing about that failure points at a stale build.
+ *
+ * `build-only` skips the lint and type-check `npm run build` chains, which the developer
+ * (and CI) run separately, so the cost is a second or so per run — cheap against a whole
+ * class of failures that look like a broken feature.
  */
-export const ensureBuiltAssets = (): void => {
-    if (existsSync(path.join(repoRoot, "public", "build", "manifest.json"))) return;
-
-    execFileSync("npm", ["run", "build"], { cwd: repoRoot, stdio: "inherit" });
+export const buildAssets = (): void => {
+    execFileSync("npm", ["run", "build-only"], { cwd: repoRoot, stdio: "inherit" });
 };
 
 /**
