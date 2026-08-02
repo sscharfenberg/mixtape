@@ -5,6 +5,9 @@ import { columnValues, pageHeading } from "../support/actions";
  * Getting around the library: the four listings, the detail pages they lead to, and the
  * breadcrumb trail back out.
  *
+ * The library is a FIXED fixture (database/seeders/E2ESeeder.php), so these specs name real
+ * albums and songs.
+ *
  * The point of testing navigation here rather than in a unit test is that these are real
  * Inertia visits. A page's props, its breadcrumb declaration and its rendered heading all
  * have to agree AFTER a client-side navigation — including the case that has bitten this
@@ -80,8 +83,9 @@ test.describe("browsing the library", () => {
          * catch a page that kept the first one's data.
          */
         await page.goto("/music/artists");
-        const names = await columnValues(page, /Künstler|Name/u);
         const rows = page.locator("tbody tr");
+        await expect(rows.first()).toBeVisible();
+        const names = await columnValues(page, /Künstler|Name/u);
 
         await rows.first().click();
         await page.waitForURL(/\/music\/artists\/[0-9a-f-]{36}/u);
@@ -126,6 +130,41 @@ test.describe("browsing the library", () => {
         );
 
         expect(brokenVisible).toBe(0);
+    });
+
+    test("drops a sparsely-tagged song's missing facts instead of rendering them empty", async ({ page }) => {
+        /*
+         * The fixture seeds exactly one track with no duration, composer, publisher or bit
+         * rate — the untagged rip. Its page must simply not show those rows: the failure
+         * mode being guarded is a card full of "0:00", "null" and empty labels, which is
+         * what every one of those fields renders as if the guard is dropped.
+         */
+        await page.goto("/music/songs");
+        await page.getByRole("searchbox").fill("Fitter Happier");
+        await page.waitForURL(/search=/u);
+        await page.locator("tbody tr").first().click();
+        await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
+
+        await expect(pageHeading(page)).toHaveText("Fitter Happier");
+
+        /*
+         * Asserted on the LABELS of the rows that should be absent, rather than on their
+         * would-be values. Searching the page text for "0:00" looks equivalent and is not:
+         * it also matches the "09:00:00" in the added-at timestamp, so the test fails on a
+         * page that is behaving perfectly.
+         */
+        const facts = page.locator(".fact-pair");
+        await expect(facts.filter({ hasText: "Dauer" })).toHaveCount(0);
+        await expect(facts.filter({ hasText: "Komponist" })).toHaveCount(0);
+        await expect(facts.filter({ hasText: "Label" })).toHaveCount(0);
+        await expect(facts.filter({ hasText: "Bitrate" })).toHaveCount(0);
+
+        const body = await page.locator("main").innerText();
+        expect(body).not.toContain("null");
+        expect(body).not.toContain("undefined");
+        // The facts it DOES carry are still there, so this is not passing by rendering nothing.
+        expect(body).toContain("OK Computer");
+        await expect(facts.filter({ hasText: "Track" })).not.toHaveCount(0);
     });
 
     test("reports a missing song as a 404 rather than an error page", async ({ page }) => {

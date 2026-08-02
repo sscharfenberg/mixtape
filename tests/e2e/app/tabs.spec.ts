@@ -94,11 +94,6 @@ test.describe("a genre's tabs", () => {
         await page.getByRole("tab", { name: /Songs/u }).click();
         await expect(page).toHaveURL(/tab=songs/u);
 
-        // Fewer than two rows cannot be reordered, and the seeded library is random
-        // enough that a genre with one song does turn up.
-        const rowCount = await page.locator("tbody tr").count();
-        test.skip(rowCount < 2, "this genre has too few songs to reorder");
-
         const before = await columnValues(page, "Titel");
         await page.getByRole("button", { name: /Titel/u }).first().click();
         await page.waitForURL(/sort=name/u);

@@ -129,10 +129,25 @@ Then the app is served on **:8100** — deliberately not 8000, so a hand-started
 survives — and the `setup` project signs in once and saves the session for the `app` project to
 reuse.
 
-**It needs a seeded database, not a real media library.** The seeder creates factory rows only; no
-mp3 exists on disk, nothing runs `app:update`, and neither the dev nor the production database is
-ever touched. Cover URLs consequently 404, which is *deliberately* exercised — it is what drives
-`CoverImage`'s placeholder fallback.
+**It needs a seeded database, not a real media library.** The fixture is rows only; no mp3 exists on
+disk, nothing runs `app:update`, and neither the dev nor the production database is ever touched.
+Cover URLs consequently 404, which is *deliberately* exercised — it is what drives `CoverImage`'s
+placeholder fallback.
+
+The fixture is **`database/seeders/E2ESeeder.php`**, and it is deterministic on purpose: fixed ids,
+names, durations and timestamps, no `fake()` and no `now()`, so re-seeding produces identical rows
+and a spec can assert an exact result. It is also *shaped* for the tests — read its docblock before
+changing it, because several specs depend on specific properties:
+
+| Property | Why a spec needs it |
+| --- | --- |
+| 65 music tracks | More than the default page size of 50, so paging is real |
+| Unique durations | Ordering by duration is total — a tie would have two correct answers |
+| One track with no duration / composer / publisher / bit rate | Proves a missing field *disappears* rather than rendering `0:00` or `null` |
+| An artist named `Sigur Rós` | Accent-folded search: typing `Ros` must find `Rós` |
+| A title appearing exactly once (`Paranoid Android`) | An unambiguous search assertion |
+| Every genre holds ≥2 tracks | A genre's songs tab can always be sorted |
+| Mixed `cover` flags, no cover file on disk | Exercises CoverImage's 404 → placeholder fallback |
 
 Seed login: **`Ashaltiriak` / `passwort`**, and note that **login is by `name`, not email**
 (`Fortify::username() === 'name'`).
@@ -181,10 +196,12 @@ this is the record of *why* that code exists.
   run self-heals. A **live** dev server is left alone.
 - **A cached config beats real environment variables**, silently pointing the run at the remote
   Postgres. Hence `config:clear` before migrating.
-- **The seeded library is random and re-rolled every run** (`LibrarySeeder` uses factories,
-  `random_int`, `inRandomOrder`). Never hard-code a song or artist name: read a value off the page
-  and compare the page against **itself** across the interaction. Guard the thin cases too — a genre
-  can come up with one song, a track with no duration.
+- **Seed with `E2ESeeder`, never the default `--seed`.** `DatabaseSeeder` runs `LibrarySeeder`,
+  which is deliberately random (factories, `random_int`, `inRandomOrder`) and re-rolled on every
+  run — right for a developer wanting a plausible library, wrong for a browser test, which then
+  cannot name a song and meets thin edge cases unpredictably (a genre with one track, a page with a
+  single row) as tests that fail once in twenty runs. `E2ESeeder` is fixed: same ids, names,
+  durations and timestamps every time.
 - **Assert ordering on a numeric column, never text.** The server sorts through the database's
   collation and the app's accent-folded `name_fold` columns; `localeCompare` does not reproduce
   that. Sort by duration and compare seconds.
@@ -236,5 +253,5 @@ Two rules that fall out of this:
 - **Prefer a real failure over a green one.** A test that cannot fail is worse than no test; when a
   new suite lands, seed a mutation and confirm it is caught.
 - **Never let a flaky test settle in.** Retries are off on purpose. Run a new E2E spec several times
-  before trusting it — the seed is re-rolled every run, so repeated runs are genuinely different
-  data.
+  before trusting it. The fixture is fixed, so a spec that passes once should pass every time —
+  which means an intermittent failure is a real race, not bad luck with the data.

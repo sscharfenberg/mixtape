@@ -78,9 +78,11 @@ expect(errors).toEqual([]);
   database's collation and the app's accent-folded `name_fold` columns; JavaScript's
   `localeCompare` does not reproduce that, so a title-order assertion is testing Node's
   collation rather than the app's. Sort by duration and compare seconds.
-- **The seeded library is random.** `LibrarySeeder` uses factories, `random_int` and
-  `inRandomOrder`, so there is no fixed song or artist to assert on. Read a value off the
-  page and compare the page against itself across the interaction.
+- **The E2E library is a FIXED fixture** — `database/seeders/E2ESeeder.php`, seeded
+  explicitly instead of the default `--seed` (which would run the deliberately random
+  `LibrarySeeder`). So you can name a song: "Paranoid Android" appears exactly once,
+  "Fitter Happier" is the one untagged track, "Sigur Rós" is there for accent folding.
+  Read that seeder's docblock before changing it — specs depend on its shape.
 - **A sortable `<th>` contains hidden text.** Its innerText is really
   `"Album\nNach Album aufsteigend sortiert"` — the sort state, announced for screen
   readers. Match the first line only (`columnValues` already does).

@@ -134,7 +134,15 @@ export const resetDatabase = (): void => {
     writeFileSync(DATABASE, "");
 
     artisan("config:clear");
-    artisan("migrate:fresh", "--seed", "--force");
+    artisan("migrate:fresh", "--force");
+    /*
+     * E2ESeeder, NOT the default `--seed`. DatabaseSeeder runs LibrarySeeder, which is
+     * deliberately random (factories, random_int, inRandomOrder) and re-rolled on every
+     * run — good for a developer wanting a plausible library, wrong for a browser test,
+     * which then cannot name a song and meets thin edge cases unpredictably. E2ESeeder is
+     * a fixed fixture: same ids, names, durations and timestamps every time.
+     */
+    artisan("db:seed", "--class=Database\\Seeders\\E2ESeeder", "--force");
 };
 
 /**

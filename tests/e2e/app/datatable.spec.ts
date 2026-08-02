@@ -10,16 +10,27 @@ import { clockToSeconds, columnValues, expectOnTablePage, fold, pageHeading } fr
  * BACK button. None of that is observable in happy-dom: no navigation, no history, no
  * server.
  *
- * The seeded library is randomly generated (LibrarySeeder uses factories and
- * inRandomOrder), so nothing here hard-codes a song or artist name — each test compares
- * the table against ITSELF across an interaction.
+ * The library is a FIXED fixture (database/seeders/E2ESeeder.php) — 65 music tracks across
+ * six real albums, with fixed names, durations and timestamps — so these specs can name a
+ * song and assert an exact result rather than comparing the page against itself.
  *
- * Ordering is asserted on the DURATION column, not the title. Text ordering depends on
- * the database's collation and the app's accent-folded sort columns, which JavaScript
- * cannot reproduce; a numeric column has one correct order in both worlds. There are
- * 138 seeded tracks, comfortably more than one page, which is also why "page 1 reversed
- * equals page 1 of the reverse sort" is NOT a valid invariant here.
+ * Ordering is still asserted on the DURATION column rather than the title, and that is not
+ * about determinism: text ordering depends on the database's collation and the app's
+ * accent-folded sort columns, which JavaScript's localeCompare does not reproduce, so
+ * comparing titles would assert Node's collation instead of the app's. The seeder gives
+ * every track a unique duration precisely so that ordering is total — with ties there
+ * would be two correct orderings and an equality assertion would pick one arbitrarily.
  */
+
+/** Fixture facts these specs rely on. See database/seeders/E2ESeeder.php. */
+const LIBRARY = {
+    /** Total music tracks — more than one page at the default size of 50. */
+    tracks: 65,
+    /** A title that appears exactly once, for an unambiguous search. */
+    uniqueTitle: "Paranoid Android",
+    /** The one track seeded with no duration, composer or publisher. */
+    untaggedTitle: "Fitter Happier"
+} as const;
 
 test.describe("the songs table", () => {
     test.beforeEach(async ({ page }) => {
@@ -71,29 +82,37 @@ test.describe("the songs table", () => {
         expect(await columnValues(page, "Titel")).toEqual(sorted);
     });
 
-    test("filters the rows by a search term", async ({ page }) => {
-        // A real word taken from the table, so the term is guaranteed to match in a
-        // randomly seeded library. The longest one, because a two-letter word matches
-        // half the library and makes the assertion meaningless.
-        const [firstTitle] = await columnValues(page, "Titel");
-        const term = firstTitle
-            .split(/\s+/u)
-            .map(word => word.replace(/[^\p{L}]/gu, ""))
-            .sort((a, b) => b.length - a.length)[0];
+    test("narrows to the one row a unique term matches", async ({ page }) => {
+        await page.getByRole("searchbox").fill("Paranoid");
+        await page.waitForURL(/search=/u);
 
-        await page.getByRole("searchbox").fill(term);
+        expect(await columnValues(page, "Titel")).toStrictEqual([LIBRARY.uniqueTitle]);
+    });
+
+    test("searches across the other columns, not just the title", async ({ page }) => {
+        // "Portishead" is an artist, not a song — every one of its tracks must come back.
+        await page.getByRole("searchbox").fill("Portishead");
+        await page.waitForURL(/search=/u);
+
+        const rows = await page.locator("tbody tr").allInnerTexts();
+        expect(rows.length).toBeGreaterThan(1);
+        rows.forEach(row => expect(row).toContain("Portishead"));
+    });
+
+    test("matches through accents, because the server searches a folded column", async ({ page }) => {
+        /*
+         * The reason `name_fold` exists. Typing plain "Ros" has to find "Sigur Rós" —
+         * a reader is not going to reach for the accent, and on a German keyboard may not
+         * be able to. Asserted with the accent present in the rendered row, since that is
+         * the thing being folded PAST rather than away.
+         */
+        await page.getByRole("searchbox").fill("Sigur Ros");
         await page.waitForURL(/search=/u);
 
         const rows = await page.locator("tbody tr").allInnerTexts();
         expect(rows.length).toBeGreaterThan(0);
-        /*
-         * Matched against the WHOLE row, accent-folded on both sides. The row, because the
-         * search spans title, artist, album and genre — so a row can legitimately match on
-         * a column other than the one the term came from. Folded, because the server
-         * matches against its `name_fold` columns, so searching "Uber" correctly returns a
-         * row that renders "Über" and a naive comparison would call that a failure.
-         */
-        rows.forEach(row => expect(fold(row)).toContain(fold(term)));
+        rows.forEach(row => expect(fold(row)).toContain("sigur ros"));
+        expect(rows.join(" ")).toContain("Sigur Rós");
     });
 
     test("says so when a search matches nothing, instead of showing an empty table", async ({ page }) => {
@@ -102,6 +121,11 @@ test.describe("the songs table", () => {
 
         await expect(page.getByText(/keine (Ergebnisse|Treffer)/iu).first()).toBeVisible();
         await expect(page.locator("tbody tr")).toHaveCount(0);
+    });
+
+    test("reports the whole library's size, not just the page on screen", async ({ page }) => {
+        // DataTableService::DEFAULT_PAGE_SIZE is 50 (the pager offers 25/50/100).
+        await expect(page.locator(".dt-pagination__info")).toHaveText(`1–50 / ${LIBRARY.tracks}`);
     });
 
     test("pages forward and back, changing the rows each time", async ({ page }) => {
