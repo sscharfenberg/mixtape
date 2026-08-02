@@ -483,7 +483,8 @@ pointing at a live row, so title/artist come from the join.
 > stream endpoint, and whether the production CSP needs `media-src blob:` (it is `'self'` today).
 > The stream route itself does not exist — when it is written it needs **HTTP Range** support for
 > scrubbing, and should hand off via nginx `X-Accel-Redirect` rather than streaming a 96GB
-> collection through php-fpm workers.
+> collection through php-fpm workers. The build plan for all of that is
+> [`player.md`](player.md).
 
 The queue is the natural home for the **background-playback** feature: auto-advance drives off the audio
 element's `ended` event, which lives in the browser, and the player keeps running while Inertia swaps
