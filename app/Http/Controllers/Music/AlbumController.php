@@ -8,10 +8,12 @@ use App\Models\Collection;
 use App\Models\Track;
 use App\Services\DataTableService;
 use App\Services\Media\CoverService;
+use App\Services\Music\DominantGenre;
 use App\Services\Search\FoldedSearch;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -45,6 +47,10 @@ class AlbumController extends Controller
         $album->load('albumArtist:id,name');
 
         $totals = $this->trackTotals($album);
+        // Restricted to this one album at the INNERMOST level, which is safe here and is
+        // not on the genre page: narrowing to a single album cannot change which genre wins
+        // it, where narrowing to a single GENRE would (see GenreController). One row or none.
+        $dominantGenre = DominantGenre::albumWinners($album->id)->first();
 
         return Inertia::render('Music/Albums/Album/AlbumPage', [
             'table' => $this->trackTable($request, $album),
@@ -60,6 +66,15 @@ class AlbumController extends Controller
                     ? null
                     : route('music.artists.show', $album->album_artist_id, absolute: false),
                 'year' => $album->year,
+
+                // The album's MAIN genre and its page — the same rule the genre page's own
+                // album tab files it under (DominantGenre), so a reader following this tile
+                // arrives at a genre that really does claim this record. Null only for an
+                // album whose tracks carry no genre at all.
+                'genre' => $dominantGenre?->genre_name,
+                'genreUrl' => $dominantGenre === null
+                    ? null
+                    : route('music.genres.show', $dominantGenre->genre_id, absolute: false),
 
                 'songs' => $totals['songs'],
                 // Floored to 1 for the same reason the listing floors it: a rip whose
@@ -118,6 +133,25 @@ class AlbumController extends Controller
                 // so the existing join pays for it.
                 'tracks.artist_id',
                 'artists.name as artist_name',
+            ])
+            // The denominators behind "1/2" and "3/12": how many discs this album has, and
+            // how many tracks share the row's disc. The same two definitions SongController
+            // computes for its facts card, so a track's own page and this listing cannot
+            // disagree about how a position is written. Correlated subqueries rather than a
+            // per-row lookup, since the table is paginated and an N+1 would be a round trip
+            // per row. Aliased `sib` because the outer query is over `tracks` too.
+            ->addSelect([
+                'disc_total' => DB::table('tracks as sib')
+                    ->selectRaw('count(distinct sib.disc)')
+                    ->whereColumn('sib.collection_id', 'tracks.collection_id'),
+                // NULL-safe: an untagged disc has to group with the other untagged ones, and
+                // `sib.disc = tracks.disc` matches nothing when both are NULL — which would
+                // report 0 tracks for a whole album's worth of files. Spelled as the explicit
+                // OR rather than `IS NOT DISTINCT FROM`, which SQLite does not have.
+                'track_total' => DB::table('tracks as sib')
+                    ->selectRaw('count(*)')
+                    ->whereColumn('sib.collection_id', 'tracks.collection_id')
+                    ->whereRaw('(sib.disc = tracks.disc or (sib.disc is null and tracks.disc is null))'),
             ]);
 
         return DataTableService::buildResponse(
@@ -141,8 +175,13 @@ class AlbumController extends Controller
             ]),
             rowMapper: fn (Track $track): array => [
                 'id' => $track->id,
+                // Position and denominator apart, so the page renders "1/2" and "3/12" — or
+                // the bare number where the total is not trustworthy (formatPosition). Both
+                // totals are the album's own, since every row here belongs to it.
                 'disc' => $track->disc,
+                'discTotal' => (int) $track->disc_total,
                 'track' => $track->track,
+                'trackTotal' => (int) $track->track_total,
                 'name' => $track->name,
                 'artist' => $track->artist_name,
                 // Where the artist cell leads. A SECOND destination inside a row whose own

@@ -36,7 +36,7 @@ import Container from "Components/UI/Container.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import type { ColumnDef, TableResponse } from "Types/dataTable";
-import { formatClock, formatDateTime, formatFileSize } from "Utils/formatting";
+import { formatClock, formatDateTime, formatFileSize, formatPosition } from "Utils/formatting";
 
 /** One album as AlbumController shaped it — every value raw. */
 interface AlbumDetail {
@@ -50,6 +50,13 @@ interface AlbumDetail {
      */
     artistUrl: string | null;
     year: number | null;
+    /**
+     * Its MAIN genre — the one the genre page's album tab files it under (DominantGenre),
+     * not every genre its tracks graze. Null for an album whose tracks carry none.
+     */
+    genre: string | null;
+    /** That genre's own page, or null as above — which makes the tile a plain fact. */
+    genreUrl: string | null;
     /** How many tracks are filed under it. */
     songs: number;
     /** How many discs — already floored to 1 for rips that carry no disc tag. */
@@ -67,8 +74,12 @@ interface TrackRow {
     id: string;
     /** Disc number, or null for a rip whose files carry no disc tag. */
     disc: number | null;
+    /** How many discs the album has — the denominator in "1/2". */
+    discTotal: number;
     /** Track number within its disc, or null when untagged. */
     track: number | null;
+    /** How many tracks share this row's disc — the denominator in "3/12". */
+    trackTotal: number;
     name: string;
     /** The performing artist — differs per row on a compilation, which is why it is a column. */
     artist: string | null;
@@ -181,6 +192,17 @@ const columns = computed<ColumnDef<TrackRow>[]>(() => [
                         :label="t('music.columns.year')"
                         :value="String(album.year)"
                     />
+                    <!-- The album's MAIN genre, leading to that genre's page — the second of
+                         this hero's two tiles that go somewhere. Filed by the same rule the
+                         genre page uses, so following it lands on a genre whose album tab
+                         really does list this record. -->
+                    <fact-pair
+                        v-if="album.genre"
+                        icon="genre"
+                        :label="t('music.columns.genre')"
+                        :value="album.genre"
+                        :href="album.genreUrl ?? undefined"
+                    />
                     <fact-pair icon="song" :label="t('music.columns.songs')" :value="String(album.songs)" />
                     <fact-pair icon="album" :label="t('music.columns.discs')" :value="String(album.discs)" />
                     <fact-pair
@@ -228,6 +250,12 @@ const columns = computed<ColumnDef<TrackRow>[]>(() => [
                     <Link v-if="row.artistUrl" :href="row.artistUrl" class="album__artist">{{ row.artist }}</Link>
                     <template v-else>{{ row.artist }}</template>
                 </template>
+                <!-- Position over total, so a reader can place a track without holding the
+                     album's length in their head — the same rendering the genre and artist
+                     song tabs use. The denominator is dropped where it would lie (see
+                     formatPosition), and the cell is blank for an untagged file. -->
+                <template #cell-disc="{ row }">{{ formatPosition(row.disc, row.discTotal) }}</template>
+                <template #cell-track="{ row }">{{ formatPosition(row.track, row.trackTotal) }}</template>
                 <template #cell-duration="{ row }">{{ formatClock(row.duration) }}</template>
                 <template #cell-size="{ row }">{{
                     row.size === null ? "" : formatFileSize(row.size, locale)

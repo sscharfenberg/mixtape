@@ -4,6 +4,7 @@ namespace Tests\Feature\Music;
 
 use App\Models\Artist;
 use App\Models\Collection;
+use App\Models\Genre;
 use App\Models\Track;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -115,6 +116,75 @@ class AlbumPageTest extends TestCase
                 ->where('album.modifiedAt', null)
                 ->where('album.coverUrl', null)
             );
+    }
+
+    public function test_the_hero_carries_the_albums_main_genre_and_a_link_to_it(): void
+    {
+        // The DOMINANT genre, not every genre the album's tracks graze — the same rule that
+        // decides which genre page lists this record, so following the tile lands somewhere
+        // that really does claim it.
+        $album = Collection::factory()->create();
+        $mostly = Genre::factory()->create(['name' => 'Doom']);
+        $incidental = Genre::factory()->create(['name' => 'Polka']);
+
+        Track::factory()->count(4)->create(['collection_id' => $album->id, 'genre_id' => $mostly->id]);
+        Track::factory()->create(['collection_id' => $album->id, 'genre_id' => $incidental->id]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/albums/{$album->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('album.genre', 'Doom')
+                ->where('album.genreUrl', "/music/genres/{$mostly->id}")
+            );
+    }
+
+    public function test_an_album_whose_tracks_carry_no_genre_gets_no_genre_tile(): void
+    {
+        // Null in, null out: the tile is dropped rather than rendered empty.
+        $album = Collection::factory()->create();
+        Track::factory()->count(2)->create(['collection_id' => $album->id, 'genre_id' => null]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/albums/{$album->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('album.genre', null)
+                ->where('album.genreUrl', null)
+            );
+    }
+
+    public function test_a_track_row_carries_the_denominators_behind_its_disc_and_track(): void
+    {
+        // What lets the listing print "1/2" and "3/12": how many discs the album has, and
+        // how many tracks share the row's own disc. Two discs of different lengths, so a
+        // single shared number could not satisfy both rows.
+        $album = Collection::factory()->create();
+        Track::factory()->count(3)->create(['collection_id' => $album->id, 'disc' => 1]);
+        Track::factory()->count(2)->create(['collection_id' => $album->id, 'disc' => 2]);
+
+        $rows = collect($this->actingAs(User::factory()->create())
+            ->get("/music/albums/{$album->id}")
+            ->viewData('page')['props']['table']['rows']);
+
+        $this->assertSame(2, $rows->first()['discTotal'], 'the album has two discs');
+        $this->assertSame(3, $rows->firstWhere('disc', 1)['trackTotal'], 'disc one holds three');
+        $this->assertSame(2, $rows->firstWhere('disc', 2)['trackTotal'], 'disc two holds two');
+    }
+
+    public function test_untagged_discs_are_counted_together_rather_than_as_none(): void
+    {
+        // The NULL-safe join in the track_total subquery. `sib.disc = tracks.disc` matches
+        // nothing when both are NULL, which would report 0 tracks for a whole album of
+        // untagged files — a denominator of 0 beside a real track number.
+        $album = Collection::factory()->create();
+        Track::factory()->count(3)->create(['collection_id' => $album->id, 'disc' => null]);
+
+        $rows = collect($this->actingAs(User::factory()->create())
+            ->get("/music/albums/{$album->id}")
+            ->viewData('page')['props']['table']['rows']);
+
+        $this->assertSame(3, $rows->first()['trackTotal']);
     }
 
     public function test_the_track_table_is_ordered_by_disc_then_track(): void
