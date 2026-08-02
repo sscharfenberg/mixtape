@@ -137,6 +137,11 @@ watch(page, () => {
 watch(
     () => props.albums,
     () => {
+        // Only arm the flag when the page is actually going to change. Assigning 1 while
+        // already on page 1 fires no watcher, so the flag would stay armed and eat the
+        // scroll on the reader's NEXT real page turn — which is the common path, since
+        // moving between two artists usually happens from page 1.
+        if (page.value === 1) return;
         resetting = true;
         page.value = 1;
     }
