@@ -27,19 +27,45 @@ export interface WidgetModes<T> {
     popular?: T[];
 }
 
-/** A music album — id, title, album-artist (nullable), release year (nullable). */
-export interface AlbumEntry {
+/** What every widget entry carries: something to name it and somewhere to go. */
+interface WidgetEntry {
     id: string;
     name: string;
+    /** The entry's own page — the whole row is a link to it. Decided server-side. */
+    href: string;
+}
+
+/** A music album — album-artist and release year, both nullable, shown as pips. */
+export interface AlbumEntry extends WidgetEntry {
     artist: string | null;
     year: number | null;
 }
 
-/** A song — id, title, performing artist (nullable). */
-export interface SongEntry {
-    id: string;
-    name: string;
+/** A song — its performing artist and the release year of the album it sits on. */
+export interface SongEntry extends WidgetEntry {
     artist: string | null;
+    /** Off the ALBUM, since a track carries no year of its own. Null when it has no album. */
+    year: number | null;
+}
+
+/** An artist — what they add up to across the whole collection. */
+export interface ArtistEntry extends WidgetEntry {
+    /** Albums credited to them as album-artist, not every album holding a track of theirs. */
+    albums: number;
+    /** Tracks they perform. */
+    songs: number;
+    /** Playing time of those tracks in seconds — raw, clocked by the widget. */
+    duration: number;
+}
+
+/** A genre — counted by the same rules its own detail page uses (see GenreController). */
+export interface GenreEntry extends WidgetEntry {
+    /** Artists whose MAIN genre this is, not everyone who recorded a song in it. */
+    artists: number;
+    /** Albums whose MAIN genre this is. */
+    albums: number;
+    /** Every music track tagged with it — the literal reading. */
+    songs: number;
 }
 
 /** Channel layout as the scanner stored it — the raw values of PHP's `App\Enums\Channel`. */
@@ -128,11 +154,6 @@ export interface SongDetail {
     path: string;
 }
 
-/** A taxonomy row — an artist or a genre (id + name). */
-export interface TaxonomyEntry {
-    id: string;
-    name: string;
-}
 
 /**
  * Collection totals for the stats widget (music only). Raw numbers — the widget

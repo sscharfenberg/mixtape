@@ -1,0 +1,28 @@
+/******************************************************************************
+ * contextual size tokens — component:WidgetList.vue
+ * @type {Sass}
+ * Metrics for the music widgets' entry list.
+ *
+ * `radius` is the `base` rung, not the `featured` one the Discography's tiles take:
+ * an entry here is a small block inside an already-rounded widget card, and the wide
+ * rounding that frames a tile would eat most of a two-line row.
+ *
+ * The pip values are literals for the reason the Discography's chips are — what a
+ * pill needs is enough room to read as one, not a step of the page's rhythm.
+ * Consumed as s.$c-widget-list via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$widget-list: (
+    // between entries
+    "gap": 0.4rem,
+    "item-padding": 0.5rem 0.75rem,
+    // the entry's name to its pips
+    "item-gap": 0.35rem,
+    "radius": map.get(s.$radius, "base"),
+    // the pips: between them, and each one's own padding and rounding
+    "pip-gap": 0.4ch,
+    "pip-padding": 0.05rem 0.5rem,
+    "pip-radius": map.get(s.$radius, "base")
+) !default;

@@ -1,0 +1,41 @@
+/******************************************************************************
+ * contextual color tokens — component:WidgetList.vue
+ * @type {Sass}
+ * The music widgets' entry list: one filled, rounded block per entry, each a link
+ * to the thing it names, with its facts as pips beneath.
+ *
+ * The values are the Discography tile's, re-picked from the globals (a contextual
+ * partial consumes globals, never another partial's tokens). Deliberately so: an
+ * entry here and a tile there are the same object — a filled block that leads
+ * somewhere — and the widgets sit on the page a reader reaches those listings from.
+ *
+ * `pip-background` is a rung QUIETER than the entry's own fill rather than a
+ * contrast to it: a pip sits INSIDE the block, so anything with real weight would
+ * compete with the name above it, and the name is what the entry is for.
+ * Consumed as c.$c-widget-list via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$widget-list: (
+    // the entry's own fill — the Discography tile's, so the two read as one family
+    "background": light-dark(
+            color.adjust(map.get(c.$grey, "astral"), $alpha: -0.25),
+            color.adjust(map.get(c.$grey, "ebony"), $alpha: -0.25)
+        ),
+    // hover — a shift of that fill rather than a repaint, since it already carries one
+    "hover-background": light-dark(
+            color.adjust(map.get(c.$grey, "iron"), $alpha: -0.65),
+            color.adjust(map.get(c.$grey, "abbey"), $alpha: -0.4)
+        ),
+    // the halo — the same control neon every other clickable surface lights up with
+    "glow": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
+    // the pips, one step down from the entry's name so the name reads first
+    "surface-meta": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
+    // each pip's own wash — see the note above on why it is quiet
+    "pip-background": light-dark(
+            color.adjust(map.get(c.$grey, "iron"), $alpha: -0.6),
+            color.adjust(map.get(c.$grey, "asher"), $alpha: -0.5)
+        )
+) !default;

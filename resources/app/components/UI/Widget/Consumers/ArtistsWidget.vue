@@ -14,10 +14,11 @@ import Icon from "Components/UI/Icon.vue";
 import Widget from "Components/UI/Widget/Widget.vue";
 import WidgetModeToggle from "Components/UI/Widget/WidgetModeToggle.vue";
 import { useWidgetMode } from "Composables/useWidgetMode";
-import type { TaxonomyEntry, WidgetMode, WidgetModes } from "Types/music";
-import WidgetList from "./WidgetList.vue";
+import type { ArtistEntry, WidgetMode, WidgetModes } from "Types/music";
+import { formatClock } from "Utils/formatting";
+import WidgetList, { type WidgetListItem } from "./WidgetList.vue";
 
-const props = defineProps<WidgetModes<TaxonomyEntry>>();
+const props = defineProps<WidgetModes<ArtistEntry>>();
 
 const { t } = useI18n();
 
@@ -28,11 +29,28 @@ const modes: WidgetMode[] = ["latest", "popular", "random"];
 const mode = useWidgetMode("artists", "popular", modes);
 
 /** Active-mode artists — a plain name list (no secondary line). Falls back to `latest` if a mode's set is absent. */
-const items = computed(() => props[mode.value] ?? props.latest);
+/**
+ * Active-mode artists as list entries: what each one adds up to across the collection.
+ *
+ * All three pips always render — unlike the albums/songs widgets, where a pip stands for a
+ * TAG that can be missing, these are counts, and 0 is an answer rather than absent data.
+ */
+const items = computed<WidgetListItem[]>(() =>
+    (props[mode.value] ?? props.latest).map(artist => ({
+        id: artist.id,
+        name: artist.name,
+        href: artist.href,
+        pips: [
+            { icon: "album", value: String(artist.albums), label: t("music.pips.albumCount") },
+            { icon: "song", value: String(artist.songs), label: t("music.pips.songCount") },
+            { icon: "duration", value: formatClock(artist.duration) ?? "", label: t("music.pips.totalDuration") }
+        ]
+    }))
+);
 </script>
 
 <template>
-    <widget :refresh="'artists'">
+    <widget :refresh="'artists'" skeleton="entries">
         <template #title>
             <icon name="artist" />
             {{ t("music.widgets.artists") }}

@@ -22,6 +22,16 @@ defineProps<{
 @use "Abstracts/sizes" as s;
 
 .widget__body {
+    // A GRID ITEM's `min-width` defaults to `auto`, which resolves to its min-content
+    // size — so a body holding anything unbreakable (a long song title on one line, a
+    // wide table) grows past the card instead of being contained by it. That failure is
+    // doubly confusing because the card itself clips: the content is cut off at a width
+    // nothing on screen explains, and any `text-overflow: ellipsis` inside never fires,
+    // since the element was never actually overflowing its own box. `min-width: 0` lets the
+    // body be as narrow as the card, which is what puts the overflow back where a child
+    // can handle it.
+    min-width: 0;
+
     // Sits in the Widget's shared "body" subgrid row and stretches to fill it
     // (grid items stretch by default), so the footer band lines up across cards.
     padding: map.get(s.$c-widget, "padding");

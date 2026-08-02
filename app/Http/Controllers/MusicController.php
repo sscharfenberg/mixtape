@@ -8,7 +8,9 @@ use App\Models\Artist;
 use App\Models\Collection;
 use App\Models\Genre;
 use App\Models\Track;
+use App\Services\Music\DominantGenre;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -96,7 +98,7 @@ class MusicController extends Controller
      * the true "recently added" after a bulk import; `random` shuffles. (No
      * `popular` mode — the owner scoped it to songs/artists/genres.)
      *
-     * @return array<int, array{id: string, name: string, artist: ?string, year: ?int}>
+     * @return array<int, array{id: string, name: string, artist: ?string, year: ?int, href: string}>
      */
     private function albums(string $mode): array
     {
@@ -115,6 +117,9 @@ class MusicController extends Controller
                 'name' => $album->name,
                 'artist' => $album->albumArtist?->name,
                 'year' => $album->year,
+                // Decided here like every other route in the app, so the widget links
+                // wherever the listing's rows link and the two cannot drift.
+                'href' => route('music.albums.show', $album->id, absolute: false),
             ])
             ->all();
     }
@@ -130,14 +135,18 @@ class MusicController extends Controller
      * per track *row*; the schema's clone-aggregation by `content_hash` — open
      * decision #5 — is deferred; a top-four teaser doesn't need it.)
      *
-     * @return array<int, array{id: string, name: string, artist: ?string}>
+     * The YEAR comes off the song's album rather than the track, because a track has none
+     * of its own — it is a fact about the release. Eager-loaded rather than joined so the
+     * `select` above stays a track select; four rows make the second query free.
+     *
+     * @return array<int, array{id: string, name: string, artist: ?string, year: ?int, href: string}>
      */
     private function songs(string $mode): array
     {
         return Track::query()
             ->where('type', TrackType::Music)
-            ->with('artist:id,name')
-            ->select(['id', 'name', 'artist_id'])
+            ->with(['artist:id,name', 'collection:id,year'])
+            ->select(['id', 'name', 'artist_id', 'collection_id'])
             ->tap(fn (Builder $q) => match ($mode) {
                 'random' => $q->inRandomOrder(),
                 'popular' => $q->has('plays', '>', 1)->withCount('plays')->orderByDesc('plays_count'),
@@ -149,6 +158,8 @@ class MusicController extends Controller
                 'id' => $song->id,
                 'name' => $song->name,
                 'artist' => $song->artist?->name,
+                'year' => $song->collection?->year,
+                'href' => route('music.songs.show', $song->id, absolute: false),
             ])
             ->all();
     }
@@ -165,12 +176,26 @@ class MusicController extends Controller
      * file duration — the artist with the most audio; `latest` by the newest
      * track's mtime; `random` shuffles.
      *
-     * @return array<int, array{id: string, name: string}>
+     * Each row also carries the three numbers its card shows as pips: how many albums are
+     * credited to them, how many tracks they perform, and what those add up to in seconds.
+     *
+     * `albums` counts the collections they are the ALBUM-ARTIST of, which is the same
+     * relation the artist page's own discography lists — not "albums holding a track of
+     * theirs", which would count every compilation they appear on once. `songs` and
+     * `duration` are over their own tracks. All three are aggregates rather than loaded
+     * relations: four artists must not become four more queries.
+     *
+     * `tracks_sum_duration` is aliased away by hand below for the reason the genre page's
+     * totals document — an aggregate landing on an attribute that HAS a cast gets that cast.
+     *
+     * @return array<int, array{id: string, name: string, albums: int, songs: int, duration: float, href: string}>
      */
     private function artists(string $mode): array
     {
         return Artist::query()
             ->has('tracks')
+            ->withCount(['albums', 'tracks'])
+            ->withSum('tracks as total_duration', 'duration')
             ->tap(fn (Builder $q) => match ($mode) {
                 'random' => $q->inRandomOrder(),
                 'popular' => $q->withSum('tracks', 'duration')->orderByDesc('tracks_sum_duration'),
@@ -178,7 +203,15 @@ class MusicController extends Controller
             })
             ->limit(self::LIMIT)
             ->get()
-            ->map(fn (Artist $artist) => ['id' => $artist->id, 'name' => $artist->name])
+            ->map(fn (Artist $artist) => [
+                'id' => $artist->id,
+                'name' => $artist->name,
+                'albums' => (int) $artist->albums_count,
+                'songs' => (int) $artist->tracks_count,
+                // Raw seconds; the widget clocks it against the viewer's locale.
+                'duration' => (float) ($artist->total_duration ?? 0),
+                'href' => route('music.artists.show', $artist->id, absolute: false),
+            ])
             ->all();
     }
 
@@ -190,12 +223,47 @@ class MusicController extends Controller
      * duration — the genre with the most audio; `latest` by the newest track's
      * mtime; `random` shuffles.
      *
-     * @return array<int, array{id: string, name: string}>
+     * Each row also carries the three numbers its card shows as pips, and they use exactly
+     * the rules the genre's own page uses, so a reader meeting the same genre twice is not
+     * told two different things:
+     *
+     *   artists — those whose MAIN genre this is (DominantGenre), not everyone who ever
+     *             recorded a song in it
+     *   albums  — those whose MAIN genre this is, same rule, so a compilation grazing five
+     *             genres is counted only by the one that owns it
+     *   songs   — every music track tagged with it, the literal reading, because that is a
+     *             question about tracks rather than about what a record is
+     *
+     * Both dominant counts arrive as LEFT joins and are COALESCEd: a genre can hold plenty
+     * of songs while being nobody's main genre, and would otherwise report null.
+     *
+     * @return array<int, array{id: string, name: string, artists: int, albums: int, songs: int, href: string}>
      */
     private function genres(string $mode): array
     {
+        $albumCounts = DB::query()
+            ->fromSub(DominantGenre::albumWinners(), 'album_winners')
+            ->groupBy('album_winners.genre_id')
+            ->select('album_winners.genre_id')
+            ->selectRaw('count(*) as albums_count');
+
         return Genre::query()
             ->has('tracks')
+            ->leftJoinSub(DominantGenre::artistCountsPerGenre(), 'artist_counts', 'artist_counts.genre_id', '=', 'genres.id')
+            ->leftJoinSub($albumCounts, 'album_counts', 'album_counts.genre_id', '=', 'genres.id')
+            /*
+             * `genres.*` explicitly, because the joins put other tables' columns in scope and
+             * an unqualified select would hydrate the model from them.
+             *
+             * And it must come BEFORE withCount, not after: `select()` REPLACES the select
+             * list, so calling it later silently discards the count's own sub-select and
+             * every genre reports 0 songs — a wrong number rather than an error.
+             */
+            ->select('genres.*')
+            ->addSelect(['artist_counts.artists_count', 'album_counts.albums_count'])
+            // Scoped to music like every other number on this page: a podcast episode may
+            // legally carry a genre (only audiobooks are barred by the tracks CHECK).
+            ->withCount(['tracks as songs_count' => fn ($q) => $q->where('type', TrackType::Music)])
             ->tap(fn (Builder $q) => match ($mode) {
                 'random' => $q->inRandomOrder(),
                 'popular' => $q->withSum('tracks', 'duration')->orderByDesc('tracks_sum_duration'),
@@ -203,7 +271,14 @@ class MusicController extends Controller
             })
             ->limit(self::LIMIT)
             ->get()
-            ->map(fn (Genre $genre) => ['id' => $genre->id, 'name' => $genre->name])
+            ->map(fn (Genre $genre) => [
+                'id' => $genre->id,
+                'name' => $genre->name,
+                'artists' => (int) ($genre->artists_count ?? 0),
+                'albums' => (int) ($genre->albums_count ?? 0),
+                'songs' => (int) $genre->songs_count,
+                'href' => route('music.genres.show', $genre->id, absolute: false),
+            ])
             ->all();
     }
 }

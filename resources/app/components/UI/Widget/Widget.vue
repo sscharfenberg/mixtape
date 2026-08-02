@@ -15,7 +15,7 @@ import { ref } from "vue";
 import WidgetBody from "./WidgetBody.vue";
 import WidgetFooter from "./WidgetFooter.vue";
 import WidgetLoader from "./WidgetLoader.vue";
-import WidgetSkeleton from "./WidgetSkeleton.vue";
+import WidgetSkeleton, { type SkeletonVariant } from "./WidgetSkeleton.vue";
 import WidgetTitle from "./WidgetTitle.vue";
 
 withDefaults(
@@ -28,10 +28,16 @@ withDefaults(
         refresh?: string;
         /** Centre the body content vertically within its band (it stays full-width) — for a body shorter than the row's tallest card. */
         centered?: boolean;
+        /**
+         * Shape of the refresh placeholder. `entries` for a body that is a WidgetList, so the
+         * card keeps its height across the swap; the default suits prose or tiles.
+         */
+        skeleton?: SkeletonVariant;
     }>(),
     {
         loading: false,
-        wide: false
+        wide: false,
+        skeleton: "text"
     }
 );
 
@@ -43,7 +49,7 @@ const refreshing = ref(false);
     <div class="widget" :class="{ 'widget--wide': wide }">
         <widget-title v-if="$slots.title"><slot name="title" /></widget-title>
         <widget-body :centered="centered">
-            <widget-skeleton v-if="refreshing" :rows="4" />
+            <widget-skeleton v-if="refreshing" :rows="4" :variant="skeleton" />
             <slot v-else />
         </widget-body>
         <widget-footer v-if="$slots.footer || refresh" :refresh="refresh" @refreshing="refreshing = $event">

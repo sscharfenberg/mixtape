@@ -15,7 +15,7 @@ import Widget from "Components/UI/Widget/Widget.vue";
 import WidgetModeToggle from "Components/UI/Widget/WidgetModeToggle.vue";
 import { useWidgetMode } from "Composables/useWidgetMode";
 import type { SongEntry, WidgetMode, WidgetModes } from "Types/music";
-import WidgetList from "./WidgetList.vue";
+import WidgetList, { type WidgetListItem } from "./WidgetList.vue";
 
 const props = defineProps<WidgetModes<SongEntry>>();
 
@@ -31,11 +31,19 @@ const mode = useWidgetMode("songs", "latest", modes);
 const active = computed(() => props[mode.value] ?? props.latest);
 
 /** Active-mode songs mapped to the shared list shape (meta = performing artist). */
-const items = computed(() =>
+/**
+ * Active-mode songs as list entries. A pip is dropped rather than shown empty when the tag
+ * is missing — a file crediting nobody has no artist, and "—" says less than no chip.
+ */
+const items = computed<WidgetListItem[]>(() =>
     active.value.map(song => ({
         id: song.id,
         name: song.name,
-        meta: song.artist
+        href: song.href,
+        pips: [
+            song.artist ? { icon: "artist", value: song.artist, label: t("music.columns.artist") } : null,
+            song.year !== null ? { icon: "calendar", value: String(song.year), label: t("music.columns.year") } : null
+        ].filter(pip => pip !== null)
     }))
 );
 
@@ -50,7 +58,7 @@ const emptyText = computed(() =>
 </script>
 
 <template>
-    <widget :refresh="'songs'">
+    <widget :refresh="'songs'" skeleton="entries">
         <template #title>
             <icon name="song" />
             {{ t("music.widgets.songs") }}

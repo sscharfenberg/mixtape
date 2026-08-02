@@ -14,10 +14,10 @@ import Icon from "Components/UI/Icon.vue";
 import Widget from "Components/UI/Widget/Widget.vue";
 import WidgetModeToggle from "Components/UI/Widget/WidgetModeToggle.vue";
 import { useWidgetMode } from "Composables/useWidgetMode";
-import type { TaxonomyEntry, WidgetMode, WidgetModes } from "Types/music";
-import WidgetList from "./WidgetList.vue";
+import type { GenreEntry, WidgetMode, WidgetModes } from "Types/music";
+import WidgetList, { type WidgetListItem } from "./WidgetList.vue";
 
-const props = defineProps<WidgetModes<TaxonomyEntry>>();
+const props = defineProps<WidgetModes<GenreEntry>>();
 
 const { t } = useI18n();
 
@@ -28,11 +28,29 @@ const modes: WidgetMode[] = ["latest", "popular", "random"];
 const mode = useWidgetMode("genres", "popular", modes);
 
 /** Active-mode genres — a plain name list (no secondary line). Falls back to `latest` if a mode's set is absent. */
-const items = computed(() => props[mode.value] ?? props.latest);
+/**
+ * Active-mode genres as list entries.
+ *
+ * The three numbers use exactly the rules the genre's own page uses — artists and albums by
+ * DOMINANT genre, songs literally — so a reader meeting the same genre in both places is
+ * not told two different things. All three always render: 0 is an answer here.
+ */
+const items = computed<WidgetListItem[]>(() =>
+    (props[mode.value] ?? props.latest).map(genre => ({
+        id: genre.id,
+        name: genre.name,
+        href: genre.href,
+        pips: [
+            { icon: "artist", value: String(genre.artists), label: t("music.pips.artistCount") },
+            { icon: "album", value: String(genre.albums), label: t("music.pips.albumCount") },
+            { icon: "song", value: String(genre.songs), label: t("music.pips.songCount") }
+        ]
+    }))
+);
 </script>
 
 <template>
-    <widget :refresh="'genres'">
+    <widget :refresh="'genres'" skeleton="entries">
         <template #title>
             <icon name="genre" />
             {{ t("music.widgets.genres") }}

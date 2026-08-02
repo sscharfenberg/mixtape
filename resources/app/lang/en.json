@@ -264,6 +264,12 @@
             "size": "Size",
             "modifiedAt": "Modified"
         },
+        "pips": {
+            "albumCount": "Number of albums",
+            "songCount": "Number of songs",
+            "artistCount": "Number of artists",
+            "totalDuration": "Total playing time"
+        },
         "channel": {
             "stereo": "Stereo",
             "joint_stereo": "Joint stereo",

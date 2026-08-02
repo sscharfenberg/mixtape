@@ -13,7 +13,7 @@ import Widget from "Components/UI/Widget/Widget.vue";
 import WidgetModeToggle from "Components/UI/Widget/WidgetModeToggle.vue";
 import { useWidgetMode } from "Composables/useWidgetMode";
 import type { AlbumEntry, WidgetMode, WidgetModes } from "Types/music";
-import WidgetList from "./WidgetList.vue";
+import WidgetList, { type WidgetListItem } from "./WidgetList.vue";
 
 const props = defineProps<WidgetModes<AlbumEntry>>();
 
@@ -25,18 +25,27 @@ const modes: WidgetMode[] = ["latest", "random"];
 /** Active mode — restored from localStorage, defaulting to latest. */
 const mode = useWidgetMode("albums", "latest", modes);
 
-/** Active-mode albums mapped to the shared list shape (meta = "artist · year"). Falls back to `latest` if a mode's set is absent. */
-const items = computed(() =>
+/**
+ * Active-mode albums as list entries. Falls back to `latest` if a mode's set is absent.
+ *
+ * A pip is dropped rather than shown empty when the tag is missing: an untagged rip has no
+ * year, and a chip reading "—" says less than no chip at all.
+ */
+const items = computed<WidgetListItem[]>(() =>
     (props[mode.value] ?? props.latest).map(album => ({
         id: album.id,
         name: album.name,
-        meta: [album.artist, album.year].filter(Boolean).join(" · ") || null
+        href: album.href,
+        pips: [
+            album.artist ? { icon: "artist", value: album.artist, label: t("music.columns.artist") } : null,
+            album.year !== null ? { icon: "calendar", value: String(album.year), label: t("music.columns.year") } : null
+        ].filter(pip => pip !== null)
     }))
 );
 </script>
 
 <template>
-    <widget :refresh="'albums'">
+    <widget :refresh="'albums'" skeleton="entries">
         <template #title>
             <icon name="album" />
             {{ t("music.widgets.albums") }}

@@ -3,6 +3,8 @@
 namespace Tests\Feature\Music;
 
 use App\Models\Artist;
+use App\Models\Collection;
+use App\Models\Genre;
 use App\Models\Play;
 use App\Models\Track;
 use App\Models\User;
@@ -65,9 +67,99 @@ class MusicPageTest extends TestCase
                 ->has('artists.latest', 4)->has('artists.random', 4)->has('artists.popular', 4)
                 ->has('genres.latest', 4)->has('genres.random', 4)->has('genres.popular', 4)
                 ->has('songs.latest', 4)->has('songs.random', 4)->has('songs.popular', 4)
-                ->has('albums.latest.0', fn (Assert $album) => $album->hasAll(['id', 'name', 'artist', 'year']))
-                ->has('songs.latest.0', fn (Assert $song) => $song->hasAll(['id', 'name', 'artist']))
+                // Every entry carries what its card renders: a name, the link the whole row
+                // becomes, and the facts it shows as pips. Asserted exhaustively (`hasAll`
+                // fails on extras too) so a field cannot quietly appear in the payload
+                // without someone deciding the card should show it.
+                ->has('albums.latest.0', fn (Assert $album) => $album->hasAll(['id', 'name', 'artist', 'year', 'href']))
+                ->has('songs.latest.0', fn (Assert $song) => $song->hasAll(['id', 'name', 'artist', 'year', 'href']))
+                ->has('artists.latest.0', fn (Assert $artist) => $artist->hasAll(['id', 'name', 'albums', 'songs', 'duration', 'href']))
+                ->has('genres.latest.0', fn (Assert $genre) => $genre->hasAll(['id', 'name', 'artists', 'albums', 'songs', 'href']))
             );
+    }
+
+    public function test_an_artists_widget_entry_counts_its_own_albums_songs_and_playing_time(): void
+    {
+        // The three numbers its pips show. `albums` is what the artist is the ALBUM-ARTIST
+        // of — the same relation their own page's discography lists — not every album
+        // holding a track of theirs, which would count each compilation they appear on.
+        $artist = Artist::factory()->create();
+        $ownAlbum = Collection::factory()->create(['album_artist_id' => $artist->id]);
+        $compilation = Collection::factory()->create(['album_artist_id' => null]);
+
+        Track::factory()->count(2)->create([
+            'artist_id' => $artist->id,
+            'collection_id' => $ownAlbum->id,
+            'duration' => 100.0,
+        ]);
+        Track::factory()->create([
+            'artist_id' => $artist->id,
+            'collection_id' => $compilation->id,
+            'duration' => 50.0,
+        ]);
+
+        $entry = collect($this->actingAs(User::factory()->create())->get('/music')
+            ->viewData('page')['props']['artists']['latest'])
+            ->firstWhere('id', $artist->id);
+
+        $this->assertSame(1, $entry['albums'], 'the compilation is not their album');
+        $this->assertSame(3, $entry['songs'], 'but all three tracks are their songs');
+        $this->assertSame(250.0, $entry['duration']);
+    }
+
+    public function test_a_genres_widget_entry_counts_by_the_same_rules_its_own_page_uses(): void
+    {
+        // artists and albums by DOMINANT genre, songs literally — so a reader meeting this
+        // genre on its own page is not told two different things.
+        $genre = Genre::factory()->create();
+        $other = Genre::factory()->create();
+
+        // Mostly-this-genre artist, and their album: both belong here.
+        $native = Artist::factory()->create();
+        $album = Collection::factory()->create(['album_artist_id' => $native->id]);
+        Track::factory()->count(3)->create([
+            'artist_id' => $native->id,
+            'collection_id' => $album->id,
+            'genre_id' => $genre->id,
+        ]);
+
+        // A dabbler, mostly the other genre: their one track counts as a song here, but
+        // they are not one of this genre's artists.
+        // `collection_id => null` throughout: Track::factory() mints an album per track
+        // otherwise, and each of those would be an album of whichever genre its one track
+        // carries — which is not what these two numbers are being tested for.
+        $dabbler = Artist::factory()->create();
+        Track::factory()->create(['artist_id' => $dabbler->id, 'genre_id' => $genre->id, 'collection_id' => null]);
+        Track::factory()->count(4)->create(['artist_id' => $dabbler->id, 'genre_id' => $other->id, 'collection_id' => null]);
+
+        $entry = collect($this->actingAs(User::factory()->create())->get('/music')
+            ->viewData('page')['props']['genres']['latest'])
+            ->firstWhere('id', $genre->id);
+
+        $this->assertSame(1, $entry['artists'], 'the dabbler is not one of this genre\'s artists');
+        $this->assertSame(1, $entry['albums']);
+        $this->assertSame(4, $entry['songs'], 'but their track is still one of its songs');
+    }
+
+    public function test_a_genre_that_is_nobodys_main_genre_reports_zero_rather_than_null(): void
+    {
+        // The LEFT joins: a genre can hold songs without winning anyone, and the pips must
+        // read 0 instead of blanking.
+        $genre = Genre::factory()->create();
+        $other = Genre::factory()->create();
+        $artist = Artist::factory()->create();
+
+        // Loose tracks (see the note above) so no album is minted for either genre.
+        Track::factory()->create(['artist_id' => $artist->id, 'genre_id' => $genre->id, 'collection_id' => null]);
+        Track::factory()->count(5)->create(['artist_id' => $artist->id, 'genre_id' => $other->id, 'collection_id' => null]);
+
+        $entry = collect($this->actingAs(User::factory()->create())->get('/music')
+            ->viewData('page')['props']['genres']['latest'])
+            ->firstWhere('id', $genre->id);
+
+        $this->assertSame(0, $entry['artists']);
+        $this->assertSame(0, $entry['albums']);
+        $this->assertSame(1, $entry['songs']);
     }
 
     public function test_artists_widget_excludes_artists_with_no_tracks(): void
