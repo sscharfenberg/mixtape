@@ -69,6 +69,32 @@ Phase 1 was done first — no point deploying new app code onto the old host.
 - **Prefer the new idioms** (Inertia + composables) over the legacy API / Vue-Router / store-everything
   patterns, even when porting.
 
+**Tests — write them.** Every change that adds or alters behaviour gets sensible test coverage, at
+the cheapest layer that can actually answer the question. Three layers, none interchangeable:
+
+- **Server → PHPUnit** (`php artisan test`) in `tests/Unit/` + `tests/Feature/`. Anything the server
+  decides: authorization, validation, query shaping, and the Inertia props a page receives
+  (`assertInertia`).
+- **Frontend unit → Vitest** (`npm run test:unit`), colocated **beside the source** as `*.test.ts`
+  (`utils/formatting.test.ts` next to `utils/formatting.ts`) — the same rule as page-local
+  components. Pure logic, composables, and a component's own behaviour.
+- **End-to-end → Playwright** (`npm run test:e2e`) in `tests/e2e/` (`guest/` = no session, `app/` =
+  signed in). Anything that needs a real browser: navigation, history, the URL as state, CSP, media
+  playback, keyboard journeys.
+
+Two rules worth stating outright, because both cost real effort when got wrong: **don't
+component-test Inertia pages in Vitest merely to re-check their props** — `assertInertia` already
+covers that contract, so test a page for what PHP cannot see (locale formatting, an untagged field
+disappearing) and cover the journey with a Playwright spec. And **don't fake what only a browser
+has** — if a test needs layout, scroll position or a real `IntersectionObserver`, mocking it just
+asserts the mock; that work belongs in Playwright.
+
+`npm run build` gates on lint and `vue-tsc`, **not** on tests — run the suites yourself before
+calling a change done. Setup, helpers, layer-choice guidance and the traps (module-singleton leakage,
+Fortify's cache-backed login throttle, the stale `public/hot` that blanks every asset, the randomly
+re-seeded E2E library) are documented in [`docs/testing.md`](docs/testing.md) — **read it before
+writing tests in this repo.**
+
 **Linting the frontend** — use **`npm run lint`** (runs ESLint then Stylelint, both with `--fix`).
 Don't invoke `eslint` / `stylelint` directly. `npm run build` runs the same lint first, so a lint
 error fails the build before anything compiles. **Always run `npm run lint` after editing any
@@ -190,3 +216,5 @@ instance, written for someone else's server.
 **App (Phase 2 — next):**
 
 - [`docs/app-rewrite.md`](docs/app-rewrite.md) — the rewrite: stack, goals, features, access model, legacy map.
+- [`docs/testing.md`](docs/testing.md) — the three test layers (PHPUnit / Vitest / Playwright): where
+  tests live, how each is set up, which layer to reach for, and the traps each one hides.

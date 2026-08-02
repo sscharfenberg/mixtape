@@ -1,0 +1,240 @@
+# Testing
+
+> Part of MixTape v2 (Phase 2). See [../CLAUDE.md](../CLAUDE.md) for the overview and
+> [app-rewrite.md](app-rewrite.md) for the surrounding frontend conventions.
+
+MixTape has **three test layers**, and they are deliberately not interchangeable. Each one exists to
+answer a question the others structurally cannot:
+
+| Layer | Tool | Lives in | Answers |
+| --- | --- | --- | --- |
+| **Server** | PHPUnit | `tests/Unit/`, `tests/Feature/` | Does the request produce the right response, the right database state, and the right Inertia props? |
+| **Frontend unit** | Vitest | beside the source, `*.test.ts` | Does this function / composable / component behave correctly, in isolation? |
+| **End-to-end** | Playwright | `tests/e2e/` | Does the real app, in a real browser, actually work? |
+
+```bash
+php artisan test        # server
+npm run test:unit       # frontend unit  (npm run test:watch to iterate)
+npm run test:e2e        # end-to-end     (npm run test:e2e:ui for the debugger)
+npm test                # unit + e2e
+```
+
+`npm run build` gates on lint and `vue-tsc`, **not** on tests — the suites are their own step, so an
+asset build never waits on a browser.
+
+---
+
+## Where tests live
+
+### Server — `tests/Unit/`, `tests/Feature/`
+
+Standard Laravel layout, mirroring the namespace of the thing under test
+(`tests/Feature/Music/SongPageTest.php`). `tests/Fixtures/` holds shared fixture files; the two
+suites are declared explicitly in `phpunit.xml`, so a new directory under `tests/` is **not** picked
+up automatically — which is what keeps `tests/e2e/` out of PHPUnit's way.
+
+Feature tests are where the Inertia contract is pinned, via `assertInertia`. That matters for
+deciding what to test elsewhere: **the props a controller passes to a page are already covered
+here**, so re-asserting them from a mounted Vue component is duplicated effort with worse tooling.
+
+### Frontend unit — beside the code
+
+Tests sit **next to the source they cover**, following the same rule as page-local components and
+composables (CLAUDE.md → *Pages*):
+
+```
+resources/app/utils/formatting.ts
+resources/app/utils/formatting.test.ts
+resources/app/composables/useToast.ts
+resources/app/composables/useToast.test.ts
+resources/app/components/UI/Breadcrumb.vue
+resources/app/components/UI/Breadcrumb.test.ts
+```
+
+There is no `tests/` tree for them and no `__tests__/` folders. Vitest globs
+`resources/app/**/*.{test,spec}.ts`.
+
+### End-to-end — `tests/e2e/`
+
+```
+tests/e2e/
+├── guest/       specs that run with NO session
+├── app/         specs that run signed in
+└── support/     config-adjacent helpers, not specs
+```
+
+The split is by **directory, not by clearing cookies**, so an auth-gate test can never pass by
+accidentally inheriting a stored session.
+
+---
+
+## How the frontend unit layer is set up
+
+`vitest.config.ts` is a **separate config**, not a `test:` key on `vite.config.ts` — that one is a
+factory pulling in `laravel-vite-plugin` and the image optimizer, none of which a unit run should
+load. The one thing both configs must agree on, the import aliases, is imported from
+`resources/build/aliases.ts` rather than copied. (`tsconfig.json`'s `paths` has to be kept in step by
+hand; TypeScript cannot read that module.)
+
+Key settings and why:
+
+- **`environment: "happy-dom"`** — faster to boot than jsdom and carries what the components reach
+  for. What it does *not* have is **layout**: no box metrics, no real `IntersectionObserver`
+  behaviour. Anything depending on those belongs in Playwright, not in a richer fake.
+- **`env: { TZ: "UTC" }`** — `formatDateTime` renders in the *viewer's* zone by design, so without a
+  pin its expectations depend on the machine running the suite.
+- **`globals: false`** — specs import `{ describe, it, expect }` from `vitest`, so `tsconfig.json`
+  needs no `"vitest/globals"`. Test files are matched by the existing `resources` include, so they
+  are **type-checked and linted like any other source file**.
+- **`setupFiles`** — `resources/app/testing/setup.ts`. It installs `enableAutoUnmount(afterEach)`
+  (not optional: components watching shared state otherwise stay alive for the whole file) plus
+  polyfills for the handful of APIs happy-dom omits.
+- CSS is **not** compiled. `<style lang="scss">` blocks are stubbed; tests assert markup, classes and
+  behaviour, never computed styling.
+
+### Test support — `resources/app/testing/` (alias `Testing/`)
+
+Never imported by the app, so it never reaches a bundle.
+
+| File | What it gives you |
+| --- | --- |
+| `mount.ts` | `mountApp()` — mounts with the **real** de/en catalogs and the global `v-tooltip` directive. Plus `translate()` and `iconNames()`. |
+| `inertia.ts` | A stand-in for `@inertiajs/vue3`: `setPage`, `resetInertia`, `routerCalls`, `emitRouterEvent`, and stubs for `Link` / `Head` / `Form` / `router` / `usePage`. |
+| `setup.ts` | Auto-unmount and the happy-dom polyfills. |
+
+The catalogs are the real ones on purpose: a stub `t()` that echoes its key would sail straight past
+a renamed or deleted translation, which is exactly the regression worth catching.
+
+**Inertia has to be mocked as a whole module.** The real `usePage()` closes over a module-level page
+ref — nothing is passed through the component tree, so there is no provider or `inject` seam a test
+could use. Opt in per file:
+
+```ts
+vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
+```
+
+---
+
+## How the end-to-end layer is set up
+
+`playwright.config.ts` drives the **real app**: Laravel over a throwaway sqlite, seeded fresh each
+run. Nothing is manual — `globalSetup` handles all of it, in this order:
+
+1. Deal with `public/hot` (see the traps below).
+2. Build assets if `public/build/manifest.json` is missing.
+3. Truncate `storage/e2e.sqlite`, `config:clear`, `migrate:fresh --seed`.
+4. Clear the login rate limiter.
+
+Then the app is served on **:8100** — deliberately not 8000, so a hand-started `artisan serve`
+survives — and the `setup` project signs in once and saves the session for the `app` project to
+reuse.
+
+**It needs a seeded database, not a real media library.** The seeder creates factory rows only; no
+mp3 exists on disk, nothing runs `app:update`, and neither the dev nor the production database is
+ever touched. Cover URLs consequently 404, which is *deliberately* exercised — it is what drives
+`CoverImage`'s placeholder fallback.
+
+Seed login: **`Ashaltiriak` / `passwort`**, and note that **login is by `name`, not email**
+(`Fortify::username() === 'name'`).
+
+### Support helpers — `tests/e2e/support/`
+
+| File | Role |
+| --- | --- |
+| `environment.ts` | Ports, paths, the server env overrides, and the stand-up/teardown primitives. |
+| `globalSetup.ts` / `globalTeardown.ts` | Run them, in the right order. |
+| `auth.setup.ts` | The `setup` project: signs in for real and stores the session. |
+| `actions.ts` | `signIn`, `columnValues`, `pageHeading`, `clockToSeconds`, `fold`, `expectOnTablePage`, `countDocumentRequests`. |
+
+---
+
+## Traps
+
+Each of these failed in a way that pointed somewhere other than its cause. They are handled in code;
+this is the record of *why* that code exists.
+
+**Frontend unit**
+
+- **Module singletons leak between tests.** `useToast`, `useBreadcrumbs` and `useTooltipLayer` are
+  module-level state (the no-Pinia store), so drain them in `beforeEach`. A still-mounted wrapper
+  also re-renders when the singleton changes — assert one case fully, `unmount()`, then set up the
+  next.
+- **happy-dom has no `localStorage`** (it does have `sessionStorage`), no `execCommand` and no
+  Popover API. Polyfilled in `setup.ts`. The polyfill is installed *unconditionally* because Node's
+  own experimental `localStorage` prints a warning when merely **read**.
+- **`attributes("xlink:href")` is always `undefined`** — the DOM keys namespaced attributes by local
+  name (`href`). Use `iconNames()`.
+- **`findAll("button")` sweeps up child components' buttons** (the pager's page-size `Select`) —
+  scope to the component's own class.
+- The project targets `lib: ES2020`, so **`Array.prototype.at()` is unavailable** in tests.
+
+**End-to-end**
+
+- **Fortify throttles login at five attempts a minute per `username|ip`, counted in the CACHE** — so
+  `migrate:fresh` does *not* reset it. A run signs in several times, so two runs inside a minute
+  start getting 429s, which present as the login form silently doing nothing. Global setup clears
+  it; **keep the number of real logins per run under five.**
+- **A stale `public/hot` blanks every asset.** Written by `npm run dev` and *not* removed when that
+  server stops, so it usually outlives it; while it exists `@vite` points every asset at the URL it
+  names and ignores the manifest — and every selector times out. Global setup parks a stale marker
+  at `public/hot.e2e-backup` and restores it in teardown *and* at the next run's start, so a killed
+  run self-heals. A **live** dev server is left alone.
+- **A cached config beats real environment variables**, silently pointing the run at the remote
+  Postgres. Hence `config:clear` before migrating.
+- **The seeded library is random and re-rolled every run** (`LibrarySeeder` uses factories,
+  `random_int`, `inRandomOrder`). Never hard-code a song or artist name: read a value off the page
+  and compare the page against **itself** across the interaction. Guard the thin cases too — a genre
+  can come up with one song, a track with no duration.
+- **Assert ordering on a numeric column, never text.** The server sorts through the database's
+  collation and the app's accent-folded `name_fold` columns; `localeCompare` does not reproduce
+  that. Sort by duration and compare seconds.
+- **A sortable `<th>` contains hidden text** — its innerText is really
+  `"Album\nNach Album aufsteigend sortiert"`, the sort state announced for screen readers. Match the
+  first line only (`columnValues` does).
+- **Column 1 is not always the title** — the albums listing and a genre's songs tab both lead with a
+  cover cell. Find columns by header.
+- **`getByRole("heading", { level: 1 })` is ambiguous** — the app header renders the wordmark as an
+  `<h1>` too. Use `pageHeading()`.
+- **`framenavigated` fires for `history.replaceState`**, so it cannot prove a tab change costs no
+  round trip. Count `document` requests (`countDocumentRequests`).
+- **Lazy, hidden images are legitimately "incomplete"** — covers are `loading="lazy"` and the
+  discography renders row *and* card artwork with one `display:none`. Only a **visible** image that
+  failed is broken, and check after `waitForLoadState("networkidle")`.
+- **`getByLabel(/Passwort/)` is ambiguous** — it matches the input *and* the "Passwort anzeigen"
+  reveal button. `signIn()` uses ids.
+
+---
+
+## Choosing a layer
+
+Roughly, in order of preference — the cheapest layer that can actually answer the question:
+
+1. **Pure logic** (formatters, predicates, a composable's state machine) → **Vitest**, no mounting.
+2. **A component's own behaviour** (props in, markup/events out; conditional rendering; a11y
+   attributes) → **Vitest** with `mountApp`.
+3. **Anything the server decides** (authorization, validation, query shaping, which props a page
+   receives) → **PHPUnit feature test**.
+4. **Anything that needs a real browser** — navigation, history, the URL as state, CSP, media
+   playback, focus and keyboard journeys → **Playwright**.
+
+Two rules that fall out of this:
+
+- **Don't component-test Inertia pages in Vitest** just to check their props. That contract is
+  already covered by `assertInertia`. Test a page in Vitest for what PHP *cannot* see — that raw
+  seconds/bytes/ISO-8601 are formatted in the reader's locale, that an untagged field disappears
+  instead of rendering `null` — and cover the journey itself with a Playwright spec.
+- **Don't fake what only a browser has.** If a test needs layout, scroll position or a real
+  `IntersectionObserver`, mocking it means asserting the mock. `useStickyNav` and the tooltip's
+  anchor positioning are left to Playwright for exactly this reason.
+
+## Conventions
+
+- **Name the behaviour, not the mechanics.** `it("drops the denominator when a multi-disc rip numbers
+  past its own disc")`, not `it("returns a string")`.
+- **Say *why* in the file's opening comment** — the risk the file is guarding. The docblock rule
+  (CLAUDE.md → *Comments*) applies to test helpers as well.
+- **Prefer a real failure over a green one.** A test that cannot fail is worse than no test; when a
+  new suite lands, seed a mutation and confirm it is caught.
+- **Never let a flaky test settle in.** Retries are off on purpose. Run a new E2E spec several times
+  before trusting it — the seed is re-rolled every run, so repeated runs are genuinely different
+  data.
