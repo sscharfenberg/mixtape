@@ -1,0 +1,140 @@
+name: CI
+
+# Push to main and every PR. workflow_dispatch so a run can be kicked off by hand
+# after changing infrastructure, without an empty commit.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A new push to the same branch makes the previous run pointless — cancel it rather
+# than pay for both.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Everything that needs only Node. Split from the suite below so the fast feedback
+  # (a lint error, a type error) is not queued behind a Composer install and a browser
+  # download — the two jobs run in parallel.
+  checks:
+    name: Lint, types, bundle & unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # .nvmrc says "26"; package.json's engines demands ^26.4.0 and the preinstall
+          # hook hard-exits on a mismatch, so this must resolve to the latest 26.x.
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # vite.config.ts reads the environment at build time and main.ts consumes
+      # VITE_APP_NAME, so the bundle needs an .env even though nothing here talks to a
+      # database. .env is gitignored, hence the copy.
+      - name: Create .env
+        run: cp .env.example .env
+
+      # One command covers three of the four things worth checking: `build` runs the
+      # Node-version check, ESLint + Stylelint, vue-tsc, and only then the bundle.
+      - name: Lint, type-check and build
+        run: npm run build
+
+      # `npm run lint` runs with --fix, so an auto-fixable problem is silently corrected
+      # rather than failing. Without this the build would go green while the COMMITTED
+      # code is still unformatted. Anything the build rewrote shows up here.
+      - name: Fail if lint --fix changed committed files
+        run: git diff --exit-code
+
+      - run: npm run test:unit
+
+  # The server suite and the browser suite. Together because the end-to-end run needs
+  # the whole stack anyway — PHP to serve the app, Node to build its assets, and
+  # Chromium to drive it.
+  tests:
+    name: PHPUnit & end-to-end
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          # Matches the server (composer.json allows ^8.3). No ext-* is declared and the
+          # app uses no PHP intl — the Intl formatting is Node-side — so this is the
+          # plain Laravel set plus sqlite, which is the whole database here.
+          php-version: '8.4'
+          extensions: mbstring, dom, fileinfo, tokenizer, xml, curl, pdo_sqlite, sqlite3
+          coverage: none
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer/files
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - run: composer install --no-interaction --no-progress --prefer-dist
+
+      - run: npm ci
+
+      # APP_KEY is the one that bites: .env is gitignored, and without a key the app
+      # answers 500 on every request and PHPUnit cannot boot either (phpunit.xml sets
+      # the database and mailer, but no key).
+      - name: Create .env and app key
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      # Before the browser download, so a server-side failure fails fast.
+      - name: Server tests
+        run: php artisan test
+
+      # ~100 MB of browser. Keyed on the lockfile so it is re-fetched only when the
+      # Playwright version actually moves.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      # --with-deps also installs the system libraries headless Chromium needs, which
+      # the runner does not ship and which the cache above cannot supply.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # `build-only` skips the lint and type-check the `checks` job already ran. Doing it
+      # here at all is what stops the E2E global setup from falling back to a full
+      # `npm run build` when it finds no manifest.
+      - name: Build assets for the e2e run
+        run: npm run build-only
+
+      # Stands the app up itself: throwaway sqlite, E2ESeeder, artisan serve on :8100.
+      # CI is set by Actions, which the Playwright config keys off — one worker (no
+      # contention on the single sqlite file) and forbidOnly, so a stray test.only fails
+      # the build instead of quietly skipping everything else.
+      - name: End-to-end tests
+        run: npm run test:e2e
+
+      # The report carries a trace per failed test — a DOM snapshot at every step, which
+      # is the difference between "a selector timed out" and knowing why.
+      - name: Upload Playwright report
+        if: ${{ !cancelled() && failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
