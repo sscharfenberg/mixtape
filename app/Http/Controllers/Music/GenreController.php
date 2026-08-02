@@ -76,6 +76,9 @@ class GenreController extends Controller
         // number and the tab's list are then the same rows by construction, where two
         // queries could drift the moment one grew a condition the other didn't.
         $artists = $this->mainGenreArtists($genre);
+        // Same rows the albums tab renders, so the hero's count and the tab's contents agree
+        // by construction — the artists pair does the same, one line up.
+        $discography = $this->discography($genre);
 
         return Inertia::render('Music/Genres/Genre/GenrePage', [
             'genre' => [
@@ -83,13 +86,16 @@ class GenreController extends Controller
                 'name' => $genre->name,
 
                 'artists' => $artists->count(),
+                'albums' => count($discography),
                 'songs' => $totals['songs'],
                 'duration' => $totals['duration'],
                 'size' => $totals['size'],
             ],
-            // The albums tab — every album holding a track of this genre, in one go.
-            'discography' => $this->discography($genre),
-            // The artists tab — the same rows the hero counted.
+            // The albums tab — every album whose main genre this is, in one go.
+            'discography' => $discography,
+            // The artists tab — the same rows the hero counted. The tab itself is a
+            // deliberate placeholder (see GenrePage): it lists names and nothing else until
+            // the owner specifies what it should be, so this payload is likely to grow.
             'artists' => $artists->all(),
             // The songs tab, as the payload that owns the page's query params.
             'table' => $this->songTable($request, $genre),
@@ -232,6 +238,8 @@ class GenreController extends Controller
             ->select([
                 'tracks.id',
                 'tracks.name',
+                'tracks.disc',
+                'tracks.track',
                 'tracks.duration',
                 'tracks.size',
                 // Decides whether the artwork cell gets a URL, without touching the disk.
@@ -243,24 +251,57 @@ class GenreController extends Controller
                 'artists.name as artist_name',
                 'collections.name as album_name',
                 'collections.year as album_year',
+            ])
+            // The year the default sort actually orders by, with "no year" folded to 0 so the
+            // column it sorts on is never NULL. Not tidiness — the default is DESCENDING and
+            // Postgres puts NULLs FIRST under DESC, so without this a genre would open on
+            // whichever of its songs came off an untagged rip. Same fix, same reason, as the
+            // artist page's songs table.
+            ->selectRaw('coalesce(collections.year, 0) as year_sort')
+            // The denominators behind "1/1" and "3/12" — how many discs the row's album has,
+            // and how many tracks share the row's disc. The same two definitions
+            // SongController computes for its facts card, so a song's own page and this table
+            // can never disagree. Correlated subqueries rather than a per-row lookup: this
+            // table is paginated, so an N+1 would be up to a hundred round trips. Aliased to
+            // `sib` because the outer query is over `tracks` too.
+            ->addSelect([
+                'disc_total' => DB::table('tracks as sib')
+                    ->selectRaw('count(distinct sib.disc)')
+                    ->whereColumn('sib.collection_id', 'tracks.collection_id'),
+                // NULL-safe: an untagged disc has to group with the other untagged ones, and
+                // `sib.disc = tracks.disc` matches nothing when both are NULL — which would
+                // report 0 tracks for a whole album's worth of files. Spelled as the explicit
+                // OR rather than `IS NOT DISTINCT FROM`, which SQLite does not have.
+                'track_total' => DB::table('tracks as sib')
+                    ->selectRaw('count(*)')
+                    ->whereColumn('sib.collection_id', 'tracks.collection_id')
+                    ->whereRaw('(sib.disc = tracks.disc or (sib.disc is null and tracks.disc is null))'),
             ]);
 
         return DataTableService::buildResponse(
             query: $query,
             request: $request,
-            sortable: ['name', 'artist', 'album', 'year', 'duration', 'size'],
+            sortable: ['name', 'artist', 'album', 'year', 'disc', 'track', 'duration', 'size'],
             sortColumnMap: [
                 'name' => 'tracks.name',
                 'artist' => 'artists.name',
                 'album' => 'collections.name',
-                'year' => 'collections.year',
+                // The COALESCEd alias, not the raw column — see the select above. Both
+                // engines resolve a SELECT alias in ORDER BY.
+                'year' => 'year_sort',
+                'disc' => 'tracks.disc',
+                'track' => 'tracks.track',
                 'duration' => 'tracks.duration',
                 'size' => 'tracks.size',
             ],
-            // Alphabetical by song, unlike the artist page's chronological default. A genre
-            // is not a career — its songs share no timeline to walk — so the useful default
-            // here is the one that makes a remembered title findable.
-            defaultSort: 'name',
+            // Newest first, then each record in its own running order (owner's call), so the
+            // tab reads as the genre's recent history rather than as a bag of songs.
+            //
+            // Only the YEAR reverses; the tiebreakers below stay ascending, which is what
+            // makes it readable rather than merely backwards — track 1 still precedes track 2
+            // inside each album.
+            defaultSort: 'year',
+            defaultDirection: 'desc',
             // All three text columns, matched through their `name_fold` companions so the
             // search is accent- and case-insensitive on one code path for both engines.
             searchCallback: fn (Builder $q, string $search) => FoldedSearch::apply($q, $search, [
@@ -269,6 +310,14 @@ class GenreController extends Controller
             rowMapper: fn (Track $track): array => [
                 'id' => $track->id,
                 'name' => $track->name,
+                // Position + denominator apart, so the page renders "1/1" and "3/12" — or the
+                // bare number where the total is not trustworthy (formatPosition). Both are
+                // null for a track filed under no collection: with no container there is
+                // nothing to count against, and "2/0" would be worse than a blank.
+                'disc' => $track->disc,
+                'discTotal' => $track->collection_id === null ? null : (int) $track->disc_total,
+                'track' => $track->track,
+                'trackTotal' => $track->collection_id === null ? null : (int) $track->track_total,
                 'artist' => $track->artist_name,
                 // Two cells leading somewhere other than the row's own destination, which
                 // the DataTable supports on purpose (its row-click guard stands down on an
@@ -292,11 +341,17 @@ class GenreController extends Controller
                 // Makes the row clickable, and backs the title link.
                 'href' => route('music.songs.show', $track->id, absolute: false),
             ],
-            // Song titles repeat across a genre far more than across one artist (every
-            // "Summertime" ever recorded is Jazz), so the sort alone is nowhere near a total
-            // order — without these a duplicate title could appear on two pages across two
-            // requests.
-            tiebreakers: ['name', 'artist', 'album'],
+            // ALBUM sits between the year and the disc, though it is not one of the three
+            // keys the order is described by. It has to: a genre routinely holds several
+            // records from the same year, and without it their tracks interleave — disc 1
+            // track 1 of one album, then disc 1 track 1 of the next — which reads as a
+            // shuffled table rather than a sorted one.
+            //
+            // `name` last is the determinism backstop. Song titles repeat across a genre far
+            // more than across one artist (every "Summertime" ever recorded is Jazz), and an
+            // untagged rip ties on disc and track as well, so without it a duplicate could
+            // appear on two pages across two requests.
+            tiebreakers: ['album', 'disc', 'track', 'name'],
         );
     }
 

@@ -349,6 +349,122 @@ class GenrePageTest extends TestCase
             );
     }
 
+    public function test_the_songs_tab_defaults_to_newest_year_then_album_disc_and_track(): void
+    {
+        // Built so each level can only be satisfied by that level: the album NAMES run
+        // opposite to their years, and the tracks go in scrambled, so neither album order
+        // nor insertion order could produce this result by accident.
+        $genre = Genre::factory()->create();
+
+        $zebra = Collection::factory()->create(['name' => 'Zebra', 'year' => 1990]);
+        $aard = Collection::factory()->create(['name' => 'Aardvark', 'year' => 1990]);
+        $alpha = Collection::factory()->create(['name' => 'Alpha', 'year' => 2010]);
+
+        $song = function (Collection $album, int $disc, int $track, string $name) use ($genre): void {
+            Track::factory()->create([
+                'collection_id' => $album->id, 'genre_id' => $genre->id,
+                'disc' => $disc, 'track' => $track, 'name' => $name,
+            ]);
+        };
+
+        $song($zebra, 2, 1, 'zebra-2-1');
+        $song($alpha, 1, 1, 'alpha-1-1');
+        $song($zebra, 1, 2, 'zebra-1-2');
+        $song($aard, 1, 1, 'aardvark-1-1');
+        $song($zebra, 1, 1, 'zebra-1-1');
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/genres/{$genre->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('table.sort.key', 'year')
+                ->where('table.sort.direction', 'desc')
+                ->where('table.tiebreakers', ['album', 'disc', 'track', 'name'])
+                // 2010 leads, then the two 1990 albums A–Z — and inside Zebra the discs and
+                // tracks still climb, which is the point of the tiebreakers staying ascending.
+                ->where('table.rows.0.name', 'alpha-1-1')
+                ->where('table.rows.1.name', 'aardvark-1-1')
+                ->where('table.rows.2.name', 'zebra-1-1')
+                ->where('table.rows.3.name', 'zebra-1-2')
+                ->where('table.rows.4.name', 'zebra-2-1')
+            );
+    }
+
+    public function test_a_song_with_no_album_year_sorts_last_rather_than_opening_the_tab(): void
+    {
+        // The default is DESCENDING and Postgres puts NULLs FIRST under DESC, so on the raw
+        // column an untagged rip would be the first thing anyone sees on a genre page. The
+        // controller sorts on a COALESCEd alias, which also makes the two engines agree —
+        // so this means in production what it means here on SQLite.
+        $genre = Genre::factory()->create();
+        $dated = Collection::factory()->create(['year' => 2001]);
+        $undated = Collection::factory()->create(['year' => null]);
+
+        Track::factory()->create(['collection_id' => $undated->id, 'genre_id' => $genre->id, 'name' => 'undated']);
+        Track::factory()->create(['collection_id' => $dated->id, 'genre_id' => $genre->id, 'name' => 'dated']);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/genres/{$genre->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('table.rows.0.name', 'dated')
+                ->where('table.rows.1.name', 'undated')
+                ->where('table.rows.1.year', null)
+            );
+    }
+
+    public function test_the_songs_tab_carries_disc_and_track_with_their_per_set_totals(): void
+    {
+        // A two-disc album: disc 1 holds three tracks, disc 2 holds one. Rendered "1/2" and
+        // "3/3", so both denominators have to be per-SET — discTotal counts the album's
+        // discs, trackTotal only the row's own disc.
+        $genre = Genre::factory()->create();
+        $album = Collection::factory()->create(['year' => 2000]);
+
+        foreach ([[1, 1], [1, 2], [1, 3], [2, 1]] as [$disc, $track]) {
+            Track::factory()->create([
+                'collection_id' => $album->id, 'genre_id' => $genre->id,
+                'disc' => $disc, 'track' => $track, 'name' => "d{$disc}t{$track}",
+            ]);
+        }
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/genres/{$genre->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('table.rows.0.disc', 1)
+                ->where('table.rows.0.discTotal', 2)
+                ->where('table.rows.0.trackTotal', 3)
+                // The lone track on disc 2 reads "1/1", not "1/3".
+                ->where('table.rows.3.disc', 2)
+                ->where('table.rows.3.trackTotal', 1)
+            );
+    }
+
+    public function test_the_hero_album_count_matches_the_albums_tab(): void
+    {
+        // Same rows, counted once — the pip sits directly above the tab that lists them.
+        $genre = Genre::factory()->create();
+        $other = Genre::factory()->create();
+
+        foreach (range(1, 3) as $i) {
+            $album = Collection::factory()->create();
+            Track::factory()->create(['collection_id' => $album->id, 'genre_id' => $genre->id]);
+        }
+        // Mostly someone else's — counted for neither the pip nor the tab.
+        $foreign = Collection::factory()->create();
+        Track::factory()->create(['collection_id' => $foreign->id, 'genre_id' => $genre->id]);
+        Track::factory()->count(3)->create(['collection_id' => $foreign->id, 'genre_id' => $other->id]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/genres/{$genre->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('genre.albums', 3)
+                ->has('discography', 3)
+            );
+    }
+
     public function test_all_three_panels_are_sent_whatever_the_tab_param_says(): void
     {
         // `?tab=` is the frontend's own state, written into the URL so a reload reopens the

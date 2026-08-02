@@ -55,6 +55,11 @@ interface GenreDetail {
      * songs can still report a small number here (see DominantGenre).
      */
     artists: number;
+    /**
+     * How many albums have this as their MAIN genre — the same rows the albums tab lists,
+     * so the pip and the tab can never disagree.
+     */
+    albums: number;
     /** How many music tracks are tagged with it. */
     songs: number;
     /** Total playing time of those tracks in seconds — 0, never null (the server COALESCEs). */
@@ -120,7 +125,7 @@ const { tab: openTab } = useTabParam();
  * are only ever one page of the whole.
  */
 const tabs = computed<TabDefinition[]>(() => [
-    { id: "albums", label: t("music.columns.albums"), icon: "album", count: props.discography.length },
+    { id: "albums", label: t("music.columns.albums"), icon: "album", count: props.genre.albums },
     { id: "artists", label: t("music.columns.artists"), icon: "artist", count: props.artists.length },
     { id: "songs", label: t("music.columns.songs"), icon: "song", count: props.genre.songs }
 ]);
@@ -141,6 +146,7 @@ const tabs = computed<TabDefinition[]>(() => [
                      and 0 is an answer here rather than missing data. -->
                 <template #metadata>
                     <fact-pair icon="artist" :label="t('music.columns.artists')" :value="String(genre.artists)" />
+                    <fact-pair icon="album" :label="t('music.columns.albums')" :value="String(genre.albums)" />
                     <fact-pair icon="song" :label="t('music.columns.songs')" :value="String(genre.songs)" />
                     <fact-pair icon="duration" :label="t('music.columns.duration')" :value="playingTime" />
                     <fact-pair icon="file" :label="t('music.columns.size')" :value="totalSize" />
@@ -161,9 +167,15 @@ const tabs = computed<TabDefinition[]>(() => [
                     <discography :albums="discography" show-artist />
                 </template>
 
-                <!-- Names only for now — a placeholder for the artist listing this tab will
-                     grow. Real links rather than clickable text, so they are keyboard
-                     reachable and open-in-new-tab like every other route into an artist. -->
+                <!-- DELIBERATELY UNFINISHED, and parked rather than half-built: names only,
+                     because the owner has their own ideas for what this tab should become
+                     and will specify them. Do not grow it into a listing or a card grid on
+                     the assumption it was left incomplete by accident.
+
+                     Real links rather than clickable text even so, so the placeholder is
+                     keyboard reachable and open-in-new-tab like every other route into an
+                     artist — a stand-in should not be the one thing on the page that is not
+                     navigable. -->
                 <template #artists>
                     <ul v-if="artists.length > 0" class="genre__artists">
                         <li v-for="artist in artists" :key="artist.id">
