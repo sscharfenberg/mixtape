@@ -26,9 +26,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           # .nvmrc says "26"; package.json's engines demands ^26.4.0 and the preinstall
           # hook hard-exits on a mismatch, so this must resolve to the latest 26.x.
@@ -64,7 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: shivammathur/setup-php@v2
         with:
@@ -75,13 +75,13 @@ jobs:
           extensions: mbstring, dom, fileinfo, tokenizer, xml, curl, pdo_sqlite, sqlite3
           coverage: none
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
 
       - name: Cache Composer packages
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/composer/files
           key: composer-${{ hashFiles('composer.lock') }}
@@ -99,14 +99,26 @@ jobs:
           cp .env.example .env
           php artisan key:generate
 
-      # Before the browser download, so a server-side failure fails fast.
+      # BEFORE the server tests, and that ordering is load-bearing: the feature tests
+      # render real Inertia pages through app.blade.php, which calls @vite() and dies with
+      # "Vite manifest not found" on a runner that has never built. Locally the suite
+      # passes without this only because public/build is left over from an earlier build.
+      #
+      # `build-only` rather than `build` skips the lint and type-check the `checks` job
+      # already ran, and having a manifest here also stops the e2e global setup falling
+      # back to a full `npm run build` of its own.
+      - name: Build assets
+        run: npm run build-only
+
+      # Before the browser download, so a server-side failure does not first pay for
+      # 100 MB of Chromium.
       - name: Server tests
         run: php artisan test
 
       # ~100 MB of browser. Keyed on the lockfile so it is re-fetched only when the
       # Playwright version actually moves.
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -115,12 +127,6 @@ jobs:
       # the runner does not ship and which the cache above cannot supply.
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-
-      # `build-only` skips the lint and type-check the `checks` job already ran. Doing it
-      # here at all is what stops the E2E global setup from falling back to a full
-      # `npm run build` when it finds no manifest.
-      - name: Build assets for the e2e run
-        run: npm run build-only
 
       # Stands the app up itself: throwaway sqlite, E2ESeeder, artisan serve on :8100.
       # CI is set by Actions, which the Playwright config keys off — one worker (no
@@ -133,7 +139,7 @@ jobs:
       # is the difference between "a selector timed out" and knowing why.
       - name: Upload Playwright report
         if: ${{ !cancelled() && failure() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: playwright-report/
