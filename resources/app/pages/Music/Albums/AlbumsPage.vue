@@ -25,6 +25,7 @@ import DataTable from "Components/DataTable/DataTable.vue";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import Container from "Components/UI/Container.vue";
 import Headline from "Components/UI/Headline.vue";
+import Icon from "Components/UI/Icon.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import type { ColumnDef, TableResponse } from "Types/dataTable";
 import { formatClock, formatDateTime } from "Utils/formatting";
@@ -89,7 +90,10 @@ const columns = computed<ColumnDef<AlbumRow>[]>(() => [
 
 <template>
     <Head :title="t('music.widgets.albums')" />
-    <headline glow>{{ t("music.widgets.albums") }}</headline>
+    <headline glow>
+        <icon name="album" :size="3" />
+        {{ t("music.widgets.albums") }}
+    </headline>
     <container>
         <data-table :columns="columns" :response="table" base-url="/music/albums" :has-actions="false">
             <!-- Artwork, or the music glyph when the album has none — and the same when an

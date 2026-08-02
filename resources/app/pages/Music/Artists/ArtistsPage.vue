@@ -26,6 +26,7 @@ import { useI18n } from "vue-i18n";
 import DataTable from "Components/DataTable/DataTable.vue";
 import Container from "Components/UI/Container.vue";
 import Headline from "Components/UI/Headline.vue";
+import Icon from "Components/UI/Icon.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import type { ColumnDef, TableResponse } from "Types/dataTable";
 import { formatClock, formatFileSize } from "Utils/formatting";
@@ -78,7 +79,10 @@ const columns = computed<ColumnDef<ArtistRow>[]>(() => [
 
 <template>
     <Head :title="t('music.widgets.artists')" />
-    <headline glow>{{ t("music.widgets.artists") }}</headline>
+    <headline glow>
+        <icon name="artist" :size="3" />
+        {{ t("music.widgets.artists") }}
+    </headline>
     <container>
         <data-table :columns="columns" :response="table" base-url="/music/artists" :has-actions="false">
             <template #cell-name="{ row }">

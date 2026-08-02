@@ -23,12 +23,23 @@
     max-width: map.get(s.$c-app, "max");
     margin-inline: auto;
 
+    // Held in a custom property so the trailing side can be added to below.
     @include m.mqset(
-        "padding-inline",
+        "--container-padding-inline",
         #{map.get(s.$c-app, "padding", "base")},
         #{map.get(s.$c-app, "padding", "portrait")},
         #{map.get(s.$c-app, "padding", "landscape")},
         #{map.get(s.$c-app, "padding", "desktop")}
     );
+
+    padding-inline: var(--container-padding-inline);
+
+    /* Extra trailing room for the play queue, which floats ABOVE the page rather
+       than taking a column from it — so nothing else has to move, and <main> keeps
+       reaching the window edge for the full-bleed headings to run off (see
+       FullLayout). `--content-inset-end` is published there and is 0 unless the
+       queue is on screen beside the content, which is why the header's own
+       Container — outside that element — is untouched by this. */
+    padding-inline-end: calc(var(--container-padding-inline) + var(--content-inset-end, 0px));
 }
 </style>

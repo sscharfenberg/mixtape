@@ -13,10 +13,12 @@
  * PlayerBar — belongs here and nowhere else. A player inside a page would stop
  * the music every time you opened an album.
  *
- * The body is a two-column grid: the page on the left, the queue on the right.
- * The queue column exists only while the queue does — `grid-template-columns` is
- * driven off the same `isEmpty` that stops PlayQueue rendering, so an empty queue
- * leaves the page its full width instead of a 240px hole.
+ * The body is a plain block and <main> spans the window, as it did before the queue
+ * existed. The queue floats ABOVE the page rather than taking a column from it, and
+ * `--with-queue` only publishes how much trailing room Container should leave so
+ * content stays clear of it. That is what keeps the app's full-bleed headings — tabs
+ * with one side drawn open, meant to be hidden past the edge of the screen — running
+ * off the window on all 21 pages that use one.
  *
  * The footer and the PlayerBar are alternatives, not neighbours: once a track is
  * loaded the bar takes the footer's place. It shows on "there is a current track"
@@ -77,62 +79,29 @@ hydrate();
 @use "Abstracts/mixins" as m;
 @use "Abstracts/sizes" as s;
 
-/* One column until there is room for two. Below the `landscape` step the queue is a
-   fixed OVERLAY rather than a column — out of the flow entirely, floating over the
-   content when the header's toggle opens it — so this stays a single track there and
-   the page keeps its full width. Nothing to reserve for it either, which is the
-   point: the bottom sheet this replaced had to have half a viewport of padding kept
-   free below the page so its last rows could still be scrolled to.
+/* A plain block. <main> spans the window exactly as it did before the queue
+   existed, and that is the point of this whole arrangement: the app's headings are
+   tabs with one side drawn open, meant to be hidden past the edge of the screen,
+   and a <main> that stops short leaves that opening in plain view on all 21 pages
+   that use one.
 
-   `align-items: start` so the queue column is its own height and can stick, rather
-   than being stretched to match a long page and having nothing left to scroll.
+   This WAS a two-column grid capped to the cage. It kept the content still, but at
+   the cost of narrowing <main>, and nothing inside a page should have to know the
+   queue exists. So the panel overlays instead (see PlayQueue) and the inset that
+   keeps content clear of it is published here for Container to apply — one number,
+   read by the one component whose job is already "hold the content's box".
 
-   WITH THE QUEUE OPEN THE WHOLE BODY IS CAGED — capped to the app's max width and
-   centred, exactly as Container is. That is the fix for a genuinely odd effect: the
-   grid used to span the window while the page's own Container centred itself inside
-   the cage, so on any screen wider than 1440px, enqueuing one song yanked the page
-   content leftward by half the slack while the panel stayed out at the far edge.
-   Caging the grid keeps both halves in the same box the header's inner row uses, so
-   the content does not move at all and the panel ends where the app ends.
-
-   Below the cage width there is no slack, so the body is the full window and the
-   panel sits flush against the right edge — in line with the header bar and <main>,
-   which reach it too. An earlier version added the cage's inline PADDING here on
-   top, which was wrong in a way that hid itself: under 1440px the centring is zero,
-   so that padding was the entire inset — a flat 12px that never moved with width
-   and just held the panel off the edge for no reason.
-
-   Only the `--with-queue` case is caged. Without the panel <main> stays full-bleed,
-   which it has to: the glowing-border headings reach past the Container so their
-   seam runs off-screen (see Container / Headline). With the queue open they end at
-   the cage edge instead, on a window wide enough for that to be visible — the price
-   of keeping the two columns in one box, and the reason this is scoped to the
-   modifier rather than set on .app-body outright. */
-$cage: map.get(s.$c-app, "max");
+   Only from `landscape` up: below that the panel is opened on demand and covers
+   the page while it is, which is what an overlay on a phone is for. */
+$queue: map.get(s.$c-play-queue, "width");
+$gap: map.get(s.$c-play-queue, "gap");
 
 .app-body {
-    display: grid;
-    align-items: start;
-    grid-template-columns: minmax(0, 1fr);
-
     flex: 1 1 auto;
 
     @include m.mq("landscape") {
         &--with-queue {
-            grid-template-columns: minmax(0, 1fr) map.get(s.$c-play-queue, "width");
-
-            /* `width: 100%` is load-bearing, not belt-and-braces. #app is a COLUMN
-               flex container, so width is the cross axis and this item normally
-               fills it by `align-self: stretch` — but an auto margin on the cross
-               axis cancels stretch outright, and the body collapsed to its
-               fit-content width (~760px of a 975px window) with the whole layout
-               shrunk inside it. Stating the width puts the fill back and leaves the
-               auto margins doing only the centring they are here for. */
-            width: 100%;
-            max-width: $cage;
-
-            gap: map.get(s.$c-play-queue, "gap");
-            margin-inline: auto;
+            --content-inset-end: calc(#{$queue} + #{$gap});
         }
     }
 }

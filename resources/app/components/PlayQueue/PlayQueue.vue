@@ -11,17 +11,17 @@
  * would still reserve its 240px, and the page would sit off-centre for a queue
  * that isn't there.
  *
- * One shape, two behaviours. From the `landscape` step up it is a column beside the
- * content, stuck under the header with its own scroll — a queue that scrolls off
- * the top of a long album page is a queue you cannot reach. Below that there is no
- * room to put a 240px column beside anything, so the same panel, in the same place,
- * floats OVER the content instead, and is shown only while PlayQueueToggle (in the
- * header) says so.
+ * It OVERLAYS at every width rather than taking a column, and <main> keeps the full
+ * window. That is not a visual preference: the app's headings are drawn as tabs with
+ * one side deliberately open, hidden past the edge of the screen, and a <main> that
+ * stops short of the window leaves that opening in plain view on all 21 pages that
+ * use one. Nothing inside the page should have to know the queue exists — so the
+ * queue floats above it and Container carries the inset that keeps content clear.
  *
- * Overlaying rather than pushing is what keeps the page usable at that width: a
- * column would leave a phone barely 150px of content, and a bottom sheet — which
- * this was first — permanently ate half the viewport and had to be scrolled past.
- * As an overlay it is on screen exactly while it is wanted and gone otherwise.
+ * What changes with width is only whether it is on screen: from `landscape` up it is
+ * always there, and below that PlayQueueToggle (in the header) opens it, because
+ * 240px of a phone is most of the screen and a queue you carry around open is one
+ * permanently in the way.
  *
  * A row is a <button>, not a link: clicking it loads that track into the player
  * rather than navigating anywhere. The title is separately a real <Link> to the
@@ -51,58 +51,55 @@ const totalClock = computed(() => formatClock(totalDuration.value));
 </script>
 
 <template>
-    <aside
-        v-if="!isEmpty"
-        class="play-queue"
-        :class="{ 'play-queue--open': isOpen }"
-        :aria-label="t('player.queue.label')"
-    >
-        <header class="play-queue__header">
-            <h2 class="play-queue__title">
-                <icon name="playlist" :size="1" />
-                {{ t("player.queue.label") }}
-            </h2>
-            <play-queue-menu />
-        </header>
-        <!-- Count and running time on their own line rather than beside the title:
-             at 240px a single row cannot hold the word "Warteschlange", two numbers
-             and a button without ellipsising the one part that names the panel. -->
-        <p class="play-queue__summary">{{ t("player.queue.summary", tracks.length) }} · {{ totalClock }}</p>
+    <div v-if="!isEmpty" class="play-queue-layer" :class="{ 'play-queue-layer--open': isOpen }">
+            <aside class="play-queue" :aria-label="t('player.queue.label')">
+            <header class="play-queue__header">
+                <h2 class="play-queue__title">
+                    <icon name="playlist" :size="1" />
+                    {{ t("player.queue.label") }}
+                </h2>
+                <play-queue-menu />
+            </header>
+            <!-- Count and running time on their own line rather than beside the title:
+                 at 240px a single row cannot hold the word "Warteschlange", two numbers
+                 and a button without ellipsising the one part that names the panel. -->
+            <p class="play-queue__summary">{{ t("player.queue.summary", tracks.length) }} · {{ totalClock }}</p>
 
-        <ol class="play-queue__list">
-            <li
-                v-for="(track, index) in tracks"
-                :key="`${track.id}-${index}`"
-                class="play-queue__row"
-                :class="{ 'play-queue__row--current': index === currentIndex }"
-                :aria-current="index === currentIndex ? 'true' : undefined"
-            >
-                <button
-                    type="button"
-                    class="play-queue__load"
-                    :aria-label="t('player.queue.load', { name: track.name })"
-                    @click="jumpTo(index)"
+            <ol class="play-queue__list">
+                <li
+                    v-for="(track, index) in tracks"
+                    :key="`${track.id}-${index}`"
+                    class="play-queue__row"
+                    :class="{ 'play-queue__row--current': index === currentIndex }"
+                    :aria-current="index === currentIndex ? 'true' : undefined"
                 >
-                    <cover-image :src="track.coverUrl" :title="track.name" size="tiny" decorative />
-                </button>
-                <span class="play-queue__meta">
-                    <!-- The title stays a real link, so the queue is also a way BACK to a
-                         song's page — the row's own click is "play this", which cannot
-                         double as "show me this". -->
-                    <Link :href="track.href" prefetch class="play-queue__name">{{ track.name }}</Link>
-                    <span v-if="track.artist" class="play-queue__artist">{{ track.artist }}</span>
-                </span>
-                <button
-                    type="button"
-                    class="play-queue__remove"
-                    :aria-label="t('player.queue.remove', { name: track.name })"
-                    @click="remove(index)"
-                >
-                    <icon name="close" :size="1" />
-                </button>
-            </li>
-        </ol>
-    </aside>
+                    <button
+                        type="button"
+                        class="play-queue__load"
+                        :aria-label="t('player.queue.load', { name: track.name })"
+                        @click="jumpTo(index)"
+                    >
+                        <cover-image :src="track.coverUrl" :title="track.name" size="tiny" decorative />
+                    </button>
+                    <span class="play-queue__meta">
+                        <!-- The title stays a real link, so the queue is also a way BACK to a
+                             song's page — the row's own click is "play this", which cannot
+                             double as "show me this". -->
+                        <Link :href="track.href" prefetch class="play-queue__name">{{ track.name }}</Link>
+                        <span v-if="track.artist" class="play-queue__artist">{{ track.artist }}</span>
+                    </span>
+                    <button
+                        type="button"
+                        class="play-queue__remove"
+                        :aria-label="t('player.queue.remove', { name: track.name })"
+                        @click="remove(index)"
+                    >
+                        <icon name="close" :size="1" />
+                    </button>
+                </li>
+            </ol>
+        </aside>
+    </div>
 </template>
 
 <style scoped lang="scss">
@@ -113,46 +110,65 @@ const totalClock = computed(() => formatClock(totalDuration.value));
 @use "Abstracts/timings" as ti;
 @use "Abstracts/z-indexes" as z;
 
-/* One box, positioned the same way at every width — top-right, under the header,
-   240px wide, scrolling internally. What changes below `landscape` is only whether
-   it takes part in the layout: there it is `fixed`, floating over the content and
-   hidden until the header's toggle opens it, where from `landscape` up it is
-   `sticky` and simply occupies its grid column.
+/* THE LAYER is what makes the panel line up, and it is why there is an element
+   here that draws nothing. The panel has to end exactly where the app's content
+   cage ends — the same line the header's inner row finishes on — and the obvious
+   way to say that, `right: max(0px, (100vw - cage) / 2)`, is wrong by half the
+   scrollbar: `100vw` counts it, the cage does not. That is the misalignment this
+   layout has already been caught out by once.
 
-   `--app-header-height` and `--app-player-height` are published by AppHeader and
-   PlayerBar. The player fallback matters: the bar only exists once a track is
-   loaded, and the queue can be open before then.
+   A FIXED element's containing block is the layout viewport, which excludes the
+   scrollbar. So a fixed layer with `left: 0; right: 0; max-width: cage;
+   margin-inline: auto` centres itself on exactly the same line Container does, and
+   the panel simply pins to its trailing edge. No viewport arithmetic anywhere.
 
-   It sits on the "sticky" rung, above <main> ("raised") so the overlay covers the
-   page, and before PlayerBar in the DOM so the bar stays reachable over it. */
-.play-queue {
+   It spans header to player bar (`--app-header-height` / `--app-player-height`,
+   published by those two components) and passes clicks through, since it is a
+   coordinate system rather than a surface. It sits on the "sticky" rung, above
+   <main> ("raised"), and before PlayerBar in the DOM so the bar paints over it. */
+.play-queue-layer {
     display: none;
     position: fixed;
-    top: var(--app-header-height, 0);
-    right: 0;
-
-    /* A pixel PAST the bar rather than exactly against it. The bar's height is
-       fractional — a 48px cover plus rem padding on this app's fluid root font
-       size works out to 61.59px — so an exact join lands mid-device-pixel, and the
-       two fixed elements get snapped to different sides of it: the panel's side
-       borders stopped a hair short and a sliver of the page showed through the
-       seam. Overlapping is free here because the bar comes later in the DOM on the
-       same z-rung, so it paints over what it covers. */
-    bottom: var(--app-player-height, 0);
+    inset: var(--app-header-height, 0) 0 var(--app-player-height, 0) 0;
     z-index: z.$c-play-queue;
+
+    box-sizing: border-box;
+    max-width: map.get(s.$c-app, "max");
+    margin-inline: auto;
+
+    pointer-events: none;
+
+    // Below `landscape` the panel is opened by the header's toggle; from there up
+    // it is simply always there. `display` rather than a transform, so a closed
+    // panel costs no paint and is out of the tab order.
+    &--open {
+        display: block;
+    }
+
+    @include m.mq("landscape") {
+        display: block;
+    }
+}
+
+/* The panel itself, pinned to the layer's trailing edge. Full height on a narrow
+   screen — it is an overlay with nothing else to share the space with — and only
+   as tall as the queue needs from `landscape` up, where it sits beside the page. */
+.play-queue {
+    display: flex;
+    position: absolute;
+    inset: 0 0 0 auto;
     flex-direction: column;
 
     box-sizing: border-box;
     width: map.get(s.$c-play-queue, "width");
     padding: map.get(s.$c-play-queue, "padding");
 
-    /* SIDES ONLY, and no rounding. As an overlay the panel spans the whole gap
-       between the header and the player bar, meeting both — a top or bottom edge
-       would draw a second line a pixel from theirs, which reads as a seam rather
-       than a frame, and a rounded corner against either would be a notch showing
-       the page through. `border-inline` states that directly instead of setting
-       four borders and unsetting two. The `landscape` rule below puts the bottom
-       one back, where the panel ends in open space. */
+    /* SIDES ONLY, and no rounding. As a full-height overlay the panel meets the
+       header and the player bar — a top or bottom edge would draw a second line a
+       pixel from theirs, which reads as a seam rather than a frame, and a rounded
+       corner against either would be a notch showing the page through. The
+       `landscape` rule below puts the bottom one back, where the panel ends in
+       open space instead. */
     border-inline: map.get(s.$c-play-queue, "border") solid map.get(c.$c-play-queue, "border");
 
     gap: map.get(s.$c-play-queue, "gap");
@@ -160,27 +176,15 @@ const totalClock = computed(() => formatClock(totalDuration.value));
     background-color: map.get(c.$c-play-queue, "background");
     color: map.get(c.$c-play-queue, "surface");
 
-    // Open on a narrow screen: the toggle's doing. `display` rather than a
-    // transform, so a closed panel costs no paint and is out of the tab order.
-    &--open {
-        display: flex;
-    }
+    pointer-events: auto;
 
     @include m.mq("landscape") {
-        display: flex;
-        position: sticky;
-        right: auto;
-        bottom: auto;
+        // Only as tall as its contents, up to the space the layer gives it; the
+        // panel's own list is then what scrolls, rather than the window.
+        inset: 0 0 auto auto;
 
-        // Fill what is left between the header and the player, and no more, so the
-        // panel's own list is what scrolls rather than the window.
-        max-height: calc(100dvh - var(--app-header-height, 0px) - var(--app-player-height, 0px));
+        max-height: 100%;
 
-        /* A bottom edge again, and the corners to go with it. Here the panel is only
-           as tall as the queue needs, so it ends in open space partway down the page
-           rather than against the player bar — an edge there is the box closing
-           itself, not a duplicate of somebody else's. The top stays open for the
-           reason given above: it is still stuck to the header. */
         border-bottom: map.get(s.$c-play-queue, "border") solid map.get(c.$c-play-queue, "border");
 
         border-radius: 0 0 map.get(s.$c-play-queue, "radius") map.get(s.$c-play-queue, "radius");

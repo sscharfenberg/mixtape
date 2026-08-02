@@ -24,6 +24,7 @@ import { useI18n } from "vue-i18n";
 import DataTable from "Components/DataTable/DataTable.vue";
 import Container from "Components/UI/Container.vue";
 import Headline from "Components/UI/Headline.vue";
+import Icon from "Components/UI/Icon.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import type { ColumnDef, TableResponse } from "Types/dataTable";
 import { formatClock, formatFileSize } from "Utils/formatting";
@@ -76,7 +77,10 @@ const columns = computed<ColumnDef<GenreRow>[]>(() => [
 
 <template>
     <Head :title="t('music.widgets.genres')" />
-    <headline glow>{{ t("music.widgets.genres") }}</headline>
+    <headline glow>
+        <icon name="genre" :size="3" />
+        {{ t("music.widgets.genres") }}
+    </headline>
     <container>
         <data-table :columns="columns" :response="table" base-url="/music/genres" :has-actions="false">
             <template #cell-name="{ row }">
