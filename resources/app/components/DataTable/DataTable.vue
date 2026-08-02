@@ -29,6 +29,7 @@ import DataTableToolbar from "Components/DataTable/DataTableToolbar.vue";
 import LoadingSpinner from "Components/UI/LoadingSpinner.vue";
 import type { ColumnDef, TableResponse, SortEntry } from "Types/dataTable";
 import { DATA_TABLE_KEY } from "Types/dataTable";
+import { scrollIntoViewTop } from "Utils/scroll";
 const props = withDefaults(
     defineProps<{
         /** Column definitions controlling rendering, sorting, and visibility. */
@@ -202,6 +203,27 @@ function buildUrl(params: Record<string, string | number | null>) {
     }
     return url.pathname + url.search + window.location.hash;
 }
+const root = ref<HTMLElement | null>(null);
+/**
+ * Visit the table's own URL, then bring the table's top back into view.
+ *
+ * `preserveScroll: true` and an explicit scroll, rather than letting Inertia reset it:
+ * its own reset goes to the top of the DOCUMENT, which on a tabbed detail page scrolls
+ * up past the hero and the tab strip and hides the table that just changed. Scrolling the
+ * table instead lands the reader on its first row — the same behaviour, from the same
+ * helper, as the Discography pager, so the two controls agree wherever they sit side by
+ * side (`scroll-margin-top` below clears the sticky header).
+ *
+ * `onSuccess` rather than a global `router.on("finish")`: this table should follow ITS
+ * OWN visits, not every navigation that happens to pass through the page.
+ */
+function visit(params: Record<string, string | number | null>) {
+    router.get(
+        buildUrl(params),
+        {},
+        { preserveState: true, preserveScroll: true, onSuccess: () => scrollIntoViewTop(root.value) }
+    );
+}
 /** Toggle sort direction for a column and navigate to page 1. */
 function onSort(key: string) {
     const current = sort.value.find(s => s.key === key);
@@ -209,19 +231,19 @@ function onSort(key: string) {
     if (current) {
         direction = current.direction === "asc" ? "desc" : "asc";
     }
-    router.get(buildUrl({ sort: key, dir: direction, page: 1 }), {}, { preserveState: true, preserveScroll: true });
+    visit({ sort: key, dir: direction, page: 1 });
 }
 /** Navigate with an updated search query, resetting to page 1. */
 function onSearch(query: string) {
-    router.get(buildUrl({ search: query || null, page: 1 }), {}, { preserveState: true, preserveScroll: true });
+    visit({ search: query || null, page: 1 });
 }
 /** Navigate to a specific page number. */
 function onNavigate(page: number) {
-    router.get(buildUrl({ page }), {}, { preserveState: true, preserveScroll: true });
+    visit({ page });
 }
 /** Change page size and reset to page 1. */
 function onPageSizeChange(size: number) {
-    router.get(buildUrl({ pageSize: size, page: 1 }), {}, { preserveState: true, preserveScroll: true });
+    visit({ pageSize: size, page: 1 });
 }
 /** Sentinel at the top of the wrapper; its intersection tells us when the head is stuck. */
 const stickysentinel = ref<HTMLElement | null>(null);
@@ -252,7 +274,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <div class="dt" :class="{ 'dt--loading': isLoading }">
+    <div ref="root" class="dt" :class="{ 'dt--loading': isLoading }">
         <data-table-toolbar :search="response.search" :selected-count="selectedIds.length" @search="onSearch">
             <template v-if="$slots['toolbar-actions']" #actions>
                 <slot name="toolbar-actions" :selected-ids="selectedIds" />
@@ -353,6 +375,11 @@ onBeforeUnmount(() => {
 @layer components {
     .dt {
         container-type: inline-size;
+
+        /* Where a sort / search / page change scrolls back to (see `visit`). The app header
+           is `position: sticky` and publishes its live height as `--app-header-height`, so
+           clearing it by that much is what stops the toolbar landing underneath it. */
+        scroll-margin-top: calc(var(--app-header-height, 0px) + #{map.get(s.$c-datatable, "radius")});
 
         &--loading {
             pointer-events: none;

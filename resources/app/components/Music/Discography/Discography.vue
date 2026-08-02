@@ -37,6 +37,7 @@ import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import { formatClock } from "Utils/formatting";
+import { scrollIntoViewTop } from "Utils/scroll";
 import DiscographyPagination from "./DiscographyPagination.vue";
 
 /** One album of the discography, as ArtistController shaped it — every value raw. */
@@ -96,28 +97,16 @@ const list = ref<HTMLElement | null>(null);
 let resetting = false;
 
 /**
- * Bring the top of the list into view when the reader turns a page.
- *
- * Client-side paging replaces the rows in place, and the pager is UNDER them — so without
- * this you click "next" from the bottom of page 1 and land at the bottom of page 2, having
- * silently skipped everything on it. The document scroll position never moved; only the
- * content under it did, which is what reads as a jump.
- *
- * The list rather than the top of the DOCUMENT: on both pages that use this, the albums sit
- * below a hero and a tab strip, so scrolling all the way up would hide the very thing that
- * just changed and force a scroll back down on every page turn. `scroll-margin-top` (in the
- * styles) keeps the first row clear of the sticky header.
- *
- * Smooth only under `prefers-reduced-motion: no-preference` — a scroll animation is motion
- * like any other, and the app's rule is that motion is opt-in (CLAUDE.md → Motion).
+ * Bring the top of the list into view when the reader turns a page — the shared helper,
+ * so this pager and the DataTable's behave identically wherever the two sit side by side.
+ * See `scrollIntoViewTop` for why it is the list rather than the document top.
  */
 watch(page, () => {
     if (resetting) {
         resetting = false;
         return;
     }
-    const smooth = window.matchMedia("(prefers-reduced-motion: no-preference)").matches;
-    list.value?.scrollIntoView({ block: "start", behavior: smooth ? "smooth" : "auto" });
+    scrollIntoViewTop(list.value);
 });
 
 /**
