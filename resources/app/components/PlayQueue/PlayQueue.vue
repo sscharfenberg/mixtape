@@ -11,12 +11,17 @@
  * would still reserve its 240px, and the page would sit off-centre for a queue
  * that isn't there.
  *
- * Two shapes, one component. On a wide screen it is a column beside the content,
- * stuck under the header with its own scroll — a queue that scrolls off the top
- * of a long album page is a queue you cannot reach. Below the `landscape` step
- * there is no width to give it, so it becomes a bottom sheet over the lower half
- * of the viewport instead, sitting above <main> but under the PlayerBar (which
- * shares its z-rung and follows it in the DOM).
+ * One shape, two behaviours. From the `landscape` step up it is a column beside the
+ * content, stuck under the header with its own scroll — a queue that scrolls off
+ * the top of a long album page is a queue you cannot reach. Below that there is no
+ * room to put a 240px column beside anything, so the same panel, in the same place,
+ * floats OVER the content instead, and is shown only while PlayQueueToggle (in the
+ * header) says so.
+ *
+ * Overlaying rather than pushing is what keeps the page usable at that width: a
+ * column would leave a phone barely 150px of content, and a bottom sheet — which
+ * this was first — permanently ate half the viewport and had to be scrolled past.
+ * As an overlay it is on screen exactly while it is wanted and gone otherwise.
  *
  * A row is a <button>, not a link: clicking it loads that track into the player
  * rather than navigating anywhere. The title is separately a real <Link> to the
@@ -26,12 +31,15 @@ import { Link } from "@inertiajs/vue3";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
+import PlayQueueMenu from "Components/PlayQueue/PlayQueueMenu.vue";
 import Icon from "Components/UI/Icon.vue";
 import { usePlayerQueue } from "Composables/usePlayerQueue";
+import { usePlayQueuePanel } from "Composables/usePlayQueuePanel";
 import { formatClock } from "Utils/formatting";
 
 const { t } = useI18n();
-const { tracks, currentIndex, isEmpty, totalDuration, jumpTo, remove, clear } = usePlayerQueue();
+const { tracks, currentIndex, isEmpty, totalDuration, jumpTo, remove } = usePlayerQueue();
+const { isOpen } = usePlayQueuePanel();
 
 /**
  * The queue's running time as a clock, for the panel header.
@@ -43,21 +51,18 @@ const totalClock = computed(() => formatClock(totalDuration.value));
 </script>
 
 <template>
-    <aside v-if="!isEmpty" class="play-queue" :aria-label="t('player.queue.label')">
+    <aside
+        v-if="!isEmpty"
+        class="play-queue"
+        :class="{ 'play-queue--open': isOpen }"
+        :aria-label="t('player.queue.label')"
+    >
         <header class="play-queue__header">
             <h2 class="play-queue__title">
                 <icon name="playlist" :size="1" />
                 {{ t("player.queue.label") }}
             </h2>
-            <button
-                type="button"
-                class="play-queue__clear"
-                v-tooltip="t('player.queue.clear')"
-                :aria-label="t('player.queue.clear')"
-                @click="clear"
-            >
-                <icon name="delete" :size="1" />
-            </button>
+            <play-queue-menu />
         </header>
         <!-- Count and running time on their own line rather than beside the title:
              at 240px a single row cannot hold the word "Warteschlange", two numbers
@@ -108,45 +113,77 @@ const totalClock = computed(() => formatClock(totalDuration.value));
 @use "Abstracts/timings" as ti;
 @use "Abstracts/z-indexes" as z;
 
-/* Mobile first, and the two forms are genuinely different boxes rather than one
-   box with a different width. Narrow: a bottom sheet fixed over the lower half of
-   the viewport, sitting on top of the page because there is nowhere to put it
-   beside. Wide (`landscape` and up): an ordinary grid column that sticks under the
-   header and scrolls internally.
+/* One box, positioned the same way at every width — top-right, under the header,
+   240px wide, scrolling internally. What changes below `landscape` is only whether
+   it takes part in the layout: there it is `fixed`, floating over the content and
+   hidden until the header's toggle opens it, where from `landscape` up it is
+   `sticky` and simply occupies its grid column.
 
-   `--app-player-height` is published by PlayerBar; the fallback matters because the
-   bar only exists once a track is loaded, and the queue can be open before then. */
+   `--app-header-height` and `--app-player-height` are published by AppHeader and
+   PlayerBar. The player fallback matters: the bar only exists once a track is
+   loaded, and the queue can be open before then.
+
+   It sits on the "sticky" rung, above <main> ("raised") so the overlay covers the
+   page, and before PlayerBar in the DOM so the bar stays reachable over it. */
 .play-queue {
-    display: flex;
+    display: none;
     position: fixed;
-    inset: auto 0 var(--app-player-height, 0) 0;
+    top: var(--app-header-height, 0);
+    right: 0;
+
+    /* A pixel PAST the bar rather than exactly against it. The bar's height is
+       fractional — a 48px cover plus rem padding on this app's fluid root font
+       size works out to 61.59px — so an exact join lands mid-device-pixel, and the
+       two fixed elements get snapped to different sides of it: the panel's side
+       borders stopped a hair short and a sliver of the page showed through the
+       seam. Overlapping is free here because the bar comes later in the DOM on the
+       same z-rung, so it paints over what it covers. */
+    bottom: var(--app-player-height, 0);
     z-index: z.$c-play-queue;
     flex-direction: column;
 
     box-sizing: border-box;
-    height: map.get(s.$c-play-queue, "sheet-height");
+    width: map.get(s.$c-play-queue, "width");
     padding: map.get(s.$c-play-queue, "padding");
-    border-top: map.get(s.$c-play-queue, "border") solid map.get(c.$c-play-queue, "border");
+
+    /* SIDES ONLY, and no rounding. As an overlay the panel spans the whole gap
+       between the header and the player bar, meeting both — a top or bottom edge
+       would draw a second line a pixel from theirs, which reads as a seam rather
+       than a frame, and a rounded corner against either would be a notch showing
+       the page through. `border-inline` states that directly instead of setting
+       four borders and unsetting two. The `landscape` rule below puts the bottom
+       one back, where the panel ends in open space. */
+    border-inline: map.get(s.$c-play-queue, "border") solid map.get(c.$c-play-queue, "border");
 
     gap: map.get(s.$c-play-queue, "gap");
 
     background-color: map.get(c.$c-play-queue, "background");
     color: map.get(c.$c-play-queue, "surface");
 
-    @include m.mq("landscape") {
-        position: sticky;
-        inset: auto;
-        top: var(--app-header-height, 0);
+    // Open on a narrow screen: the toggle's doing. `display` rather than a
+    // transform, so a closed panel costs no paint and is out of the tab order.
+    &--open {
+        display: flex;
+    }
 
-        width: map.get(s.$c-play-queue, "width");
-        height: auto;
+    @include m.mq("landscape") {
+        display: flex;
+        position: sticky;
+        right: auto;
+        bottom: auto;
 
         // Fill what is left between the header and the player, and no more, so the
         // panel's own list is what scrolls rather than the window.
         max-height: calc(100dvh - var(--app-header-height, 0px) - var(--app-player-height, 0px));
-        border: map.get(s.$c-play-queue, "border") solid map.get(c.$c-play-queue, "border");
 
-        border-radius: map.get(s.$c-play-queue, "radius");
+        /* A bottom edge again, and the corners to go with it. Here the panel is only
+           as tall as the queue needs, so it ends in open space partway down the page
+           rather than against the player bar — an edge there is the box closing
+           itself, not a duplicate of somebody else's. The top stays open for the
+           reason given above: it is still stuck to the header. */
+        border-bottom: map.get(s.$c-play-queue, "border") solid map.get(c.$c-play-queue, "border");
+
+        border-radius: 0 0 map.get(s.$c-play-queue, "radius") map.get(s.$c-play-queue, "radius");
     }
 
     &__header {
@@ -177,7 +214,6 @@ const totalClock = computed(() => formatClock(totalDuration.value));
         font-variant-numeric: tabular-nums;
     }
 
-    &__clear,
     &__remove,
     &__load {
         display: inline-flex;

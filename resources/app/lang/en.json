@@ -368,6 +368,9 @@
         "queue": {
             "label": "Play queue",
             "summary": "1 track | {count} tracks",
+            "show": "Show the play queue",
+            "hide": "Hide the play queue",
+            "actions": "Queue actions",
             "clear": "Clear the queue",
             "load": "Play {name}",
             "remove": "Remove {name} from the queue"

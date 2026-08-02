@@ -3,10 +3,11 @@
  * @type {Sass}
  * the "sticky" rung — the same affixed-chrome rung as the app header and footer.
  * on desktop the panel is an ordinary grid column and needs no lift at all; the
- * rung is for the narrow-screen form, where it becomes a bottom sheet OVER the
- * page and has to clear <main> (which sits on "raised", one rung below). the
- * PlayerBar shares this rung and comes later in the DOM, so the bar stays on top
- * of the sheet — which is what you want, since the bar is how you close it.
+ * rung is for the narrow-screen form, where the panel floats OVER the page and has
+ * to clear <main> (which sits on "raised", one rung below). the PlayerBar shares
+ * this rung and comes later in the DOM, so the bar stays painted over the panel —
+ * which is what you want, since the bar is the one control that must never be
+ * covered.
  * consumed as z.$c-play-queue via `@use "Abstracts/z-indexes" as z;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map

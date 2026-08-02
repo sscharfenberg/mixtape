@@ -87,10 +87,14 @@ describe("PlayQueue", () => {
         expect(usePlayerQueue().tracks.value.map(entry => entry.name)).toStrictEqual(["Bones"]);
     });
 
-    it("empties the queue, and disappears with it", async () => {
+    it("empties the queue from the menu, and disappears with it", async () => {
+        // Clearing sits behind the popover rather than on a bare trash icon in the
+        // header — it is destructive, and one stray click in a 240px strip is too
+        // cheap a way to lose the queue. The dialog's contents are in the DOM whether
+        // it is open or not, so the test clicks the entry directly.
         const wrapper = await panel([track("a", "Airbag")]);
 
-        await wrapper.find(".play-queue__clear").trigger("click");
+        await wrapper.find(".popover-list-item").trigger("click");
         await nextTick();
 
         expect(wrapper.find("aside").exists()).toBe(false);

@@ -25,7 +25,7 @@
  * panel have to reserve the space themselves.
  *****************************************************************************/
 import { Link } from "@inertiajs/vue3";
-import { computed, onMounted, onUnmounted } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import Icon from "Components/UI/Icon.vue";
@@ -39,23 +39,40 @@ const hasPrevious = computed(() => currentIndex.value > 0);
 /** Whether stepping forward is possible. Repeat-all will relax this once it exists. */
 const hasNext = computed(() => currentIndex.value > -1 && currentIndex.value < tracks.value.length - 1);
 
+/** The bar element, measured to publish its height. */
+const barRef = ref<HTMLElement | null>(null);
+
 /**
  * Publish the bar's rendered height to the document as `--app-player-height`.
  *
  * The same trick AppHeader uses for `--app-header-height`, and needed for the same
  * reason in reverse: the bar is fixed, so it is out of the flow and would sit on
  * top of the last rows of a page. <main> pads its bottom by this, and the queue
- * panel measures its own height against it.
+ * panel pins its own bottom edge to it.
  *
- * Set and cleared on mount/unmount rather than measured continuously — the bar's
- * height is a token (s.$c-player-bar "height"), not something that reflows — but
- * read from the real element anyway, so the CSS stays the single source of truth.
+ * OBSERVED, not measured once, and that is the whole point of the ResizeObserver.
+ * The bar's height is a token — but a rem-based one, and this app sets a different
+ * root font-size per breakpoint, so the bar is 61.6px on a phone and 62.4px one
+ * breakpoint up. Published a single time at mount, the value went stale the moment
+ * the window was resized across a breakpoint: the queue panel kept pinning its
+ * bottom to the old number and left a sliver of page showing between itself and the
+ * bar. Sub-pixel, but on a light panel over a light page it reads as a seam.
  */
 onMounted(() => {
-    const bar = document.querySelector(".player-bar");
-    if (bar) {
-        document.documentElement.style.setProperty("--app-player-height", `${bar.getBoundingClientRect().height}px`);
-    }
+    const setHeightVar = (): void => {
+        if (barRef.value) {
+            document.documentElement.style.setProperty(
+                "--app-player-height",
+                `${barRef.value.getBoundingClientRect().height}px`
+            );
+        }
+    };
+    setHeightVar();
+
+    const observer = new ResizeObserver(setHeightVar);
+    if (barRef.value) observer.observe(barRef.value);
+
+    onUnmounted(() => observer.disconnect());
 });
 
 // Clear it when the queue empties and the footer comes back, or <main> keeps
@@ -66,7 +83,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div v-if="current" class="player-bar" :aria-label="t('player.bar.label')" role="region">
+    <div v-if="current" ref="barRef" class="player-bar" :aria-label="t('player.bar.label')" role="region">
         <cover-image :src="current.coverUrl" :title="current.name" size="small" decorative />
 
         <span class="player-bar__meta">

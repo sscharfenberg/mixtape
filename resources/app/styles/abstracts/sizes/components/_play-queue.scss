@@ -14,17 +14,16 @@
  * not a token here on purpose — CoverImage owns its sizes, and its README is
  * explicit that a consumer must pick a step rather than resize one from outside.
  *
- * `sheet-height` is the narrow-screen form — the panel becomes a bottom sheet
- * over the content rather than a column beside it, because there is no width to
- * give it. Consumed as s.$c-play-queue via `@use "Abstracts/sizes" as s;`.
+ * The same width serves both layouts. Below `landscape` the panel keeps its size
+ * and position and simply floats over the content instead of taking a column, so
+ * there is nothing extra to size — an earlier bottom-sheet form needed a height of
+ * its own and is gone. Consumed as s.$c-play-queue via `@use "Abstracts/sizes" as s;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "../global-size-tokens" as s;
 
 $play-queue: (
     "width": 240px,
-    // half the viewport, as asked — enough for ~5 rows without burying the page
-    "sheet-height": 50dvh,
     "border": map.get(s.$border, "base"),
     "radius": map.get(s.$radius, "base"),
     "padding": 0.5rem,

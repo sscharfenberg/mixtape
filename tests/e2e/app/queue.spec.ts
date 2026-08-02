@@ -84,7 +84,8 @@ test.describe("the play queue", () => {
     test("empties back to the footer when the queue is cleared", async ({ page }) => {
         await enqueueFirstSong(page);
 
-        await page.locator(".play-queue__clear").click();
+        await page.locator(".play-queue .popover-button").click();
+        await page.locator(".play-queue .popover-list-item").click();
 
         await expect(page.locator(".play-queue")).toHaveCount(0);
         await expect(page.locator(".player-bar")).toHaveCount(0);
@@ -95,22 +96,115 @@ test.describe("the play queue", () => {
 test.describe("the play queue on a narrow screen", () => {
     test.use({ viewport: { width: 420, height: 850 } });
 
-    test("becomes a bottom sheet sitting on the player bar", async ({ page }) => {
-        // At this width the DataTable is in card mode and the <table> is display:none,
-        // so the song is reached through a card rather than a row.
+    /** Queue a song from its page. At this width the listing is a card grid, not a table. */
+    const enqueueFromCard = async (page: import("@playwright/test").Page): Promise<void> => {
         await page.goto("/music/songs");
         await page.locator(".dt-cards a").first().click();
         await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
         await page.locator(".hero-section__actions button").click();
+    };
+
+    test("keeps the panel shut until the header's toggle opens it", async ({ page }) => {
+        /*
+         * The whole point of the narrow layout: 240px of panel on a 420px screen is
+         * most of it, so the queue is not something you carry around open. Queuing a
+         * song must not shove the page aside.
+         */
+        await enqueueFromCard(page);
+
+        await expect(page.locator(".play-queue")).toBeHidden();
+        await expect(page.locator(".play-queue-toggle")).toBeVisible();
+
+        await page.locator(".play-queue-toggle").click();
         await expect(page.locator(".play-queue")).toBeVisible();
 
-        const sheet = (await page.locator(".play-queue").boundingBox())!;
-        const bar = (await page.locator(".player-bar").boundingBox())!;
+        await page.locator(".play-queue-toggle").click();
+        await expect(page.locator(".play-queue")).toBeHidden();
+    });
 
-        // Half the viewport, spanning its full width — a sheet, not a column.
-        expect(sheet.width).toBeGreaterThan(400);
-        expect(Math.round(sheet.height)).toBe(425);
-        // Resting exactly on top of the bar, never behind it.
-        expect(Math.round(sheet.y + sheet.height)).toBe(Math.round(bar.y));
+    test("floats over the content instead of taking a column from it", async ({ page }) => {
+        // An overlay, so the page behind keeps its full width — the bottom sheet this
+        // replaced permanently ate half the viewport and had to be scrolled past.
+        await enqueueFromCard(page);
+        await page.goto("/music/songs");
+        const closed = (await page.locator("main").boundingBox())!;
+
+        await page.locator(".play-queue-toggle").click();
+        await expect(page.locator(".play-queue")).toBeVisible();
+        const open = (await page.locator("main").boundingBox())!;
+
+        expect(Math.round(open.width)).toBe(Math.round(closed.width));
+        // Same place as on a desktop: top right, under the header.
+        const panel = (await page.locator(".play-queue").boundingBox())!;
+        // `.app-header`, not `header` — the panel has a <header> of its own.
+        const header = (await page.locator("header.app-header").boundingBox())!;
+        expect(Math.round(panel.width)).toBe(240);
+        expect(Math.round(panel.y)).toBe(Math.round(header.y + header.height));
+    });
+
+    test("swaps the toggle's glyph for a close once it is open", async ({ page }) => {
+        await enqueueFromCard(page);
+        const toggle = page.locator(".play-queue-toggle");
+
+        // Icon writes `xlink:href`, and a real browser will not hand that back under
+        // the plain `href` name the way happy-dom does — hence the qualified read.
+        const glyph = () => toggle.locator("use").evaluate(el => el.getAttribute("xlink:href"));
+
+        expect(await glyph()).toBe("#playlist");
+        await expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+        await toggle.click();
+
+        expect(await glyph()).toBe("#close");
+        await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    });
+
+    test("stays joined to the player bar across a resize", async ({ page }) => {
+        /*
+         * The bar's height is rem-based and this app sets a different root font-size per
+         * breakpoint, so the bar is ~61.6px on a phone and ~62.4px a step up. PlayerBar
+         * published `--app-player-height` ONCE at mount, so dragging the window across a
+         * breakpoint left the panel pinning its bottom edge to a stale number and a
+         * sliver of page showed through between the two. Sub-pixel, and on a light panel
+         * over a light page it reads as a seam. A ResizeObserver keeps it honest.
+         */
+        await enqueueFromCard(page);
+        await page.locator(".play-queue-toggle").click();
+        await expect(page.locator(".play-queue")).toBeVisible();
+
+        const gap = () =>
+            page.evaluate(() => {
+                const panel = document.querySelector(".play-queue")!.getBoundingClientRect();
+                const bar = document.querySelector(".player-bar")!.getBoundingClientRect();
+
+                return bar.top - panel.bottom;
+            });
+
+        for (const width of [700, 420, 760, 380]) {
+            await page.setViewportSize({ width, height: 850 });
+            await expect.poll(gap).toBe(0);
+        }
+    });
+
+    test("offers no toggle while the queue is empty", async ({ page }) => {
+        // It would open nothing — an empty queue draws no panel at all.
+        await page.goto("/music/songs");
+
+        await expect(page.locator(".play-queue-toggle")).toHaveCount(0);
+    });
+});
+
+test.describe("the play queue from landscape up", () => {
+    test.use({ viewport: { width: 900, height: 850 } });
+
+    test("is simply there, with no toggle to press", async ({ page }) => {
+        await page.goto("/music/songs");
+        await page.locator("tbody tr").first().click();
+        await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
+        await page.locator(".hero-section__actions button").click();
+
+        await expect(page.locator(".play-queue")).toBeVisible();
+        // The button exists in the DOM but the media query hides it at this width.
+        await expect(page.locator(".play-queue-toggle")).toBeHidden();
     });
 });

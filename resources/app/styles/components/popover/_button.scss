@@ -55,6 +55,23 @@
         color: map.get(c.$c-popover, "button-surface-hover");
     }
 
+    /* The quiet variant: a flat grey fill for a trigger that opens a panel's own
+       menu rather than the site's. Declared AFTER the base `:hover` on purpose —
+       `.popover-button--subtle:hover` and `.popover-button:hover` carry identical
+       specificity, so source order is what settles which fill wins, and the shared
+       navy hover would otherwise repaint this one on the way past. */
+    &--subtle {
+        background-color: map.get(c.$c-popover, "button-background-subtle");
+        background-image: none;
+        color: map.get(c.$c-popover, "button-surface-subtle");
+
+        &:hover {
+            background-color: map.get(c.$c-popover, "button-background-subtle-hover");
+            background-image: none;
+            color: map.get(c.$c-popover, "button-surface-subtle");
+        }
+    }
+
     &--highlighted {
         border: map.get(s.$c-popover, "border") solid map.get(c.$c-popover, "button-border-highlighted");
 

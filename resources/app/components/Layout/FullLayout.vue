@@ -36,7 +36,7 @@ import AppFooter from "Components/Landmarks/Footer/AppFooter.vue";
 import AppHeader from "Components/Landmarks/Header/AppHeader.vue";
 import AppMain from "Components/Landmarks/Main/AppMain.vue";
 import PlayerBar from "Components/Player/PlayerBar.vue";
-import PlayQueue from "Components/Player/PlayQueue.vue";
+import PlayQueue from "Components/PlayQueue/PlayQueue.vue";
 import Breadcrumb from "Components/UI/Breadcrumb.vue";
 import Container from "Components/UI/Container.vue";
 import ToastContainer from "Components/UI/ToastContainer.vue";
@@ -77,13 +77,39 @@ hydrate();
 @use "Abstracts/mixins" as m;
 @use "Abstracts/sizes" as s;
 
-/* One column until there is room for two. Below the `landscape` step the queue is
-   a fixed bottom sheet rather than a column, so it is out of the grid entirely and
-   this stays a single track at every width — the `--with-queue` modifier only
-   means anything once the panel is actually beside the content.
+/* One column until there is room for two. Below the `landscape` step the queue is a
+   fixed OVERLAY rather than a column — out of the flow entirely, floating over the
+   content when the header's toggle opens it — so this stays a single track there and
+   the page keeps its full width. Nothing to reserve for it either, which is the
+   point: the bottom sheet this replaced had to have half a viewport of padding kept
+   free below the page so its last rows could still be scrolled to.
 
    `align-items: start` so the queue column is its own height and can stick, rather
-   than being stretched to match a long page and having nothing left to scroll. */
+   than being stretched to match a long page and having nothing left to scroll.
+
+   WITH THE QUEUE OPEN THE WHOLE BODY IS CAGED — capped to the app's max width and
+   centred, exactly as Container is. That is the fix for a genuinely odd effect: the
+   grid used to span the window while the page's own Container centred itself inside
+   the cage, so on any screen wider than 1440px, enqueuing one song yanked the page
+   content leftward by half the slack while the panel stayed out at the far edge.
+   Caging the grid keeps both halves in the same box the header's inner row uses, so
+   the content does not move at all and the panel ends where the app ends.
+
+   Below the cage width there is no slack, so the body is the full window and the
+   panel sits flush against the right edge — in line with the header bar and <main>,
+   which reach it too. An earlier version added the cage's inline PADDING here on
+   top, which was wrong in a way that hid itself: under 1440px the centring is zero,
+   so that padding was the entire inset — a flat 12px that never moved with width
+   and just held the panel off the edge for no reason.
+
+   Only the `--with-queue` case is caged. Without the panel <main> stays full-bleed,
+   which it has to: the glowing-border headings reach past the Container so their
+   seam runs off-screen (see Container / Headline). With the queue open they end at
+   the cage edge instead, on a window wide enough for that to be visible — the price
+   of keeping the two columns in one box, and the reason this is scoped to the
+   modifier rather than set on .app-body outright. */
+$cage: map.get(s.$c-app, "max");
+
 .app-body {
     display: grid;
     align-items: start;
@@ -95,8 +121,18 @@ hydrate();
         &--with-queue {
             grid-template-columns: minmax(0, 1fr) map.get(s.$c-play-queue, "width");
 
-            padding-right: map.get(s.$c-play-queue, "gap");
+            /* `width: 100%` is load-bearing, not belt-and-braces. #app is a COLUMN
+               flex container, so width is the cross axis and this item normally
+               fills it by `align-self: stretch` — but an auto margin on the cross
+               axis cancels stretch outright, and the body collapsed to its
+               fit-content width (~760px of a 975px window) with the whole layout
+               shrunk inside it. Stating the width puts the fill back and leaves the
+               auto margins doing only the centring they are here for. */
+            width: 100%;
+            max-width: $cage;
+
             gap: map.get(s.$c-play-queue, "gap");
+            margin-inline: auto;
         }
     }
 }

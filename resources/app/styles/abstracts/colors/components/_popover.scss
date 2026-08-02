@@ -70,5 +70,17 @@ $popover: (
             map.get(c.$brand, "dark2", "color")
         ),
     "button-surface-highlighted": light-dark(map.get(c.$retro, "c4", "light"), map.get(c.$brand, "dark2", "contrast")),
-    "button-border-highlighted": light-dark(map.get(c.$retro, "c4", "light"), map.get(c.$brand, "dark2", "contrast"))
+    "button-border-highlighted": light-dark(map.get(c.$retro, "c4", "light"), map.get(c.$brand, "dark2", "contrast")),
+    // quiet trigger — a flat grey instead of the synthwave gradient, for a menu
+    // that opens a panel rather than the site. The play queue's own header is the
+    // case: the gradient there competed with the panel's neon "now playing" row for
+    // the one bit of attention that strip has to give.
+    // One rung off the surface it sits on (mystic on a white panel, abbey on a black
+    // one), so it reads as a control without becoming a second focal point; hover
+    // steps one further rather than jumping to the shared navy, which on this fill
+    // would be a colour change rather than a state change. Ink is the panel's own
+    // body colour, so it matches the text beside it: ~12:1 light, ~8:1 dark.
+    "button-background-subtle": light-dark(map.get(c.$grey, "mystic"), map.get(c.$grey, "abbey")),
+    "button-surface-subtle": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral")),
+    "button-background-subtle-hover": light-dark(map.get(c.$grey, "infra"), map.get(c.$grey, "asher"))
 ) !default;

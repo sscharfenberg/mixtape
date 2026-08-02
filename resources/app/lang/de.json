@@ -368,6 +368,9 @@
         "queue": {
             "label": "Warteschlange",
             "summary": "1 Titel | {count} Titel",
+            "show": "Warteschlange anzeigen",
+            "hide": "Warteschlange ausblenden",
+            "actions": "Warteschlangen-Aktionen",
             "clear": "Warteschlange leeren",
             "load": "{name} abspielen",
             "remove": "{name} aus der Warteschlange entfernen"
