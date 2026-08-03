@@ -8,11 +8,13 @@
  * reads.
  *
  * The `landscape` step (768px) rather than `desktop` (1024px), and the play queue
- * is why. With the queue panel open <main> loses 240px, which on a 1280px laptop
- * leaves the table roughly 1000px — a hair under the old line, so every listing
- * in the app would have flipped to cards the moment something was queued. 768px
- * puts that back with room to spare, at the cost of asking a five-column table to
- * fit into a narrower column before it gives up. Borders/radii pick the shared scale
+ * is why. With the queue panel open <main> loses the panel's width plus a gap —
+ * 288px on a laptop, 368px from `full` up — so a 1280px screen leaves the table
+ * roughly 990px, under the old line, and every listing in the app would have
+ * flipped to cards the moment something was queued. 768px puts that back with room
+ * to spare, at the cost of asking a five-column table to fit into a narrower column
+ * before it gives up. That margin is why the queue's width is not a free knob: see
+ * the guard-rail note in sizes/components/_play-queue.scss before widening it again. Borders/radii pick the shared scale
  * (`base` tube + corner); the small paddings and the page/jump/card
  * dimensions are plain literals — one named decision per value, which sizes are
  * allowed to hold (unlike colours). consumed as s.$c-datatable via

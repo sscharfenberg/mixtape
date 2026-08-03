@@ -8,7 +8,7 @@
  *
  * It renders NOTHING while the queue is empty, which is the whole reason the
  * layout asks `isEmpty` rather than letting this decide: an empty grid column
- * would still reserve its 240px, and the page would sit off-centre for a queue
+ * would still reserve its 280px, and the page would sit off-centre for a queue
  * that isn't there.
  *
  * It OVERLAYS at every width rather than taking a column, and <main> keeps the full
@@ -20,7 +20,7 @@
  *
  * What changes with width is only whether it is on screen: from `landscape` up it is
  * always there, and below that PlayQueueToggle (in the header) opens it, because
- * 240px of a phone is most of the screen and a queue you carry around open is one
+ * 280px of a phone is most of the screen and a queue you carry around open is one
  * permanently in the way.
  *
  * CLICKING A ROW PLAYS THAT TRACK — anywhere in it. The row is an <li> holding one
@@ -74,7 +74,7 @@ const playRow = (index: number): void => {
 /**
  * The queue's running time as a clock, for the panel header.
  *
- * A total rather than a per-row duration because at 240px a row has no space for
+ * A total rather than a per-row duration because at 280px a row has no space for
  * one — see the width note in sizes/components/_play-queue.scss.
  */
 const totalClock = computed(() => formatClock(totalDuration.value));
@@ -397,7 +397,7 @@ $bleed: map.get(s.$c-play-queue, "padding");
        The room has to be INSIDE the clip box, so the padding provides it and a
        negative margin of exactly the panel's own padding reclaims it: the list's
        scroll box grows to the panel's inner edge while every row stays precisely
-       where it was. That last part is the whole point — at 240px the title is
+       where it was. That last part is the whole point — at 280px the title is
        already the first thing to ellipsise (see sizes/components/_play-queue.scss),
        so buying glow room with row width is not a trade this panel can afford.
 
@@ -467,7 +467,7 @@ $bleed: map.get(s.$c-play-queue, "padding");
 
            TIGHTER THAN THE DATATABLE'S, deliberately. That one is tuned for a row
            several hundred pixels wide with open page around it; the same 1.5em halo
-           on a 240px row in a scrolling panel is both out of proportion and wider
+           on a 280px row in a scrolling panel is both out of proportion and wider
            than any room the clip box can be given (`&__list` above caps it at the
            panel's padding). The outer layer is sized to land just inside that room,
            so the halo fades out on its own instead of being cut off flat. */
@@ -481,7 +481,7 @@ $bleed: map.get(s.$c-play-queue, "padding");
 
     /* `min-width: 0` is what lets the two lines below ellipsise. Without it this
        flex item refuses to shrink under its content width, an unbreakable title
-       pushes the row wider than the 240px panel, and `text-overflow` never fires
+       pushes the row wider than the 280px panel, and `text-overflow` never fires
        because nothing is overflowing. Same trap as the breadcrumb's label. */
     &__meta {
         display: flex;

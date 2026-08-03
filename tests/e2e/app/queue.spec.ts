@@ -7,7 +7,7 @@ import { expect, test } from "@playwright/test";
  *
  *   - the footer and the player bar are alternatives. Vitest can prove PlayerBar renders
  *     when a track is loaded, but not that the footer left with it.
- *   - the panel takes 240px out of <main>, and the DataTable's table-or-cards switch is a
+ *   - the panel takes 280px out of <main>, and the DataTable's table-or-cards switch is a
  *     CONTAINER query on that remaining width. Whether a listing survives with the queue
  *     open is a question about layout, and happy-dom has none. This is the specific
  *     regression that made the breakpoint move from `desktop` to `landscape`.
@@ -69,10 +69,12 @@ test.describe("the play queue", () => {
 
     test("leaves a listing enough width to still be a table", async ({ page }) => {
         /*
-         * The reason the DataTable's container breakpoint moved to `landscape`. At 1440px
-         * the panel leaves <main> about 1170px; under the old `desktop` (1024px) line that
-         * was fine, but the margin was thin enough that a 1280px laptop tipped over it and
-         * every listing in the app turned into cards the moment anything was queued.
+         * The reason the DataTable's container breakpoint moved to `landscape`. This runs at
+         * 1440px, where the panel is its wider 360px, leaving <main> about 1072px — still
+         * clear of the 768px container line. Under the old `desktop` (1024px) line it would
+         * not be, which is the regression that moved the breakpoint: a 1280px laptop tipped
+         * over it and every listing in the app turned into cards the moment anything was
+         * queued.
          */
         await enqueueFirstSong(page);
 
@@ -84,7 +86,7 @@ test.describe("the play queue", () => {
     test("widens at `full`, and the content inset widens with it", async ({ page }) => {
         /*
          * This describe runs at 1440px, which IS the `full` line — so the panel is 360px
-         * here and 240px below it (asserted at 420px in the narrow-screen block).
+         * here and 280px below it (asserted at 420px in the narrow-screen block).
          *
          * The second assertion is the one worth having. The width lives in PlayQueue and
          * the room made for it lives in FullLayout's `--content-inset-end`; they are one
@@ -137,7 +139,7 @@ test.describe("the play queue on a narrow screen", () => {
 
     test("keeps the panel shut until the header's toggle opens it", async ({ page }) => {
         /*
-         * The whole point of the narrow layout: 240px of panel on a 420px screen is
+         * The whole point of the narrow layout: 280px of panel on a 420px screen is
          * most of it, so the queue is not something you carry around open. Queuing a
          * song must not shove the page aside.
          */
@@ -169,7 +171,7 @@ test.describe("the play queue on a narrow screen", () => {
         const panel = (await page.locator(".play-queue").boundingBox())!;
         // `.app-header`, not `header` — the panel has a <header> of its own.
         const header = (await page.locator("header.app-header").boundingBox())!;
-        expect(Math.round(panel.width)).toBe(240);
+        expect(Math.round(panel.width)).toBe(280);
         expect(Math.round(panel.y)).toBe(Math.round(header.y + header.height));
     });
 

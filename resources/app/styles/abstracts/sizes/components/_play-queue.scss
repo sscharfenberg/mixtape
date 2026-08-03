@@ -5,7 +5,7 @@
  * are fixed sidebars rather than a fraction of the window: a literal third would be
  * 850px of queue on a 2560px monitor — more list than there is track.
  *
- * `width` (240px) holds from the narrow overlay up to `full`. `width-full` (360px)
+ * `width` (280px) holds from the narrow overlay up to `full`. `width-full` (360px)
  * takes over at `full` (1440px), where the cage stops growing and there is simply
  * room: the cage caps at 1440px, so from that point on <main> keeps a constant
  * ~1072px (1440 − 360 − gap) no matter how wide the monitor is. The guard rail on
@@ -14,15 +14,16 @@
  * something is queued. 1072px clears it with room to spare; a third of a 2560px
  * screen would not.
  *
- * 240px is what sets the row design: CoverImage's `tiny` step (24px) beside one
- * line of title over one of artist is all that fits, which is why a row shows no
- * duration (the running total lives on its own line in the panel instead).
+ * The ROW DESIGN is what the narrow width has to serve: CoverImage's `tiny` step
+ * (24px) beside one line of title over one of artist, and no per-row duration (the
+ * running total lives on its own line in the panel instead). That shape was settled
+ * against 240px and 280px only makes it more comfortable — the 40px goes entirely to
+ * the title and artist, which are the first things to ellipsise.
  *
- * The extra 120px at `full` goes to the SAME row design — more room before the title
- * and artist ellipsise — and explicitly NOT to a per-row duration. That was asked and
- * answered: a duration only at `full` makes the row two shapes to maintain, and the
- * whole point of the 240px design is that one shape serves every width. Don't add one
- * back without deciding what it does below 1440px.
+ * The extra 80px at `full` goes to the same place, and explicitly NOT to a per-row
+ * duration. That was asked and answered: a duration only at `full` makes the row two
+ * shapes to maintain, and one shape serving every width is the whole point. Don't add
+ * one back without deciding what it does below 1440px.
  *
  * The cover is not a token here on purpose — CoverImage owns its sizes, and its README
  * is explicit that a consumer must pick a step rather than resize one from outside.
@@ -43,7 +44,7 @@
 @use "../global-size-tokens" as s;
 
 $play-queue: (
-    "width": 240px,
+    "width": 280px,
     // from `full` (1440px) up, where the cage stops growing — see the note above.
     // FullLayout's content inset reads BOTH and must switch at the same breakpoint.
     "width-full": 360px,

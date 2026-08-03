@@ -13,7 +13,7 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
  * what is left to prove here is the part the composable cannot: what gets DRAWN.
  *
  * Chiefly that an empty queue renders nothing at all. FullLayout keys its grid column off
- * the same `isEmpty`, so a panel that rendered an empty shell would leave a 240px hole
+ * the same `isEmpty`, so a panel that rendered an empty shell would leave a 280px hole
  * beside every page — and that is invisible in a unit test of the composable, which would
  * happily report a queue of length zero either way.
  */
@@ -49,7 +49,7 @@ describe("PlayQueue", () => {
     it("renders nothing at all while the queue is empty", async () => {
         const wrapper = await panel([]);
 
-        // Not an empty panel: FullLayout gives the column its 240px off the same
+        // Not an empty panel: FullLayout gives the column its 280px off the same
         // condition, so a shell here would indent every page for a queue that is not there.
         expect(wrapper.find("aside").exists()).toBe(false);
         expect(wrapper.html()).toBe("<!--v-if-->");
@@ -115,7 +115,7 @@ describe("PlayQueue", () => {
 
     it("empties the queue from the menu, and disappears with it", async () => {
         // Clearing sits behind the popover rather than on a bare trash icon in the
-        // header — it is destructive, and one stray click in a 240px strip is too
+        // header — it is destructive, and one stray click in a 280px strip is too
         // cheap a way to lose the queue. The dialog's contents are in the DOM whether
         // it is open or not, so the test clicks the entry directly. Matched by the
         // `--caution` variant rather than by position: repeat sits above it now, and a
@@ -145,7 +145,7 @@ describe("PlayQueue", () => {
     it("summarises the queue's length and running time", async () => {
         const wrapper = await panel([track("a", "Airbag"), track("b", "Bones")]);
 
-        // 2 x 120s. The count and the clock share a line because a 240px panel has no
+        // 2 x 120s. The count and the clock share a line because a 280px panel has no
         // room for either beside the title.
         expect(wrapper.find(".play-queue__summary").text()).toContain("4:00");
     });

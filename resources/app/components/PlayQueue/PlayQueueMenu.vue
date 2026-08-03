@@ -5,7 +5,7 @@
  * list behind it.
  *
  * A menu rather than the bare trash button this replaces. Clearing the queue is
- * destructive and irreversible, and a lone icon in a 240px header strip is far
+ * destructive and irreversible, and a lone icon in a 280px header strip is far
  * too easy to hit on the way to something else; behind a menu it takes a
  * deliberate second click and is named in words instead of guessed from a glyph.
  *
