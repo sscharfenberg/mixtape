@@ -122,17 +122,30 @@ run. Nothing is manual — `globalSetup` handles all of it, in this order:
 
 1. Deal with `public/hot` (see the traps below).
 2. Build assets if `public/build/manifest.json` is missing.
-3. Truncate `storage/e2e.sqlite`, `config:clear`, `migrate:fresh --seed`.
-4. Clear the login rate limiter.
+3. Rebuild `storage/e2e-media/` — a playable file behind every row that is about to be seeded.
+4. Truncate `storage/e2e.sqlite`, `config:clear`, `migrate:fresh --seed`.
+5. Clear the login rate limiter.
 
 Then the app is served on **:8100** — deliberately not 8000, so a hand-started `artisan serve`
 survives — and the `setup` project signs in once and saves the session for the `app` project to
 reuse.
 
-**It needs a seeded database, not a real media library.** The fixture is rows only; no mp3 exists on
-disk, nothing runs `app:update`, and neither the dev nor the production database is ever touched.
-Cover URLs consequently 404, which is *deliberately* exercised — it is what drives `CoverImage`'s
-placeholder fallback.
+**It needs a seeded database and playable audio — but no real media library.** The rows come from the
+seeder; the *files* are written by `seedMediaFiles`, which drops a copy of the committed one-second
+mp3 fixture at every path the seeder claims and points `MIXTAPE_MUSIC_PATH` at that throwaway
+directory. Nothing runs `app:update`, and neither the dev nor the production database is ever
+touched.
+
+Two deliberate asymmetries in that fixture, both load-bearing:
+
+- **Audio is real, artwork is not.** The mp3 carries no picture and no folder image is written, so
+  cover URLs still 404 — which is what drives `CoverImage`'s placeholder fallback.
+- **The audio is one second long while the rows claim two to eight minutes.** That is a feature: the
+  most valuable thing a browser can prove about the player is that the queue advances *by itself*
+  when a track ends, and a track that ends in a second makes that assertion fast and deterministic.
+  The consequence is that the durations **disagree**, so a player spec must not assert a position
+  derived from the rail's width — that geometry belongs in Vitest, where the numbers are whatever
+  the test says.
 
 The fixture is **`database/seeders/E2ESeeder.php`**, and it is deterministic on purpose: fixed ids,
 names, durations and timestamps, no `fake()` and no `now()`, so re-seeding produces identical rows
@@ -156,7 +169,7 @@ Seed login: **`Ashaltiriak` / `passwort`**, and note that **login is by `name`, 
 
 | File | Role |
 | --- | --- |
-| `environment.ts` | Ports, paths, the server env overrides, and the stand-up/teardown primitives. |
+| `environment.ts` | Ports, paths, the server env overrides, the generated media area, and the stand-up/teardown primitives. |
 | `globalSetup.ts` / `globalTeardown.ts` | Run them, in the right order. |
 | `auth.setup.ts` | The `setup` project: signs in for real and stores the session. |
 | `actions.ts` | `signIn`, `columnValues`, `pageHeading`, `clockToSeconds`, `fold`, `expectOnTablePage`, `countDocumentRequests`. |
@@ -182,6 +195,18 @@ this is the record of *why* that code exists.
   name (`href`). Use `iconNames()`.
 - **`findAll("button")` sweeps up child components' buttons** (the pager's page-size `Select`) —
   scope to the component's own class.
+- **`setValue()` on `<input type="range">` writes the value and dispatches nothing.** So the handler
+  under test never runs and the assertion silently passes against an unchanged component. Set
+  `element.value` and `trigger("input")` yourself (`PlayerTimeline.test.ts` has the helper).
+- **happy-dom's `<audio>` is real enough to test a player against** — `play()`/`pause()` flip
+  `paused` and fire their events, `currentTime` is writable, and media events can be dispatched by
+  hand. What it has no decoder for is `buffered` (always empty) and `duration` (`NaN`); override
+  those per test with `Object.defineProperty`, and leave anything that needs real bytes to
+  Playwright.
+- **Match a popover entry by its variant, not its position.** `.popover-list-item` matched exactly
+  one thing until the queue menu gained a repeat toggle above "clear the queue"; a positional
+  selector then silently started toggling repeat, and in Playwright it becomes a strict-mode
+  violation instead. Use `--caution` / `--selected` or the accessible name.
 - The project targets `lib: ES2020`, so **`Array.prototype.at()` is unavailable** in tests.
 
 **End-to-end**

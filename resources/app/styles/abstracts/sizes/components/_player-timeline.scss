@@ -1,0 +1,31 @@
+/******************************************************************************
+ * contextual size tokens — component:player-timeline
+ * @type {Sass}
+ * The transport's scrub bar: a thin rail carrying the played fill and the buffer
+ * indicator, with a native <input type="range"> laid over it.
+ *
+ * `rail` and `hit` are deliberately different numbers, and that gap is the whole
+ * reason both exist. A 6px rail is what the eye wants — anything thicker reads as a
+ * progress *bar* rather than a timeline — but 6px is an unhittable target with a
+ * thumb, let alone with a finger. So the range input is `hit` tall, invisible, and
+ * centred over the rail: the drawing stays thin, the target is thumb-sized.
+ *
+ * Consumed as s.$c-player-timeline via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$player-timeline: (
+    // the drawn rail, and the rounding that turns the fill's leading edge into a cap
+    "rail": 6px,
+    "radius": 3px,
+    // the invisible target laid over it — a comfortable touch height, not the rail's
+    "hit": map.get(s.$icons, "tiny"),
+    "thumb": 12px,
+    // between each clock reading and the rail
+    "gap": 0.5rem,
+    // The rail refuses to shrink past this, so the bar's other parts (a long title,
+    // the transport) give way first. Below it a timeline stops being scrubbable at any
+    // useful resolution — a whole album side's worth of seconds in 80 pixels.
+    "min": 8rem
+) !default;

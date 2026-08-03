@@ -371,6 +371,7 @@
             "show": "Warteschlange anzeigen",
             "hide": "Warteschlange ausblenden",
             "actions": "Warteschlangen-Aktionen",
+            "repeat": "Endlos wiederholen",
             "clear": "Warteschlange leeren",
             "load": "{name} abspielen",
             "remove": "{name} aus der Warteschlange entfernen"
@@ -378,6 +379,8 @@
         "bar": {
             "label": "Wiedergabe",
             "play": "Abspielen",
+            "pause": "Pause",
+            "seek": "Position im Titel",
             "previous": "Vorheriger Titel",
             "next": "Nächster Titel"
         },

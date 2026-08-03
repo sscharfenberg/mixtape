@@ -472,19 +472,22 @@ pointing at a live row, so title/artist come from the join.
 
 ### The play queue — client composable, server-persisted
 
-> **Build status (scaffolded 2026-08-02).** The client half exists: `usePlayerQueue` (module
-> singleton, `localStorage`-backed under `mixtape.queue.v1`, user-scoped), the `PlayQueue` panel and
-> the `PlayerBar`, both mounted once in `FullLayout`, and an enqueue button on the song page.
-> **Not yet built:** the server sync described below — `player_states` is migrated and its model
-> exists, but nothing shares it via Inertia and nothing POSTs to it, so today the queue is
-> per-browser rather than per-user. `commit()` in the composable is the single choke point that
-> sync lands in. **Also not built:** any audio at all. The player bar is a shell with inert
-> play/pause, because the vidstack-vs-native decision is still open and it governs seeking, the
-> stream endpoint, and whether the production CSP needs `media-src blob:` (it is `'self'` today).
-> The stream route itself does not exist — when it is written it needs **HTTP Range** support for
-> scrubbing, and should hand off via nginx `X-Accel-Redirect` rather than streaming a 96GB
-> collection through php-fpm workers. The build plan for all of that is
-> [`player.md`](player.md).
+> **Build status (client half done 2026-08-03).** `usePlayerQueue` (module singleton,
+> `localStorage`-backed under `mixtape.queue.v2`, user-scoped), the `PlayQueue` panel and the
+> `PlayerBar`, both mounted once in `FullLayout`, an enqueue button on the song page — and, as of
+> 2026-08-03, **audio**: a native `<audio>` driven by `usePlayerAudio`, a `GET
+> /music/songs/{song}/stream` route with HTTP Range and an nginx `X-Accel-Redirect` hand-off, a
+> scrubbable timeline with a buffer indicator, and repeat. Auto-advance rides the `ended` event, so
+> the queue walks itself in a backgrounded tab. See [`player.md`](player.md) for what that build
+> settled (including that the production CSP needed no widening — `media-src 'self'` is enough for a
+> same-origin `<audio src>`, and there is a test that proves it).
+>
+> **Still not built:** the server sync described below. `player_states` is migrated and its model
+> exists, but nothing shares it via Inertia and nothing POSTs to it, so the queue remains
+> per-browser rather than per-user. `commit()` in the composable is the single choke point that sync
+> lands in, and the payload is already versioned (`v2` added `streamUrl` per track and `repeat`) and
+> already carries the `userId` it belongs to. **Also still absent:** shuffle, and the play-history
+> beacon described further down.
 
 The queue is the natural home for the **background-playback** feature: auto-advance drives off the audio
 element's `ended` event, which lives in the browser, and the player keeps running while Inertia swaps
@@ -500,7 +503,7 @@ saved playlist (relational, queried, shared), the queue is private to one player
 ```
 player_states
   user_id     uuid pk  fk → users (cascade)
-  queue       jsonb        # ordered [track_id, …] + current_index + position_ms  (+ shuffle/repeat later)
+  queue       jsonb        # ordered [track_id, …] + current_index + position_ms  (+ repeat; shuffle later)
   updated_at
 ```
 

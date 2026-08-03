@@ -7,7 +7,7 @@
  * variable always wins, which is what `serverEnv` below relies on.
  *****************************************************************************/
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { createConnection } from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -23,6 +23,28 @@ export const BASE_URL = `http://127.0.0.1:${PORT}`;
 
 /** The throwaway database. Wiped and re-seeded at the start of every run. */
 const DATABASE = path.join(repoRoot, "storage", "e2e.sqlite");
+
+/**
+ * The throwaway media area, rebuilt at the start of every run.
+ *
+ * The fixture used to be rows only, with no file anywhere on disk — which was right
+ * while nothing played audio, and is not any more: the player specs have to stream
+ * through the real route, and a 404 there proves nothing about playback. `seedMediaFiles`
+ * fills this with a copy of the committed one-second mp3 at every path E2ESeeder claims.
+ *
+ * COVER art is deliberately still missing (the mp3 carries none, and no folder image is
+ * written), because several specs depend on a cover request 404-ing to exercise
+ * CoverImage's placeholder fallback. Audio real, artwork absent — on purpose.
+ */
+const MEDIA_ROOT = path.join(repoRoot, "storage", "e2e-media");
+
+/**
+ * The one-second synthetic mp3 the PHP suite already uses. One second is a FEATURE
+ * here, not a compromise: the single most valuable thing a browser can prove about
+ * this player is that the queue advances by itself when a track ends, and a track
+ * that ends in a second makes that assertion fast and deterministic.
+ */
+const AUDIO_FIXTURE = path.join(repoRoot, "tests", "Fixtures", "audio", "tagged.mp3");
 
 /**
  * Where a stale `public/hot` is parked for the duration of a run.
@@ -52,7 +74,24 @@ export const serverEnv: Record<string, string> = {
     SESSION_SECURE_COOKIE: "false",
     CACHE_STORE: "file",
     QUEUE_CONNECTION: "sync",
-    MAIL_MAILER: "log"
+    MAIL_MAILER: "log",
+    /*
+     * The generated media area, NOT the committed `.env`'s `/var/media/music` — which is
+     * the live server's path and does not exist on a developer's machine, so every stream
+     * request would 404 and the player specs would be testing a broken route.
+     *
+     * `MIXTAPE_STREAM_INTERNAL_PREFIX` is pinned EMPTY rather than merely left out, and
+     * that is a lesson rather than a preference: left out, the app fell back to whatever
+     * the committed `.env` happened to say, so the whole player suite passed only because
+     * that file had no such key yet. The moment one was added the run would have streamed
+     * through a hand-off with no nginx to catch it. A real environment variable beats
+     * dotenv, so this makes the run independent of the developer's `.env` — and empty is
+     * the honest value, because there is no nginx in front of `artisan serve`.
+     */
+    MIXTAPE_MUSIC_PATH: MEDIA_ROOT,
+    MIXTAPE_AUDIOBOOKS_PATH: "",
+    MIXTAPE_PODCAST_SHOWS_PATH: "",
+    MIXTAPE_STREAM_INTERNAL_PREFIX: ""
 };
 
 /** Run an artisan command with the E2E overrides applied, returning its stdout. */
@@ -148,6 +187,30 @@ export const resetDatabase = (): void => {
      * a fixed fixture: same ids, names, durations and timestamps every time.
      */
     artisan("db:seed", "--class=Database\\Seeders\\E2ESeeder", "--force");
+};
+
+/**
+ * Put a playable file at every path the seeded library claims.
+ *
+ * Copies rather than symlinks, and the whole directory is rebuilt from scratch, so a
+ * half-finished previous run cannot leave a truncated file behind that decodes as a
+ * damaged track. 67 copies of an 18 kB fixture is about a megabyte — cheap enough to do
+ * unconditionally, which is what keeps it in step with the seeder.
+ *
+ * The paths are E2ESeeder's `/music/%03d.mp3`, resolved the way Track::absolutePath does
+ * (area root + the stored, area-relative path). They are derived from the same rule
+ * rather than read out of the database, so this needs no connection and runs before the
+ * app server is up.
+ */
+export const seedMediaFiles = (): void => {
+    rmSync(MEDIA_ROOT, { recursive: true, force: true });
+    mkdirSync(path.join(MEDIA_ROOT, "music"), { recursive: true });
+
+    // 67 music tracks, per E2ESeeder's docblock — the count that puts a listing past its
+    // 50-row page size. One spare file costs nothing; one missing file is a silent 404.
+    for (let position = 1; position <= 70; position += 1) {
+        copyFileSync(AUDIO_FIXTURE, path.join(MEDIA_ROOT, "music", `${String(position).padStart(3, "0")}.mp3`));
+    }
 };
 
 /**

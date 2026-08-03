@@ -85,7 +85,9 @@ test.describe("the play queue", () => {
         await enqueueFirstSong(page);
 
         await page.locator(".play-queue .popover-button").click();
-        await page.locator(".play-queue .popover-list-item").click();
+        // By the `--caution` variant, not by position: the repeat toggle sits above it in
+        // the menu now, and a bare `.popover-list-item` matches both.
+        await page.locator(".play-queue .popover-list-item--caution").click();
 
         await expect(page.locator(".play-queue")).toHaveCount(0);
         await expect(page.locator(".player-bar")).toHaveCount(0);

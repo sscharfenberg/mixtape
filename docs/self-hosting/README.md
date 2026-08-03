@@ -84,6 +84,10 @@ this is a jump table for when something is already broken.
 | Backup silently skips and never alerts | `ConditionPathIsMountPoint=` on the unit — a failed condition *skips* the unit and records success, so `OnFailure=` never fires | [04](04-going-public.md#four-decisions-worth-understanding) |
 | Dead-man's-switch cries wolf on quiet weeks | A "nothing changed" run exited without pinging success; skipped runs are healthy runs and must still report | [04](04-going-public.md#four-decisions-worth-understanding) |
 | Unmounting the backup drive doesn't trigger an alert | `RequiresMountsFor=` remounts it as a dependency, so the run succeeds. Test with a `/bin/false` drop-in instead | [04](04-going-public.md#verify-it) |
+| Every audio stream 500s, and Laravel's log is **empty** | `MIXTAPE_STREAM_INTERNAL_PREFIX` is set but nginx has no matching `internal;` location, so the hand-off redirects to a URI nothing serves, `try_files` bounces it into `index.php`, and nginx refuses that twice. No PHP exception is thrown, so only nginx's error log has it: `rewrite or internal redirection cycle` | [03](03-production-deploy.md#9-nginx-vhost) |
+| Every track answers `200` with an empty body | The same prefix is set with **no nginx in front** — `artisan serve` or `php -S` returns the `X-Accel-Redirect` header literally and nothing acts on it. Leave the prefix empty off the real server | [03](03-production-deploy.md#9-nginx-vhost) |
+| A feature guarded by an "unset" env var behaves as if it were set | A blank `.env` line (`FOO=`) is an empty **string**, never null, so `=== null` reads it as configured. Guard with `trim((string) config(…)) === ''`, as the library-area paths do | [03](03-production-deploy.md#9-nginx-vhost) |
+| Not sure whether nginx or PHP served a track | Read the `ETag`: PHP's is a content hash, nginx's is `"<hex-mtime>-<hex-size>"` beside its own `Last-Modified`. `Content-Length` is real on both paths and tells you nothing | [03](03-production-deploy.md#9-nginx-vhost) |
 
 ## What this guide does not cover
 

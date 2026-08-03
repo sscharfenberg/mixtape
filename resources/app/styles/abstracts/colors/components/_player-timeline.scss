@@ -1,0 +1,37 @@
+/******************************************************************************
+ * contextual color tokens — component:player-timeline
+ * @type {Sass}
+ * The transport's scrub bar. Three stacked surfaces, and they have to stay
+ * distinguishable in that order or the timeline stops saying anything:
+ *
+ *   rail   — the whole track, none of it downloaded
+ *   buffer — what the browser already holds and would not fetch again
+ *   played — where the cursor has been, in the house neon
+ *
+ * The buffer sits BETWEEN the other two in weight on purpose. It is information
+ * about the network, not about the music, so it must be legible without competing
+ * with the played fill for attention — hence a grey rather than a second hue.
+ *
+ * Rule 2-compliant: palette entries picked and alpha-adjusted only. Consumed as
+ * c.$c-player-timeline via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$player-timeline: (
+    "rail": light-dark(map.get(c.$grey, "infra"), map.get(c.$grey, "abbey")),
+    "buffer": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "charcoal")),
+    // The same WCAG-tuned neon the transport's hover and the queue's current row
+    // use — the fill and the glyph you pressed to start it are one thought.
+    "played": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
+    // The played fill's halo, and the thumb's. Alpha-only off the same entry, per
+    // rule 2 — the app's "this one is live" treatment everywhere else.
+    "glow": light-dark(
+            color.adjust(map.get(c.$retro, "c3", "light"), $alpha: -0.55),
+            color.adjust(map.get(c.$retro, "c3", "dark"), $alpha: -0.55)
+        ),
+    "thumb": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
+    // the two clock readings either side; quieter than the title above them
+    "time": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron"))
+) !default;

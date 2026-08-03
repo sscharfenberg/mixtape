@@ -218,5 +218,6 @@ instance, written for someone else's server.
 - [`docs/app-rewrite.md`](docs/app-rewrite.md) — the rewrite: stack, goals, features, access model, legacy map.
 - [`docs/testing.md`](docs/testing.md) — the three test layers (PHPUnit / Vitest / Playwright): where
   tests live, how each is set up, which layer to reach for, and the traps each one hides.
-- [`docs/player.md`](docs/player.md) — the player build plan: why a native `<audio>` rather than
-  vidstack, the background-playback constraint no library removes, and the order to build in.
+- [`docs/player.md`](docs/player.md) — the player (**built 2026-08-03**): why a native `<audio>`
+  rather than vidstack, the stream route's Range + `X-Accel-Redirect` halves, the background-playback
+  constraint no library removes, and the four things the build itself settled.

@@ -124,9 +124,32 @@ expect(errors).toEqual([]);
   `/login` returns `{ two_factor: true }` and the challenge stays on the login page, so
   assert on rendered state rather than on a navigation.
 
+## Verifying playback
+
+The fixture now writes **real audio**: `seedMediaFiles` drops a copy of the committed
+one-second mp3 at every path `E2ESeeder` claims, and `MIXTAPE_MUSIC_PATH` points at that
+throwaway directory. So the stream route really streams, and `tests/e2e/app/player.spec.ts`
+covers play/pause, auto-advance at a track boundary, repeat, seeking, the buffer indicator,
+and playback under the **production CSP** (injected onto the document via `page.route`, so
+the live policy is exercised without nginx).
+
+Two things to know before writing a player check of your own:
+
+- **The audio is one second long while the rows claim minutes.** Deliberate — a track that
+  ends in a second makes auto-advance fast and deterministic — but it means the file's
+  length and the row's duration DISAGREE. Never assert a position derived from the rail's
+  width; that geometry is Vitest's. Anything that needs playback to still be running should
+  turn **repeat** on first, or it races the end of the track.
+- **Read the element, not the UI's claim about it.** `page.evaluate` on
+  `document.querySelector("audio")` gives `paused`, `currentTime` and `buffered` — an
+  `<audio>` without `controls` is `display:none`, so visibility-based APIs do not apply.
+- For a screenshot that looks like a real track, generate a longer file by repeating the
+  fixture's audio frames — and blank its CBR `Info` header first, or the decoder trusts that
+  one-second frame count and stops there.
+
 ## What is NOT covered here
 
-The player does not exist yet, so three checks are still owed and are the reason to come
-back to this file when it lands: **audio under the production CSP** (expect to need
-`media-src blob:`), **background playback / auto-advance on an unfocused tab**, and
-**signed share-links played by a logged-out visitor**.
+Two checks are still owed, and neither can be made from this machine: **the phone with its
+screen off** (iOS suspends page JavaScript on lock, so the `ended` handler that starts the
+next track may not run until unlock — the owner's, on the device that matters), and
+**signed share-links played by a logged-out visitor**, which do not exist yet.

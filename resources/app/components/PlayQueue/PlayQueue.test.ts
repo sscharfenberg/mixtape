@@ -26,7 +26,8 @@ const track = (id: string, name: string, artist: string | null = "Radiohead"): Q
     album: "The Bends",
     coverUrl: null,
     duration: 120,
-    href: `/music/songs/${id}`
+    href: `/music/songs/${id}`,
+    streamUrl: `/music/songs/${id}/stream`
 });
 
 /** Fill the queue, then mount the panel over it. */
@@ -91,13 +92,29 @@ describe("PlayQueue", () => {
         // Clearing sits behind the popover rather than on a bare trash icon in the
         // header — it is destructive, and one stray click in a 240px strip is too
         // cheap a way to lose the queue. The dialog's contents are in the DOM whether
-        // it is open or not, so the test clicks the entry directly.
+        // it is open or not, so the test clicks the entry directly. Matched by the
+        // `--caution` variant rather than by position: repeat sits above it now, and a
+        // bare `.popover-list-item` would silently start toggling that instead.
         const wrapper = await panel([track("a", "Airbag")]);
 
-        await wrapper.find(".popover-list-item").trigger("click");
+        await wrapper.find(".popover-list-item--caution").trigger("click");
         await nextTick();
 
         expect(wrapper.find("aside").exists()).toBe(false);
+    });
+
+    it("flips repeat from the menu, and shows which way it is set", async () => {
+        const wrapper = await panel([track("a", "Airbag")]);
+        const toggle = () => wrapper.find(".popover-list-item:not(.popover-list-item--caution)");
+
+        expect(toggle().attributes("aria-pressed")).toBe("false");
+
+        await toggle().trigger("click");
+
+        expect(usePlayerQueue().repeat.value).toBe(true);
+        expect(toggle().attributes("aria-pressed")).toBe("true");
+        // The fill is how it reads at a glance; aria-pressed is how it reads aloud.
+        expect(toggle().classes()).toContain("popover-list-item--selected");
     });
 
     it("summarises the queue's length and running time", async () => {

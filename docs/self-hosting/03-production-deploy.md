@@ -205,8 +205,11 @@ since nginx cannot emit per-request nonces) and `style-src 'unsafe-inline'` (Vue
 styles). Both still block external-origin loads. Moving CSP into Laravel middleware with per-request
 nonces would let you drop the former.
 
-> When the audio player lands, `media-src` may need `blob:` — and possibly `worker-src 'self' blob:`.
-> Exercise playback after any CSP change; it is the likeliest casualty.
+> **The player needed no CSP change.** It is a native `<audio>` whose `src` is a same-origin route,
+> which the shipped `media-src 'self'` already allows — the `blob:` this note used to warn about
+> would only have been needed by a library that wraps audio in a MediaSource. Still exercise
+> playback after any CSP change; it remains the likeliest casualty, and the end-to-end suite has a
+> spec that plays a track under this exact policy.
 
 ## 10. First deploy
 

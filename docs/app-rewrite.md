@@ -19,7 +19,7 @@ legacy app is already Vue 3 + TS + `<script setup>`, this is _not_ about "adding
 | Frontend      | Vue 3.5 `<script setup>`, TS 5.9           | Same Vue 3 + TS, **composables-first**              |
 | State         | Pinia 3 (8 domain stores)                  | **Dropped for now** (may not need it at all)        |
 | Build         | Vite 7, sass-embedded, laravel-vite-plugin | Same                                                |
-| Player        | `vidstack`                                 | Keep (or re-evaluate)                               |
+| Player        | `vidstack`                                 | **Dropped** — native `<audio>` (see `player.md`)    |
 | Images / tags | `intervention/image`, `wapmorgan/mp3info`  | Keep                                                |
 | Tooling       | ESLint 9, Prettier 3.6, Stylelint 16, Pint | Keep                                                |
 

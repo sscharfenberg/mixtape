@@ -371,6 +371,7 @@
             "show": "Show the play queue",
             "hide": "Hide the play queue",
             "actions": "Queue actions",
+            "repeat": "Repeat the queue",
             "clear": "Clear the queue",
             "load": "Play {name}",
             "remove": "Remove {name} from the queue"
@@ -378,6 +379,8 @@
         "bar": {
             "label": "Now playing",
             "play": "Play",
+            "pause": "Pause",
+            "seek": "Position in the track",
             "previous": "Previous track",
             "next": "Next track"
         },

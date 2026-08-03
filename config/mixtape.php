@@ -66,6 +66,44 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Audio streaming
+    |--------------------------------------------------------------------------
+    |
+    | How the player's <audio> gets its bytes (SongStreamController).
+    |
+    | `internal_prefix` NON-EMPTY → the controller answers with an empty body plus
+    | an `X-Accel-Redirect` and nginx serves the file from an `internal;` location.
+    | That is the only sane arrangement on the live box: streaming a 96 GB
+    | collection through php-fpm ties up a worker for the whole length of every
+    | song, and there are only so many workers. nginx also handles HTTP Range
+    | natively, which is what makes dragging the timeline work.
+    |
+    | EMPTY or absent (the default, and every dev machine / the test suite) → PHP
+    | sends the file itself, with Symfony answering Range requests. There is no nginx
+    | to hand off to under `php -S`, and one blocked worker costs nothing locally.
+    |
+    | Blank and absent MUST behave identically, and the consumer is what guarantees
+    | it: a blank `.env` line arrives here as an empty STRING, not null, so
+    | SongStreamController guards with `trim((string) …) === ''` — the same rule an
+    | unconfigured library area follows above. A `=== null` check here read the
+    | shipped blank line as "configured" and 500'd every stream on the dev site.
+    |
+    | The prefix is a URI, not a path, and each AREA hangs off it under the same key
+    | `library.paths` uses — so `/internal-media` expects
+    |
+    |     location /internal-media/music/ { internal; alias /var/media/music/; }
+    |
+    | with the alias matching MIXTAPE_MUSIC_PATH. The installable vhost in
+    | docs/self-hosting/files/mixtape.prod.nginx.conf ships those locations.
+    |
+    */
+
+    'stream' => [
+        'internal_prefix' => env('MIXTAPE_STREAM_INTERNAL_PREFIX'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Cover art
     |--------------------------------------------------------------------------
     |

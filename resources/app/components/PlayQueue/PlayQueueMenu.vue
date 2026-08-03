@@ -13,6 +13,7 @@
  * queue's other verbs are going — "save queue as playlist", shuffle and repeat —
  * and those bring state and handlers with them. Keeping them out of the panel
  * leaves that file about *drawing the queue*, which is already the longer job.
+ * Repeat is the first of them to arrive.
  *
  * It reads the queue directly rather than taking props or emitting events: the
  * composable is a module singleton, so going through the panel would be
@@ -24,7 +25,7 @@ import PopOver from "Components/UI/PopOver.vue";
 import { usePlayerQueue } from "Composables/usePlayerQueue";
 
 const { t } = useI18n();
-const { clear } = usePlayerQueue();
+const { repeat, toggleRepeat, clear } = usePlayerQueue();
 </script>
 
 <template>
@@ -36,6 +37,22 @@ const { clear } = usePlayerQueue();
         width="22ch"
     >
         <ul class="popover-list">
+            <li>
+                <!-- A toggle, so it stays open-able twice and reads its own state: the
+                     popover is deliberately NOT closed here, because flipping repeat is
+                     the sort of thing you do while looking at the queue, and `aria-pressed`
+                     plus the `--selected` fill are what say which way it is set. -->
+                <button
+                    type="button"
+                    class="popover-list-item"
+                    :class="{ 'popover-list-item--selected': repeat }"
+                    :aria-pressed="repeat"
+                    @click="toggleRepeat"
+                >
+                    <icon name="repeat" :size="1" />
+                    {{ t("player.queue.repeat") }}
+                </button>
+            </li>
             <li>
                 <!-- No explicit popover close: an empty queue unmounts the whole panel,
                      and taking an open popover out of the DOM removes it from the top

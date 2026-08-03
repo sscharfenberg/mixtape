@@ -46,6 +46,10 @@ Thumbs.db
 /test-results
 /tests/e2e/.auth
 /storage/e2e.sqlite
+# The playable media the run generates: a copy of the committed one-second mp3 fixture
+# at every path E2ESeeder claims, so the player specs stream real audio through the real
+# stream route. Rewritten on every run (see seedMediaFiles in tests/e2e/support).
+/storage/e2e-media
 # Parked while a run is in flight; restored in teardown (see tests/e2e/support).
 /public/hot.e2e-backup
 

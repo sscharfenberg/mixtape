@@ -15,6 +15,7 @@ use App\Http\Controllers\Music\GenresController;
 use App\Http\Controllers\Music\SongController;
 use App\Http\Controllers\Music\SongCoverController;
 use App\Http\Controllers\Music\SongsController;
+use App\Http\Controllers\Music\SongStreamController;
 use App\Http\Controllers\MusicController;
 use App\Http\Controllers\PlaylistsController;
 use App\Http\Controllers\PodcastsController;
@@ -94,6 +95,13 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         Route::get('/music/songs/{song}/cover', SongCoverController::class)
             ->whereUuid('song')
             ->name('music.songs.cover');
+
+        // The audio itself — the <audio src> the player loads. Same shape and the
+        // same reasons as the cover route beside it: behind auth, UUID-constrained,
+        // and a separate controller because it answers with bytes rather than a page.
+        Route::get('/music/songs/{song}/stream', SongStreamController::class)
+            ->whereUuid('song')
+            ->name('music.songs.stream');
     });
 
 // Authentication (login / logout). Kept in a dedicated file as the auth surface

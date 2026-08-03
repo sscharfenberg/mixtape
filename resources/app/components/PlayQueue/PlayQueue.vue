@@ -33,13 +33,32 @@ import { useI18n } from "vue-i18n";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import PlayQueueMenu from "Components/PlayQueue/PlayQueueMenu.vue";
 import Icon from "Components/UI/Icon.vue";
+import { usePlayerAudio } from "Composables/usePlayerAudio";
 import { usePlayerQueue } from "Composables/usePlayerQueue";
 import { usePlayQueuePanel } from "Composables/usePlayQueuePanel";
 import { formatClock } from "Utils/formatting";
 
 const { t } = useI18n();
 const { tracks, currentIndex, isEmpty, totalDuration, jumpTo, remove } = usePlayerQueue();
+const { play } = usePlayerAudio();
 const { isOpen } = usePlayQueuePanel();
+
+/**
+ * Load the clicked row into the player AND start it.
+ *
+ * Both halves, because the row's label says "play this" — and because a click is a
+ * user gesture, which is the only moment the browser will let playback begin. Loading
+ * without playing would leave the listener pressing a second button for something
+ * they already asked for, and by then the gesture is gone.
+ *
+ * `jumpTo` alone is enough when something is already playing (the player follows the
+ * queue's pointer), so this exists for the paused case — and for the row that is
+ * ALREADY loaded, where nothing changes for the player to react to.
+ */
+const playRow = (index: number): void => {
+    jumpTo(index);
+    play();
+};
 
 /**
  * The queue's running time as a clock, for the panel header.
@@ -77,7 +96,7 @@ const totalClock = computed(() => formatClock(totalDuration.value));
                         type="button"
                         class="play-queue__load"
                         :aria-label="t('player.queue.load', { name: track.name })"
-                        @click="jumpTo(index)"
+                        @click="playRow(index)"
                     >
                         <cover-image :src="track.coverUrl" :title="track.name" size="tiny" decorative />
                     </button>

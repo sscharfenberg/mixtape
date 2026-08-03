@@ -28,7 +28,8 @@ const track = (id: string, name = `Track ${id}`): QueueTrack => ({
     album: "OK Computer",
     coverUrl: null,
     duration: 100,
-    href: `/music/songs/${id}`
+    href: `/music/songs/${id}`,
+    streamUrl: `/music/songs/${id}/stream`
 });
 
 /** Sign in as a given user id (null = a guest arriving on a share link). */
@@ -179,7 +180,7 @@ describe("usePlayerQueue", () => {
             expect(queue.current.value?.id).toBe("b");
         });
 
-        it("refuses to advance past the end, which is where repeat will hook in", () => {
+        it("refuses to advance past the end, which is what stops the player", () => {
             const queue = usePlayerQueue();
 
             queue.enqueue([track("a")]);
@@ -194,6 +195,67 @@ describe("usePlayerQueue", () => {
             queue.enqueue([track("a")]);
 
             expect(queue.previous()).toBe(false);
+        });
+    });
+
+    describe("repeating", () => {
+        it("is off to begin with, so a queue ends where it ends", () => {
+            expect(usePlayerQueue().repeat.value).toBe(false);
+        });
+
+        it("wraps to the first track instead of stopping at the last", () => {
+            const queue = usePlayerQueue();
+
+            queue.enqueue([track("a"), track("b")]);
+            queue.jumpTo(1);
+            queue.toggleRepeat();
+
+            expect(queue.next()).toBe(true);
+            expect(queue.current.value?.id).toBe("a");
+        });
+
+        it("reports success on a one-track queue without moving the pointer", () => {
+            // The case usePlayerAudio has to special-case: nothing about the queue
+            // changed, so no watcher fires, yet the track is meant to play again — the
+            // player notices the index stood still and restarts it itself.
+            const queue = usePlayerQueue();
+
+            queue.enqueue([track("a")]);
+            queue.toggleRepeat();
+
+            expect(queue.next()).toBe(true);
+            expect(queue.currentIndex.value).toBe(0);
+        });
+
+        it("flips back off, and stops at the end again", () => {
+            const queue = usePlayerQueue();
+
+            queue.enqueue([track("a")]);
+            queue.toggleRepeat();
+            queue.toggleRepeat();
+
+            expect(queue.repeat.value).toBe(false);
+            expect(queue.next()).toBe(false);
+        });
+
+        it("survives the tab closing, because it is a habit rather than a track", () => {
+            usePlayerQueue().enqueue([track("a")]);
+            usePlayerQueue().toggleRepeat();
+
+            resetPlayerQueueForTests();
+            usePlayerQueue().hydrate();
+
+            expect(usePlayerQueue().repeat.value).toBe(true);
+        });
+
+        it("outlives clearing the queue, for the same reason", () => {
+            const queue = usePlayerQueue();
+
+            queue.enqueue([track("a")]);
+            queue.toggleRepeat();
+            queue.clear();
+
+            expect(queue.repeat.value).toBe(true);
         });
     });
 
@@ -255,7 +317,7 @@ describe("usePlayerQueue", () => {
         });
 
         it("starts clean rather than throwing on a corrupt entry", () => {
-            window.localStorage.setItem("mixtape.queue.v1", "{not json");
+            window.localStorage.setItem("mixtape.queue.v2", "{not json");
 
             usePlayerQueue().hydrate();
 
@@ -263,9 +325,12 @@ describe("usePlayerQueue", () => {
         });
 
         it("ignores a payload written by an older shape", () => {
+            // A v1 track has no `streamUrl`, so an adopted one would sit in the panel
+            // looking playable and do nothing when pressed — which is exactly why the
+            // key carries a version rather than the module trying to migrate.
             window.localStorage.setItem(
-                "mixtape.queue.v1",
-                JSON.stringify({ version: 0, userId: "user-1", tracks: [track("a")], currentIndex: 0 })
+                "mixtape.queue.v2",
+                JSON.stringify({ version: 1, userId: "user-1", tracks: [track("a")], currentIndex: 0 })
             );
 
             usePlayerQueue().hydrate();

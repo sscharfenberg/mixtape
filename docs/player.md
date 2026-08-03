@@ -1,20 +1,39 @@
 # The player
 
-The build plan for actually playing audio. Written 2026-08-02, after the queue scaffold
-landed (`6d8a0fa` → `5fba7cd`) and the vidstack-vs-native question was settled.
+The build plan for actually playing audio, and the record of what building it settled. Written
+2026-08-02 after the queue scaffold landed (`6d8a0fa` → `5fba7cd`) and the vidstack-vs-native
+question was closed; **built 2026-08-03.**
 
 Read [`data-model.md`](data-model.md) → _The play queue_ first — it decides the shape of the
 queue and its persistence, which this builds on rather than revisits.
 
-## What we are building
+## Status: built
+
+| Piece                                                         | State                                             |
+| ------------------------------------------------------------- | ------------------------------------------------- |
+| `GET /music/songs/{song}/stream` (Range + `X-Accel-Redirect`) | ✅ `SongStreamController`, 11 PHPUnit tests       |
+| `pause` / `repeat` icons                                      | ✅ (sprite is gitignored — see _Deploy_ below)    |
+| `usePlayerAudio`                                              | ✅ 30 Vitest tests                                |
+| Repeat on the queue                                           | ✅ `usePlayerQueue` + `PlayQueueMenu` toggle      |
+| Transport UI + timeline **+ buffer indicator**                | ✅ `PlayerBar`, `PlayerTimeline`, 28 Vitest tests |
+| Real playback in a browser                                    | ✅ 13 Playwright specs, incl. under the prod CSP  |
+| Screen-off on a real phone                                    | ⬜ **the owner's, on the device that matters**    |
+
+**Not built, deliberately:** server-side queue sync (`player_states` is still write-nobody-reads —
+`data-model.md` owns that plan), shuffle, a play-history beacon, and any UI for a stream that fails
+(a track whose file vanished between scans stops the player and returns the glyph to _play_; it
+raises no toast and does not skip on).
+
+## What we built
 
 - Play / pause, previous, next.
-- A timeline that fills as the track plays, showing the **cursor position** and the track's
-  **total playing time**, and scrubbable.
-- A **repeat** toggle: when the queue ends with repeat on, wrap to the first track; with it
-  off, stop on the last one.
-- Playback that survives the **tab being backgrounded** — and, as far as the platform
-  allows, the **phone's screen being off**.
+- A timeline showing the **cursor position** and the track's **total playing time**, scrubbable —
+  plus a **buffer indicator** (the owner's addition to this plan): the stretches the browser
+  already holds, so a listener can see whether dragging ahead costs a download over a home uplink.
+- A **repeat** toggle: with the queue on repeat, the end wraps to the first track; with it off,
+  playback stops on the last one.
+- Playback that survives the **tab being backgrounded** — and, as far as the platform allows, the
+  **phone's screen being off**.
 
 ## The decision: a native `<audio>`, not vidstack
 
@@ -24,101 +43,146 @@ above needs it.** Every item is `HTMLAudioElement` plus the Media Session API.
 What vidstack is actually for is adaptive streaming (HLS/DASH) and a prebuilt skin. We
 serve local MP3s, so the streaming half is dead weight, and the skin is the half we would
 fight — the legacy app carried a whole `vendor/_vidstack.scss` to wrestle it, and this
-codebase has a far stricter design system than that one did. It may also want
-`media-src blob:` in the production CSP; a native `<audio src>` satisfies the existing
-`media-src 'self'` unchanged (see `self-hosting/files/mixtape.prod.nginx.conf`).
+codebase has a far stricter design system than that one did.
 
-Crucially it would **not** help with the hard part. vidstack wraps the same
+It would also **not** have helped with the hard part: vidstack wraps the same
 `HTMLAudioElement` for progressive audio, so it inherits every background-playback
 constraint below. There is no library that does not.
 
-## The one genuine risk, and how we find out early
+**The CSP question is closed.** vidstack would likely have wanted `media-src blob:`; a native
+`<audio src>` pointed at a same-origin route satisfies the live `media-src 'self'` unchanged. That
+is no longer an argument — `tests/e2e/app/player.spec.ts` injects the production policy verbatim
+onto the document and plays a track under it, and the test fails if the directive is narrowed. The
+open item in `04-going-public.md` is answered.
+
+## The one genuine risk, and what we found
 
 Background playback splits in two, and only one half is safe:
 
 - **Tab backgrounded, or another window on top — fine everywhere.** Browsers exempt playing
   audio from background throttling. But `setInterval` is throttled to roughly once a minute
-  in a hidden tab and `requestAnimationFrame` stops dead, so **auto-advance must ride the
-  `ended` event and never a timer**, and the progress bar must **re-sync from `currentTime`**
-  when the tab returns rather than assuming it kept counting.
-- **Phone with the screen off — uncertain, and no library changes it.** Audio keeps playing,
-  but iOS suspends the page's JavaScript on lock. The current track finishes and the `ended`
-  handler that would start the next one may not run until unlock. Android Chrome behaves
-  better.
+  in a hidden tab and `requestAnimationFrame` stops dead, so **auto-advance rides the
+  `ended` event and never a timer**, and the progress bar **re-reads `currentTime`** rather
+  than assuming it kept counting (there is a `visibilitychange` re-sync for exactly the stale
+  reading a throttled `timeupdate` leaves behind).
+- **Phone with the screen off — still uncertain, and no library changes it.** Audio keeps
+  playing, but iOS suspends the page's JavaScript on lock. The current track finishes and the
+  `ended` handler that would start the next one may not run until unlock. Android Chrome behaves
+  better. **This is the one check the desktop suite cannot make**; Media Session metadata and
+  handlers are wired, which is what gives the OS a chance to drive the queue itself.
 
-So **step 3 below is deliberately ordered before the UI**: get a bare `<audio>` plus Media
-Session onto a real phone and watch what happens at a track boundary with the screen off.
-If iOS stalls, we would rather know while there is no transport UI built on top of the
-assumption. The **Media Session API** is what gives lock-screen / notification controls and
-OS-invoked `nexttrack` handlers; it is a plain browser API, no dependency.
+## What the build learned
 
-## Build order
+Four things worth writing down, because each cost time and none is obvious from the plan:
 
-### 1. The stream route
+1. **Symfony already does HTTP Range.** This plan asserted that `response()->file()` does not.
+   It does: `BinaryFileResponse::prepare()` reads the `Range` header and answers `206` with a
+   `Content-Range` (and `416` for an unsatisfiable one), and Laravel calls `prepare()` on every
+   response. Nothing had to be written by hand — only tested.
+2. **`isPlaying` has to be INTENT, not `element.paused`.** Browsers fire `pause` immediately
+   _before_ `ended`, so a state-derived flag reads "paused" exactly when the `ended` handler needs
+   to know the listener still wants music — and playback stops after one track. `play()`/`pause()`
+   set the intent; the `pause` event only clears it when the element did not merely reach the end;
+   a `play()` the browser refuses puts it back. This is the single most load-bearing decision in
+   `usePlayerAudio`, and it has a test that fails without it.
+3. **Repeat-one moves no pointer.** `next()` reports success on a one-track queue on repeat
+   without `currentIndex` changing, so the `watch(current)` that normally loads the next track
+   never fires. The player compares the index before and after and reloads itself.
+4. **Re-assigning the same `src` re-downloads the file.** Setting `src` runs the media load
+   algorithm again, so repeat-one — and the same song sitting twice in a queue, which is a normal
+   thing to do — rewinds via `currentTime = 0` instead, keeping the buffer it already had.
 
-`GET /music/songs/{song}/stream`, following `SongCoverController` exactly: behind auth, the
-same music-only `TrackType` check, `->setPrivate()` caching (this instance is
-internet-facing, so a shared proxy must never hold a track). `Track::absolutePath()`
-resolves the file.
+## How it fits together
 
-Two things it must get right:
+**`SongStreamController`** (`GET /music/songs/{song}/stream`) follows `SongCoverController`: behind
+auth, the same music-only `TrackType` check, `->setPrivate()` caching (this instance is
+internet-facing, so a shared proxy must never hold a track), `Track::absolutePath()` for the file.
+It sends the bytes **two ways**, chosen by `config('mixtape.stream.internal_prefix')`:
 
-- **HTTP Range.** Without `206 Partial Content`, dragging the timeline past what is buffered
-  simply fails. Laravel's `response()->file()` does not do this on its own.
-- **`X-Accel-Redirect` on nginx**, with a direct-file fallback for local dev. Streaming a
-  96 GB collection through php-fpm ties up a worker for the length of every song; nginx
-  serves the bytes and handles Range natively. Needs an `internal;` location added to the
-  vhost in `self-hosting/files/`.
+- **Set** (the live box, `MIXTAPE_STREAM_INTERNAL_PREFIX=/internal-media`) → an empty body plus
+  `X-Accel-Redirect`, and nginx serves the file from an `internal;` location. Streaming a 96 GB
+  collection through php-fpm would hold a worker for the length of every song. The URI is built
+  from the **area key** (`TrackType::libraryPathKey()`) rather than by subtracting the media root
+  from an absolute path, so each area is one `internal;` location whose `alias` is its
+  `MIXTAPE_*_PATH` and there is no prefix arithmetic to get wrong. Every segment is
+  `rawurlencode`d, because nginx URL-decodes the target and this collection is full of spaces,
+  umlauts and `#`.
+- **Unset** (dev, the test suite, `php -S`) → PHP sends the file, Symfony answers Range.
 
-PHPUnit: auth, the 404s (missing track, audiobook chapter, file absent from disk), a full
-`200`, and a `206` with the right `Content-Range`.
+**`usePlayerAudio`** is a module singleton — there must be exactly one element making sound — that
+takes the `<audio>` **`PlayerBar` renders** via `attach()`. In the DOM rather than `new Audio()`
+because a real element is what iOS treats as a first-class media element and what a browser test
+can inspect. Duration comes from **`QueueTrack.duration`**, not the element: a VBR MP3 with no
+Xing/Info header reports `Infinity` until fully downloaded, and getID3 already measured every file
+at scan time. Media Session metadata, position state and action handlers are wired here.
 
-### 2. Icons
+**Repeat** is a flag on `usePlayerQueue`, persisted with the queue — what happens after the last
+track is a fact about the _list_. It survives `clear()`, because "I listen on repeat" is a habit
+rather than a property of whatever is queued right now. The storage key went to
+**`mixtape.queue.v2`** (tracks gained `streamUrl`, the payload gained `repeat`); a v1 payload is
+discarded rather than migrated, since a v1 track has no stream URL and would sit in the panel
+looking playable.
 
-Author `pause.svg` and `repeat.svg` in the same `0 -960 960 960` viewBox style as
-`play.svg`, then `npm run icons`. Prev/next already use `first-page` / `last-page`, which
-are the standard `|◀ ▶|` skip glyphs. **The sprite is gitignored**, so debbie needs
-`npm run icons` on deploy — see [[phase-2-toast-flash-pattern]] in the memory for that trap.
+**Played tracks stay in the queue and the pointer moves** — they are not consumed. That is what
+makes `previous()` and `jumpTo()` work, and it is the shape `data-model.md` specifies.
 
-### 3. `usePlayerAudio`
+**`PlayerTimeline`** draws three stacked layers — rail, buffer segments, played fill — under a
+transparent native `<input type="range">`. Native, because a div with pointer handlers means
+re-implementing keyboard support, drag capture, touch and the ARIA slider contract. The input is
+`hit` tall (a touch target) over a 6px rail (what the eye wants). A drag updates a **local**
+position and only `change` commits the seek: one seek per pixel is one Range request per pixel.
+The buffer is drawn as **segments**, not a single width, because after a seek past the buffer there
+genuinely are two stretches with a hole between them.
 
-One `HTMLAudioElement`, owned by `PlayerBar` so it survives Inertia page swaps. Exposes
-`isPlaying`, `currentTime`, `play` / `pause` / `toggle` / `seek`.
+**`PlayerBar`** is one grid with two shapes: on a phone the timeline takes a line of its own below
+the cover, title and transport; from `landscape` up it moves into the row. So the bar's height is
+not a constant — which is why it is measured with a `ResizeObserver` and published as
+`--app-player-height` rather than read off a token.
 
-- **Auto-advance off `ended`** — see the risk section. Calls the queue's `next()`.
-- **Duration comes from the queue track, not the element.** A VBR MP3 with no Xing/Info
-  header reports `Infinity` until fully downloaded; we already hold exact durations from
-  getID3, and `QueueTrack.duration` carries them, so the total is right from the first frame.
-- **Media Session** metadata + action handlers wired here.
-- Playback must start from a **user gesture** — no autoplay on load, including when a stored
-  queue is hydrated.
+## Tests, and which layer answers what
 
-### 4. Repeat
+- **PHPUnit** (`tests/Feature/Music/SongStreamTest.php`) — auth, the 404s (missing file, audiobook
+  chapter, file absent from disk, with and without the nginx hand-off), a full `200` with
+  `Accept-Ranges`, a `206` whose **bytes** are asserted, an open-ended range, a `416`, and the
+  encoded `X-Accel-Redirect` for a path carrying umlauts, `#`, `&` and `+`.
+- **Vitest** — the player's whole state machine against happy-dom's `<audio>` (which is real enough:
+  `play()`/`pause()` flip `paused` and fire their events). The track boundary, repeat-one, the
+  pointer moving for reasons that are not playback, duration fallback, buffered ranges becoming
+  geometry, scrub-on-release.
+- **Playwright** (`tests/e2e/app/player.spec.ts`) — real playback. The E2E fixture now writes a
+  **copy of the committed one-second mp3 at every path `E2ESeeder` claims** (`seedMediaFiles`), so
+  the stream route serves real audio. One second is a feature: auto-advance is the headline
+  behaviour and a track that ends in a second makes it fast and deterministic. The consequence is
+  that the file's length and the row's claimed duration **disagree**, so nothing there asserts a
+  position derived from the rail's width — that geometry is Vitest's.
 
-A flag on `usePlayerQueue`, persisted with the queue (`data-model.md` already reserves
-`(+ shuffle/repeat later)` in the payload). `next()` returns `false` at the end today — that
-is the hook: with repeat on, wrap to index `0` instead. The toggle goes in `PlayQueueMenu`,
-which exists to hold exactly this.
+## Deploy
 
-**Played tracks stay in the queue and the pointer moves** — they are not consumed. That is
-what makes `previous()` and `jumpTo()` work, and it is the shape `data-model.md` specifies.
+- **The sprite is gitignored**, so debbie needs `npm run icons` for `pause` and `repeat` — see
+  [[phase-2-toast-flash-pattern]] in the memory for that trap.
+- **Add `MIXTAPE_STREAM_INTERNAL_PREFIX=/internal-media` to the prod `.env`** and install the
+  `internal;` locations from `self-hosting/files/mixtape.prod.nginx.conf`. **Add the locations and
+  reload nginx first**, then flip the `.env`: in between, every track is broken.
 
-### 5. The transport UI
+  The ways to get it wrong fail differently, and none of them looks like the others:
 
-Real play/pause (swapping glyph), prev, next, and the timeline: fill, cursor timestamp,
-total. Scrubbable, writing `currentTime`. Tokens per the usual three-layer rule; motion
-behind `prefers-reduced-motion: no-preference`.
+  - **Prefix set, no matching `internal;` location** → **500**, and the only trace is in nginx's
+    error log: `rewrite or internal redirection cycle while internally redirecting to
+    "/index.php"`. **Nothing appears in Laravel's log at all**, because no PHP exception is thrown —
+    nginx internally redirects to a URI nothing serves, the vhost's `location /` catches it,
+    `try_files` bounces it back into `index.php`, and nginx refuses to redirect there twice in one
+    request. Observed on the dev site 2026-08-03; expect the same shape for a mistyped `alias`,
+    though a location that matches with a genuinely missing file is nginx's own 404 instead.
+  - **Prefix set with no nginx in front at all** (`artisan serve`, `php -S`) → nothing interprets
+    the header, so the browser gets a literal **`200` with an empty body** under
+    `Content-Type: audio/mpeg`.
+  - **A blank `.env` value is an empty STRING, not null.** This is what actually broke the dev site:
+    `MIXTAPE_STREAM_INTERNAL_PREFIX=` read as `""`, a `=== null` guard treated that as configured,
+    and every stream 500'd with the cycle above. The guard is now
+    `trim((string) config(…)) === ''`, matching how an unconfigured library area is detected
+    (`LibraryScanService::scanArea`) — **use that idiom for any future config flag in this app**, and
+    never `=== null` against a value that comes from `env()`.
 
-### 6. Verify
-
-Browser: audio plays, the timeline advances, seeking works against the Range route,
-auto-advance fires at a track boundary. Then lint, `npm run build`, Vitest, PHPUnit,
-Playwright. **The screen-off question needs a real phone** — that one is the owner's to
-confirm, on the device that matters.
-
-## Already in place
-
-`usePlayerQueue` (operations, localStorage, user-scoped), `PlayQueue` + `PlayQueueMenu` +
-`PlayQueueToggle`, `PlayerBar` as a shell with inert play/pause and working prev/next, and
-the enqueue button on the song page. The `player_states` table and model exist but nothing
-reads or writes them — server sync is **not** part of this plan.
+  To tell which side actually served a track, read the `ETag`: ours is Symfony's `setAutoEtag()`
+  content hash, nginx's static handler writes `"<hex-mtime>-<hex-size>"` next to its own
+  `Last-Modified`. `Content-Length` is **not** a discriminator — it is a real byte count either way.

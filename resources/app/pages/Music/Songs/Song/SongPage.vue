@@ -77,7 +77,8 @@ function addToQueue(): void {
         album: props.song.album,
         coverUrl: props.song.coverUrl,
         duration: props.song.duration,
-        href: `/music/songs/${props.song.id}`
+        href: `/music/songs/${props.song.id}`,
+        streamUrl: props.song.streamUrl
     });
     addToast(t("player.enqueued", { name: props.song.name }), "success", 3000);
 }

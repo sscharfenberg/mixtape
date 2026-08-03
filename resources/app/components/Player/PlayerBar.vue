@@ -2,63 +2,89 @@
 /******************************************************************************
  * PlayerBar
  * The transport bar that takes the footer's place once the queue has a track
- * loaded: cover, what is playing, and the controls for moving through the queue.
- * Mounted ONCE in FullLayout, and that is not a style choice — the audio element
- * this will eventually own has to survive an Inertia page swap, and anything
- * inside a page is destroyed and rebuilt on every navigation.
+ * loaded: cover, what is playing, the timeline, and the controls for moving through
+ * the queue. Mounted ONCE in FullLayout, and that is not a style choice — the
+ * <audio> element below has to survive an Inertia page swap, and anything inside a
+ * page is destroyed and rebuilt on every navigation. A player in a page would stop
+ * the music every time you opened an album.
  *
- * A SHELL, deliberately. There is no <audio> here and no stream route behind it
- * yet, because the choice between vidstack and a native element is still open and
- * it decides a lot (how seeking works, whether the production CSP needs
- * `media-src blob:`, and how much of a stream endpoint we need). So play/pause is
- * inert; skip forward and back are real, because they are pure queue operations
- * and the queue exists.
+ * IT OWNS THE ELEMENT, usePlayerAudio owns the behaviour. The element lives in this
+ * template (rather than a bare `new Audio()`) because a real DOM element is what iOS
+ * treats as a first-class media element and what a browser test can inspect; every
+ * decision about it — auto-advance, Media Session, what happens at a track boundary
+ * — is in the composable, which is where it can be reasoned about and tested.
  *
  * It shows on "the queue has a current track", NOT on "audio is playing". A paused
  * player has to stay on screen — a bar that vanished when you hit pause would take
- * the play button with it — and it means the bar works before any audio does.
+ * the play button with it.
  *
- * The bar is FIXED rather than sitting where the footer sat in the flow: you have
- * to be able to reach pause from halfway down a long album. That is also why it
+ * The bar is FIXED rather than sitting where the footer sat in the flow: you have to
+ * be able to reach pause from halfway down a long album. That is also why it
  * publishes its height as `--app-player-height` (the mirror of AppHeader's
  * `--app-header-height`) — a fixed bar is out of the flow, so <main> and the queue
  * panel have to reserve the space themselves.
+ *
+ * TWO SHAPES, one grid. On a phone the timeline gets a line of its own under the
+ * cover, title and transport, because a rail worth dragging does not fit beside
+ * them; from `landscape` up it moves into the row. The bar's height is therefore not
+ * a constant, which is precisely why it is measured and published rather than read
+ * off a token.
  *****************************************************************************/
 import { Link } from "@inertiajs/vue3";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
+import PlayerTimeline from "Components/Player/PlayerTimeline.vue";
 import Icon from "Components/UI/Icon.vue";
+import { usePlayerAudio } from "Composables/usePlayerAudio";
 import { usePlayerQueue } from "Composables/usePlayerQueue";
 
 const { t } = useI18n();
-const { tracks, currentIndex, current, next, previous } = usePlayerQueue();
+const { tracks, currentIndex, current, repeat, next, previous } = usePlayerQueue();
+const { isPlaying, currentTime, duration, buffered, attach, detach, toggle, seek } = usePlayerAudio();
 
 /** Whether stepping back is possible — the first track in the queue has nowhere to go. */
 const hasPrevious = computed(() => currentIndex.value > 0);
-/** Whether stepping forward is possible. Repeat-all will relax this once it exists. */
-const hasNext = computed(() => currentIndex.value > -1 && currentIndex.value < tracks.value.length - 1);
+
+/**
+ * Whether stepping forward is possible.
+ *
+ * With repeat on the answer is always yes for a non-empty queue: the last track's
+ * "next" is the first one. The control has to say so, or the queue would wrap on its
+ * own at the end of a track while the button sat there disabled.
+ */
+const hasNext = computed(
+    () => currentIndex.value > -1 && (repeat.value || currentIndex.value < tracks.value.length - 1)
+);
 
 /** The bar element, measured to publish its height. */
 const barRef = ref<HTMLElement | null>(null);
 
+/** The one element in the app that makes sound. Handed to usePlayerAudio on mount. */
+const audioRef = ref<HTMLAudioElement | null>(null);
+
 /**
- * Publish the bar's rendered height to the document as `--app-player-height`.
+ * Publish the bar's rendered height to the document as `--app-player-height`, and
+ * hand the audio element over to the player.
  *
- * The same trick AppHeader uses for `--app-header-height`, and needed for the same
- * reason in reverse: the bar is fixed, so it is out of the flow and would sit on
- * top of the last rows of a page. <main> pads its bottom by this, and the queue
- * panel pins its own bottom edge to it.
+ * The height trick is the same one AppHeader uses for `--app-header-height`, and it is
+ * needed for the same reason in reverse: the bar is fixed, so it is out of the flow and
+ * would sit on top of the last rows of a page. <main> pads its bottom by this, and the
+ * queue panel pins its own bottom edge to it.
  *
- * OBSERVED, not measured once, and that is the whole point of the ResizeObserver.
- * The bar's height is a token — but a rem-based one, and this app sets a different
- * root font-size per breakpoint, so the bar is 61.6px on a phone and 62.4px one
- * breakpoint up. Published a single time at mount, the value went stale the moment
- * the window was resized across a breakpoint: the queue panel kept pinning its
- * bottom to the old number and left a sliver of page showing between itself and the
- * bar. Sub-pixel, but on a light panel over a light page it reads as a seam.
+ * OBSERVED, not measured once, and that is the whole point of the ResizeObserver. The
+ * bar's height varies for two reasons now: this app sets a different root font-size per
+ * breakpoint (so the bar is 61.6px on a phone and 62.4px one breakpoint up), and the
+ * timeline moves into the row at `landscape`, changing the number outright. Published a
+ * single time at mount, the value went stale the moment the window was resized across a
+ * breakpoint: the queue panel kept pinning its bottom to the old number and left a
+ * sliver of page showing between itself and the bar. Sub-pixel, but on a light panel
+ * over a light page it reads as a seam.
  */
 onMounted(() => {
+    if (audioRef.value) attach(audioRef.value);
+
+    /** Measure the bar and publish it, both at mount and on every resize the observer sees. */
     const setHeightVar = (): void => {
         if (barRef.value) {
             document.documentElement.style.setProperty(
@@ -75,21 +101,42 @@ onMounted(() => {
     onUnmounted(() => observer.disconnect());
 });
 
-// Clear it when the queue empties and the footer comes back, or <main> keeps
-// reserving room for a bar that is no longer there.
+// Clear the height when the queue empties and the footer comes back, or <main> keeps
+// reserving room for a bar that is no longer there — and let the element go with it,
+// so the composable is not left holding listeners on a detached node.
 onUnmounted(() => {
+    detach();
     document.documentElement.style.removeProperty("--app-player-height");
 });
 </script>
 
 <template>
     <div v-if="current" ref="barRef" class="player-bar" :aria-label="t('player.bar.label')" role="region">
-        <cover-image :src="current.coverUrl" :title="current.name" size="small" decorative />
+        <!-- Renders nothing (a <audio> without `controls` is display:none in every UA
+             stylesheet) and is deliberately not hidden with `hidden`, which some
+             engines treat as a reason to drop media loading. -->
+        <audio ref="audioRef" preload="metadata" />
+
+        <cover-image
+            :src="current.coverUrl"
+            :title="current.name"
+            size="small"
+            decorative
+            class="player-bar__cover"
+        />
 
         <span class="player-bar__meta">
             <Link :href="current.href" prefetch class="player-bar__name">{{ current.name }}</Link>
             <span v-if="current.artist" class="player-bar__artist">{{ current.artist }}</span>
         </span>
+
+        <player-timeline
+            class="player-bar__timeline"
+            :current-time="currentTime"
+            :duration="duration"
+            :buffered="buffered"
+            @seek="seek"
+        />
 
         <div class="player-bar__transport">
             <button
@@ -101,16 +148,16 @@ onUnmounted(() => {
             >
                 <icon name="first-page" :size="1" />
             </button>
-            <!-- Inert until the audio element exists — see the component note. It is
-                 rendered rather than hidden so the bar's shape is the real one, and
-                 `disabled` is what says so honestly to a screen reader. -->
+            <!-- One button for both states rather than two swapped in and out: the
+                 control must not move under a finger that is about to press it again,
+                 and a screen reader should hear the same button change its label. -->
             <button
                 type="button"
                 class="player-bar__control player-bar__control--play"
-                disabled
-                :aria-label="t('player.bar.play')"
+                :aria-label="isPlaying ? t('player.bar.pause') : t('player.bar.play')"
+                @click="toggle"
             >
-                <icon name="play" :size="2" />
+                <icon :name="isPlaying ? 'pause' : 'play'" :size="2" />
             </button>
             <button
                 type="button"
@@ -128,22 +175,36 @@ onUnmounted(() => {
 <style scoped lang="scss">
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "Abstracts/colors" as c;
+@use "Abstracts/mixins" as m;
 @use "Abstracts/sizes" as s;
 @use "Abstracts/timings" as ti;
 @use "Abstracts/z-indexes" as z;
 
 /* Fixed to the bottom of the viewport, and frosted like the header — the two are
    the same family of affixed chrome, and the blur is why the background is an
-   alpha-adjusted grey rather than a solid one. */
+   alpha-adjusted grey rather than a solid one.
+
+   A GRID, not a flex row, because the timeline has two homes. On a phone it takes a
+   line of its own below the rest; from `landscape` up it sits in the row between the
+   title and the transport. Named areas rather than order-juggling, so the DOM order
+   (title, timeline, transport) can stay the reading order in both shapes.
+
+   `min-height` rather than `height`: on the stacked shape the bar is as tall as its
+   two rows need, and the token's meaning is unchanged — the bar is at least as tall as
+   the cover it holds plus its padding. */
 .player-bar {
-    display: flex;
+    display: grid;
     position: fixed;
     inset: auto 0 0;
     z-index: z.$c-player-bar;
     align-items: center;
+    grid-template-areas:
+        "cover meta transport"
+        "timeline timeline timeline";
+    grid-template-columns: auto minmax(0, 1fr) auto;
 
     box-sizing: border-box;
-    height: map.get(s.$c-player-bar, "height");
+    min-height: map.get(s.$c-player-bar, "height");
     padding: map.get(s.$c-player-bar, "padding");
     border-top: map.get(s.$c-player-bar, "border") solid map.get(c.$c-player-bar, "border");
     gap: map.get(s.$c-player-bar, "gap");
@@ -152,15 +213,27 @@ onUnmounted(() => {
     backdrop-filter: blur(12px);
     color: map.get(c.$c-player-bar, "surface");
 
+    @include m.mq("landscape") {
+        grid-template-areas: "cover meta timeline transport";
+
+        /* The timeline gets twice the slack the title does, so the rail grows into a
+           wide window instead of leaving a long stretch of empty title beside it. */
+        grid-template-columns: auto minmax(0, 1fr) minmax(0, 2fr) auto;
+    }
+
+    &__cover {
+        grid-area: cover;
+    }
+
     /* Same `min-width: 0` trap as the queue row: without it a long title refuses to
        shrink, pushes the transport controls off the right edge, and never
        ellipsises because nothing overflows. */
     &__meta {
         display: flex;
         flex-direction: column;
+        grid-area: meta;
 
         min-width: 0;
-        flex: 1 1 auto;
     }
 
     &__name,
@@ -192,9 +265,14 @@ onUnmounted(() => {
         font-size: 0.85em;
     }
 
+    &__timeline {
+        grid-area: timeline;
+    }
+
     &__transport {
         display: flex;
         align-items: center;
+        grid-area: transport;
 
         gap: map.get(s.$c-player-bar, "gap");
     }
@@ -219,9 +297,8 @@ onUnmounted(() => {
             color: map.get(c.$c-player-bar, "control-hover");
         }
 
-        // Both ends of the queue, and the not-yet-wired play button. Muted rather
-        // than hidden, so the bar keeps its shape and the control stays where the
-        // reader will look for it once it works.
+        // Both ends of the queue. Muted rather than hidden, so the bar keeps its
+        // shape and the control stays where the reader will look for it.
         &:disabled {
             color: map.get(c.$c-player-bar, "muted");
 

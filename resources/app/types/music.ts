@@ -139,6 +139,12 @@ export interface SongDetail {
      * that 404s.
      */
     coverUrl: string | null;
+    /**
+     * Where the player loads the audio from (SongStreamController). Never null,
+     * unlike `coverUrl` — a track always has bytes — so the page can hand it
+     * straight to the play queue, which stores whole tracks rather than ids.
+     */
+    streamUrl: string;
     /** File size in bytes. */
     sizeBytes: number | null;
     /**

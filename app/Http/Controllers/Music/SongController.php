@@ -108,6 +108,14 @@ class SongController extends Controller
                 // of pointing an <img> at a 404.
                 'coverUrl' => $covers->exists($song) ? route('music.songs.cover', $song) : null,
 
+                // Where the player loads the audio from. Unconditional, unlike
+                // `coverUrl`: a track always HAS bytes, and proving it by stat-ing the
+                // file here would only move a 404 the page cannot act on anyway from
+                // the <audio> to the props. The page hands this to the play queue,
+                // which stores it — the queue holds whole tracks rather than ids
+                // (usePlayerQueue's note says why), so the URL has to travel with them.
+                'streamUrl' => route('music.songs.stream', $song, absolute: false),
+
                 // The file itself. `path` is area-relative (never the absolute
                 // server path — Track's docblock), which is also what a listener
                 // needs: it's the path on the Samba share.

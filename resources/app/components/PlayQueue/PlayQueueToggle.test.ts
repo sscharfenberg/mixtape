@@ -23,7 +23,8 @@ const track = (id: string): QueueTrack => ({
     album: null,
     coverUrl: null,
     duration: 60,
-    href: `/music/songs/${id}`
+    href: `/music/songs/${id}`,
+    streamUrl: `/music/songs/${id}/stream`
 });
 
 describe("PlayQueueToggle", () => {

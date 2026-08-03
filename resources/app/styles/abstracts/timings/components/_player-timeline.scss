@@ -1,0 +1,20 @@
+/******************************************************************************
+ * contextual timing token — component:player-timeline
+ * @type {Sass}
+ * How long the played fill and the buffer indicator take to reach a new width.
+ *
+ * The "fast" rung rather than a slower one because this is SMOOTHING, not
+ * animation: `timeupdate` fires about four times a second, so the fill would
+ * otherwise advance in visible 250ms steps. A transition just under that interval
+ * turns the steps into a glide; anything longer and the bar visibly lags the music
+ * — and lags a seek, which then reads as a scrub that did not take.
+ *
+ * Under `prefers-reduced-motion` the fill simply steps, which is correct: it is a
+ * position readout, and stepping is honest.
+ *
+ * Consumed as ti.$c-player-timeline via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$player-timeline: map.get(ti.$timings, "fast") !default;

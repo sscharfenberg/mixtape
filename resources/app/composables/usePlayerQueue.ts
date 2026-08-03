@@ -37,8 +37,15 @@ import { usePage } from "@inertiajs/vue3";
 import type { ComputedRef, Ref } from "vue";
 import { computed, ref } from "vue";
 
-/** Storage key. The `v1` is load-bearing: a shape change bumps it rather than trying to migrate. */
-const STORAGE_KEY = "mixtape.queue.v1";
+/**
+ * Storage key. The version is load-bearing: a shape change bumps it rather than
+ * trying to migrate.
+ *
+ * `v2` added `streamUrl` to every track and `repeat` to the payload. Dropping the
+ * stored `v1` queues is the point — a v1 track has no stream URL, so an adopted
+ * one would sit in the panel looking playable and do nothing when pressed.
+ */
+const STORAGE_KEY = "mixtape.queue.v2";
 
 /** Sentinel for "nothing loaded" — an empty queue, or one that was cleared. */
 const NOTHING = -1;
@@ -64,14 +71,22 @@ export type QueueTrack = {
     duration: number | null;
     /** The track's own detail page, so a queue row is a real link. */
     href: string;
+    /**
+     * Where the player loads the bytes from (SongStreamController). Carried on the
+     * track rather than rebuilt from the id, for the same reason the title is: the
+     * queue must be drawable and playable with no server round-trip, and the server
+     * is what owns which URLs exist.
+     */
+    streamUrl: string;
 };
 
 /** The localStorage payload. Versioned and user-scoped; see the module note for both. */
 type PersistedQueue = {
-    version: 1;
+    version: 2;
     userId: string | null;
     tracks: QueueTrack[];
     currentIndex: number;
+    repeat: boolean;
 };
 
 /** Return type of {@link usePlayerQueue}. */
@@ -80,6 +95,8 @@ export type UsePlayerQueueReturn = {
     tracks: Ref<QueueTrack[]>;
     /** Index of the loaded track, or -1 when the queue is empty. */
     currentIndex: Ref<number>;
+    /** Whether the queue wraps to its first track instead of stopping at the last. */
+    repeat: Ref<boolean>;
     /** The loaded track, or null. Drives whether the PlayerBar replaces the footer. */
     current: ComputedRef<QueueTrack | null>;
     /** True while the queue holds nothing — the PlayQueue panel renders only when this is false. */
@@ -98,10 +115,12 @@ export type UsePlayerQueueReturn = {
     reorder: (from: number, to: number) => void;
     /** Load the track at `index` (a click in the panel). */
     jumpTo: (index: number) => void;
-    /** Load the next track. Returns false at the end of the queue, which is where repeat will hook in. */
+    /** Load the next track, wrapping to the first when repeat is on. Returns false at a hard end. */
     next: () => boolean;
     /** Load the previous track. Returns false at the start of the queue. */
     previous: () => boolean;
+    /** Turn wrapping at the end of the queue on or off. */
+    toggleRepeat: () => void;
     /** Empty the queue entirely. */
     clear: () => void;
     /** Restore from storage. Called once, by FullLayout — see the function's own note. */
@@ -111,6 +130,15 @@ export type UsePlayerQueueReturn = {
 // Module-level state — every consumer shares this one queue.
 const tracks = ref<QueueTrack[]>([]);
 const currentIndex = ref<number>(NOTHING);
+
+/**
+ * Whether the queue wraps at its end.
+ *
+ * Queue state rather than player state, which is why it lives here: what happens
+ * after the last track is a fact about the LIST, and it has to persist with it —
+ * repeat that reset on every reload would be a setting you set twice a day.
+ */
+const repeat = ref<boolean>(false);
 
 /** Guards `hydrate()` against a second run, since FullLayout is mounted once but tests mount it repeatedly. */
 let hydrated = false;
@@ -138,10 +166,11 @@ function currentUserId(): string | null {
  */
 function commit(): void {
     const payload: PersistedQueue = {
-        version: 1,
+        version: 2,
         userId: currentUserId(),
         tracks: tracks.value,
-        currentIndex: currentIndex.value
+        currentIndex: currentIndex.value,
+        repeat: repeat.value
     };
 
     try {
@@ -255,9 +284,27 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
         commit();
     }
 
-    /** Step forward. False at the end, which is the hook repeat-all will replace later. */
+    /**
+     * Step forward, wrapping to the first track when repeat is on.
+     *
+     * The return value is what the player's `ended` handler reads: false means "the
+     * queue is genuinely finished, stop", and it is only ever false at the last
+     * track with repeat off. Note it returns TRUE for a one-track queue on repeat,
+     * where the index does not move — the track is meant to play again, and the
+     * caller (usePlayerAudio) is the one that notices the pointer stood still and
+     * restarts it, since nothing about the queue changed for a watcher to see.
+     */
     function next(): boolean {
-        if (currentIndex.value === NOTHING || currentIndex.value >= tracks.value.length - 1) return false;
+        if (currentIndex.value === NOTHING) return false;
+
+        if (currentIndex.value >= tracks.value.length - 1) {
+            if (!repeat.value) return false;
+            currentIndex.value = 0;
+            commit();
+
+            return true;
+        }
+
         currentIndex.value += 1;
         commit();
 
@@ -271,6 +318,18 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
         commit();
 
         return true;
+    }
+
+    /**
+     * Flip wrapping at the end of the queue.
+     *
+     * Persisted like everything else here, and deliberately NOT reset by `clear()`:
+     * "I listen on repeat" is a habit, not a property of the tracks that happen to
+     * be queued right now.
+     */
+    function toggleRepeat(): void {
+        repeat.value = !repeat.value;
+        commit();
     }
 
     /** Empty the queue, which also puts the footer back in place of the PlayerBar. */
@@ -308,18 +367,20 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
             return; // Corrupt entry — start clean rather than throw at boot.
         }
 
-        if (payload.version !== 1) return;
+        if (payload.version !== 2) return;
         if (payload.userId !== currentUserId()) return;
         if (!Array.isArray(payload.tracks)) return;
 
         tracks.value = payload.tracks;
         currentIndex.value = payload.currentIndex ?? NOTHING;
+        repeat.value = payload.repeat === true;
         clampIndex();
     }
 
     return {
         tracks,
         currentIndex,
+        repeat,
         current,
         isEmpty,
         totalDuration,
@@ -331,6 +392,7 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
         jumpTo,
         next,
         previous,
+        toggleRepeat,
         clear,
         hydrate
     };
@@ -347,5 +409,6 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
 export function resetPlayerQueueForTests(): void {
     tracks.value = [];
     currentIndex.value = NOTHING;
+    repeat.value = false;
     hydrated = false;
 }
