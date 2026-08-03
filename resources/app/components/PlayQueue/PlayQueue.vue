@@ -38,7 +38,7 @@
  * reached from the listings instead — so if this queue ever needs to offer that
  * route again, it belongs in a per-row menu, not on the title.
  *****************************************************************************/
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import PlayQueueMenu from "Components/PlayQueue/PlayQueueMenu.vue";
@@ -77,6 +77,53 @@ const playRow = (index: number): void => {
  * one — see the width note in sizes/components/_play-queue.scss.
  */
 const totalClock = computed(() => formatClock(totalDuration.value));
+
+/** The scrolling <ol>. Held to find the loaded row and to publish its height. */
+const list = ref<HTMLOListElement | null>(null);
+
+/**
+ * Bring the loaded track into view, one row clear of the edge it approached.
+ *
+ * It exists because the pointer moves without anyone touching the list: next/prev,
+ * auto-advance at the end of a track, the repeat wrap. Any of those can leave the
+ * row that is now playing off-screen, and a queue showing the wrong part of itself
+ * is worse than one that scrolls under you.
+ *
+ * THE ARITHMETIC IS THE BROWSER'S, not ours. `scroll-margin-block` grows the row's
+ * scroll box by one row on each edge and `block: "nearest"` then scrolls only when
+ * that grown box does not fit — which is both "leave a row of context" and "leave an
+ * already-visible row alone", without this function comparing a single rectangle.
+ * The margin is MEASURED rather than tokenised because rows are not one height: a
+ * track whose file carried no artist has one line, not two. It is published as a
+ * custom property so the declaration itself stays in the stylesheet.
+ *
+ * Smoothness is deliberately absent here — `scroll-behavior` on the list carries it,
+ * under the repo's `prefers-reduced-motion: no-preference` guard, so the motion
+ * decision sits in CSS with every other one. `scrollIntoView` with no `behavior`
+ * honours that computed value.
+ */
+const scrollCurrentIntoView = (): void => {
+    const row = list.value?.children.item(currentIndex.value) as HTMLElement | null;
+
+    if (!row) return;
+
+    list.value?.style.setProperty("--queue-row-height", `${row.offsetHeight}px`);
+    row.scrollIntoView({ block: "nearest", inline: "nearest" });
+};
+
+// `flush: "post"` because the row has to exist first: queueing a track and it
+// becoming current happen in the same tick.
+watch(currentIndex, scrollCurrentIntoView, { flush: "post" });
+
+// Opening the panel on a phone, where it is `display: none` while shut — scrolling a
+// hidden element does nothing, so several tracks may have gone by unscrolled.
+watch(
+    isOpen,
+    open => {
+        if (open) scrollCurrentIntoView();
+    },
+    { flush: "post" }
+);
 </script>
 
 <template>
@@ -89,7 +136,7 @@ const totalClock = computed(() => formatClock(totalDuration.value));
                 </h2>
                 <play-queue-menu />
             </header>
-            <ol class="play-queue__list">
+            <ol ref="list" class="play-queue__list">
                 <li
                     v-for="(track, index) in tracks"
                     :key="`${track.id}-${index}`"
@@ -349,12 +396,26 @@ $glow-room: map.get(s.$c-play-queue, "padding");
         margin: -$glow-room;
 
         list-style: none;
+
+        /* Carries the smoothness for scrollCurrentIntoView, which passes no `behavior`
+           of its own so that this decision lives here with the rest of the motion.
+           `scroll-behavior` affects PROGRAMMATIC scrolls only — a wheel or a drag is
+           untouched by it, so nobody's own scrolling is being animated. */
+        @media (prefers-reduced-motion: no-preference) {
+            scroll-behavior: smooth;
+        }
     }
 
     &__row {
         display: flex;
         position: relative;
         align-items: center;
+
+        /* One row of context above and below when the loaded track is scrolled into
+           view — see scrollCurrentIntoView, which measures the height and publishes it,
+           because a row with no artist line is shorter than one with. The zero fallback
+           makes an unmeasured row behave like a plain `scrollIntoView`, never break. */
+        scroll-margin-block: var(--queue-row-height, 0);
 
         padding: map.get(s.$c-play-queue, "row", "padding");
         gap: map.get(s.$c-play-queue, "row", "gap");

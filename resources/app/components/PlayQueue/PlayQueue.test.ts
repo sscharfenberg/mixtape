@@ -72,6 +72,31 @@ describe("PlayQueue", () => {
         expect(current[0].attributes("aria-current")).toBe("true");
     });
 
+    it("scrolls the newly loaded row into view, with a row of margin published for it", async () => {
+        /*
+         * WIRING ONLY, and deliberately so. Whether the row ends up a row's height clear of
+         * the edge is geometry, and happy-dom has no layout to measure — that half is a
+         * Playwright spec. What can be proved here is the part that would break silently:
+         * that moving the pointer scrolls THE ROW THAT IS NOW PLAYING rather than a stale
+         * one, and that the margin the CSS reads is published before the scroll is asked for.
+         */
+        const scrollIntoView = vi.fn();
+        vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(scrollIntoView);
+
+        const wrapper = await panel([track("a", "Airbag"), track("b", "Bones"), track("c", "Creep")]);
+        expect(scrollIntoView).not.toHaveBeenCalled();
+
+        usePlayerQueue().jumpTo(2);
+        await nextTick();
+
+        expect(scrollIntoView).toHaveBeenCalledTimes(1);
+        // `nearest` is what makes an already-visible row stay put; the margin does the rest.
+        expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
+        expect(scrollIntoView.mock.instances[0]).toBe(wrapper.findAll(".play-queue__row")[2].element);
+        expect(wrapper.find<HTMLElement>(".play-queue__list").element.style.getPropertyValue("--queue-row-height")).
+            toMatch(/^\d+px$/u);
+    });
+
     it("loads the track whose row is clicked", async () => {
         const wrapper = await panel([track("a", "Airbag"), track("b", "Bones")]);
 

@@ -225,6 +225,60 @@ test.describe("the play queue on a narrow screen", () => {
     });
 });
 
+test.describe("the play queue scrolling to the loaded track", () => {
+    /*
+     * Short viewport ON PURPOSE: scrolling only exists when the queue is longer than the
+     * list, and ~420px leaves room for four or five rows. Width stays at `full` so the
+     * panel is simply present without a toggle.
+     */
+    test.use({ viewport: { width: 1440, height: 420 } });
+
+    test("brings the loaded track into view, a row clear of the edge it approached", async ({ page }) => {
+        /*
+         * The behaviour only a browser can check: next/prev and auto-advance move the
+         * pointer without anyone touching the list, so the row that is now playing can sit
+         * outside the scrollport entirely.
+         *
+         * Advanced with the bar's NEXT button rather than by clicking rows, because a click
+         * in the list proves nothing — you cannot click a row you cannot see. And asserted
+         * on a MIDDLE track: at the very end of the list there is no content left to scroll,
+         * so the browser clamps and the margin cannot be honoured. That is correct, not a
+         * bug, but it makes the last row the wrong place to measure.
+         */
+        const song = await enqueueFirstSong(page);
+        const add = page.locator(".hero-section__actions button");
+
+        // The same track eight times — duplicates are a normal queue, and it saves seven
+        // page loads over queueing eight different songs.
+        for (let i = 0; i < 7; i += 1) await add.click();
+        await expect(page.locator(".play-queue__row")).toHaveCount(8);
+        await expect(page.locator(".player-bar__name")).toHaveText(song);
+
+        // prev, play, next — in DOM order; only the middle one carries a modifier class.
+        const next = page.locator(".player-bar__control").nth(2);
+        for (let i = 0; i < 5; i += 1) await next.click();
+        await expect(page.locator(".play-queue__row--current")).toHaveAttribute("aria-current", "true");
+
+        const geometry = () =>
+            page.evaluate(() => {
+                const list = document.querySelector(".play-queue__list")!.getBoundingClientRect();
+                const row = document.querySelector(".play-queue__row--current")!.getBoundingClientRect();
+
+                return { above: row.top - list.top, below: list.bottom - row.bottom, height: row.height };
+            });
+
+        // Polled, because the scroll is SMOOTH — it is still animating when the click resolves.
+        await expect.poll(async () => (await geometry()).below >= (await geometry()).height * 0.9).toBe(true);
+
+        const { above, below, height } = await geometry();
+        // Inside the scrollport at both ends...
+        expect(above).toBeGreaterThanOrEqual(0);
+        expect(below).toBeGreaterThanOrEqual(0);
+        // ...and a row's height of context below it, having travelled down to get there.
+        expect(below).toBeGreaterThanOrEqual(height * 0.9);
+    });
+});
+
 test.describe("the play queue from landscape up", () => {
     test.use({ viewport: { width: 900, height: 850 } });
 
