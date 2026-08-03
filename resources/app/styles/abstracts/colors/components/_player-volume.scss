@@ -1,0 +1,38 @@
+/******************************************************************************
+ * contextual color tokens — component:player-volume
+ * @type {Sass}
+ * The transport's volume control: the level slider inside the popover, and the
+ * mute button under it.
+ *
+ * Only the SLIDER's own surfaces live here. The trigger button is one of the
+ * player bar's controls and reads `c.$c-player-bar` for its colours instead of
+ * minting a second set — it sits in that bar, beside three buttons it must be
+ * indistinguishable from, so two token sets would be two things to keep in step
+ * for one look.
+ *
+ * The rail/fill split is the same idea as the timeline's, one layer lighter: a
+ * volume slider has no buffer to report, so there is no middle weight to fit
+ * between them and the fill can take the neon directly.
+ *
+ * Rule 2-compliant: palette entries picked and alpha-adjusted only. Consumed as
+ * c.$c-player-volume via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$player-volume: (
+    // the ungained part of the slider — same weight as the timeline's rail, so the
+    // two sliders in one bar read as the same kind of object
+    "rail": light-dark(map.get(c.$grey, "infra"), map.get(c.$grey, "abbey")),
+    // the level itself, in the house "this is live" neon
+    "level": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
+    "thumb": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
+    // the thumb's halo — alpha-only off the same entry, per rule 2
+    "glow": light-dark(
+            color.adjust(map.get(c.$retro, "c3", "light"), $alpha: -0.55),
+            color.adjust(map.get(c.$retro, "c3", "dark"), $alpha: -0.55)
+        ),
+    // the percentage readout above the slider, quieter than the numbers it labels
+    "readout": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron"))
+) !default;

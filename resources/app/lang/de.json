@@ -383,7 +383,11 @@
             "pause": "Pause",
             "seek": "Position im Titel",
             "previous": "Vorheriger Titel",
-            "next": "Nächster Titel"
+            "next": "Nächster Titel",
+            "volume": "Lautstärke",
+            "volumeLevel": "Lautstärke einstellen",
+            "mute": "Stumm schalten",
+            "unmute": "Ton einschalten"
         },
         "enqueue": "In die Warteschlange",
         "enqueued": "„{name}“ wurde in die Warteschlange gestellt."

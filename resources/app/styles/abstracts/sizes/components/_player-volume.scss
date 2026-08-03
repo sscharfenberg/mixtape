@@ -1,0 +1,43 @@
+/******************************************************************************
+ * contextual size tokens — component:player-volume
+ * @type {Sass}
+ * The transport's volume control: a popover holding a VERTICAL level slider with a
+ * mute button beneath it.
+ *
+ * `rail` / `hit` are the same pairing the timeline documents, rotated: the drawn rail
+ * is thin because that is what reads as a slider, and the native input laid over it is
+ * `hit` WIDE so there is something to grab. Rotating the axis is the only difference —
+ * the reason for two numbers instead of one is unchanged.
+ *
+ * `length` is the slider's travel, and it is the one number worth arguing about. Long
+ * enough that a level can be set rather than merely nudged (a 60px slider gives about
+ * eight usable steps), short enough that the popover does not become a column running
+ * up the page from a bar pinned to the bottom of the viewport. 7rem lands a touch over
+ * a hundred pixels, which is roughly a fader's worth of throw.
+ *
+ * Consumed as s.$c-player-volume via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$player-volume: (
+    // the drawn rail, and the rounding that caps the level's leading edge
+    "rail": 6px,
+    "radius": 3px,
+    // the invisible target laid over it — a comfortable grab width, not the rail's
+    "hit": map.get(s.$icons, "tiny"),
+    "thumb": 12px,
+    // how far the level travels; see the note above
+    "length": 7rem,
+    // Room the percentage readout ALWAYS takes, whatever it currently says. The readout is
+    // the widest thing in the popover and the popover sizes to its contents, so without a
+    // floor here the panel grew by one character's width as the level crossed 99% → 100%
+    // and twitched under the pointer. Measured, not estimated: 40.48px against 48.64px, an
+    // 8.16px step. The same jump exists at 9% → 10%, which this also covers. Wide enough for
+    // "100%" in tabular figures — three digits are 3ch by definition and the "%" is wider
+    // than a digit in most faces, so 5ch leaves a little air rather than sitting exactly on
+    // the longest string.
+    "readout-min": 5ch,
+    // between the slider, the readout and the mute button stacked under them
+    "gap": 0.5rem
+) !default;

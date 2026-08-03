@@ -79,12 +79,63 @@ export type UsePlayerAudioReturn = {
     toggle: () => void;
     /** Move the cursor, clamped into the track. */
     seek: (seconds: number) => void;
+    /** Output level, 0–1. `1` is the browser's own default: unity gain, no attenuation. */
+    volume: Ref<number>;
+    /** Whether output is muted, which is separate from a level of zero. */
+    isMuted: Ref<boolean>;
+    /** Nothing audible either way — what the control draws its mute glyph from. */
+    isSilent: ComputedRef<boolean>;
+    /** Set the level, clamped to 0–1; anything above zero also lifts a mute. */
+    setVolume: (value: number) => void;
+    /** Mute, or come back to the level muting interrupted. */
+    toggleMute: () => void;
 };
+
+/**
+ * Where the level is remembered.
+ *
+ * NOT user-scoped, unlike the queue's payload. How loud this machine's speakers want
+ * to be is a fact about the machine and whoever is sitting at it, so two people
+ * sharing a browser inheriting one level is right where inheriting one queue is not.
+ */
+const VOLUME_STORAGE_KEY = "mixtape.volume.v1";
+
+/**
+ * The level a fresh browser gives an <audio>: unity gain, nothing attenuated.
+ *
+ * Kept as the default deliberately, and it is why this app sounds louder than
+ * YouTube for the same song. YouTube normalises loudness — it measures each upload
+ * and turns DOWN anything mastered hotter than roughly -14 LUFS, which most modern
+ * music is by a wide margin. Playing a file untouched is therefore not "too loud",
+ * it is unattenuated, and the platform people compare it to is the one being quiet.
+ * Lowering this number would only mean everything starts quiet and gets turned up;
+ * the real fix is per-track normalisation (ReplayGain tags, which getID3 can already
+ * read during the library scan) applied as a gain per track. Not built.
+ */
+const FULL_VOLUME = 1;
 
 // Module-level state — one element, one set of readings, however many consumers.
 const isPlaying = ref<boolean>(false);
 const currentTime = ref<number>(0);
 const buffered = ref<BufferedRange[]>([]);
+const volume = ref<number>(FULL_VOLUME);
+const isMuted = ref<boolean>(false);
+
+/**
+ * The level to return to when a mute is lifted.
+ *
+ * Needed because the two ways of silencing the player have to be undoable in the same
+ * gesture: muting at 60% must come back to 60%, and un-muting after the slider was
+ * dragged to zero has to arrive at something audible or the button does nothing
+ * visible and reads as broken.
+ */
+let levelBeforeMute = FULL_VOLUME;
+
+/** Whether the stored level has been read yet — once per page, on the first attach. */
+let volumeHydrated = false;
+
+/** Nothing audible: muted, or turned all the way down. One glyph covers both. */
+const isSilent = computed<boolean>(() => isMuted.value || volume.value === 0);
 
 /**
  * The element's own idea of the duration, kept only as a fallback.
@@ -121,6 +172,62 @@ function readBuffered(source: HTMLAudioElement): BufferedRange[] {
     }
 
     return ranges;
+}
+
+/**
+ * Push the level onto the element.
+ *
+ * `volume` and `muted` are properties of the ELEMENT, not of its source, so they
+ * survive every `src` change and this needs calling only when one of them changes or
+ * a new element is attached — not per track.
+ */
+function applyVolume(): void {
+    if (!element) return;
+
+    element.volume = volume.value;
+    element.muted = isMuted.value;
+}
+
+/** Write the level down. Failure is silent: a working player matters more than a remembered level. */
+function persistVolume(): void {
+    try {
+        window.localStorage.setItem(VOLUME_STORAGE_KEY, JSON.stringify({ volume: volume.value, muted: isMuted.value }));
+    } catch {
+        // Storage full or blocked — the level still applies for this page.
+    }
+}
+
+/**
+ * Read the stored level, once.
+ *
+ * Every field is re-validated rather than trusted: this value is assigned straight to
+ * `element.volume`, which THROWS on anything outside 0–1, so a hand-edited or
+ * half-written entry would otherwise break playback at attach time rather than
+ * degrade. A number that fails the check is simply not adopted.
+ */
+function hydrateVolume(): void {
+    if (volumeHydrated) return;
+    volumeHydrated = true;
+
+    let stored: string | null = null;
+    try {
+        stored = window.localStorage.getItem(VOLUME_STORAGE_KEY);
+    } catch {
+        return; // Storage unavailable; the default level is fine.
+    }
+    if (!stored) return;
+
+    try {
+        const payload = JSON.parse(stored) as { volume?: unknown; muted?: unknown };
+
+        if (typeof payload.volume === "number" && Number.isFinite(payload.volume)) {
+            volume.value = Math.min(Math.max(payload.volume, 0), 1);
+            if (volume.value > 0) levelBeforeMute = volume.value;
+        }
+        if (typeof payload.muted === "boolean") isMuted.value = payload.muted;
+    } catch {
+        // Corrupt entry — start at full rather than throw at boot.
+    }
 }
 
 /**
@@ -335,6 +442,47 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
     }
 
     /**
+     * Set the output level.
+     *
+     * Dragging up LIFTS A MUTE, deliberately: the slider is the more specific gesture
+     * of the two, and a slider that visibly moves while the player stays silent is the
+     * kind of control people press twice and then distrust. Zero is left as a level in
+     * its own right rather than turned into a mute — `isSilent` is what collapses the
+     * distinction for the glyph, so the two states stay separately undoable.
+     */
+    function setVolume(value: number): void {
+        volume.value = Math.min(Math.max(value, 0), 1);
+
+        if (volume.value > 0) {
+            levelBeforeMute = volume.value;
+            isMuted.value = false;
+        }
+
+        applyVolume();
+        persistVolume();
+    }
+
+    /**
+     * Mute, or come back from it.
+     *
+     * Un-muting from a level of zero lands on the remembered level instead, because
+     * `muted = false` over `volume = 0` is still silence — the press would appear to
+     * do nothing at all.
+     */
+    function toggleMute(): void {
+        if (isMuted.value) {
+            isMuted.value = false;
+            if (volume.value === 0) volume.value = levelBeforeMute > 0 ? levelBeforeMute : FULL_VOLUME;
+        } else {
+            if (volume.value > 0) levelBeforeMute = volume.value;
+            isMuted.value = true;
+        }
+
+        applyVolume();
+        persistVolume();
+    }
+
+    /**
      * Take ownership of PlayerBar's element: wire every listener, and load whatever
      * the queue already has without starting it.
      *
@@ -345,6 +493,11 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
     function attach(audio: HTMLAudioElement): void {
         detach();
         element = audio;
+
+        // Before anything can be heard: a fresh element starts at unity regardless of
+        // what the listener chose last visit.
+        hydrateVolume();
+        applyVolume();
 
         /** Bind a media event and register its removal, so `detach()` needs no list of its own. */
         const on = <K extends keyof HTMLMediaElementEventMap>(
@@ -504,7 +657,23 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
         elementDuration.value = 0;
     }
 
-    return { isPlaying, currentTime, duration, buffered, attach, detach, play, pause, toggle, seek };
+    return {
+        isPlaying,
+        currentTime,
+        duration,
+        buffered,
+        attach,
+        detach,
+        play,
+        pause,
+        toggle,
+        seek,
+        volume,
+        isMuted,
+        isSilent,
+        setVolume,
+        toggleMute
+    };
 }
 
 /**
@@ -523,4 +692,13 @@ export function resetPlayerAudioForTests(): void {
     currentTime.value = 0;
     buffered.value = [];
     elementDuration.value = 0;
+
+    // The level too, and its hydration latch — a spec that turns the volume down would
+    // otherwise leave the next one starting quiet, and one that seeds localStorage would
+    // find hydration already spent. `detach()` deliberately does NOT do this: unmounting
+    // the bar when the queue empties must not forget a preference.
+    volume.value = FULL_VOLUME;
+    isMuted.value = false;
+    levelBeforeMute = FULL_VOLUME;
+    volumeHydrated = false;
 }

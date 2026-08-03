@@ -294,6 +294,119 @@ test.describe("the player", () => {
         await expect(page.locator(".play-queue__row")).toHaveCount(1);
     });
 
+    test("opens the volume panel upward, and really attenuates the element", async ({ page }) => {
+        /*
+         * Two things only a browser can answer.
+         *
+         * The panel opens UPWARD: the bar is fixed to the bottom of the viewport, so the
+         * shared popover style — which pins content under its trigger — would put this
+         * off-screen. PlayerVolume overrides the anchor rather than relying on
+         * `position-try-fallbacks` to rescue it, and the assertion is that the panel really
+         * ends above the button and starts inside the viewport.
+         *
+         * And the level really reaches the element: `element.volume` is the one fact that
+         * says the control is wired to the thing making sound rather than to a ref.
+         */
+        await enqueueSongs(page, 1);
+
+        const trigger = page.locator(".player-volume .popover-button");
+        await trigger.click();
+
+        const panel = page.locator(".player-volume__panel");
+        await expect(panel).toBeVisible();
+
+        const boxes = await page.evaluate(() => {
+            const content = document.querySelector(".player-volume .popover-content")!.getBoundingClientRect();
+            const button = document.querySelector(".player-volume .popover-button")!.getBoundingClientRect();
+
+            return { panelBottom: content.bottom, panelTop: content.top, buttonTop: button.top };
+        });
+
+        // Above the trigger, and not hanging off the top of the window.
+        expect(boxes.panelBottom).toBeLessThanOrEqual(boxes.buttonTop + 1);
+        expect(boxes.panelTop).toBeGreaterThanOrEqual(0);
+
+        // Drive the real slider: keyboard, so this exercises the native range contract
+        // rather than a synthetic value assignment.
+        await page.locator(".player-volume__input").focus();
+        for (let i = 0; i < 10; i += 1) await page.keyboard.press("ArrowDown");
+
+        const level = await page.evaluate(() => (document.querySelector("audio") as HTMLAudioElement).volume);
+        expect(level).toBeLessThan(1);
+        expect(level).toBeGreaterThan(0);
+    });
+
+    test("switches the trigger to volume_off once the level reaches zero", async ({ page }) => {
+        /*
+         * The requirement as stated: turning the level to zero switches the BAR's icon,
+         * without anything having been muted — so the panel's own button still offers a
+         * mute. Driven through the real control, and the qualified `xlink:href` read is
+         * needed because a real browser will not hand it back under the bare name (the
+         * reverse of the Vitest specs).
+         */
+        await enqueueSongs(page, 1);
+
+        await page.locator(".player-volume .popover-button").click();
+        await page.locator(".player-volume__input").focus();
+        await page.keyboard.press("Home");
+
+        const glyph = (selector: string) => () =>
+            page.locator(selector).evaluate(el => el.getAttribute("xlink:href"));
+
+        await expect.poll(glyph(".player-volume .popover-button use")).toBe("#volume_off");
+        await expect.poll(glyph(".player-volume__mute use")).toBe("#mute");
+        expect(await page.evaluate(() => (document.querySelector("audio") as HTMLAudioElement).volume)).toBe(0);
+    });
+
+    test("keeps the volume panel one width, whatever the readout says", async ({ page }) => {
+        /*
+         * The panel sizes to its contents and the readout is the widest thing in it, so
+         * "100%" made it a digit wider than "99%" and it twitched under the pointer as the
+         * level crossed. The readout now reserves its longest width up front.
+         *
+         * REDUCED MOTION IS WHAT MAKES THIS MEASURABLE, and it is not a detail: the popover
+         * animates in with `transform: rotateY(90deg)`, which turns it edge-on, so every box
+         * inside it measures ~0 until the transition finishes. An earlier version of this
+         * spec compared 0 against 0 and passed happily with the fix removed. The transition
+         * lives under `prefers-reduced-motion: no-preference`, so emulating `reduce` skips it
+         * outright and the first measurement is already the final geometry.
+         *
+         * Measured across the 99% → 100% step because that is where the character count
+         * changes; the same jump exists at 9% → 10% and the reservation covers both.
+         */
+        await page.emulateMedia({ reducedMotion: "reduce" });
+        await enqueueSongs(page, 1);
+        await page.locator(".player-volume .popover-button").click();
+        await page.locator(".player-volume__input").focus();
+
+        const panelWidth = async () =>
+            (await page.locator(".player-volume .popover-content").boundingBox())!.width;
+
+        await page.keyboard.press("End");
+        await expect(page.locator(".player-volume__readout")).toHaveText("100%");
+        const atFull = await panelWidth();
+
+        await page.keyboard.press("ArrowDown");
+        await expect(page.locator(".player-volume__readout")).toHaveText("99%");
+        const atNinetyNine = await panelWidth();
+
+        expect(atNinetyNine).toBe(atFull);
+    });
+
+    test("switches the panel's own button to volume_off when it is pressed", async ({ page }) => {
+        // The other half: `mute` is the action, `volume_off` the state once taken.
+        await enqueueSongs(page, 1);
+
+        await page.locator(".player-volume .popover-button").click();
+        await page.locator(".player-volume__mute").click();
+
+        const glyph = () =>
+            page.locator(".player-volume__mute use").evaluate(el => el.getAttribute("xlink:href"));
+
+        await expect.poll(glyph).toBe("#volume_off");
+        expect(await page.evaluate(() => (document.querySelector("audio") as HTMLAudioElement).muted)).toBe(true);
+    });
+
     test("plays under the production Content-Security-Policy", async ({ page }) => {
         /*
          * The check `docs/self-hosting/04-going-public.md` left open, and the reason it was

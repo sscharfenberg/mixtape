@@ -35,6 +35,7 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import PlayerTimeline from "Components/Player/PlayerTimeline.vue";
+import PlayerVolume from "Components/Player/PlayerVolume.vue";
 import Icon from "Components/UI/Icon.vue";
 import { usePlayerAudio } from "Composables/usePlayerAudio";
 import { usePlayerQueue } from "Composables/usePlayerQueue";
@@ -138,6 +139,8 @@ onUnmounted(() => {
             @seek="seek"
         />
 
+        <player-volume class="player-bar__volume" />
+
         <div class="player-bar__transport">
             <button
                 type="button"
@@ -199,9 +202,9 @@ onUnmounted(() => {
     z-index: z.$c-player-bar;
     align-items: center;
     grid-template-areas:
-        "cover meta transport"
-        "timeline timeline timeline";
-    grid-template-columns: auto minmax(0, 1fr) auto;
+        "cover meta volume transport"
+        "timeline timeline timeline timeline";
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
 
     box-sizing: border-box;
     min-height: map.get(s.$c-player-bar, "height");
@@ -214,11 +217,12 @@ onUnmounted(() => {
     color: map.get(c.$c-player-bar, "surface");
 
     @include m.mq("landscape") {
-        grid-template-areas: "cover meta timeline transport";
+        grid-template-areas: "cover meta timeline volume transport";
 
         /* The timeline gets twice the slack the title does, so the rail grows into a
-           wide window instead of leaving a long stretch of empty title beside it. */
-        grid-template-columns: auto minmax(0, 1fr) minmax(0, 2fr) auto;
+           wide window instead of leaving a long stretch of empty title beside it. The
+           volume column is `auto` — one icon wide, and never a competitor for the slack. */
+        grid-template-columns: auto minmax(0, 1fr) minmax(0, 2fr) auto auto;
     }
 
     &__cover {
@@ -267,6 +271,12 @@ onUnmounted(() => {
 
     &__timeline {
         grid-area: timeline;
+    }
+
+    /* Between the timeline (whose right-hand clock is the total) and the transport, so
+       the reading order is position → level → the buttons that change position. */
+    &__volume {
+        grid-area: volume;
     }
 
     &__transport {

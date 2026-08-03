@@ -383,7 +383,11 @@
             "pause": "Pause",
             "seek": "Position in the track",
             "previous": "Previous track",
-            "next": "Next track"
+            "next": "Next track",
+            "volume": "Volume",
+            "volumeLevel": "Set the volume",
+            "mute": "Mute",
+            "unmute": "Unmute"
         },
         "enqueue": "Add to queue",
         "enqueued": "“{name}” was added to the queue."
