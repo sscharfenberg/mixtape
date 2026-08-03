@@ -6,6 +6,23 @@
  * of the same affixed chrome, and reading as one family is the point — so the
  * background is an alpha-adjusted grey rather than a solid one.
  *
+ * THE CONTROLS EACH SIT IN A FILLED PILL, and there are two fills because there are
+ * two kinds of control. `control-background` is the quiet one every enabled button
+ * wears — the same grey the popover gives its `--subtle` trigger, picked from the
+ * same globals rather than read out of that component's map, because the volume
+ * control in this bar IS such a trigger and the four buttons must read as one set.
+ *
+ * `play-background` / `play-surface` are the play/pause button's coloured surface, and
+ * they are NOT a new colour decision: they are the neon fill the action Button already
+ * defines (`button.neon` over `button.contrast`) — the WCAG-tuned `c3` with the label
+ * colour proven against it, white on the darkened fill and the deep synthwave indigo
+ * on the bright one. Inventing a foreground for a saturated fill is exactly how a
+ * control ends up under 4.5:1, so this borrows the pair that was already measured.
+ *
+ * A DISABLED CONTROL GETS NO FILL AT ALL. Prev and next disable at the ends of the
+ * queue, and a filled pill reads as pressable — the absence of the pill is what says
+ * "not now", with `muted` carrying the glyph as before.
+ *
  * Rule 2-compliant: palette entries picked and alpha-adjusted only. Consumed as
  * c.$c-player-bar via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
@@ -23,5 +40,12 @@ $player-bar: (
     // the artist line under the title, and the not-yet-wired transport glyphs
     "muted": light-dark(map.get(c.$grey, "slate"), map.get(c.$grey, "slate")),
     "control": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral")),
-    "control-hover": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark"))
+    "control-hover": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
+    // the quiet pill under prev / next / volume, and what it becomes on hover
+    "control-background": light-dark(map.get(c.$grey, "mystic"), map.get(c.$grey, "abbey")),
+    "control-background-hover": light-dark(map.get(c.$grey, "infra"), map.get(c.$grey, "asher")),
+    // play/pause: the action Button's measured neon fill and the label colour proven
+    // against it — see the note above before changing either half
+    "play-background": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
+    "play-surface": light-dark(map.get(c.$grey, "white"), map.get(c.$retro, "c4", "dark"))
 ) !default;

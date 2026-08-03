@@ -143,6 +143,17 @@ $thumb: map.get(s.$c-player-volume, "thumb");
     display: inline-flex;
     align-items: center;
 
+    /* Sizes the trigger's glyph DOWN to match prev/next. PopOver takes no icon-size prop
+       and Icon defaults to step 2 ("medium"), which is the step the play/pause button uses
+       — so out of the box this button rendered as large as the primary control and, now
+       that every control wears a pill, visibly bigger than its neighbours. The transport's
+       secondary buttons pass `:size="1"`, so this reads the same token that class resolves
+       to rather than restating a length. `--icon-size` is Icon's own hook, which is how
+       `popover-button--tiny` does the same thing. */
+    :deep(.popover-button .icon) {
+        --icon-size: #{map.get(s.$c-icon, "small")};
+    }
+
     /* THE POPOVER OPENS UPWARD, and this override is the whole reason the wrapper element
        exists. PopOver's shared style pins the dialog UNDER its trigger
        (`inset: anchor(bottom) anchor(right) auto auto`), which is right everywhere else in

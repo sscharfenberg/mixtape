@@ -358,6 +358,56 @@ test.describe("the player", () => {
         expect(await page.evaluate(() => (document.querySelector("audio") as HTMLAudioElement).volume)).toBe(0);
     });
 
+    test("fills every enabled control and leaves a disabled one bare", async ({ page }) => {
+        /*
+         * The rule the pills encode: a filled control reads as pressable, so the ABSENCE of
+         * the fill is what says "not now". Before every control had a background, a muted
+         * glyph carried that on its own; now a greyed glyph inside a pill identical to its
+         * neighbours' would read as enabled.
+         *
+         * Asserted as RELATIONSHIPS rather than against hex values, so a palette change does
+         * not break it: transparent vs not, and play differing from the quiet pair. Only a
+         * browser resolves `light-dark()` and the disabled cascade, so this cannot be a unit
+         * test.
+         *
+         * REDUCED MOTION FIRST, for the same reason the panel-width spec needs it. `next` is
+         * briefly DISABLED while the queue is being built — one track means nowhere to go —
+         * so when the second arrives it transitions from transparent to the pill over 150ms,
+         * and reading the computed fill immediately catches the start of that transition
+         * rather than the settled value. Measured: `rgba(0, 0, 0, 0)` with two animations
+         * running, `rgb(237, 237, 237)` 600ms later. The transition is declared under
+         * `prefers-reduced-motion: no-preference`, so emulating `reduce` removes it outright.
+         */
+        await page.emulateMedia({ reducedMotion: "reduce" });
+        await enqueueSongs(page, 2);
+
+        const fills = await page.evaluate(() => {
+            const bg = (el: Element) => getComputedStyle(el).backgroundColor;
+            const controls = [...document.querySelectorAll(".player-bar__transport .player-bar__control")];
+            const prev = controls[0] as HTMLButtonElement;
+            const next = controls[2] as HTMLButtonElement;
+
+            return {
+                prevDisabled: prev.disabled,
+                prev: bg(prev),
+                next: bg(next),
+                play: bg(document.querySelector(".player-bar__control--play")!),
+                volume: bg(document.querySelector(".player-volume .popover-button")!)
+            };
+        });
+
+        // At the head of a two-track queue: prev is disabled, next is not.
+        expect(fills.prevDisabled).toBe(true);
+        expect(fills.prev).toBe("rgba(0, 0, 0, 0)");
+        expect(fills.next).not.toBe("rgba(0, 0, 0, 0)");
+
+        // The volume trigger is the look the transport was matched TO, so those agree…
+        expect(fills.next).toBe(fills.volume);
+        // …and play is the one coloured surface, so it must not.
+        expect(fills.play).not.toBe(fills.next);
+        expect(fills.play).not.toBe("rgba(0, 0, 0, 0)");
+    });
+
     test("keeps the volume panel one width, whatever the readout says", async ({ page }) => {
         /*
          * The panel sizes to its contents and the readout is the widest thing in it, so
