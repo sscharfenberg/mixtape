@@ -252,19 +252,46 @@ test.describe("the player", () => {
         await expect.poll(async () => (await audioState(page)).paused, { timeout: 5_000 }).toBe(false);
     });
 
-    test("keeps the title a link, so the overlay cannot swallow it", async ({ page }) => {
+    test("plays from the title too, instead of navigating to the song", async ({ page }) => {
         /*
-         * The other half of the same mechanism: the title and the remove button are lifted
-         * back above the overlay with a position + z-index, because an absolutely positioned
-         * pseudo-element paints over every non-positioned sibling regardless of DOM order.
-         * Drop that lift and this navigation silently becomes "play the track" instead.
+         * The title was a <Link>, which made the one word a listener aims at the one place
+         * that left the page. It is plain text under the play overlay now, so BOTH halves
+         * are worth asserting: that the track starts, and that the URL did not move. The
+         * second is the part that would regress silently — re-introduce an anchor here and
+         * playback still appears to work, because the click lands on the row on its way out.
          */
-        await enqueueSongs(page, 1);
+        const [, second] = await enqueueSongs(page, 2);
+        await enableRepeat(page);
         await page.goto("/music/albums");
+        const before = page.url();
 
-        await page.locator(".play-queue__name").first().click();
+        /*
+         * `force` because Playwright's actionability check REFUSES this click otherwise:
+         * `.play-queue__load` "intercepts pointer events" at the title's position. That
+         * refusal is the overlay working — the title is supposed to be covered. Forcing
+         * dispatches at the title's own coordinates and lets the browser hit-test, which
+         * is exactly what a listener's click does; without it the test asserts nothing but
+         * Playwright's opinion.
+         */
+        await page.locator(".play-queue__name").nth(1).click({ force: true });
 
-        await expect(page).toHaveURL(/\/music\/songs\/[0-9a-f-]{36}$/u);
+        await expect(page.locator(".player-bar__name")).toHaveText(second);
+        await expect.poll(async () => (await audioState(page)).paused, { timeout: 5_000 }).toBe(false);
+        expect(page.url()).toBe(before);
+    });
+
+    test("keeps the remove button clickable above the play overlay", async ({ page }) => {
+        /*
+         * The remove button is now the ONLY thing lifted above the overlay, with a position
+         * as well as a z-index — an absolutely positioned pseudo-element paints over every
+         * non-positioned sibling regardless of DOM order. Drop that lift and the row plays
+         * while nothing can be removed from it, which is what this catches.
+         */
+        await enqueueSongs(page, 2);
+
+        await page.locator(".play-queue__remove").first().click();
+
+        await expect(page.locator(".play-queue__row")).toHaveCount(1);
     });
 
     test("plays under the production Content-Security-Policy", async ({ page }) => {

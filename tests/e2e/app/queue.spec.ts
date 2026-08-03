@@ -81,6 +81,35 @@ test.describe("the play queue", () => {
         await expect(page.locator(".dt-cards")).toBeHidden();
     });
 
+    test("widens at `full`, and the content inset widens with it", async ({ page }) => {
+        /*
+         * This describe runs at 1440px, which IS the `full` line — so the panel is 360px
+         * here and 240px below it (asserted at 420px in the narrow-screen block).
+         *
+         * The second assertion is the one worth having. The width lives in PlayQueue and
+         * the room made for it lives in FullLayout's `--content-inset-end`; they are one
+         * decision in two files, and if they drift the page's trailing column slides under
+         * an opaque panel. Comparing <main>'s content edge against the panel's leading edge
+         * is what catches that, and it can only be done in a real browser.
+         */
+        await enqueueFirstSong(page);
+        await page.goto("/music/songs");
+
+        const panel = (await page.locator(".play-queue").boundingBox())!;
+        expect(Math.round(panel.width)).toBe(360);
+
+        const clear = await page.evaluate(() => {
+            const content = document.querySelector("main .container") ?? document.querySelector("main");
+            const box = content!.getBoundingClientRect();
+            const style = getComputedStyle(content!);
+
+            return box.right - parseFloat(style.paddingRight);
+        });
+
+        // The content's inner edge stops at or before the panel starts — never under it.
+        expect(clear).toBeLessThanOrEqual(panel.x);
+    });
+
     test("empties back to the footer when the queue is cleared", async ({ page }) => {
         await enqueueFirstSong(page);
 
@@ -208,5 +237,32 @@ test.describe("the play queue from landscape up", () => {
         await expect(page.locator(".play-queue")).toBeVisible();
         // The button exists in the DOM but the media query hides it at this width.
         await expect(page.locator(".play-queue-toggle")).toBeHidden();
+    });
+
+    test("spans header to player bar however short the queue is", async ({ page }) => {
+        /*
+         * At this width the panel used to be only as tall as its contents, so its bottom
+         * edge landed wherever the list happened to reach and MOVED every time something
+         * was queued or removed — which read as a dropdown that had failed to close rather
+         * than a fixture of the layout.
+         *
+         * Asserted with a SINGLE track on purpose: that is the case that used to differ, and
+         * a long queue would fill the height either way and prove nothing. Both ends are
+         * checked, because full height is only right if it starts under the header AND
+         * finishes on the bar — the narrow-screen spec above covers the bottom edge only.
+         */
+        await enqueueFirstSong(page);
+        await expect(page.locator(".play-queue__row")).toHaveCount(1);
+
+        const edges = await page.evaluate(() => {
+            const panel = document.querySelector(".play-queue")!.getBoundingClientRect();
+            const header = document.querySelector("header.app-header")!.getBoundingClientRect();
+            const bar = document.querySelector(".player-bar")!.getBoundingClientRect();
+
+            return { top: panel.top - header.bottom, bottom: bar.top - panel.bottom };
+        });
+
+        expect(Math.round(edges.top)).toBe(0);
+        expect(Math.round(edges.bottom)).toBe(0);
     });
 });

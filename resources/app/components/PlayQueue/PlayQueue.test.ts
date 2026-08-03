@@ -125,12 +125,18 @@ describe("PlayQueue", () => {
         expect(wrapper.find(".play-queue__summary").text()).toContain("4:00");
     });
 
-    it("keeps each row a link to the track's own page", async () => {
-        // The row's click is "play this", so it cannot also be "show me this" — the
-        // title stays a real link, which is also the keyboard path to the song.
+    it("gives the title no link, so aiming at it cannot navigate away", async () => {
+        // It WAS a <Link> to the song's page. In a panel where every other pixel plays
+        // the track, the title is the one spot a listener aims at — and it was the one
+        // spot that left the page. Now it is plain text under the row's play overlay.
+        // The hit area itself is layout, so that half is a Playwright spec; what this
+        // guards is the regression that would re-introduce an anchor here.
         const wrapper = await panel([track("a", "Airbag")]);
+        const name = wrapper.find(".play-queue__name");
 
-        expect(wrapper.find(".play-queue__name").attributes("href")).toBe("/music/songs/a");
+        expect(name.element.tagName).toBe("SPAN");
+        expect(name.attributes("href")).toBeUndefined();
+        expect(wrapper.find(".play-queue__meta a").exists()).toBe(false);
     });
 
     it("leaves out the artist line for a track whose file carried no artist", async () => {

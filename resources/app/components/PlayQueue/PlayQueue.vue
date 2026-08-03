@@ -23,18 +23,21 @@
  * 240px of a phone is most of the screen and a queue you carry around open is one
  * permanently in the way.
  *
- * CLICKING A ROW PLAYS THAT TRACK — anywhere in it, not just the cover. The row
- * stays an <li> holding one <button> whose hit area is stretched across it by a
- * pseudo-element, because a <button> may contain neither a link nor another
- * button and the row holds both. So the semantics are unchanged (one control, one
- * accessible name, "Play <track>") while the target is the full row. Two things
- * sit above that overlay and keep their own behaviour: the title, a real <Link>
- * to the song's page so "open this song" is still reachable by keyboard, and the
- * remove button. Everything else in the row — the artist line, the padding, the
- * gaps — plays. See `__load::after` in the styles for why a position, not merely
- * a z-index, is what lifts those two.
+ * CLICKING A ROW PLAYS THAT TRACK — anywhere in it. The row is an <li> holding one
+ * <button> whose hit area is stretched across it by a pseudo-element, because a
+ * <button> may not contain another button and the row holds the remove control. So
+ * the semantics are unchanged (one control, one accessible name, "Play <track>")
+ * while the target is the full row. Exactly ONE thing sits above that overlay and
+ * keeps its own behaviour: the remove button. Everything else — the title, the
+ * artist line, the padding, the gaps — plays. See `__load::after` in the styles for
+ * why a position, not merely a z-index, is what lifts it.
+ *
+ * NOTHING HERE NAVIGATES. The title was a <Link> to the song's page until it was
+ * put to a real listener: in a panel where every other pixel plays the track, the
+ * one word you aim at was the one that took you somewhere else. The song page is
+ * reached from the listings instead — so if this queue ever needs to offer that
+ * route again, it belongs in a per-row menu, not on the title.
  *****************************************************************************/
-import { Link } from "@inertiajs/vue3";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
@@ -86,11 +89,6 @@ const totalClock = computed(() => formatClock(totalDuration.value));
                 </h2>
                 <play-queue-menu />
             </header>
-            <!-- Count and running time on their own line rather than beside the title:
-                 at 240px a single row cannot hold the word "Warteschlange", two numbers
-                 and a button without ellipsising the one part that names the panel. -->
-            <p class="play-queue__summary">{{ t("player.queue.summary", tracks.length) }} · {{ totalClock }}</p>
-
             <ol class="play-queue__list">
                 <li
                     v-for="(track, index) in tracks"
@@ -108,12 +106,13 @@ const totalClock = computed(() => formatClock(totalDuration.value));
                         <cover-image :src="track.coverUrl" :title="track.name" size="tiny" decorative />
                     </button>
                     <span class="play-queue__meta">
-                        <!-- The title stays a real link, so the queue is also a way BACK to a
-                             song's page — the row's own click is "play this", which cannot
-                             double as "show me this". It sits ABOVE the load button's overlay
-                             (see `__name` in the styles), which is the only reason it is still
-                             clickable at all. -->
-                        <Link :href="track.href" prefetch class="play-queue__name">{{ track.name }}</Link>
+                        <!-- Both lines are plain text, deliberately. The title used to be a
+                             real <Link> to the song's page, and in a panel whose every other
+                             pixel plays the track that is a trap: the one spot a listener
+                             actually aims for was the one spot that navigated away instead.
+                             So it stays under the load button's overlay and plays like the
+                             rest of the row. -->
+                        <span class="play-queue__name">{{ track.name }}</span>
                         <span v-if="track.artist" class="play-queue__artist">{{ track.artist }}</span>
                     </span>
                     <button
@@ -127,6 +126,14 @@ const totalClock = computed(() => formatClock(totalDuration.value));
                     </button>
                 </li>
             </ol>
+
+            <!-- Count and running time LAST, and a sibling of the list rather than a child
+                 of it — which is what keeps it out of the scrolling area and on screen for
+                 any length of queue. It gets a line of its own instead of sitting beside
+                 the title because even at the wider `full` size a single row cannot hold
+                 the word "Warteschlange", two numbers and a button without ellipsising the
+                 one part that names the panel. -->
+            <p class="play-queue__summary">{{ t("player.queue.summary", tracks.length) }} · {{ totalClock }}</p>
         </aside>
     </div>
 </template>
@@ -184,9 +191,16 @@ $glow-room: map.get(s.$c-play-queue, "padding");
     }
 }
 
-/* The panel itself, pinned to the layer's trailing edge. Full height on a narrow
-   screen — it is an overlay with nothing else to share the space with — and only
-   as tall as the queue needs from `landscape` up, where it sits beside the page. */
+/* The panel itself, pinned to the layer's trailing edge, and FULL HEIGHT AT EVERY
+   WIDTH — header to player bar, which is the span the layer already describes.
+
+   It used to be only as tall as its contents from `landscape` up. That reads fine
+   for two or three tracks and steadily worse as the queue grows: the bottom edge
+   lands at whatever height the list happens to reach, so it moves every time
+   something is queued or removed, and the panel stops looking like a fixture of
+   the layout and starts looking like a dropdown that failed to close. A constant
+   edge is worth more than the strip of page a short queue gave back — nothing is
+   behind it anyway, since Container already insets content for the full height. */
 .play-queue {
     display: flex;
     position: absolute;
@@ -197,12 +211,19 @@ $glow-room: map.get(s.$c-play-queue, "padding");
     width: map.get(s.$c-play-queue, "width");
     padding: map.get(s.$c-play-queue, "padding");
 
-    /* SIDES ONLY, and no rounding. As a full-height overlay the panel meets the
-       header and the player bar — a top or bottom edge would draw a second line a
-       pixel from theirs, which reads as a seam rather than a frame, and a rounded
-       corner against either would be a notch showing the page through. The
-       `landscape` rule below puts the bottom one back, where the panel ends in
-       open space instead. */
+    /* Wider from `full` up, where the cage stops growing and the extra 120px comes
+       out of space <main> cannot use anyway. FullLayout publishes the content inset
+       from the same two tokens and MUST switch at this same breakpoint — miss that
+       and the page's last column slides under the panel. */
+    @include m.mq("full") {
+        width: map.get(s.$c-play-queue, "width-full");
+    }
+
+    /* SIDES ONLY, and no rounding — at every width now, which is what made the
+       `landscape` override above unnecessary rather than merely different. The
+       panel meets the header and the player bar at both ends, so a top or bottom
+       edge would draw a second line a pixel from theirs (a seam, not a frame) and
+       a rounded corner against either would be a notch showing the page through. */
     border-inline: map.get(s.$c-play-queue, "border") solid map.get(c.$c-play-queue, "border");
 
     gap: map.get(s.$c-play-queue, "gap");
@@ -211,18 +232,6 @@ $glow-room: map.get(s.$c-play-queue, "padding");
     color: map.get(c.$c-play-queue, "surface");
 
     pointer-events: auto;
-
-    @include m.mq("landscape") {
-        // Only as tall as its contents, up to the space the layer gives it; the
-        // panel's own list is then what scrolls, rather than the window.
-        inset: 0 0 auto auto;
-
-        max-height: 100%;
-
-        border-bottom: map.get(s.$c-play-queue, "border") solid map.get(c.$c-play-queue, "border");
-
-        border-radius: 0 0 map.get(s.$c-play-queue, "radius") map.get(s.$c-play-queue, "radius");
-    }
 
     &__header {
         display: flex;
@@ -295,16 +304,15 @@ $glow-room: map.get(s.$c-play-queue, "padding");
         content: "";
     }
 
-    /* …and these two are lifted back above it. A POSITION IS REQUIRED, not just a
-       z-index: an absolutely positioned pseudo-element paints above every
-       non-positioned descendant of the same stacking context regardless of DOM
-       order, so without this the overlay would silently swallow both the title
-       link and the remove button — the row would play the track and nothing else
-       in it would work.
+    /* …and the remove button is lifted back above it — the only thing in the row
+       that is. A POSITION IS REQUIRED, not just a z-index: an absolutely positioned
+       pseudo-element paints above every non-positioned descendant of the same
+       stacking context regardless of DOM order, so without this the overlay would
+       silently swallow the button and the row would play the track while nothing
+       could be removed from it.
 
-       Deliberately NOT extended to `__meta` or `__artist`: the artist line should
-       play the track like the rest of the row, so it stays under the overlay. */
-    &__name,
+       Everything else stays UNDER the overlay on purpose — the title and artist
+       lines included, so that aiming at the words plays the track. */
     &__remove {
         position: relative;
         z-index: 1;
@@ -411,20 +419,6 @@ $glow-room: map.get(s.$c-play-queue, "padding");
         white-space: nowrap;
 
         text-overflow: ellipsis;
-    }
-
-    &__name {
-        color: inherit;
-
-        text-decoration: none;
-
-        @media (prefers-reduced-motion: no-preference) {
-            transition: color ti.$c-play-queue linear;
-        }
-
-        &:hover {
-            color: map.get(c.$c-play-queue, "current-glow");
-        }
     }
 
     &__artist {

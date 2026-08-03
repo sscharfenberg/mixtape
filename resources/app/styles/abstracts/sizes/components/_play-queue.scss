@@ -1,31 +1,49 @@
 /******************************************************************************
  * contextual size tokens — component:play-queue
  * @type {Sass}
- * The queue panel's geometry. `width` is the load-bearing one: 240px on desktop,
- * a deliberate fixed sidebar rather than a fraction of the window. A literal
- * third would be 850px of queue on a 2560px monitor — more list than there is
- * track — and it would also squeeze <main> below the DataTable's container
- * breakpoint on a laptop, flipping every table in the app into cards the moment
- * something was queued. At 240px <main> keeps ~1200px on a 1440px screen.
+ * The queue panel's geometry. The two widths are the load-bearing part, and both
+ * are fixed sidebars rather than a fraction of the window: a literal third would be
+ * 850px of queue on a 2560px monitor — more list than there is track.
  *
- * That width is what sets the row design: CoverImage's `tiny` step (24px) beside
- * one line of title over one of artist is all that fits, which is why a row shows
- * no duration (the running total lives in the panel header instead). The cover is
- * not a token here on purpose — CoverImage owns its sizes, and its README is
- * explicit that a consumer must pick a step rather than resize one from outside.
+ * `width` (240px) holds from the narrow overlay up to `full`. `width-full` (360px)
+ * takes over at `full` (1440px), where the cage stops growing and there is simply
+ * room: the cage caps at 1440px, so from that point on <main> keeps a constant
+ * ~1072px (1440 − 360 − gap) no matter how wide the monitor is. The guard rail on
+ * any change here is the DataTable's container breakpoint, `landscape` (768px):
+ * squeeze <main> under that and every listing in the app flips to cards the moment
+ * something is queued. 1072px clears it with room to spare; a third of a 2560px
+ * screen would not.
+ *
+ * 240px is what sets the row design: CoverImage's `tiny` step (24px) beside one
+ * line of title over one of artist is all that fits, which is why a row shows no
+ * duration (the running total lives on its own line in the panel instead). The
+ * extra 120px at `full` is deliberately spent on the SAME row design giving the
+ * title and artist more room before they ellipsise — not on a new column, which
+ * would make the row two different shapes to maintain. The cover is not a token
+ * here on purpose — CoverImage owns its sizes, and its README is explicit that a
+ * consumer must pick a step rather than resize one from outside.
  *
  * The same width serves both layouts. Below `landscape` the panel keeps its size
  * and position and simply floats over the content instead of taking a column, so
  * there is nothing extra to size — an earlier bottom-sheet form needed a height of
- * its own and is gone. Consumed as s.$c-play-queue via `@use "Abstracts/sizes" as s;`.
+ * its own and is gone.
+ *
+ * There is deliberately NO panel-level `radius`. The panel spans header to player
+ * bar at every width, so every corner it has meets one of those two, and a rounded
+ * one there is a notch showing the page through rather than a softened edge. One
+ * existed while the panel was content-height from `landscape` up and ended in open
+ * space; it went with that rule. `row.radius` is a different decision and stays.
+ * Consumed as s.$c-play-queue via `@use "Abstracts/sizes" as s;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "../global-size-tokens" as s;
 
 $play-queue: (
     "width": 240px,
+    // from `full` (1440px) up, where the cage stops growing — see the note above.
+    // FullLayout's content inset reads BOTH and must switch at the same breakpoint.
+    "width-full": 360px,
     "border": map.get(s.$border, "base"),
-    "radius": map.get(s.$radius, "base"),
     "padding": 0.5rem,
     "gap": 0.5rem,
     "header-gap": 0.25rem,

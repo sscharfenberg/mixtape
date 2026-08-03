@@ -94,6 +94,7 @@ hydrate();
    Only from `landscape` up: below that the panel is opened on demand and covers
    the page while it is, which is what an overlay on a phone is for. */
 $queue: map.get(s.$c-play-queue, "width");
+$queue-full: map.get(s.$c-play-queue, "width-full");
 $gap: map.get(s.$c-play-queue, "gap");
 
 .app-body {
@@ -102,6 +103,17 @@ $gap: map.get(s.$c-play-queue, "gap");
     @include m.mq("landscape") {
         &--with-queue {
             --content-inset-end: calc(#{$queue} + #{$gap});
+        }
+    }
+
+    /* The panel widens at `full`, so the inset has to widen with it AT THE SAME
+       BREAKPOINT. These two are one decision expressed in two files — PlayQueue owns
+       the width, this owns the room made for it — and the failure mode if they drift
+       is quiet: the page's trailing column simply sits under an opaque panel, on the
+       one screen size nobody develops at. */
+    @include m.mq("full") {
+        &--with-queue {
+            --content-inset-end: calc(#{$queue-full} + #{$gap});
         }
     }
 }
