@@ -219,11 +219,21 @@ sudo openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
 Reference it from your vhost, redirect HTTP to HTTPS, and enable HTTP/2. Browsers will warn about the
 untrusted certificate; that is expected and fine on the LAN.
 
-Keep the ACME challenge path open from the start, so nothing needs changing when certbot arrives:
+[`files/mixtape.dev.nginx.conf`](files/mixtape.dev.nginx.conf) is that vhost, ready to install — it
+keeps the ACME challenge path open from the start, so nothing needs changing when certbot arrives:
 
-```nginx
-location /.well-known/acme-challenge/ { allow all; root /var/www/html; }
+```bash
+sudo install -m 644 files/mixtape.dev.nginx.conf /etc/nginx/sites-available/mixtape.dev
+sudo nano /etc/nginx/sites-available/mixtape.dev    # replace <your-dev-host>
+sudo ln -s /etc/nginx/sites-available/mixtape.dev /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
 ```
+
+Two things in it are worth reading rather than skipping: it carries `default_server` only until
+production exists ([`03`](03-production-deploy.md#9-nginx-vhost) hands the flag over), and it ships the
+same `internal;` media locations as prod — not for speed on a LAN box, but because it is the only
+machine where that path can be rehearsed at all
+([`03`](03-production-deploy.md#media-hand-off-x-accel-redirect)).
 
 ## 2.10 Backups
 

@@ -178,7 +178,8 @@ block references it.
 > the dev vhost in the same change**. Two `default_server` blocks on one port is a hard nginx error
 > and `nginx -t` will refuse to reload — leaving you with neither site updated.
 
-In the dev vhost, remove `default_server` from **all four** listen lines:
+In the dev vhost ([`files/mixtape.dev.nginx.conf`](files/mixtape.dev.nginx.conf)), remove
+`default_server` from **all four** listen lines:
 
 ```nginx
 listen 80 default_server;           ->  listen 80;
@@ -193,6 +194,67 @@ sudo nginx -t && sudo systemctl reload nginx
 
 Consequence worth knowing: afterwards, an unmatched `Host` header or a bare-IP request lands on
 **production**, not dev.
+
+### Media hand-off (`X-Accel-Redirect`)
+
+The vhost ships two `internal;` locations, and they are the least obvious thing in it. Getting them
+wrong breaks *every track* while leaving Laravel's log completely empty, so it is worth understanding
+before you touch either half.
+
+```nginx
+location /internal-media/music/      { internal; alias /var/media/music/; }
+location /internal-media/audiobooks/ { internal; alias /var/media/audiobooks/; }
+```
+
+**What it does.** `SongStreamController` answers the stream route two ways, chosen by
+`MIXTAPE_STREAM_INTERNAL_PREFIX`. Empty or absent → PHP sends the file itself. Non-empty → it answers
+with an **empty body** plus `X-Accel-Redirect: /internal-media/music/<path>`, and nginx serves the
+bytes from the matching location.
+
+**Why bother.** Streaming a large collection through php-fpm holds one worker for the entire length of
+every song, and a pool has only so many workers — a handful of listeners can starve the site of the
+workers it needs to render pages. On the hand-off path PHP is free the moment the header is written.
+nginx also answers HTTP `Range` natively, which is what makes dragging the player's timeline work.
+
+**Why `internal` is not optional.** It makes these locations unreachable from outside — a request
+straight to `/internal-media/...` is a 404 — so the authorization check in the controller cannot be
+bypassed by guessing the path. Drop the keyword and you have published your entire media library
+without auth.
+
+> ⚠️ **The order is load-bearing.** Install the locations and **reload nginx first**, then set the
+> `.env` value. In between — prefix set, locations missing — every stream 500s.
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+# Prove `internal` works before flipping anything. This needs no session:
+curl -o /dev/null -w '%{http_code}\n' https://<your-domain>/internal-media/music/   # expect 404
+```
+
+A `404` is the pass. A `500` means the keyword did not take and the request fell through to
+`try_files` — fix that before going near the `.env`.
+
+**Production caches its config**, so editing `.env` alone changes nothing. Either add the key *before*
+a deploy — the deploy script runs `optimize:clear` then `config:cache` anyway, so it costs nothing — or
+run those two by hand afterwards. This is the same trap that makes a mail-setting edit look ignored.
+
+**Four ways to get it wrong, none of which looks like the others:**
+
+| Symptom | Cause |
+|---|---|
+| **500** on every stream, **nothing** in Laravel's log | Prefix set, no matching `internal;` location (or a mistyped `alias`). nginx redirects to a URI nothing serves, `location /` catches it, `try_files` bounces it into `index.php`, and nginx refuses to redirect there twice: `rewrite or internal redirection cycle` in **nginx's** error log. No PHP exception is thrown, which is why the app log stays silent. |
+| **200 with an empty body**, `Content-Type: audio/mpeg` | Prefix set with no nginx in front at all (`artisan serve`, `php -S`). Nothing interprets the header, so the browser is handed it literally. Leave the prefix empty off the real server. |
+| A stream 500s the moment you *blank* the key | A blank `.env` line is an empty **string**, never `null`, so a `=== null` guard reads it as *configured*. Guard with `trim((string) config(…)) === ''`, as the library-area paths do — and use that idiom for any env-driven flag. |
+| A path with `#`, `&` or an umlaut 404s while its neighbours play | nginx **URL-decodes** the redirect target, so every segment must be `rawurlencode`d on the way out. An unencoded `#` truncates the path at the fragment. The controller does this; a hand-built URI would not. |
+
+**Which side actually served a track?** Read the `ETag`. PHP's is Symfony's `setAutoEtag()` content
+hash; nginx's static handler writes `"<hex-mtime>-<hex-size>"` beside its own `Last-Modified`, and the
+size decodes to the file's real byte count. `Content-Length` is **not** a discriminator — it is a real
+byte count either way.
+
+**The dev box wants this too**, even though performance there is irrelevant: it is the only machine
+where the accelerated path can be rehearsed, since a workstation running `php -S` has no nginx to
+interpret the header. [`files/mixtape.dev.nginx.conf`](files/mixtape.dev.nginx.conf) ships the same
+block. Rehearsing it there is how these failure modes stop being production discoveries.
 
 ### Security headers
 

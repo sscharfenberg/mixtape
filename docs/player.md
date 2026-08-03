@@ -158,11 +158,21 @@ not a constant — which is why it is measured with a `ResizeObserver` and publi
 
 ## Deploy
 
-- **The sprite is gitignored**, so debbie needs `npm run icons` for `pause` and `repeat` — see
-  [[phase-2-toast-flash-pattern]] in the memory for that trap.
+- **The sprite is gitignored**, so the **dev** box needs `npm run icons` for `pause` and `repeat`.
+  Prod does not: its deploy script already runs it. See [[phase-2-toast-flash-pattern]] in the memory
+  for that trap.
 - **Add `MIXTAPE_STREAM_INTERNAL_PREFIX=/internal-media` to the prod `.env`** and install the
   `internal;` locations from `self-hosting/files/mixtape.prod.nginx.conf`. **Add the locations and
-  reload nginx first**, then flip the `.env`: in between, every track is broken.
+  reload nginx first**, then flip the `.env`: in between, every track is broken. The full procedure,
+  including the `curl` that proves `internal` works before anything is flipped, is
+  [`03-production-deploy.md` → *Media hand-off*](self-hosting/03-production-deploy.md#media-hand-off-x-accel-redirect).
+
+  **Do the same on the dev box** (`self-hosting/files/mixtape.dev.nginx.conf` ships the block). Not for
+  speed — for rehearsal: a workstation running `php -S` has no nginx to interpret the header, so dev is
+  the only place the accelerated path can be exercised before production meets it.
+
+  **Prod caches its config**, so the `.env` edit does nothing on its own. Add the key *before* a deploy
+  (the deploy script runs `optimize:clear` + `config:cache` regardless) or run those two by hand after.
 
   The ways to get it wrong fail differently, and none of them looks like the others:
 
