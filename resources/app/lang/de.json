@@ -374,7 +374,8 @@
             "repeat": "Endlos wiederholen",
             "clear": "Warteschlange leeren",
             "load": "{name} abspielen",
-            "remove": "{name} aus der Warteschlange entfernen"
+            "remove": "{name} aus der Warteschlange entfernen",
+            "removeHint": "Aus der Warteschlange entfernen"
         },
         "bar": {
             "label": "Wiedergabe",

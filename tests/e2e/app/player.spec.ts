@@ -231,6 +231,42 @@ test.describe("the player", () => {
         expect((await audioState(page)).paused).toBe(false);
     });
 
+    test("plays the track when the row BODY is clicked, not just the cover", async ({ page }) => {
+        /*
+         * The play button wraps only the 24px cover; a stretched `::after` is what makes
+         * the whole row the target. That is a HIT AREA, so this is the only layer that can
+         * check it — happy-dom has no layout, and a Vitest click on the <li> would reach
+         * the handler through the DOM whether the overlay existed or not, asserting nothing.
+         *
+         * The click lands in the row's left padding at mid-height: inside the row, outside
+         * the cover button, and clear of the corners (a border-radius clips hit-testing).
+         */
+        const [, second] = await enqueueSongs(page, 2);
+        await enableRepeat(page);
+
+        const row = page.locator(".play-queue__row").nth(1);
+        const box = (await row.boundingBox())!;
+        await row.click({ position: { x: 3, y: box.height / 2 } });
+
+        await expect(page.locator(".player-bar__name")).toHaveText(second);
+        await expect.poll(async () => (await audioState(page)).paused, { timeout: 5_000 }).toBe(false);
+    });
+
+    test("keeps the title a link, so the overlay cannot swallow it", async ({ page }) => {
+        /*
+         * The other half of the same mechanism: the title and the remove button are lifted
+         * back above the overlay with a position + z-index, because an absolutely positioned
+         * pseudo-element paints over every non-positioned sibling regardless of DOM order.
+         * Drop that lift and this navigation silently becomes "play the track" instead.
+         */
+        await enqueueSongs(page, 1);
+        await page.goto("/music/albums");
+
+        await page.locator(".play-queue__name").first().click();
+
+        await expect(page).toHaveURL(/\/music\/songs\/[0-9a-f-]{36}$/u);
+    });
+
     test("plays under the production Content-Security-Policy", async ({ page }) => {
         /*
          * The check `docs/self-hosting/04-going-public.md` left open, and the reason it was

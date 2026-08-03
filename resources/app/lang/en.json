@@ -374,7 +374,8 @@
             "repeat": "Repeat the queue",
             "clear": "Clear the queue",
             "load": "Play {name}",
-            "remove": "Remove {name} from the queue"
+            "remove": "Remove {name} from the queue",
+            "removeHint": "Remove from the queue"
         },
         "bar": {
             "label": "Now playing",
