@@ -16,12 +16,16 @@
  *
  * 240px is what sets the row design: CoverImage's `tiny` step (24px) beside one
  * line of title over one of artist is all that fits, which is why a row shows no
- * duration (the running total lives on its own line in the panel instead). The
- * extra 120px at `full` is deliberately spent on the SAME row design giving the
- * title and artist more room before they ellipsise — not on a new column, which
- * would make the row two different shapes to maintain. The cover is not a token
- * here on purpose — CoverImage owns its sizes, and its README is explicit that a
- * consumer must pick a step rather than resize one from outside.
+ * duration (the running total lives on its own line in the panel instead).
+ *
+ * The extra 120px at `full` goes to the SAME row design — more room before the title
+ * and artist ellipsise — and explicitly NOT to a per-row duration. That was asked and
+ * answered: a duration only at `full` makes the row two shapes to maintain, and the
+ * whole point of the 240px design is that one shape serves every width. Don't add one
+ * back without deciding what it does below 1440px.
+ *
+ * The cover is not a token here on purpose — CoverImage owns its sizes, and its README
+ * is explicit that a consumer must pick a step rather than resize one from outside.
  *
  * The same width serves both layouts. Below `landscape` the panel keeps its size
  * and position and simply floats over the content instead of taking a column, so

@@ -34,9 +34,10 @@
  *
  * NOTHING HERE NAVIGATES. The title was a <Link> to the song's page until it was
  * put to a real listener: in a panel where every other pixel plays the track, the
- * one word you aim at was the one that took you somewhere else. The song page is
- * reached from the listings instead — so if this queue ever needs to offer that
- * route again, it belongs in a per-row menu, not on the title.
+ * one word you aim at was the one that took you somewhere else. Losing the queue's
+ * only route to a song page was weighed and accepted — the listings get you there —
+ * so this is a settled trade, not an oversight. If the route is ever wanted back it
+ * belongs in a per-row menu, never on the title.
  *****************************************************************************/
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -193,10 +194,15 @@ watch(
 @use "Abstracts/timings" as ti;
 @use "Abstracts/z-indexes" as z;
 
-/* Clip-free room for the current row's glow, and the negative margin that pays
-   for it — see `&__list`. Named once here because it appears twice and the two
-   uses must never drift apart. */
-$glow-room: map.get(s.$c-play-queue, "padding");
+/* The panel's own padding, as the amount a child bleeds outward to reach the panel's
+   inner edge — always paired with an equal padding that puts the content back where
+   it was. Two children need it, for different reasons: the list, so the current row's
+   glow has clip-free room inside a scroll container (see `&__list`), and the summary,
+   so its rule spans the full width instead of stopping short (see `&__summary`).
+
+   One named value rather than two, because it is one decision: bleed exactly as far
+   as the panel is padded. Any drift and the content it belongs to shifts. */
+$bleed: map.get(s.$c-play-queue, "padding");
 
 /* THE LAYER is what makes the panel line up, and it is why there is an element
    here that draws nothing. The panel has to end exactly where the app's content
@@ -299,8 +305,20 @@ $glow-room: map.get(s.$c-play-queue, "padding");
         font-size: 1rem;
     }
 
+    /* A FOOTER RULE, not an underline on some text. It bleeds to the panel's inner
+       edges (`$bleed`, the same pairing the list uses) so the line runs the full width
+       — stopping short of the sides would read as a border belonging to the paragraph
+       rather than as the division between the list and the totals below it.
+
+       The equal inline padding puts the text back in line with the rows above, and the
+       top padding keeps it off the rule. Nothing at the bottom: the panel's own padding
+       already holds it clear of the player bar. */
     &__summary {
-        margin: 0;
+        padding: map.get(s.$c-play-queue, "gap") $bleed 0;
+
+        border-top: map.get(s.$c-play-queue, "border") solid map.get(c.$c-play-queue, "border");
+
+        margin: 0 (-$bleed);
 
         color: map.get(c.$c-play-queue, "muted");
 
@@ -391,9 +409,9 @@ $glow-room: map.get(s.$c-play-queue, "padding");
 
         flex: 1 1 auto;
 
-        padding: $glow-room;
+        padding: $bleed;
 
-        margin: -$glow-room;
+        margin: -$bleed;
 
         list-style: none;
 
