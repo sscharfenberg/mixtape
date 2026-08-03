@@ -19,10 +19,11 @@
  * while the inner button still reads `mute`, and that is right: nothing has been muted,
  * and pressing it still does something.
  *
- * It reads usePlayerAudio directly rather than taking props or emitting: the
+ * It reads usePlayerVolume directly rather than taking props or emitting: the
  * composable is a module singleton, so going through PlayerBar would be
  * prop-drilling between two components that can both simply ask. Same call
- * PlayQueueMenu makes.
+ * PlayQueueMenu makes. The level is its own singleton rather than part of
+ * usePlayerAudio, which owns the element and hands it over — see that module's note.
  *
  * Its own component rather than markup in PlayerBar because the bar is already the
  * longest file in the player and this brings a popover, a slider and two handlers
@@ -32,10 +33,10 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "Components/UI/Icon.vue";
 import PopOver from "Components/UI/PopOver.vue";
-import { usePlayerAudio } from "Composables/usePlayerAudio";
+import { usePlayerVolume } from "Composables/usePlayerVolume";
 
 const { t } = useI18n();
-const { volume, isMuted, isSilent, setVolume, toggleMute } = usePlayerAudio();
+const { volume, isMuted, isSilent, setVolume, toggleMute } = usePlayerVolume();
 
 /**
  * The level as a percentage, for the readout above the slider.

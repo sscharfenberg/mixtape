@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
-import { resetPlayerAudioForTests, usePlayerAudio } from "Composables/usePlayerAudio";
+import { resetPlayerVolumeForTests, usePlayerVolume } from "Composables/usePlayerVolume";
 import { resetInertia } from "Testing/inertia";
 import { mountApp } from "Testing/mount";
 import PlayerVolume from "./PlayerVolume.vue";
@@ -8,7 +8,7 @@ import PlayerVolume from "./PlayerVolume.vue";
 vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
 
 /*
- * What this control DRAWS, given the level — the half usePlayerAudio's own spec cannot
+ * What this control DRAWS, given the level — the half usePlayerVolume's own spec cannot
  * see, and the half the requirement was written in terms of ("if the volume is reduced
  * to zero, switch the volume icon to a mute icon").
  *
@@ -36,7 +36,7 @@ const muteGlyph = (wrapper: ReturnType<typeof mountApp>): string | undefined =>
 describe("PlayerVolume", () => {
     beforeEach(() => {
         resetInertia();
-        resetPlayerAudioForTests();
+        resetPlayerVolumeForTests();
         window.localStorage.clear();
     });
 
@@ -50,7 +50,7 @@ describe("PlayerVolume", () => {
     it("switches the trigger to volume_off when the level is turned to zero", async () => {
         const wrapper = mountApp(PlayerVolume);
 
-        usePlayerAudio().setVolume(0);
+        usePlayerVolume().setVolume(0);
         await nextTick();
 
         expect(triggerGlyph(wrapper)).toBe("#volume_off");
@@ -62,8 +62,8 @@ describe("PlayerVolume", () => {
     it("switches both when muted at an audible level", async () => {
         const wrapper = mountApp(PlayerVolume);
 
-        usePlayerAudio().setVolume(0.7);
-        usePlayerAudio().toggleMute();
+        usePlayerVolume().setVolume(0.7);
+        usePlayerVolume().toggleMute();
         await nextTick();
 
         // The trigger reports audibility, so a mute silences it out in the bar too.
@@ -75,7 +75,7 @@ describe("PlayerVolume", () => {
     it("shows the level as a percentage, and moves the drawn fill with it", async () => {
         const wrapper = mountApp(PlayerVolume);
 
-        usePlayerAudio().setVolume(0.35);
+        usePlayerVolume().setVolume(0.35);
         await nextTick();
 
         expect(wrapper.find(".player-volume__readout").text()).toBe("35%");
@@ -93,7 +93,7 @@ describe("PlayerVolume", () => {
         await slider.trigger("input");
 
         // `input`, not `change`: a volume that only moves on release cannot be found by ear.
-        expect(usePlayerAudio().volume.value).toBeCloseTo(0.2);
+        expect(usePlayerVolume().volume.value).toBeCloseTo(0.2);
     });
 
     it("mutes and un-mutes from the button, and says which it will do next", async () => {
@@ -103,10 +103,10 @@ describe("PlayerVolume", () => {
         expect(button.attributes("aria-pressed")).toBe("false");
 
         await button.trigger("click");
-        expect(usePlayerAudio().isMuted.value).toBe(true);
+        expect(usePlayerVolume().isMuted.value).toBe(true);
         expect(button.attributes("aria-pressed")).toBe("true");
 
         await button.trigger("click");
-        expect(usePlayerAudio().isMuted.value).toBe(false);
+        expect(usePlayerVolume().isMuted.value).toBe(false);
     });
 });

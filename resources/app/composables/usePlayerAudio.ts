@@ -43,11 +43,28 @@
  * Playback never starts on its own: nothing here calls `play()` except a user gesture
  * or an auto-advance that follows one, so hydrating a stored queue at page load leaves
  * a paused player rather than a browser blocking it (or, worse, not blocking it).
+ *
+ * TWO THINGS DELIBERATELY LIVE ELSEWHERE, because they shared nothing with the above:
+ *
+ *   - **The output level** — `Composables/usePlayerVolume`. It touches two element
+ *     properties and one storage key and never sees the intent flag, the queue pointer
+ *     or the teardown list. This module still owns the element and hands it over via
+ *     `bindVolumeElement()`, so there is exactly one owner.
+ *   - **Talking to the OS** — `Utils/mediaSession`. Stateless output: lock screen,
+ *     notification shade, media keys. It was interleaved with element wiring inside
+ *     `attach()`, which read as one procedure and was two.
+ *
+ * What is left is deliberately NOT split further. `attach`/`detach`, the intent flag,
+ * the readings, `load` and the queue watcher share one teardown list and one
+ * invariant, and all three traps above live exactly at those seams — spreading them
+ * across files would move the bug surface somewhere nobody looks.
  *****************************************************************************/
 import type { ComputedRef, Ref } from "vue";
 import { computed, ref, watch } from "vue";
 import type { QueueTrack } from "Composables/usePlayerQueue";
 import { usePlayerQueue } from "Composables/usePlayerQueue";
+import { bindVolumeElement } from "Composables/usePlayerVolume";
+import * as session from "Utils/mediaSession";
 
 /** One contiguous stretch of audio the browser already holds, in seconds. */
 export type BufferedRange = {
@@ -79,64 +96,13 @@ export type UsePlayerAudioReturn = {
     toggle: () => void;
     /** Move the cursor, clamped into the track. */
     seek: (seconds: number) => void;
-    /** Output level, 0–1. `1` is the browser's own default: unity gain, no attenuation. */
-    volume: Ref<number>;
-    /** Whether output is muted, which is separate from a level of zero. */
-    isMuted: Ref<boolean>;
-    /** Nothing audible either way — what the control draws its mute glyph from. */
-    isSilent: ComputedRef<boolean>;
-    /** Set the level, clamped to 0–1; anything above zero also lifts a mute. */
-    setVolume: (value: number) => void;
-    /** Mute, or come back to the level muting interrupted. */
-    toggleMute: () => void;
 };
 
-/**
- * Where the level is remembered.
- *
- * NOT user-scoped, unlike the queue's payload. How loud this machine's speakers want
- * to be is a fact about the machine and whoever is sitting at it, so two people
- * sharing a browser inheriting one level is right where inheriting one queue is not.
- */
-const VOLUME_STORAGE_KEY = "mixtape.volume.v1";
-
-/**
- * The level a fresh browser gives an <audio>: unity gain, nothing attenuated.
- *
- * Kept as the default deliberately, and it is why this app sounds louder than
- * YouTube for the same song. YouTube normalises loudness — it measures each upload
- * and turns DOWN anything mastered hotter than roughly -14 LUFS, which most modern
- * music is by a wide margin. Playing a file untouched is therefore not "too loud",
- * it is unattenuated, and the platform people compare it to is the one being quiet.
- * Lowering this number would only mean everything starts quiet and gets turned up;
- * the real fix is per-track normalisation (ReplayGain tags, which getID3 can already
- * read during the library scan) applied as a gain per track. Not built.
- */
-const FULL_VOLUME = 1;
 
 // Module-level state — one element, one set of readings, however many consumers.
 const isPlaying = ref<boolean>(false);
 const currentTime = ref<number>(0);
 const buffered = ref<BufferedRange[]>([]);
-const volume = ref<number>(FULL_VOLUME);
-const isMuted = ref<boolean>(false);
-
-/**
- * The level to return to when a mute is lifted.
- *
- * Needed because the two ways of silencing the player have to be undoable in the same
- * gesture: muting at 60% must come back to 60%, and un-muting after the slider was
- * dragged to zero has to arrive at something audible or the button does nothing
- * visible and reads as broken.
- */
-let levelBeforeMute = FULL_VOLUME;
-
-/** Whether the stored level has been read yet — once per page, on the first attach. */
-let volumeHydrated = false;
-
-/** Nothing audible: muted, or turned all the way down. One glyph covers both. */
-const isSilent = computed<boolean>(() => isMuted.value || volume.value === 0);
-
 /**
  * The element's own idea of the duration, kept only as a fallback.
  *
@@ -175,118 +141,20 @@ function readBuffered(source: HTMLAudioElement): BufferedRange[] {
 }
 
 /**
- * Push the level onto the element.
+ * Publish the cursor to the OS.
  *
- * `volume` and `muted` are properties of the ELEMENT, not of its source, so they
- * survive every `src` change and this needs calling only when one of them changes or
- * a new element is attached — not per track.
- */
-function applyVolume(): void {
-    if (!element) return;
-
-    element.volume = volume.value;
-    element.muted = isMuted.value;
-}
-
-/** Write the level down. Failure is silent: a working player matters more than a remembered level. */
-function persistVolume(): void {
-    try {
-        window.localStorage.setItem(VOLUME_STORAGE_KEY, JSON.stringify({ volume: volume.value, muted: isMuted.value }));
-    } catch {
-        // Storage full or blocked — the level still applies for this page.
-    }
-}
-
-/**
- * Read the stored level, once.
- *
- * Every field is re-validated rather than trusted: this value is assigned straight to
- * `element.volume`, which THROWS on anything outside 0–1, so a hand-edited or
- * half-written entry would otherwise break playback at attach time rather than
- * degrade. A number that fails the check is simply not adopted.
- */
-function hydrateVolume(): void {
-    if (volumeHydrated) return;
-    volumeHydrated = true;
-
-    let stored: string | null = null;
-    try {
-        stored = window.localStorage.getItem(VOLUME_STORAGE_KEY);
-    } catch {
-        return; // Storage unavailable; the default level is fine.
-    }
-    if (!stored) return;
-
-    try {
-        const payload = JSON.parse(stored) as { volume?: unknown; muted?: unknown };
-
-        if (typeof payload.volume === "number" && Number.isFinite(payload.volume)) {
-            volume.value = Math.min(Math.max(payload.volume, 0), 1);
-            if (volume.value > 0) levelBeforeMute = volume.value;
-        }
-        if (typeof payload.muted === "boolean") isMuted.value = payload.muted;
-    } catch {
-        // Corrupt entry — start at full rather than throw at boot.
-    }
-}
-
-/**
- * Tell the OS what is playing, so the lock screen, the notification shade and a
- * keyboard's media keys all show the right thing.
- *
- * Plain browser API, no dependency — and the reason the player needs no library at
- * all for background playback. Guarded because Media Session is absent on desktop
- * Firefox and older WebViews, where a missing lock-screen title is the only cost.
- */
-function publishMetadata(track: QueueTrack | null): void {
-    if (!("mediaSession" in navigator)) return;
-
-    if (!track) {
-        navigator.mediaSession.metadata = null;
-
-        return;
-    }
-
-    navigator.mediaSession.metadata = new MediaMetadata({
-        title: track.name,
-        artist: track.artist ?? "",
-        album: track.album ?? "",
-        artwork: track.coverUrl ? [{ src: track.coverUrl, type: "image/jpeg" }] : []
-    });
-}
-
-/**
- * Publish the cursor and total to the OS, so a lock screen can draw its own
- * progress bar and scrub.
- *
- * Wrapped in try/catch on purpose: `setPositionState` throws a TypeError when the
- * position runs past the duration, and the two come from different places here (the
- * database's measured length, the element's real playhead). A file whose tags
- * disagree with its bytes must cost a missing lock-screen scrubber, not a broken
- * player.
+ * A local wrapper because the module below is deliberately stateless: it takes the three
+ * numbers rather than reading them, so the player is the only thing that knows the total
+ * comes from the QUEUE (getID3's measurement) while the position comes from the ELEMENT.
+ * That mismatch is exactly what makes `setPositionState` throw, and it is guarded there.
  */
 function publishPositionState(): void {
-    if (!("mediaSession" in navigator) || typeof navigator.mediaSession.setPositionState !== "function") return;
-
-    const total = duration.value;
-    if (!Number.isFinite(total) || total <= 0) return;
-
-    try {
-        navigator.mediaSession.setPositionState({
-            duration: total,
-            position: Math.min(Math.max(currentTime.value, 0), total),
-            playbackRate: element?.playbackRate ?? 1
-        });
-    } catch {
-        // Position outside the claimed duration — nothing here depends on it.
-    }
+    session.publishPositionState(duration.value, currentTime.value, element?.playbackRate ?? 1);
 }
 
-/** Mirror the play state to the OS, so a lock-screen button shows the right glyph. */
+/** Mirror the play INTENT — not `element.paused` — so the lock screen matches the bar. */
 function publishPlaybackState(): void {
-    if (!("mediaSession" in navigator)) return;
-
-    navigator.mediaSession.playbackState = isPlaying.value ? "playing" : "paused";
+    session.publishPlaybackState(isPlaying.value);
 }
 
 /**
@@ -336,7 +204,7 @@ function load(track: QueueTrack, autoplay: boolean): void {
         element.src = track.streamUrl;
     }
 
-    publishMetadata(track);
+    session.publishMetadata(track);
 
     if (autoplay) requestPlayback();
 }
@@ -358,7 +226,7 @@ function stopAndUnload(audio: HTMLAudioElement): void {
     currentTime.value = 0;
     buffered.value = [];
     elementDuration.value = 0;
-    publishMetadata(null);
+    session.publishMetadata(null);
     publishPlaybackState();
 }
 
@@ -442,47 +310,6 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
     }
 
     /**
-     * Set the output level.
-     *
-     * Dragging up LIFTS A MUTE, deliberately: the slider is the more specific gesture
-     * of the two, and a slider that visibly moves while the player stays silent is the
-     * kind of control people press twice and then distrust. Zero is left as a level in
-     * its own right rather than turned into a mute — `isSilent` is what collapses the
-     * distinction for the glyph, so the two states stay separately undoable.
-     */
-    function setVolume(value: number): void {
-        volume.value = Math.min(Math.max(value, 0), 1);
-
-        if (volume.value > 0) {
-            levelBeforeMute = volume.value;
-            isMuted.value = false;
-        }
-
-        applyVolume();
-        persistVolume();
-    }
-
-    /**
-     * Mute, or come back from it.
-     *
-     * Un-muting from a level of zero lands on the remembered level instead, because
-     * `muted = false` over `volume = 0` is still silence — the press would appear to
-     * do nothing at all.
-     */
-    function toggleMute(): void {
-        if (isMuted.value) {
-            isMuted.value = false;
-            if (volume.value === 0) volume.value = levelBeforeMute > 0 ? levelBeforeMute : FULL_VOLUME;
-        } else {
-            if (volume.value > 0) levelBeforeMute = volume.value;
-            isMuted.value = true;
-        }
-
-        applyVolume();
-        persistVolume();
-    }
-
-    /**
      * Take ownership of PlayerBar's element: wire every listener, and load whatever
      * the queue already has without starting it.
      *
@@ -494,10 +321,9 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
         detach();
         element = audio;
 
-        // Before anything can be heard: a fresh element starts at unity regardless of
-        // what the listener chose last visit.
-        hydrateVolume();
-        applyVolume();
+        // The level lives in its own singleton; this module owns the element, so it hands
+        // it over rather than letting a second module claim it.
+        bindVolumeElement(audio);
 
         /** Bind a media event and register its removal, so `detach()` needs no list of its own. */
         const on = <K extends keyof HTMLMediaElementEventMap>(
@@ -575,40 +401,24 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
         teardown.push(() => document.removeEventListener("visibilitychange", resync));
 
         /*
-         * OS transport controls — lock screen, notification shade, media keys, a car
-         * head unit. These are the handlers that make the queue work when the page is
-         * not on screen at all, which is the whole point of wiring Media Session.
+         * OS transport controls — lock screen, notification shade, media keys, a car head
+         * unit. These are the handlers that make the queue work when the page is not on
+         * screen at all, which is the whole point of wiring Media Session.
+         *
+         * Its teardown joins this element's list, so `detach()` still undoes everything in
+         * one place — the guarantee that a remount cannot leave two sets of handlers
+         * advancing the queue twice.
          */
-        if ("mediaSession" in navigator) {
-            const actions: Array<[MediaSessionAction, () => void]> = [
-                ["play", play],
-                ["pause", pause],
-                ["stop", pause],
-                ["previoustrack", () => queue.previous()],
-                ["nexttrack", () => queue.next()],
-                ["seekbackward", () => seek(currentTime.value - 10)],
-                ["seekforward", () => seek(currentTime.value + 10)]
-            ];
-
-            for (const [action, handler] of actions) {
-                try {
-                    navigator.mediaSession.setActionHandler(action, handler);
-                    teardown.push(() => navigator.mediaSession.setActionHandler(action, null));
-                } catch {
-                    // An action this browser does not know. The rest still work.
-                }
-            }
-
-            // `seekto` carries a payload, so it cannot join the list above.
-            try {
-                navigator.mediaSession.setActionHandler("seekto", details => {
-                    if (typeof details.seekTime === "number") seek(details.seekTime);
-                });
-                teardown.push(() => navigator.mediaSession.setActionHandler("seekto", null));
-            } catch {
-                // Not supported here; the lock screen simply offers no scrubber.
-            }
-        }
+        teardown.push(
+            ...session.bindActionHandlers({
+                play,
+                pause,
+                previous: () => queue.previous(),
+                next: () => queue.next(),
+                seekBy: seconds => seek(currentTime.value + seconds),
+                seekTo: seek
+            })
+        );
 
         /*
          * Follow the queue's pointer.
@@ -646,34 +456,25 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
         publishPlaybackState();
     }
 
-    /** Drop every listener and forget the element. */
+    /**
+     * Drop every listener and forget the element.
+     *
+     * The volume module is told too, so it is not left holding a node that has left the
+     * document — but the LEVEL itself survives, because unmounting the bar when the queue
+     * empties must not forget a preference.
+     */
     function detach(): void {
         for (const undo of teardown) undo();
         teardown = [];
         element = null;
+        bindVolumeElement(null);
         isPlaying.value = false;
         currentTime.value = 0;
         buffered.value = [];
         elementDuration.value = 0;
     }
 
-    return {
-        isPlaying,
-        currentTime,
-        duration,
-        buffered,
-        attach,
-        detach,
-        play,
-        pause,
-        toggle,
-        seek,
-        volume,
-        isMuted,
-        isSilent,
-        setVolume,
-        toggleMute
-    };
+    return { isPlaying, currentTime, duration, buffered, attach, detach, play, pause, toggle, seek };
 }
 
 /**
@@ -693,12 +494,7 @@ export function resetPlayerAudioForTests(): void {
     buffered.value = [];
     elementDuration.value = 0;
 
-    // The level too, and its hydration latch — a spec that turns the volume down would
-    // otherwise leave the next one starting quiet, and one that seeds localStorage would
-    // find hydration already spent. `detach()` deliberately does NOT do this: unmounting
-    // the bar when the queue empties must not forget a preference.
-    volume.value = FULL_VOLUME;
-    isMuted.value = false;
-    levelBeforeMute = FULL_VOLUME;
-    volumeHydrated = false;
+    // NOT the output level: that is usePlayerVolume's singleton now, and a spec that
+    // needs it drained calls `resetPlayerVolumeForTests()` itself. Resetting it from here
+    // would quietly re-couple the two modules the moment someone added a field.
 }
