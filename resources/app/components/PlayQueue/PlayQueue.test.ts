@@ -3,7 +3,7 @@ import { nextTick } from "vue";
 import type { QueueTrack } from "Composables/usePlayerQueue";
 import { resetPlayerQueueForTests, usePlayerQueue } from "Composables/usePlayerQueue";
 import { resetInertia } from "Testing/inertia";
-import { mountApp, translate } from "Testing/mount";
+import { iconNames, mountApp, translate } from "Testing/mount";
 import PlayQueue from "./PlayQueue.vue";
 
 vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
@@ -30,13 +30,25 @@ const track = (id: string, name: string, artist: string | null = "Radiohead"): Q
     streamUrl: `/music/songs/${id}/stream`
 });
 
-/** Fill the queue, then mount the panel over it. */
+/**
+ * Fill the queue, then mount the panel over it.
+ *
+ * Attached to the document because two of these tests are about FOCUS, and an element
+ * outside the document cannot hold any — `focus()` on a detached node is a no-op and
+ * `document.activeElement` stays on <body>, so the assertion would pass or fail for
+ * the wrong reason.
+ */
 const panel = async (tracks: QueueTrack[]) => {
     if (tracks.length) usePlayerQueue().enqueue(tracks);
-    const wrapper = mountApp(PlayQueue);
+    const wrapper = mountApp(PlayQueue, { attachTo: document.body });
     await nextTick();
 
     return wrapper;
+};
+
+/** Press a key on one of a row's controls. */
+const press = (target: Element, key: string, altKey = true): void => {
+    target.dispatchEvent(new KeyboardEvent("keydown", { key, altKey, bubbles: true, cancelable: true }));
 };
 
 describe("PlayQueue", () => {
@@ -168,6 +180,78 @@ describe("PlayQueue", () => {
         const wrapper = await panel([track("a", "Airbag", null)]);
 
         expect(wrapper.find(".play-queue__artist").exists()).toBe(false);
+    });
+
+    it("gives every row a grip holding the cover and the drag glyph", async () => {
+        // The grip is the cover WITH the glyph under it, not the glyph alone: 16px of
+        // dots is too small a thing to aim a drag at, on a phone especially. The cost is
+        // that the cover no longer plays the track — it belongs to the grip now.
+        const wrapper = await panel([track("a", "Airbag"), track("b", "Bones")]);
+        const grip = wrapper.findAll(".play-queue__grip");
+
+        expect(grip).toHaveLength(2);
+        // `__box` rather than the <img>: these tracks carry no artwork, so CoverImage draws
+        // its placeholder — the box is what it renders either way, and it is the 24px half
+        // of the grip that makes the strip worth grabbing.
+        expect(grip[0].find(".cover-image__box").exists()).toBe(true);
+        expect(iconNames(grip[0])).toContain("drag");
+        expect(grip[0].attributes("aria-label")).toBe(translate("player.queue.move").replace("{name}", "Airbag"));
+        // Where the keyboard alternative is advertised: the shortcut moves this row, so
+        // it is named on the control that moves it (the handler itself sits on the <li>).
+        expect(grip[0].attributes("aria-keyshortcuts")).toBe("Alt+ArrowUp Alt+ArrowDown");
+    });
+
+    it("keeps the play overlay a button of its own, with nothing inside it", async () => {
+        // The regression this guards: putting anything back INSIDE the overlay button.
+        // It is stretched across the whole row, so a child of it would be a child of the
+        // hit area — which is how the cover ended up unable to be the drag grip.
+        const wrapper = await panel([track("a", "Airbag")]);
+        const load = wrapper.find(".play-queue__load");
+
+        expect(load.element.tagName).toBe("BUTTON");
+        expect(load.element.childElementCount).toBe(0);
+        expect(load.attributes("aria-label")).toBe(translate("player.queue.load").replace("{name}", "Airbag"));
+    });
+
+    it("moves a row with Alt+↑/↓, and keeps focus on the control that moved it", async () => {
+        /*
+         * The keyboard companion to the drag, end to end through the real panel — the
+         * module's own spec covers the decision, but not this half, which is what makes it
+         * usable twice: the v-for key carries the index, so every row in the moved range
+         * is a NEW element and the node holding focus is gone after the re-render. Without
+         * putting focus back, the second Alt+↓ goes to <body> and nothing happens.
+         */
+        const wrapper = await panel([track("a", "Airbag"), track("b", "Bones"), track("c", "Creep")]);
+        const gripOf = (row: number) => wrapper.findAll(".play-queue__grip")[row].element as HTMLElement;
+
+        gripOf(0).focus();
+        press(gripOf(0), "ArrowDown");
+        await nextTick();
+
+        expect(usePlayerQueue().tracks.value.map(entry => entry.name)).toStrictEqual(["Bones", "Airbag", "Creep"]);
+        expect(document.activeElement).toBe(gripOf(1));
+
+        // …and again, from where it left off — the walk down the queue.
+        press(document.activeElement!, "ArrowDown");
+        await nextTick();
+
+        expect(usePlayerQueue().tracks.value.map(entry => entry.name)).toStrictEqual(["Bones", "Creep", "Airbag"]);
+        expect(document.activeElement).toBe(gripOf(2));
+    });
+
+    it("returns focus to the same KIND of control, not always the grip", async () => {
+        // Alt+↑/↓ works from any of the row's three controls, so focus has to come back
+        // to the one that was held — landing on the grip after pressing it from the remove
+        // button would quietly move the reader's place in the row.
+        const wrapper = await panel([track("a", "Airbag"), track("b", "Bones")]);
+        const remove = wrapper.findAll(".play-queue__remove")[1].element as HTMLElement;
+
+        remove.focus();
+        press(remove, "ArrowUp");
+        await nextTick();
+
+        expect(usePlayerQueue().tracks.value.map(entry => entry.name)).toStrictEqual(["Bones", "Airbag"]);
+        expect(document.activeElement).toBe(wrapper.findAll(".play-queue__remove")[0].element);
     });
 
     it("labels the panel for assistive tech", async () => {

@@ -231,15 +231,16 @@ test.describe("the player", () => {
         expect((await audioState(page)).paused).toBe(false);
     });
 
-    test("plays the track when the row BODY is clicked, not just the cover", async ({ page }) => {
+    test("plays the track when the row BODY is clicked, not just a control", async ({ page }) => {
         /*
-         * The play button wraps only the 24px cover; a stretched `::after` is what makes
-         * the whole row the target. That is a HIT AREA, so this is the only layer that can
-         * check it — happy-dom has no layout, and a Vitest click on the <li> would reach
-         * the handler through the DOM whether the overlay existed or not, asserting nothing.
+         * The row's play target is an empty button stretched across the whole of it (it
+         * used to be a `::after` on a button wrapping the cover, until the cover became the
+         * drag grip). That is a HIT AREA, so this is the only layer that can check it —
+         * happy-dom has no layout, and a Vitest click on the <li> would reach the handler
+         * through the DOM whether the overlay existed or not, asserting nothing.
          *
          * The click lands in the row's left padding at mid-height: inside the row, outside
-         * the cover button, and clear of the corners (a border-radius clips hit-testing).
+         * the grip, and clear of the corners (a border-radius clips hit-testing).
          */
         const [, second] = await enqueueSongs(page, 2);
         await enableRepeat(page);

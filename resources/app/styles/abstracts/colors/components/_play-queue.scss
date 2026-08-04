@@ -34,7 +34,15 @@ $play-queue: (
             color.adjust(map.get(c.$retro, "c3", "dark"), $alpha: -0.85)
         ),
     "current-glow": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
-    // per-row remove control, which stays quiet until the row is hovered
+    // The row being dragged is lifted off the panel by a shadow, and a shadow is the
+    // one thing here that is not a surface: black at low alpha, opacity-adjusted only
+    // (Rule 2). Heavier in dark mode, where a soft shadow over a near-black panel is
+    // invisible unless it is darker than the thing it falls on.
+    "drag-shadow": light-dark(
+            color.adjust(map.get(c.$grey, "black"), $alpha: -0.65),
+            color.adjust(map.get(c.$grey, "black"), $alpha: -0.45)
+        ),
+    // per-row grip and remove controls, which stay quiet until the row is hovered
     "control": light-dark(map.get(c.$grey, "slate"), map.get(c.$grey, "slate")),
     "control-hover": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "white"))
 ) !default;

@@ -31,6 +31,7 @@
         "@inertiajs/vue3": "^3.3.1",
         "@sscharfenberg/progressbar": "^0.2.0",
         "normalize.css": "^8.0.1",
+        "sortablejs": "^1.15.7",
         "vue": "^3.5.38",
         "vue-i18n": "^11.4.6",
         "vue-input-otp": "^0.3.2"
@@ -40,6 +41,7 @@
         "@types/minimist": "^1.2.5",
         "@types/node": "^25.9.3",
         "@types/semver": "^7.7.1",
+        "@types/sortablejs": "^1.15.9",
         "@vitejs/plugin-vue": "^6.0.7",
         "@vue/eslint-config-prettier": "^10.2.0",
         "@vue/eslint-config-typescript": "^14.8.0",

@@ -17,6 +17,7 @@ queue and its persistence, which this builds on rather than revisits.
 | Repeat on the queue                                           | ✅ `usePlayerQueue` + `PlayQueueMenu` toggle      |
 | Transport UI + timeline **+ buffer indicator**                | ✅ `PlayerBar`, `PlayerTimeline`, 28 Vitest tests |
 | Real playback in a browser                                    | ✅ 13 Playwright specs, incl. under the prod CSP  |
+| Reordering the queue (drag + Alt+↑/↓)                         | ✅ `useQueueReorder`, 20 Vitest + 6 Playwright    |
 | Screen-off on a real phone                                    | ⬜ **the owner's, on the device that matters**    |
 
 **Not built, deliberately:** server-side queue sync (`player_states` is still write-nobody-reads —
@@ -134,6 +135,61 @@ position and only `change` commits the seek: one seek per pixel is one Range req
 The buffer is drawn as **segments**, not a single width, because after a seek past the buffer there
 genuinely are two stretches with a hole between them.
 
+**Reordering the queue** (built 2026-08-04) is two gestures over one operation. `reorder(from, to)`
+already existed on `usePlayerQueue`, tested and called by nothing — so this was only ever a gesture
+problem, and both gestures go through it rather than touching `tracks`: it is what carries the
+pointer with the track that was **loaded** (drag something above the playing row and an index-based
+pointer would hand the player a different song) and what persists the new order.
+
+- **Dragging**, by **SortableJS used directly** — no Vue wrapper. `vuedraggable` /
+  `vue-draggable-plus` exist to own the list through `v-model`, which is exactly what must not
+  happen when the queue is a module singleton that persists itself; in controlled mode a wrapper
+  earns nothing, and this app keeps very few runtime dependencies. Native HTML5 DnD was out from
+  the start: no events on touch, and the panel has a phone mode. What SortableJS is actually paying
+  for is touch, auto-scroll near the ends of the scrolling list, and `handle`.
+  - **`forceFallback: true`**, so its own pointer path runs on every device instead of native
+    dragging on desktop and the fallback elsewhere. One code path, drag visuals we style
+    (`--dragging` on the clone, `--ghost` on the gap it left), no reliance on a browser agreeing to
+    start a native drag from inside a `<button>` — and it is the path Playwright can drive with
+    plain mouse moves.
+  - **The DOM move is undone before the queue is told.** Sortable has already moved the `<li>` when
+    `onEnd` fires, which leaves two writers on one list; restoring it first means Vue's re-render is
+    the only thing that reorders anything. This is what the wrappers do internally, and skipping it
+    is how a wrapper-less integration duplicates or loses a row.
+  - `delay` + `delayOnTouchOnly` (a long-press on touch only), or a finger dragging a row steals the
+    gesture that scrolls the list. `animation` is `0` under reduced motion and otherwise `150`,
+    mirroring `ti.$c-play-queue` — a JS option cannot read the Sass token, so the two are kept in
+    step by hand.
+- **Alt+↑/↓** moves the **focused** row one place. Alt is what keeps it out of the way: a bare arrow
+  is how the panel is scrolled. The keystroke is only consumed when a move actually happens, so the
+  ends of the queue do not silently eat one. **Focus has to be put back by hand** — the row's
+  `v-for` key carries its index (it must: the same song may be queued twice), so the element holding
+  focus is replaced by the move, and without re-focusing the same control in the row's new position
+  the journey ends after a single press.
+  - **"Focused" is the whole story of the one bug this shipped with.** Hover is not focus, so
+    pointing at a row and pressing the keys does nothing — reported from a Mac as "it doesn't work",
+    and it worked the moment the grip was clicked. Two things came out of that. The grip's hint now
+    **says to click it first** (`player.queue.moveHint`), because nothing else on screen did. And the
+    grip **focuses itself on `pointerdown`**, because macOS Safari and Firefox deliberately leave a
+    clicked `<button>` unfocused (platform convention) — without it the instruction would only be
+    true in Chrome. Chromium does not treat that programmatic focus as `:focus-visible`, so a mouse
+    click still draws no focus ring.
+  - **The keys are named for the keyboard in front of the reader** — ⌥↑/↓ on an Apple one, Alt+↑/↓
+    elsewhere (`utils/platform.ts`). A hint that says "Alt" to someone looking at a ⌥ key is naming
+    a key they cannot find. Only the WORDS branch: the handler still reads `event.altKey`, which is
+    one bit with two names printed on it, and `aria-keyshortcuts` keeps ARIA's canonical
+    `Alt+ArrowUp Alt+ArrowDown` for assistive tech to announce in its own words.
+
+**The handle is the cover with the drag glyph beneath it** — one 24px-wide grip strip, the owner's
+design. At 280px the row has no horizontal room to give (the title ellipsises first), so a leading
+or trailing handle column would have cost the title 24px; stacking costs it nothing and grows the
+row from 47px to **54px** instead. The glyph alone would have been a 16px target, which is not
+something to aim a drag at on a phone. What it costs: the cover had to leave the play button to
+become the grip, so **tapping the cover no longer plays the track** — the other ~90% of the row
+still does. That also turned the play overlay from a `::after` on a button wrapping the cover into
+an **empty button positioned across the row**: same hit area with one box instead of two, and it has
+a real bounding box, so its focus ring traces the row and a browser test can click it.
+
 **`PlayerBar`** is one grid with two shapes: on a phone the timeline takes a line of its own below
 the cover, title and transport; from `landscape` up it moves into the row. So the bar's height is
 not a constant — which is why it is measured with a `ResizeObserver` and published as
@@ -148,7 +204,12 @@ not a constant — which is why it is measured with a `ResizeObserver` and publi
 - **Vitest** — the player's whole state machine against happy-dom's `<audio>` (which is real enough:
   `play()`/`pause()` flip `paused` and fire their events). The track boundary, repeat-one, the
   pointer moving for reasons that are not playback, duration fallback, buffered ranges becoming
-  geometry, scrub-on-release.
+  geometry, scrub-on-release. For the reorder, **SortableJS is mocked on purpose**: a drag is a
+  stream of pointer events over elements with real geometry, so a "drag" here would assert the
+  mock's own arithmetic. What this layer proves is the contract around the library — the options it
+  is handed, the DOM move being undone before the queue is told, the instance following the list in
+  and out of the DOM (it is behind a `v-if`, so `onMounted` would work once and then stop after a
+  clear), and every Alt+↑/↓ decision.
 - **Playwright** (`tests/e2e/app/player.spec.ts`) — real playback. The E2E fixture now writes a
   **copy of the committed one-second mp3 at every path `E2ESeeder` claims** (`seedMediaFiles`), so
   the stream route serves real audio. One second is a feature: auto-advance is the headline

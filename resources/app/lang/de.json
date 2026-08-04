@@ -375,7 +375,9 @@
             "clear": "Warteschlange leeren",
             "load": "{name} abspielen",
             "remove": "{name} aus der Warteschlange entfernen",
-            "removeHint": "Aus der Warteschlange entfernen"
+            "removeHint": "Aus der Warteschlange entfernen",
+            "move": "{name} verschieben",
+            "moveHint": "Ziehen zum Umsortieren – oder anklicken, dann {keys}"
         },
         "bar": {
             "label": "Wiedergabe",

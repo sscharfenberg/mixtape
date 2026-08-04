@@ -227,6 +227,181 @@ test.describe("the play queue on a narrow screen", () => {
     });
 });
 
+test.describe("reordering the play queue", () => {
+    test.use({ viewport: { width: 1440, height: 900 } });
+
+    /*
+     * THE ONLY LAYER THAT CAN SEE A DRAG. Vitest mocks SortableJS deliberately — a drag is
+     * a stream of pointer events over elements with real geometry, and happy-dom has
+     * neither, so a "drag" there would assert the mock's arithmetic. What is left for a
+     * real browser is the gesture itself: that pressing the grip and moving the pointer
+     * actually moves the row, that the drop is applied once (a wrapper-less SortableJS
+     * integration duplicates or loses a row when the DOM move is not undone first), and
+     * that the pointer stays on the track that was loaded.
+     *
+     * Sortable runs with `forceFallback`, which is what makes this drivable: its own
+     * mouse/pointer path rather than native HTML5 dragging, so plain mouse moves work.
+     */
+
+    /** Queue `count` songs off the listing, in listing order, and return their titles. */
+    const enqueueSongs = async (page: import("@playwright/test").Page, count: number): Promise<string[]> => {
+        const titles: string[] = [];
+
+        for (let row = 0; row < count; row += 1) {
+            await page.goto("/music/songs");
+            await page.locator("tbody tr").nth(row).click();
+            await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
+            titles.push(await page.locator("main h1").first().innerText());
+            await page.locator(".hero-section__actions button").click();
+        }
+        await expect(page.locator(".play-queue__row")).toHaveCount(count);
+
+        return titles;
+    };
+
+    /** The queue's titles, in the order the panel shows them. */
+    const order = (page: import("@playwright/test").Page) => page.locator(".play-queue__name").allInnerTexts();
+
+    /**
+     * Drag the row at `from` onto the row at `to`, by its grip.
+     *
+     * Stepped rather than one jump, and past the far edge of the destination: Sortable
+     * decides where to insert from where the pointer sits inside the row it is over, and
+     * it only sees positions the pointer actually visits.
+     */
+    const dragRow = async (page: import("@playwright/test").Page, from: number, to: number): Promise<void> => {
+        const grip = (await page.locator(".play-queue__grip").nth(from).boundingBox())!;
+        const target = (await page.locator(".play-queue__row").nth(to).boundingBox())!;
+        const downwards = to > from;
+
+        await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+        await page.mouse.down();
+        // Clear `fallbackTolerance` first, so the press is read as a drag and not a click.
+        await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2 + 10, { steps: 4 });
+        await page.mouse.move(
+            target.x + target.width / 2,
+            target.y + target.height * (downwards ? 0.8 : 0.2),
+            { steps: 16 }
+        );
+        await page.mouse.up();
+    };
+
+    test("moves a row to the top by dragging its grip", async ({ page }) => {
+        const [first, second, third] = await enqueueSongs(page, 3);
+        expect(await order(page)).toStrictEqual([first, second, third]);
+
+        await dragRow(page, 2, 0);
+
+        await expect.poll(() => order(page)).toStrictEqual([third, first, second]);
+        // Applied ONCE: the count is what catches a DOM move that was not undone before
+        // the queue re-rendered over it.
+        await expect(page.locator(".play-queue__row")).toHaveCount(3);
+    });
+
+    test("keeps the loaded track loaded, and marked, when a row moves above it", async ({ page }) => {
+        /*
+         * The reason both gestures go through `usePlayerQueue().reorder()`: it carries the
+         * pointer with the track that was LOADED. Dragging something from below the playing
+         * row to above it shifts that row's index by one, and an index-based pointer would
+         * quietly hand the player a different song — while still playing the old one.
+         */
+        const [first, second, third] = await enqueueSongs(page, 3);
+        await expect(page.locator(".player-bar__name")).toHaveText(first);
+
+        await dragRow(page, 2, 0);
+
+        await expect.poll(() => order(page)).toStrictEqual([third, first, second]);
+        await expect(page.locator(".player-bar__name")).toHaveText(first);
+        // Row 2 is where the loaded track ended up: it was first, and one row jumped over it.
+        await expect(page.locator(".play-queue__row--current .play-queue__name")).toHaveText(first);
+        await expect(page.locator(".play-queue__row").nth(1)).toHaveClass(/play-queue__row--current/u);
+    });
+
+    test("survives a navigation, because the new order is persisted", async ({ page }) => {
+        // reorder() commits to localStorage like every other queue operation; the panel
+        // lives in the layout, so an Inertia visit must not resurrect the old order.
+        const [first, second] = await enqueueSongs(page, 2);
+
+        await dragRow(page, 1, 0);
+        await expect.poll(() => order(page)).toStrictEqual([second, first]);
+
+        await page.goto("/music/albums");
+        await expect(page.locator("tbody tr").first()).toBeVisible();
+
+        expect(await order(page)).toStrictEqual([second, first]);
+    });
+
+    test("moves a row with Alt+↑/↓ after the grip is clicked, and follows it with focus", async ({ page }) => {
+        /*
+         * The keyboard companion, in a real browser — where `Alt+ArrowDown` is a genuine
+         * keystroke rather than a synthesised event, and where the browser has its own
+         * ideas about Alt+arrow. Focus following the row is what makes it usable twice in
+         * a row, and it is the half that would break silently: the row's key carries its
+         * index, so the element holding focus is replaced by the move.
+         *
+         * It starts with a CLICK rather than `focus()` on purpose. The shortcut acts on
+         * the focused row, so the journey a reader actually takes is click-then-press —
+         * which is what the grip's hint tells them to do, and what looked broken on a Mac
+         * before the grip focused itself on pointerdown (Safari and Firefox there leave a
+         * clicked button unfocused by platform convention).
+         */
+        const [first, second, third] = await enqueueSongs(page, 3);
+        const grip = (row: number) => page.locator(".play-queue__grip").nth(row);
+
+        await grip(0).click();
+        await expect(grip(0)).toBeFocused();
+        await page.keyboard.press("Alt+ArrowDown");
+
+        await expect.poll(() => order(page)).toStrictEqual([second, first, third]);
+        await expect(grip(1)).toBeFocused();
+
+        await page.keyboard.press("Alt+ArrowDown");
+
+        await expect.poll(() => order(page)).toStrictEqual([second, third, first]);
+        await expect(grip(2)).toBeFocused();
+
+        // …and back up, from wherever it ended up.
+        await page.keyboard.press("Alt+ArrowUp");
+
+        await expect.poll(() => order(page)).toStrictEqual([second, first, third]);
+        await expect(grip(1)).toBeFocused();
+    });
+
+    test("tells the reader how to reorder, in the keys their keyboard prints", async ({ page }) => {
+        /*
+         * The hint is load-bearing rather than decoration: nothing else says the shortcut
+         * needs the grip CLICKED first, and hovering a row and pressing the keys does
+         * nothing at all (hover is not focus) — which is how a working feature came to be
+         * reported as broken. The keys are named per platform, so this asserts the shape
+         * rather than one spelling: ⌥↑/↓ on a Mac, Alt+↑/↓ elsewhere. What it really
+         * guards is that the interpolation happened — a missing parameter would leave a
+         * literal "{keys}" sitting in the tip.
+         */
+        await enqueueSongs(page, 2);
+
+        await page.locator(".play-queue__grip").first().hover();
+
+        const tip = page.locator("#app-tooltip");
+        await expect(tip).toBeVisible();
+        await expect(tip).toHaveText(/(⌥|Alt\+)↑\/↓/u);
+        await expect(tip).not.toContainText("{keys}");
+    });
+
+    test("does not move the page, or the queue, at the ends", async ({ page }) => {
+        // The keystroke is deliberately NOT consumed at the ends of the queue. That is
+        // only safe if it does nothing else either — Alt+arrow is close enough to the
+        // browser's own history shortcut to be worth proving once.
+        const [first, second] = await enqueueSongs(page, 2);
+        const url = page.url();
+
+        await page.locator(".play-queue__grip").first().focus();
+        await page.keyboard.press("Alt+ArrowUp");
+
+        expect(await order(page)).toStrictEqual([first, second]);
+        expect(page.url()).toBe(url);
+    });
+});
+
 test.describe("the play queue scrolling to the loaded track", () => {
     /*
      * Short viewport ON PURPOSE: scrolling only exists when the queue is longer than the

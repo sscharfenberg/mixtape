@@ -23,14 +23,22 @@
  * 280px of a phone is most of the screen and a queue you carry around open is one
  * permanently in the way.
  *
- * CLICKING A ROW PLAYS THAT TRACK — anywhere in it. The row is an <li> holding one
- * <button> whose hit area is stretched across it by a pseudo-element, because a
- * <button> may not contain another button and the row holds the remove control. So
- * the semantics are unchanged (one control, one accessible name, "Play <track>")
- * while the target is the full row. Exactly ONE thing sits above that overlay and
- * keeps its own behaviour: the remove button. Everything else — the title, the
- * artist line, the padding, the gaps — plays. See `__load::after` in the styles for
- * why a position, not merely a z-index, is what lifts it.
+ * CLICKING A ROW PLAYS THAT TRACK — anywhere in it. The row is an <li> holding an
+ * EMPTY <button> stretched across the whole of it, because a <button> may not
+ * contain another button and the row holds two more controls. So the semantics are
+ * unchanged (one control, one accessible name, "Play <track>") while the target is
+ * the full row. Exactly TWO things sit above that overlay and keep their own
+ * behaviour: the grip and the remove button. Everything else — the title, the artist
+ * line, the padding, the gaps — plays.
+ *
+ * REORDERING, and what it cost. The grip is the cover with the drag glyph beneath
+ * it: a 24px-wide strip that costs the title not one pixel, which matters at 280px
+ * where the title is already the first thing to ellipsise. The gesture logic is in
+ * useQueueReorder beside this file (SortableJS + Alt+↑/↓ — read its banner). The
+ * price is that the COVER no longer plays the track: it belongs to the grip now, so
+ * it has to sit above the play overlay rather than inside it. Deliberate — the other
+ * ~90% of the row still plays, and a 16px glyph on its own is too small a thing to
+ * aim a drag at, on a phone especially.
  *
  * NOTHING HERE NAVIGATES. The title was a <Link> to the song's page until it was
  * put to a real listener: in a panel where every other pixel plays the track, the
@@ -48,6 +56,7 @@ import { usePlayerAudio } from "Composables/usePlayerAudio";
 import { usePlayerQueue } from "Composables/usePlayerQueue";
 import { usePlayQueuePanel } from "Composables/usePlayQueuePanel";
 import { formatClock } from "Utils/formatting";
+import { useQueueReorder } from "./useQueueReorder";
 
 const { t } = useI18n();
 const { tracks, currentIndex, isEmpty, totalDuration, jumpTo, remove } = usePlayerQueue();
@@ -81,6 +90,11 @@ const totalClock = computed(() => formatClock(totalDuration.value));
 
 /** The scrolling <ol>. Held to find the loaded row and to publish its height. */
 const list = ref<HTMLOListElement | null>(null);
+
+// Drag-and-drop by the grip, plus Alt+↑/↓ — both in useQueueReorder beside this file,
+// which needs the list element for the same two reasons this component holds it: that
+// is what Sortable mounts on, and what a moved row is re-focused through.
+const { onRowKeydown, onGripPointerdown, shortcutLabel } = useQueueReorder(list);
 
 /**
  * Bring the loaded track into view, one row clear of the edge it approached.
@@ -144,14 +158,41 @@ watch(
                     class="play-queue__row"
                     :class="{ 'play-queue__row--current': index === currentIndex }"
                     :aria-current="index === currentIndex ? 'true' : undefined"
+                    @keydown="onRowKeydown($event, index)"
                 >
+                    <!-- Empty on purpose: this button IS the row's hit area (see the styles),
+                         and its accessible name comes from the label rather than from any
+                         content. It has nothing inside it because everything visible in the
+                         row is either one of the two controls that must stay above it, or
+                         text that should play the track when clicked. -->
                     <button
                         type="button"
                         class="play-queue__load"
                         :aria-label="t('player.queue.load', { name: track.name })"
                         @click="playRow(index)"
+                    ></button>
+                    <!-- The drag handle, and the only thing Sortable will start a drag from.
+                         The cover is INSIDE it so the grip is a 24px-wide strip rather than a
+                         lone 16px glyph — see the component banner for what that costs.
+
+                         THE HINT SAYS "CLICK IT FIRST", and it has to: the keyboard
+                         alternative moves the FOCUSED row, so hovering one and pressing the
+                         keys does nothing at all — which is exactly how it read as broken.
+                         The keys are named for the keyboard in front of the reader (⌥ on a
+                         Mac), while `aria-keyshortcuts` keeps ARIA's canonical spelling,
+                         which is what assistive tech expects to parse and announce in its
+                         own words. The handler itself sits on the <li> — keydown bubbles,
+                         so it works from any of the row's three controls. -->
+                    <button
+                        type="button"
+                        class="play-queue__grip"
+                        v-tooltip="t('player.queue.moveHint', { keys: shortcutLabel })"
+                        :aria-label="t('player.queue.move', { name: track.name })"
+                        aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+                        @pointerdown="onGripPointerdown"
                     >
                         <cover-image :src="track.coverUrl" :title="track.name" size="tiny" decorative />
+                        <icon name="drag" :size="0" />
                     </button>
                     <span class="play-queue__meta">
                         <!-- Both lines are plain text, deliberately. The title used to be a
@@ -327,6 +368,7 @@ $bleed: map.get(s.$c-play-queue, "padding");
     }
 
     &__remove,
+    &__grip,
     &__load {
         display: inline-flex;
         align-items: center;
@@ -348,39 +390,71 @@ $bleed: map.get(s.$c-play-queue, "padding");
         }
     }
 
-    /* THE WHOLE ROW PLAYS THE TRACK, and this pseudo-element is what makes it so.
-       The button itself only wraps the 24px cover, which is a poor target for the
-       primary action in the panel; a stretched `::after` grows the hit area to the
-       full row without changing the markup's semantics — still one button with one
-       accessible name, so a screen reader hears "Play <track>" exactly as before.
+    /* THE WHOLE ROW PLAYS THE TRACK, and this transparent overlay button is what
+       makes it so. It is out of the row's flex flow and sized to the whole of it,
+       which is both a far better target than any glyph and the reason the markup can
+       stay honest: still ONE button with one accessible name, so a screen reader
+       hears "Play <track>" exactly as before.
 
        It has to be done this way round rather than by wrapping the row in a
-       <button>: the row also holds a real link (the title) and a second button
-       (remove), and a <button> may contain neither. The overlay inverts the
-       problem — one big transparent target, with the two genuine controls lifted
-       above it.
+       <button>: the row holds two more buttons (the grip and remove), and a
+       <button> may contain neither. The overlay inverts the problem — one big
+       transparent target, with the two genuine controls lifted above it.
+
+       It was a stretched `::after` on a button that wrapped the cover, until the
+       cover became the drag grip and left it with nothing to wrap. An empty button
+       positioned directly is the same hit area with one box instead of two — and it
+       has a real bounding box, so its focus ring traces the row (a 0×0 button's
+       would be a dot) and a browser test can click it like any other control. The
+       radius matches the row's, so that ring follows the rounded corners.
 
        `inset: 0` resolves against `&__row`, which is the nearest positioned
        ancestor. That is what the row's `position: relative` is for. */
-    &__load::after {
+    &__load {
         position: absolute;
         inset: 0;
 
-        content: "";
+        border-radius: map.get(s.$c-play-queue, "row", "radius");
     }
 
-    /* …and the remove button is lifted back above it — the only thing in the row
-       that is. A POSITION IS REQUIRED, not just a z-index: an absolutely positioned
-       pseudo-element paints above every non-positioned descendant of the same
-       stacking context regardless of DOM order, so without this the overlay would
-       silently swallow the button and the row would play the track while nothing
-       could be removed from it.
+    /* …and the two real controls are lifted back above it. A POSITION IS REQUIRED,
+       not just a z-index: the overlay is positioned, so it paints above every
+       non-positioned descendant of the same stacking context regardless of DOM
+       order, and without this it would silently swallow both — the row would play
+       the track while nothing could be dragged or removed.
 
        Everything else stays UNDER the overlay on purpose — the title and artist
        lines included, so that aiming at the words plays the track. */
-    &__remove {
+    &__remove,
+    &__grip {
         position: relative;
         z-index: 1;
+    }
+
+    /* THE DRAG HANDLE: the cover with the drag glyph beneath it, as one column.
+       Stacked rather than placed beside the cover because at 280px the row has no
+       horizontal room to give — the title ellipsises first, and a leading or
+       trailing handle column would take 24px straight out of it. This way the grip
+       costs the title nothing and the row grows by a few pixels instead.
+
+       It is a real <button> so the reorder is reachable without a pointer at all:
+       it is the tab stop that carries `aria-keyshortcuts`, which is how a keyboard
+       user finds out Alt+↑/↓ moves the row. Pressing it does nothing on its own,
+       and that is the honest shape of a handle.
+
+       `grab` / `grabbing` is the whole reason the cursor is declared per control
+       rather than inherited from the row: everything else in the row plays the
+       track and says `pointer`; this strip moves it. */
+    &__grip {
+        flex-direction: column;
+
+        gap: map.get(s.$c-play-queue, "row", "grip-gap");
+
+        cursor: grab;
+
+        &:active {
+            cursor: grabbing;
+        }
     }
 
     /* The list scrolls, not the panel: the header (with the clear button) has to
@@ -476,6 +550,33 @@ $bleed: map.get(s.$c-play-queue, "padding");
             box-shadow:
                 0 0 0.25em 0.04em map.get(c.$c-play-queue, "current-glow"),
                 0 0 0.4em 0.08em map.get(c.$c-play-queue, "current-glow");
+        }
+
+        /* THE ROW IN YOUR HAND — the clone that follows the pointer during a drag
+           (`dragClass`). Sortable builds it with `cloneNode`, so it keeps this
+           component's scope attribute and all of its classes; what it does not keep
+           is its place in the panel, because it is appended to <body> to stay clear
+           of the list's clipping and of the player bar painting over it. The two
+           things it was inheriting from the panel — surface colour and background —
+           therefore have to be restated here, or the row is drawn in whatever
+           colours the page happens to use. The shadow is what says "lifted"; its
+           offsets are em-based effect constants, per the note on the glow above. */
+        &--dragging {
+            background-color: map.get(c.$c-play-queue, "background");
+            color: map.get(c.$c-play-queue, "surface");
+            box-shadow: 0 0.25em 0.75em 0 map.get(c.$c-play-queue, "drag-shadow");
+
+            cursor: grabbing;
+        }
+
+        /* THE GAP IT LEFT — the real <li>, still in the list, which Sortable moves
+           around to show where a drop would land (`ghostClass`). Faded rather than
+           hidden: collapsing it would make the list jump by a row the moment a drag
+           started, and the whole point of the gap is that it shows the destination. */
+        &--ghost {
+            opacity: 0.4;
+
+            background-color: map.get(c.$c-play-queue, "row-hover");
         }
     }
 

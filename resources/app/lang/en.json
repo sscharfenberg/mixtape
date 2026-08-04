@@ -375,7 +375,9 @@
             "clear": "Clear the queue",
             "load": "Play {name}",
             "remove": "Remove {name} from the queue",
-            "removeHint": "Remove from the queue"
+            "removeHint": "Remove from the queue",
+            "move": "Move {name}",
+            "moveHint": "Drag to reorder — or click it, then {keys}"
         },
         "bar": {
             "label": "Now playing",
