@@ -49,7 +49,17 @@
             "label": "Colour theme",
             "dark": "Dark",
             "light": "Light",
-            "system": "System"
+            "system": "System",
+            "hint": {
+                "dark": "Switch to dark mode",
+                "light": "Switch to light mode",
+                "system": "Switch to system mode (the OS decides whether light or dark mode)"
+            },
+            "current": {
+                "dark": "Dark mode",
+                "light": "Light mode",
+                "system": "System mode: the OS decides whether light or dark mode"
+            }
         },
         "logoAlt": "{appName} logo"
     },

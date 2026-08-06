@@ -65,11 +65,40 @@ function setTheme(value: string): void {
     localStorage.setItem("theme", value);
 }
 
-/** Selectable options — `"light dark"` delegates to the OS preference. Labels are translated (and re-render on a locale switch). */
+/**
+ * Selectable options — `"light dark"` delegates to the OS preference. Labels are translated
+ * (and re-render on a locale switch).
+ *
+ * Each carries THREE strings, because they are read by different people at different moments.
+ * `label` is the option's name, which assistive tech announces ("Dunkel, Optionsfeld, 1 von
+ * 3"). `hint` is what someone hovering an unlabelled glyph wants: the action it performs.
+ * `selectedHint` is what that same hover should say once the option is already in force,
+ * where offering the action again would read as though the click had not registered — so it
+ * states the mode instead. The system option spends a clause on what "system" even means in
+ * both, since it is the one choice whose result is not visible in the switch itself.
+ */
 const options = computed<BubbleOption[]>(() => [
-    { value: "dark", label: t("header.theme.dark"), icon: "dark" },
-    { value: "light", label: t("header.theme.light"), icon: "light" },
-    { value: "light dark", label: t("header.theme.system"), icon: "system" }
+    {
+        value: "dark",
+        label: t("header.theme.dark"),
+        hint: t("header.theme.hint.dark"),
+        selectedHint: t("header.theme.current.dark"),
+        icon: "dark"
+    },
+    {
+        value: "light",
+        label: t("header.theme.light"),
+        hint: t("header.theme.hint.light"),
+        selectedHint: t("header.theme.current.light"),
+        icon: "light"
+    },
+    {
+        value: "light dark",
+        label: t("header.theme.system"),
+        hint: t("header.theme.hint.system"),
+        selectedHint: t("header.theme.current.system"),
+        icon: "system"
+    }
 ]);
 
 /** Re-apply the persisted theme on mount, in case the server-rendered default differs. */

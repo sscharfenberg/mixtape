@@ -20,7 +20,11 @@
  *
  * Icon-only controls have to say what they are twice: `aria-label` on each input for
  * assistive tech, and a tooltip for everyone else — the same pairing WidgetModeToggle
- * uses, for the same reason (a glyph is not a name).
+ * uses, for the same reason (a glyph is not a name). Those two need not be the same words:
+ * an option may carry a `hint` for the tooltip, since a hovering reader is asking "what
+ * happens if I press this" while a screen reader is announcing "which option is this". And
+ * the chosen option may say something different again (`selectedHint`) — offering an action
+ * on the option already in force reads as though the click had not registered.
  *
  * The pattern started in ThemeSwitch, the header's colour-scheme picker, which now
  * consumes this and kept only the part that was ever about colour schemes (the meta tag
@@ -41,8 +45,28 @@ export type BubbleOption = {
     value: string;
     /** Icon name from the sprite — the option's only visible content. */
     icon: string;
-    /** Human name, used for both the tooltip and the accessible label. */
+    /** Human name. The option's ACCESSIBLE name, and the tooltip unless `hint` says otherwise. */
     label: string;
+    /**
+     * Tooltip text while this option is NOT the chosen one, when naming it is not enough.
+     *
+     * Separate from `label` because the two answer different questions. A radio's accessible
+     * name should be the thing it is ("Dark"), which is how assistive tech announces it
+     * — "Dark, radio button, 1 of 3" — whereas a tooltip is read by someone hovering a glyph
+     * and wondering what pressing it does, so it can afford a verb and a parenthetical
+     * ("Switch to system mode (the OS decides…)").
+     */
+    hint?: string;
+    /**
+     * Tooltip text while this option IS the chosen one.
+     *
+     * Because an action is the wrong thing to offer on the option already in force: pressing
+     * it changes nothing, so "switch to system mode" reads as though the switch had not
+     * registered. Selected, the tooltip states what is in force instead ("System mode: the OS
+     * decides…"), which is also the more useful sentence — it is the only moment the reader is
+     * asking "what am I currently on?" rather than "what would this do?".
+     */
+    selectedHint?: string;
 };
 
 const props = defineProps<{
@@ -85,6 +109,44 @@ const selectedIndex = computed<number>(() => {
 });
 
 /**
+ * What the tooltip says for one option, which depends on whether it is the chosen one.
+ *
+ * The chosen option describes the state in force; every other one describes the action it
+ * would perform. Both fall back to the plain label, so a caller that has nothing extra to say
+ * — the player's settings — keeps naming its glyphs and nothing more.
+ */
+function tooltipFor(option: BubbleOption): string {
+    if (option.value === props.modelValue) return option.selectedHint ?? option.hint ?? option.label;
+
+    return option.hint ?? option.label;
+}
+
+/**
+ * Whether an option has anything to say beyond its own name.
+ *
+ * Which is the same question as "does the tooltip add information", so it is asked of the
+ * tooltip rather than of the fields: an option whose tip is just its label would describe
+ * itself twice to a screen reader, once as the name and once as the description.
+ */
+function hasDescription(option: BubbleOption): boolean {
+    return tooltipFor(option) !== option.label;
+}
+
+/**
+ * Id of an option's screen-reader description.
+ *
+ * The description exists because the hint used to be MOUSE-ONLY: hovering the system glyph
+ * explained that the OS decides, while assistive tech heard "System" and had to guess — the
+ * exact ambiguity the hint was written to remove. `aria-describedby` onto an `.sr-only` span
+ * (the same helper DataTableHead uses for its sort announcements) gives both audiences the
+ * same sentence, and because the span renders `tooltipFor`, it follows the selection the way
+ * the tooltip does.
+ */
+function descriptionId(value: string): string {
+    return `${optionId(value)}-description`;
+}
+
+/**
  * The input id for an option — `name` is already unique per group, so this is too.
  *
  * Whitespace is collapsed because it is legal in a VALUE and not in an id, and a
@@ -113,15 +175,23 @@ function optionId(value: string): string {
                 :value="option.value"
                 :checked="option.value === modelValue"
                 :aria-label="option.label"
+                :aria-describedby="hasDescription(option) ? descriptionId(option.value) : undefined"
                 @change="emit('update:modelValue', option.value)"
             />
             <label
-                v-tooltip="option.label"
+                v-tooltip="tooltipFor(option)"
                 :for="optionId(option.value)"
                 class="option-bubbles__item"
             >
                 <icon :name="option.icon" :size="size ?? 2" />
             </label>
+            <!-- AFTER the label, never between it and its input: the checked and focus styles
+                 are adjacent-sibling selectors (`input:checked + .option-bubbles__item`), so an
+                 element in that gap would silently unstyle the whole control. Out of flow via
+                 `.sr-only`, so the flex row does not see it either. -->
+            <span v-if="hasDescription(option)" :id="descriptionId(option.value)" class="sr-only">
+                {{ tooltipFor(option) }}
+            </span>
         </template>
     </div>
 </template>

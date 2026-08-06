@@ -49,7 +49,17 @@
             "label": "Farbschema",
             "dark": "Dunkel",
             "light": "Hell",
-            "system": "System"
+            "system": "System",
+            "hint": {
+                "dark": "Zu dunklem Modus wechseln",
+                "light": "Zu hellem Modus wechseln",
+                "system": "Zum System-Modus wechseln (das Betriebssystem entscheidet über hell oder dunkel)"
+            },
+            "current": {
+                "dark": "Dunkler Modus",
+                "light": "Heller Modus",
+                "system": "System-Modus: das Betriebssystem entscheidet über hell oder dunkel"
+            }
         },
         "logoAlt": "{appName} Logo"
     },

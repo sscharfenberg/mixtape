@@ -71,6 +71,46 @@ test.describe("the colour-scheme switch", () => {
         expect(pill.x).toBeCloseTo(chosen.x, 1);
     });
 
+    test("tells a hovering reader what pressing a glyph will do, or what is in force", async ({ page }) => {
+        /*
+         * The tooltip is an ACTION, not the option's name — three unlabelled glyphs otherwise
+         * leave "System" meaning nothing in particular — EXCEPT on the option already chosen,
+         * where an action nothing would perform reads as though the click had not registered,
+         * so it states the mode instead.
+         *
+         * Only a browser can answer this: the directive keeps its text in a module WeakMap
+         * rather than on the element, so nothing about it is visible to a DOM assertion. The
+         * tip is a native popover rendered on real hover, in the top layer.
+         */
+        await page.goto("/dashboard");
+        await openMenu(page);
+
+        const tip = page.locator(".tooltip-layer");
+
+        // German is the default locale. Dark is not the current scheme on a fresh profile, so
+        // its tooltip offers the switch.
+        await page.locator('label[for="theme-dark"]').hover();
+        await expect(tip).toBeVisible();
+        await expect(tip).toHaveText(/wechseln/u);
+
+        // Choosing it flips the same glyph's tooltip from the action to the state.
+        await page.locator('label[for="theme-dark"]').click();
+        await expect(page.locator("#theme-dark")).toBeChecked();
+        await page.locator('label[for="theme-light"]').hover(); // leave, so the tip re-resolves
+        await page.locator('label[for="theme-dark"]').hover();
+
+        await expect(tip).toHaveText("Dunkler Modus");
+
+        // The system option earns a clause explaining itself in either wording — it is the one
+        // choice whose result is not visible in the switch.
+        await page.locator('label[for="theme-light-dark"]').hover();
+        await expect(tip).toHaveText(/System-Modus/u);
+        await expect(tip).toHaveText(/Betriebssystem/u);
+
+        // …while the radio keeps its short name, which is what assistive tech announces.
+        await expect(page.locator("#theme-light-dark")).toHaveAttribute("aria-label", "System");
+    });
+
     test("moves the pill and the scheme together, and remembers the choice", async ({ page }) => {
         // The half that has to survive the migration: the control drives the meta tag, which
         // is what CSS `light-dark()` keys off, and the choice outlives the tab.

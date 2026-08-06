@@ -106,6 +106,28 @@ describe("ThemeSwitch", () => {
         expect(wrapper.find(".option-bubbles").attributes("style")).toContain("--selected: 0");
     });
 
+    it("explains the system option to assistive tech, not just to a mouse", async () => {
+        /*
+         * "System" on its own says nothing about what it does — which is why it has a hint at
+         * all — and a hint only shown on hover reaches nobody using a keyboard or a screen
+         * reader. This is the one option where the gap actually mattered, so it is asserted
+         * against the real catalogue rather than a stand-in string.
+         */
+        const wrapper = mountApp(ThemeSwitch);
+        const system = wrapper.findAll("input")[2];
+
+        expect(system.attributes("aria-label")).toBe("System");
+
+        const description = wrapper.find(`#${system.attributes("aria-describedby")}`);
+        expect(description.classes()).toContain("sr-only");
+        expect(description.text()).toContain("Betriebssystem");
+
+        // Chosen, it states the mode rather than offering the switch — and German is default.
+        await system.trigger("change");
+
+        expect(wrapper.find(`#${system.attributes("aria-describedby")}`).text()).toMatch(/^System-Modus:/u);
+    });
+
     it("stores the OS option as the CSS value it is, spaces and all", async () => {
         // `"light dark"` is a real `color-scheme` value, not a label — the id derived from
         // it is slugged, but what gets stored and written to the tag must not be.

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetInertia } from "Testing/inertia";
 import { mountApp } from "Testing/mount";
+import type { BubbleOption } from "./OptionBubbles.vue";
 import OptionBubbles from "./OptionBubbles.vue";
 
 vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
@@ -19,13 +20,13 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
  * it would be testing happy-dom's implementation of it.
  */
 
-const OPTIONS = [
+const OPTIONS: BubbleOption[] = [
     { value: "off", icon: "shuffle_off", label: "In order" },
     { value: "on", icon: "shuffle", label: "Shuffle" }
 ];
 
 /** Mount with a given selection, in the shape a caller uses it (`v-model`, so a prop plus an event). */
-const bubbles = (modelValue = "off", options = OPTIONS) =>
+const bubbles = (modelValue = "off", options: BubbleOption[] = OPTIONS) =>
     mountApp(OptionBubbles, {
         props: { modelValue, options, name: "mode", label: "Play order" }
     });
@@ -84,6 +85,78 @@ describe("OptionBubbles", () => {
 
         expect(wrapper.emitted("update:modelValue")).toStrictEqual([["on"]]);
         expect(wrapper.find(".option-bubbles").attributes("style")).toContain("--selected: 0");
+    });
+
+    it("keeps an option's accessible name its NAME, even when the tooltip says more", () => {
+        /*
+         * The two are read by different people at different moments: a screen reader announces
+         * "Dark, radio button, 1 of 3", while someone hovering a bare glyph wants to know what
+         * pressing it does. So a `hint` may carry a verb and a parenthetical without dragging
+         * that phrasing into the radio's name.
+         */
+        const wrapper = bubbles("off", [
+            { value: "off", icon: "shuffle_off", label: "In order", hint: "Switch to playing in order" },
+            { value: "on", icon: "shuffle", label: "Shuffle" }
+        ]);
+
+        expect(wrapper.findAll("input").map(input => input.attributes("aria-label"))).toStrictEqual([
+            "In order",
+            "Shuffle"
+        ]);
+    });
+
+    it("describes an option to assistive tech with the same sentence the tooltip shows", () => {
+        /*
+         * The hint used to be mouse-only: hovering explained things a screen reader never
+         * heard, which is the ambiguity the hint exists to remove. So it is also exposed as a
+         * description — and the description has to FOLLOW the selection, exactly as the
+         * tooltip does, or the option in force would keep offering an action.
+         */
+        const options: BubbleOption[] = [
+            {
+                value: "off",
+                icon: "shuffle_off",
+                label: "In order",
+                hint: "Switch to playing in order",
+                selectedHint: "Playing in order"
+            },
+            { value: "on", icon: "shuffle", label: "Shuffle" }
+        ];
+
+        const unchosen = bubbles("on", options);
+        const describedBy = unchosen.findAll("input")[0].attributes("aria-describedby");
+
+        expect(describedBy).toBe("mode-off-description");
+        expect(unchosen.find(`#${describedBy}`).text()).toBe("Switch to playing in order");
+        expect(unchosen.find(`#${describedBy}`).classes()).toContain("sr-only");
+
+        const chosen = bubbles("off", options);
+        expect(chosen.find("#mode-off-description").text()).toBe("Playing in order");
+    });
+
+    it("leaves an option undescribed when it would only repeat its own name", () => {
+        // A description identical to the accessible name is announced twice for nothing.
+        const wrapper = bubbles();
+
+        expect(wrapper.findAll("input").map(input => input.attributes("aria-describedby"))).toStrictEqual([
+            undefined,
+            undefined
+        ]);
+        expect(wrapper.find(".sr-only").exists()).toBe(false);
+    });
+
+    it("keeps each input adjacent to its own label, which the checked styles depend on", () => {
+        // The description span goes AFTER the label: `input:checked + .option-bubbles__item`
+        // is an adjacent-sibling selector, so anything in that gap unstyles the control while
+        // leaving the markup looking fine.
+        const wrapper = bubbles("off", [
+            { value: "off", icon: "shuffle_off", label: "In order", hint: "Switch to playing in order" },
+            { value: "on", icon: "shuffle", label: "Shuffle" }
+        ]);
+        const input = wrapper.find("#mode-off").element;
+
+        expect(input.nextElementSibling?.tagName).toBe("LABEL");
+        expect(input.nextElementSibling?.nextElementSibling?.id).toBe("mode-off-description");
     });
 
     it("names the group and every option in it, since none of them carries text", () => {
