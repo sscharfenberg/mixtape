@@ -17,6 +17,8 @@ queue_ for the shape both files build on rather than revisit.
 | `pause` / `repeat` icons                                      | ✅ (sprite is gitignored — see _Deploy_ below) |
 | `usePlayerAudio`                                              | ✅                                             |
 | Transport UI + timeline **+ buffer indicator**                | ✅ `PlayerBar`, `PlayerTimeline`               |
+| Volume popover                                                | ✅ `PlayerVolume`                              |
+| Playback-settings popover (order / at the end)                | ✅ `PlayerSettings`, 2026-08-06                |
 | Real playback in a browser                                    | ✅ Playwright, incl. under the prod CSP        |
 | Screen-off on a real phone                                    | ⬜ **the owner's, on the device that matters** |
 
@@ -31,8 +33,11 @@ queue's own gaps (server sync, shuffle, the play-history beacon) are listed in
 - A timeline showing the **cursor position** and the track's **total playing time**, scrubbable —
   plus a **buffer indicator** (the owner's addition to this plan): the stretches the browser
   already holds, so a listener can see whether dragging ahead costs a download over a home uplink.
-- Honouring the queue's **repeat** flag: with it on, the end wraps to the first track; with it off,
-  playback stops on the last one. The toggle itself sits in the queue panel's menu.
+- A **settings popover** in the bar (2026-08-06) holding the two questions that are about the queue
+  rather than the track: **Reihenfolge** — in order or shuffled — and **Wiederholung** — stop at the
+  end or repeat. Both are queue state, so [`play-queue.md`](play-queue.md) owns what they do — its
+  _Playing in a random order_ has the shuffle algorithm, what resets it, and why nothing about it is
+  stored; this file owns where the control sits and why.
 - Playback that survives the **tab being backgrounded** — and, as far as the platform allows, the
   **phone's screen being off**.
 
@@ -131,10 +136,34 @@ position and only `change` commits the seek: one seek per pixel is one Range req
 The buffer is drawn as **segments**, not a single width, because after a seek past the buffer there
 genuinely are two stretches with a hole between them.
 
+**`PlayerSettings`** (built 2026-08-06) is a gear in the bar opening a popover with two rows,
+separated by the same rule a `popover-list` draws between its entries: **Reihenfolge** (the play
+order) and **Wiederholung** (what happens at the end). Three decisions in it worth keeping:
+
+- **It is in the bar, not in the queue panel's menu**, which is where repeat lived first. The panel
+  is behind a toggle on a phone and gone entirely once the queue is emptied, so a setting you want
+  _while listening_ was hidden in both cases — and repeat sat one row above "clear the queue", a
+  harmless toggle against a destructive verb.
+- **Between the timeline and the volume button**, so the bar reads position → order → level → the
+  buttons that change position. Both settings are about the queue, so they belong beside the thing
+  that shows progress through it rather than after a control that is only about this one track.
+- **Bubbles, not checkboxes** — a shared `Components/UI/OptionBubbles`, the pattern the header's
+  colour-scheme switch established. Each row is a choice between two _named modes_ ("shuffle off" is
+  "in order", with its own glyph), which a lone checkbox cannot say; and being a native radiogroup, it
+  gets arrow-key navigation for nothing. The two new glyphs are Material's `trending_flat` and
+  `line_end`, since Material ships no `shuffle_off` / `repeat_off` — a straight arrow for "straight
+  through" and a line ending in a dot for "the line stops here". The panel **opens upward** via the
+  same anchor override `PlayerVolume` documents, and for the same reason.
+
 **`PlayerBar`** is one grid with two shapes: on a phone the timeline takes a line of its own below
 the cover, title and transport; from `landscape` up it moves into the row. So the bar's height is
 not a constant — which is why it is measured with a `ResizeObserver` and published as
 `--app-player-height` rather than read off a token.
+
+**The two skip buttons ask the QUEUE whether they are enabled** (`hasNext` / `hasPrevious`) rather
+than comparing the index themselves, which moved there when shuffle arrived: under a random order
+"is there a track behind this one" is a fact about the shuffle walk, which is the composable's
+private state, not about whether the index is above zero.
 
 ## Tests, and which layer answers what
 
@@ -147,7 +176,13 @@ not a constant — which is why it is measured with a `ResizeObserver` and publi
   pointer moving for reasons that are not playback, duration fallback, buffered ranges becoming
   geometry, scrub-on-release. The queue's own suites — the pointer, the stored shape, the write path,
   the reorder — are in [`play-queue.md`](play-queue.md).
-- **Playwright** (`tests/e2e/app/player.spec.ts`) — real playback. The E2E fixture now writes a
+- **Playwright** (`tests/e2e/app/player.spec.ts`) — real playback, plus the three things about the
+  settings popover that need a browser: that the gear really lands **between** the timeline and the
+  volume button (a grid area's box), that the panel opens **upward**, and that the pill really
+  **travels** (its offset is a `calc()` off two custom properties, which happy-dom does not resolve).
+  The shuffle spec there asserts a **set**, not a sequence — three tracks each heard once and then the
+  queue stops — which is what makes a random control testable without stubbing the randomness. The
+  E2E fixture now writes a
   **copy of the committed one-second mp3 at every path `E2ESeeder` claims** (`seedMediaFiles`), so
   the stream route serves real audio. One second is a feature: auto-advance is the headline
   behaviour and a track that ends in a second makes it fast and deterministic. The consequence is

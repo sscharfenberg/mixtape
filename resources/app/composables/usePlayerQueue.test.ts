@@ -227,6 +227,191 @@ describe("usePlayerQueue", () => {
         });
     });
 
+    describe("shuffling", () => {
+        /*
+         * Shuffle is a play MODE: the list keeps the order it was built in and only the
+         * pointer jumps. Three things about it are worth pinning, because each is a
+         * complaint a listener would make rather than a crash a type would catch — a song
+         * playing twice before the others have had a turn, a back button that goes to the
+         * row above instead of the track just heard, and a walk that survives an edit and
+         * starts naming the wrong rows.
+         *
+         * `Math.random` is stubbed per assertion rather than seeded: what matters is WHICH
+         * pool the pick came from, and a stub that always takes the first candidate makes
+         * that observable.
+         */
+
+        /** Always pick the first remaining candidate, so a random draw becomes an assertable one. */
+        const alwaysFirst = () => vi.spyOn(Math, "random").mockReturnValue(0);
+
+        it("is off to begin with, so a queue plays in the order you built it", () => {
+            expect(usePlayerQueue().shuffle.value).toBe(false);
+        });
+
+        it("plays every track once before any of them twice", () => {
+            // The whole reason there is a walk rather than a die roll per track.
+            alwaysFirst();
+            const queue = usePlayerQueue();
+            queue.enqueue([track("a"), track("b"), track("c")]);
+            queue.toggleShuffle();
+
+            const heard = [queue.current.value?.id];
+            while (queue.next()) heard.push(queue.current.value?.id);
+
+            expect([...heard].sort()).toStrictEqual(["a", "b", "c"]);
+        });
+
+        it("stops once the pass is done, with repeat off", () => {
+            alwaysFirst();
+            const queue = usePlayerQueue();
+            queue.enqueue([track("a"), track("b")]);
+            queue.toggleShuffle();
+
+            expect(queue.next()).toBe(true);
+            expect(queue.next()).toBe(false);
+        });
+
+        it("starts a new pass on repeat, without replaying the track that just ended", () => {
+            alwaysFirst();
+            const queue = usePlayerQueue();
+            queue.enqueue([track("a"), track("b")]);
+            queue.toggleShuffle();
+            queue.toggleRepeat();
+
+            const first = queue.current.value?.id;
+            queue.next();
+            const second = queue.current.value?.id;
+
+            // The pass is exhausted here; the wrap must not hand back `second`.
+            expect(queue.next()).toBe(true);
+            expect(queue.current.value?.id).toBe(first);
+            expect(queue.current.value?.id).not.toBe(second);
+        });
+
+        it("steps back to the track actually heard before this one, not the row above", () => {
+            // The difference that makes the back button honest under a random order.
+            alwaysFirst();
+            const queue = usePlayerQueue();
+            queue.enqueue([track("a"), track("b"), track("c")]);
+            queue.toggleShuffle();
+            queue.jumpTo(2);
+            queue.next();
+
+            const heard = queue.current.value?.id;
+
+            expect(queue.previous()).toBe(true);
+            expect(queue.current.value?.id).toBe("c");
+            expect(queue.current.value?.id).not.toBe(heard);
+        });
+
+        it("retraces forward over the path already played", () => {
+            // Back then forward has to land where it was, or both buttons feel broken.
+            alwaysFirst();
+            const queue = usePlayerQueue();
+            queue.enqueue([track("a"), track("b"), track("c")]);
+            queue.toggleShuffle();
+            queue.next();
+            const second = queue.current.value?.id;
+            queue.previous();
+
+            expect(queue.next()).toBe(true);
+            expect(queue.current.value?.id).toBe(second);
+        });
+
+        it("has nothing behind the first track of a pass", () => {
+            alwaysFirst();
+            const queue = usePlayerQueue();
+            queue.enqueue([track("a"), track("b")]);
+            queue.toggleShuffle();
+
+            expect(queue.hasPrevious.value).toBe(false);
+            expect(queue.previous()).toBe(false);
+        });
+
+        it("tells the transport when the pass is finished", () => {
+            alwaysFirst();
+            const queue = usePlayerQueue();
+            queue.enqueue([track("a"), track("b")]);
+            queue.toggleShuffle();
+
+            expect(queue.hasNext.value).toBe(true);
+
+            queue.next();
+
+            expect(queue.hasNext.value).toBe(false);
+
+            queue.toggleRepeat();
+
+            // Repeat means there is always a next, the same as it does in order.
+            expect(queue.hasNext.value).toBe(true);
+        });
+
+        it("forgets the pass when an edit renumbers the rows", () => {
+            // The walk records POSITIONS, so a remove would otherwise leave it naming
+            // tracks that have shifted under it — the second-worst kind of bug, since
+            // everything still plays and just plays the wrong thing.
+            alwaysFirst();
+            const queue = usePlayerQueue();
+            queue.enqueue([track("a"), track("b"), track("c")]);
+            queue.toggleShuffle();
+            queue.next(); // one row now played besides the loaded one
+            queue.remove(0);
+
+            // A fresh pass over what is left: two rows, so exactly one step remains.
+            expect(queue.next()).toBe(true);
+            expect(queue.next()).toBe(false);
+        });
+
+        it("keeps the pass across an append, which renumbers nothing", () => {
+            alwaysFirst();
+            const queue = usePlayerQueue();
+            queue.enqueue([track("a"), track("b")]);
+            queue.toggleShuffle();
+            queue.next(); // both rows played
+            queue.enqueue(track("c"));
+
+            // Only the newcomer is left to play, and then the pass really is done.
+            expect(queue.next()).toBe(true);
+            expect(queue.current.value?.id).toBe("c");
+            expect(queue.next()).toBe(false);
+        });
+
+        it("survives the tab closing, but comes back on a fresh pass", () => {
+            const queue = usePlayerQueue();
+            queue.enqueue([track("a"), track("b")]);
+            queue.toggleShuffle();
+
+            closeTab();
+            usePlayerQueue().hydrate();
+
+            expect(usePlayerQueue().shuffle.value).toBe(true);
+            // The walk is not stored, so the restored track is step one and there is
+            // nothing behind it — see the walk's note on why that is the right cost.
+            expect(usePlayerQueue().hasPrevious.value).toBe(false);
+        });
+
+        it("reads a pointer written before shuffle existed as off", () => {
+            // Why adding the field needed no version bump: the old shape simply lacks it.
+            window.localStorage.setItem(
+                "mixtape.queue",
+                JSON.stringify({
+                    version: 3,
+                    userId: "user-1",
+                    tracks: [{ id: "a", name: "Track a", artist: null, album: null, duration: null }]
+                })
+            );
+            window.localStorage.setItem(
+                "mixtape.queue.position",
+                JSON.stringify({ version: 3, userId: "user-1", currentIndex: 0, repeat: true })
+            );
+
+            usePlayerQueue().hydrate();
+
+            expect(usePlayerQueue().repeat.value).toBe(true);
+            expect(usePlayerQueue().shuffle.value).toBe(false);
+        });
+    });
+
     describe("repeating", () => {
         it("is off to begin with, so a queue ends where it ends", () => {
             expect(usePlayerQueue().repeat.value).toBe(false);

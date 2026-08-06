@@ -73,15 +73,25 @@ const enqueueSongs = async (page: Page, count: number): Promise<string[]> => {
 /** The transport's play/pause button. */
 const playButton = (page: Page) => page.locator(".player-bar__control--play");
 
-/** Turn repeat on through the queue menu, so playback cannot run out mid-assertion. */
-const enableRepeat = async (page: Page): Promise<void> => {
-    await page.locator(".play-queue .popover-button").click();
-    const repeat = page.locator(".play-queue .popover-list-item").first();
-    await repeat.click();
-    await expect(repeat).toHaveAttribute("aria-pressed", "true");
+/**
+ * Turn repeat on through the player's settings popover, so playback cannot run out
+ * mid-assertion.
+ *
+ * Through the real control rather than by seeding storage, for the reason the enqueue
+ * helper gives: this is the path a listener takes. The radio is clipped to a pixel, so
+ * the click lands on its LABEL — the whole visible option — which is also what a person
+ * clicks.
+ */
+const setMode = async (page: Page, group: "playerMode" | "playerRepeat", value: "off" | "on"): Promise<void> => {
+    await page.locator(".player-settings .popover-button").click();
+    await page.locator(`label[for="${group}-${value}"]`).click();
+    await expect(page.locator(`#${group}-${value}`)).toBeChecked();
     // Close the popover again so it cannot cover the transport.
     await page.keyboard.press("Escape");
 };
+
+/** Repeat on, the case most timing-sensitive specs need. */
+const enableRepeat = (page: Page): Promise<void> => setMode(page, "playerRepeat", "on");
 
 test.describe("the player", () => {
     test.use({ viewport: { width: 1440, height: 900 } });
@@ -512,5 +522,99 @@ test.describe("the player", () => {
         await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
 
         expect((await audioState(page)).paused).toBe(false);
+    });
+});
+
+test.describe("the player's settings popover", () => {
+    test.use({ viewport: { width: 1440, height: 900 } });
+
+    test("sits between the timeline and the volume button", async ({ page }) => {
+        // Placement is the whole requirement here, and only a browser knows where a grid
+        // area landed — happy-dom would report every box at zero.
+        await enqueueSongs(page, 1);
+
+        const edges = await page.evaluate(() => {
+            const box = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
+
+            return {
+                timeline: box(".player-bar__timeline").right,
+                settings: box(".player-bar__settings").left,
+                settingsRight: box(".player-bar__settings").right,
+                volume: box(".player-bar__volume").left
+            };
+        });
+
+        expect(edges.settings).toBeGreaterThanOrEqual(edges.timeline);
+        expect(edges.volume).toBeGreaterThanOrEqual(edges.settingsRight);
+    });
+
+    test("opens upward, like the volume panel beside it", async ({ page }) => {
+        // Same reason as the volume popover's own spec: the bar is fixed to the bottom of
+        // the viewport, so the shared style's "under the trigger" would put this panel
+        // off-screen, and the fallback flip alone lands it a couple of pixels inside the
+        // button. Two adjacent triggers getting this wrong differently would be worse than
+        // either getting it wrong alone.
+        await enqueueSongs(page, 1);
+        await page.locator(".player-settings .popover-button").click();
+
+        await expect(page.locator(".player-settings__panel")).toBeVisible();
+
+        const boxes = await page.evaluate(() => {
+            const content = document.querySelector(".player-settings .popover-content")!.getBoundingClientRect();
+            const button = document.querySelector(".player-settings .popover-button")!.getBoundingClientRect();
+
+            return { panelBottom: content.bottom, panelTop: content.top, buttonTop: button.top };
+        });
+
+        expect(boxes.panelBottom).toBeLessThanOrEqual(boxes.buttonTop + 1);
+        expect(boxes.panelTop).toBeGreaterThanOrEqual(0);
+    });
+
+    test("moves the pill onto the option that was clicked", async ({ page }) => {
+        /*
+         * The pill is one element behind the row, positioned by a `calc()` off two custom
+         * properties — so this is the layer that can say it actually travelled. Vitest can
+         * only see the properties; it has no engine to resolve them into a left edge.
+         */
+        await enqueueSongs(page, 1);
+        await page.locator(".player-settings .popover-button").click();
+
+        const pill = page.locator(".player-settings__row").first().locator(".option-bubbles__pill");
+        const at = async () => (await pill.boundingBox())!.x;
+
+        const resting = await at();
+        await page.locator('label[for="playerMode-on"]').click();
+
+        await expect.poll(async () => (await at()) > resting).toBe(true);
+    });
+
+    test("really shuffles: every track once, then the queue is done", async ({ page }) => {
+        /*
+         * Shuffle is a play MODE, and this is the promise it makes — a pass plays each
+         * track exactly once and then stops, whatever order it picked. Asserted as a SET
+         * rather than a sequence, which is what makes a random control testable at all: any
+         * order passes, a repeat inside one pass does not.
+         *
+         * Three one-second tracks, driven by nothing but `ended` — the same event
+         * auto-advance rides everywhere else in this file.
+         */
+        const queued = await enqueueSongs(page, 3);
+        await setMode(page, "playerMode", "on");
+
+        const heard = new Set<string>([await page.locator(".player-bar__name").innerText()]);
+        await playButton(page).click();
+
+        await expect
+            .poll(
+                async () => {
+                    heard.add(await page.locator(".player-bar__name").innerText());
+
+                    return (await audioState(page)).paused && heard.size === 3;
+                },
+                { timeout: 20_000, intervals: [100] }
+            )
+            .toBe(true);
+
+        expect([...heard].sort()).toStrictEqual([...queued].sort());
     });
 });

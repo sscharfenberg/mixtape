@@ -31,9 +31,10 @@
  * off a token.
  *****************************************************************************/
 import { Link } from "@inertiajs/vue3";
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { onMounted, onUnmounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
+import PlayerSettings from "Components/Player/PlayerSettings.vue";
 import PlayerTimeline from "Components/Player/PlayerTimeline.vue";
 import PlayerVolume from "Components/Player/PlayerVolume.vue";
 import Icon from "Components/UI/Icon.vue";
@@ -41,22 +42,12 @@ import { usePlayerAudio } from "Composables/usePlayerAudio";
 import { usePlayerQueue } from "Composables/usePlayerQueue";
 
 const { t } = useI18n();
-const { tracks, currentIndex, current, repeat, next, previous } = usePlayerQueue();
+// `hasNext` / `hasPrevious` come FROM the queue rather than being derived here, and that
+// moved when shuffle arrived: under a random order the answers depend on the shuffle walk,
+// which is the composable's private state — "is there a track behind this one" is no
+// longer "is the index above zero".
+const { current, hasNext, hasPrevious, next, previous } = usePlayerQueue();
 const { isPlaying, currentTime, duration, buffered, attach, detach, toggle, seek } = usePlayerAudio();
-
-/** Whether stepping back is possible — the first track in the queue has nowhere to go. */
-const hasPrevious = computed(() => currentIndex.value > 0);
-
-/**
- * Whether stepping forward is possible.
- *
- * With repeat on the answer is always yes for a non-empty queue: the last track's
- * "next" is the first one. The control has to say so, or the queue would wrap on its
- * own at the end of a track while the button sat there disabled.
- */
-const hasNext = computed(
-    () => currentIndex.value > -1 && (repeat.value || currentIndex.value < tracks.value.length - 1)
-);
 
 /** The bar element, measured to publish its height. */
 const barRef = ref<HTMLElement | null>(null);
@@ -139,6 +130,8 @@ onUnmounted(() => {
             @seek="seek"
         />
 
+        <player-settings class="player-bar__settings" />
+
         <player-volume class="player-bar__volume" />
 
         <div class="player-bar__transport">
@@ -202,9 +195,9 @@ onUnmounted(() => {
     z-index: z.$c-player-bar;
     align-items: center;
     grid-template-areas:
-        "cover meta volume transport"
-        "timeline timeline timeline timeline";
-    grid-template-columns: auto minmax(0, 1fr) auto auto;
+        "cover meta settings volume transport"
+        "timeline timeline timeline timeline timeline";
+    grid-template-columns: auto minmax(0, 1fr) auto auto auto;
 
     box-sizing: border-box;
     min-height: map.get(s.$c-player-bar, "height");
@@ -217,12 +210,13 @@ onUnmounted(() => {
     color: map.get(c.$c-player-bar, "surface");
 
     @include m.mq("landscape") {
-        grid-template-areas: "cover meta timeline volume transport";
+        grid-template-areas: "cover meta timeline settings volume transport";
 
         /* The timeline gets twice the slack the title does, so the rail grows into a
            wide window instead of leaving a long stretch of empty title beside it. The
-           volume column is `auto` — one icon wide, and never a competitor for the slack. */
-        grid-template-columns: auto minmax(0, 1fr) minmax(0, 2fr) auto auto;
+           settings and volume columns are `auto` — one icon wide each, and never
+           competitors for the slack. */
+        grid-template-columns: auto minmax(0, 1fr) minmax(0, 2fr) auto auto auto;
     }
 
     &__cover {
@@ -273,8 +267,16 @@ onUnmounted(() => {
         grid-area: timeline;
     }
 
-    /* Between the timeline (whose right-hand clock is the total) and the transport, so
-       the reading order is position → level → the buttons that change position. */
+    /* First of the two popover triggers, immediately after the timeline: the settings in
+       it are about the QUEUE — what order it plays in, what happens at its end — so they
+       belong beside the thing that shows progress through it, ahead of a control that is
+       only about how loud this one track is. */
+    &__settings {
+        grid-area: settings;
+    }
+
+    /* Between the settings and the transport, so the reading order is position → order →
+       level → the buttons that change position. */
     &__volume {
         grid-area: volume;
     }

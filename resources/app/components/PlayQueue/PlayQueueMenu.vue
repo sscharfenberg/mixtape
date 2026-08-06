@@ -10,10 +10,16 @@
  * deliberate second click and is named in words instead of guessed from a glyph.
  *
  * Its own component rather than markup inside PlayQueue because it is where the
- * queue's other verbs are going — "save queue as playlist", shuffle and repeat —
- * and those bring state and handlers with them. Keeping them out of the panel
- * leaves that file about *drawing the queue*, which is already the longer job.
- * Repeat is the first of them to arrive.
+ * queue's other verbs are going — "save queue as playlist" is the next one — and
+ * those bring state and handlers with them. Keeping them out of the panel leaves
+ * that file about *drawing the queue*, which is already the longer job.
+ *
+ * VERBS ONLY, since 2026-08-06. Repeat lived here first and has moved to the
+ * player bar's settings popover (Player/PlayerSettings), where it sits beside
+ * shuffle as one of two play MODES. Two reasons it does not belong in this menu:
+ * this panel is behind a toggle on a phone and gone entirely once the queue is
+ * emptied, so a setting you want while listening was hidden in both cases — and a
+ * harmless toggle sat one row above a destructive verb.
  *
  * It reads the queue directly rather than taking props or emitting events: the
  * composable is a module singleton, so going through the panel would be
@@ -25,7 +31,7 @@ import PopOver from "Components/UI/PopOver.vue";
 import { usePlayerQueue } from "Composables/usePlayerQueue";
 
 const { t } = useI18n();
-const { repeat, toggleRepeat, clear } = usePlayerQueue();
+const { clear } = usePlayerQueue();
 </script>
 
 <template>
@@ -37,22 +43,6 @@ const { repeat, toggleRepeat, clear } = usePlayerQueue();
         width="22ch"
     >
         <ul class="popover-list">
-            <li>
-                <!-- A toggle, so it stays open-able twice and reads its own state: the
-                     popover is deliberately NOT closed here, because flipping repeat is
-                     the sort of thing you do while looking at the queue, and `aria-pressed`
-                     plus the `--selected` fill are what say which way it is set. -->
-                <button
-                    type="button"
-                    class="popover-list-item"
-                    :class="{ 'popover-list-item--selected': repeat }"
-                    :aria-pressed="repeat"
-                    @click="toggleRepeat"
-                >
-                    <icon name="repeat" :size="1" />
-                    {{ t("player.queue.repeat") }}
-                </button>
-            </li>
             <li>
                 <!-- No explicit popover close: an empty queue unmounts the whole panel,
                      and taking an open popover out of the DOM removes it from the top

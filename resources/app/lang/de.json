@@ -371,7 +371,6 @@
             "show": "Warteschlange anzeigen",
             "hide": "Warteschlange ausblenden",
             "actions": "Warteschlangen-Aktionen",
-            "repeat": "Endlos wiederholen",
             "clear": "Warteschlange leeren",
             "load": "{name} abspielen",
             "remove": "{name} aus der Warteschlange entfernen",
@@ -389,7 +388,16 @@
             "volume": "Lautstärke",
             "volumeLevel": "Lautstärke einstellen",
             "mute": "Stumm schalten",
-            "unmute": "Ton einschalten"
+            "unmute": "Ton einschalten",
+            "settings": "Wiedergabe-Einstellungen"
+        },
+        "settings": {
+            "mode": "Reihenfolge",
+            "inOrder": "Der Reihe nach",
+            "shuffle": "Zufällige Reihenfolge",
+            "repeat": "Wiederholung",
+            "repeatOff": "Anhalten",
+            "repeatOn": "Endlos wiederholen"
         },
         "enqueue": "In die Warteschlange",
         "enqueued": "„{name}“ wurde in die Warteschlange gestellt."

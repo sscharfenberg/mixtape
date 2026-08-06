@@ -178,6 +178,12 @@ type PersistedPosition = {
     userId: string | null;
     currentIndex: number;
     repeat: boolean;
+    /**
+     * Whether shuffle is on. Optional, and read tolerantly, so it could be ADDED without
+     * bumping the shape: the version is shared with the list payload, so a bump would
+     * throw away every stored queue to gain one boolean that defaults to false anyway.
+     */
+    shuffle?: boolean;
 };
 
 /** Return type of {@link usePlayerQueue}. */
@@ -188,6 +194,8 @@ export type UsePlayerQueueReturn = {
     currentIndex: Ref<number>;
     /** Whether the queue wraps to its first track instead of stopping at the last. */
     repeat: Ref<boolean>;
+    /** Whether the queue plays in a random order instead of the order on screen. */
+    shuffle: Ref<boolean>;
     /** The loaded track, or null. Drives whether the PlayerBar replaces the footer. */
     current: ComputedRef<QueueTrack | null>;
     /** True while the queue holds nothing — the PlayQueue panel renders only when this is false. */
@@ -206,12 +214,18 @@ export type UsePlayerQueueReturn = {
     reorder: (from: number, to: number) => void;
     /** Load the track at `index` (a click in the panel). */
     jumpTo: (index: number) => void;
+    /** Whether stepping forward is possible at all — what the transport's next button reads. */
+    hasNext: ComputedRef<boolean>;
+    /** Whether stepping back is possible at all — what the transport's previous button reads. */
+    hasPrevious: ComputedRef<boolean>;
     /** Load the next track, wrapping to the first when repeat is on. Returns false at a hard end. */
     next: () => boolean;
-    /** Load the previous track. Returns false at the start of the queue. */
+    /** Load the previous track. Returns false when there is nothing behind the loaded one. */
     previous: () => boolean;
     /** Turn wrapping at the end of the queue on or off. */
     toggleRepeat: () => void;
+    /** Turn the random play order on or off. */
+    toggleShuffle: () => void;
     /** Empty the queue entirely. */
     clear: () => void;
     /** Restore from storage. Called once, by FullLayout — see the function's own note. */
@@ -230,6 +244,45 @@ const currentIndex = ref<number>(NOTHING);
  * repeat that reset on every reload would be a setting you set twice a day.
  */
 const repeat = ref<boolean>(false);
+
+/**
+ * Whether the queue plays in a random order.
+ *
+ * A play MODE, not a reordering: the list on screen keeps the order you built, and
+ * only the pointer jumps. Shuffling `tracks` itself would be destructive — the order
+ * you dragged into place would be gone the moment you tried the mode — and it would
+ * make "turn shuffle off again" impossible to honour.
+ */
+const shuffle = ref<boolean>(false);
+
+/**
+ * The ids played since shuffle last started over, in the order they were played, and
+ * where in that walk the loaded track sits.
+ *
+ * A BAG rather than a die roll per track: rolling at random plays the same song twice
+ * in ten and is the single most complained-about shuffle behaviour there is. Recording
+ * the walk (rather than only a played-set) is what makes the transport's back button
+ * mean "the track I heard before this one" under shuffle instead of "the row above",
+ * and it lets forward retrace the same path after walking back, the way every music
+ * player behaves.
+ *
+ * Ids rather than indices, because the list is editable underneath it: a remove or a
+ * drag renumbers every index in the walk, while an id keeps pointing at its track.
+ *
+ * INDICES, not ids: the same song may legitimately be queued twice, and an id-keyed
+ * walk would treat the two rows as one — marking the second copy played without
+ * playing it. The price is that the walk is only valid while the rows keep their
+ * numbers, which is why every edit that renumbers them forgets it (see
+ * {@link resetShuffleWalk}); appending does not renumber anything, so an append keeps
+ * it.
+ *
+ * NOT persisted, deliberately. It is meaningless once the tab is gone, and coming back
+ * to a fresh pass is what a listener expects anyway — the shuffle they left running is
+ * not a place in a list. Refs rather than plain variables because `hasNext` reads them:
+ * a computed over a bare `let` never re-runs.
+ */
+const shuffleWalk = ref<number[]>([]);
+const shuffleCursor = ref<number>(NOTHING);
 
 /** Guards `hydrate()` against a second run, since FullLayout is mounted once but tests mount it repeatedly. */
 let hydrated = false;
@@ -380,6 +433,9 @@ function applyPosition(stored: string | null): void {
 
     if (typeof payload.currentIndex === "number") currentIndex.value = payload.currentIndex;
     repeat.value = payload.repeat === true;
+    // `=== true` rather than a default, so a pointer written before shuffle existed reads
+    // as off instead of undefined — which is why adding the field needed no version bump.
+    shuffle.value = payload.shuffle === true;
 }
 
 /** Which of the two keys a mutation left behind. */
@@ -443,7 +499,8 @@ export function flushQueueWrites(): void {
             version: PERSISTED_VERSION,
             userId,
             currentIndex: currentIndex.value,
-            repeat: repeat.value
+            repeat: repeat.value,
+            shuffle: shuffle.value
         });
     }
 
@@ -509,6 +566,44 @@ function asList(input: QueueTrack | QueueTrack[]): QueueTrack[] {
 }
 
 /**
+ * Forget the shuffle walk.
+ *
+ * Called by every edit that RENUMBERS rows — remove, reorder, playNext's insert, a
+ * wholesale replace — because the walk records positions and a renumbered position
+ * points at a different song. An append is deliberately not in that list: it changes no
+ * existing index, so the pass keeps its memory and the new arrivals simply join the
+ * pool of tracks not yet played.
+ */
+function resetShuffleWalk(): void {
+    shuffleWalk.value = [];
+    shuffleCursor.value = NOTHING;
+}
+
+/**
+ * Record the loaded row as the newest step of the shuffle walk.
+ *
+ * Anything ahead of the cursor is dropped first, because a deliberate pick — a click in
+ * the panel, a fresh queue — is a new branch: retracing forward after it should follow
+ * what actually played, not the path abandoned when the listener jumped somewhere else.
+ *
+ * A no-op while shuffle is off, so the ordinary index-stepping path carries no
+ * bookkeeping at all; `toggleShuffle` seeds the walk when the mode comes on.
+ */
+function noteShuffleStep(index: number): void {
+    if (!shuffle.value || index === NOTHING) return;
+
+    shuffleWalk.value = [...shuffleWalk.value.slice(0, shuffleCursor.value + 1), index];
+    shuffleCursor.value = shuffleWalk.value.length - 1;
+}
+
+/** Rows not yet played in this shuffle pass — the pool `next()` draws from. */
+function unplayedIndices(): number[] {
+    const played = new Set(shuffleWalk.value);
+
+    return tracks.value.map((_, index) => index).filter(index => !played.has(index));
+}
+
+/**
  * Read / write the shared play queue.
  *
  * Returns the module-level refs themselves rather than copies, which is what lets
@@ -527,10 +622,43 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
         tracks.value.reduce((total, track) => total + (track.duration ?? 0), 0)
     );
 
+    /**
+     * Whether stepping forward is possible.
+     *
+     * Read by the transport's next button, and here rather than in `PlayerBar` because
+     * under shuffle the answer is not derivable from the index alone: it depends on the
+     * walk, which is this module's private state.
+     *
+     * With repeat on the answer is always yes for a non-empty queue — the last track's
+     * "next" is the first one — or the queue would wrap on its own at the end of a track
+     * while the button sat there disabled.
+     */
+    const hasNext = computed<boolean>(() => {
+        if (currentIndex.value === NOTHING) return false;
+        if (!shuffle.value) return repeat.value || currentIndex.value < tracks.value.length - 1;
+
+        const canRetrace = shuffleCursor.value > NOTHING && shuffleCursor.value < shuffleWalk.value.length - 1;
+
+        return canRetrace || unplayedIndices().length > 0 || repeat.value;
+    });
+
+    /**
+     * Whether stepping back is possible.
+     *
+     * Under shuffle that means "is there a track I heard before this one", which is the
+     * walk's cursor — NOT the row above, which under a random order is a song that has
+     * probably not played at all.
+     */
+    const hasPrevious = computed<boolean>(() =>
+        shuffle.value ? shuffleCursor.value > 0 : currentIndex.value > 0
+    );
+
     /** Replace the queue wholesale and load its first track — the "play this album now" operation. */
     function playNow(next: QueueTrack[]): void {
         tracks.value = [...next];
         currentIndex.value = next.length > 0 ? 0 : NOTHING;
+        resetShuffleWalk();
+        noteShuffleStep(currentIndex.value);
         commit("tracks", "position");
     }
 
@@ -540,10 +668,17 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
      * Loading the first arrival when nothing was loaded is what makes a single
      * enqueue useful: without it the PlayerBar would have a queue and no track to
      * show, and the reader would have to click the row they just queued.
+     *
+     * The shuffle walk is left alone on purpose — an append renumbers nothing, so the
+     * pass keeps what it has already played and the arrivals just join the pool.
      */
     function enqueue(input: QueueTrack | QueueTrack[]): void {
+        const wasEmpty = currentIndex.value === NOTHING;
         tracks.value = [...tracks.value, ...asList(input)];
-        if (currentIndex.value === NOTHING) currentIndex.value = 0;
+        if (wasEmpty) {
+            currentIndex.value = 0;
+            noteShuffleStep(0);
+        }
         commit("tracks", "position");
     }
 
@@ -557,6 +692,11 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
         }
         const at = currentIndex.value + 1;
         tracks.value = [...tracks.value.slice(0, at), ...additions, ...tracks.value.slice(at)];
+        // An insert shifts every row below it, so the walk's recorded positions now name
+        // different songs — see resetShuffleWalk. The loaded row keeps its number, so it
+        // becomes step one of the new pass.
+        resetShuffleWalk();
+        noteShuffleStep(currentIndex.value);
         commit("tracks");
     }
 
@@ -572,6 +712,8 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
         tracks.value = tracks.value.filter((_, position) => position !== index);
         if (index < currentIndex.value) currentIndex.value -= 1;
         clampIndex();
+        resetShuffleWalk();
+        noteShuffleStep(currentIndex.value);
         commit("tracks", "position");
     }
 
@@ -587,13 +729,22 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
         next.splice(to, 0, moved);
         tracks.value = next;
         if (loaded) currentIndex.value = next.indexOf(loaded);
+        resetShuffleWalk();
+        noteShuffleStep(currentIndex.value);
         commit("tracks", "position");
     }
 
-    /** Load the track at `index` — a click on a queue row. */
+    /**
+     * Load the track at `index` — a click on a queue row.
+     *
+     * Under shuffle this is a deliberate branch, so it becomes the newest step of the
+     * walk: back then goes to the track you were listening to, and forward retraces from
+     * here rather than resuming the path you abandoned.
+     */
     function jumpTo(index: number): void {
         if (index < 0 || index >= tracks.value.length) return;
         currentIndex.value = index;
+        noteShuffleStep(index);
         commit("position");
     }
 
@@ -609,6 +760,7 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
      */
     function next(): boolean {
         if (currentIndex.value === NOTHING) return false;
+        if (shuffle.value) return shuffledNext();
 
         if (currentIndex.value >= tracks.value.length - 1) {
             if (!repeat.value) return false;
@@ -624,8 +776,63 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
         return true;
     }
 
-    /** Step back. False at the start. */
+    /**
+     * Step forward through the shuffle walk.
+     *
+     * Three cases in order of precedence. Ahead of the cursor there may be a path already
+     * played (the listener stepped back); that is retraced rather than re-rolled, because
+     * a back-then-forward that landed somewhere new would make the two buttons feel
+     * broken. Otherwise a row is drawn at random from those not yet played this pass. When
+     * nothing is left, repeat starts a new pass and anything else reports the queue
+     * finished — the same contract the ordinary path has.
+     *
+     * The new pass excludes the track that just ended wherever the queue holds another, so
+     * a wrap does not immediately replay it. That also means the walk no longer holds what
+     * came before the wrap, so `previous` cannot step back across it: a pass boundary is
+     * where the history honestly ends.
+     */
+    function shuffledNext(): boolean {
+        if (shuffleCursor.value > NOTHING && shuffleCursor.value < shuffleWalk.value.length - 1) {
+            shuffleCursor.value += 1;
+            currentIndex.value = shuffleWalk.value[shuffleCursor.value];
+            commit("position");
+
+            return true;
+        }
+
+        let candidates = unplayedIndices();
+
+        if (candidates.length === 0) {
+            if (!repeat.value) return false;
+
+            resetShuffleWalk();
+            const others = unplayedIndices().filter(index => index !== currentIndex.value);
+            candidates = others.length > 0 ? others : unplayedIndices();
+        }
+        if (candidates.length === 0) return false;
+
+        const pick = candidates[Math.floor(Math.random() * candidates.length)];
+        currentIndex.value = pick;
+        noteShuffleStep(pick);
+        commit("position");
+
+        return true;
+    }
+
+    /**
+     * Step back — to the row above, or under shuffle to the track actually heard before
+     * this one. False when there is nothing behind the loaded track either way.
+     */
     function previous(): boolean {
+        if (shuffle.value) {
+            if (shuffleCursor.value <= 0) return false;
+            shuffleCursor.value -= 1;
+            currentIndex.value = shuffleWalk.value[shuffleCursor.value];
+            commit("position");
+
+            return true;
+        }
+
         if (currentIndex.value <= 0) return false;
         currentIndex.value -= 1;
         commit("position");
@@ -645,10 +852,26 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
         commit("position");
     }
 
+    /**
+     * Flip the random play order.
+     *
+     * Either direction starts a fresh walk, and the loaded track becomes its first step:
+     * switching the mode on should not immediately replay what is already playing, and
+     * switching it off and on again should not resume a pass from an hour ago. A habit
+     * like repeat, so it persists and survives `clear()` too.
+     */
+    function toggleShuffle(): void {
+        shuffle.value = !shuffle.value;
+        resetShuffleWalk();
+        noteShuffleStep(currentIndex.value);
+        commit("position");
+    }
+
     /** Empty the queue, which also puts the footer back in place of the PlayerBar. */
     function clear(): void {
         tracks.value = [];
         currentIndex.value = NOTHING;
+        resetShuffleWalk();
         commit("tracks", "position");
     }
 
@@ -693,17 +916,25 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
         tracks.value = payload.tracks.filter(isPersistedTrack).map(fromPersisted);
         currentIndex.value = tracks.value.length > 0 ? 0 : NOTHING;
         repeat.value = false;
+        shuffle.value = false;
         applyPosition(storedPosition);
         clampIndex();
+        // A restored queue starts a fresh pass, with whatever it came back on as step one
+        // — the walk is not persisted (see its note).
+        resetShuffleWalk();
+        noteShuffleStep(currentIndex.value);
     }
 
     return {
         tracks,
         currentIndex,
         repeat,
+        shuffle,
         current,
         isEmpty,
         totalDuration,
+        hasNext,
+        hasPrevious,
         playNow,
         enqueue,
         playNext,
@@ -713,6 +944,7 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
         next,
         previous,
         toggleRepeat,
+        toggleShuffle,
         clear,
         hydrate
     };
@@ -740,5 +972,7 @@ export function resetPlayerQueueForTests(): void {
     tracks.value = [];
     currentIndex.value = NOTHING;
     repeat.value = false;
+    shuffle.value = false;
+    resetShuffleWalk();
     hydrated = false;
 }

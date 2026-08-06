@@ -15,17 +15,18 @@ This file is the client half **as built**.
 
 ## Status
 
-| Piece                                            | State                                                      |
-| ------------------------------------------------ | ---------------------------------------------------------- |
-| `usePlayerQueue` (module singleton, user-scoped) | ✅ 2026-08-03                                               |
-| The `PlayQueue` panel, its menu and toggle       | ✅ 2026-08-03                                               |
-| Repeat                                           | ✅ a flag on the queue, toggled from the panel's menu       |
-| Reordering (drag + Alt+↑/↓)                      | ✅ 2026-08-04 — `useQueueReorder`                           |
-| Trimmed, split and coalesced storage             | ✅ 2026-08-06 — _Storage_ below                             |
-| Enqueue from anywhere but the song page          | ⬜ one call site today (`SongPage`), so no bulk enqueue yet |
-| Server sync (`player_states`)                    | ⬜ migrated, read by nobody — `data-model.md` owns the plan |
-| Shuffle, play-history beacon                     | ⬜                                                          |
-| A visible failure when a write is refused        | ⬜ swallowed silently today — see _Known edges_             |
+| Piece                                            | State                                                           |
+| ------------------------------------------------ | --------------------------------------------------------------- |
+| `usePlayerQueue` (module singleton, user-scoped) | ✅ 2026-08-03                                                    |
+| The `PlayQueue` panel, its menu and toggle       | ✅ 2026-08-03                                                    |
+| Reordering (drag + Alt+↑/↓)                      | ✅ 2026-08-04 — `useQueueReorder`                                |
+| Trimmed, split and coalesced storage             | ✅ 2026-08-06 — _Storage_ below                                  |
+| Repeat                                           | ✅ a flag on the queue — the control moved to the bar 2026-08-06 |
+| Shuffle                                          | ✅ 2026-08-06 — a play mode, _Playing in a random order_ below   |
+| Enqueue from anywhere but the song page          | ⬜ one call site today (`SongPage`), so no bulk enqueue yet      |
+| Server sync (`player_states`)                    | ⬜ migrated, read by nobody — `data-model.md` owns the plan      |
+| Play-history beacon                              | ⬜                                                               |
+| A visible failure when a write is refused        | ⬜ swallowed silently today — see _Known edges_                  |
 
 ## What it is
 
@@ -50,11 +51,102 @@ which is the right trade for a list assembled minutes ago.
 at.** Remove a row above the playing one, or drag one past it, and an index-preserving implementation
 silently switches what the player holds while looking perfectly correct in the panel. Operations:
 `playNow` (replace), `enqueue` (append), `playNext` (insert after current), `remove`, `reorder`,
-`jumpTo`, `next`, `previous`, `toggleRepeat`, `clear`.
+`jumpTo`, `next`, `previous`, `toggleRepeat`, `toggleShuffle`, `clear` — plus `hasNext` /
+`hasPrevious`, which the transport's two skip buttons read instead of comparing the index themselves
+(under shuffle the answer is a fact about the walk, not about the index).
 
-**Repeat is queue state, not player state**, because what happens after the last track is a fact
-about the _list_. It survives `clear()`, since "I listen on repeat" is a habit rather than a property
-of whatever is queued right now.
+**Repeat and shuffle are queue state, not player state**, because what order the list plays in and
+what happens after its last track are facts about the _list_. Both survive `clear()`, since "I listen
+on repeat" is a habit rather than a property of whatever is queued right now. Their **control** lives
+in the player bar (`PlayerSettings`, see [`player.md`](player.md)); repeat's first home was the
+panel's own menu, which was the wrong place for a setting you want while listening — the panel is
+behind a toggle on a phone and gone entirely once the queue is emptied.
+
+## Playing in a random order
+
+Built 2026-08-06, and it is a **play mode, not a reordering**: the list keeps the order you built and
+only the pointer jumps. Shuffling `tracks` itself would be destructive — the order you dragged into
+place would be gone the moment you tried the mode — and it would make "turn it off again" impossible
+to honour.
+
+Everything below lives in `usePlayerQueue`: the mode is one flag (`shuffle`), and the behaviour is
+one function (`shuffledNext`) plus one piece of bookkeeping, the **walk**.
+
+### The walk
+
+Two module-level refs, and they are the whole of shuffle's memory:
+
+|                 | holds                                                    | why                                                     |
+| --------------- | -------------------------------------------------------- | ------------------------------------------------------- |
+| `shuffleWalk`   | the rows played since this pass began, **in play order** | a bag to draw from, and a path to step back along       |
+| `shuffleCursor` | where in that walk the loaded track sits                 | so back and forward can move within what already played |
+
+**Rows, not track ids.** The same song may legitimately be queued twice, and an id-keyed walk would
+treat the two rows as one — marking the second copy played without playing it. The cost of positions
+is that they are only valid while the rows keep their numbers, which is what the reset rules below are
+about.
+
+### What one press of next does
+
+`shuffledNext()` tries three things, in this order:
+
+1. **Retrace, if there is a path ahead of the cursor.** That only exists after stepping back, and
+   replaying it is the point: a back-then-forward that landed on a *new* track would make both
+   buttons feel broken.
+2. **Otherwise draw at random from the rows not yet played this pass** — `unplayedIndices()`, one
+   `Math.random()` over that pool. This is the bag: every track gets its turn before any repeats.
+   Rolling freely instead plays the same song twice in ten, which is the most complained-about
+   shuffle behaviour there is.
+3. **When the pool is empty the pass is over.** With repeat on, the walk is cleared and a new pass
+   begins — excluding the track that just ended wherever the queue holds another, so a wrap never
+   immediately replays it. With repeat off, `next()` returns false and the player stops, exactly as it
+   does at the end of an ordered queue.
+
+`previous()` follows the cursor back one step — the track actually **heard** before this one, not the
+row above, which under a random order has probably not played at all. A click in the panel is a
+deliberate branch: it becomes the newest step and anything ahead of the cursor is dropped, so
+retracing afterwards follows what really played.
+
+The transport's two skip buttons read `hasNext` / `hasPrevious` for the same reason: under shuffle
+"is there anything behind this" is a question about the walk, not about the index.
+
+### What resets it
+
+| event                                      | walk                                   | why                                                                                                       |
+| ------------------------------------------ | -------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `toggleShuffle` (either direction)         | reset, loaded track becomes step one   | switching on must not replay what is playing; switching off and on again must not resume an hour-old pass |
+| `remove`, `reorder`, `playNext`, `playNow` | reset                                  | each **renumbers rows**, so recorded positions would name different songs                                 |
+| `enqueue` (append)                         | **kept**                               | an append renumbers nothing; the arrivals simply join the pool                                            |
+| `clear`                                    | reset                                  | there is no list left to have played                                                                      |
+| a page load (`hydrate`)                    | reset, restored track becomes step one | the walk is not stored — see below                                                                        |
+
+### Where it is stored: nowhere
+
+The mode is persisted, the walk is not. What survives a refresh is only what is in the two keys
+(_Storage_ below): `shuffle: true` and `currentIndex` in `mixtape.queue.position`. So a reload
+restores **that shuffle is on** and **which track is loaded**, then starts a fresh pass with that
+track as its only step.
+
+Two consequences, and the second is the one worth arguing about:
+
+- **`previous()` cannot cross a reload, or a pass boundary.** The walk starts with one entry, so there
+  is nothing behind the loaded track. Same at a repeat wrap: the new pass starts empty, and the
+  history honestly ends there.
+- **"Each track once" only holds within one page life.** Refresh mid-pass and every row is eligible
+  again, including what you just heard.
+
+**This is why a fixed queue can appear to pick the same next track every time, and it is not a bug.**
+After a reload the pool is every row *except* the loaded one, so a two-track queue has exactly one
+candidate and next is forced; three is a coin flip. Measured on a six-track queue (2026-08-06, real
+browser, same starting track, eight reloads): **three to four distinct picks per run**, with the most
+frequent coming up three times in eight. Random draws from a small pool look repetitive, which is
+exactly what a listener reports as "it always plays the same one".
+
+Persisting the walk is the obvious fix if that ever grates: it is one integer per played row, so a
+200-track queue mid-pass is under 800 characters against a list payload measured in megabytes. The
+catch is the reason it is not done yet — the walk is keyed by row position, so a stored walk has to be
+discarded whenever it does not belong to the list actually read back, or it will confidently name the
+wrong songs.
 
 ## Storage
 
@@ -94,10 +186,10 @@ re-absolutised: this module has no business minting an origin.
 
 ### Two keys, because the halves change at different rates
 
-| key                      | holds                     | written when                           | size               |
-| ------------------------ | ------------------------- | -------------------------------------- | ------------------ |
-| `mixtape.queue`          | the list                  | someone queues, drags, removes         | 164 chars × tracks |
-| `mixtape.queue.position` | `currentIndex` + `repeat` | every track change, incl. auto-advance | **94 chars**, flat |
+| key                      | holds                                 | written when                           | size                 |
+| ------------------------ | ------------------------------------- | -------------------------------------- | -------------------- |
+| `mixtape.queue`          | the list                              | someone queues, drags, removes         | 164 chars × tracks   |
+| `mixtape.queue.position` | `currentIndex` + `repeat` + `shuffle` | every track change, incl. auto-advance | **~110 chars**, flat |
 
 Sharing one key meant a four-minute song ending rewrote the whole queue to move one integer by one:
 
@@ -107,8 +199,11 @@ Sharing one key meant a four-minute song ending rewrote the whole queue to move 
 | 2,000  | 730 KiB                    | 94 chars |
 | 12,058 | 4,404 KiB                  | 94 chars |
 
-`repeat` rides with the pointer rather than the list because it changes at the same rate — a click,
-not a queue edit.
+`repeat` and `shuffle` ride with the pointer rather than the list because they change at the same
+rate — a click, not a queue edit. **`shuffle` was added without bumping the shape**: the version is
+shared with the list payload, so a bump would throw away every stored queue to gain one boolean, and
+the field is read as `=== true` so a pointer written before it existed simply reads as off. The
+shuffle **walk** is not stored at all (see _Playing in a random order_).
 
 **The pointer is advice, not truth.** The pair can drift: a quota error on the list, a browser
 profile copied half-way. So it is refused on its own terms (wrong user, older shape, not a number)
@@ -187,6 +282,10 @@ a panel whose every other pixel plays the track that is a trap. The row's hit ar
 button positioned across it**, which is also what gives the play overlay a real bounding box: its
 focus ring traces the row, and a browser test can click it.
 
+**Its menu holds verbs only**, since 2026-08-06 — clearing the queue today, "save queue as playlist"
+next. Repeat was its first entry and has moved to the player bar (see above), which leaves the menu
+with nothing but actions and no setting sitting one row above a destructive one.
+
 ### Reordering (built 2026-08-04)
 
 Two gestures over one operation. `reorder(from, to)` already existed on `usePlayerQueue`, tested and
@@ -241,7 +340,15 @@ grip, so **tapping the cover no longer plays the track** — the other ~90% of t
 
 ## Tests, and which layer answers what
 
-- **Vitest** — `usePlayerQueue.test.ts` covers the two things that are easy to get subtly wrong and
+- **Vitest** — the shuffle specs assert what a listener would complain about rather than the draw
+  itself: every track once per pass, a new pass that does not replay what just ended, back going to
+  the track actually heard, forward retracing it, and the pass being forgotten by a remove but kept
+  by an append. `Math.random` is stubbed to always take the first candidate, which turns "a random
+  pick" into an assertable one — what matters is which POOL it came from.
+  `PlayerSettings.test.ts` covers the wiring the composable's own spec cannot see, including the trap
+  the component exists to avoid: the queue exposes toggles, not setters, so re-choosing the option
+  already lit would flip the mode back off if the bridge did not compare first.
+  `usePlayerQueue.test.ts` also covers the two things that are easy to get subtly wrong and
   invisible when they are: **the pointer** following the song rather than the index, and **whose queue
   it is**. Since 2026-08-06 it also pins the storage contract, which a round-trip alone cannot: the
   trimmed payload is read **raw** (a round-trip would still pass if every dropped field were quietly
@@ -279,5 +386,8 @@ grip, so **tapping the cover no longer plays the track** — the other ~90% of t
 - **Bulk enqueue does not exist yet.** `SongPage` is the only call site, one song per click, so none
   of the sizes above are reachable today. "Play this album / artist" is the moment they become one
   click, and the moment to revisit the panel's DOM.
-- **Server sync, shuffle, and the play-history beacon** are all still `data-model.md`'s plan. The
-  queue stays per-browser until the first of those lands.
+- **The shuffle walk is in-memory only**, so a reload restarts the pass, and an edit that renumbers
+  rows does too. Both are argued in _Playing in a random order_ — they are the two things about
+  shuffle a listener could actually notice, and persisting the walk is the known fix.
+- **Server sync and the play-history beacon** are still `data-model.md`'s plan. The queue stays
+  per-browser until the first of them lands.

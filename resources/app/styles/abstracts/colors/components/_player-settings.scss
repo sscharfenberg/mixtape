@@ -1,0 +1,23 @@
+/******************************************************************************
+ * contextual color tokens — component:player-settings
+ * @type {Sass}
+ * The transport's playback-settings popover.
+ *
+ * One entry, and that is the point: everything else in this panel is coloured by the
+ * components it is made of — the trigger is one of the player bar's controls
+ * (`c.$c-player-bar`), the options are `c.$c-option-bubbles`. All this component owns is
+ * the weight of its two row LABELS, which sit quieter than the glyphs they name for the
+ * same reason the volume popover's readout does: the control is the thing being looked
+ * at, the label only says which control it is.
+ *
+ * Rule 2-compliant: a palette entry picked per theme, no colour minted. Consumed as
+ * c.$c-player-settings via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-color-tokens" as c;
+
+$player-settings: (
+    // the row labels — the same weight the volume popover gives its readout, so the two
+    // panels in one bar read as one family
+    "label": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron"))
+) !default;

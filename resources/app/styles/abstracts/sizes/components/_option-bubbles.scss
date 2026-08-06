@@ -1,0 +1,21 @@
+/******************************************************************************
+ * contextual size tokens — component:option-bubbles
+ * @type {Sass}
+ * The icon-only option group (Components/UI/OptionBubbles). `padding` sizes each
+ * option around its glyph — which is what gives the sliding pill its height, since
+ * the pill is drawn behind the row rather than around one option — and `radius`
+ * rounds that pill.
+ *
+ * The pill's WIDTH is not a token: it is `100% / option count`, computed in the
+ * component from a CSS custom property, because the control takes however many
+ * options it is handed.
+ * consumed as s.$c-option-bubbles via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:math"; // https://sass-lang.com/documentation/modules/math/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$option-bubbles: (
+    "radius": map.get(s.$radius, "featured"),
+    "padding": math.round(s.$base * 0.2) math.round(s.$base * 0.5)
+) !default;

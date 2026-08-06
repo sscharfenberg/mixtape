@@ -1,0 +1,11 @@
+/******************************************************************************
+ * contextual timing token — component:option-bubbles
+ * @type {Sass}
+ * how fast the pill slides between options, and how fast a glyph takes its
+ * selected colour. One token for both, so the fill never arrives before the pill it
+ * belongs to. consumed as ti.$c-option-bubbles via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$option-bubbles: map.get(ti.$timings, "fast") !default;

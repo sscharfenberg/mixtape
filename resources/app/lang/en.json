@@ -371,7 +371,6 @@
             "show": "Show the play queue",
             "hide": "Hide the play queue",
             "actions": "Queue actions",
-            "repeat": "Repeat the queue",
             "clear": "Clear the queue",
             "load": "Play {name}",
             "remove": "Remove {name} from the queue",
@@ -389,7 +388,16 @@
             "volume": "Volume",
             "volumeLevel": "Set the volume",
             "mute": "Mute",
-            "unmute": "Unmute"
+            "unmute": "Unmute",
+            "settings": "Playback settings"
+        },
+        "settings": {
+            "mode": "Order",
+            "inOrder": "In order",
+            "shuffle": "Shuffle",
+            "repeat": "Repeat",
+            "repeatOff": "Stop",
+            "repeatOn": "Repeat endlessly"
         },
         "enqueue": "Add to queue",
         "enqueued": "“{name}” was added to the queue."

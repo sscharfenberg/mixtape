@@ -489,8 +489,10 @@ pointing at a live row, so title/artist come from the join.
 > exists, but nothing shares it via Inertia and nothing POSTs to it, so the queue remains
 > per-browser rather than per-user. The choke point that sync lands in is now
 > **`flushQueueWrites()`** — the one place that knows what changed and when — and the stored payload
-> is versioned (`PERSISTED_VERSION`, shape 3) and already carries the `userId` it belongs to. **Also
-> still absent:** shuffle, and the play-history beacon described further down.
+> is versioned (`PERSISTED_VERSION`, shape 3) and already carries the `userId` it belongs to.
+> **Shuffle landed 2026-08-06** as a play mode (the list keeps its order, the pointer jumps through a
+> bag) alongside repeat in the player bar's settings popover — see [`play-queue.md`](play-queue.md).
+> **Also still absent:** the play-history beacon described further down.
 
 The queue is the natural home for the **background-playback** feature: auto-advance drives off the audio
 element's `ended` event, which lives in the browser, and the player keeps running while Inertia swaps

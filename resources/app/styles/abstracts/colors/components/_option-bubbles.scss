@@ -1,0 +1,24 @@
+/******************************************************************************
+ * contextual color tokens — component:option-bubbles
+ * @type {Sass}
+ * The icon-only option group (Components/UI/OptionBubbles) — a row of glyphs with
+ * one pill sliding behind the chosen one. Only the SELECTED option carries brand
+ * colour, so the control reads at a glance the way WidgetModeToggle's lit segment
+ * does; the rest are muted grey and colourless.
+ *
+ * The same three decisions ThemeSwitch makes (it predates this component and still
+ * carries its own copy, `$c-theme-switch`), picked here rather than read from there:
+ * tokens are scoped to a component, and a component must not reach into another's.
+ * consumed as c.$c-option-bubbles via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-color-tokens" as c;
+
+$option-bubbles: (
+    // unselected — muted, so the lit option is the only thing carrying colour
+    "surface": light-dark(map.get(c.$grey, "abbey"), map.get(c.$grey, "fog")),
+    // the glyph inside the pill: the brand's own contrast, not a grey, or the pill
+    // would read as a disabled block rather than the chosen option
+    "surface-selected": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$brand, "dark1", "contrast")),
+    "background-selected": light-dark(map.get(c.$brand, "light1", "color"), map.get(c.$brand, "dark1", "color"))
+) !default;
