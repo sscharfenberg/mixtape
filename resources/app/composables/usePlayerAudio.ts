@@ -261,7 +261,22 @@ function handleEnded(): void {
 export function usePlayerAudio(): UsePlayerAudioReturn {
     /** Start or resume playback — the only path that may be reached from a gesture. */
     function play(): void {
-        if (!element) return;
+        if (!element) {
+            /*
+             * THERE IS NOTHING TO PLAY ON YET, and dropping the request here is what made
+             * "play this artist" fill the queue and then sit paused (reported 2026-08-06).
+             * The bar renders the element and only exists while the queue has a track, so a
+             * press that FILLS an empty queue reaches this function a tick before the element
+             * it needs: `playNow()` is synchronous, mounting is not.
+             *
+             * So the intent is kept rather than discarded — `isPlaying` is intent, never a
+             * reading of the element (see the module note) — and `attach()` honours it the
+             * moment the element arrives.
+             */
+            isPlaying.value = true;
+
+            return;
+        }
 
         // The queue can be loaded before the element ever had a source (a hydrated
         // queue, or the very first press after an enqueue).
@@ -318,6 +333,14 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
      * queue by two at every track boundary.
      */
     function attach(audio: HTMLAudioElement): void {
+        /*
+         * READ BEFORE THE DETACH BELOW, which clears it. `play()` keeps the intent when it is
+         * pressed before an element exists (see its note), and `detach()` — reasonably — resets
+         * every reading including that flag, so asking for it after the reset would always find
+         * false and the queued press would be lost a second time.
+         */
+        const requested = isPlaying.value;
+
         detach();
         element = audio;
 
@@ -449,10 +472,17 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
             )
         );
 
-        // A queue restored from storage, or one built before the bar mounted. Loaded so
-        // the timeline can draw its total and the first press starts instantly — but
-        // NOT played: page load is not a user gesture.
-        if (queue.current.value) load(queue.current.value, false);
+        /*
+         * A queue restored from storage, or one built before the bar mounted. Loaded so the
+         * timeline can draw its total and the first press starts instantly.
+         *
+         * WHETHER IT ALSO PLAYS IS THE INTENT, not a constant — and `false` used to be
+         * hardcoded here, which is the other half of the bug `play()` documents above. Page
+         * load leaves the intent false, so a hydrated queue stays silent (a page load is not a
+         * user gesture and a browser would refuse anyway). A press that filled an empty queue
+         * leaves it TRUE, and this is the first moment there is an element to honour it on.
+         */
+        if (queue.current.value) load(queue.current.value, requested);
         publishPlaybackState();
     }
 

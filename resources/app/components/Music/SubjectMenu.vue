@@ -139,9 +139,11 @@ async function enqueueSubject(): Promise<void> {
         <ul class="popover-list">
             <li>
                 <button type="button" class="popover-list-item" :disabled="busy" @click="playSubject">
-                    <!-- The spinner replaces the glyph rather than sitting beside it, so the
-                         row does not change width while a big subject is being fetched. -->
-                    <icon :name="busy ? 'refresh' : 'play'" :size="1" :rotate="busy" />
+                    <!-- `playlist`, not `play`: what this does is fill the QUEUE and start it,
+                         which is a list operation — a bare play triangle reads as "play this one
+                         thing" (the owner's call). The spinner replaces the glyph rather than
+                         sitting beside it, so the row keeps its width while a big subject loads. -->
+                    <icon :name="busy ? 'refresh' : 'playlist'" :size="1" :rotate="busy" />
                     {{ t("music.subjectMenu.play", { subject: subjectLabel }) }}
                 </button>
             </li>

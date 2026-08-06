@@ -543,6 +543,26 @@ test.describe("the hero menu", () => {
         return Number(songs.replace(/\D/gu, ""));
     };
 
+    test("starts playing from an EMPTY queue, where there is no element yet", async ({ page }) => {
+        /*
+         * The case the spec below missed and a listener hit immediately: with nothing queued
+         * there is no player bar, so no <audio> element, so `play()` arrives a tick before the
+         * thing it needs. It used to fill the queue and sit paused. Pressing from an empty queue
+         * is also the ordinary way to use this — you open an artist and press play.
+         */
+        const songs = await openArtistMenu(page);
+        await page.locator(".hero-section__menu .popover-list-item").first().click();
+
+        await expect(page.locator(".play-queue__row")).toHaveCount(songs, { timeout: 15_000 });
+        await expect
+            .poll(() => page.evaluate(() => (document.querySelector("audio") as HTMLAudioElement).paused), {
+                timeout: 10_000
+            })
+            .toBe(false);
+        // The transport agrees, which is what a reader actually looks at.
+        await expect(page.locator(".player-bar__control--play")).toHaveAttribute("aria-label", "Pause");
+    });
+
     test("plays the whole artist, replacing whatever was queued", async ({ page }) => {
         // Something already in the queue, so "replace" is observable rather than assumed.
         await page.goto("/music/songs");

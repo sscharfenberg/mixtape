@@ -118,6 +118,30 @@ describe("usePlayerAudio", () => {
             expect(element.paused).toBe(true);
         });
 
+        it("plays a track that was queued and pressed BEFORE the element existed", async () => {
+            /*
+             * The bug behind "Play this artist" filling the queue and then sitting paused
+             * (2026-08-06). The bar renders the element and only exists while the queue holds
+             * a track, so a press that FILLS an empty queue calls `play()` a tick before there
+             * is anything to play on: `playNow()` is synchronous, mounting is not.
+             *
+             * `play()` therefore keeps the INTENT when it finds no element, and `attach()`
+             * honours it — the alternative (which shipped) was dropping the request silently
+             * and leaving the reader looking at a full queue and a play glyph.
+             */
+            usePlayerQueue().playNow([track("a")]);
+            usePlayerAudio().play();
+
+            // Still nothing to play on — the element arrives with the bar, a tick later.
+            expect(usePlayerAudio().isPlaying.value).toBe(true);
+
+            const element = attachElement();
+            await nextTick();
+
+            expect(loadedUrl(element)).toBe("/music/songs/a/stream");
+            expect(element.paused).toBe(false);
+        });
+
         it("follows the queue onto a track chosen in the panel", async () => {
             usePlayerQueue().enqueue([track("a"), track("b")]);
             const element = attachElement();
