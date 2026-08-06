@@ -221,3 +221,7 @@ instance, written for someone else's server.
 - [`docs/player.md`](docs/player.md) — the player (**built 2026-08-03**): why a native `<audio>`
   rather than vidstack, the stream route's Range + `X-Accel-Redirect` halves, the background-playback
   constraint no library removes, and the four things the build itself settled.
+- [`docs/play-queue.md`](docs/play-queue.md) — the play queue (**split out of `player.md` 2026-08-06**):
+  what it holds, the panel and reordering, and its **storage** — the trimmed payload, the separate
+  pointer key, writes coalesced behind a flush-on-hide, and what a browser's storage budget actually
+  allows.
