@@ -528,7 +528,7 @@ test.describe("the player", () => {
 test.describe("the player's settings popover", () => {
     test.use({ viewport: { width: 1440, height: 900 } });
 
-    test("sits between the timeline and the volume button", async ({ page }) => {
+    test("sits between the volume button and the transport", async ({ page }) => {
         // Placement is the whole requirement here, and only a browser knows where a grid
         // area landed — happy-dom would report every box at zero.
         await enqueueSongs(page, 1);
@@ -537,15 +537,15 @@ test.describe("the player's settings popover", () => {
             const box = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
 
             return {
-                timeline: box(".player-bar__timeline").right,
+                volumeRight: box(".player-bar__volume").right,
                 settings: box(".player-bar__settings").left,
                 settingsRight: box(".player-bar__settings").right,
-                volume: box(".player-bar__volume").left
+                transport: box(".player-bar__transport").left
             };
         });
 
-        expect(edges.settings).toBeGreaterThanOrEqual(edges.timeline);
-        expect(edges.volume).toBeGreaterThanOrEqual(edges.settingsRight);
+        expect(edges.settings).toBeGreaterThanOrEqual(edges.volumeRight);
+        expect(edges.transport).toBeGreaterThanOrEqual(edges.settingsRight);
     });
 
     test("opens upward, like the volume panel beside it", async ({ page }) => {

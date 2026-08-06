@@ -144,9 +144,10 @@ order) and **Wiederholung** (what happens at the end). Three decisions in it wor
   is behind a toggle on a phone and gone entirely once the queue is emptied, so a setting you want
   _while listening_ was hidden in both cases — and repeat sat one row above "clear the queue", a
   harmless toggle against a destructive verb.
-- **Between the timeline and the volume button**, so the bar reads position → order → level → the
-  buttons that change position. Both settings are about the queue, so they belong beside the thing
-  that shows progress through it rather than after a control that is only about this one track.
+- **Between the volume button and the transport** (the owner's placement, moved there from beside the
+  timeline), so the bar reads position → level → order → the buttons. It sits closest to the skip
+  buttons because that is what these two settings change: what "next" will play, and whether there is
+  a next at all.
 - **Bubbles, not checkboxes** — `Components/UI/OptionBubbles`, the pattern the header's
   colour-scheme switch established and, since 2026-08-06, shares: `ThemeSwitch` was migrated onto it
   (169 lines to 69, its three token partials deleted), which is what proved the control handles three

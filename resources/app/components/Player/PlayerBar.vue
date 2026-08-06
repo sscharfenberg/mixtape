@@ -142,9 +142,9 @@ onUnmounted(() => {
             @seek="seek"
         />
 
-        <player-settings class="player-bar__settings" />
-
         <player-volume class="player-bar__volume" />
+
+        <player-settings class="player-bar__settings" />
 
         <div class="player-bar__transport">
             <button
@@ -207,7 +207,7 @@ onUnmounted(() => {
     z-index: z.$c-player-bar;
     align-items: center;
     grid-template-areas:
-        "cover meta settings volume transport"
+        "cover meta volume settings transport"
         "timeline timeline timeline timeline timeline";
     grid-template-columns: auto minmax(0, 1fr) auto auto auto;
 
@@ -222,7 +222,7 @@ onUnmounted(() => {
     color: map.get(c.$c-player-bar, "surface");
 
     @include m.mq("landscape") {
-        grid-template-areas: "cover meta timeline settings volume transport";
+        grid-template-areas: "cover meta timeline volume settings transport";
 
         /* The timeline gets twice the slack the title does, so the rail grows into a
            wide window instead of leaving a long stretch of empty title beside it. The
@@ -279,18 +279,17 @@ onUnmounted(() => {
         grid-area: timeline;
     }
 
-    /* First of the two popover triggers, immediately after the timeline: the settings in
-       it are about the QUEUE — what order it plays in, what happens at its end — so they
-       belong beside the thing that shows progress through it, ahead of a control that is
-       only about how loud this one track is. */
-    &__settings {
-        grid-area: settings;
-    }
-
-    /* Between the settings and the transport, so the reading order is position → order →
-       level → the buttons that change position. */
+    /* First of the two popover triggers, immediately after the timeline. */
     &__volume {
         grid-area: volume;
+    }
+
+    /* Last thing before the transport, and closest to it (the owner's placement): the two
+       settings in it — what order the queue plays in, what happens at its end — are about
+       what the skip buttons beside them will DO, so they sit next to those rather than out by
+       the timeline. Reading order across the bar: position → level → order → the buttons. */
+    &__settings {
+        grid-area: settings;
     }
 
     &__transport {
