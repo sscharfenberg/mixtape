@@ -72,7 +72,7 @@ describe("SongPage", () => {
     });
 
     it("shows the song's title as the page heading", () => {
-        expect(page().find("h1").text()).toBe("Paranoid Android");
+        expect(page().find("h2").text()).toBe("Paranoid Android");
     });
 
     it("declares a breadcrumb trail ending in the song's own title", () => {
@@ -195,7 +195,7 @@ describe("SongPage", () => {
                 coverUrl: null
             });
 
-            expect(wrapper.find("h1").text()).toBe("Paranoid Android");
+            expect(wrapper.find("h2").text()).toBe("Paranoid Android");
             expect(wrapper.text()).not.toContain("null");
         });
     });

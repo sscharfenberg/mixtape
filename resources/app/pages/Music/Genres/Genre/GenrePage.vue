@@ -130,10 +130,10 @@ const tabs = computed<TabDefinition[]>(() => [
     <container>
         <div class="genre">
             <hero-section>
-                <!-- The page's h1 lives here rather than in a <Headline>, as on the other
+                <!-- The page's heading lives here rather than in a <Headline>, as on the other
                      detail pages: the hero sets the type, the level is ours. -->
                 <template #title
-                    ><h1>{{ genre.name }}</h1></template
+                    ><h2>{{ genre.name }}</h2></template
                 >
                 <!-- The facts about the genre as a whole. None can be absent — the server
                      sends 0 rather than null for all four — so every tile always renders,

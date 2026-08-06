@@ -33,7 +33,7 @@ test.describe("the music widgets", () => {
         await entry.click();
 
         await page.waitForURL(new RegExp(`${href}$`, "u"));
-        await expect(page.locator("main h1").first()).toHaveText(name);
+        await expect(page.locator(".hero-section__title").first()).toHaveText(name);
     });
 
     test("explains a pip through its tooltip, since the icon carries no words", async ({ page }) => {

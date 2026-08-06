@@ -178,7 +178,7 @@ test.describe("the songs table", () => {
         await page.locator("tbody tr").first().click();
 
         await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
-        // Scoped past the header's wordmark <h1>, which every page carries.
+        // The hero's own title, not the wordmark <h1> every page carries in its header.
         await expect(pageHeading(page)).toHaveText(title);
     });
 });

@@ -20,8 +20,15 @@
  *              hero quietly winning.
  *   #title     the heading element. Its UA type is flattened so the hero's own
  *              headline face and size win, which lets the caller choose the level
- *              (an <h1> on a page whose title lives here, and nothing else has to
- *              know).
+ *              without anything here having to know.
+ *
+ *              IN THIS APP THAT LEVEL IS <h2>, and every hero page passes one: the
+ *              document's <h1> is the wordmark in AppHeader, which every page
+ *              carries, so a hero that also claimed h1 gave each detail page two of
+ *              them and no outline (fixed 2026-08-06 — the artist page is where the
+ *              owner spotted it). The styling is level-agnostic (`> :slotted(*)`), so
+ *              this is a document-outline decision only, with nothing visual riding
+ *              on it.
  *   #metadata  the labelled values under the title — artist / album / year for a song.
  *              Rendered as a wrapping row of list items, so pass `FactPair`s (the same
  *              tile the facts cards are built from) and they will line up here; the row
@@ -253,7 +260,8 @@
         }
     }
 
-    /* The page's heading, wherever the caller puts its <h1>. Bigger than body text and
+    /* The page's heading, at whatever level the caller passed (an <h2> here — see the
+       banner). Bigger than body text and
        tight-leaded so a long title wraps into a block rather than a ladder;
        `overflow-wrap` because titles do contain single unbroken monsters (a URL, a
        40-character German compound).

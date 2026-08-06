@@ -124,7 +124,7 @@ describe("GenrePage", () => {
     });
 
     it("shows the genre's name as the page heading", () => {
-        expect(page().find("h1").text()).toBe("Alternative Rock");
+        expect(page().find("h2").text()).toBe("Alternative Rock");
     });
 
     it("declares a trail whose parent is the listing this row came from", () => {

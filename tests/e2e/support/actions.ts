@@ -80,8 +80,16 @@ export const clockToSeconds = (clock: string): number =>
         .map(Number)
         .reduce((total, part) => total * 60 + part, 0);
 
-/** The page's own heading, excluding the wordmark <h1> the app header always renders. */
-export const pageHeading = (page: Page) => page.locator("main h1, .song h1, .genre h1").first();
+/**
+ * The page's own heading — the title in its hero, not the wordmark the app header carries.
+ *
+ * Matched by the hero's own wrapper rather than by heading LEVEL, which is what this used to
+ * do (`main h1, .song h1, .genre h1`) and which broke the day the level changed: the wordmark
+ * is the document's `<h1>`, so hero titles became `<h2>` (2026-08-06). The wrapper is the
+ * stable fact — whatever level a page passes, the hero puts it here — and it keeps the helper
+ * out of the business of knowing the outline.
+ */
+export const pageHeading = (page: Page) => page.locator(".hero-section__title").first();
 
 /** Wait until the DataTable has settled on the given page number. */
 export const expectOnTablePage = async (page: Page, pageNumber: number): Promise<void> => {

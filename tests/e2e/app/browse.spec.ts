@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { columnValues, pageHeading } from "../support/actions";
 
 /*
@@ -171,5 +172,74 @@ test.describe("browsing the library", () => {
         const response = await page.goto("/music/songs/11111111-1111-4111-8111-111111111111");
 
         expect(response?.status()).toBe(404);
+    });
+});
+
+test.describe("the document outline", () => {
+    /*
+     * ONE <h1> PER PAGE, and it is the wordmark in the header.
+     *
+     * Added 2026-08-06, when the owner noticed the artist page carried two: the hero passed an
+     * `<h1>` for the artist's name while the header's wordmark — which every page renders — was
+     * already one. Every hero now passes an `<h2>`, and this is what keeps it that way: nothing
+     * else in the suite reads heading LEVELS any more (`pageHeading` matches the hero's wrapper
+     * instead), so without this spec the next hero could quietly claim h1 again.
+     *
+     * Detail pages are reached by clicking a row rather than by hardcoding a seeded id, so the
+     * fixture stays free to change ids.
+     */
+    const listings = [
+        ["/music/songs", "a song"],
+        ["/music/albums", "an album"],
+        ["/music/artists", "an artist"],
+        ["/music/genres", "a genre"]
+    ] as const;
+
+    /** Every `<h1>` on the page, and whether the header owns it. */
+    const headings = (page: Page) =>
+        page.evaluate(() => {
+            const all = [...document.querySelectorAll("h1")];
+
+            return {
+                count: all.length,
+                inHeader: all.every(node => node.closest("header") !== null),
+                text: all.map(node => node.textContent?.trim() ?? "")
+            };
+        });
+
+    for (const [path, subject] of listings) {
+        test(`keeps one h1 on ${path} and on ${subject}`, async ({ page }) => {
+            await page.goto(path);
+            await expect(page.locator("tbody tr").first()).toBeVisible();
+
+            const listing = await headings(page);
+            expect(listing.count).toBe(1);
+            expect(listing.inHeader).toBe(true);
+
+            await page.locator("tbody tr").first().click();
+            await page.waitForURL(/\/[0-9a-f-]{36}$/u);
+            await expect(pageHeading(page)).toBeVisible();
+
+            const detail = await headings(page);
+            expect(detail.count).toBe(1);
+            expect(detail.inHeader).toBe(true);
+            // The page's own title is still a heading, one level down.
+            await expect(page.locator(".hero-section__title h2")).toBeVisible();
+        });
+    }
+
+    test("keeps one h1 on the pages without a hero", async ({ page }) => {
+        for (const path of ["/", "/dashboard"]) {
+            await page.goto(path);
+            // Waited for, not assumed: `goto` resolves on load, while the header is mounted by
+            // Vue afterwards — counting straight away read zero headings on a cold worker and
+            // passed only because a warm one happened to be quicker.
+            await expect(page.locator("header h1")).toBeVisible();
+
+            const outline = await headings(page);
+
+            expect(outline.count, `on ${path}`).toBe(1);
+            expect(outline.inHeader, `on ${path}`).toBe(true);
+        }
     });
 });

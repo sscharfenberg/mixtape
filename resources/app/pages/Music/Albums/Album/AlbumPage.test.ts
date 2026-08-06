@@ -132,6 +132,6 @@ describe("AlbumPage", () => {
     });
 
     it("still shows the album's name as the page heading", () => {
-        expect(page().find("h1").text()).toBe("OK Computer");
+        expect(page().find("h2").text()).toBe("OK Computer");
     });
 });

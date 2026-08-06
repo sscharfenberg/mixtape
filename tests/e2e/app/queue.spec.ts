@@ -23,7 +23,7 @@ const enqueueFirstSong = async (page: import("@playwright/test").Page): Promise<
     await page.goto("/music/songs");
     await page.locator("tbody tr").first().click();
     await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
-    const title = await page.locator("main h1").first().innerText();
+    const title = await page.locator(".hero-section__title").first().innerText();
     await page.locator(".hero-section__actions button").click();
     await expect(page.locator(".play-queue")).toBeVisible();
 
@@ -251,7 +251,7 @@ test.describe("reordering the play queue", () => {
             await page.goto("/music/songs");
             await page.locator("tbody tr").nth(row).click();
             await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
-            titles.push(await page.locator("main h1").first().innerText());
+            titles.push(await page.locator(".hero-section__title").first().innerText());
             await page.locator(".hero-section__actions button").click();
         }
         await expect(page.locator(".play-queue__row")).toHaveCount(count);

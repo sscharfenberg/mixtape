@@ -61,7 +61,7 @@ const enqueueSongs = async (page: Page, count: number): Promise<string[]> => {
         await page.goto("/music/songs");
         await page.locator("tbody tr").nth(row).click();
         await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
-        titles.push(await page.locator("main h1").first().innerText());
+        titles.push(await page.locator(".hero-section__title").first().innerText());
         await page.locator(".hero-section__actions button").click();
     }
 

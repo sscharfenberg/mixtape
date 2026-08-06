@@ -289,11 +289,11 @@ const songFacts = computed<Fact[]>(() => {
                 <template #cover>
                     <cover-image :src="song.coverUrl" :title="coverAlt" size="xlarge" />
                 </template>
-                <!-- The page's h1 lives here rather than in a <Headline>: beside the cover
+                <!-- The page's heading lives here rather than in a <Headline>: beside the cover
                      it reads as one unit with the artwork instead of a caption under a
                      banner. HeroSection sets the type; the level is ours to choose. -->
                 <template #title
-                    ><h1>{{ song.name }}</h1></template
+                    ><h2>{{ song.name }}</h2></template
                 >
                 <!-- The same three facts the cards below repeat, as the hero's own tiles:
                      up here they are what identifies the song, down there they are part of

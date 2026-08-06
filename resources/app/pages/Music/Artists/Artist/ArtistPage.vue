@@ -131,10 +131,10 @@ const tabs = computed<TabDefinition[]>(() => [
     <container>
         <div class="artist">
             <hero-section>
-                <!-- The page's h1 lives here rather than in a <Headline>, as on the song
+                <!-- The page's heading lives here rather than in a <Headline>, as on the song
                      and album pages: the hero sets the type, the level is ours. -->
                 <template #title
-                    ><h1>{{ artist.name }}</h1></template
+                    ><h2>{{ artist.name }}</h2></template
                 >
                 <!-- The facts about the catalogue rather than about any one file. Only the
                      genre can be absent, and then its tile is skipped rather than reading

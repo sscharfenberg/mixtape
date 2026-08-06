@@ -115,7 +115,7 @@ test.describe("a genre's tabs", () => {
         await page.locator(".genre-artists__link").first().click();
 
         await page.waitForURL(/\/music\/artists\/[0-9a-f-]{36}/u);
-        await expect(page.locator("main h1").first()).toHaveText(name);
+        await expect(page.locator(".hero-section__title").first()).toHaveText(name);
     });
 
     test("reopens the same tab after a reload", async ({ page }) => {

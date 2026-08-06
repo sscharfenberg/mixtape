@@ -169,7 +169,7 @@ const columns = computed<ColumnDef<TrackRow>[]>(() => [
                     <cover-image :src="album.coverUrl" :title="album.name" size="xlarge" />
                 </template>
                 <template #title
-                    ><h1>{{ album.name }}</h1></template
+                    ><h2>{{ album.name }}</h2></template
                 >
                 <!-- The facts that belong to the album as a whole. Each is skipped
                      when there is nothing to say: a compilation has no album-artist,
