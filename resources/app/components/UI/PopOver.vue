@@ -48,8 +48,29 @@ function toggle(): void {
 function handleToggle(event: ToggleEvent): void {
     isOpen.value = event.newState === "open";
 }
-onMounted(() => document.getElementById(props.reference)?.addEventListener("toggle", handleToggle));
-onBeforeUnmount(() => document.getElementById(props.reference)?.removeEventListener("toggle", handleToggle));
+
+/**
+ * The dialog this instance listens to, HELD rather than looked up again on the way out.
+ *
+ * Re-querying by id for the teardown looked symmetrical and did nothing: by the time
+ * `onBeforeUnmount` runs the dialog is already out of the document, so
+ * `getElementById` returns null and the optional chain skipped the removal without a
+ * sound (found while writing this component's first tests, 2026-08-06). Harmless in
+ * practice — the listener dies with the element it is on — but a cleanup that never
+ * runs is one nobody can rely on, and the same lesson `usePlayerAudio` keeps a
+ * teardown list for.
+ */
+let dialog: HTMLElement | null = null;
+
+onMounted(() => {
+    dialog = document.getElementById(props.reference);
+    dialog?.addEventListener("toggle", handleToggle);
+});
+
+onBeforeUnmount(() => {
+    dialog?.removeEventListener("toggle", handleToggle);
+    dialog = null;
+});
 </script>
 
 <template>
