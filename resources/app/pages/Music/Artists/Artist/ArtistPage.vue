@@ -37,6 +37,7 @@ import { Head } from "@inertiajs/vue3";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import Discography, { type DiscographyAlbum } from "Components/Music/Discography/Discography.vue";
+import SubjectMenu from "Components/Music/SubjectMenu.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Container from "Components/UI/Container.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
@@ -136,6 +137,9 @@ const tabs = computed<TabDefinition[]>(() => [
                 <template #title
                     ><h2>{{ artist.name }}</h2></template
                 >
+                <!-- Play or enqueue the whole subject. Pinned to the far end of the
+                     heading line by the hero, not by anything here. -->
+                <template #menu><subject-menu subject="artist" /></template>
                 <!-- The facts about the catalogue rather than about any one file. Only the
                      genre can be absent, and then its tile is skipped rather than reading
                      "unknown" — the counts always exist, 0 included, because 0 is an

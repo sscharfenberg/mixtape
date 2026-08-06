@@ -21,23 +21,22 @@
  * is what makes that first row read as one unit instead of a caption under a
  * banner.
  *
- * Still a scaffold in what it *does*: the player (and with it the play / queue
- * controls the hero will grow), play history and the clone list ("also appears in
- * N other places") come later — see docs/app-rewrite.md.
+ * The hero's own controls are the SubjectMenu in its heading (play this song, or
+ * queue it) — which replaced a lone "enqueue" Button in #actions on 2026-08-06, since
+ * the menu offers both verbs and the button only ever offered one. Play history and the
+ * clone list ("also appears in N other places") are still to come — see
+ * docs/app-rewrite.md.
  *****************************************************************************/
 import { Head } from "@inertiajs/vue3";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import Button from "Components/Form/Button.vue";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
+import SubjectMenu from "Components/Music/SubjectMenu.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Facts, { type Fact } from "Components/UI/Card/Facts.vue";
 import Container from "Components/UI/Container.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
-import Icon from "Components/UI/Icon.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
-import { usePlayerQueue } from "Composables/usePlayerQueue";
-import { useToast } from "Composables/useToast";
 import type { SongDetail } from "Types/music";
 import { formatClock, formatDateTime, formatDecimals, formatFileSize, formatPosition } from "Utils/formatting";
 
@@ -57,31 +56,6 @@ setBreadcrumbs([
     { label: props.song.name }
 ]);
 
-const { enqueue } = usePlayerQueue();
-const { addToast } = useToast();
-
-/**
- * Put this song at the end of the play queue.
- *
- * It hands over a denormalised copy rather than the id, because the queue has to be
- * able to draw itself with no server round-trip — there is no REST API to resolve an
- * id against (see Composables/usePlayerQueue). The toast is the confirmation: the
- * queue panel appears on the first enqueue, but on the tenth nothing visibly moves
- * unless the panel happens to be in view.
- */
-function addToQueue(): void {
-    enqueue({
-        id: props.song.id,
-        name: props.song.name,
-        artist: props.song.artist,
-        album: props.song.album,
-        coverUrl: props.song.coverUrl,
-        duration: props.song.duration,
-        href: `/music/songs/${props.song.id}`,
-        streamUrl: props.song.streamUrl
-    });
-    addToast(t("player.enqueued", { name: props.song.name }), "success", 3000);
-}
 
 /**
  * Alt text for the cover: the album it belongs to, or the song when the file is filed
@@ -295,6 +269,9 @@ const songFacts = computed<Fact[]>(() => {
                 <template #title
                     ><h2>{{ song.name }}</h2></template
                 >
+                <!-- Play or enqueue the whole subject. Pinned to the far end of the
+                     heading line by the hero, not by anything here. -->
+                <template #menu><subject-menu subject="song" /></template>
                 <!-- The same three facts the cards below repeat, as the hero's own tiles:
                      up here they are what identifies the song, down there they are part of
                      its full tag set. FactPair is the facts' own tile, so the two agree by
@@ -326,12 +303,6 @@ const songFacts = computed<Fact[]>(() => {
                         :label="t('music.columns.year')"
                         :value="String(song.year)"
                     />
-                </template>
-                <template #actions>
-                    <Button @click="addToQueue">
-                        <icon name="enqueue" :size="1" />
-                        {{ t("player.enqueue") }}
-                    </Button>
                 </template>
             </hero-section>
             <facts :facts="songFacts" wide-groups />

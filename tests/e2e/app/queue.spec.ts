@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 /*
  * The play queue's LAYOUT, which is the half no other test layer can see.
@@ -18,13 +19,34 @@ import { expect, test } from "@playwright/test";
  * player live in the layout rather than in a page.
  */
 
+/**
+ * Enqueue the subject of the page currently open, through the hero menu.
+ *
+ * The lone "enqueue" Button in the hero's #actions is gone (2026-08-06): the SubjectMenu in
+ * the heading offers both verbs, so a button offering one was redundant. Every spec that used
+ * to press it now opens the menu and picks the second item — which is also the path a reader
+ * takes. Scoped to `.hero-section__menu`, because the site menu, the user menu, the queue menu
+ * and the player settings all use `.popover-list-item` too.
+ */
+const enqueueFromHero = async (page: Page): Promise<void> => {
+    // WAITED FOR, because enqueuing from the hero is asynchronous where the old button was
+    // not: the menu asks the server for the subject's tracks (an optional Inertia prop), so
+    // the queue grows a round trip after the click. Without this a caller reads the queue —
+    // or the transport's disabled states — before the tracks have landed.
+    const before = await page.locator(".play-queue__row").count();
+
+    await page.locator(".hero-section__menu .popover-button").click();
+    await page.locator(".hero-section__menu .popover-list-item").nth(1).click();
+    await expect(page.locator(".play-queue__row")).toHaveCount(before + 1);
+};
+
 /** Open a song's page and put it in the queue. Returns the song's title. */
 const enqueueFirstSong = async (page: import("@playwright/test").Page): Promise<string> => {
     await page.goto("/music/songs");
     await page.locator("tbody tr").first().click();
     await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
     const title = await page.locator(".hero-section__title").first().innerText();
-    await page.locator(".hero-section__actions button").click();
+    await enqueueFromHero(page);
     await expect(page.locator(".play-queue")).toBeVisible();
 
     return title;
@@ -134,7 +156,7 @@ test.describe("the play queue on a narrow screen", () => {
         await page.goto("/music/songs");
         await page.locator(".dt-cards a").first().click();
         await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
-        await page.locator(".hero-section__actions button").click();
+        await enqueueFromHero(page);
     };
 
     test("keeps the panel shut until the header's toggle opens it", async ({ page }) => {
@@ -252,7 +274,7 @@ test.describe("reordering the play queue", () => {
             await page.locator("tbody tr").nth(row).click();
             await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
             titles.push(await page.locator(".hero-section__title").first().innerText());
-            await page.locator(".hero-section__actions button").click();
+            await enqueueFromHero(page);
         }
         await expect(page.locator(".play-queue__row")).toHaveCount(count);
 
@@ -423,11 +445,10 @@ test.describe("the play queue scrolling to the loaded track", () => {
          * bug, but it makes the last row the wrong place to measure.
          */
         const song = await enqueueFirstSong(page);
-        const add = page.locator(".hero-section__actions button");
 
         // The same track eight times — duplicates are a normal queue, and it saves seven
         // page loads over queueing eight different songs.
-        for (let i = 0; i < 7; i += 1) await add.click();
+        for (let i = 0; i < 7; i += 1) await enqueueFromHero(page);
         await expect(page.locator(".play-queue__row")).toHaveCount(8);
         await expect(page.locator(".player-bar__name")).toHaveText(song);
 
@@ -463,7 +484,7 @@ test.describe("the play queue from landscape up", () => {
         await page.goto("/music/songs");
         await page.locator("tbody tr").first().click();
         await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
-        await page.locator(".hero-section__actions button").click();
+        await enqueueFromHero(page);
 
         await expect(page.locator(".play-queue")).toBeVisible();
         // The button exists in the DOM but the media query hides it at this width.
@@ -495,5 +516,71 @@ test.describe("the play queue from landscape up", () => {
 
         expect(Math.round(edges.top)).toBe(0);
         expect(Math.round(edges.bottom)).toBe(0);
+    });
+});
+
+test.describe("the hero menu", () => {
+    test.use({ viewport: { width: 1440, height: 900 } });
+
+    /*
+     * The round trip, which is the half no other layer sees. `queueTracks` is an OPTIONAL Inertia
+     * prop: it is absent from the page until the menu asks for it by name, and only a browser can
+     * show that the ask really lands and really fills the queue.
+     *
+     * The seeded artist is used rather than a song, because the artist is the case that matters:
+     * their songs table is paginated, so "play artist" has to queue more than the rows on screen.
+     */
+
+    /** Open an artist page and its hero menu. Returns the artist's own song count from the facts. */
+    const openArtistMenu = async (page: Page): Promise<number> => {
+        await page.goto("/music/artists");
+        await page.locator("tbody tr").first().click();
+        await page.waitForURL(/\/music\/artists\/[0-9a-f-]{36}/u);
+
+        const songs = await page.locator(".fact-pair", { hasText: "Songs" }).innerText();
+        await page.locator(".hero-section__menu .popover-button").click();
+
+        return Number(songs.replace(/\D/gu, ""));
+    };
+
+    test("plays the whole artist, replacing whatever was queued", async ({ page }) => {
+        // Something already in the queue, so "replace" is observable rather than assumed.
+        await page.goto("/music/songs");
+        await page.locator("tbody tr").first().click();
+        await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
+        const dropped = await page.locator(".hero-section__title").first().innerText();
+        await enqueueFromHero(page);
+        await expect(page.locator(".play-queue__row")).toHaveCount(1);
+
+        const songs = await openArtistMenu(page);
+        // Scoped to the hero: the page also carries the site menu, the user menu, the queue
+        // menu and the player settings, all of which use `.popover-list-item`.
+        await page.locator(".hero-section__menu .popover-list-item").first().click();
+
+        // Every track of theirs, and not the 25 the table shows.
+        await expect(page.locator(".play-queue__row")).toHaveCount(songs, { timeout: 15_000 });
+        await expect(page.locator(".play-queue__name").filter({ hasText: dropped })).toHaveCount(0);
+        // Playing, because "play" means play — the click is the gesture a browser requires.
+        await expect
+            .poll(() => page.evaluate(() => (document.querySelector("audio") as HTMLAudioElement).paused), {
+                timeout: 10_000
+            })
+            .toBe(false);
+    });
+
+    test("appends the whole artist on enqueue, keeping what is playing", async ({ page }) => {
+        await page.goto("/music/songs");
+        await page.locator("tbody tr").first().click();
+        await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
+        const kept = await page.locator(".hero-section__title").first().innerText();
+        await enqueueFromHero(page);
+        await expect(page.locator(".player-bar__name")).toHaveText(kept);
+
+        const songs = await openArtistMenu(page);
+        await page.locator(".hero-section__menu .popover-list-item").nth(1).click();
+
+        await expect(page.locator(".play-queue__row")).toHaveCount(songs + 1, { timeout: 15_000 });
+        // The loaded track is untouched — enqueue must not steal the player.
+        await expect(page.locator(".player-bar__name")).toHaveText(kept);
     });
 });

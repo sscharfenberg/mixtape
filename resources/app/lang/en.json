@@ -338,6 +338,18 @@
                 "albumCount": "{n} album | {n} albums"
             },
             "noArtists": "No artist has this as their main genre."
+        },
+        "subjectMenu": {
+            "actions": "Actions for this {subject}",
+            "play": "Play {subject}",
+            "enqueued": "1 track added to the queue. | {count} tracks added to the queue.",
+            "nothingToPlay": "There is nothing playable here.",
+            "subject": {
+                "artist": "artist",
+                "album": "album",
+                "genre": "genre",
+                "song": "song"
+            }
         }
     },
     "components": {

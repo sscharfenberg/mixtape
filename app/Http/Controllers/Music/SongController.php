@@ -6,6 +6,7 @@ use App\Enums\TrackType;
 use App\Http\Controllers\Controller;
 use App\Models\Track;
 use App\Services\Media\CoverService;
+use App\Services\Music\QueuePayload;
 use Illuminate\Database\Eloquent\Builder;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -52,6 +53,15 @@ class SongController extends Controller
         $totals = $this->collectionTotals($song);
 
         return Inertia::render('Music/Songs/Song/SongPage', [
+            // The whole subject as queue entries, for the hero menu's Play / Enqueue.
+            // OPTIONAL: never sent with the page, only when the menu asks for it by name
+            // (`router.reload({ only: ["queueTracks"] })`). The songs table here is
+            // paginated, so "play this" means every track and not the 25 on screen — which
+            // is a payload worth a few hundred kilobytes on a big subject and worth nothing
+            // at all to a visit that is just browsing. See App\Services\Music\QueuePayload.
+            'queueTracks' => Inertia::optional(
+                fn (): array => QueuePayload::fromQuery(QueuePayload::query()->where('tracks.id', $song->id))
+            ),
             'song' => [
                 'id' => $song->id,
                 'name' => $song->name,

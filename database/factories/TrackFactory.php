@@ -18,7 +18,8 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  * to an audiobook chapter (narrator, no artist/genre) so the state always
  * satisfies the tracks type-guard CHECK. `path` is unique (one file ⇒ one row)
  * and `content_hash` is unique by default — pass an explicit hash (or ->cloneOf)
- * to model a clone.
+ * to model a clone. Both come from a uuid rather than Faker's unique() wrapper; see the
+ * note in the definition for why that ceiling had to go.
  */
 class TrackFactory extends Factory
 {
@@ -34,8 +35,13 @@ class TrackFactory extends Factory
             'composer' => fake()->optional()->name(),
             'publisher' => fake()->optional()->company(),
             'name' => fake()->sentence(3),
-            'path' => '/music/'.fake()->unique()->uuid().'.mp3',
-            'content_hash' => hash('sha256', fake()->unique()->uuid()),
+            // A plain uuid, NOT `fake()->unique()->uuid()`: Faker caches ONE unique-generator
+            // per Generator, so every call in a run shares its seen-list and its 10,000-retry
+            // budget — which a test creating a few dozen tracks exhausted outright
+            // ("Maximum retries of 10000 reached without finding a unique value"). A uuid is
+            // already distinct by construction, so the wrapper only ever added a ceiling.
+            'path' => '/music/'.fake()->uuid().'.mp3',
+            'content_hash' => hash('sha256', fake()->uuid()),
             'size' => fake()->numberBetween(2_000_000, 12_000_000),
             'modified_at' => fake()->dateTimeThisDecade(),
             'codec' => 'mp3',

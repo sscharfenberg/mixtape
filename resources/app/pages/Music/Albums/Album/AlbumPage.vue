@@ -31,6 +31,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import DataTable from "Components/DataTable/DataTable.vue";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
+import SubjectMenu from "Components/Music/SubjectMenu.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Container from "Components/UI/Container.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
@@ -171,6 +172,9 @@ const columns = computed<ColumnDef<TrackRow>[]>(() => [
                 <template #title
                     ><h2>{{ album.name }}</h2></template
                 >
+                <!-- Play or enqueue the whole subject. Pinned to the far end of the
+                     heading line by the hero, not by anything here. -->
+                <template #menu><subject-menu subject="album" /></template>
                 <!-- The facts that belong to the album as a whole. Each is skipped
                      when there is nothing to say: a compilation has no album-artist,
                      an untagged rip no year. The counts always exist.

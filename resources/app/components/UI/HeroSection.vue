@@ -7,7 +7,7 @@
  * it with their own art and credits — so it takes everything through slots and knows
  * nothing about what it is describing.
  *
- * Four slots, all optional:
+ * Five slots, all optional:
  *   #cover     the artwork — a <CoverImage size="xlarge">, which sizes and frames
  *              ITSELF to this square. Pass anything that is not an <img> (a bare
  *              <Icon>, or a CoverImage with no art, which renders its glyph) and the
@@ -29,6 +29,10 @@
  *              owner spotted it). The styling is level-agnostic (`> :slotted(*)`), so
  *              this is a document-outline decision only, with nothing visual riding
  *              on it.
+ *   #menu      what acts on the subject AS A WHOLE — the play / enqueue menu. Sits on the
+ *              far end of the heading's line, level with its first line, and is a
+ *              sibling of #title rather than part of it (the styles say why: a button
+ *              inside the title inherits its transparent text fill and disappears).
  *   #metadata  the labelled values under the title — artist / album / year for a song.
  *              Rendered as a wrapping row of list items, so pass `FactPair`s (the same
  *              tile the facts cards are built from) and they will line up here; the row
@@ -57,7 +61,15 @@
         <div v-if="$slots.cover" class="hero-section__cover"><slot name="cover" /></div>
 
         <div v-if="$slots.title || $slots.metadata || $slots.actions" class="hero-section__meta">
-            <div v-if="$slots.title" class="hero-section__title"><slot name="title" /></div>
+            <!-- The heading row: the title, and whatever acts on the subject as a whole pinned
+                 to the far end of it. The menu is a SIBLING of the title rather than something
+                 passed into it, and that is not tidiness — `__title` paints its letters by
+                 clipping a background to the glyphs with `-webkit-text-fill-color: transparent`,
+                 which any button slotted inside would inherit and render invisible. -->
+            <div v-if="$slots.title || $slots.menu" class="hero-section__heading">
+                <div v-if="$slots.title" class="hero-section__title"><slot name="title" /></div>
+                <div v-if="$slots.menu" class="hero-section__menu"><slot name="menu" /></div>
+            </div>
             <!-- role="list" because the marker is styled away, and Safari/VoiceOver drop
                  list semantics from an unmarked list. -->
             <ul v-if="$slots.metadata" class="hero-section__metadata" role="list">
@@ -260,6 +272,26 @@
         }
     }
 
+    /* The heading and whatever acts on the whole subject, on one line with the menu pushed to
+       the far end. `align-items: start` rather than centre, because the title wraps to two or
+       three lines on a phone and a trigger floating at the middle of that block reads as
+       unattached to it; level with the first line, it reads as belonging to the title.
+
+       The title keeps `min-width: 0` so a long unbroken word still shrinks and wraps instead of
+       pushing the trigger off the edge — the same flex trap the player bar's meta column and the
+       queue row both document. */
+    &__heading {
+        display: flex;
+        align-items: start;
+        justify-content: space-between;
+
+        gap: map.get(s.$c-hero-section, "meta-gap");
+    }
+
+    &__menu {
+        flex: 0 0 auto;
+    }
+
     /* The page's heading, at whatever level the caller passed (an <h2> here — see the
        banner). Bigger than body text and
        tight-leaded so a long title wraps into a block rather than a ladder;
@@ -308,6 +340,8 @@
         $line-height: map.get(s.$c-hero-section, "title-line-height");
 
         overflow-wrap: anywhere;
+
+        min-width: 0; // flex item since the heading row arrived; see `__heading`
 
         background-color: map.get(c.$c-hero-section, "title-fill");
         background-clip: text;

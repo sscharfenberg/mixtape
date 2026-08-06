@@ -36,6 +36,7 @@ import { Head } from "@inertiajs/vue3";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import Discography, { type DiscographyAlbum } from "Components/Music/Discography/Discography.vue";
+import SubjectMenu from "Components/Music/SubjectMenu.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Container from "Components/UI/Container.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
@@ -135,6 +136,9 @@ const tabs = computed<TabDefinition[]>(() => [
                 <template #title
                     ><h2>{{ genre.name }}</h2></template
                 >
+                <!-- Play or enqueue the whole subject. Pinned to the far end of the
+                     heading line by the hero, not by anything here. -->
+                <template #menu><subject-menu subject="genre" /></template>
                 <!-- The facts about the genre as a whole. None can be absent — the server
                      sends 0 rather than null for all four — so every tile always renders,
                      and 0 is an answer here rather than missing data. -->

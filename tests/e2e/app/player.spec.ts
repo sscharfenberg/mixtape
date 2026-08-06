@@ -48,6 +48,27 @@ const audioState = (page: Page): Promise<AudioState> =>
     });
 
 /**
+ * Enqueue the subject of the page currently open, through the hero menu.
+ *
+ * The lone "enqueue" Button in the hero's #actions is gone (2026-08-06): the SubjectMenu in
+ * the heading offers both verbs, so a button offering one was redundant. Every spec that used
+ * to press it now opens the menu and picks the second item — which is also the path a reader
+ * takes. Scoped to `.hero-section__menu`, because the site menu, the user menu, the queue menu
+ * and the player settings all use `.popover-list-item` too.
+ */
+const enqueueFromHero = async (page: Page): Promise<void> => {
+    // WAITED FOR, because enqueuing from the hero is asynchronous where the old button was
+    // not: the menu asks the server for the subject's tracks (an optional Inertia prop), so
+    // the queue grows a round trip after the click. Without this a caller reads the queue —
+    // or the transport's disabled states — before the tracks have landed.
+    const before = await page.locator(".play-queue__row").count();
+
+    await page.locator(".hero-section__menu .popover-button").click();
+    await page.locator(".hero-section__menu .popover-list-item").nth(1).click();
+    await expect(page.locator(".play-queue__row")).toHaveCount(before + 1);
+};
+
+/**
  * Queue `count` songs off the listing, one after another, and return their titles.
  *
  * Through the real UI rather than by seeding localStorage: the enqueue button is what a
@@ -62,7 +83,7 @@ const enqueueSongs = async (page: Page, count: number): Promise<string[]> => {
         await page.locator("tbody tr").nth(row).click();
         await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
         titles.push(await page.locator(".hero-section__title").first().innerText());
-        await page.locator(".hero-section__actions button").click();
+        await enqueueFromHero(page);
     }
 
     await expect(page.locator(".player-bar")).toBeVisible();

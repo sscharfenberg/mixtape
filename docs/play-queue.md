@@ -23,7 +23,7 @@ This file is the client half **as built**.
 | Trimmed, split and coalesced storage             | ✅ 2026-08-06 — _Storage_ below                                  |
 | Repeat                                           | ✅ a flag on the queue — the control moved to the bar 2026-08-06 |
 | Shuffle                                          | ✅ 2026-08-06 — a play mode, _Playing in a random order_ below   |
-| Enqueue from anywhere but the song page          | ⬜ one call site today (`SongPage`), so no bulk enqueue yet      |
+| Play / enqueue a whole subject                   | ✅ 2026-08-06 — the hero menu, _Filling it_ below                |
 | Server sync (`player_states`)                    | ⬜ migrated, read by nobody — `data-model.md` owns the plan      |
 | Play-history beacon                              | ⬜                                                               |
 | A visible failure when a write is refused        | ⬜ swallowed silently today — see _Known edges_                  |
@@ -147,6 +147,34 @@ Persisting the walk is the obvious fix if that ever grates: it is one integer pe
 catch is the reason it is not done yet — the walk is keyed by row position, so a stored walk has to be
 discarded whenever it does not belong to the list actually read back, or it will confidently name the
 wrong songs.
+
+## Filling it: the hero menu
+
+Every detail page's hero carries a menu (`Components/Music/SubjectMenu`) with two verbs, and the
+difference between them is the whole point: **play** empties the queue and puts the subject in it,
+**enqueue** appends and leaves what is playing alone. One component for all four pages, because
+only the noun in the label and the tracks behind it differ.
+
+**The tracks are fetched when a verb is pressed, not when the page loads.** Every one of those
+pages paginates its songs table, so the rows on screen are never the whole subject — "play artist"
+means all of them — and a big genre is a few hundred kilobytes of JSON. The controllers therefore
+declare `queueTracks` as an **optional Inertia prop** (`Inertia::optional`, built by
+`App\Services\Music\QueuePayload`) and the menu asks for it with a partial reload
+(`router.reload({ only: ["queueTracks"] })`). There is no endpoint because this app has no REST
+API by design, and a partial reload is the Inertia-native way to fetch more of a page. The payload
+is kept for the life of the page, so play-then-enqueue costs one round trip rather than two.
+
+Three consequences worth knowing:
+
+- **Enqueuing from a hero is asynchronous**, unlike the panel's own operations. The E2E helper that
+  presses it waits for the queue to grow, because reading the queue straight after the click reads
+  it before the tracks have landed.
+- **Order is album-then-disc-then-track**, whatever the subject, with undated records last — a
+  listener pressing "play artist" expects records to arrive as records. `year_sort` folds a missing
+  year to 0 so the descending sort cannot put undated material first, the same trap the artist
+  page's own songs table documents.
+- **Audiobook chapters are never queued.** The payload is music-only; the queue belongs to the
+  player.
 
 ## Storage
 
@@ -383,9 +411,11 @@ grip, so **tapping the cover no longer plays the track** — the other ~90% of t
   can restore an older, shorter list with no hint anything was dropped. Nothing surfaces it and
   nothing caps the queue's length. Post-trim that would be a **DOM guard rather than a storage one**;
   the panel renders every row (no virtualization) and will feel it long before 16,000 tracks.
-- **Bulk enqueue does not exist yet.** `SongPage` is the only call site, one song per click, so none
-  of the sizes above are reachable today. "Play this album / artist" is the moment they become one
-  click, and the moment to revisit the panel's DOM.
+- **Bulk enqueue arrived 2026-08-06, and with it the sizes above became reachable in one click.**
+  A big genre really can put thousands of rows in the queue now, which is exactly the case the
+  panel's un-virtualized list will feel first — the storage has the room (16,000 tracks post-trim),
+  the DOM does not. That is the next thing to measure, and `content-visibility` is the cheap first
+  move.
 - **The shuffle walk is in-memory only**, so a reload restarts the pass, and an edit that renumbers
   rows does too. Both are argued in _Playing in a random order_ — they are the two things about
   shuffle a listener could actually notice, and persisting the walk is the known fix.

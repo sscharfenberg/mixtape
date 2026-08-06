@@ -9,6 +9,7 @@ use App\Models\Track;
 use App\Services\DataTableService;
 use App\Services\Media\CoverService;
 use App\Services\Music\DominantGenre;
+use App\Services\Music\QueuePayload;
 use App\Services\Search\FoldedSearch;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -53,6 +54,15 @@ class AlbumController extends Controller
         $dominantGenre = DominantGenre::albumWinners($album->id)->first();
 
         return Inertia::render('Music/Albums/Album/AlbumPage', [
+            // The whole subject as queue entries, for the hero menu's Play / Enqueue.
+            // OPTIONAL: never sent with the page, only when the menu asks for it by name
+            // (`router.reload({ only: ["queueTracks"] })`). The songs table here is
+            // paginated, so "play this" means every track and not the 25 on screen — which
+            // is a payload worth a few hundred kilobytes on a big subject and worth nothing
+            // at all to a visit that is just browsing. See App\Services\Music\QueuePayload.
+            'queueTracks' => Inertia::optional(
+                fn (): array => QueuePayload::fromQuery(QueuePayload::query()->where('tracks.collection_id', $album->id))
+            ),
             'table' => $this->trackTable($request, $album),
             'album' => [
                 'id' => $album->id,

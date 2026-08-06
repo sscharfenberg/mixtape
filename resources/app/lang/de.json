@@ -338,6 +338,18 @@
                 "albumCount": "{n} Album | {n} Alben"
             },
             "noArtists": "Kein Künstler hat dieses Genre als Hauptgenre."
+        },
+        "subjectMenu": {
+            "actions": "Aktionen für {subject}",
+            "play": "{subject} abspielen",
+            "enqueued": "1 Titel in die Warteschlange gestellt. | {count} Titel in die Warteschlange gestellt.",
+            "nothingToPlay": "Hier ist nichts abspielbar.",
+            "subject": {
+                "artist": "Künstler",
+                "album": "Album",
+                "genre": "Genre",
+                "song": "Titel"
+            }
         }
     },
     "components": {
