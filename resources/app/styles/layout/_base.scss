@@ -33,7 +33,28 @@
     white-space: nowrap;
 }
 
+/* THE GUTTER IS ALWAYS RESERVED, and `overflow-y: scroll` is what actually reserves it.
+   `scrollbar-gutter: stable` alone did nothing: measured in Chrome on this app, on a page
+   that does not overflow, the layout width equals the window width under
+   `visible`/`auto` + `stable`, and is 15px narrower only under `overflow-y: scroll`. The
+   gutter declaration stays for the browsers that do honour it on the root.
+
+   Why it matters, and it is not cosmetic: a browser whose scrollbars take layout width
+   otherwise lets the scrollbar decide its own precondition. A page one hair taller than the
+   viewport gets a scrollbar → the page narrows by 15px → the discography's `auto-fill` grid
+   of `aspect-ratio: 1` covers gets shorter → the page fits → the scrollbar goes → the covers
+   grow → it is too tall again. Reported as the page scrollbar flickering fast, appearing
+   after a few theme switches (each one another chance to land in that band) and only with
+   the player bar up, whose 66px of `AppMain` padding is what pushes the page to the edge.
+
+   The cost, knowingly: on a setup with classic scrollbars a short page now shows an inert
+   scrollbar track. With overlay scrollbars — the macOS default — nothing is visible at all.
+   That is the whole fix: rounding the heights AppHeader and PlayerBar publish was tried
+   first and reverted, because integral values leave the queue panel an eighth of a pixel off
+   the chrome it pins to, and the panel's own specs (rightly) fail on that seam. */
 html {
+    overflow-y: scroll;
+
     scrollbar-gutter: stable;
 
     &:has(dialog[open]) {
@@ -50,7 +71,14 @@ html {
 }
 
 body {
-    overflow-x: hidden;
+    /* `clip`, not `hidden`, and the difference is load-bearing since `html` started
+       reserving the scrollbar above. `hidden` makes an element a SCROLL CONTAINER, and once
+       the root scrolls, a scroll-container body becomes the scrollport that its `sticky`
+       children resolve against — so the site header stopped sticking and scrolled away with
+       the page (caught by the queue panel's E2E specs: the panel is fixed and stayed put, so
+       the gap between them grew to 141px). `clip` keeps the same "no sideways overflow"
+       promise without creating that scrollport. */
+    overflow-x: clip;
 
     min-height: 100vh;
 

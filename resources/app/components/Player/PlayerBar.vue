@@ -55,6 +55,9 @@ const barRef = ref<HTMLElement | null>(null);
 /** The one element in the app that makes sound. Handed to usePlayerAudio on mount. */
 const audioRef = ref<HTMLAudioElement | null>(null);
 
+/** Last height published, so an observation that changes nothing writes nothing. */
+let publishedHeight = -1;
+
 /**
  * Publish the bar's rendered height to the document as `--app-player-height`, and
  * hand the audio element over to the player.
@@ -76,14 +79,23 @@ const audioRef = ref<HTMLAudioElement | null>(null);
 onMounted(() => {
     if (audioRef.value) attach(audioRef.value);
 
-    /** Measure the bar and publish it, both at mount and on every resize the observer sees. */
+    /**
+     * Measure the bar and publish it, only when the number actually moved.
+     *
+     * Same guard as AppHeader's and for the same reason: this value feeds `AppMain`'s bottom
+     * padding and the queue panel's bottom edge, so it is part of the layout this observer
+     * watches — re-publishing an unchanged measurement is how the pair starts feeding itself.
+     * Not rounded, for the reason AppHeader documents at length (it puts a visible seam
+     * between the panel and this bar).
+     */
     const setHeightVar = (): void => {
-        if (barRef.value) {
-            document.documentElement.style.setProperty(
-                "--app-player-height",
-                `${barRef.value.getBoundingClientRect().height}px`
-            );
-        }
+        if (!barRef.value) return;
+
+        const next = barRef.value.getBoundingClientRect().height;
+        if (next === publishedHeight) return;
+
+        publishedHeight = next;
+        document.documentElement.style.setProperty("--app-player-height", `${next}px`);
     };
     setHeightVar();
 

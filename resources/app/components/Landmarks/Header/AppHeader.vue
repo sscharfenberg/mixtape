@@ -19,14 +19,33 @@ import Container from "Components/UI/Container.vue";
 // across breakpoints.
 const headerRef = ref<HTMLElement | null>(null);
 
+/** Last value published, so an observation that changes nothing writes nothing. */
+let published = -1;
+
 onMounted(() => {
+    /**
+     * Measure the header and publish it — only when the number actually moved.
+     *
+     * The guard is not an optimisation: this value is part of the layout the observer is
+     * watching (main pads by it, StickyNav pins to it), so re-publishing an unchanged
+     * measurement is how a ResizeObserver ends up feeding itself.
+     *
+     * NOT ROUNDED, and that was tried: the header really is 83.1953125px on this app, and
+     * publishing 83px left the queue panel — which pins to this variable — an eighth of a
+     * pixel above the header's bottom edge. Two E2E specs assert those edges are flush, and
+     * they are right to: on a light panel over a light page that seam reads as a rendering
+     * fault. The scrollbar flicker that prompted the rounding is fixed where it belongs, by
+     * reserving the scrollbar gutter in `layout/_base.scss` — with the layout width no longer
+     * depending on whether the scrollbar shows, a fractional height cannot start a loop.
+     */
     const setHeightVar = (): void => {
-        if (headerRef.value) {
-            document.documentElement.style.setProperty(
-                "--app-header-height",
-                `${headerRef.value.getBoundingClientRect().height}px`
-            );
-        }
+        if (!headerRef.value) return;
+
+        const next = headerRef.value.getBoundingClientRect().height;
+        if (next === published) return;
+
+        published = next;
+        document.documentElement.style.setProperty("--app-header-height", `${next}px`);
     };
     setHeightVar();
 
