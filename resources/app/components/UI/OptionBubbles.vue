@@ -22,11 +22,15 @@
  * assistive tech, and a tooltip for everyone else — the same pairing WidgetModeToggle
  * uses, for the same reason (a glyph is not a name).
  *
- * ThemeSwitch predates this and still carries its own copy of the pattern. It was left
- * alone deliberately: it has no tests of its own, its three-option pill is driven by
- * `:has(input:nth-of-type(n):checked)` rather than a prop, and rewriting the colour
- * scheme picker was not part of adding a player setting. It is the obvious next
- * adopter, not a silent one.
+ * The pattern started in ThemeSwitch, the header's colour-scheme picker, which now
+ * consumes this and kept only the part that was ever about colour schemes (the meta tag
+ * and the persistence) — 169 lines down to 69, with its three token partials deleted.
+ * That migration is what fixed the id handling below: a value may contain whitespace
+ * ("light dark"), an id may not.
+ *
+ * Two callers, three shapes between them: two options in the player's settings, three
+ * here. Which is why the count is a prop rather than a stylesheet full of `nth-of-type`
+ * rules.
  *****************************************************************************/
 import { computed } from "vue";
 import Icon from "Components/UI/Icon.vue";
@@ -54,6 +58,13 @@ const props = defineProps<{
     name: string;
     /** Accessible name for the group as a whole (its `aria-label`). */
     label: string;
+    /**
+     * Icon size step, passed through to `Icon`. Defaults to Icon's OWN default rather than
+     * a step of this component's choosing, so adopting the control never silently resizes a
+     * caller's glyphs — which is exactly what happened to the colour-scheme switch when it
+     * migrated onto a hardcoded step 1 and its icons shrank from 24px to 19px.
+     */
+    size?: number;
 }>();
 
 const emit = defineEmits<{
@@ -73,9 +84,16 @@ const selectedIndex = computed<number>(() => {
     return index === -1 ? 0 : index;
 });
 
-/** The input id for an option — `name` is already unique per group, so this is too. */
+/**
+ * The input id for an option — `name` is already unique per group, so this is too.
+ *
+ * Whitespace is collapsed because it is legal in a VALUE and not in an id, and a
+ * `label[for]` would never match it. The colour-scheme picker is exactly that case: its
+ * third option is `"light dark"`, the CSS value meaning "follow the OS". Handled here
+ * rather than asking every caller to pre-slug values it has no other reason to touch.
+ */
 function optionId(value: string): string {
-    return `${props.name}-${value}`;
+    return `${props.name}-${value.replace(/\s+/gu, "-")}`;
 }
 </script>
 
@@ -102,7 +120,7 @@ function optionId(value: string): string {
                 :for="optionId(option.value)"
                 class="option-bubbles__item"
             >
-                <icon :name="option.icon" :size="1" />
+                <icon :name="option.icon" :size="size ?? 2" />
             </label>
         </template>
     </div>

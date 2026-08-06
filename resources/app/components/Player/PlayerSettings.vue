@@ -96,6 +96,7 @@ const repeatValue = computed<string>({
                         :options="modeOptions"
                         name="playerMode"
                         :label="t('player.settings.mode')"
+                        :size="1"
                     />
                 </li>
                 <li class="player-settings__row">
@@ -105,6 +106,7 @@ const repeatValue = computed<string>({
                         :options="repeatOptions"
                         name="playerRepeat"
                         :label="t('player.settings.repeat')"
+                        :size="1"
                     />
                 </li>
             </ul>

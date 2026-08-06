@@ -106,4 +106,18 @@ describe("OptionBubbles", () => {
         expect(ids).toStrictEqual(["mode-off", "mode-on"]);
         expect(wrapper.findAll("label").map(label => label.attributes("for"))).toStrictEqual(ids);
     });
+
+    it("makes an id out of a value that contains whitespace", () => {
+        // The colour-scheme picker's third value is `"light dark"` — legal as a value, not
+        // as an id, and a `label[for]` holding a space would never match its input.
+        const wrapper = bubbles("light dark", [
+            { value: "dark", icon: "dark", label: "Dark" },
+            { value: "light dark", icon: "system", label: "System" }
+        ]);
+
+        expect(wrapper.findAll("input")[1].attributes("id")).toBe("mode-light-dark");
+        expect(wrapper.findAll("label")[1].attributes("for")).toBe("mode-light-dark");
+        // …and the VALUE it reports is untouched, since that is what the caller stores.
+        expect((wrapper.findAll("input")[1].element as HTMLInputElement).value).toBe("light dark");
+    });
 });

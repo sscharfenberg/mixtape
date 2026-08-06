@@ -6,9 +6,9 @@
  * colour, so the control reads at a glance the way WidgetModeToggle's lit segment
  * does; the rest are muted grey and colourless.
  *
- * The same three decisions ThemeSwitch makes (it predates this component and still
- * carries its own copy, `$c-theme-switch`), picked here rather than read from there:
- * tokens are scoped to a component, and a component must not reach into another's.
+ * These three decisions started life in ThemeSwitch, which is where the pattern came
+ * from; its own `$c-theme-switch` partial was deleted when it adopted this component,
+ * because two token sets for one look are two things to keep in step.
  * consumed as c.$c-option-bubbles via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map

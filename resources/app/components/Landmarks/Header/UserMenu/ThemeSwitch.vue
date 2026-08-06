@@ -6,10 +6,22 @@
  * <meta name="color-scheme"> tag — which is what CSS light-dark() and the
  * `theme-dark` mixin key off — and persists the choice in localStorage.
  * "light dark" means "follow the OS".
+ *
+ * THE CONTROL ITSELF IS NOW SHARED (Components/UI/OptionBubbles), which is why this
+ * file has no styles left. The bubbles-with-a-sliding-pill pattern started here and
+ * was generalised when the player's settings needed it twice; keeping a second copy
+ * meant two sets of tokens and two pill implementations for one look. What stayed
+ * behind is the only part that was ever about colour schemes: the meta tag, the
+ * persistence, and the three values.
+ *
+ * The pill also moved from `:has(input:nth-of-type(n):checked)` to arithmetic on the
+ * option count — same three stops, but 100%/3 rather than the 33% / 66% this file
+ * used to approximate.
  *****************************************************************************/
-import { computed, onMounted } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import Icon from "Components/UI/Icon.vue";
+import type { BubbleOption } from "Components/UI/OptionBubbles.vue";
+import OptionBubbles from "Components/UI/OptionBubbles.vue";
 
 const { t } = useI18n();
 
@@ -25,22 +37,36 @@ function updateMeta(val: string): void {
 }
 
 /**
- * The active theme.
- * - **get**: localStorage → meta tag → `"light dark"` (OS default).
- * - **set**: updates the meta tag (instant switch) and localStorage (persistence).
+ * The active theme — seeded from localStorage, then the meta tag, then "follow the OS".
+ *
+ * A REF, NOT A COMPUTED WITH A SETTER, which it was until 2026-08-06 and which was a bug
+ * waiting for a witness. That getter read `localStorage` and an attribute, neither of
+ * which Vue tracks, so it never re-evaluated: the old markup got away with it because the
+ * pill was drawn by `:has(input:nth-of-type(n):checked)` — the browser's own radio state,
+ * which changes whether or not Vue notices. Moving the pill onto component state (see the
+ * banner) made the staleness visible immediately: the scheme changed and the pill stayed
+ * put. Owning the value here is what makes both true at once.
  */
-const theme = computed<string>({
-    get() {
-        return localStorage.getItem("theme") || colorScheme.getAttribute("content") || "light dark";
-    },
-    set(val) {
-        updateMeta(val);
-        localStorage.setItem("theme", val);
-    }
-});
+const theme = ref<string>(localStorage.getItem("theme") || colorScheme.getAttribute("content") || "light dark");
+
+/**
+ * Apply a chosen scheme: the ref (so the control redraws), the tag (so the page changes)
+ * and storage (so it outlives the tab).
+ *
+ * Bound to the group's update event rather than through `v-model`, and not a watcher on the
+ * ref either, because both would skip the case where the scheme chosen is the one already
+ * active: assigning an unchanged ref notifies nothing, and then "the reader explicitly chose
+ * to follow the OS" is indistinguishable in storage from "following the OS is merely the
+ * default they never touched".
+ */
+function setTheme(value: string): void {
+    theme.value = value;
+    updateMeta(value);
+    localStorage.setItem("theme", value);
+}
 
 /** Selectable options — `"light dark"` delegates to the OS preference. Labels are translated (and re-render on a locale switch). */
-const options = computed(() => [
+const options = computed<BubbleOption[]>(() => [
     { value: "dark", label: t("header.theme.dark"), icon: "dark" },
     { value: "light", label: t("header.theme.light"), icon: "light" },
     { value: "light dark", label: t("header.theme.system"), icon: "system" }
@@ -53,117 +79,11 @@ onMounted(() => {
 </script>
 
 <template>
-    <div class="theme-switch__list" role="radiogroup" :aria-label="t('header.theme.label')">
-        <template v-for="option in options" :key="option.value">
-            <input
-                :id="'theme' + option.value.replace(' ', '')"
-                name="theme"
-                type="radio"
-                :value="option.value"
-                :checked="theme === option.value"
-                :aria-label="option.label"
-                @change="theme = option.value"
-            />
-            <label :for="'theme' + option.value.replace(' ', '')" :aria-label="option.label" class="theme-switch__item">
-                <icon :name="option.icon" />
-            </label>
-        </template>
-    </div>
+    <option-bubbles
+        :model-value="theme"
+        :options="options"
+        name="theme"
+        :label="t('header.theme.label')"
+        @update:model-value="setTheme"
+    />
 </template>
-
-<style scoped lang="scss">
-@use "sass:map"; // https://sass-lang.com/documentation/modules/map
-@use "Abstracts/colors" as c;
-@use "Abstracts/sizes" as s;
-@use "Abstracts/timings" as ti;
-@use "Abstracts/z-indexes" as z;
-
-.theme-switch {
-    &__list {
-        display: flex;
-        position: relative;
-        justify-content: space-between;
-
-        // the sliding "pill" behind the active option.
-        &::before {
-            display: block;
-            position: absolute;
-            top: 0;
-            left: 0; // resting position — option 1 (dark); options 2/3 shift it right
-
-            z-index: map.get(z.$index, "background");
-
-            width: calc(100% / 3);
-            height: 100%;
-
-            background-color: map.get(c.$c-theme-switch, "background-selected");
-            border-radius: map.get(s.$c-theme-switch, "radius");
-
-            content: "";
-
-            @media (prefers-reduced-motion: no-preference) {
-                transition:
-                    left ti.$c-theme-switch linear,
-                    background-color ti.$c-theme-switch linear;
-            }
-        }
-
-        // radios stay in the DOM but visually hidden — still focusable/tabbable for
-        // keyboard + screen-reader users (unlike display:none). Native arrow keys move
-        // focus AND selection within the group, which is what drives the theme change.
-        input {
-            position: absolute;
-
-            overflow: hidden;
-
-            width: 1px;
-            height: 1px;
-            padding: 0;
-            border: 0;
-            margin: -1px;
-            clip-path: inset(50%);
-
-            white-space: nowrap;
-        }
-
-        &:has(input:nth-of-type(2):checked)::before {
-            left: 33%;
-        }
-
-        &:has(input:nth-of-type(3):checked)::before {
-            left: 66%;
-        }
-    }
-
-    &__item {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-grow: 1;
-
-        padding: map.get(s.$c-theme-switch, "padding");
-        gap: 4px;
-
-        color: map.get(c.$c-theme-switch, "surface");
-
-        line-height: 1;
-
-        cursor: pointer;
-
-        @media (prefers-reduced-motion: no-preference) {
-            transition: color ti.$c-theme-switch linear;
-        }
-
-        // visible keyboard focus ring on the focused option's label
-        // (:focus-visible → keyboard only, not mouse clicks).
-        input:focus-visible + & {
-            outline: 2px solid map.get(c.$c-theme-switch, "surface-selected");
-            outline-offset: -2px;
-        }
-
-        input:checked + & {
-            color: map.get(c.$c-theme-switch, "surface-selected");
-        }
-    }
-}
-</style>

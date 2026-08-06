@@ -147,8 +147,10 @@ order) and **Wiederholung** (what happens at the end). Three decisions in it wor
 - **Between the timeline and the volume button**, so the bar reads position → order → level → the
   buttons that change position. Both settings are about the queue, so they belong beside the thing
   that shows progress through it rather than after a control that is only about this one track.
-- **Bubbles, not checkboxes** — a shared `Components/UI/OptionBubbles`, the pattern the header's
-  colour-scheme switch established. Each row is a choice between two _named modes_ ("shuffle off" is
+- **Bubbles, not checkboxes** — `Components/UI/OptionBubbles`, the pattern the header's
+  colour-scheme switch established and, since 2026-08-06, shares: `ThemeSwitch` was migrated onto it
+  (169 lines to 69, its three token partials deleted), which is what proved the control handles three
+  options as well as two. Each row is a choice between two _named modes_ ("shuffle off" is
   "in order", with its own glyph), which a lone checkbox cannot say; and being a native radiogroup, it
   gets arrow-key navigation for nothing. The two new glyphs are Material's `trending_flat` and
   `line_end`, since Material ships no `shuffle_off` / `repeat_off` — a straight arrow for "straight
