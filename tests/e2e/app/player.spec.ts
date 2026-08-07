@@ -482,8 +482,10 @@ test.describe("the player", () => {
          * lives under `prefers-reduced-motion: no-preference`, so emulating `reduce` skips it
          * outright and the first measurement is already the final geometry.
          *
-         * Measured across the 99% → 100% step because that is where the character count
-         * changes; the same jump exists at 9% → 10% and the reservation covers both.
+         * Measured across the step DOWN FROM 100%, because that is where the character
+         * count changes — four characters to three. Which value that lands on follows the
+         * slider's own `step`: 95% since it went to 5% (2026-08-07), 99% before. The same
+         * jump exists at 5% → 10% and the reservation covers both.
          */
         await page.emulateMedia({ reducedMotion: "reduce" });
         await enqueueSongs(page, 1);
@@ -498,10 +500,10 @@ test.describe("the player", () => {
         const atFull = await panelWidth();
 
         await page.keyboard.press("ArrowDown");
-        await expect(page.locator(".player-volume__readout")).toHaveText("99%");
-        const atNinetyNine = await panelWidth();
+        await expect(page.locator(".player-volume__readout")).toHaveText("95%");
+        const oneStepDown = await panelWidth();
 
-        expect(atNinetyNine).toBe(atFull);
+        expect(oneStepDown).toBe(atFull);
     });
 
     test("switches the panel's own button to volume_off when it is pressed", async ({ page }) => {

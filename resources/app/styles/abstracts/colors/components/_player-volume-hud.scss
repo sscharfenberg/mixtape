@@ -1,0 +1,26 @@
+/******************************************************************************
+ * contextual color tokens — component:player-volume-hud
+ * @type {Sass}
+ * The level readout that appears in the middle of the screen while the volume is
+ * being changed — chiefly by ↑/↓, where there is nothing else on screen to watch.
+ *
+ * A NEUTRAL GREY BOX, not the neon the slider wears, and that is the owner's brief:
+ * this thing floats over whatever the reader is looking at, so it announces itself by
+ * being a plain panel rather than by joining the design. It has to read against both
+ * layers it can land on — the page (`$body` mystic / ebony) and a card on top of it
+ * (white / black) — which is why the fill steps AWAY from the page in both schemes
+ * rather than matching it: a notch darker in light mode, a notch lighter in dark.
+ *
+ * Rule 2-compliant: palette entries picked, nothing minted. Consumed as
+ * c.$c-player-volume-hud via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-color-tokens" as c;
+
+$player-volume-hud: (
+    // light grey on a light page, dark grey on a dark one — one notch off the page in
+    // each, so the box is visible over the page AND over a white/black card
+    "background": light-dark(map.get(c.$grey, "infra"), map.get(c.$grey, "bunker")),
+    // the figure itself, at the far end of the scale from its own fill
+    "surface": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral"))
+) !default;

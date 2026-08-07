@@ -65,7 +65,19 @@ export type UsePlayerShortcutsReturn = {
 /** How far ⇦/⇨ (and J/L) move the cursor. Five seconds is a phrase, not a bar. */
 const SEEK_STEP_SECONDS = 5;
 
-/** How much ↑/↓ move the output level, as a fraction of full scale. */
+/**
+ * How much ↑/↓ move the output level, as a fraction of full scale.
+ *
+ * 5%, the owner's figure: twenty steps across the scale, which is about what a hardware
+ * volume knob offers and more than the sixteen macOS gives its own.
+ *
+ * IT HAS A TWIN, and they must agree. This constant only applies while focus is
+ * somewhere ELSE on the page — the guards below deliberately stand aside for a focused
+ * range input, so an arrow pressed on the volume slider is handled by the browser at the
+ * input's own `step`. PlayerVolume sets that to the same 5% and says why; leaving them
+ * different is how one gesture ends up with two answers depending on what has focus,
+ * which is what the owner hit (a 1% slider against a 5% shortcut).
+ */
 const VOLUME_STEP = 0.05;
 
 /**

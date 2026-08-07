@@ -125,6 +125,59 @@ test.describe("the player's keyboard shortcuts", () => {
         await expect.poll(() => page.evaluate(() => document.querySelector("audio")!.muted)).toBe(true);
     });
 
+    test("shows the new level in the middle of the screen, and lets a click through it", async ({ page }) => {
+        /*
+         * The arrows are the gesture with no control on screen — the slider they move is
+         * inside a closed popover — so this box is the whole of their feedback. Three of
+         * its four properties are engine facts and cannot be checked anywhere else:
+         *
+         *   - WHERE IT LANDS. It is `position: fixed` in a component written inside a bar
+         *     that carries `backdrop-filter`, which makes that bar the containing block for
+         *     fixed descendants — so "the middle of the viewport" is a claim about which
+         *     element the browser resolved the position against. It teleports out for
+         *     exactly that reason, and this is what would notice if it stopped.
+         *   - THAT A CLICK GOES THROUGH IT. Asked of `elementFromPoint`, which answers with
+         *     what a click would actually hit rather than with a computed style.
+         *   - THAT IT GOES AWAY BY ITSELF, on a real timer.
+         */
+        await page.keyboard.press("ArrowDown");
+
+        const hud = page.locator(".player-volume-hud");
+        await expect(hud).toBeVisible();
+        // One 5% step down from the browser's own unity gain.
+        await expect(hud).toHaveText("95%");
+
+        const geometry = await page.evaluate(() => {
+            const box = document.querySelector(".player-volume-hud")!.getBoundingClientRect();
+            /*
+             * THE MIDDLE OF THE LAYOUT VIEWPORT, WHICH IS NOT `window.innerWidth / 2`. A
+             * fixed box resolves `left: 50%` against the viewport MINUS the scrollbar, and
+             * this app reserves one on the root permanently (`overflow-y: scroll`, so the
+             * page cannot twitch as content changes height). Measured here: the window is
+             * 1280 and the box centres on 632.5, which is half of 1265 — dead centre of
+             * everything the reader can actually see, and 7.5px off the window's middle.
+             * Subtracting the scrollbar rather than hard-coding 15px keeps this true where
+             * scrollbars are overlays and take no width at all.
+             */
+            const scrollbar = window.innerWidth - document.body.clientWidth;
+            const middleX = (window.innerWidth - scrollbar) / 2;
+            const middleY = window.innerHeight / 2;
+
+            return {
+                offsetX: Math.abs(box.left + box.width / 2 - middleX),
+                offsetY: Math.abs(box.top + box.height / 2 - middleY),
+                catchesTheClick: document.elementFromPoint(middleX, middleY)?.classList.contains("player-volume-hud")
+            };
+        });
+
+        expect(geometry.offsetX).toBeLessThan(1);
+        expect(geometry.offsetY).toBeLessThan(1);
+        expect(geometry.catchesTheClick).toBe(false);
+
+        // A couple of seconds, then gone — without another key being touched.
+        await expect(hud).toBeHidden({ timeout: 5_000 });
+    });
+
     test("takes nothing from a password field, so a space in a passphrase is just a space", async ({ page }) => {
         /*
          * The case the owner raised. A real form, a real password input, a real space.

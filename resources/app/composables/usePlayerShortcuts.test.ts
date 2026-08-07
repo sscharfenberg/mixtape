@@ -250,6 +250,8 @@ describe("usePlayerShortcuts", () => {
         });
 
         it("moves the volume with the up and down arrows, and clamps at full", () => {
+            // 5% a press — twenty steps across the scale, and the same figure the slider's
+            // own `step` carries, since a focused slider handles these keys itself.
             press("ArrowUp");
             expect(usePlayerVolume().volume.value).toBeCloseTo(0.55);
 

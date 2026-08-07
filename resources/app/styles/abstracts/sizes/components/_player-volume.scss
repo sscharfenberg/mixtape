@@ -33,7 +33,8 @@ $player-volume: (
     // the widest thing in the popover and the popover sizes to its contents, so without a
     // floor here the panel grew by one character's width as the level crossed 99% → 100%
     // and twitched under the pointer. Measured, not estimated: 40.48px against 48.64px, an
-    // 8.16px step. The same jump exists at 9% → 10%, which this also covers. Wide enough for
+    // 8.16px step. The same jump exists lower down the scale (5% → 10% at today's step),
+    // which this also covers. Wide enough for
     // "100%" in tabular figures — three digits are 3ch by definition and the "%" is wider
     // than a digit in most faces, so 5ch leaves a little air rather than sitting exactly on
     // the longest string.

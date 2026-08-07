@@ -1,0 +1,14 @@
+/******************************************************************************
+ * contextual timing token — component:player-volume-hud
+ * @type {Sass}
+ * how long the readout takes to fade once its time is up. the "quick" rung rather
+ * than "fast": this is the only motion here — it ARRIVES instantly, because it is
+ * feedback for a key that was just pressed and a box that eases in is a box that is
+ * still arriving when the next press comes — so the leave is the one place a little
+ * slack reads as a thing settling rather than a thing blinking out.
+ * consumed as ti.$c-player-volume-hud via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$player-volume-hud: map.get(ti.$timings, "quick") !default;

@@ -18,6 +18,7 @@ queue_ for the shape both files build on rather than revisit.
 | `usePlayerAudio`                                              | ✅                                             |
 | Transport UI + timeline **+ buffer indicator**                | ✅ `PlayerBar`, `PlayerTimeline`               |
 | Volume popover                                                | ✅ `PlayerVolume`                              |
+| The level over the page while it changes                      | ✅ `PlayerVolumeHud`, 2026-08-07               |
 | Playback-settings popover (order / at the end)                | ✅ `PlayerSettings`, 2026-08-06                |
 | Keyboard shortcuts, incl. hold-Space to skim                   | ✅ `usePlayerShortcuts`, 2026-08-07            |
 | Playback speed 1× / 2× / 3×, persisted                        | ✅ `usePlayerSpeed`, 2026-08-07                |
@@ -48,6 +49,8 @@ in [`play-queue.md`](play-queue.md).
 - A **playback speed** — 1× / 2× / 3× — in the settings popover (2026-08-07), remembered
   across visits. See *Playback speed* below.
 - A **message when a track will not play** (2026-08-07), naming it. See *When a stream fails* below.
+- The **level, big, in the middle of the screen** while it is being changed (2026-08-07) — the
+  keyboard's only feedback. See *The volume readout* below.
 
 ## Playback speed
 
@@ -121,6 +124,44 @@ YouTube's scale that is an infrastructure line item. It is not nothing here eith
 serves from a home uplink to family and friends, which is the same reason the timeline carries a
 buffer indicator at all.
 
+## The volume readout
+
+`PlayerVolumeHud`, built 2026-08-07 to the owner's brief: a box in the middle of the viewport
+showing the new level as a percentage, subtle grey, click-through, gone after a couple of seconds.
+
+**It exists for the keyboard.** ↑/↓ change the volume from anywhere on the page, and the only thing
+that moved was a slider inside a *closed* popover — so the one gesture with no control attached to it
+was also the one with no feedback. A drag on the slider raises the box too, which costs nothing: the
+popover has its own readout, but the pointer is usually sitting on top of it.
+
+**It is teleported to `<body>`, and that is load-bearing rather than tidy.** `PlayerBar` is the
+obvious parent and where it is written, but the bar carries `backdrop-filter: blur(12px)` to frost
+itself — and a filtered element becomes the **containing block for its `position: fixed`
+descendants**. Left inside the bar, "the middle of the viewport" resolves to the middle of a 60px
+strip along the bottom edge. Anything else fixed that the bar ever renders meets the same trap.
+
+**It watches the percentage, not the level**, which is what makes `M` show up here too: muting is a
+volume gesture with even less on screen than the arrows, and it moves the figure to 0 and back. The
+one press that shows nothing is a key at a ceiling — ↑ at 100% clamps to the level it already had, so
+nothing changed and nothing is announced. By then the box is up anyway from the press before it.
+
+**No ARIA, deliberately.** The box is `aria-hidden`: a screen reader announcing every step of a
+five-press climb would be reading noise, and the slider it mirrors already carries `aria-valuetext`,
+which answers "how loud is it?" for anyone navigating the control rather than the page. (That is the
+opposite call from the speed badge, which *is* a `role="status"` — a rate change is one event worth
+one sentence, where a level is a stream of them.)
+
+**Only the leave is animated.** Arriving is feedback for a key that has just been pressed, so it has
+to be there instantly; an ease-in would still be arriving when the next press lands. The fade out is
+the box's own doing and says "this timed out" rather than "this blinked" — under
+`prefers-reduced-motion` there is no transition at all.
+
+**It centres on the layout viewport, which is not the window.** A fixed box resolves `left: 50%`
+against the viewport *minus* the scrollbar, and this app reserves one on the root permanently. So on
+a 1280px window the box centres on 632.5 — half of 1265, dead centre of everything the reader can
+see, and 7.5px off the window's middle. The E2E assertion subtracts the scrollbar rather than
+hard-coding it; measuring against `window.innerWidth` reports a correctly centred box as wrong.
+
 ## When a stream fails
 
 `Utils/playbackError`, built 2026-08-07. Until then the player answered a dead track by stopping and
@@ -167,7 +208,7 @@ page load quiet.
 | **`Space` held**   | **doubles the chosen speed while held** — see below |
 | `←` / `→`, `J`/`L` | seek ∓5 s                                        |
 | `⇧←` / `⇧→`, `P`/`N` | previous / next track                          |
-| `↑` / `↓`          | volume ±5 %                                      |
+| `↑` / `↓`          | volume ±5 % — the level shows in the middle of the screen |
 | `M`                | mute                                             |
 | `S` / `R`          | shuffle / repeat                                 |
 
@@ -372,8 +413,10 @@ private state, not about whether the index is above zero.
   classification, the silence for an aborted load, one failure announced once however many times it
   is reported, and a fresh answer after a fresh press — while `usePlayerAudio`'s own spec checks only
   the wiring: that the element's error and the track it was loading both reach the reporter, that a
-  press on a dead track is answered, and that an autoplay refusal stays quiet. The queue's own
-  suites — the pointer, the stored shape, the write path, the reorder — are in
+  press on a dead track is answered, and that an autoplay refusal stays quiet. `PlayerVolumeHud`'s
+  spec is about WHEN the box is on screen — three of its four cases are about silence (a page load
+  must not raise it, a clamped press must not raise it, and it has to go away on its own). The
+  queue's own suites — the pointer, the stored shape, the write path, the reorder — are in
   [`play-queue.md`](play-queue.md).
 - **Playwright** (`tests/e2e/app/player.spec.ts`) — real playback, plus the things about the
   settings popover that need a browser: that the gear really lands **between** the timeline and the
@@ -383,6 +426,11 @@ private state, not about whether the index is above zero.
   different cases rather than one repeated (see `PlayerSettings` above). A **failed stream** is here
   too: `page.route` answers the stream with a 404, because a `MediaError` is minted by the media
   stack from a real HTTP response and neither the code nor the event can be faked honestly.
+
+  The **volume readout** is covered in `tests/e2e/app/shortcuts.spec.ts` instead, beside the arrows
+  that raise it, and all three of its assertions are things only an engine knows: where a fixed box
+  teleported out of a filtered parent actually lands, that `elementFromPoint` in the middle of the
+  screen answers with something *behind* it, and that it times out on a real clock.
 
   **Every popover box is measured only after `openPopover`**, a helper that waits for two identical
   bounding boxes in a row. The panel opens with a `rotateY`, a transform is included in

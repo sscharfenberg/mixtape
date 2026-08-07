@@ -1,0 +1,14 @@
+/******************************************************************************
+ * contextual z-index token — component:player-volume-hud
+ * @type {Sass}
+ * the "overlay" rung, which nothing else in the app has claimed yet — and it is the
+ * right one: this readout is teleported to <body> and floats over the page, so it must
+ * clear every flow, sticky and popout layer beneath it. It stays BELOW the progress bar
+ * and the toasts on purpose: a toast is a message to read, this is a glance, and if the
+ * two ever land on top of each other the message should win.
+ * consumed as z.$c-player-volume-hud via `@use "Abstracts/z-indexes" as z;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-z-index-tokens" as z;
+
+$player-volume-hud: map.get(z.$scale, "overlay") !default;

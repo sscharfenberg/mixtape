@@ -1,0 +1,34 @@
+/******************************************************************************
+ * contextual size tokens — component:player-volume-hud
+ * @type {Sass}
+ * The level readout that appears in the middle of the screen while the volume is
+ * being changed.
+ *
+ * `font-size` IS THE SIZE OF THE WHOLE BOX, and that is why it is the only length here
+ * in absolute units. The padding is `em` and the width reservation is `ch`, so both are
+ * ratios of the figure they wrap — set the type and the box follows. It went 1.2rem →
+ * 1.5rem on the owner's "25% bigger" (2026-08-07), and that one number was the whole
+ * change: the padding and the reserved width grew with it, in proportion.
+ *
+ * A literal rather than a step off the type scale, which the token guide allows: this is
+ * not body copy at some heading level, it is one number sized to be read at a glance
+ * from across a room and then ignored.
+ *
+ * `min-width` reserves the width of the longest value it can hold, for the reason the
+ * volume popover's own readout documents at length — with proportional digits the box
+ * would resize as the level crosses 9% → 10% → 100%. Here that would be a box growing
+ * out from the middle of the screen in both directions at once, which is more visible
+ * than the same jump was in the popover, not less. `tabular-nums` in the component is
+ * the other half of that reservation.
+ *
+ * Consumed as s.$c-player-volume-hud via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$player-volume-hud: (
+    "padding": 0.4em 0.6em,
+    "radius": map.get(s.$radius, "base"),
+    "font-size": 1.5rem,
+    "min-width": 5ch
+) !default;

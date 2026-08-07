@@ -103,12 +103,24 @@ const onInput = (event: Event): void => {
                      `writing-mode` does that work in Chromium. -->
                 <div class="player-volume__rail">
                     <span class="player-volume__level" :style="{ height: `${percent}%` }" />
+                    <!-- `step` IS THE KEYBOARD STEP, which is why it is 5% and not the 1% it
+                         was until 2026-08-07. usePlayerShortcuts stands aside for a focused
+                         range input — correctly, since the arrows belong to the control the
+                         reader is on — so this attribute is what ↑/↓ do while the slider has
+                         focus, and it has to be the same figure as that composable's
+                         VOLUME_STEP or the same key moves the level by different amounts
+                         depending on what happens to be focused. That mismatch is what the
+                         owner reported.
+                         It costs the DRAG its fine resolution, since a native range has one
+                         step for both: dragging now lands on multiples of 5%. That is the
+                         cheaper half — twenty positions is more than most hardware offers,
+                         and a level nobody can name is not worth a pixel of precision. -->
                     <input
                         type="range"
                         class="player-volume__input"
                         min="0"
                         max="1"
-                        step="0.01"
+                        step="0.05"
                         orient="vertical"
                         :value="volume"
                         :aria-label="t('player.bar.volumeLevel')"

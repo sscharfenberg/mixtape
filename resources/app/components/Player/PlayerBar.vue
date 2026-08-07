@@ -37,6 +37,7 @@ import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import PlayerSettings from "Components/Player/PlayerSettings.vue";
 import PlayerTimeline from "Components/Player/PlayerTimeline.vue";
 import PlayerVolume from "Components/Player/PlayerVolume.vue";
+import PlayerVolumeHud from "Components/Player/PlayerVolumeHud.vue";
 import Icon from "Components/UI/Icon.vue";
 import { usePlayerAudio } from "Composables/usePlayerAudio";
 import { usePlayerQueue } from "Composables/usePlayerQueue";
@@ -171,6 +172,14 @@ onUnmounted(() => {
         />
 
         <player-volume class="player-bar__volume" />
+
+        <!-- The level over the middle of the page while it is being changed. Written here
+             because it belongs to the volume control, but it teleports itself out of this
+             bar and has to: the frosting below (`backdrop-filter`) makes the bar the
+             containing block for anything `position: fixed` inside it, so "the middle of
+             the viewport" would resolve to the middle of the bar. It renders nothing
+             except during those two seconds, so it takes no grid area. -->
+        <player-volume-hud />
 
         <player-settings class="player-bar__settings" />
 
