@@ -10,6 +10,7 @@ import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { createConnection } from "node:net";
 import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 
 /** Repo root — this module sits three levels down, in tests/e2e/support/. */
@@ -258,3 +259,54 @@ export const SPEC_USERS = {
 /** Where a spec account's signed-in session is parked by the setup project. */
 export const specStorageState = (spec: keyof typeof SPEC_USERS): string =>
     path.join(repoRoot, `tests/e2e/.auth/${SPEC_USERS[spec]}.json`);
+
+/**
+ * Drop a spec account's stored play queue, straight in the database.
+ *
+ * WHY EVERY QUEUE SPEC NEEDS IT: the queue is server state now, so a fresh browser context
+ * is no longer a fresh player — the next test signs in as the same account and its first
+ * page load restores whatever the last test left. Specs that assert "nothing is queued yet"
+ * would inherit a queue nobody in that test ever built.
+ *
+ * STRAIGHT TO SQLITE RATHER THAN THROUGH THE APP'S OWN PUT, which is what this did first
+ * and which cost an hour: an out-of-band request has to carry a session cookie AND a CSRF
+ * token that still matches it, and a stored session that authenticates by remember-me gets
+ * a fresh session — and with it a token the parked `XSRF-TOKEN` no longer matches. The
+ * request is then bounced through a redirect chain and answers 405, from a URL that has
+ * nothing to do with the queue. None of that is a fact about the app worth reproducing in a
+ * fixture; a DELETE is one statement and cannot be redirected.
+ *
+ * `busy_timeout` because the running app holds the same file open: a reset that collided
+ * with a request mid-flight would otherwise throw SQLITE_BUSY rather than wait the
+ * millisecond out.
+ */
+export const clearServerQueue = (spec: keyof typeof SPEC_USERS): void => {
+    const database = new DatabaseSync(path.join(repoRoot, "storage/e2e.sqlite"));
+    const empty = JSON.stringify({
+        version: 1,
+        tracks: [],
+        currentIndex: -1,
+        repeat: false,
+        shuffle: false,
+        // NOW, and that is the whole reason this WRITES an empty queue rather than deleting
+        // the row. The previous test's tab flushes on its way out, with `keepalive`, so its
+        // PUT can land after this reset has run — and a deleted row would simply be
+        // recreated by it. An empty queue stamped now is NEWER than that request, and the
+        // server ignores a write older than what it holds (PlayerStatePayload::store).
+        updatedAt: Date.now(),
+        positionMs: 0
+    });
+
+    try {
+        database.exec("PRAGMA busy_timeout = 2000");
+        database
+            .prepare(
+                `INSERT INTO player_states (user_id, queue, updated_at)
+                 VALUES ((SELECT id FROM users WHERE name = ?), ?, datetime('now'))
+                 ON CONFLICT(user_id) DO UPDATE SET queue = excluded.queue, updated_at = excluded.updated_at`
+            )
+            .run(SPEC_USERS[spec], empty);
+    } finally {
+        database.close();
+    }
+};

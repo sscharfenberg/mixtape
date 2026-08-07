@@ -37,7 +37,17 @@ declare module "@inertiajs/core" {
                 currentIndex: number;
                 repeat: boolean;
                 shuffle: boolean;
+                // The CLIENT's clock at its last change — what settles which copy is newer.
+                updatedAt: number;
+                // How far into the loaded track this queue had got, in milliseconds.
+                positionMs: number;
             } | null;
+            // Player settings the client honours but the server owns
+            // (config/mixtape.php → the player). `positionHeartbeat` is in seconds of
+            // PLAYBACK, and 0 turns the heartbeat off.
+            player: {
+                positionHeartbeat: number;
+            };
             // Active locale (resolved server-side by ConfigureLocale) and the
             // supported set, used to seed vue-i18n and render the language
             // switcher (see i18n.ts, main.ts, LanguageSwitch.vue).

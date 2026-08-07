@@ -63,10 +63,11 @@
  * invariant, and all three traps above live exactly at those seams — spreading them
  * across files would move the bug surface somewhere nobody looks.
  *****************************************************************************/
+import { usePage } from "@inertiajs/vue3";
 import type { ComputedRef, Ref } from "vue";
 import { computed, ref, watch } from "vue";
 import type { QueueTrack } from "Composables/usePlayerQueue";
-import { usePlayerQueue } from "Composables/usePlayerQueue";
+import { bindPositionSource, notePlaybackProgress, takeRestoredPosition, usePlayerQueue } from "Composables/usePlayerQueue";
 import { applyPlaybackRate, bindSpeedElement } from "Composables/usePlayerSpeed";
 import { bindVolumeElement } from "Composables/usePlayerVolume";
 import * as session from "Utils/mediaSession";
@@ -125,6 +126,35 @@ let teardown: Array<() => void> = [];
 
 /** The queue this player walks. Read at module scope: it is a singleton too. */
 const queue = usePlayerQueue();
+
+/**
+ * How much of a track must be left — and how far in the listener must be — for a stored
+ * position to be worth restoring at all.
+ *
+ * The same number at both ends, and both ends matter. Under it, "resume" means starting a
+ * song at 0:04, which is noise. Within it of the end, the resumed track finishes almost
+ * immediately and the queue moves on, which reads as the app skipping a song. In between,
+ * picking up where you were is what a listener actually asked for.
+ */
+const RESUME_GUARD_SECONDS = 30;
+
+/**
+ * How often, in seconds of PLAYBACK, the position is stored while a track runs — the
+ * operator's setting (`mixtape.player.position_heartbeat`), shared through Inertia.
+ *
+ * Read per call rather than captured, since the props arrive with the page. Zero or absent
+ * turns the heartbeat off and leaves the boundaries (pause, track change, tab hidden) to
+ * carry the position on their own, which is what the config note describes.
+ */
+function heartbeatSeconds(): number {
+    return usePage().props.player?.positionHeartbeat ?? 0;
+}
+
+/** Where the position stood at the last heartbeat, so the next one can measure against it. */
+let lastHeartbeatAt = 0;
+
+/** A stored position waiting for metadata, in seconds. Zero when there is nothing to restore. */
+let pendingResume = 0;
 
 /** The loaded track's playing time — the queue's figure, the element's only as a fallback. */
 const duration = computed<number>(() => queue.current.value?.duration ?? elementDuration.value);
@@ -389,6 +419,17 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
         // starts at 1 whatever the listener last chose.
         bindSpeedElement(audio);
 
+        /*
+         * The queue persists the play position but cannot read it — it lives on this
+         * element, and that module is imported by this one rather than the other way round.
+         * So it gets a getter, the same handshake the two modules above use in reverse.
+         */
+        bindPositionSource(() => audio.currentTime);
+        lastHeartbeatAt = 0;
+        // Taken here, before the load below, and taken ONCE: this is the track a page load
+        // came back holding, and it is the only one a stored position can belong to.
+        pendingResume = takeRestoredPosition();
+
         /** Bind a media event and register its removal, so `detach()` needs no list of its own. */
         const on = <K extends keyof HTMLMediaElementEventMap>(
             event: K,
@@ -403,6 +444,23 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
             currentTime.value = audio.currentTime;
             buffered.value = readBuffered(audio);
             publishPositionState();
+
+            /*
+             * THE POSITION HEARTBEAT, counted in PLAYED seconds rather than by a timer.
+             * `timeupdate` keeps firing in a backgrounded tab where a `setInterval` is
+             * throttled to once a minute — and a tab left playing in the background is
+             * exactly the one whose position is worth keeping. It also means a paused
+             * player writes nothing at all, with no flag to check.
+             *
+             * `Math.abs`, because a seek moves the cursor in either direction and dragging
+             * backwards is as much a change as playing forwards.
+             */
+            const heartbeat = heartbeatSeconds();
+
+            if (heartbeat > 0 && Math.abs(audio.currentTime - lastHeartbeatAt) >= heartbeat) {
+                lastHeartbeatAt = audio.currentTime;
+                notePlaybackProgress();
+            }
         });
 
         // `progress` is the download's own event, so the buffer indicator keeps
@@ -414,6 +472,36 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
 
         on("durationchange", () => {
             elementDuration.value = Number.isFinite(audio.duration) ? audio.duration : 0;
+        });
+
+        /*
+         * WHERE A RESTORED POSITION IS APPLIED, and it has to be here rather than in
+         * `load()`: `currentTime` is ignored until the element knows how long the media is,
+         * so a seek written the instant the src is set silently does nothing.
+         *
+         * The value is consumed once (see the queue's `takeRestoredPosition`), so only the
+         * track a page load came back holding is ever resumed — every later track starts
+         * where it should, at zero.
+         */
+        on("loadedmetadata", () => {
+            if (pendingResume <= 0) return;
+
+            const seconds = pendingResume;
+            pendingResume = 0;
+
+            // The queue's figure first (getID3 measured it at scan time), the element's as
+            // the fallback for a file that carried no duration at all.
+            const total = duration.value || (Number.isFinite(audio.duration) ? audio.duration : 0);
+
+            if (seconds < RESUME_GUARD_SECONDS) return;
+            if (total > 0 && total - seconds < RESUME_GUARD_SECONDS) return;
+
+            audio.currentTime = seconds;
+            // Written locally too, for the reason `seek()` gives: the element answers with
+            // `seeking` and only later `timeupdate`, and the bar would show 0:00 until then.
+            currentTime.value = seconds;
+            lastHeartbeatAt = seconds;
+            publishPositionState();
         });
 
         // The seek itself, so the cursor lands as soon as the element agrees rather
@@ -438,6 +526,11 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
             if (audio.ended) return;
             isPlaying.value = false;
             publishPlaybackState();
+            // A deliberate stop, and the likeliest moment for the tab to be abandoned
+            // afterwards — so the position is stored here rather than waiting for a
+            // heartbeat that may never come.
+            lastHeartbeatAt = audio.currentTime;
+            notePlaybackProgress();
         });
 
         // A track whose file went missing between library scans, or a dropped
@@ -544,6 +637,10 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
         teardown = [];
         element = null;
         bindVolumeElement(null);
+        // The queue must not keep a closure over an element that has left the document.
+        bindPositionSource(null);
+        pendingResume = 0;
+        lastHeartbeatAt = 0;
         // The next element starts with no history, so a failure announced on the last one
         // must not silence the same failure on it.
         forgetPlaybackFailure();
@@ -568,6 +665,9 @@ export function resetPlayerAudioForTests(): void {
     for (const undo of teardown) undo();
     teardown = [];
     element = null;
+    bindPositionSource(null);
+    pendingResume = 0;
+    lastHeartbeatAt = 0;
     forgetPlaybackFailure();
     isPlaying.value = false;
     currentTime.value = 0;

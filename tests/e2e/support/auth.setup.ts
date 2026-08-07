@@ -42,6 +42,11 @@ setup("mint a session for every spec that owns a queue", async ({ browser }) => 
         const page = await context.newPage();
 
         await signIn(page, { name: SPEC_USERS[spec], password: SEED_USER.password });
+        // Proof the session is real before it is parked: a login that merely stopped
+        // redirecting would save a file full of anonymous cookies, and every spec using it
+        // would fail far away from here.
+        await page.goto("/dashboard");
+        await expect(page).toHaveURL(/\/dashboard/u);
         await context.storageState({ path: specStorageState(spec) });
         await context.close();
     }

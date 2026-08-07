@@ -241,6 +241,37 @@ stayed put would resume on the wrong song.
 a client-side visit already holds a live queue this prop could only contradict — and it would put
 a queue's worth of JSON on every navigation to be thrown away.
 
+### Picking up mid-track
+
+The queue restores the track; the position restores the minute. Both halves of the sync carry it
+(`positionMs`, in the row and in the local pointer), and three decisions made it worth having rather
+than annoying.
+
+**The number travels against the imports.** It lives on the `<audio>` element, which `usePlayerAudio`
+owns — and that module imports this one, so the queue cannot read it. The player registers a getter
+(`bindPositionSource`) on attach, which is the same handshake `bindVolumeElement` and
+`bindSpeedElement` already are, in reverse. That keeps ONE writer for the payload; the alternative,
+a player persisting its own key, is two modules writing one server row.
+
+**When it is written: boundaries, plus a heartbeat.** Every deliberate exit writes it — pausing,
+changing track, hiding the tab, closing it. The heartbeat covers the exits that are not deliberate,
+and it is counted in **seconds of playback off `timeupdate`**, never by a timer: a timer is throttled
+to once a minute in a backgrounded tab, which is exactly the tab whose position is worth keeping. It
+is the operator's setting — `config/mixtape.php` → `player.position_heartbeat`, shared to the client
+through Inertia, 30 by default, `0` to switch it off and rely on the boundaries alone.
+
+**When it is honoured: not always.** A resume happens only if the listener is more than 30 seconds in
+*and* more than 30 seconds from the end. Under it, "resume" means starting a song at 0:04, which is
+noise; within it of the end, the track finishes almost immediately and the queue moves on, which
+reads as the app skipping a song. The value is also **taken once** — it belongs to the track the page
+load came back holding, and one left lying around would eventually seek an unrelated song to a
+stranger's minute mark. It is applied on `loadedmetadata`, because a `currentTime` written before the
+element knows its duration is silently ignored.
+
+None of it is in the E2E suite, deliberately: the fixture's audio is one second long against rows
+claiming minutes, so a thirty-second guard cannot be exercised there at all. The behaviour is
+Vitest's, the storage is PHPUnit's.
+
 ### What it cost the test suite
 
 The queue is server state now, so **a fresh browser context is no longer a fresh player**: a queue
@@ -248,12 +279,28 @@ follows the user, and every authenticated spec was signing in as the same seeded
 began inheriting queues from other specs — and, under `fullyParallel`, from other *workers*, which
 fails two files away from its cause.
 
-The fix is in the harness, in two halves. Each spec file that leaves a queue behind
-(`queue`, `player`, `shortcuts`, `widgets`) now has **its own account** — Playwright never splits
-a file across workers, so a file has its account to itself — and every test in those files starts
-by calling **`clearServerQueue`**, which empties the row through the app's own PUT. That helper
-**checks the response**: the first version did not, its body was missing a field the route had
-since started requiring, and a silent 422 landed two tests later as a queue nobody had built.
+The fix took four parts, and each one was found by the failure the last one left behind:
+
+1. **An account per spec file** that leaves a queue (`queue`, `player`, `shortcuts`, `widgets`),
+   seeded by `E2ESeeder` and signed in by the setup project.
+2. **`test.describe.configure({ mode: "default" })` in those files.** The account is worthless
+   without it: `fullyParallel` parallelises at the TEST level, not the file level, so the tests in
+   one file otherwise run *concurrently against the account they share* — and each sees the others'
+   queues, as a count one too high, on a different test every run.
+3. **`clearServerQueue` in `beforeEach`**, which writes an empty queue straight into sqlite. Not
+   through the app's own PUT, which is what it did first: an out-of-band request needs a session
+   cookie AND a matching CSRF token, and a session that authenticates by remember-me gets a fresh
+   one — the parked token then mismatches, the request is bounced through a redirect chain, and it
+   answers 405 from a URL that has nothing to do with the queue.
+4. **`stopQueueSync` in `afterEach`**, the hole none of the above can close: a tab flushes its queue
+   as it goes, with `keepalive` precisely so the request outlives the page, so it can land *after*
+   the next test has reset the account. The route is aborted and then the page is closed with
+   `runBeforeUnload`, so that flush happens inside the test that owns it.
+
+The same race is a real bug outside the suite, and its fix is in the app rather than the harness:
+**the server ignores a write older than the one it holds.** Two tabs open, fifty tracks queued in
+the second, close the first — and without that guard the first tab's parting flush rolls the server
+back to whatever it was holding when it was abandoned.
 
 ## Storage
 
@@ -500,7 +547,4 @@ grip, so **tapping the cover no longer plays the track** — the other ~90% of t
   shuffle a listener could actually notice, and persisting the walk is the known fix.
 - **The play-history beacon** is still `data-model.md`'s plan — nothing writes `plays`, so the
   home page's "popular" widget queries a table that can never fill.
-- **The play POSITION is not synced**, only the queue and the pointer. Resuming mid-track across
-  devices would mean the queue knowing the player's `currentTime`, which is a coupling the two
-  modules have carefully avoided; it matters least here anyway, since audiobook chapters are never
-  queued.
+- **The play position is synced too** (2026-08-07) — see _Picking up mid-track_ above.

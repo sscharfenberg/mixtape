@@ -1,6 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { QueueTrack } from "Composables/usePlayerQueue";
-import { flushQueueWrites, resetPlayerQueueForTests, usePlayerQueue } from "Composables/usePlayerQueue";
+import {
+    bindPositionSource,
+    flushQueueWrites,
+    notePlaybackProgress,
+    resetPlayerQueueForTests,
+    takeRestoredPosition,
+    usePlayerQueue
+} from "Composables/usePlayerQueue";
 import { resetInertia, setPage } from "Testing/inertia";
 
 vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
@@ -50,11 +57,13 @@ const signedInAs = (id: string | null, playerState: unknown = null) =>
  * AbortError noise from the teardown rather than as a failure, and slows the file down for
  * nothing. Stubbed as a resolved 204, the shape the controller really answers with.
  */
-const fetchMock = vi.fn(() => Promise.resolve(new Response(null, { status: 204 })));
+// Typed with the arguments it receives, so `mock.calls` can be read without casting.
+const fetchMock = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(() =>
+    Promise.resolve(new Response(null, { status: 204 }))
+);
 
 /** The bodies of every sync PUT so far, parsed. */
-const syncedBodies = () =>
-    fetchMock.mock.calls.map(([, init]) => JSON.parse((init as RequestInit).body as string));
+const syncedBodies = () => fetchMock.mock.calls.map(([, init]) => JSON.parse(init.body as string));
 
 /** The ids currently in the queue, in play order. */
 const ids = () => usePlayerQueue().tracks.value.map(entry => entry.id);
@@ -876,7 +885,7 @@ describe("usePlayerQueue", () => {
             flushQueueWrites();
 
             expect(fetchMock).toHaveBeenCalledTimes(1);
-            const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+            const [url, init] = fetchMock.mock.calls[0];
             expect(url).toBe("/player/state");
             expect(init.method).toBe("PUT");
             // Inertia's own visits carry the token; this request is not one, so it has to
@@ -930,11 +939,11 @@ describe("usePlayerQueue", () => {
             // — worth it on the way out, pointless while a live page can complete it.
             usePlayerQueue().enqueue(track("a"));
             flushQueueWrites();
-            expect((fetchMock.mock.calls[0][1] as RequestInit).keepalive).toBe(false);
+            expect(fetchMock.mock.calls[0][1].keepalive).toBe(false);
 
             usePlayerQueue().enqueue(track("b"));
             flushQueueWrites(true);
-            expect((fetchMock.mock.calls[1][1] as RequestInit).keepalive).toBe(true);
+            expect(fetchMock.mock.calls[1][1].keepalive).toBe(true);
         });
 
         it("keeps playing when the sync fails", () => {
@@ -1023,6 +1032,72 @@ describe("usePlayerQueue", () => {
             usePlayerQueue().hydrate();
 
             expect(ids()).toStrictEqual(["a", "b"]);
+        });
+    });
+
+    describe("the play position", () => {
+        /*
+         * The queue stores how far into the loaded track the listener had got, but it cannot
+         * READ that — the number lives on the <audio> element, which usePlayerAudio owns and
+         * which imports this module rather than the other way round. So the player registers
+         * a getter, and what is worth pinning here is the two halves of that handshake: the
+         * value reaching storage and the sync, and this module refusing to write for a
+         * position that has not moved.
+         */
+
+        /** Stand in for the player, which is the only thing that can read an element. */
+        const playingAt = (seconds: number) => bindPositionSource(() => seconds);
+
+        it("stores the position with the pointer and sends it up", () => {
+            playingAt(96.4);
+            usePlayerQueue().enqueue(track("a"));
+            flushQueueWrites();
+
+            // Milliseconds, and rounded — the row's unit, and an integer stores smaller
+            // than a float of seconds.
+            expect(storedPosition().positionMs).toBe(96_400);
+            expect(syncedBodies()[0].positionMs).toBe(96_400);
+        });
+
+        it("writes nothing when the position has not really moved", () => {
+            // The player asks on every heartbeat, on a pause and on the way out — three
+            // asks a second apart, at the same instant of a track, are one write.
+            playingAt(96);
+            usePlayerQueue().enqueue(track("a"));
+            flushQueueWrites();
+            fetchMock.mockClear();
+
+            notePlaybackProgress();
+            flushQueueWrites();
+
+            expect(fetchMock).not.toHaveBeenCalled();
+        });
+
+        it("writes when it has", () => {
+            playingAt(96);
+            usePlayerQueue().enqueue(track("a"));
+            flushQueueWrites();
+            fetchMock.mockClear();
+
+            playingAt(140);
+            notePlaybackProgress();
+            flushQueueWrites();
+
+            expect(storedPosition().positionMs).toBe(140_000);
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+        });
+
+        it("hands a restored position back to the player exactly once", () => {
+            // The value belongs to the track a page load came back holding, and the player
+            // takes it as it loads that track. A second reader would be a later track.
+            usePlayerQueue().enqueue(track("a"));
+            flushQueueWrites();
+            closeTab();
+            playingAt(0);
+            usePlayerQueue().hydrate();
+
+            expect(typeof takeRestoredPosition()).toBe("number");
+            expect(takeRestoredPosition()).toBe(0);
         });
     });
 });

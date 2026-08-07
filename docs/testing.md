@@ -261,14 +261,19 @@ this is the record of *why* that code exists.
 - **`getByLabel(/Passwort/)` is ambiguous** — it matches the input *and* the "Passwort anzeigen"
   reveal button. `signIn()` uses ids.
 - **A fresh browser context is no longer a fresh PLAYER.** Since the queue syncs to
-  `player_states` (2026-08-07) it follows the *user*, so a spec inherits whatever queue the last
-  one left — and under `fullyParallel`, whatever another worker is holding right now. Every spec
-  file that queues something therefore takes **its own seeded account**
-  (`specStorageState("queue" | "player" | "shortcuts" | "widgets")`, minted by the setup project)
-  and calls **`clearServerQueue(page)`** in `beforeEach`. Add either to a new spec that touches the
-  queue. The helper asserts its own response on purpose: its first version silently 422'd on a
-  field the route had started requiring, and the failure surfaced two tests later as a queue
-  nobody had built.
+  `player_states` (2026-08-07) it follows the *user*, so a spec inherits whatever queue another one
+  left. A spec that touches the queue needs all four of these, and each was found by the failure
+  the last one left behind:
+  1. **its own seeded account** — `test.use({ storageState: specStorageState("queue") })`;
+  2. **`test.describe.configure({ mode: "default" })`**, because `fullyParallel` parallelises at the
+     TEST level, so without it the file's tests run concurrently against the account they share;
+  3. **`clearServerQueue("queue")` in `beforeEach`** — it writes an empty queue straight into
+     sqlite, deliberately not through the app's PUT (an out-of-band request needs a session cookie
+     *and* a CSRF token that still matches it, and a remember-me session gets a fresh one, so the
+     request ends up redirected and answering 405);
+  4. **`stopQueueSync(page)` in `afterEach`**, because a tab flushes its queue as it closes with
+     `keepalive` — that request outlives the test and can land after the next one has reset.
+  The symptom of missing any of them is a row count one too high, on a different test every run.
 - **A popover must be STILL before it is measured.** Panels open with a `rotateY`, and a transform is
   included in `getBoundingClientRect` — so a box read on the click is a couple of pixels from where
   it lands. `:popover-open` and visibility are both true from the first frame, so neither is the

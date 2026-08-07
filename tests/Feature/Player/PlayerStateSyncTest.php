@@ -53,7 +53,7 @@ class PlayerStateSyncTest extends TestCase
     }
 
     /** A body the controller accepts, with `tracks` filled in by the caller. */
-    private function payload(array $ids, int $currentIndex = 0, bool $repeat = false, bool $shuffle = false, int $updatedAt = 1_000): array
+    private function payload(array $ids, int $currentIndex = 0, bool $repeat = false, bool $shuffle = false, int $updatedAt = 1_000, int $positionMs = 0): array
     {
         return [
             'tracks' => $ids,
@@ -61,6 +61,7 @@ class PlayerStateSyncTest extends TestCase
             'repeat' => $repeat,
             'shuffle' => $shuffle,
             'updatedAt' => $updatedAt,
+            'positionMs' => $positionMs,
         ];
     }
 
@@ -144,7 +145,26 @@ class PlayerStateSyncTest extends TestCase
     {
         $this->actingAs(User::factory()->create())
             ->putJson('/player/state', ['tracks' => []])
-            ->assertJsonValidationErrors(['currentIndex', 'repeat', 'shuffle', 'updatedAt']);
+            ->assertJsonValidationErrors(['currentIndex', 'repeat', 'shuffle', 'updatedAt', 'positionMs']);
+    }
+
+    public function test_a_write_older_than_the_stored_one_is_ignored(): void
+    {
+        /*
+         * Closing a stale tab must not roll the server back. That tab flushes on its way out
+         * and its queue is whatever it was holding when it was abandoned — so two tabs open,
+         * fifty tracks queued in the second, close the first, and without this the fifty are
+         * gone. The newest stamp wins in both directions: the browser applies the same rule
+         * to what it is handed back.
+         */
+        $user = User::factory()->create();
+        $tracks = $this->tracks(2);
+
+        $this->actingAs($user)->putJson('/player/state', $this->payload([$tracks[0]->id, $tracks[1]->id], updatedAt: 2_000));
+        // The abandoned tab, flushing a queue it built earlier.
+        $this->actingAs($user)->putJson('/player/state', $this->payload([$tracks[0]->id], updatedAt: 1_000))->assertNoContent();
+
+        $this->assertCount(2, PlayerState::query()->whereKey($user->id)->value('queue')['tracks']);
     }
 
     public function test_a_page_load_carries_the_stored_queue_in_its_stored_order(): void
@@ -208,6 +228,30 @@ class PlayerStateSyncTest extends TestCase
         $this->actingAs($user)
             ->get('/music')
             ->assertInertia(fn (Assert $page) => $page->where('playerState.updatedAt', 1_754_000_000_000));
+    }
+
+    public function test_it_stores_and_returns_how_far_into_the_track_the_listener_had_got(): void
+    {
+        // Milliseconds, and the server's only job is to keep them: whether a position is
+        // worth resuming at all — too early in the track, too near its end — is the
+        // client's rule, applied where the element and the duration both are.
+        $user = User::factory()->create();
+        $tracks = $this->tracks(1);
+
+        $this->actingAs($user)->putJson('/player/state', $this->payload([$tracks[0]->id], positionMs: 96_500));
+
+        $this->actingAs($user)
+            ->get('/music')
+            ->assertInertia(fn (Assert $page) => $page->where('playerState.positionMs', 96_500));
+    }
+
+    public function test_it_rejects_a_position_no_track_could_reach(): void
+    {
+        // A day in milliseconds is the cap — it bounds a hand-written request rather than
+        // anything a listener can do.
+        $this->actingAs(User::factory()->create())
+            ->putJson('/player/state', $this->payload([], positionMs: 90_000_000))
+            ->assertJsonValidationErrors('positionMs');
     }
 
     public function test_a_user_with_no_stored_queue_gets_null_rather_than_an_empty_one(): void

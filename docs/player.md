@@ -23,6 +23,7 @@ queue_ for the shape both files build on rather than revisit.
 | Keyboard shortcuts, incl. hold-Space to skim                   | ✅ `usePlayerShortcuts`, 2026-08-07            |
 | Playback speed 1× / 2× / 3×, persisted                        | ✅ `usePlayerSpeed`, 2026-08-07                |
 | A stream that fails, and what it says                         | ✅ `Utils/playbackError`, 2026-08-07           |
+| Resuming mid-track (position synced + restored)               | ✅ 2026-08-07 — `play-queue.md` owns it        |
 | Real playback in a browser                                    | ✅ Playwright, incl. under the prod CSP        |
 | Screen-off on a real phone                                    | ✅ **Android / Chrome, 2026-08-07** — below    |
 
@@ -341,6 +342,15 @@ because a real element is what iOS treats as a first-class media element and wha
 can inspect. Duration comes from **`QueueTrack.duration`**, not the element: a VBR MP3 with no
 Xing/Info header reports `Infinity` until fully downloaded, and getID3 already measured every file
 at scan time. Media Session metadata, position state and action handlers are wired here.
+
+**The play position goes the other way**, and it is the one number that does: the queue persists it
+but cannot read it, since it lives on the element this module owns. `bindPositionSource()` hands the
+queue a getter on attach — the same handshake `bindVolumeElement`/`bindSpeedElement` are, reversed —
+and `takeRestoredPosition()` gives this module the stored value exactly once, applied on
+`loadedmetadata` under a 30-second guard at both ends of the track. The heartbeat that keeps it
+fresh is counted in played seconds off `timeupdate` (never a timer, which a background tab throttles)
+and its interval is the operator's, in `config/mixtape.php` → `player.position_heartbeat`.
+[`play-queue.md`](play-queue.md) → _Picking up mid-track_ has the rest.
 
 **What the player takes from the queue** is the loaded track and nothing more: `current` for the
 metadata and the stream URL, `next()` / `previous()` to move, `repeat` to know whether the end wraps.

@@ -59,7 +59,7 @@ final class PlayerStatePayload
      * browser holding a perfectly good local queue would have it wiped by the first page
      * load after signing in on a second device.
      *
-     * @return array{tracks: list<array<string, mixed>>, currentIndex: int, repeat: bool, shuffle: bool, updatedAt: int}|null
+     * @return array{tracks: list<array<string, mixed>>, currentIndex: int, repeat: bool, shuffle: bool, updatedAt: int, positionMs: int}|null
      */
     public static function forUser(?User $user): ?array
     {
@@ -105,6 +105,11 @@ final class PlayerStatePayload
             // compares it with its own copy's stamp to decide which is newer, and a value
             // this server had rewritten would be comparing two different clocks.
             'updatedAt' => (int) ($stored['updatedAt'] ?? 0),
+            // How far into the loaded track the listener had got. Handed back whatever the
+            // pointer turned out to be — the client applies its own rules about whether a
+            // position is worth resuming, and a track that moved up the list keeps the
+            // seconds that belong to it.
+            'positionMs' => (int) ($stored['positionMs'] ?? 0),
         ];
     }
 
@@ -117,9 +122,30 @@ final class PlayerStatePayload
      *
      * @param  list<string>  $ids  track ids in play order, already validated by the caller
      * @param  int  $updatedAt  the CLIENT's clock in milliseconds — see the note in `forUser`
+     * @param  int  $positionMs  how far into the loaded track, in milliseconds
      */
-    public static function store(User $user, array $ids, int $currentIndex, bool $repeat, bool $shuffle, int $updatedAt): void
+    public static function store(User $user, array $ids, int $currentIndex, bool $repeat, bool $shuffle, int $updatedAt, int $positionMs): void
     {
+        /*
+         * A WRITE OLDER THAN THE STORED ONE IS IGNORED, which is the same rule the browser
+         * applies to what this hands back — the newest stamp wins in both directions.
+         *
+         * Without it, closing a stale tab rolls the server back: that tab flushes on its way
+         * out, and its queue is whatever it was holding when it was abandoned. Two tabs open,
+         * fifty tracks queued in the second, close the first — and the fifty are gone. The
+         * E2E suite found it as a test inheriting a queue from the test before it, which is
+         * the same event with the tabs a second apart instead of an hour.
+         *
+         * The cost is the one the stamp already carries: a device whose clock runs behind
+         * can have a legitimate write refused. Both ends of this comparison are wall clocks,
+         * and data-model.md accepted that trade for a family's worth of listening.
+         */
+        $stored = PlayerState::query()->whereKey($user->id)->value('queue');
+
+        if (is_array($stored) && (int) ($stored['updatedAt'] ?? 0) > $updatedAt) {
+            return;
+        }
+
         PlayerState::query()->updateOrCreate(
             ['user_id' => $user->id],
             ['queue' => [
@@ -129,6 +155,7 @@ final class PlayerStatePayload
                 'repeat' => $repeat,
                 'shuffle' => $shuffle,
                 'updatedAt' => $updatedAt,
+                'positionMs' => $positionMs,
             ]],
         );
     }

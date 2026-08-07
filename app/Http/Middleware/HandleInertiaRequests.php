@@ -62,6 +62,13 @@ class HandleInertiaRequests extends Middleware
                 'emailVerification' => Features::enabled(Features::emailVerification()),
                 'twoFactorAuthentication' => Features::enabled(Features::twoFactorAuthentication()),
             ],
+            // Player settings the CLIENT has to honour but the server owns. Only the
+            // position heartbeat so far: the browser runs the clock (it is the only thing
+            // that knows whether audio is playing), and this is the operator's say in how
+            // often it writes. Not a closure — it is one integer off a cached config.
+            'player' => [
+                'positionHeartbeat' => (int) config('mixtape.player.position_heartbeat'),
+            ],
             // The play queue this user left behind, restored from `player_states`
             // (data-model.md → "the play queue"). ON A FULL PAGE LOAD ONLY, which is both
             // an economy and the truth: `usePlayerQueue.hydrate()` runs once, from

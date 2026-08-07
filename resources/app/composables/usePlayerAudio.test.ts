@@ -94,6 +94,10 @@ const finishTrack = (element: HTMLAudioElement): void => {
     Object.defineProperty(element, "ended", { configurable: true, value: false });
 };
 
+/** How far into the track the stored pointer says the listener had got, in ms. */
+const storedPositionMs = (): number =>
+    JSON.parse(window.localStorage.getItem("mixtape.queue.position") ?? "{}").positionMs ?? 0;
+
 /** The toasts on screen — a failed stream is announced through the singleton. */
 const toasts = () => useToast().activeToasts.value;
 
@@ -106,10 +110,19 @@ const drainToasts = (): void => {
 describe("usePlayerAudio", () => {
     beforeEach(() => {
         resetInertia();
+        // The queue syncs to the server on every flush, and happy-dom's fetch is real enough
+        // to try: unstubbed, the flushes below open requests to a server that is not there.
+        vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(null, { status: 204 }))));
         // A failed stream is announced through the i18n SINGLETON (the reporter runs inside a
         // media event handler, where useI18n() is unavailable), so it has to exist here.
         setupI18n({ legacy: false, locale: "de", messages: { de } });
-        setPage({ props: { auth: { user: { id: "user-1", name: "Ash", email: "a@b.c" } } } });
+        setPage({
+            props: {
+                auth: { user: { id: "user-1", name: "Ash", email: "a@b.c" } },
+                // The operator's setting, shared from config/mixtape.php.
+                player: { positionHeartbeat: 30 }
+            }
+        });
         resetPlayerAudioForTests();
         resetPlayerQueueForTests();
         drainToasts();
@@ -340,6 +353,140 @@ describe("usePlayerAudio", () => {
             await nextTick();
 
             expect(toasts()).toHaveLength(0);
+        });
+    });
+
+    describe("picking up where the listener left off", () => {
+        /*
+         * The stored play position, applied to the track a page load came back holding.
+         *
+         * All of it is state-machine work and all of it belongs here rather than in
+         * Playwright, for one blunt reason: the E2E fixture's audio is ONE SECOND long while
+         * its rows claim minutes, so a thirty-second guard can never be exercised against
+         * it. What a browser would add — that a seek to 1:36 really starts the bytes there —
+         * is the stream route's Range support, which has its own PHPUnit coverage.
+         */
+
+        /** Announce that the element knows its duration, which is when a seek can land. */
+        const metadataArrives = (element: HTMLAudioElement): void => {
+            element.dispatchEvent(new Event("loadedmetadata"));
+        };
+
+        /**
+         * A page load whose stored queue came back with a position on it.
+         *
+         * Driven through the REAL chain — the shared prop, then `hydrate()` — rather than by
+         * poking the composable: the position crosses three modules on its way to the
+         * element, and a shortcut would test the last hop only.
+         */
+        const restoreQueueAt = (seconds: number, queued: QueueTrack[]): void => {
+            setPage({
+                props: {
+                    playerState: {
+                        tracks: queued,
+                        currentIndex: 0,
+                        repeat: false,
+                        shuffle: false,
+                        updatedAt: Date.now(),
+                        positionMs: seconds * 1000
+                    }
+                }
+            });
+            usePlayerQueue().hydrate();
+        };
+
+        it("resumes the track at the stored position", () => {
+            restoreQueueAt(96, [track("a", 300)]);
+            const element = attachElement();
+
+            metadataArrives(element);
+
+            expect(element.currentTime).toBe(96);
+            // The reading is written locally too, or the bar shows 0:00 until the element
+            // gets round to its first timeupdate.
+            expect(usePlayerAudio().currentTime.value).toBe(96);
+        });
+
+        it("ignores a position barely into the track, which is not a resume but noise", () => {
+            restoreQueueAt(12, [track("a", 300)]);
+            const element = attachElement();
+
+            metadataArrives(element);
+
+            expect(element.currentTime).toBe(0);
+        });
+
+        it("ignores a position near the end, which would skip the track rather than resume it", () => {
+            // 4:50 into a 5:00 track: resuming there means ten seconds and then the queue
+            // moves on, which reads as the app skipping a song.
+            restoreQueueAt(290, [track("a", 300)]);
+            const element = attachElement();
+
+            metadataArrives(element);
+
+            expect(element.currentTime).toBe(0);
+        });
+
+        it("resumes once, and never a track loaded afterwards", () => {
+            // The position belongs to the track the page came back holding. Carried over,
+            // it would eventually drop a stranger's minute mark into an unrelated song.
+            restoreQueueAt(96, [track("a", 300), track("b", 300)]);
+            const element = attachElement();
+            metadataArrives(element);
+
+            usePlayerQueue().next();
+            // The new track starts where a new track starts; the question is whether the
+            // stale position gets applied on top of it.
+            element.currentTime = 0;
+            metadataArrives(element);
+
+            expect(element.currentTime).toBe(0);
+        });
+
+        it("stores the position every heartbeat of playback, and not between them", () => {
+            /*
+             * The heartbeat is counted in PLAYED seconds off `timeupdate`, not by a timer:
+             * a timer is throttled to once a minute in a backgrounded tab, which is exactly
+             * the tab whose position is worth keeping. The setting comes from the server
+             * (config/mixtape.php → player.position_heartbeat), 30 here.
+             */
+            vi.useFakeTimers();
+            usePlayerQueue().enqueue(track("a", 300));
+            const element = attachElement();
+            usePlayerAudio().play();
+            // Let the enqueue's own write land, so what follows is measured against it.
+            vi.advanceTimersByTime(600);
+
+            element.currentTime = 10;
+            element.dispatchEvent(new Event("timeupdate"));
+            vi.advanceTimersByTime(600);
+            expect(storedPositionMs()).toBe(0);
+
+            element.currentTime = 45;
+            element.dispatchEvent(new Event("timeupdate"));
+            vi.advanceTimersByTime(600);
+            expect(storedPositionMs()).toBe(45_000);
+
+            vi.useRealTimers();
+        });
+
+        it("stores the position on a pause, whatever the heartbeat has counted", () => {
+            // A pause is a boundary: the likeliest moment for the tab to be abandoned
+            // afterwards, and the position would otherwise wait for a heartbeat that never
+            // comes.
+            vi.useFakeTimers();
+            usePlayerQueue().enqueue(track("a", 300));
+            const element = attachElement();
+            usePlayerAudio().play();
+            vi.advanceTimersByTime(600);
+
+            element.currentTime = 12;
+            element.dispatchEvent(new Event("pause"));
+            vi.advanceTimersByTime(600);
+
+            expect(storedPositionMs()).toBe(12_000);
+
+            vi.useRealTimers();
         });
     });
 

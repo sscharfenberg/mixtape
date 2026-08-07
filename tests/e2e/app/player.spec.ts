@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { clearServerQueue } from "../support/actions";
-import { specStorageState } from "../support/environment";
+import { stopQueueSync } from "../support/actions";
+import { clearServerQueue, specStorageState } from "../support/environment";
 
 /*
  * PLAYBACK — the part that only a real browser can answer.
@@ -43,8 +43,22 @@ import { specStorageState } from "../support/environment";
  */
 test.use({ storageState: specStorageState("player") });
 
-test.beforeEach(async ({ page }) => {
-    await clearServerQueue(page);
+/*
+ * SEQUENTIAL, IN ONE WORKER, which the account above is worthless without. `fullyParallel`
+ * parallelises at the TEST level, not the file level — so without this the tests in this
+ * file run CONCURRENTLY against the one account they share, and each sees the others'
+ * queues. That failed as a count one too high, on a different test every run.
+ */
+test.describe.configure({ mode: "default" });
+
+test.beforeEach(() => {
+    clearServerQueue("player");
+});
+
+// The other half of the isolation: a tab flushes its queue as it closes, with `keepalive`,
+// so that request can outlive the test and land after the NEXT one has reset the account.
+test.afterEach(async ({ page }) => {
+    await stopQueueSync(page);
 });
 
 /** The <audio> element's own state, read out of the page. */

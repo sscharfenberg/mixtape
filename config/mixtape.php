@@ -104,6 +104,36 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | The player
+    |--------------------------------------------------------------------------
+    |
+    | `position_heartbeat` — how often, in SECONDS OF PLAYBACK, the browser stores
+    | how far into the track it has got (`player_states.queue.positionMs` and the
+    | matching localStorage key). It is not a wall clock: the count comes off the
+    | audio element's own `timeupdate`, so a paused player writes nothing and a
+    | backgrounded tab still counts properly — a timer would be throttled to once a
+    | minute there, which is exactly when nobody is watching the tab they left
+    | playing.
+    |
+    | The heartbeat is INSURANCE, not the main mechanism. Every deliberate exit —
+    | pausing, changing track, hiding the tab, closing it — writes the position on
+    | its own; this only bounds what a crash or a killed browser can lose. So the
+    | number trades that loss against requests: at 30 it costs two PUTs a minute per
+    | listening device and loses at most half a minute.
+    |
+    | Raise it on a busy instance, lower it if losing seconds annoys you more than
+    | traffic does, and set it to 0 to switch the heartbeat off entirely and rely on
+    | the boundaries alone. It is shared with the client through Inertia, so a change
+    | takes effect on the next page load (after `config:cache` on a cached box).
+    |
+    */
+
+    'player' => [
+        'position_heartbeat' => (int) env('MIXTAPE_POSITION_HEARTBEAT', 30),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Cover art
     |--------------------------------------------------------------------------
     |

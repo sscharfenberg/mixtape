@@ -191,6 +191,15 @@ type PersistedPosition = {
      * reads as 0, which simply means "older than anything the server has".
      */
     updatedAt?: number;
+    /**
+     * How far into the LOADED track the listener had got, in milliseconds.
+     *
+     * Milliseconds because that is the unit the plan reserved in the row (`position_ms`)
+     * and an integer stores smaller than a float of seconds. It belongs to the pointer
+     * rather than the list for the obvious reason — it is a fact about the loaded track,
+     * and it dies with it.
+     */
+    positionMs?: number;
 };
 
 /** Return type of {@link usePlayerQueue}. */
@@ -444,6 +453,7 @@ function applyPosition(stored: string | null): void {
     // as off instead of undefined — which is why adding the field needed no version bump.
     shuffle.value = payload.shuffle === true;
     localUpdatedAt = storedUpdatedAt(stored);
+    restoredPosition = typeof payload.positionMs === "number" ? payload.positionMs / 1000 : 0;
 }
 
 /**
@@ -502,6 +512,80 @@ let flushBound = false;
  */
 let localUpdatedAt = 0;
 
+/**
+ * Where the play position comes from, or null before the player has an element.
+ *
+ * THE NUMBER TRAVELS AGAINST THE IMPORTS, which is the whole reason this exists. It lives
+ * on the <audio> element, which `usePlayerAudio` owns — and that module imports this one, so
+ * it cannot be read from here. A getter registered on attach is the same handshake in
+ * reverse that `bindVolumeElement` and `bindSpeedElement` already are, and it keeps ONE
+ * writer for the stored payload: the alternative, a player that persists its own key, means
+ * two modules writing one server row.
+ */
+let readPosition: (() => number) | null = null;
+
+/** The position last written, in seconds — what {@link notePlaybackProgress} compares against. */
+let writtenPosition = 0;
+
+/**
+ * The position a restored queue came back with, in seconds, waiting to be applied ONCE.
+ *
+ * A one-shot rather than a ref, because it is only ever true of the first track loaded after
+ * a page load: every later `load()` is a new track starting at zero, and a value left lying
+ * around would eventually seek one of them to a stranger's minute mark.
+ */
+let restoredPosition = 0;
+
+/**
+ * Register (or drop) the player's position getter — see {@link readPosition}.
+ *
+ * Called by `usePlayerAudio.attach()` with the element's own reading, and with null on
+ * detach so this module never holds a closure over a node that has left the document.
+ */
+export function bindPositionSource(source: (() => number) | null): void {
+    readPosition = source;
+    if (!source) writtenPosition = 0;
+}
+
+/**
+ * Take the restored position, once.
+ *
+ * Reading it CLEARS it, which is the contract: the player asks as it loads the hydrated
+ * queue's track and gets a real answer exactly that once.
+ */
+export function takeRestoredPosition(): number {
+    const seconds = restoredPosition;
+    restoredPosition = 0;
+
+    return seconds;
+}
+
+/**
+ * How far the position must move before it is worth another write, in seconds.
+ *
+ * Not a cadence — the player decides when to ASK (every 30s of playback, on a pause, on the
+ * way out) — but a floor under those asks, so a pause and a tab switch a second apart do not
+ * cost two writes and two requests for the same instant.
+ */
+const POSITION_STEP_SECONDS = 1;
+
+/**
+ * Note that playback has moved, and mark the pointer for writing if it has moved enough.
+ *
+ * The rule ("has it moved?") lives here because the stored payload does; the CADENCE lives
+ * in the player, which is the only thing that knows whether audio is running. Callers that
+ * need it on disk immediately follow this with {@link flushQueueWrites}.
+ */
+export function notePlaybackProgress(): void {
+    if (!readPosition) return;
+
+    const seconds = readPosition();
+
+    if (Math.abs(seconds - writtenPosition) < POSITION_STEP_SECONDS) return;
+
+    commit("position");
+}
+
 /** Put one payload in storage, swallowing failure — see {@link flushQueueWrites} for why. */
 function writeEntry(key: string, payload: PersistedQueue | PersistedPosition): void {
     try {
@@ -555,7 +639,8 @@ function syncToServer(unloading: boolean): void {
                 currentIndex: currentIndex.value,
                 repeat: repeat.value,
                 shuffle: shuffle.value,
-                updatedAt: localUpdatedAt
+                updatedAt: localUpdatedAt,
+                positionMs: Math.round(writtenPosition * 1000)
             })
         }).catch(() => {
             // Offline, or refused. Nothing here is recoverable and nothing depends on it.
@@ -605,13 +690,15 @@ export function flushQueueWrites(unloading = false): void {
     // it is where the stamp lives and the stamp has to be as new as the newest change. It
     // costs ~110 characters against the list's megabytes, so the split this key exists for
     // — never rewriting the LIST for a track change — is untouched.
+    writtenPosition = readPosition?.() ?? 0;
     writeEntry(POSITION_STORAGE_KEY, {
         version: PERSISTED_VERSION,
         userId,
         currentIndex: currentIndex.value,
         repeat: repeat.value,
         shuffle: shuffle.value,
-        updatedAt: localUpdatedAt
+        updatedAt: localUpdatedAt,
+        positionMs: Math.round(writtenPosition * 1000)
     });
 
     dirty.clear();
@@ -641,9 +728,18 @@ function bindFlushOnHide(): void {
     // Wrapped rather than passed by reference, and not for tidiness: the listener would
     // otherwise hand the Event object in as `unloading`, which is truthy — the right answer
     // here by accident, and the wrong one the day this signature grows.
-    window.addEventListener("pagehide", () => flushQueueWrites(true));
+    // NOTED BEFORE FLUSHED, and that order is the point: a tab going away while a track
+    // plays has usually moved since the last heartbeat, and a flush finds nothing dirty
+    // unless something says so. Without this, closing the tab mid-song stores the position
+    // from up to thirty seconds earlier.
+    const flushOnHide = (): void => {
+        notePlaybackProgress();
+        flushQueueWrites(true);
+    };
+
+    window.addEventListener("pagehide", flushOnHide);
     document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === "hidden") flushQueueWrites(true);
+        if (document.visibilityState === "hidden") flushOnHide();
     });
 }
 
@@ -1032,6 +1128,7 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
         currentIndex.value = payload.currentIndex;
         repeat.value = payload.repeat === true;
         shuffle.value = payload.shuffle === true;
+        restoredPosition = payload.positionMs / 1000;
         clampIndex();
 
         const userId = currentUserId();
@@ -1041,7 +1138,9 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
             userId,
             currentIndex: currentIndex.value,
             repeat: repeat.value,
-            shuffle: shuffle.value
+            shuffle: shuffle.value,
+            updatedAt: payload.updatedAt,
+            positionMs: payload.positionMs
         });
 
         return true;
@@ -1153,6 +1252,9 @@ export function resetPlayerQueueForTests(): void {
     }
     dirty.clear();
     localUpdatedAt = 0;
+    readPosition = null;
+    writtenPosition = 0;
+    restoredPosition = 0;
 
     tracks.value = [];
     currentIndex.value = NOTHING;

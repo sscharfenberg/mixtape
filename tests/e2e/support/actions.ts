@@ -118,34 +118,21 @@ export const countDocumentRequests = async (page: Page, block: () => Promise<voi
 };
 
 /**
- * Empty this account's stored play queue, through the app's own sync route.
+ * End a queue spec without letting its last breath reach the next one.
  *
- * WHY EVERY QUEUE SPEC NEEDS IT: the queue is server state now, so a fresh browser context
- * is no longer a fresh player — the next test in the same file signs in as the same account
- * and its first page load restores whatever the last test left. Specs that assert "nothing
- * is queued yet" would inherit a queue nobody in that test ever built.
+ * THE HOLE `clearServerQueue` CANNOT CLOSE. A tab flushes its queue as it goes, with
+ * `keepalive` precisely so the request outlives the page — so it is fired while Playwright
+ * tears the context down, and it can land AFTER the next test has reset the account. That
+ * test then finds a queue nobody in it built and fails on a count one too high, which is
+ * exactly as confusing as it sounds. Worse, it is a race: it fails on some runs and not
+ * others, and never in the file it belongs to.
  *
- * Through the real PUT rather than the database, so the reset uses the same contract the
- * app does and cannot drift from it. The CSRF token comes off the session's own
- * `XSRF-TOKEN` cookie — Laravel accepts that header form, which is what makes this possible
- * with no page loaded yet.
+ * Two steps, and the ORDER is the whole trick. The route is installed first, so the browser
+ * has somewhere to drop the request; then the page is closed with `runBeforeUnload`, which
+ * makes the flush happen HERE — awaited, inside the test that owns it — rather than at some
+ * unknowable moment during teardown. What the context teardown then unloads is nothing.
  */
-export const clearServerQueue = async (page: Page): Promise<void> => {
-    const cookies = await page.context().cookies();
-    const token = cookies.find(cookie => cookie.name === "XSRF-TOKEN")?.value ?? "";
-
-    const response = await page.request.put("/player/state", {
-        headers: { "X-XSRF-TOKEN": decodeURIComponent(token) },
-        // `updatedAt` is NOW, not zero: the client only adopts a server queue that is newer
-        // than its own last write, so a reset stamped at the epoch would be ignored by the
-        // very page loads it is meant to start clean.
-        data: { tracks: [], currentIndex: -1, repeat: false, shuffle: false, updatedAt: Date.now() }
-    });
-
-    // CHECKED, because a silent failure here is invisible and lands two tests later as an
-    // inherited queue: a missing field answers 422 and a stale token 419, and either way the
-    // row simply stays as it was. That is exactly how this went wrong the first time.
-    if (!response.ok()) {
-        throw new Error(`Could not clear the server queue: ${response.status()} ${await response.text()}`);
-    }
+export const stopQueueSync = async (page: Page): Promise<void> => {
+    await page.route("**/player/state", route => route.abort());
+    await page.close({ runBeforeUnload: true });
 };

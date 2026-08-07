@@ -34,6 +34,9 @@ class PlayerStateController extends Controller
     /** Above anything the library can produce — see the class note. */
     private const MAX_TRACKS = 20000;
 
+    /** A day in milliseconds: far past any track, and a bound on nonsense. */
+    private const MAX_POSITION_MS = 86_400_000;
+
     /**
      * Replace the stored queue with the one in the request.
      *
@@ -53,6 +56,10 @@ class PlayerStateController extends Controller
             // the next page load, where the browser compares it with its local copy to
             // decide which is newer — so it is data, not something to trust or correct.
             'updatedAt' => ['required', 'integer', 'min:0'],
+            // How far into the loaded track, in milliseconds. Capped at a day, which no
+            // track approaches — it bounds what a hand-written request can store, not
+            // anything a listener can reach.
+            'positionMs' => ['required', 'integer', 'min:0', 'max:'.self::MAX_POSITION_MS],
         ]);
 
         PlayerStatePayload::store(
@@ -62,6 +69,7 @@ class PlayerStateController extends Controller
             (bool) $validated['repeat'],
             (bool) $validated['shuffle'],
             (int) $validated['updatedAt'],
+            (int) $validated['positionMs'],
         );
 
         return response()->noContent(Response::HTTP_NO_CONTENT);
