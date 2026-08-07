@@ -260,6 +260,15 @@ this is the record of *why* that code exists.
   failed is broken, and check after `waitForLoadState("networkidle")`.
 - **`getByLabel(/Passwort/)` is ambiguous** — it matches the input *and* the "Passwort anzeigen"
   reveal button. `signIn()` uses ids.
+- **A fresh browser context is no longer a fresh PLAYER.** Since the queue syncs to
+  `player_states` (2026-08-07) it follows the *user*, so a spec inherits whatever queue the last
+  one left — and under `fullyParallel`, whatever another worker is holding right now. Every spec
+  file that queues something therefore takes **its own seeded account**
+  (`specStorageState("queue" | "player" | "shortcuts" | "widgets")`, minted by the setup project)
+  and calls **`clearServerQueue(page)`** in `beforeEach`. Add either to a new spec that touches the
+  queue. The helper asserts its own response on purpose: its first version silently 422'd on a
+  field the route had started requiring, and the failure surfaced two tests later as a queue
+  nobody had built.
 - **A popover must be STILL before it is measured.** Panels open with a `rotateY`, and a transform is
   included in `getBoundingClientRect` — so a box read on the click is a couple of pixels from where
   it lands. `:popover-open` and visibility are both true from the first frame, so neither is the

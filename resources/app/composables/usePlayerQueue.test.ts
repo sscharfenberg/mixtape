@@ -33,7 +33,28 @@ const track = (id: string, name = `Track ${id}`): QueueTrack => ({
 });
 
 /** Sign in as a given user id (null = a guest arriving on a share link). */
-const signedInAs = (id: string | null) => setPage({ props: { auth: { user: id ? { id, name: "Ash", email: "a@b.c" } : null } } });
+const signedInAs = (id: string | null, playerState: unknown = null) =>
+    setPage({
+        props: {
+            auth: { user: id ? { id, name: "Ash", email: "a@b.c" } : null },
+            csrfToken: "test-token",
+            playerState
+        }
+    });
+
+/**
+ * The sync PUT, stubbed.
+ *
+ * MANDATORY, not a nicety: happy-dom's `fetch` is real enough to try, so without this every
+ * flush in this file opens a request to a server that is not there — which surfaces as
+ * AbortError noise from the teardown rather than as a failure, and slows the file down for
+ * nothing. Stubbed as a resolved 204, the shape the controller really answers with.
+ */
+const fetchMock = vi.fn(() => Promise.resolve(new Response(null, { status: 204 })));
+
+/** The bodies of every sync PUT so far, parsed. */
+const syncedBodies = () =>
+    fetchMock.mock.calls.map(([, init]) => JSON.parse((init as RequestInit).body as string));
 
 /** The ids currently in the queue, in play order. */
 const ids = () => usePlayerQueue().tracks.value.map(entry => entry.id);
@@ -72,6 +93,8 @@ describe("usePlayerQueue", () => {
         resetInertia();
         resetPlayerQueueForTests();
         window.localStorage.clear();
+        fetchMock.mockClear();
+        vi.stubGlobal("fetch", fetchMock);
         signedInAs("user-1");
     });
 
@@ -837,6 +860,169 @@ describe("usePlayerQueue", () => {
 
             expect(usePlayerQueue().currentIndex.value).toBe(0);
             expect(usePlayerQueue().repeat.value).toBe(false);
+        });
+    });
+
+    describe("syncing with the server", () => {
+        /*
+         * The half that makes the queue follow a person rather than a browser. What can be
+         * proved here is that the right request is SENT and that the right copy wins on the
+         way in; that a row is actually written, and that nobody else's row is read, is
+         * tests/Feature/Player/PlayerStateSyncTest's job — no fake `fetch` can answer it.
+         */
+
+        it("pushes the queue to the server when something changes", () => {
+            usePlayerQueue().enqueue([track("a"), track("b")]);
+            flushQueueWrites();
+
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+            expect(url).toBe("/player/state");
+            expect(init.method).toBe("PUT");
+            // Inertia's own visits carry the token; this request is not one, so it has to
+            // send it by hand or Laravel answers 419.
+            expect((init.headers as Record<string, string>)["X-CSRF-TOKEN"]).toBe("test-token");
+        });
+
+        it("sends ids and the pointer, never the tracks themselves", () => {
+            // The server is where the tracks came from. A title sent up would only be a
+            // copy to go stale, and a long queue would be megabytes instead of kilobytes.
+            usePlayerQueue().enqueue([track("a"), track("b")]);
+            usePlayerQueue().jumpTo(1);
+            usePlayerQueue().toggleRepeat();
+            flushQueueWrites();
+
+            // The stamp rides along and is the client's OWN clock — the server stores it
+            // verbatim and hands it back, and comparing it with the local copy's is how the
+            // next page load decides which queue is newer.
+            expect(syncedBodies()[0]).toMatchObject({
+                tracks: ["a", "b"],
+                currentIndex: 1,
+                repeat: true,
+                shuffle: false
+            });
+            expect(typeof syncedBodies()[0].updatedAt).toBe("number");
+        });
+
+        it("costs one request for a burst, like the storage write beside it", () => {
+            // Both writes ride the same coalescing — that is the reason the sync lives in
+            // the flush rather than in `commit`.
+            usePlayerQueue().enqueue(track("a"));
+            usePlayerQueue().enqueue(track("b"));
+            usePlayerQueue().reorder(0, 1);
+            flushQueueWrites();
+
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+        });
+
+        it("says nothing for a guest, who has no row to write", () => {
+            signedInAs(null);
+            usePlayerQueue().enqueue(track("a"));
+            flushQueueWrites();
+
+            expect(fetchMock).not.toHaveBeenCalled();
+            // …and the local copy is still written, which is the only one a guest has.
+            expect(stored().tracks).toHaveLength(1);
+        });
+
+        it("keeps the request alive only when the tab is going away", () => {
+            // `keepalive` buys a request that outlives the page and costs a 64 KB body cap
+            // — worth it on the way out, pointless while a live page can complete it.
+            usePlayerQueue().enqueue(track("a"));
+            flushQueueWrites();
+            expect((fetchMock.mock.calls[0][1] as RequestInit).keepalive).toBe(false);
+
+            usePlayerQueue().enqueue(track("b"));
+            flushQueueWrites(true);
+            expect((fetchMock.mock.calls[1][1] as RequestInit).keepalive).toBe(true);
+        });
+
+        it("keeps playing when the sync fails", () => {
+            // Offline, or a 419 after a session rotation. A player that broke because a
+            // sync failed would be a worse bug than a queue one change behind elsewhere.
+            fetchMock.mockRejectedValueOnce(new Error("offline"));
+
+            usePlayerQueue().enqueue(track("a"));
+            flushQueueWrites();
+
+            expect(ids()).toStrictEqual(["a"]);
+            expect(stored().tracks).toHaveLength(1);
+        });
+
+        it("takes the server's queue over the one in storage", () => {
+            // The point of the feature: what you left on the laptop is what greets you on
+            // the phone. Every local change was pushed as it happened, so the stored copy
+            // is this browser's own last word too.
+            usePlayerQueue().enqueue([track("local-1"), track("local-2")]);
+            closeTab();
+
+            signedInAs("user-1", {
+                tracks: [track("server-1"), track("server-2"), track("server-3")],
+                currentIndex: 2,
+                repeat: true,
+                shuffle: true,
+                // Newer than anything this browser wrote — the whole basis of the decision.
+                updatedAt: Date.now() + 60_000
+            });
+            usePlayerQueue().hydrate();
+
+            expect(ids()).toStrictEqual(["server-1", "server-2", "server-3"]);
+            expect(usePlayerQueue().current.value?.id).toBe("server-3");
+            expect(usePlayerQueue().repeat.value).toBe(true);
+            expect(usePlayerQueue().shuffle.value).toBe(true);
+        });
+
+        it("writes the adopted queue to storage, so the next offline load still has it", () => {
+            signedInAs("user-1", {
+                tracks: [track("server-1")],
+                currentIndex: 0,
+                repeat: false,
+                shuffle: false,
+                updatedAt: Date.now() + 60_000
+            });
+            usePlayerQueue().hydrate();
+
+            expect(stored().tracks[0].id).toBe("server-1");
+            // Straight to storage rather than through the dirty set: nothing CHANGED, and
+            // marking it would send the server its own queue back.
+            expect(fetchMock).not.toHaveBeenCalled();
+        });
+
+        it("keeps the local queue when the server's copy is older than it", () => {
+            /*
+             * THE RACE THIS EXISTS FOR, and it is not hypothetical — the E2E suite hit it on
+             * the first run (2026-08-07). Enqueue, then click a link: the sync PUT and the
+             * next page's HTML are two requests racing, and if the page wins, the server
+             * hands back the queue as it was BEFORE the enqueue. Adopting it unconditionally
+             * loses the track that was just added.
+             */
+            usePlayerQueue().enqueue([track("a"), track("b")]);
+            closeTab();
+
+            signedInAs("user-1", {
+                tracks: [track("a")],
+                currentIndex: 0,
+                repeat: false,
+                shuffle: false,
+                // One second before this browser's own last write.
+                updatedAt: Date.now() - 1_000
+            });
+            usePlayerQueue().hydrate();
+
+            expect(ids()).toStrictEqual(["a", "b"]);
+        });
+
+        it("keeps the local queue when the server has none", () => {
+            // Null means "nothing stored", not "an empty queue" — the distinction the
+            // server payload is careful about. Reading it the other way would wipe a good
+            // local queue on the first load after signing in on a second device.
+            usePlayerQueue().enqueue([track("a"), track("b")]);
+            closeTab();
+
+            signedInAs("user-1", null);
+            usePlayerQueue().hydrate();
+
+            expect(ids()).toStrictEqual(["a", "b"]);
         });
     });
 });

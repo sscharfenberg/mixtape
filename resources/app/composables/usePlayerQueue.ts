@@ -184,6 +184,13 @@ type PersistedPosition = {
      * throw away every stored queue to gain one boolean that defaults to false anyway.
      */
     shuffle?: boolean;
+    /**
+     * When this browser last changed the queue, by its own clock — the whole of the
+     * conflict resolution between this copy and the server's (see {@link adoptServerState}).
+     * Optional and read tolerantly, like `shuffle`: a payload written before it existed
+     * reads as 0, which simply means "older than anything the server has".
+     */
+    updatedAt?: number;
 };
 
 /** Return type of {@link usePlayerQueue}. */
@@ -436,6 +443,31 @@ function applyPosition(stored: string | null): void {
     // `=== true` rather than a default, so a pointer written before shuffle existed reads
     // as off instead of undefined — which is why adding the field needed no version bump.
     shuffle.value = payload.shuffle === true;
+    localUpdatedAt = storedUpdatedAt(stored);
+}
+
+/**
+ * When the stored pointer says this browser last changed the queue.
+ *
+ * Read on its own, before anything is adopted, because {@link hydrate} has to compare it
+ * with what the server offers BEFORE deciding which copy to keep — and by then the pointer
+ * may never be applied at all. Anything unreadable answers 0, which means "older than
+ * whatever the server has": the safe direction, since a browser that cannot read its own
+ * copy has no claim to defend.
+ */
+function storedUpdatedAt(stored: string | null): number {
+    if (!stored) return 0;
+
+    try {
+        const payload = JSON.parse(stored) as PersistedPosition;
+
+        if (payload.version !== PERSISTED_VERSION) return 0;
+        if (payload.userId !== currentUserId()) return 0;
+
+        return typeof payload.updatedAt === "number" ? payload.updatedAt : 0;
+    } catch {
+        return 0;
+    }
 }
 
 /** Which of the two keys a mutation left behind. */
@@ -460,6 +492,16 @@ const WRITE_DELAY_MS = 500;
 /** Guards the hide listeners against a second binding, since `hydrate` re-runs in tests. */
 let flushBound = false;
 
+/**
+ * When this browser last changed the queue, by its own clock.
+ *
+ * Stamped on every flush, stored with the pointer, and sent with every sync — it is what
+ * settles which copy is newer when a page load offers two (see {@link adoptServerState}).
+ * Zero until the first change of the session, which is correct: a browser that has changed
+ * nothing has nothing to defend.
+ */
+let localUpdatedAt = 0;
+
 /** Put one payload in storage, swallowing failure — see {@link flushQueueWrites} for why. */
 function writeEntry(key: string, payload: PersistedQueue | PersistedPosition): void {
     try {
@@ -469,20 +511,84 @@ function writeEntry(key: string, payload: PersistedQueue | PersistedPosition): v
     }
 }
 
+/** Where the queue is synced for a signed-in user (PlayerStateController). */
+const SYNC_URL = "/player/state";
+
+/**
+ * Push the queue to the server, for a signed-in user.
+ *
+ * IDS ONLY. The server has the tracks — it is where they came from — so a title sent up
+ * here would only be a copy to go stale, and a queue of thousands stays a few tens of
+ * kilobytes rather than megabytes. What comes BACK is the full shape, because the browser
+ * has no REST API to look ids up with; PlayerStatePayload owns that asymmetry.
+ *
+ * A PLAIN fetch, NOT AN INERTIA VISIT, and that is the whole reason this can fire on every
+ * track change: a visit would re-render a page nobody asked for and hand back props the
+ * player would have to ignore. This answers 204. Inertia's own visits carry the CSRF token
+ * themselves, so this is the one place that has to send it by hand — off the shared prop.
+ *
+ * `keepalive` ONLY WHEN THE TAB IS GOING AWAY, because the flag comes with a 64 KB body
+ * limit — about 1,700 ids. An ordinary flush has a live page to complete in and wants no
+ * limit; a flush from `pagehide` has no page left, and for a queue past that size the
+ * request is dropped by the browser. What survives it is the write half a second earlier
+ * that the timer already made, and localStorage, which is always written first.
+ *
+ * Failure is swallowed, exactly as the storage write is: offline, logged out in another
+ * tab, a 419 after a session rotation. The local copy is the source of truth for the
+ * session either way, and a player that broke because a sync failed would be a worse bug
+ * than a queue that is one change behind on another device.
+ */
+function syncToServer(unloading: boolean): void {
+    if (!currentUserId()) return;
+
+    try {
+        void fetch(SYNC_URL, {
+            method: "PUT",
+            keepalive: unloading,
+            headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+                "X-CSRF-TOKEN": usePage().props.csrfToken ?? ""
+            },
+            body: JSON.stringify({
+                tracks: tracks.value.map(track => track.id),
+                currentIndex: currentIndex.value,
+                repeat: repeat.value,
+                shuffle: shuffle.value,
+                updatedAt: localUpdatedAt
+            })
+        }).catch(() => {
+            // Offline, or refused. Nothing here is recoverable and nothing depends on it.
+        });
+    } catch {
+        // `fetch` itself missing (a very old WebView) — the queue still works locally.
+    }
+}
+
 /**
  * Write whatever is dirty, now, and cancel any pending flush.
  *
  * Exported because coalescing is only safe if something guarantees the LAST write:
  * {@link bindFlushOnHide} calls this when the tab goes away, and the tests call it
- * wherever they simulate a reload. When the server sync lands, the POST to
- * `player_states` belongs here — this is the one place that knows what changed.
+ * wherever they simulate a reload.
+ *
+ * IT IS ALSO WHERE THE SERVER SYNC GOES, for the reason it was always going to: this is
+ * the one place that knows something changed and that it has settled. The two writes ride
+ * the same coalescing, so a burst — two enqueues and a drag — costs one PUT, and a track
+ * change costs one whether the queue holds three tracks or three thousand.
+ *
+ * LOCAL FIRST, ALWAYS. The browser's copy is what the next page load falls back on when
+ * the network is not there, and it is the only copy a guest has at all.
  *
  * Failures are swallowed per key (a full or disabled storage must not take the player
  * down with it) and the dirty set is cleared regardless: a write that failed for want
  * of room will fail again, and keeping it dirty would only retry it on every
  * subsequent mutation for the rest of the session.
+ *
+ * @param unloading true when the tab is going away — see {@link syncToServer} on what
+ *                  that changes about the request
  */
-export function flushQueueWrites(): void {
+export function flushQueueWrites(unloading = false): void {
     if (writeTimer !== null) {
         clearTimeout(writeTimer);
         writeTimer = null;
@@ -490,21 +596,29 @@ export function flushQueueWrites(): void {
     if (dirty.size === 0) return;
 
     const userId = currentUserId();
+    localUpdatedAt = Date.now();
 
     if (dirty.has("tracks")) {
         writeEntry(STORAGE_KEY, { version: PERSISTED_VERSION, userId, tracks: tracks.value.map(toPersisted) });
     }
-    if (dirty.has("position")) {
-        writeEntry(POSITION_STORAGE_KEY, {
-            version: PERSISTED_VERSION,
-            userId,
-            currentIndex: currentIndex.value,
-            repeat: repeat.value,
-            shuffle: shuffle.value
-        });
-    }
+    // The POINTER IS WRITTEN ON EVERY FLUSH, even one that only touched the list, because
+    // it is where the stamp lives and the stamp has to be as new as the newest change. It
+    // costs ~110 characters against the list's megabytes, so the split this key exists for
+    // — never rewriting the LIST for a track change — is untouched.
+    writeEntry(POSITION_STORAGE_KEY, {
+        version: PERSISTED_VERSION,
+        userId,
+        currentIndex: currentIndex.value,
+        repeat: repeat.value,
+        shuffle: shuffle.value,
+        updatedAt: localUpdatedAt
+    });
 
     dirty.clear();
+
+    // One PUT for whatever changed, list or pointer — the server row is written wholesale,
+    // so there is nothing finer to tell it.
+    syncToServer(unloading);
 }
 
 /**
@@ -524,9 +638,12 @@ function bindFlushOnHide(): void {
     if (flushBound) return;
     flushBound = true;
 
-    window.addEventListener("pagehide", flushQueueWrites);
+    // Wrapped rather than passed by reference, and not for tidiness: the listener would
+    // otherwise hand the Event object in as `unloading`, which is truthy — the right answer
+    // here by accident, and the wrong one the day this signature grows.
+    window.addEventListener("pagehide", () => flushQueueWrites(true));
     document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === "hidden") flushQueueWrites();
+        if (document.visibilityState === "hidden") flushQueueWrites(true);
     });
 }
 
@@ -876,7 +993,62 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
     }
 
     /**
-     * Restore the queue from storage, once.
+     * Adopt the queue the server sent with this page load.
+     *
+     * THE SERVER WINS WHEN IT HAS ONE, which is the whole point of syncing: the queue you
+     * left on the laptop is what should greet you on the phone, and every local change was
+     * pushed up as it happened, so the stored copy is this browser's own last word too.
+     * The case that loses is a change made while offline, which the failed PUT never
+     * carried — last-write-wins across devices is what the plan chose at this scale, and
+     * that is the shape of it.
+     *
+     * A null prop is NOT an empty queue (PlayerStatePayload is careful about the
+     * difference): it means "nothing stored", and the local copy is used instead.
+     *
+     * The adopted queue is written straight to localStorage rather than marked dirty,
+     * because it did not change — marking it would send it back where it came from. That
+     * write is what keeps the offline fallback in step with what was just restored.
+     */
+    function adoptServerState(localStamp: number): boolean {
+        const payload = usePage().props.playerState;
+
+        if (!payload || !Array.isArray(payload.tracks) || payload.tracks.length === 0) return false;
+
+        /*
+         * LAST WRITE WINS, AND THE STAMP IS WHAT SAYS WHICH. Without this the server copy
+         * won unconditionally — which loses a change made moments before a navigation, since
+         * the PUT and the next page's HTML are two requests racing: enqueue, click a link,
+         * and the page comes back holding the queue as it was BEFORE the enqueue. Found by
+         * the E2E suite doing exactly that (2026-08-07).
+         *
+         * Both numbers are wall clocks, so a device with a badly wrong clock can win or lose
+         * an argument it should not. That is the trade data-model.md accepted for this scale,
+         * and the alternative — a revision counter per row, reconciled on every write — is a
+         * lot of machinery for a family's worth of listening.
+         */
+        if (payload.updatedAt <= localStamp) return false;
+
+        tracks.value = payload.tracks;
+        currentIndex.value = payload.currentIndex;
+        repeat.value = payload.repeat === true;
+        shuffle.value = payload.shuffle === true;
+        clampIndex();
+
+        const userId = currentUserId();
+        writeEntry(STORAGE_KEY, { version: PERSISTED_VERSION, userId, tracks: tracks.value.map(toPersisted) });
+        writeEntry(POSITION_STORAGE_KEY, {
+            version: PERSISTED_VERSION,
+            userId,
+            currentIndex: currentIndex.value,
+            repeat: repeat.value,
+            shuffle: shuffle.value
+        });
+
+        return true;
+    }
+
+    /**
+     * Restore the queue, once — from the server if it has one, otherwise from storage.
      *
      * Called from FullLayout's setup rather than at module load, because it needs
      * Inertia's shared props to know whose queue it is reading, and those do not
@@ -898,8 +1070,20 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
             storedQueue = window.localStorage.getItem(STORAGE_KEY);
             storedPosition = window.localStorage.getItem(POSITION_STORAGE_KEY);
         } catch {
-            return; // Storage unavailable; an in-memory queue still works.
+            // Storage unavailable. The server's copy is still worth having, and an
+            // in-memory queue works without either.
         }
+
+        // Read BEFORE anything is adopted: the stamp is the input to the decision below,
+        // and a queue restored from the server overwrites the local one it is compared with.
+        if (adoptServerState(storedUpdatedAt(storedPosition))) {
+            // A restored queue starts a fresh shuffle pass, whichever copy it came from.
+            resetShuffleWalk();
+            noteShuffleStep(currentIndex.value);
+
+            return;
+        }
+
         if (!storedQueue) return;
 
         let payload: PersistedQueue;
@@ -968,6 +1152,7 @@ export function resetPlayerQueueForTests(): void {
         writeTimer = null;
     }
     dirty.clear();
+    localUpdatedAt = 0;
 
     tracks.value = [];
     currentIndex.value = NOTHING;

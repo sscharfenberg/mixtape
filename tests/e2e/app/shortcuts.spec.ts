@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { clearServerQueue } from "../support/actions";
+import { specStorageState } from "../support/environment";
 
 /*
  * The player's keyboard shortcuts, in a real engine.
@@ -25,6 +27,20 @@ import type { Page } from "@playwright/test";
  * (docs/testing.md), so any assertion here is about STATE and DIRECTION, never about a
  * position derived from the duration.
  */
+
+/*
+ * ITS OWN ACCOUNT, AND A CLEAN QUEUE PER TEST. The play queue is server state since the
+ * `player_states` sync landed, so a fresh browser context is no longer a fresh player: a
+ * queue follows the USER. Sharing one account across files let a spec in one worker restore
+ * a queue another worker had just left, and sharing it across tests in this file let each
+ * test inherit the last one's. The account is this file's alone (E2ESeeder seeds it,
+ * auth.setup mints its session) and the reset below is what tests here owe each other.
+ */
+test.use({ storageState: specStorageState("shortcuts") });
+
+test.beforeEach(async ({ page }) => {
+    await clearServerQueue(page);
+});
 
 /** Put the first song in the queue, so the bar exists and the shortcuts are bound. */
 const queueASong = async (page: Page): Promise<void> => {

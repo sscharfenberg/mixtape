@@ -235,3 +235,26 @@ export const resetRateLimiter = (): void => {
 
 /** The seeded account every authenticated spec signs in as. Login is by NAME, not email. */
 export const SEED_USER = { name: "Ashaltiriak", password: "passwort" } as const;
+
+/**
+ * One account per spec file that leaves a PLAY QUEUE behind (E2ESeeder creates them).
+ *
+ * The queue became server state when `player_states` sync landed, and that retired an
+ * assumption this suite was built on: a fresh browser context is no longer a fresh player,
+ * because a queue follows the USER. With one shared account, a spec in one worker restores
+ * a queue another worker just left — and it fails two files away from the cause.
+ *
+ * Playwright never splits a FILE across workers, so a file with its own account has the
+ * account to itself. What tests inside one file still owe each other is a reset, which is
+ * `clearServerQueue` in actions.ts.
+ */
+export const SPEC_USERS = {
+    queue: "spec-queue",
+    player: "spec-player",
+    shortcuts: "spec-shortcuts",
+    widgets: "spec-widgets"
+} as const;
+
+/** Where a spec account's signed-in session is parked by the setup project. */
+export const specStorageState = (spec: keyof typeof SPEC_USERS): string =>
+    path.join(repoRoot, `tests/e2e/.auth/${SPEC_USERS[spec]}.json`);

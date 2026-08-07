@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { clearServerQueue } from "../support/actions";
+import { specStorageState } from "../support/environment";
 
 /*
  * The play queue's LAYOUT, which is the half no other test layer can see.
@@ -18,6 +20,20 @@ import type { Page } from "@playwright/test";
  * The queue also has to survive an Inertia navigation, which is the reason it and the
  * player live in the layout rather than in a page.
  */
+
+/*
+ * ITS OWN ACCOUNT, AND A CLEAN QUEUE PER TEST. The play queue is server state since the
+ * `player_states` sync landed, so a fresh browser context is no longer a fresh player: a
+ * queue follows the USER. Sharing one account across files let a spec in one worker restore
+ * a queue another worker had just left, and sharing it across tests in this file let each
+ * test inherit the last one's. The account is this file's alone (E2ESeeder seeds it,
+ * auth.setup mints its session) and the reset below is what tests here owe each other.
+ */
+test.use({ storageState: specStorageState("queue") });
+
+test.beforeEach(async ({ page }) => {
+    await clearServerQueue(page);
+});
 
 /**
  * Enqueue the subject of the page currently open, through the hero menu.
@@ -144,6 +160,59 @@ test.describe("the play queue", () => {
 
         await expect(page.locator(".play-queue")).toHaveCount(0);
         await expect(page.locator(".player-bar")).toHaveCount(0);
+        await expect(page.locator("footer")).toBeVisible();
+    });
+});
+
+test.describe("the play queue synced to the server", () => {
+    test.use({ viewport: { width: 1440, height: 900 } });
+
+    test("comes back on a browser whose storage was wiped, because the server had it", async ({ page }) => {
+        /*
+         * THE ONE ASSERTION THAT CANNOT BE FAKED. Vitest can prove a PUT was sent and PHPUnit
+         * can prove a row was written; only this can show the round trip working end to end —
+         * through the real route, the real CSRF token off the shared prop (a 419 here would be
+         * invisible in either of the other layers), and the real hydration path on the way
+         * back.
+         *
+         * CLEARING localStorage IS WHAT MAKES IT A TEST. The queue survives an ordinary reload
+         * from the browser's own copy, so a plain reload would pass with the server half
+         * removed entirely. Wiping storage first leaves the server as the only place the queue
+         * can possibly come from — which is also exactly what a second device looks like.
+         */
+        const title = await enqueueFirstSong(page);
+
+        // The sync rides the queue's coalesced flush, so wait for the request itself rather
+        // than guessing at the delay.
+        await page.waitForResponse(
+            response => response.url().includes("/player/state") && response.request().method() === "PUT"
+        );
+
+        await page.evaluate(() => window.localStorage.clear());
+        await page.reload();
+
+        await expect(page.locator(".play-queue__row")).toHaveCount(1);
+        await expect(page.locator(".play-queue__row").first()).toContainText(title);
+        // …and the bar is back with it, loaded and ready rather than merely listed.
+        await expect(page.locator(".player-bar__name")).toContainText(title);
+    });
+
+    test("clears on the server too, so the other device does not restore it forever", async ({ page }) => {
+        await enqueueFirstSong(page);
+        await page.waitForResponse(
+            response => response.url().includes("/player/state") && response.request().method() === "PUT"
+        );
+
+        await page.locator(".play-queue .popover-button").click();
+        await page.locator(".play-queue .popover-list-item--caution").click();
+        await page.waitForResponse(
+            response => response.url().includes("/player/state") && response.request().method() === "PUT"
+        );
+
+        await page.evaluate(() => window.localStorage.clear());
+        await page.reload();
+
+        await expect(page.locator(".play-queue")).toHaveCount(0);
         await expect(page.locator("footer")).toBeVisible();
     });
 });

@@ -17,6 +17,7 @@ use App\Http\Controllers\Music\SongCoverController;
 use App\Http\Controllers\Music\SongsController;
 use App\Http\Controllers\Music\SongStreamController;
 use App\Http\Controllers\MusicController;
+use App\Http\Controllers\Player\PlayerStateController;
 use App\Http\Controllers\PlaylistsController;
 use App\Http\Controllers\PodcastsController;
 use Illuminate\Support\Facades\Route;
@@ -102,6 +103,18 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         Route::get('/music/songs/{song}/stream', SongStreamController::class)
             ->whereUuid('song')
             ->name('music.songs.stream');
+
+        // The play queue, synced up from the browser. A PUT rather than a POST because it
+        // REPLACES one row that is read and written wholesale — the same request twice
+        // leaves the same state, which matters when the last one is fired by a tab that is
+        // closing. It answers 204 and is deliberately not an Inertia visit; the read half
+        // travels the other way, as a shared prop on a full page load
+        // (HandleInertiaRequests). Throttled because it fires on every track change: a
+        // stuck client cannot hammer the database, and 60/minute is far above one write
+        // per song.
+        Route::put('/player/state', PlayerStateController::class)
+            ->middleware('throttle:60,1')
+            ->name('player.state.update');
     });
 
 // Authentication (login / logout). Kept in a dedicated file as the auth surface

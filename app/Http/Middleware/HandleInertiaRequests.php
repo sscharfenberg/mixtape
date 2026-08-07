@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Enums\Locale;
+use App\Services\Player\PlayerStatePayload;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 use Laravel\Fortify\Features;
@@ -61,6 +62,17 @@ class HandleInertiaRequests extends Middleware
                 'emailVerification' => Features::enabled(Features::emailVerification()),
                 'twoFactorAuthentication' => Features::enabled(Features::twoFactorAuthentication()),
             ],
+            // The play queue this user left behind, restored from `player_states`
+            // (data-model.md → "the play queue"). ON A FULL PAGE LOAD ONLY, which is both
+            // an economy and the truth: `usePlayerQueue.hydrate()` runs once, from
+            // FullLayout, and that layout is persistent — so a client-side visit has a live
+            // queue in memory that this prop could only contradict. Sending it anyway would
+            // put a queue's worth of JSON on every navigation to be thrown away.
+            // Null for a guest, and null when the user has no stored queue — which the
+            // client reads as "keep whatever is in localStorage" rather than "empty it".
+            'playerState' => fn () => $request->header('X-Inertia')
+                ? null
+                : PlayerStatePayload::forUser($request->user()),
             // Session flash bridged into the Vue toast (see ToastContainer.vue).
             // `nonce` is a fresh per-response token whenever a message exists, so
             // the toast watcher fires even for two identical messages in a row.

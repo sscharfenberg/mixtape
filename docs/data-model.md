@@ -485,14 +485,15 @@ pointing at a live row, so title/artist come from the join.
 > no widening — `media-src 'self'` is enough for a same-origin `<audio src>`, and there is a test that
 > proves it).
 >
-> **Still not built:** the server sync described below. `player_states` is migrated and its model
-> exists, but nothing shares it via Inertia and nothing POSTs to it, so the queue remains
-> per-browser rather than per-user. The choke point that sync lands in is now
-> **`flushQueueWrites()`** — the one place that knows what changed and when — and the stored payload
-> is versioned (`PERSISTED_VERSION`, shape 3) and already carries the `userId` it belongs to.
+> **The server sync described below was built 2026-08-07** — `PUT /player/state` going up out of
+> `flushQueueWrites()`, the `playerState` shared prop coming back down on a full page load. Ids up,
+> whole tracks down; missing ids skipped with the pointer following them; conflicts settled by a
+> CLIENT-issued `updatedAt` stamp rather than by the server winning outright (a page load races the
+> sync PUT, and the server's copy is regularly the older one). The **position** is deliberately not
+> synced — see [`play-queue.md`](play-queue.md) → _Following the listener, not the browser_.
 > **Shuffle landed 2026-08-06** as a play mode (the list keeps its order, the pointer jumps through a
 > bag) alongside repeat in the player bar's settings popover — see [`play-queue.md`](play-queue.md).
-> **Also still absent:** the play-history beacon described further down.
+> **Still absent:** the play-history beacon described further down — nothing writes `plays`.
 
 The queue is the natural home for the **background-playback** feature: auto-advance drives off the audio
 element's `ended` event, which lives in the browser, and the player keeps running while Inertia swaps
@@ -508,8 +509,8 @@ saved playlist (relational, queried, shared), the queue is private to one player
 ```
 player_states
   user_id     uuid pk  fk → users (cascade)
-  queue       jsonb        # ordered [track_id, …] + current_index + position_ms  (+ repeat; shuffle later)
-  updated_at
+  queue       jsonb        # AS BUILT: { version, tracks: [track_id, …], currentIndex, repeat, shuffle, updatedAt }
+  updated_at               # (position_ms was planned and is not synced — see play-queue.md)
 ```
 
 - **Hydrate via Inertia:** the server ships `player_states.queue` in the shared props on load; the

@@ -116,3 +116,36 @@ export const countDocumentRequests = async (page: Page, block: () => Promise<voi
 
     return requests;
 };
+
+/**
+ * Empty this account's stored play queue, through the app's own sync route.
+ *
+ * WHY EVERY QUEUE SPEC NEEDS IT: the queue is server state now, so a fresh browser context
+ * is no longer a fresh player — the next test in the same file signs in as the same account
+ * and its first page load restores whatever the last test left. Specs that assert "nothing
+ * is queued yet" would inherit a queue nobody in that test ever built.
+ *
+ * Through the real PUT rather than the database, so the reset uses the same contract the
+ * app does and cannot drift from it. The CSRF token comes off the session's own
+ * `XSRF-TOKEN` cookie — Laravel accepts that header form, which is what makes this possible
+ * with no page loaded yet.
+ */
+export const clearServerQueue = async (page: Page): Promise<void> => {
+    const cookies = await page.context().cookies();
+    const token = cookies.find(cookie => cookie.name === "XSRF-TOKEN")?.value ?? "";
+
+    const response = await page.request.put("/player/state", {
+        headers: { "X-XSRF-TOKEN": decodeURIComponent(token) },
+        // `updatedAt` is NOW, not zero: the client only adopts a server queue that is newer
+        // than its own last write, so a reset stamped at the epoch would be ignored by the
+        // very page loads it is meant to start clean.
+        data: { tracks: [], currentIndex: -1, repeat: false, shuffle: false, updatedAt: Date.now() }
+    });
+
+    // CHECKED, because a silent failure here is invisible and lands two tests later as an
+    // inherited queue: a missing field answers 422 and a stale token 419, and either way the
+    // row simply stays as it was. That is exactly how this went wrong the first time.
+    if (!response.ok()) {
+        throw new Error(`Could not clear the server queue: ${response.status()} ${await response.text()}`);
+    }
+};

@@ -1,4 +1,5 @@
 import type { BreadcrumbItem } from "Composables/useBreadcrumbs";
+import type { QueueTrack } from "Composables/usePlayerQueue";
 
 /**
  * Props shared with every Inertia page by `HandleInertiaRequests::share()`,
@@ -22,6 +23,21 @@ declare module "@inertiajs/core" {
                     email: string;
                 } | null;
             };
+            // The session's CSRF token. Inertia's own visits carry it themselves;
+            // this is for the one place that talks to the server WITHOUT a visit —
+            // the play queue's sync PUT (see usePlayerQueue).
+            csrfToken: string;
+            // The queue this user left behind, from `player_states`. Present only on a
+            // FULL page load (HandleInertiaRequests skips it for client-side visits,
+            // where the persistent layout already holds a live queue), and `null` both
+            // for a guest and for a user who has never synced one — which the client
+            // reads as "keep whatever localStorage has".
+            playerState: {
+                tracks: QueueTrack[];
+                currentIndex: number;
+                repeat: boolean;
+                shuffle: boolean;
+            } | null;
             // Active locale (resolved server-side by ConfigureLocale) and the
             // supported set, used to seed vue-i18n and render the language
             // switcher (see i18n.ts, main.ts, LanguageSwitch.vue).

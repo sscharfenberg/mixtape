@@ -9,7 +9,9 @@ use App\Models\Artist;
 use App\Models\Collection;
 use App\Models\Genre;
 use App\Models\Track;
+use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 /**
  * A FIXED library for the end-to-end suite. Never used by `db:seed` — the E2E run
@@ -143,10 +145,40 @@ class E2ESeeder extends Seeder
      * reference them; within each table rows are created in a fixed order so that any
      * listing sorted by insertion is stable too.
      */
+    /**
+     * An account per E2E spec file that leaves a play queue behind.
+     *
+     * THE PLAY QUEUE IS SERVER STATE NOW (`player_states`, synced by usePlayerQueue), and
+     * that broke an assumption the suite had always been able to make: that a fresh browser
+     * context is a fresh player. It is not — a queue follows the USER, so with one shared
+     * account a spec in one worker restores the queue another worker just left, and the
+     * failure surfaces two files away from its cause.
+     *
+     * One account per file that touches the queue is the cheapest fix that survives
+     * `fullyParallel`: Playwright never splits a FILE across workers, so a file's tests run
+     * sequentially against an account nothing else can reach. What they still owe each other
+     * is a reset between tests, which is `clearServerQueue` in the E2E support.
+     *
+     * The names are the spec files they serve, so a stray row in the database says which
+     * spec left it. Everything else keeps signing in as the canonical seeded account.
+     */
+    private function seedSpecUsers(): void
+    {
+        foreach (['spec-queue', 'spec-player', 'spec-shortcuts', 'spec-widgets'] as $name) {
+            User::factory()->create([
+                'name' => $name,
+                'email' => $name.'@mixtape.test',
+                'email_verified_at' => now(),
+                'password' => Hash::make('passwort'),
+            ]);
+        }
+    }
+
     public function run(): void
     {
         // One definition of the seeded account, shared with normal dev seeding.
         $this->call(UserSeeder::class);
+        $this->seedSpecUsers();
 
         $genres = $this->seedGenres();
         $artists = $this->seedArtists();

@@ -24,7 +24,7 @@ This file is the client half **as built**.
 | Repeat                                           | ✅ a flag on the queue — the control moved to the bar 2026-08-06 |
 | Shuffle                                          | ✅ 2026-08-06 — a play mode, _Playing in a random order_ below   |
 | Play / enqueue a whole subject                   | ✅ 2026-08-06 — the hero menu, _Filling it_ below                |
-| Server sync (`player_states`)                    | ⬜ migrated, read by nobody — `data-model.md` owns the plan      |
+| Server sync (`player_states`)                    | ✅ 2026-08-07 — _Following the listener, not the browser_ below  |
 | Play-history beacon                              | ⬜                                                               |
 | A visible failure when a write is refused        | ⬜ swallowed silently today — see _Known edges_                  |
 
@@ -175,6 +175,85 @@ Three consequences worth knowing:
   page's own songs table documents.
 - **Audiobook chapters are never queued.** The payload is music-only; the queue belongs to the
   player.
+
+## Following the listener, not the browser
+
+Built 2026-08-07, and it is what turns "resume where I left off" from a fact about a browser
+profile into a fact about a person. `player_states` had been migrated since 2026-07-20 and read
+by nobody.
+
+**The two directions are shaped differently, on purpose.** Up goes **ids** — the server is where
+the tracks came from, so a title sent up would only be a copy to go stale, and a queue of
+thousands stays tens of kilobytes rather than megabytes. Down comes the **whole `QueueTrack`**,
+because the browser has no REST API to turn an id back into a title, which is the same reason the
+queue holds whole tracks in the first place. `Services\Player\PlayerStatePayload` owns both ends;
+it borrows `QueuePayload`'s mapping so a restored queue and one built by pressing "play this
+artist" cannot arrive shaped differently, and re-sorts the rows into the stored order afterwards —
+that mapping sorts a subject album-then-disc-then-track, which is the wrong order for a list
+somebody dragged into shape.
+
+It is **not** under `Services\Music`, though it borrows from there: when audiobooks become
+queueable this same row carries them. The music-only filter it inherits today is the line to
+revisit then — ids of any other type come back silently dropped.
+
+**The write is `flushQueueWrites()`, which is where it was always going to be**: the one place
+that knows something changed and that it has settled. Both writes ride the same coalescing, so a
+burst costs one PUT and a track change costs one whether the queue holds three tracks or three
+thousand. Local storage is written **first, always** — it is what the next load falls back on with
+no network, and the only copy a guest has at all.
+
+- **A plain `fetch`, not an Inertia visit**, answering `204`. A visit would re-render a page
+  nobody asked for and hand back props the player would have to ignore. It is also the one place
+  in the app that sends the CSRF token by hand, off the shared prop.
+- **`keepalive` only on the way out.** The flag buys a request that outlives the page and costs a
+  64 KB body cap — about 1,700 ids. Worth it from `pagehide`, pointless while a live page can
+  finish the request itself.
+- **Failure is swallowed**, exactly as a refused storage write is. A player that broke because a
+  sync failed would be worse than a queue one change behind on another device.
+
+### Which copy wins, and the race that decided it
+
+Every page load can offer two queues. The rule is **last write wins, by a stamp the CLIENT
+issues**: `updatedAt` is written with the pointer, sent with every PUT, stored verbatim and handed
+straight back. The server never rewrites it — a value stamped with `now()` on the way in would be
+comparing two different clocks, and the newer copy would lose about as often as it won.
+
+The first build had no stamp and let the server win outright. **The E2E suite broke it within
+minutes**, and the failure is worth keeping: enqueue a track, then click a link. The sync PUT and
+the next page's HTML are two requests racing, and when the page wins, the server hands back the
+queue *as it was before the enqueue* — which then overwrites the good local copy. A track vanishes
+for no reason a listener could ever explain.
+
+Two consequences worth stating plainly. A device with a badly wrong clock can win or lose an
+argument it should not; that is the trade `data-model.md` accepted at this scale, and the
+alternative is a revision counter reconciled on every write. And a change made **offline** is lost
+the next time another device writes, because the PUT that would have carried it never happened.
+
+**Null is not an empty queue**, and the payload is careful about the difference: null means
+"nothing stored", which the client reads as "keep what localStorage has". Return an empty queue
+instead and the first page load after signing in on a second device wipes the queue on the first.
+
+**A track the library no longer has is skipped, and the pointer follows it.** Files disappear
+between scans; a queue that came back with holes would break the player, and one whose pointer
+stayed put would resume on the wrong song.
+
+**It rides down only on a FULL page load.** `hydrate()` runs once, from the persistent layout, so
+a client-side visit already holds a live queue this prop could only contradict — and it would put
+a queue's worth of JSON on every navigation to be thrown away.
+
+### What it cost the test suite
+
+The queue is server state now, so **a fresh browser context is no longer a fresh player**: a queue
+follows the user, and every authenticated spec was signing in as the same seeded account. Specs
+began inheriting queues from other specs — and, under `fullyParallel`, from other *workers*, which
+fails two files away from its cause.
+
+The fix is in the harness, in two halves. Each spec file that leaves a queue behind
+(`queue`, `player`, `shortcuts`, `widgets`) now has **its own account** — Playwright never splits
+a file across workers, so a file has its account to itself — and every test in those files starts
+by calling **`clearServerQueue`**, which empties the row through the app's own PUT. That helper
+**checks the response**: the first version did not, its body was missing a field the route had
+since started requiring, and a silent 422 landed two tests later as a queue nobody had built.
 
 ## Storage
 
@@ -419,5 +498,9 @@ grip, so **tapping the cover no longer plays the track** — the other ~90% of t
 - **The shuffle walk is in-memory only**, so a reload restarts the pass, and an edit that renumbers
   rows does too. Both are argued in _Playing in a random order_ — they are the two things about
   shuffle a listener could actually notice, and persisting the walk is the known fix.
-- **Server sync and the play-history beacon** are still `data-model.md`'s plan. The queue stays
-  per-browser until the first of them lands.
+- **The play-history beacon** is still `data-model.md`'s plan — nothing writes `plays`, so the
+  home page's "popular" widget queries a table that can never fill.
+- **The play POSITION is not synced**, only the queue and the pointer. Resuming mid-track across
+  devices would mean the queue knowing the player's `currentTime`, which is a coupling the two
+  modules have carefully avoided; it matters least here anyway, since audiobook chapters are never
+  queued.
