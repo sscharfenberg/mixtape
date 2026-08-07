@@ -70,6 +70,7 @@ import { usePlayerQueue } from "Composables/usePlayerQueue";
 import { applyPlaybackRate, bindSpeedElement } from "Composables/usePlayerSpeed";
 import { bindVolumeElement } from "Composables/usePlayerVolume";
 import * as session from "Utils/mediaSession";
+import { announcePlaybackFailure, forgetPlaybackFailure } from "Utils/playbackError";
 
 /** One contiguous stretch of audio the browser already holds, in seconds. */
 export type BufferedRange = {
@@ -178,6 +179,17 @@ function requestPlayback(): void {
     void element.play().catch(() => {
         isPlaying.value = false;
         publishPlaybackState();
+
+        /*
+         * THE ELEMENT IS CONSULTED, NOT THE REJECTION, because the two reasons a play()
+         * is refused deserve opposite treatment. The autoplay policy is the usual one and
+         * nothing is broken — the next press works, and a toast about it would be noise.
+         * A source the element has given up on is the other, and only that one leaves a
+         * MediaError behind. Announcing it here is what answers a press on a dead track;
+         * the first failure is reported by the `error` listener, and the reporter drops
+         * whichever of the two arrives second.
+         */
+        if (element?.error) announcePlaybackFailure(element.error, queue.current.value);
     });
 }
 
@@ -275,6 +287,14 @@ function handleEnded(): void {
 export function usePlayerAudio(): UsePlayerAudioReturn {
     /** Start or resume playback — the only path that may be reached from a gesture. */
     function play(): void {
+        /*
+         * The listener has asked again, so a failure they were already told about may be
+         * told again. The element keeps ONE MediaError for as long as a dead source is
+         * loaded, so without this the second press would be met with silence — which is
+         * the failure mode the toast exists to remove.
+         */
+        forgetPlaybackFailure();
+
         if (!element) {
             /*
              * THERE IS NOTHING TO PLAY ON YET, and dropping the request here is what made
@@ -422,10 +442,15 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
 
         // A track whose file went missing between library scans, or a dropped
         // connection. Stopping is the honest response: the glyph goes back to play
-        // rather than sitting on pause over silence.
+        // rather than sitting on pause over silence. Silence is ALSO what a paused
+        // player looks like, though, so since 2026-08-07 the listener is told which
+        // track failed and why — Utils/playbackError owns the message and the
+        // say-it-once rule. The queue deliberately does not skip on: a bad file is
+        // worth noticing, not stepping over.
         on("error", () => {
             isPlaying.value = false;
             publishPlaybackState();
+            announcePlaybackFailure(audio.error ?? null, queue.current.value);
         });
 
         /*
@@ -519,6 +544,9 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
         teardown = [];
         element = null;
         bindVolumeElement(null);
+        // The next element starts with no history, so a failure announced on the last one
+        // must not silence the same failure on it.
+        forgetPlaybackFailure();
         isPlaying.value = false;
         currentTime.value = 0;
         buffered.value = [];
@@ -540,6 +568,7 @@ export function resetPlayerAudioForTests(): void {
     for (const undo of teardown) undo();
     teardown = [];
     element = null;
+    forgetPlaybackFailure();
     isPlaying.value = false;
     currentTime.value = 0;
     buffered.value = [];

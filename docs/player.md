@@ -21,13 +21,15 @@ queue_ for the shape both files build on rather than revisit.
 | Playback-settings popover (order / at the end)                | ✅ `PlayerSettings`, 2026-08-06                |
 | Keyboard shortcuts, incl. hold-Space to skim                   | ✅ `usePlayerShortcuts`, 2026-08-07            |
 | Playback speed 1× / 2× / 3×, persisted                        | ✅ `usePlayerSpeed`, 2026-08-07                |
+| A stream that fails, and what it says                         | ✅ `Utils/playbackError`, 2026-08-07           |
 | Real playback in a browser                                    | ✅ Playwright, incl. under the prod CSP        |
-| Screen-off on a real phone                                    | ⬜ **the owner's, on the device that matters** |
+| Screen-off on a real phone                                    | ✅ **Android / Chrome, 2026-08-07** — below    |
 
-**Not built, deliberately:** any UI for a stream that fails — a track whose file vanished between
-scans stops the player and returns the glyph to _play_; it raises no toast and does not skip on. The
-queue's own gaps (server sync, shuffle, the play-history beacon) are listed in
-[`play-queue.md`](play-queue.md).
+**Still not built, deliberately:** the queue does not SKIP ON past a track that will not play. It
+says which one failed and stops there, because a file that vanished between scans is worth noticing
+rather than stepping over — a queue that quietly walked past every broken track would leave a
+collection rotting silently. The queue's own gaps (server sync, the play-history beacon) are listed
+in [`play-queue.md`](play-queue.md).
 
 ## What we built
 
@@ -45,6 +47,7 @@ queue's own gaps (server sync, shuffle, the play-history beacon) are listed in
 - **Keyboard shortcuts** (2026-08-07) — see below.
 - A **playback speed** — 1× / 2× / 3× — in the settings popover (2026-08-07), remembered
   across visits. See *Playback speed* below.
+- A **message when a track will not play** (2026-08-07), naming it. See *When a stream fails* below.
 
 ## Playback speed
 
@@ -117,6 +120,42 @@ stream three times as fast, so a 320 kbit/s MP3 becomes ~960 kbit/s sustained pe
 YouTube's scale that is an infrastructure line item. It is not nothing here either: this app
 serves from a home uplink to family and friends, which is the same reason the timeline carries a
 buffer indicator at all.
+
+## When a stream fails
+
+`Utils/playbackError`, built 2026-08-07. Until then the player answered a dead track by stopping and
+putting the glyph back on _play_ — which is honest, and **indistinguishable from a player somebody
+paused**. A file that vanished between library scans therefore looked like the app ignoring a click.
+
+The toast (`useToast`, the same singleton the flash messages use) names the track and says which kind
+of failure it was. Everything below is one small module beside `mediaSession`, and for the same
+reason: it is one-way output, it holds nothing reactive, and it never touches the element — the
+player hands it the element's `MediaError` and the track that was loading.
+
+**Two messages, off `MediaError.code`.** `MEDIA_ERR_NETWORK` is worth trying again; anything else is
+a file that is gone or unreadable, which is a re-scan rather than a retry. The distinction is the
+whole reason this is not a one-line `addToast` at the call site.
+
+**`MEDIA_ERR_ABORTED` says nothing at all**, because that one is this app's own doing: re-pointing
+the element at the next track and letting go of the file when the queue empties both cancel a
+download in flight. A toast there would fire on ordinary use.
+
+**One failure is announced once, and this needed thought.** A failed load reports itself twice — the
+element fires `error`, and the `play()` promise for the same source rejects a tick later — and both
+paths must report, because each is the only one that fires in some situation. The tie-break is the
+`MediaError`'s **identity**: a browser mints one object per failure, so the same object is the same
+failure, while a fresh load that fails again brings a new one.
+
+**A repeat press is deliberately not a repeat report.** The element keeps its one `MediaError` for as
+long as a dead source is loaded, so a second press produces no `error` event at all — only a rejected
+promise for a failure already announced. Pressing play and getting nothing whatsoever is the exact
+silence this module was built to remove, so `play()` clears the memory first: ask again, get an
+answer again.
+
+The `play()` rejection is the reason the element is consulted rather than the rejection itself. A
+refusal is usually the **autoplay policy** — nothing is broken, the next press works — and only a
+source the element has given up on leaves a `MediaError` behind. That check is what keeps an ordinary
+page load quiet.
 
 ## Keyboard shortcuts
 
@@ -194,9 +233,9 @@ is no longer an argument — `tests/e2e/app/player.spec.ts` injects the producti
 onto the document and plays a track under it, and the test fails if the directive is narrowed. The
 open item in `04-going-public.md` is answered.
 
-## The one genuine risk, and what we found
+## The one genuine risk, and what we found — settled
 
-Background playback splits in two, and only one half is safe:
+Background playback splits in two, and **both halves now hold**:
 
 - **Tab backgrounded, or another window on top — fine everywhere.** Browsers exempt playing
   audio from background throttling. But `setInterval` is throttled to roughly once a minute
@@ -204,11 +243,18 @@ Background playback splits in two, and only one half is safe:
   `ended` event and never a timer**, and the progress bar **re-reads `currentTime`** rather
   than assuming it kept counting (there is a `visibilitychange` re-sync for exactly the stale
   reading a throttled `timeupdate` leaves behind).
-- **Phone with the screen off — still uncertain, and no library changes it.** Audio keeps
-  playing, but iOS suspends the page's JavaScript on lock. The current track finishes and the
-  `ended` handler that would start the next one may not run until unlock. Android Chrome behaves
-  better. **This is the one check the desktop suite cannot make**; Media Session metadata and
-  handlers are wired, which is what gives the OS a chance to drive the queue itself.
+- **Phone with the screen off — verified working, 2026-08-07.** The owner's check, on Android /
+  Chrome, on the device that matters: the playing track runs to its end with the screen off **and
+  the next one starts by itself**. That is the whole headline feature, and it is the one thing the
+  desktop suite structurally cannot answer — the plan called it the single genuine risk and it is
+  now closed. What earned it is `ended`-driven auto-advance plus wired Media Session metadata and
+  handlers, which is what lets the OS keep the page alive as a media session rather than a
+  backgrounded tab.
+
+  **iOS is out of scope, not outstanding.** The worry this section used to carry was iOS suspending
+  page JavaScript on lock, which would strand the `ended` handler until unlock. The owner has no
+  Apple device and does not target one, so it is nobody's open item — if an iPhone ever turns up,
+  this is the paragraph that says what to look for.
 
 ## What the build learned
 
@@ -290,6 +336,18 @@ order) and **Wiederholung** (what happens at the end). Three decisions in it wor
   `line_end`, since Material ships no `shuffle_off` / `repeat_off` — a straight arrow for "straight
   through" and a line ending in a dot for "the line stops here". The panel **opens upward** via the
   same anchor override `PlayerVolume` documents, and for the same reason.
+- **It is what found the popover width bug** (reported from Android Chrome, 2026-08-07, and
+  reproduced in Chrome's Pixel 7 emulation). The shared popover style capped every floating panel at
+  `50dvw`; this panel is `width: auto` over `white-space: nowrap` rows and measures **250px** with
+  German labels, against a cap of **206px** on a 412px-wide phone. It clipped its own controls
+  against the right edge and grew a horizontal scrollbar inside itself. Half the screen is a rule
+  that only makes sense on a screen with halves to spare, so the cap is now the viewport minus a
+  gutter, and every `ch`-width popover was one notch behind the same problem (24ch is wider than
+  50dvw under ~400px). **360px needed a second fix**: the gear's right edge sits 222px in, so a 250px
+  panel anchored to it runs off the LEFT of the screen and no flip helps — both flips move a panel to
+  the other side of its trigger, which does nothing for a panel wider than the room that trigger
+  leaves. A last-resort `@position-try --popover-flush-inline` pins it a gutter in from the viewport
+  instead, trading alignment with the button for every control being reachable.
 
 **`PlayerBar`** is one grid with two shapes: on a phone the timeline takes a line of its own below
 the cover, title and transport; from `landscape` up it moves into the row. So the bar's height is
@@ -310,12 +368,28 @@ private state, not about whether the index is above zero.
 - **Vitest** — the player's whole state machine against happy-dom's `<audio>` (which is real enough:
   `play()`/`pause()` flip `paused` and fire their events). The track boundary, repeat-one, the
   pointer moving for reasons that are not playback, duration fallback, buffered ranges becoming
-  geometry, scrub-on-release. The queue's own suites — the pointer, the stored shape, the write path,
-  the reorder — are in [`play-queue.md`](play-queue.md).
-- **Playwright** (`tests/e2e/app/player.spec.ts`) — real playback, plus the three things about the
+  geometry, scrub-on-release. `playbackError.test.ts` covers the failure message on its own — the
+  classification, the silence for an aborted load, one failure announced once however many times it
+  is reported, and a fresh answer after a fresh press — while `usePlayerAudio`'s own spec checks only
+  the wiring: that the element's error and the track it was loading both reach the reporter, that a
+  press on a dead track is answered, and that an autoplay refusal stays quiet. The queue's own
+  suites — the pointer, the stored shape, the write path, the reorder — are in
+  [`play-queue.md`](play-queue.md).
+- **Playwright** (`tests/e2e/app/player.spec.ts`) — real playback, plus the things about the
   settings popover that need a browser: that the gear really lands **between** the timeline and the
-  volume button (a grid area's box), that the panel opens **upward**, and that the pill really
-  **travels** (its offset is a `calc()` off two custom properties, which happy-dom does not resolve).
+  volume button (a grid area's box), that the panel opens **upward**, that the pill really
+  **travels** (its offset is a `calc()` off two custom properties, which happy-dom does not resolve),
+  and — since 2026-08-07 — that the panel **fits on a phone at 412 and at 360**, which are two
+  different cases rather than one repeated (see `PlayerSettings` above). A **failed stream** is here
+  too: `page.route` answers the stream with a 404, because a `MediaError` is minted by the media
+  stack from a real HTTP response and neither the code nor the event can be faked honestly.
+
+  **Every popover box is measured only after `openPopover`**, a helper that waits for two identical
+  bounding boxes in a row. The panel opens with a `rotateY`, a transform is included in
+  `getBoundingClientRect`, and `:popover-open` is true from the first frame — so a box read on the
+  click is a couple of pixels from where it lands. That made the geometry assertions a coin flip
+  which happened to keep landing heads: "opens upward" failed by 1.3px on one run and 2.9px on the
+  next, both against positioning code that had not changed.
   The shuffle spec there asserts a **set**, not a sequence — three tracks each heard once and then the
   queue stops — which is what makes a random control testable without stubbing the randomness. The
   E2E fixture now writes a

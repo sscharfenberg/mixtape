@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
+import { setupI18n } from "@/i18n";
+import de from "@/lang/de.json";
 import { resetPlayerAudioForTests, usePlayerAudio } from "Composables/usePlayerAudio";
 import type { QueueTrack } from "Composables/usePlayerQueue";
 import { resetPlayerQueueForTests, usePlayerQueue } from "Composables/usePlayerQueue";
+import { useToast } from "Composables/useToast";
 import { resetInertia, setPage } from "Testing/inertia";
 
 vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
@@ -91,12 +94,25 @@ const finishTrack = (element: HTMLAudioElement): void => {
     Object.defineProperty(element, "ended", { configurable: true, value: false });
 };
 
+/** The toasts on screen — a failed stream is announced through the singleton. */
+const toasts = () => useToast().activeToasts.value;
+
+/** Empty the toast singleton, which is module state and outlives a test. */
+const drainToasts = (): void => {
+    const { activeToasts, removeToast } = useToast();
+    while (activeToasts.value.length > 0) activeToasts.value.forEach(toast => removeToast(toast.id));
+};
+
 describe("usePlayerAudio", () => {
     beforeEach(() => {
         resetInertia();
+        // A failed stream is announced through the i18n SINGLETON (the reporter runs inside a
+        // media event handler, where useI18n() is unavailable), so it has to exist here.
+        setupI18n({ legacy: false, locale: "de", messages: { de } });
         setPage({ props: { auth: { user: { id: "user-1", name: "Ash", email: "a@b.c" } } } });
         resetPlayerAudioForTests();
         resetPlayerQueueForTests();
+        drainToasts();
         window.localStorage.clear();
     });
 
@@ -273,6 +289,57 @@ describe("usePlayerAudio", () => {
             element.dispatchEvent(new Event("error"));
 
             expect(player.isPlaying.value).toBe(false);
+        });
+
+        it("tells the listener which track failed, because a stopped player looks paused", () => {
+            // The wiring, not the wording: that the element's error and the track it was
+            // loading both reach the reporter. What the message says, and the say-it-once
+            // rule, are Utils/playbackError's own spec.
+            usePlayerQueue().enqueue(track("a"));
+            const element = attachElement();
+            usePlayerAudio().play();
+
+            Object.defineProperty(element, "error", { configurable: true, value: { code: 4 } });
+            element.dispatchEvent(new Event("error"));
+
+            expect(toasts()).toHaveLength(1);
+            expect(toasts()[0]).toMatchObject({ type: "error" });
+            expect(toasts()[0].message).toContain("Track a");
+        });
+
+        it("answers a press on a dead track, instead of failing silently a second time", async () => {
+            /*
+             * The element keeps ONE MediaError while a dead source is loaded, so the second
+             * press produces no `error` event at all — only a rejected `play()`. Without the
+             * announcement on that path, pressing play on a broken track would do exactly
+             * nothing visible, which is the failure this feature exists to remove.
+             */
+            usePlayerQueue().enqueue(track("a"));
+            const element = attachElement();
+            const failure = { code: 4 };
+            Object.defineProperty(element, "error", { configurable: true, value: failure });
+            element.dispatchEvent(new Event("error"));
+            drainToasts();
+
+            // happy-dom's play() resolves, so the refusal a dead source produces is stubbed.
+            element.play = () => Promise.reject(new Error("NotSupportedError"));
+            usePlayerAudio().play();
+            await nextTick();
+
+            expect(toasts()).toHaveLength(1);
+        });
+
+        it("says nothing when the browser refuses playback for its own reasons", async () => {
+            // An autoplay-policy refusal leaves no MediaError behind, and nothing is broken:
+            // the next press works. A toast about it would be noise on an ordinary page load.
+            usePlayerQueue().enqueue(track("a"));
+            const element = attachElement();
+            element.play = () => Promise.reject(new Error("NotAllowedError"));
+
+            usePlayerAudio().play();
+            await nextTick();
+
+            expect(toasts()).toHaveLength(0);
         });
     });
 

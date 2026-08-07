@@ -434,6 +434,10 @@
             "speed": "Geschwindigkeit",
             "speedOption": "{rate}-fache Geschwindigkeit"
         },
+        "error": {
+            "unavailable": "„{name}“ kann nicht abgespielt werden – die Datei ist nicht verfügbar.",
+            "network": "„{name}“ konnte nicht geladen werden – die Verbindung wurde unterbrochen."
+        },
         "enqueue": "In die Warteschlange",
         "enqueued": "„{name}“ wurde in die Warteschlange gestellt."
     }

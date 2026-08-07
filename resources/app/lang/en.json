@@ -434,6 +434,10 @@
             "speed": "Speed",
             "speedOption": "{rate}× speed"
         },
+        "error": {
+            "unavailable": "“{name}” cannot be played — the file is unavailable.",
+            "network": "“{name}” could not be loaded — the connection was interrupted."
+        },
         "enqueue": "Add to queue",
         "enqueued": "“{name}” was added to the queue."
     }

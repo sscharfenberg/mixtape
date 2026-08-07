@@ -149,7 +149,15 @@ Two things to know before writing a player check of your own:
 
 ## What is NOT covered here
 
-Two checks are still owed, and neither can be made from this machine: **the phone with its
-screen off** (iOS suspends page JavaScript on lock, so the `ended` handler that starts the
-next track may not run until unlock — the owner's, on the device that matters), and
-**signed share-links played by a logged-out visitor**, which do not exist yet.
+**The phone with its screen off** was the check this machine could never make, and the owner
+made it on 2026-08-07: on Android / Chrome the playing track runs to its end with the screen
+off and the next one starts by itself. Closed — see `docs/player.md`. (iOS is not a target:
+no device, and the owner does not want one covered.)
+
+That leaves **signed share-links played by a logged-out visitor**, which do not exist yet.
+
+One trap worth taking from that day, because it will bite any layout check here: **a popover
+must be still before it is measured.** Panels open with a `rotateY`, transforms are included
+in `getBoundingClientRect`, and `:popover-open` is true from the first frame — so a box read
+right after the click is a few pixels from where it lands, and the assertion passes or fails
+on machine speed. `player.spec.ts`'s `openPopover` waits for two identical boxes in a row.

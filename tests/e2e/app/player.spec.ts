@@ -114,6 +114,38 @@ const setMode = async (page: Page, group: "playerMode" | "playerRepeat", value: 
 /** Repeat on, the case most timing-sensitive specs need. */
 const enableRepeat = (page: Page): Promise<void> => setMode(page, "playerRepeat", "on");
 
+/**
+ * Open a popover and wait until its box has stopped moving.
+ *
+ * A POPOVER IS MEASURED ONLY AFTER THIS, because a panel opens with a `rotateY` and a
+ * transform is included in `getBoundingClientRect` — so a box read while the panel is
+ * still turning is a couple of pixels away from where it lands, and the reading changes
+ * with nothing but machine speed. That made every geometry assertion here a coin flip
+ * that happened to keep landing heads: "opens upward" failed by 1.3px on one run and
+ * 2.9px on the next, both of them against unchanged positioning code (2026-08-07).
+ * `:popover-open` and visibility are both true from the first frame, so neither is the
+ * thing to wait for; two identical boxes in a row is.
+ */
+const openPopover = async (page: Page, root: string) => {
+    await page.locator(`${root} .popover-button`).click();
+
+    const panel = page.locator(`${root} .popover-content`);
+    await expect(panel).toBeVisible();
+
+    let previous = "";
+    await expect
+        .poll(async () => {
+            const box = JSON.stringify(await panel.boundingBox());
+            const settled = box === previous;
+            previous = box;
+
+            return settled;
+        })
+        .toBe(true);
+
+    return panel;
+};
+
 test.describe("the player", () => {
     test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -341,11 +373,8 @@ test.describe("the player", () => {
          */
         await enqueueSongs(page, 1);
 
-        const trigger = page.locator(".player-volume .popover-button");
-        await trigger.click();
-
-        const panel = page.locator(".player-volume__panel");
-        await expect(panel).toBeVisible();
+        await openPopover(page, ".player-volume");
+        await expect(page.locator(".player-volume__panel")).toBeVisible();
 
         const boxes = await page.evaluate(() => {
             const content = document.querySelector(".player-volume .popover-content")!.getBoundingClientRect();
@@ -576,7 +605,7 @@ test.describe("the player's settings popover", () => {
         // button. Two adjacent triggers getting this wrong differently would be worse than
         // either getting it wrong alone.
         await enqueueSongs(page, 1);
-        await page.locator(".player-settings .popover-button").click();
+        await openPopover(page, ".player-settings");
 
         await expect(page.locator(".player-settings__panel")).toBeVisible();
 
@@ -589,6 +618,52 @@ test.describe("the player's settings popover", () => {
 
         expect(boxes.panelBottom).toBeLessThanOrEqual(boxes.buttonTop + 1);
         expect(boxes.panelTop).toBeGreaterThanOrEqual(0);
+    });
+
+    test("fits the settings panel on a phone, at both common widths", async ({ page }) => {
+        /*
+         * THE BUG THIS PINS (reported from Android Chrome, 2026-08-07): the shared popover
+         * style capped every floating panel at `50dvw`, which is 206px on a Pixel 7 — and
+         * this panel needs 250px for a German label beside its bubbles. It clipped its own
+         * controls against the right edge and grew a horizontal scrollbar inside itself.
+         *
+         * Only a browser can answer it: the panel is `width: auto` over `white-space:
+         * nowrap` rows, so its natural width comes from real text measured in a real font,
+         * and where it lands comes from CSS anchor positioning. Both are engine work that
+         * happy-dom has no opinion about.
+         *
+         * 360 is the second width on purpose. It is not just a smaller 412: the gear's
+         * right edge sits 222px in, so a 250px panel anchored to it runs off the LEFT of
+         * the screen, and no flip helps — that is the case `--popover-flush-inline` exists
+         * for, and this is what would notice if the fallback were dropped.
+         */
+        await enqueueSongs(page, 1);
+
+        for (const width of [412, 360]) {
+            await page.setViewportSize({ width, height: 915 });
+
+            const panel = await openPopover(page, ".player-settings");
+
+            const fit = await panel.evaluate(node => {
+                const box = node.getBoundingClientRect();
+
+                return {
+                    clipped: node.scrollWidth > node.clientWidth,
+                    left: box.left,
+                    right: box.right,
+                    viewport: window.innerWidth
+                };
+            });
+
+            // Nothing cut off inside the panel, and the whole panel inside the viewport.
+            expect(fit.clipped).toBe(false);
+            expect(fit.left).toBeGreaterThanOrEqual(0);
+            expect(fit.right).toBeLessThanOrEqual(fit.viewport);
+            // Every option still reachable, which is what the two above are really about.
+            await expect(page.locator(".player-settings .option-bubbles__item")).toHaveCount(7);
+
+            await page.keyboard.press("Escape");
+        }
     });
 
     test("moves the pill onto the option that was clicked", async ({ page }) => {
@@ -607,6 +682,30 @@ test.describe("the player's settings popover", () => {
         await page.locator('label[for="playerMode-on"]').click();
 
         await expect.poll(async () => (await at()) > resting).toBe(true);
+    });
+
+    test("says which track failed when the stream does not answer", async ({ page }) => {
+        /*
+         * A file that vanished between library scans — the reason the toast exists. It has
+         * to be a real browser: a MediaError is minted by the media stack from a real HTTP
+         * response, and neither the code nor the event can be produced honestly by a fake.
+         *
+         * Routed rather than deleted, because the E2E fixture writes a real file at every
+         * path the seeder claims (seedMediaFiles). The route is installed BEFORE the track
+         * is queued: an <audio> starts fetching the moment its src is set, so a route added
+         * after the enqueue would arrive too late to break anything.
+         */
+        await page.route("**/stream", route => route.fulfill({ status: 404, body: "" }));
+
+        const [title] = await enqueueSongs(page, 1);
+        await playButton(page).click();
+
+        const toast = page.locator(".toast-container__item--error").first();
+        await expect(toast).toBeVisible();
+        await expect(toast).toContainText(title);
+        // And the transport is honest about it: the glyph is back on play rather than
+        // offering to pause silence.
+        await expect(playButton(page)).toHaveAttribute("aria-label", "Abspielen");
     });
 
     test("really shuffles: every track once, then the queue is done", async ({ page }) => {

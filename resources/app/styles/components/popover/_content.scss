@@ -18,8 +18,11 @@
 
     overflow-y: auto;
 
-    max-width: 50dvw;
-    max-height: calc(100dvh - 2rem);
+    /* Both from the popover's own size tokens, which carry the reason: a panel may fill
+       the viewport bar a gutter, and the old half-the-screen width cap was narrower than
+       the player's settings panel on any phone. */
+    max-width: map.get(s.$c-popover, "max-width");
+    max-height: map.get(s.$c-popover, "max-height");
     padding: map.get(s.$c-popover, "padding");
     border: 0;
     margin-block-start: 4px;
@@ -39,12 +42,14 @@
     /**
      * fallbacks are tried in order — first flip-block (vertical only), then
      * flip-inline (horizontal only), then the combined flip for corner cases
-     * where neither single flip fits.
+     * where neither single flip fits, and finally the flush option below for
+     * the case no flip can answer.
      */
     position-try-fallbacks:
         flip-block,
         flip-inline,
-        flip-block flip-inline;
+        flip-block flip-inline,
+        --popover-flush-inline;
 
     @media (prefers-reduced-motion: no-preference) {
         opacity: 0;
@@ -102,4 +107,25 @@
 
         content: "";
     }
+}
+
+/**
+ * the last-resort placement: a gutter in from the viewport's inline start.
+ *
+ * every flip above moves the panel to the OTHER SIDE of its trigger, which answers a
+ * trigger near an edge — but not a panel that is simply wider than the room its trigger
+ * leaves. the player's settings panel is 250px against a gear whose right edge sits 222px
+ * in on a 360px phone: anchor either edge of that trigger, flipped or not, and part of the
+ * panel is off screen. pinning it to the viewport instead keeps every control reachable,
+ * at the cost of the panel no longer lining up with the button that opened it — which is
+ * the right trade at a width where nothing else fits.
+ *
+ * ONLY THE INLINE EDGES ARE DECLARED. a position-try option overrides just the properties
+ * it names, so the block placement each popover chose for itself survives — below the
+ * trigger for the site menus, above it for the two in the player bar, which is a fixed bar
+ * at the bottom of the viewport.
+ */
+@position-try --popover-flush-inline {
+    right: auto;
+    left: map.get(s.$c-popover, "edge-gap");
 }

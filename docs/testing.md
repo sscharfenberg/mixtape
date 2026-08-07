@@ -260,6 +260,12 @@ this is the record of *why* that code exists.
   failed is broken, and check after `waitForLoadState("networkidle")`.
 - **`getByLabel(/Passwort/)` is ambiguous** — it matches the input *and* the "Passwort anzeigen"
   reveal button. `signIn()` uses ids.
+- **A popover must be STILL before it is measured.** Panels open with a `rotateY`, and a transform is
+  included in `getBoundingClientRect` — so a box read on the click is a couple of pixels from where
+  it lands. `:popover-open` and visibility are both true from the first frame, so neither is the
+  thing to wait for. The player's geometry assertions were a coin flip until `openPopover`
+  (`player.spec.ts`) started waiting for two identical boxes in a row: the same assertion failed by
+  1.3px on one run and 2.9px on the next, against positioning code that had not changed.
 
 ---
 
