@@ -313,7 +313,11 @@
                 "bitRate": "kbit/s",
                 "sampleRate": "Hz"
             },
-            "vbr": "VBR"
+            "vbr": "VBR",
+            "plays": {
+                "own": "Du hast diesen Titel einmal gehört | Du hast diesen Titel {count}-mal gehört",
+                "others": "Andere haben diesen Titel einmal gehört | Andere haben diesen Titel {count}-mal gehört"
+            }
         },
         "empty": "Noch keine Einträge",
         "notEnoughData": "Noch nicht genug Daten",

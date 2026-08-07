@@ -72,6 +72,7 @@ import { applyPlaybackRate, bindSpeedElement } from "Composables/usePlayerSpeed"
 import { bindVolumeElement } from "Composables/usePlayerVolume";
 import * as session from "Utils/mediaSession";
 import { announcePlaybackFailure, forgetPlaybackFailure } from "Utils/playbackError";
+import { reportPlay } from "Utils/playBeacon";
 
 /** One contiguous stretch of audio the browser already holds, in seconds. */
 export type BufferedRange = {
@@ -155,6 +156,63 @@ let lastHeartbeatAt = 0;
 
 /** A stored position waiting for metadata, in seconds. Zero when there is nothing to restore. */
 let pendingResume = 0;
+
+/**
+ * What counts as having listened to a track: HALF OF IT, or four minutes, whichever comes
+ * first.
+ *
+ * Last.fm's rule, and it is the right shape for a collection of songs and the occasional
+ * hour-long mix — half a track is a real listen, and the cap means a DJ set does not need
+ * thirty minutes of anybody's life before it registers.
+ *
+ * The threshold is measured in HEARD SECONDS, never in cursor position, and that is the
+ * decision worth defending: "has `currentTime` passed halfway" makes a drag of the timeline
+ * into a play, so scrubbing an album would mark every track on it as listened. What is
+ * accumulated below is the ground the cursor covered by PLAYING.
+ */
+const PLAY_FRACTION = 0.5;
+const PLAY_CAP_SECONDS = 240;
+
+/** Seconds of this track genuinely heard, seeks excluded. Reset by every `load()`. */
+let heardSeconds = 0;
+
+/** Where the cursor was at the last reading, so a `timeupdate` can be turned into a delta. */
+let lastHeardAt = 0;
+
+/** Whether this load has already been reported, so one listen is one row. */
+let playReported = false;
+
+/**
+ * Count the ground covered since the last reading, and report a play once it is enough.
+ *
+ * ONLY POSITIVE DELTAS, and only between seeks: `seeked` resyncs the mark without crediting
+ * anything, so dragging forward earns nothing and dragging backwards costs nothing. There is
+ * deliberately no upper bound on a delta — a hidden tab throttles `timeupdate` to a trickle
+ * while the audio plays on, and those seconds were heard as surely as any others.
+ *
+ * REPEAT IS NOT GUARDED. `load()` clears the flag, and repeat-one rewinds through it, so ten
+ * loops are ten plays — which is what ten loops are. A track left on repeat overnight is a
+ * question for the ranking query (distinct days played, say), not a reason to throw away
+ * what actually happened.
+ */
+function countHeardTime(audio: HTMLAudioElement, track: QueueTrack | null): void {
+    const delta = audio.currentTime - lastHeardAt;
+    lastHeardAt = audio.currentTime;
+
+    if (delta > 0) heardSeconds += delta;
+    if (playReported || !track) return;
+
+    const total = duration.value;
+
+    // Nothing to measure against yet: a file whose duration neither the scan nor the
+    // element has produced would otherwise cross a threshold of zero instantly.
+    if (total <= 0) return;
+
+    if (heardSeconds >= Math.min(total * PLAY_FRACTION, PLAY_CAP_SECONDS)) {
+        playReported = true;
+        reportPlay(track.id);
+    }
+}
 
 /** The loaded track's playing time — the queue's figure, the element's only as a fallback. */
 const duration = computed<number>(() => queue.current.value?.duration ?? elementDuration.value);
@@ -242,6 +300,11 @@ function load(track: QueueTrack, autoplay: boolean): void {
     if (!element) return;
 
     currentTime.value = 0;
+    // A new load is a new listen — including the rewind repeat-one comes back through, which
+    // is what makes ten loops ten plays.
+    heardSeconds = 0;
+    lastHeardAt = 0;
+    playReported = false;
 
     if (element.getAttribute("src") === track.streamUrl) {
         element.currentTime = 0;
@@ -461,6 +524,10 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
                 lastHeartbeatAt = audio.currentTime;
                 notePlaybackProgress();
             }
+
+            // The listen itself, measured on the same event and for the same reason it is
+            // the right one: it keeps firing while the tab is hidden.
+            countHeardTime(audio, queue.current.value);
         });
 
         // `progress` is the download's own event, so the buffer indicator keeps
@@ -509,6 +576,9 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
         on("seeked", () => {
             currentTime.value = audio.currentTime;
             buffered.value = readBuffered(audio);
+            // Move the mark WITHOUT crediting the jump: this is what keeps a scrub from
+            // being mistaken for listening (see countHeardTime).
+            lastHeardAt = audio.currentTime;
         });
 
         on("ended", handleEnded);
@@ -641,6 +711,9 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
         bindPositionSource(null);
         pendingResume = 0;
         lastHeartbeatAt = 0;
+        heardSeconds = 0;
+        lastHeardAt = 0;
+        playReported = false;
         // The next element starts with no history, so a failure announced on the last one
         // must not silence the same failure on it.
         forgetPlaybackFailure();
@@ -668,6 +741,9 @@ export function resetPlayerAudioForTests(): void {
     bindPositionSource(null);
     pendingResume = 0;
     lastHeartbeatAt = 0;
+    heardSeconds = 0;
+    lastHeardAt = 0;
+    playReported = false;
     forgetPlaybackFailure();
     isPlaying.value = false;
     currentTime.value = 0;

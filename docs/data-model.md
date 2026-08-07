@@ -493,7 +493,11 @@ pointing at a live row, so title/artist come from the join.
 > synced — see [`play-queue.md`](play-queue.md) → _Following the listener, not the browser_.
 > **Shuffle landed 2026-08-06** as a play mode (the list keeps its order, the pointer jumps through a
 > bag) alongside repeat in the player bar's settings popover — see [`play-queue.md`](play-queue.md).
-> **Still absent:** the play-history beacon described further down — nothing writes `plays`.
+> **The play-history beacon was built 2026-08-07.** What counts as a play — heard seconds against
+> half the track, capped at four minutes, no de-duplication for repeats — is settled in
+> [`player.md`](player.md) → _What counts as a play_. One row per listen, as this schema always
+> intended: the counter question was asked and answered with arithmetic (a household of five writes
+> ~25 MB a year, and a counter deletes every question with "when" in it).
 
 The queue is the natural home for the **background-playback** feature: auto-advance drives off the audio
 element's `ended` event, which lives in the browser, and the player keeps running while Inertia swaps

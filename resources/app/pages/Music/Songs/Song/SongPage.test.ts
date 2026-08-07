@@ -55,9 +55,12 @@ const song = (overrides: Partial<SongDetail> = {}): SongDetail => ({
     ...overrides
 });
 
-/** Mount the page for a song. */
-const page = (overrides: Partial<SongDetail> = {}, locale: "de" | "en" = "de") =>
-    mountApp(SongPage, { props: { song: song(overrides) }, locale });
+/** Mount the page for a song. Nobody has played it unless a test says otherwise. */
+const page = (
+    overrides: Partial<SongDetail> = {},
+    locale: "de" | "en" = "de",
+    plays: { own: number; others: number } = { own: 0, others: 0 }
+) => mountApp(SongPage, { props: { song: song(overrides), plays }, locale });
 
 /** The rendered value sitting next to `label`, or undefined when the row is absent. */
 const factValue = (wrapper: ReturnType<typeof page>, label: string): string | undefined =>
@@ -321,6 +324,48 @@ describe("SongPage", () => {
             const heroTiles = wrapper.findAll(".hero-section .fact-pair");
 
             expect(heroTiles.map(node => node.text()).join(" ")).not.toContain(translate("music.columns.year"));
+        });
+    });
+
+    describe("what it says about listening", () => {
+        /*
+         * The counts are the server's, but WHETHER TO SAY ANYTHING is this page's decision —
+         * which is why it is tested here and not in assertInertia. A zero is left unsaid: it
+         * is a sentence about nothing, and a fresh library would otherwise be a wall of
+         * "others played this song 0 times".
+         */
+
+        /** The listening lines, as rendered. */
+        const lines = (wrapper: ReturnType<typeof page>): string[] =>
+            wrapper.findAll(".song__plays span").map(node => node.text());
+
+        it("says nothing at all about a song nobody has played", () => {
+            expect(page().find(".song__plays").exists()).toBe(false);
+        });
+
+        it("counts the reader's own listens", () => {
+            expect(lines(page({}, "de", { own: 3, others: 0 }))).toStrictEqual([
+                "Du hast diesen Titel 3-mal gehört"
+            ]);
+        });
+
+        it("counts everybody else's separately", () => {
+            expect(lines(page({}, "de", { own: 0, others: 5 }))).toStrictEqual([
+                "Andere haben diesen Titel 5-mal gehört"
+            ]);
+        });
+
+        it("says both when both have happened, the reader's first", () => {
+            expect(lines(page({}, "de", { own: 2, others: 4 }))).toHaveLength(2);
+        });
+
+        it("says it in words for a single listen, which is what German wants there", () => {
+            // "1-mal" is not how anyone writes it; the plural form is a real fork rather
+            // than a number swap, which is why this goes through vue-i18n's pluralisation.
+            expect(lines(page({}, "de", { own: 1, others: 0 }))).toStrictEqual([
+                "Du hast diesen Titel einmal gehört"
+            ]);
+            expect(lines(page({}, "en", { own: 1, others: 0 }))).toStrictEqual(["You played this song once"]);
         });
     });
 });

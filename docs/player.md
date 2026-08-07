@@ -24,6 +24,7 @@ queue_ for the shape both files build on rather than revisit.
 | Playback speed 1× / 2× / 3×, persisted                        | ✅ `usePlayerSpeed`, 2026-08-07                |
 | A stream that fails, and what it says                         | ✅ `Utils/playbackError`, 2026-08-07           |
 | Resuming mid-track (position synced + restored)               | ✅ 2026-08-07 — `play-queue.md` owns it        |
+| Listen history — what counts as a play, and counting it       | ✅ 2026-08-07 — _What counts as a play_ below  |
 | Real playback in a browser                                    | ✅ Playwright, incl. under the prod CSP        |
 | Screen-off on a real phone                                    | ✅ **Android / Chrome, 2026-08-07** — below    |
 
@@ -162,6 +163,58 @@ against the viewport *minus* the scrollbar, and this app reserves one on the roo
 a 1280px window the box centres on 632.5 — half of 1265, dead centre of everything the reader can
 see, and 7.5px off the window's middle. The E2E assertion subtracts the scrollbar rather than
 hard-coding it; measuring against `window.innerWidth` reports a correctly centred box as wrong.
+
+## What counts as a play
+
+Built 2026-08-07, after the owner settled three questions no amount of code could answer.
+
+**A play is `min(half the track, 4 minutes)` of it, HEARD.** Last.fm's rule, and the right shape
+for a library of songs with the occasional hour-long mix: half a track is a real listen, and the
+cap means a DJ set does not need thirty minutes of anybody's life before it registers.
+
+**Heard, not reached — and that is the whole design.** A cursor rule ("has `currentTime` passed
+halfway?") is three lines and turns a drag of the timeline into a play, so scrubbing an album would
+mark every track on it as listened. What is accumulated instead is the ground the cursor covered by
+PLAYING: positive deltas between `seeked` events, which makes a seek free in both directions. Two
+consequences fall out, both wanted — skipping at 90% still counts (the threshold was crossed long
+before), and a track played at 3× counts after 80 seconds of your time, because the seconds counted
+are the track's.
+
+**It rides `timeupdate`, never a timer**, for the reason the position heartbeat does: a hidden tab
+throttles timers to once a minute while media events keep coming, and a tab left playing in the
+background is exactly the listening worth recording. There is deliberately no upper bound on a
+single delta — a sparse reading in a hidden tab is still seconds that were heard.
+
+**Repeat is not guarded.** `load()` clears the flag and repeat-one rewinds through it, so ten loops
+are ten plays, which is what ten loops are. The pathological case — something left on repeat all
+night — is a question for the ranking query (distinct days played, say) rather than a reason to
+throw away what happened. That is only affordable because plays are EVENTS: fifteen listens are
+fifteen rows, about four kilobytes, and a household of five listening three hours a day writes
+~25 MB a year against a 96 GB collection on the same disk. A counter would save that and delete
+every question with "when" in it.
+
+**The server stamps the time.** `played_at` is `now()`, unlike the queue's `updatedAt`, which has
+to be the client's precisely because it is compared against another copy the client holds. The
+beacon fires live, so the server's clock is within a round trip of the truth and cannot be skewed
+by a device whose own is wrong.
+
+**Nothing in it is music-only.** `plays` is keyed on the unified `tracks` table, the route
+validates existence rather than type, and `PlayCounts` counts whatever it is given — so an
+audiobook chapter is as countable as a song the day chapters become playable. Only the SENTENCES
+are per-subject: "you played this song 3 times" is the wrong noun for a chapter, so those live with
+the page that says them.
+
+**What the song page shows**, from `PlayCounts::forTrack`: *"Du hast diesen Titel 3-mal gehört"*
+and *"Andere haben diesen Titel 5-mal gehört"*, each omitted when its count is zero — a sentence
+about nothing is worse than silence, and a fresh library would otherwise be a wall of zeroes. The
+counts are by **`content_hash`**, so the album track and the best-of track are one recording:
+counting by id would tell a reader they had played a song twice when they had played it five
+times, and would disagree with most-played, which `data-model.md` settled on the hash for the same
+reason.
+
+**Not in the E2E suite, deliberately.** The fixture's audio is one second long against rows
+claiming minutes, so a threshold measured in heard seconds can never be reached there. The
+behaviour is Vitest's; the storage and the counting are PHPUnit's.
 
 ## When a stream fails
 

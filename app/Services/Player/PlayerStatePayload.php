@@ -18,14 +18,15 @@ use App\Services\Music\QueuePayload;
  * the app. The queue being music-only is a fact about the QUEUE right now, not about where
  * player state belongs.
  *
- * IT REUSES QueuePayload FOR THE MAPPING. A restored queue and a queue built by pressing
+ * IT REUSES QueuePayload FOR THE MAPPING, and asks it for ANY track type. A restored queue and a queue built by pressing
  * "play this artist" have to arrive in exactly the same shape — the client's `QueueTrack`,
  * eight fields — and one mapping is what guarantees that. Two things differ. The ORDER:
  * QueuePayload sorts a subject into album-then-disc-then-track, while a restored queue must
  * come back in the order the listener built, so the rows are re-sorted here into the stored
- * sequence. And the TYPE FILTER: that mapping is music-only, which is right while the queue
- * is, and is the exact line to revisit the day an audiobook chapter can be queued — ids of
- * any other type would come back from here silently dropped.
+ * sequence. And the TYPE: that mapping defaults to music, which is right for the four
+ * subject pages that built the queue and wrong for restoring one — so this passes
+ * `only: null`. A chapter the listener queued comes back as a chapter rather than as a
+ * silent gap.
  *
  * THE ROW HOLDS IDS, NOT TRACKS, and that asymmetry is deliberate. Storing what the client
  * holds would mean the title in the database going stale the moment a file is re-tagged,
@@ -82,7 +83,10 @@ final class PlayerStatePayload
 
         // Keyed by id so the stored ORDER can be replayed over the result — the query
         // itself comes back in QueuePayload's subject order, which is the wrong one here.
-        $byId = collect(QueuePayload::fromQuery(QueuePayload::query()->whereIn('tracks.id', $ids)))
+        // ANY TYPE, not just music: these are ids the listener queued, and the queue is the
+        // player's rather than the music section's. Filtering here would drop an audiobook
+        // chapter out of a restored queue without a word — see QueuePayload's own note.
+        $byId = collect(QueuePayload::fromQuery(QueuePayload::query()->whereIn('tracks.id', $ids), only: null))
             ->keyBy('id');
 
         $tracks = [];

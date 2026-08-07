@@ -43,13 +43,22 @@ final class QueuePayload
      * descending sort rather than first — the same trap (and fix) the artist page's own songs
      * table documents, and the reason this cannot just `orderByDesc('collections.year')`.
      *
+     * THE TYPE FILTER IS THE CALLER'S, with music as the default because every caller here
+     * is a music page. It became a parameter when the play queue learned to restore itself
+     * from the server: that path maps ids the listener actually queued, and a filter baked
+     * in here would silently drop an audiobook chapter from a restored queue — the row would
+     * simply be missing, with nothing to explain it. A default keeps the four subject pages
+     * honest (an artist's audiobook narration is not part of "play this artist") while
+     * letting a caller that already knows what it has pass `null`.
+     *
      * @param  Builder  $tracks  a query over the `tracks` table, already narrowed to the subject
+     * @param  TrackType|null  $only  restrict to one kind of track, or null for any
      * @return list<array<string, mixed>> queue entries in the shape `QueueTrack` expects
      */
-    public static function fromQuery(Builder $tracks): array
+    public static function fromQuery(Builder $tracks, ?TrackType $only = TrackType::Music): array
     {
         return $tracks
-            ->where('tracks.type', TrackType::Music->value)
+            ->when($only !== null, fn (Builder $query) => $query->where('tracks.type', $only->value))
             ->leftJoin('artists', 'tracks.artist_id', '=', 'artists.id')
             ->leftJoin('collections', 'tracks.collection_id', '=', 'collections.id')
             ->select([

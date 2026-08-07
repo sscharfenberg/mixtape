@@ -43,6 +43,13 @@ import { formatClock, formatDateTime, formatDecimals, formatFileSize, formatPosi
 const props = defineProps<{
     /** The song being shown, as SongController shaped it — every value raw. */
     song: SongDetail;
+    /**
+     * How often this song has been listened to: the reader's own listens and everybody
+     * else's, counted across every copy of the recording (App\Services\Player\PlayCounts).
+     * Raw counts — a zero is something this page leaves unsaid, which is a decision about
+     * display and so belongs here.
+     */
+    plays: { own: number; others: number };
 }>();
 
 const { t, locale } = useI18n();
@@ -92,6 +99,25 @@ const bitRate = (): string | null => {
  * component in the template, since the compiler resolves the `<facts>` tag against
  * the setup bindings and would find the ref first.
  */
+/**
+ * The listening lines, as sentences rather than counted tiles.
+ *
+ * A COUNT OF ZERO IS NOT SHOWN AT ALL — the owner's rule, and the right one: "others played
+ * this song 0 times" is a sentence about nothing, and a page full of zeroes on a fresh
+ * library would say only that the feature exists. So a song nobody has played says nothing,
+ * and each half appears on its own terms.
+ *
+ * Pluralised through vue-i18n rather than by interpolating a number into one string, so
+ * German can say "einmal" where it wants a word and "{count}-mal" where it wants a figure —
+ * which English cannot do with the same sentence.
+ */
+const playLines = computed<string[]>(() =>
+    [
+        props.plays.own > 0 ? t("music.song.plays.own", props.plays.own) : null,
+        props.plays.others > 0 ? t("music.song.plays.others", props.plays.others) : null
+    ].filter((line): line is string => line !== null)
+);
+
 const songFacts = computed<Fact[]>(() => {
     const song = props.song;
     const tags = t("music.song.groups.tags");
@@ -326,6 +352,14 @@ const songFacts = computed<Fact[]>(() => {
                     />
                 </template>
             </hero-section>
+            <!-- What this song's listening amounts to, in one or two sentences. Its own
+                 block rather than a facts tile: these are statements about the reader and
+                 the household rather than tags read off the file, and a "3×" in a labelled
+                 tile beside CODEC and BITRATE would read as one more technical field.
+                 Rendered only when there is something to say (see playLines). -->
+            <p v-if="playLines.length > 0" class="song__plays">
+                <span v-for="line in playLines" :key="line">{{ line }}</span>
+            </p>
             <facts :facts="songFacts" wide-groups />
         </div>
     </container>
@@ -333,6 +367,7 @@ const songFacts = computed<Fact[]>(() => {
 
 <style scoped lang="scss">
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/colors" as c;
 @use "Abstracts/sizes" as s;
 
 /* The hero is one panel and the facts are a row of cards; the page only stacks its
@@ -344,5 +379,23 @@ const songFacts = computed<Fact[]>(() => {
     flex-direction: column;
 
     gap: map.get(s.$c-card, "gap");
+}
+
+/* One line per sentence, and quieter than the cards around it: this is a footnote about the
+   song, not a fact from its tags. `flex` with a wrap rather than two <p>s so the two lines
+   sit together as one block with the page's own rhythm between them — and so a single line
+   costs no empty second row. The colour is the body's own muted ink; nothing here is worth a
+   token of its own, and CLAUDE.md's rule for a page is to read the component's rather than
+   mint a duplicate. */
+.song__plays {
+    display: flex;
+    flex-wrap: wrap;
+
+    margin: 0;
+    gap: 0 map.get(s.$c-card, "gap");
+
+    color: map.get(c.$c-body, "surface");
+
+    font-size: 0.9em;
 }
 </style>

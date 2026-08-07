@@ -25,7 +25,7 @@ This file is the client half **as built**.
 | Shuffle                                          | ✅ 2026-08-06 — a play mode, _Playing in a random order_ below   |
 | Play / enqueue a whole subject                   | ✅ 2026-08-06 — the hero menu, _Filling it_ below                |
 | Server sync (`player_states`)                    | ✅ 2026-08-07 — _Following the listener, not the browser_ below  |
-| Play-history beacon                              | ⬜                                                               |
+| Play-history beacon                              | ✅ 2026-08-07 — [`player.md`](player.md) owns what counts        |
 | A visible failure when a write is refused        | ⬜ swallowed silently today — see _Known edges_                  |
 
 ## What it is
@@ -545,6 +545,8 @@ grip, so **tapping the cover no longer plays the track** — the other ~90% of t
 - **The shuffle walk is in-memory only**, so a reload restarts the pass, and an edit that renumbers
   rows does too. Both are argued in _Playing in a random order_ — they are the two things about
   shuffle a listener could actually notice, and persisting the walk is the known fix.
-- **The play-history beacon** is still `data-model.md`'s plan — nothing writes `plays`, so the
-  home page's "popular" widget queries a table that can never fill.
+- **Nothing here is music-only any more.** `PlayerStatePayload` asks `QueuePayload` for ANY track
+  type when it restores a queue (the filter is the caller's now, defaulting to music for the four
+  subject pages), and the play beacon never looks at the type at all. So the day an audiobook
+  chapter can be queued, it is restored and counted without either file changing.
 - **The play position is synced too** (2026-08-07) — see _Picking up mid-track_ above.

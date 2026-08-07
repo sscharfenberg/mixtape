@@ -17,6 +17,7 @@ use App\Http\Controllers\Music\SongCoverController;
 use App\Http\Controllers\Music\SongsController;
 use App\Http\Controllers\Music\SongStreamController;
 use App\Http\Controllers\MusicController;
+use App\Http\Controllers\Player\PlayController;
 use App\Http\Controllers\Player\PlayerStateController;
 use App\Http\Controllers\PlaylistsController;
 use App\Http\Controllers\PodcastsController;
@@ -115,6 +116,15 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         Route::put('/player/state', PlayerStateController::class)
             ->middleware('throttle:60,1')
             ->name('player.state.update');
+
+        // One listen, written when the browser has heard enough of a track to call it
+        // played. A POST because every one of them is a new row — this is an event log, not
+        // a counter — and throttled on the same generous bound as the queue above: a
+        // listener at 3× on a short track can legitimately produce a play a few seconds
+        // apart, and 60 a minute is far beyond that while still bounding a stuck client.
+        Route::post('/player/plays', PlayController::class)
+            ->middleware('throttle:60,1')
+            ->name('player.plays.store');
     });
 
 // Authentication (login / logout). Kept in a dedicated file as the auth surface

@@ -490,6 +490,125 @@ describe("usePlayerAudio", () => {
         });
     });
 
+
+    describe("counting a listen", () => {
+        /*
+         * WHAT COUNTS AS A PLAY, which is a product decision with a testable shape: half the
+         * track or four minutes, whichever comes first, measured in seconds actually HEARD.
+         *
+         * The "heard" part is the half worth pinning. A cursor-based rule — has currentTime
+         * passed halfway — would turn a drag of the timeline into a play, so scrubbing an
+         * album would mark every track on it as listened. Every case below is really a
+         * question about that distinction.
+         */
+
+        /** Play `seconds` of the track, in one uninterrupted stretch of playback. */
+        const playFor = (element: HTMLAudioElement, seconds: number): void => {
+            element.currentTime = seconds;
+            element.dispatchEvent(new Event("timeupdate"));
+        };
+
+        /** The track ids reported as played, in order. */
+        const reported = () =>
+            (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls
+                .filter(([url]) => url === "/player/plays")
+                .map(([, init]) => JSON.parse((init as RequestInit).body as string).trackId);
+
+        it("reports a play once half the track has been heard", () => {
+            usePlayerQueue().enqueue(track("a", 200));
+            const element = attachElement();
+            usePlayerAudio().play();
+
+            playFor(element, 99);
+            expect(reported()).toStrictEqual([]);
+
+            playFor(element, 101);
+            expect(reported()).toStrictEqual(["a"]);
+        });
+
+        it("caps the threshold at four minutes, so an hour-long mix is not a chore", () => {
+            usePlayerQueue().enqueue(track("a", 3_600));
+            const element = attachElement();
+            usePlayerAudio().play();
+
+            playFor(element, 239);
+            expect(reported()).toStrictEqual([]);
+
+            playFor(element, 241);
+            expect(reported()).toStrictEqual(["a"]);
+        });
+
+        it("counts what was HEARD, so scrubbing past the threshold earns nothing", () => {
+            // The whole reason this is not a cursor check: dragging the timeline to 80% and
+            // moving on would otherwise mark the track as listened.
+            usePlayerQueue().enqueue(track("a", 200));
+            const element = attachElement();
+            usePlayerAudio().play();
+
+            playFor(element, 10);
+            // A drag: the cursor jumps, and the element says so.
+            element.currentTime = 180;
+            element.dispatchEvent(new Event("seeked"));
+            element.dispatchEvent(new Event("timeupdate"));
+
+            expect(reported()).toStrictEqual([]);
+        });
+
+        it("keeps what was heard before a seek, so skipping at 90% still counts", () => {
+            // The owner's call: the threshold was crossed long before the skip, and hitting
+            // next must not lose a play that was already earned.
+            usePlayerQueue().enqueue(track("a", 200));
+            const element = attachElement();
+            usePlayerAudio().play();
+
+            playFor(element, 101);
+            element.currentTime = 199;
+            element.dispatchEvent(new Event("seeked"));
+
+            expect(reported()).toStrictEqual(["a"]);
+        });
+
+        it("reports once per listen, not once per reading", () => {
+            usePlayerQueue().enqueue(track("a", 200));
+            const element = attachElement();
+            usePlayerAudio().play();
+
+            playFor(element, 120);
+            playFor(element, 140);
+            playFor(element, 160);
+
+            expect(reported()).toStrictEqual(["a"]);
+        });
+
+        it("counts a repeat as another listen, because that is what it is", () => {
+            // No de-duplication, deliberately: ten loops are ten plays. The pathological
+            // case (something left on repeat overnight) is a question for the ranking query.
+            usePlayerQueue().enqueue(track("a", 200));
+            usePlayerQueue().toggleRepeat();
+            const element = attachElement();
+            usePlayerAudio().play();
+
+            playFor(element, 120);
+            finishTrack(element);
+            playFor(element, 120);
+
+            expect(reported()).toStrictEqual(["a", "a"]);
+        });
+
+        it("says nothing about a track whose length nobody knows", () => {
+            // Half of an unknown duration is zero, and a threshold of zero would report a
+            // play the instant the first reading arrived.
+            usePlayerQueue().enqueue({ ...track("a"), duration: null });
+            const element = attachElement();
+            usePlayerAudio().play();
+
+            playFor(element, 300);
+
+            expect(reported()).toStrictEqual([]);
+        });
+    });
+
+
     describe("advancing at the end of a track", () => {
         it("moves to the next track and keeps playing", () => {
             usePlayerQueue().enqueue([track("a"), track("b")]);
