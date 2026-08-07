@@ -41,6 +41,7 @@ import Icon from "Components/UI/Icon.vue";
 import { usePlayerAudio } from "Composables/usePlayerAudio";
 import { usePlayerQueue } from "Composables/usePlayerQueue";
 import { usePlayerShortcuts } from "Composables/usePlayerShortcuts";
+import { usePlayerSpeed } from "Composables/usePlayerSpeed";
 
 const { t } = useI18n();
 // `hasNext` / `hasPrevious` come FROM the queue rather than being derived here, and that
@@ -52,7 +53,12 @@ const { isPlaying, currentTime, duration, buffered, attach, detach, toggle, seek
 // Bound here rather than in FullLayout, and that placement IS the scoping rule: FullLayout
 // renders this bar with `v-if="current"`, so with an empty queue no document listener
 // exists at all and Space scrolls the page exactly as it always did.
-const { isFastForwarding, bind: bindShortcuts, unbind: unbindShortcuts } = usePlayerShortcuts();
+const { bind: bindShortcuts, unbind: unbindShortcuts } = usePlayerShortcuts();
+// The badge reads the EFFECTIVE rate rather than the shortcut's skim flag, so it covers both
+// ways of being off normal speed: a 3× chosen in the settings shows just as a held Space does.
+// Which is the useful statement — "this is not playing at normal speed" — and the setting is
+// the case a reader is more likely to have forgotten about.
+const { effectiveRate } = usePlayerSpeed();
 
 /** The bar element, measured to publish its height. */
 const barRef = ref<HTMLElement | null>(null);
@@ -168,17 +174,18 @@ onUnmounted(() => {
 
         <player-settings class="player-bar__settings" />
 
-        <!-- The skim readout, shown only while Space is held.
-             TWO WORDINGS, and the split is the point. On screen it is the glyph "2×",
-             because this is a glanceable badge over the page and a full sentence at badge
-             size reads as an alert rather than a readout. Aloud it is the whole phrase: the
-             speed change is announced by nothing else at all — no focus moves, no control
-             relabels — so a screen-reader user holding Space would otherwise get silence
-             and a track that suddenly runs fast. `aria-live="polite"` rather than
-             `assertive`: worth saying, not worth interrupting. -->
-        <span v-if="isFastForwarding" class="player-bar__rate" role="status" aria-live="polite">
-            <span aria-hidden="true">{{ t("player.bar.fastForwardShort") }}</span>
-            <span class="sr-only">{{ t("player.bar.fastForward") }}</span>
+        <!-- The speed readout, shown whenever the player is off normal speed — a setting
+             from the popover, or a held Space, or both at once (3× held reads 6×).
+             TWO WORDINGS, and the split is the point. On screen it is the bare multiplier,
+             because this is a glanceable badge over the page and a sentence at badge size
+             reads as an alert rather than a readout. Aloud it is the whole phrase: nothing
+             else announces the change at all — no focus moves, no control relabels — so a
+             screen-reader user would otherwise get silence and a track suddenly running
+             fast. `aria-live="polite"` rather than `assertive`: worth saying, not worth
+             interrupting. -->
+        <span v-if="effectiveRate !== 1" class="player-bar__rate" role="status" aria-live="polite">
+            <span aria-hidden="true">{{ effectiveRate }}×</span>
+            <span class="sr-only">{{ t("player.bar.rate", { rate: effectiveRate }) }}</span>
         </span>
 
         <div class="player-bar__transport">

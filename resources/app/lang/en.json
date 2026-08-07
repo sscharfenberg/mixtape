@@ -422,8 +422,7 @@
                 "down": "↓",
                 "mute": "M"
             },
-            "fastForward": "Double speed",
-            "fastForwardShort": "2×"
+            "rate": "{rate}× speed"
         },
         "settings": {
             "mode": "Order",
@@ -431,7 +430,9 @@
             "shuffle": "Shuffle",
             "repeat": "Repeat",
             "repeatOff": "Stop",
-            "repeatOn": "Repeat endlessly"
+            "repeatOn": "Repeat endlessly",
+            "speed": "Speed",
+            "speedOption": "{rate}× speed"
         },
         "enqueue": "Add to queue",
         "enqueued": "“{name}” was added to the queue."

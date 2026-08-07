@@ -177,6 +177,115 @@ test.describe("the player's keyboard shortcuts", () => {
         await expect.poll(async () => (await audioState(page)).paused).toBe(false);
     });
 
+    test("plays at the speed chosen in the settings, and remembers it", async ({ page }) => {
+        /*
+         * The setting reaching a decoding element, and surviving a reload — neither of which
+         * a fake element can answer. 3× is the top option and the one worth proving: measured
+         * in this engine against a synthesised tone, 1×–6× are all honoured exactly with the
+         * level unchanged and the pitch held, so nothing here is near a platform limit.
+         */
+        await page.locator(".player-settings .popover-button").click();
+        // The LABEL, not the input: OptionBubbles clips its radios to a pixel so they stay
+        // focusable without being visible, and Playwright will not `check()` what it cannot
+        // see. The same target preferences.spec.ts uses for the colour-scheme picker.
+        await page.locator('label[for="playerSpeed-3"]').click();
+
+        await expect.poll(async () => (await audioState(page)).rate).toBe(3);
+        // The VISIBLE half only: the badge also carries an `.sr-only` phrase, which
+        // `toHaveText` on the wrapper would concatenate into "3×3-fache Geschwindigkeit".
+        await expect(page.locator('.player-bar__rate [aria-hidden="true"]')).toHaveText("3×");
+
+        // A hard reload: the module forgets, localStorage does not, and the speed has to be
+        // on the element BEFORE anything can be heard rather than after the first play.
+        await page.reload();
+        await expect(page.locator(".player-bar")).toBeVisible();
+
+        await expect.poll(async () => (await audioState(page)).rate).toBe(3);
+    });
+
+    test("skims at double whatever is set, not at an absolute 2x", async ({ page }) => {
+        // At a 3× setting an absolute skim would SLOW the listener down, and the release
+        // would strand them at normal instead of back at what they chose.
+        await page.locator(".player-settings .popover-button").click();
+        await page.locator('label[for="playerSpeed-3"]').click();
+        await page.keyboard.press("Escape");
+
+        await page.locator("body").click({ position: { x: 5, y: 5 } });
+        await page.keyboard.press("Space");
+        await expect.poll(async () => (await audioState(page)).paused).toBe(false);
+
+        await page.keyboard.down("Space");
+        await expect.poll(async () => (await audioState(page)).rate).toBe(6);
+        await expect(page.locator('.player-bar__rate [aria-hidden="true"]')).toHaveText("6×");
+
+        await page.keyboard.up("Space");
+        await expect.poll(async () => (await audioState(page)).rate).toBe(3);
+    });
+
+    test("shows the live rate in the settings row while the skim is on", async ({ page }) => {
+        /*
+         * THE PATH MATTERS, and it is not the obvious one. Opening the gear puts focus on the
+         * first radio, and a focused radio owns Space — so the common "open the popover, hold
+         * Space" gesture correctly does NOT skim, and this readout would never appear. The
+         * reachable path is a click on the panel's own non-interactive text, which moves
+         * focus to the dialog and leaves Space to the player. Measured, not assumed: with
+         * focus on the gear or a bubble the rate stayed put, and only the label click let it
+         * move (2× → 4×).
+         *
+         * The readout is also why the popover must not resize: it is reserved rather than
+         * conditional, so the panel's width is asserted across the change.
+         */
+        await page.locator(".player-settings .popover-button").click();
+        await page.locator('label[for="playerSpeed-2"]').click();
+
+        const panel = page.locator(".player-settings__panel");
+        const live = page.locator(".player-settings__live");
+        const widthOf = () => panel.evaluate(node => Math.round(node.getBoundingClientRect().width));
+
+        /*
+         * WAIT FOR THE PANEL TO STOP MOVING before measuring it. The popover scales in, and
+         * `getBoundingClientRect` reports the TRANSFORMED box — so a width taken too early is
+         * a fraction of the real one (measured 217 against a settled 256) and the comparison
+         * below then "fails" for a reason that has nothing to do with the readout. The same
+         * trap preferences.spec.ts documents for the colour-scheme pill; it only showed up in
+         * the full-file run, where the machine is busy enough to change the timing.
+         */
+        const settled = async (): Promise<number> => {
+            let previous = -1;
+            await expect
+                .poll(async () => {
+                    const current = await widthOf();
+                    const stable = current === previous;
+                    previous = current;
+
+                    return stable;
+                })
+                .toBe(true);
+
+            return widthOf();
+        };
+
+        await expect(live).toBeHidden();
+        const restingWidth = await settled();
+
+        // Focus the dialog itself, which is what leaves Space to the player.
+        await page.locator(".player-settings__label").first().click();
+        await page.keyboard.press("Space");
+        await expect.poll(async () => (await audioState(page)).paused).toBe(false);
+
+        await page.keyboard.down("Space");
+
+        await expect(live).toBeVisible();
+        await expect(live).toHaveText("▸ 4×");
+        // The pill has NOT moved: it marks the setting, and 4× is not one of the options.
+        await expect(page.locator('.player-settings input[value="2"]')).toBeChecked();
+        expect(await widthOf()).toBe(restingWidth);
+
+        await page.keyboard.up("Space");
+        await expect(live).toBeHidden();
+        expect(await widthOf()).toBe(restingWidth);
+    });
+
     test("hands Space back to the page once the queue is empty", async ({ page }) => {
         /*
          * The scoping rule, and the reason the listener lives on PlayerBar: an app that

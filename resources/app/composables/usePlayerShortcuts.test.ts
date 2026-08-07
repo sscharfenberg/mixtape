@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { usePlayerAudio } from "Composables/usePlayerAudio";
 import { usePlayerQueue } from "Composables/usePlayerQueue";
 import { usePlayerShortcuts } from "Composables/usePlayerShortcuts";
+import { resetPlayerSpeedForTests, usePlayerSpeed } from "Composables/usePlayerSpeed";
 import { usePlayerVolume } from "Composables/usePlayerVolume";
 import { resetInertia } from "Testing/inertia";
 
@@ -28,11 +29,12 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
  *   - a TAP toggles, on key-UP. It cannot toggle on key-down, because a hold is not
  *     recognisable until it has lasted a while and every skim would then begin by pausing
  *     the track it wants to skim through.
- *   - a HOLD skims at 2× and its release does NOT toggle.
+ *   - a HOLD skims and its release does NOT toggle. The skim is RELATIVE to the chosen
+ *     speed, so a listener at 3× skims at 6× and lands back on 3× rather than on 1×.
  *   - a hold on a PAUSED player engages nothing, and still plays on release.
  *   - THE KEY-UP CAN GO MISSING. Switch windows mid-hold and the release is delivered
  *     somewhere else, so blur and visibilitychange have to end the skim or the track is
- *     stuck at 2× with no key down — unrecoverable except by pressing Space again.
+ *     stuck fast with no key down — unrecoverable except by pressing Space again.
  *
  * The composable is driven against the REAL player singletons rather than mocks: what is
  * being tested is that a key reaches the right one of them, and a mocked `usePlayerAudio`
@@ -109,8 +111,8 @@ describe("usePlayerShortcuts", () => {
         audioElement.play = vi.fn().mockResolvedValue(undefined);
         audioElement.pause = vi.fn();
 
+        resetPlayerSpeedForTests();
         usePlayerAudio().attach(audioElement);
-        usePlayerAudio().setPlaybackRate(1);
         usePlayerVolume().setVolume(0.5);
 
         queue.playNow([track("a"), track("b"), track("c")]);
@@ -302,11 +304,11 @@ describe("usePlayerShortcuts", () => {
             await vi.advanceTimersByTimeAsync(0);
 
             press(" ");
-            expect(usePlayerAudio().playbackRate.value).toBe(1); // not yet — this is a tap so far
+            expect(usePlayerSpeed().effectiveRate.value).toBe(1); // not yet — this is a tap so far
 
             await vi.advanceTimersByTimeAsync(200);
 
-            expect(usePlayerAudio().playbackRate.value).toBe(2);
+            expect(usePlayerSpeed().effectiveRate.value).toBe(2);
             expect(shortcuts.isFastForwarding.value).toBe(true);
             expect(audioElement.playbackRate).toBe(2);
         });
@@ -323,9 +325,29 @@ describe("usePlayerShortcuts", () => {
             release(" ");
             await vi.advanceTimersByTimeAsync(0);
 
-            expect(usePlayerAudio().playbackRate.value).toBe(1);
+            expect(usePlayerSpeed().effectiveRate.value).toBe(1);
             expect(shortcuts.isFastForwarding.value).toBe(false);
             expect(usePlayerAudio().isPlaying.value).toBe(true);
+        });
+
+        it("doubles the CHOSEN speed rather than jumping to an absolute 2×", async () => {
+            /*
+             * At a 3× setting an absolute skim would SLOW the listener down, and the release
+             * would strand them at normal rather than back at what they chose. The key means
+             * "faster than this", so it has to be relative to whatever "this" is.
+             */
+            usePlayerSpeed().setSpeed(3);
+            usePlayerAudio().play();
+            await vi.advanceTimersByTimeAsync(0);
+
+            await holdSpace();
+            expect(usePlayerSpeed().effectiveRate.value).toBe(6);
+
+            release(" ");
+            await vi.advanceTimersByTimeAsync(0);
+
+            expect(usePlayerSpeed().effectiveRate.value).toBe(3);
+            expect(usePlayerSpeed().speed.value).toBe(3);
         });
 
         it("keeps the pitch correct, or the skim is unlistenable rather than merely quick", async () => {
@@ -342,7 +364,7 @@ describe("usePlayerShortcuts", () => {
 
             await holdSpace();
             expect(shortcuts.isFastForwarding.value).toBe(false);
-            expect(usePlayerAudio().playbackRate.value).toBe(1);
+            expect(usePlayerSpeed().effectiveRate.value).toBe(1);
 
             release(" ");
             await vi.advanceTimersByTimeAsync(0);
@@ -377,7 +399,7 @@ describe("usePlayerShortcuts", () => {
             await vi.advanceTimersByTimeAsync(500);
 
             expect(shortcuts.isFastForwarding.value).toBe(false);
-            expect(usePlayerAudio().playbackRate.value).toBe(1);
+            expect(usePlayerSpeed().effectiveRate.value).toBe(1);
             expect(audioElement.playbackRate).toBe(1);
         });
 
@@ -393,7 +415,7 @@ describe("usePlayerShortcuts", () => {
             window.dispatchEvent(new window.Event("blur"));
 
             expect(shortcuts.isFastForwarding.value).toBe(false);
-            expect(usePlayerAudio().playbackRate.value).toBe(1);
+            expect(usePlayerSpeed().effectiveRate.value).toBe(1);
         });
 
         it("ends the skim when the tab is switched away from", async () => {
@@ -406,7 +428,7 @@ describe("usePlayerShortcuts", () => {
             document.dispatchEvent(new window.Event("visibilitychange"));
 
             expect(shortcuts.isFastForwarding.value).toBe(false);
-            expect(usePlayerAudio().playbackRate.value).toBe(1);
+            expect(usePlayerSpeed().effectiveRate.value).toBe(1);
         });
 
         it("ignores a release it never saw the press of", async () => {
@@ -449,7 +471,7 @@ describe("usePlayerShortcuts", () => {
 
             shortcuts.unbind();
 
-            expect(usePlayerAudio().playbackRate.value).toBe(1);
+            expect(usePlayerSpeed().effectiveRate.value).toBe(1);
         });
     });
 });

@@ -19,7 +19,8 @@ queue_ for the shape both files build on rather than revisit.
 | Transport UI + timeline **+ buffer indicator**                | ✅ `PlayerBar`, `PlayerTimeline`               |
 | Volume popover                                                | ✅ `PlayerVolume`                              |
 | Playback-settings popover (order / at the end)                | ✅ `PlayerSettings`, 2026-08-06                |
-| Keyboard shortcuts, incl. hold-Space for 2×                   | ✅ `usePlayerShortcuts`, 2026-08-07            |
+| Keyboard shortcuts, incl. hold-Space to skim                   | ✅ `usePlayerShortcuts`, 2026-08-07            |
+| Playback speed 1× / 2× / 3×, persisted                        | ✅ `usePlayerSpeed`, 2026-08-07                |
 | Real playback in a browser                                    | ✅ Playwright, incl. under the prod CSP        |
 | Screen-off on a real phone                                    | ⬜ **the owner's, on the device that matters** |
 
@@ -42,6 +43,80 @@ queue's own gaps (server sync, shuffle, the play-history beacon) are listed in
 - Playback that survives the **tab being backgrounded** — and, as far as the platform allows, the
   **phone's screen being off**.
 - **Keyboard shortcuts** (2026-08-07) — see below.
+- A **playback speed** — 1× / 2× / 3× — in the settings popover (2026-08-07), remembered
+  across visits. See *Playback speed* below.
+
+## Playback speed
+
+`usePlayerSpeed`, a third row in the settings popover. Split out of `usePlayerAudio` for the
+reason `usePlayerVolume` was: one element property, one storage key, and nothing to do with the
+intent flag or the queue pointer. `usePlayerAudio` still owns the element and hands it over via
+`bindSpeedElement()`.
+
+**Two numbers, deliberately.** `speed` is the SETTING — what the popover shows, what is
+persisted (`mixtape.speed.v1`, not user-scoped, like the volume key). `effectiveRate` is what the
+element is doing: the setting, doubled while Space is held. Collapse them and two things break
+silently — a hold persists 6× as the reader's stated preference, and releasing at a 3× setting
+drops them to 1× instead of back to 3×. The skim is therefore RELATIVE: 3× skims at 6× and lands
+back on 3×.
+
+A stored value is validated against the offered list rather than range-checked, because it is
+assigned straight to `element.playbackRate` and a `2.5` from a future build would leave the
+popover with no option lit.
+
+**The row shows both numbers.** The pill marks the SETTING and never moves for a skim — it
+could not anyway, since 3× skims to 6× and that is not one of the options. Beside it, a `▸ 6×`
+readout says what is actually playing, visible only while a skim is on. Three details:
+
+- It is **reserved, not conditional** (`visibility`, not `v-if`). The popover is `width: auto`,
+  so a readout that came and went would resize the panel under a reader holding a key down.
+- It sits **before** the bubbles, which is the only placement keeping all three rows' controls
+  flush to one right edge.
+- The `▸` is load-bearing: without it, `6× 1× 2× 3×` reads as four options.
+- It is `aria-hidden`, because the bar's badge is already a `role="status"` announcing the same
+  figure — two live regions means hearing the change twice.
+
+**Reaching it is narrower than it looks**, and this is measured rather than assumed. With the
+popover open, focus is normally on a radio — and a focused radio owns Space, so the obvious
+"open the gear, hold Space" gesture correctly does *not* skim:
+
+| Action | Focus lands on | Space held |
+| --- | --- | --- |
+| Open the gear | `<input>` (a radio) | no skim — guarded, correctly |
+| Click a bubble | `<input>` | no skim |
+| Click the row's label text | the `<dialog>` | **skims** (2× → 4×) |
+
+So the readout is reachable, but only after a click on the panel's own non-interactive text.
+That is a consequence of the guards being right, not a bug in them — Space on a focused radio
+belongs to the radio. The bar's badge is the readout that is always visible.
+
+### Is 3× a problem? No — measured, not assumed
+
+YouTube gates its 3×/4× behind Premium, so the question came up. **In the browser there is no
+wall.** Measured in this project's own Chromium against a synthesised 440 Hz tone:
+
+| Asked | Effective rate | Peak RMS | Peak frequency |
+| ----- | -------------- | -------- | -------------- |
+| 1×    | 1.00           | 0.6912   | 441 Hz         |
+| 2×    | 1.99           | 0.6912   | 441 Hz         |
+| 3×    | 2.99           | 0.6912   | 441 Hz         |
+| 4×    | 3.98           | 0.6912   | 441 Hz         |
+| 6×    | 6.05           | 0.6912   | 441 Hz         |
+
+The rate is honoured exactly, the output level never changes (the engine does not mute), and
+`preservesPitch` holds — the peak stays at 441 Hz instead of sliding to 1323 Hz at 3×. So 3 × the
+skim's 2 = 6 is inside what the engine does properly.
+
+Two honest caveats. A pure sine is the EASIEST case for a time-stretcher; how it handles
+transients in real music is a matter of taste, not capability — which is why the speeds are a
+short chosen list rather than a slider. And this is Chromium on macOS; other engines were not
+measured. `preservesPitch` is written on every rate change for that reason.
+
+**What YouTube's gate is probably about is bandwidth, not the codec.** Playing at 3× consumes the
+stream three times as fast, so a 320 kbit/s MP3 becomes ~960 kbit/s sustained per listener. At
+YouTube's scale that is an infrastructure line item. It is not nothing here either: this app
+serves from a home uplink to family and friends, which is the same reason the timeline carries a
+buffer indicator at all.
 
 ## Keyboard shortcuts
 
@@ -50,7 +125,7 @@ queue's own gaps (server sync, shuffle, the play-history beacon) are listed in
 | Key                | Does                                             |
 | ------------------ | ------------------------------------------------ |
 | `Space` / `K`      | play / pause                                     |
-| **`Space` held**   | **2× while held** — see below                    |
+| **`Space` held**   | **doubles the chosen speed while held** — see below |
 | `←` / `→`, `J`/`L` | seek ∓5 s                                        |
 | `⇧←` / `⇧→`, `P`/`N` | previous / next track                          |
 | `↑` / `↓`          | volume ±5 %                                      |
@@ -59,6 +134,9 @@ queue's own gaps (server sync, shuffle, the play-history beacon) are listed in
 
 Media keys, the lock screen and a car head unit were already wired (`mediaSession.ts`) and are
 unaffected — this is for a keyboard without transport keys.
+
+The skim is RELATIVE to the chosen speed (see *Playback speed* above), so a listener at 3× skims
+at 6× and lands back on 3× rather than on 1×.
 
 **Space toggles on key-UP, and that is forced rather than chosen.** One key carries two gestures,
 and a hold cannot be recognised until it has lasted a while: dispatching the toggle on key-down

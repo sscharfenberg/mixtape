@@ -31,9 +31,11 @@ import OptionBubbles from "Components/UI/OptionBubbles.vue";
 import type { BubbleOption } from "Components/UI/OptionBubbles.vue";
 import PopOver from "Components/UI/PopOver.vue";
 import { usePlayerQueue } from "Composables/usePlayerQueue";
+import { PLAYER_SPEEDS, usePlayerSpeed } from "Composables/usePlayerSpeed";
 
 const { t } = useI18n();
 const { repeat, shuffle, toggleRepeat, toggleShuffle } = usePlayerQueue();
+const { speed, setSpeed, isSkimming, effectiveRate } = usePlayerSpeed();
 
 /**
  * The play-order options. `off` first, so the pill's resting position is the plain
@@ -53,6 +55,26 @@ const repeatOptions = computed<BubbleOption[]>(() => [
     { value: "off", icon: "repeat_off", label: t("player.settings.repeatOff") },
     { value: "on", icon: "repeat", label: t("player.settings.repeatOn") }
 ]);
+
+/**
+ * The speed options, built from the composable's own list so the control and what it will
+ * accept cannot disagree.
+ *
+ * TEXT rather than glyphs, unlike the two rows above — the sprite has no picture that means
+ * "three times as fast", and any invention would be less legible than the two characters it
+ * replaced. The `×` is the multiplication sign, not a letter x: this is a multiplier, and it
+ * sits beside real numbers.
+ *
+ * `label` is spelled out for assistive tech ("dreifache Geschwindigkeit"), because "3×"
+ * announced character by character is not a name.
+ */
+const speedOptions = computed<BubbleOption[]>(() =>
+    PLAYER_SPEEDS.map(value => ({
+        value: String(value),
+        text: `${value}×`,
+        label: t("player.settings.speedOption", { rate: value })
+    }))
+);
 
 /**
  * Bridge the queue's booleans to the bubbles' string values.
@@ -76,6 +98,18 @@ const repeatValue = computed<string>({
     set: value => {
         if ((value === "on") !== repeat.value) toggleRepeat();
     }
+});
+
+/**
+ * Speed as the bubbles' string value.
+ *
+ * No guard against re-selecting the current option here, unlike the two above: this
+ * composable exposes a SETTER rather than a toggle, so writing the value already in force
+ * is genuinely a no-op instead of flipping it off.
+ */
+const speedValue = computed<string>({
+    get: () => String(speed.value),
+    set: value => setSpeed(Number(value))
 });
 </script>
 
@@ -106,6 +140,42 @@ const repeatValue = computed<string>({
                         :options="repeatOptions"
                         name="playerRepeat"
                         :label="t('player.settings.repeat')"
+                        :size="1"
+                    />
+                </li>
+                <!-- Speed sits LAST: the two above are about the queue, which is what this
+                     popover was built for, and this one is about the track playing. It is
+                     also the only row here whose effect is audible the instant it changes,
+                     so it wants to be nearest the bar rather than buried above the rest. -->
+                <li class="player-settings__row">
+                    <span class="player-settings__label">{{ t("player.settings.speed") }}</span>
+                    <!-- What is playing RIGHT NOW, while a held Space doubles the setting.
+                         The pill cannot show this and must not try: it marks which option is
+                         chosen, and the skim's rate is usually not one of them (3× skims at
+                         6×). So the pill keeps telling the truth about the setting and this
+                         says what is actually happening.
+
+                         `aria-hidden`, because the bar's badge is already a `role="status"`
+                         announcing the same figure — two live regions for one change means
+                         hearing it twice.
+
+                         ALWAYS RENDERED, hidden rather than removed: the popover is `width:
+                         auto`, so a readout that came and went would resize the whole panel
+                         under a reader who is holding a key down. The reserved slot costs a
+                         few characters of width at all times, which is the cheaper of the
+                         two — and it is constant, since every rate is one digit and the
+                         figures are tabular. -->
+                    <span
+                        class="player-settings__live"
+                        :class="{ 'player-settings__live--on': isSkimming }"
+                        aria-hidden="true"
+                        >▸ {{ effectiveRate }}×</span
+                    >
+                    <option-bubbles
+                        v-model="speedValue"
+                        :options="speedOptions"
+                        name="playerSpeed"
+                        :label="t('player.settings.speed')"
                         :size="1"
                     />
                 </li>
@@ -185,5 +255,32 @@ const repeatValue = computed<string>({
     color: map.get(c.$c-player-settings, "label");
 
     font-size: 0.85em;
+}
+
+/* The live rate, while a held Space doubles the setting.
+   `visibility` rather than `v-if` or `display: none` — all three hide it, only this one
+   keeps its box, and keeping the box is the whole point: the popover is `width: auto`, so a
+   readout that came and went would resize the panel under a reader who is holding a key.
+   Tabular figures make the reserved width constant across 2×, 4× and 6×.
+   It sits BEFORE the bubbles rather than after them, which is the one placement that keeps
+   all three rows' controls flush to the same right edge — put it last and this row's bubbles
+   sit inboard of the two above, and the panel reads as misaligned rather than annotated.
+   The `▸` earns its place there: without it "6× 1× 2× 3×" reads as four options rather than
+   a readout beside three, which is precisely the confusion the pill exists to avoid.
+   It borrows the CHOSEN option's own ink (`c.$c-option-bubbles` "surface-selected") rather
+   than minting a colour: this and the pill are the two things in the row saying "in force",
+   and they should say it in the same voice. */
+.player-settings__live {
+    visibility: hidden;
+
+    color: map.get(c.$c-option-bubbles, "surface-selected");
+
+    font-size: 0.85em;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+
+    &--on {
+        visibility: visible;
+    }
 }
 </style>

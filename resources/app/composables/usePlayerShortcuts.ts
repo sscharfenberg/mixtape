@@ -25,12 +25,18 @@
  *      Shift is the exception — it is part of the keymap, not a reason to bail.
  *
  * SPACE IS SPECIAL, and the reason is that one key carries two gestures. A tap toggles
- * play/pause; a HOLD skims at double speed until it is released. Since a hold cannot be
- * recognised until it has lasted a while, the toggle has to fire on key-UP — dispatching it
- * on key-down would toggle first and discover the hold afterwards, which means every skim
- * would start by pausing the thing it wants to skim through. The cost is that play/pause
- * lands when you let go instead of when you press; for a real tap that is your own release
- * time and is not perceptible.
+ * play/pause; a HOLD skims until it is released. Since a hold cannot be recognised until it
+ * has lasted a while, the toggle has to fire on key-UP — dispatching it on key-down would
+ * toggle first and discover the hold afterwards, which means every skim would start by
+ * pausing the thing it wants to skim through. The cost is that play/pause lands when you let
+ * go instead of when you press; for a real tap that is your own release time and is not
+ * perceptible.
+ *
+ * The skim is RELATIVE, not an absolute 2×, and that only became true once the settings
+ * popover could choose a speed: it doubles whatever is set and comes back to it, so a
+ * listener at 3× skims at 6× and lands back on 3×. An absolute rate would have meant the
+ * key SLOWED them down and then stranded them at normal. usePlayerSpeed owns both numbers;
+ * all this file does is say when the skim is on.
  *
  * The shortcuts are only bound while the PlayerBar is mounted, which FullLayout does with
  * `v-if="current"` — so with an empty queue there is no document listener at all and Space
@@ -42,6 +48,7 @@ import type { Ref } from "vue";
 import { ref } from "vue";
 import { usePlayerAudio } from "Composables/usePlayerAudio";
 import { usePlayerQueue } from "Composables/usePlayerQueue";
+import { usePlayerSpeed } from "Composables/usePlayerSpeed";
 import { usePlayerVolume } from "Composables/usePlayerVolume";
 import { isInteractive, isTextEntry } from "Utils/interactive";
 
@@ -60,12 +67,6 @@ const SEEK_STEP_SECONDS = 5;
 
 /** How much ↑/↓ move the output level, as a fraction of full scale. */
 const VOLUME_STEP = 0.05;
-
-/** Speed a held Space skims at. */
-const FAST_RATE = 2;
-
-/** Normal speed, restored on release. */
-const NORMAL_RATE = 1;
 
 /**
  * How long Space must be held before it means "skim" rather than "toggle".
@@ -97,6 +98,7 @@ export function usePlayerShortcuts(): UsePlayerShortcutsReturn {
     const audio = usePlayerAudio();
     const queue = usePlayerQueue();
     const volume = usePlayerVolume();
+    const rate = usePlayerSpeed();
 
     /**
      * Whether this event is the player's to act on.
@@ -124,7 +126,9 @@ export function usePlayerShortcuts(): UsePlayerShortcutsReturn {
 
         if (isFastForwarding.value) {
             isFastForwarding.value = false;
-            audio.setPlaybackRate(NORMAL_RATE);
+            // Back to the CHOSEN speed, not to 1 — a listener set to 3× must not be dropped
+            // to normal by letting go of a key that only ever meant "faster than this".
+            rate.setSkimming(false);
         }
     }
 
@@ -154,7 +158,7 @@ export function usePlayerShortcuts(): UsePlayerShortcutsReturn {
             if (!spaceDown || !audio.isPlaying.value) return;
 
             isFastForwarding.value = true;
-            audio.setPlaybackRate(FAST_RATE);
+            rate.setSkimming(true);
         }, HOLD_MS);
     }
 

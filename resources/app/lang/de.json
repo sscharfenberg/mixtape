@@ -422,8 +422,7 @@
                 "down": "↓",
                 "mute": "M"
             },
-            "fastForward": "Doppelte Geschwindigkeit",
-            "fastForwardShort": "2×"
+            "rate": "{rate}-fache Geschwindigkeit"
         },
         "settings": {
             "mode": "Reihenfolge",
@@ -431,7 +430,9 @@
             "shuffle": "Zufällige Reihenfolge",
             "repeat": "Wiederholung",
             "repeatOff": "Anhalten",
-            "repeatOn": "Endlos wiederholen"
+            "repeatOn": "Endlos wiederholen",
+            "speed": "Geschwindigkeit",
+            "speedOption": "{rate}-fache Geschwindigkeit"
         },
         "enqueue": "In die Warteschlange",
         "enqueued": "„{name}“ wurde in die Warteschlange gestellt."

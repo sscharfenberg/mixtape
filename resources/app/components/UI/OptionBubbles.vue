@@ -39,12 +39,10 @@
 import { computed } from "vue";
 import Icon from "Components/UI/Icon.vue";
 
-/** One selectable option: the value it stands for, the glyph that draws it, the name it carries. */
-export type BubbleOption = {
+/** Everything an option carries regardless of whether it draws as a glyph or as text. */
+type BubbleOptionBase = {
     /** The value reported when this option is chosen. */
     value: string;
-    /** Icon name from the sprite — the option's only visible content. */
-    icon: string;
     /** Human name. The option's ACCESSIBLE name, and the tooltip unless `hint` says otherwise. */
     label: string;
     /**
@@ -68,6 +66,29 @@ export type BubbleOption = {
      */
     selectedHint?: string;
 };
+
+/**
+ * One selectable option — drawn as EITHER a sprite glyph or a short piece of text, never
+ * both and never neither, which is what the union enforces.
+ *
+ * Text was added for the player's speed row ("1×", "2×", "3×"), where a glyph would be a
+ * picture of a number: the sprite has nothing that means "three times as fast", and inventing
+ * one would be less legible than the two characters it replaced. Keep it SHORT — the options
+ * share the row equally (`flex-grow: 1`), so a long string widens every sibling with it.
+ */
+export type BubbleOption = BubbleOptionBase &
+    (
+        | {
+              /** Icon name from the sprite — the option's only visible content. */
+              icon: string;
+              text?: never;
+          }
+        | {
+              icon?: never;
+              /** Short text drawn in place of a glyph, for a choice no picture says better. */
+              text: string;
+          }
+    );
 
 const props = defineProps<{
     /** The currently selected value. Anything not among the options leaves the pill on the first. */
@@ -183,7 +204,8 @@ function optionId(value: string): string {
                 :for="optionId(option.value)"
                 class="option-bubbles__item"
             >
-                <icon :name="option.icon" :size="size ?? 2" />
+                <icon v-if="option.icon" :name="option.icon" :size="size ?? 2" />
+                <span v-else class="option-bubbles__text">{{ option.text }}</span>
             </label>
             <!-- AFTER the label, never between it and its input: the checked and focus styles
                  are adjacent-sibling selectors (`input:checked + .option-bubbles__item`), so an
@@ -264,6 +286,17 @@ function optionId(value: string): string {
 
         @media (prefers-reduced-motion: no-preference) {
             transition: color ti.$c-option-bubbles linear;
+        }
+
+        /* A text option stands in for a glyph, so it is sized and spaced like one rather
+           than like body copy: `1em` matches the icon step this control uses at `size: 1`,
+           and tabular figures keep "1×" and "3×" the same width — without them the pill,
+           whose geometry assumes equal options, sits a fraction off centre on some of them.
+           `nowrap` because these are two characters that must never become two lines. */
+        .option-bubbles__text {
+            font-size: 1em;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
         }
 
         /* The ring goes on the LABEL, because the input it belongs to is clipped to a
