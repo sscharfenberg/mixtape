@@ -33,6 +33,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "Components/UI/Icon.vue";
 import PopOver from "Components/UI/PopOver.vue";
+import { VOLUME_STEP } from "Composables/usePlayerShortcuts";
 import { usePlayerVolume } from "Composables/usePlayerVolume";
 
 const { t } = useI18n();
@@ -76,6 +77,33 @@ const muteGlyph = computed<string>(() => (isMuted.value ? "volume_off" : "mute")
 const onInput = (event: Event): void => {
     setVolume(Number((event.target as HTMLInputElement).value));
 };
+
+/**
+ * Step the level by 5% on the arrows, instead of the 1% the input's own `step` would give.
+ *
+ * TWO GESTURES, TWO RESOLUTIONS, and a native range cannot express that: one `step` governs
+ * both the pointer and the keyboard. Dragging wants every percent — that is what a slider is
+ * FOR — while a key that moved 1% would need twenty presses to cross a quarter of the scale.
+ * So the attribute serves the drag and this serves the keys.
+ *
+ * The figure is `usePlayerShortcuts`' own constant rather than a copy: those shortcuts stand
+ * aside for a focused range input, so this handler and that one are the same gesture on
+ * either side of one guard, and two numbers would eventually be two answers.
+ *
+ * Left and right as well as up and down, because the control is drawn vertically but answers
+ * to both — a listener aiming at a slider does not check which axis it was built on.
+ */
+const onKeydown = (event: KeyboardEvent): void => {
+    const steps: Record<string, number> = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1 };
+    const direction = steps[event.key];
+
+    // Modified arrows belong to the browser (and Alt to the queue's reorder gesture).
+    if (direction === undefined || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+
+    // Or the input would apply its own step on top, and the level would move 6%.
+    event.preventDefault();
+    setVolume(volume.value + direction * VOLUME_STEP);
+};
 </script>
 
 <template>
@@ -103,29 +131,25 @@ const onInput = (event: Event): void => {
                      `writing-mode` does that work in Chromium. -->
                 <div class="player-volume__rail">
                     <span class="player-volume__level" :style="{ height: `${percent}%` }" />
-                    <!-- `step` IS THE KEYBOARD STEP, which is why it is 5% and not the 1% it
-                         was until 2026-08-07. usePlayerShortcuts stands aside for a focused
-                         range input — correctly, since the arrows belong to the control the
-                         reader is on — so this attribute is what ↑/↓ do while the slider has
-                         focus, and it has to be the same figure as that composable's
-                         VOLUME_STEP or the same key moves the level by different amounts
-                         depending on what happens to be focused. That mismatch is what the
-                         owner reported.
-                         It costs the DRAG its fine resolution, since a native range has one
-                         step for both: dragging now lands on multiples of 5%. That is the
-                         cheaper half — twenty positions is more than most hardware offers,
-                         and a level nobody can name is not worth a pixel of precision. -->
+                    <!-- `step` SERVES THE POINTER: a hundredth, so a drag can land on any
+                         percent. It would otherwise serve the keyboard too — a native range
+                         has one step for both — and 1% arrows need twenty presses to cross a
+                         quarter of the scale, so `keydown` below takes the arrows and moves
+                         them by the shortcuts' own 5%. Both spellings of the gesture then
+                         agree, whether focus is on this slider or anywhere else on the
+                         page. -->
                     <input
                         type="range"
                         class="player-volume__input"
                         min="0"
                         max="1"
-                        step="0.05"
+                        step="0.01"
                         orient="vertical"
                         :value="volume"
                         :aria-label="t('player.bar.volumeLevel')"
                         :aria-valuetext="`${percent}%`"
                         @input="onInput"
+                        @keydown="onKeydown"
                     />
                 </div>
 

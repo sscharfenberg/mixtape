@@ -109,4 +109,52 @@ describe("PlayerVolume", () => {
         await button.trigger("click");
         expect(usePlayerVolume().isMuted.value).toBe(false);
     });
+
+    describe("the two resolutions of one control", () => {
+        /*
+         * A native range has ONE `step` for the pointer and the keyboard, and this control
+         * wants two: every percent under a drag, five percent under an arrow. The attribute
+         * serves the drag; the handler takes the keys. Both are asserted, because losing
+         * either is invisible until somebody tries to set 43%.
+         */
+
+        it("lets a drag land on any percent", () => {
+            const wrapper = mountApp(PlayerVolume);
+
+            expect(wrapper.find(".player-volume__input").attributes("step")).toBe("0.01");
+        });
+
+        it("moves five percent on an arrow, not one", () => {
+            usePlayerVolume().setVolume(0.5);
+            const wrapper = mountApp(PlayerVolume);
+            const input = wrapper.find(".player-volume__input");
+
+            input.trigger("keydown", { key: "ArrowUp" });
+            expect(usePlayerVolume().volume.value).toBeCloseTo(0.55);
+
+            input.trigger("keydown", { key: "ArrowDown" });
+            expect(usePlayerVolume().volume.value).toBeCloseTo(0.5);
+        });
+
+        it("takes the arrows over from the input, so the level moves once per press", () => {
+            // Without preventDefault the input applies its own 1% on top and the level
+            // moves 6% — which nobody would notice until they counted.
+            usePlayerVolume().setVolume(0.5);
+            const wrapper = mountApp(PlayerVolume);
+
+            const event = new KeyboardEvent("keydown", { key: "ArrowUp", cancelable: true });
+            wrapper.find(".player-volume__input").element.dispatchEvent(event);
+
+            expect(event.defaultPrevented).toBe(true);
+        });
+
+        it("leaves a modified arrow alone, since those belong elsewhere", () => {
+            usePlayerVolume().setVolume(0.5);
+            const wrapper = mountApp(PlayerVolume);
+
+            wrapper.find(".player-volume__input").trigger("keydown", { key: "ArrowUp", altKey: true });
+
+            expect(usePlayerVolume().volume.value).toBeCloseTo(0.5);
+        });
+    });
 });

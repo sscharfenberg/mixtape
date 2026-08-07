@@ -453,6 +453,14 @@ order) and **Wiederholung** (what happens at the end). Three decisions in it wor
   leaves. A last-resort `@position-try --popover-flush-inline` pins it a gutter in from the viewport
   instead, trading alignment with the button for every control being reachable.
 
+**The volume slider has two resolutions, and a native range only has one.** `step` is a hundredth,
+so a DRAG can land on any percent — that is what a slider is for. The arrows would inherit that same
+step and need twenty presses to cross a quarter of the scale, so the input takes `keydown` and moves
+by 5% instead, importing `usePlayerShortcuts`' own constant rather than copying the figure. The two
+are the same gesture on either side of one guard — those shortcuts stand aside for a focused range
+input — and they have drifted apart once already, which a listener sees as the arrows moving the
+level by 1% inside the popover and 5% everywhere else.
+
 **`PlayerBar`** is one grid with two shapes: on a phone the timeline takes a line of its own below
 the cover, title and transport; from `landscape` up it moves into the row. So the bar's height is
 not a constant — which is why it is measured with a `ResizeObserver` and published as
