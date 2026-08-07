@@ -207,6 +207,21 @@ this is the record of *why* that code exists.
   one thing until the queue menu gained a repeat toggle above "clear the queue"; a positional
   selector then silently started toggling repeat, and in Playwright it becomes a strict-mode
   violation instead. Use `--caution` / `--selected` or the accessible name.
+- **DataTable renders BOTH layouts at once** — the desktop `<table>` and the narrow card list — from
+  the same `#cell-*` slots. So an unscoped `findAll(".genre-songs__link")` returns every cell link
+  twice, and "this row has one outbound link" passes against two. Scope cell assertions to `tbody`.
+- **A teleported component is not inside its parent's wrapper.** `Modal` renders into `<body>`, so
+  `wrapper.find()` reaches straight past it — and, worse, can match something with the same selector
+  back in the host page (`DeleteAccount` has a submit button of its own, which is what
+  `find("button[type=submit]")` returned instead of the modal's). Query `document` for anything
+  inside a modal or a toast.
+- **`flushPromises()` does not settle a dynamic `import()`.** `LanguageSwitch` opens with one, so
+  asserting after a single flush lands mid-handler — and the rest of it then runs *after* teardown,
+  putting its `fetch` on the NEXT test's mock. That test fails, pointing nowhere near the cause. Warm
+  the import in `beforeAll` and use `vi.waitFor` for the assertion.
+- **A component that fetches on mount will hit a real port.** `TwoFactorModal` loads its QR code in
+  `onMounted`, which surfaces as an `ECONNREFUSED` printed *after* a green run. Stub `fetch` in any
+  file that mounts one.
 - The project targets `lib: ES2020`, so **`Array.prototype.at()` is unavailable** in tests.
 
 **End-to-end**
