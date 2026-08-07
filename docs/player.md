@@ -19,6 +19,7 @@ queue_ for the shape both files build on rather than revisit.
 | Transport UI + timeline **+ buffer indicator**                | ✅ `PlayerBar`, `PlayerTimeline`               |
 | Volume popover                                                | ✅ `PlayerVolume`                              |
 | Playback-settings popover (order / at the end)                | ✅ `PlayerSettings`, 2026-08-06                |
+| Keyboard shortcuts, incl. hold-Space for 2×                   | ✅ `usePlayerShortcuts`, 2026-08-07            |
 | Real playback in a browser                                    | ✅ Playwright, incl. under the prod CSP        |
 | Screen-off on a real phone                                    | ⬜ **the owner's, on the device that matters** |
 
@@ -40,6 +41,60 @@ queue's own gaps (server sync, shuffle, the play-history beacon) are listed in
   stored; this file owns where the control sits and why.
 - Playback that survives the **tab being backgrounded** — and, as far as the platform allows, the
   **phone's screen being off**.
+- **Keyboard shortcuts** (2026-08-07) — see below.
+
+## Keyboard shortcuts
+
+`usePlayerShortcuts`, bound on the document by PlayerBar.
+
+| Key                | Does                                             |
+| ------------------ | ------------------------------------------------ |
+| `Space` / `K`      | play / pause                                     |
+| **`Space` held**   | **2× while held** — see below                    |
+| `←` / `→`, `J`/`L` | seek ∓5 s                                        |
+| `⇧←` / `⇧→`, `P`/`N` | previous / next track                          |
+| `↑` / `↓`          | volume ±5 %                                      |
+| `M`                | mute                                             |
+| `S` / `R`          | shuffle / repeat                                 |
+
+Media keys, the lock screen and a car head unit were already wired (`mediaSession.ts`) and are
+unaffected — this is for a keyboard without transport keys.
+
+**Space toggles on key-UP, and that is forced rather than chosen.** One key carries two gestures,
+and a hold cannot be recognised until it has lasted a while: dispatching the toggle on key-down
+would mean every skim began by pausing the track it wants to skim through. The cost is that
+play/pause lands when you let go — for a real tap that is your own release time, and is not
+perceptible. A release that ended a skim does **not** toggle.
+
+The hold engages only while audio is **already playing** (holding Space on a paused player is just a
+slow tap), and `preservesPitch` is set alongside the rate — without it the skim is an octave up and
+unlistenable rather than merely quick. **The key-up can go missing**: switch windows mid-hold and
+the release is delivered elsewhere, so `blur` and `visibilitychange` both end the skim, or the track
+stays at 2× with no key down and no way back but pressing Space again.
+
+**The listener lives on PlayerBar, and that placement IS the scoping rule.** FullLayout renders the
+bar with `v-if="current"`, so with an empty queue there is no document listener at all and `Space`
+scrolls the page exactly as it always did. An app that quietly took `Space` from every page forever
+would be a worse bug than any of the ones the guards below fix.
+
+**Four guards give the keys back**, in the order they would bite:
+
+1. **Text entry** — a space in a password would otherwise pause the music, with nothing to connect
+   the two. Every field here is a real `<input>` (`FormInput` renders one), so the check catches
+   them all; the letters are guarded too, because `M` in a passphrase is the same bug.
+2. **Focused controls** — the half a "not while typing" rule misses. `Space` **activates** a focused
+   button and toggles a focused checkbox, so submitting a form with the keyboard would also toggle
+   playback; the arrows drive a range input (the volume rail and the timeline are both one), a radio
+   group (the widget mode toggle) and TabbedNavigation's tabs. The list is
+   [`Utils/interactive`](../resources/app/utils/interactive.ts), **shared with DataTable's row
+   navigation** — the same judgement, and two copies would drift.
+3. **`defaultPrevented`** — the general form of 2, for anything a selector cannot name.
+4. **Modifiers** — Ctrl/Cmd belong to the browser, Alt is the queue's reorder gesture. Shift is
+   part of the keymap, not a reason to bail.
+
+Discoverability is the transport tooltips only, which name the key beside the label. The
+`aria-label` stays the plain label deliberately: a key hint is a visual convenience, and reading
+"Nächster Titel Shift Pfeil rechts" aloud on every focus is worse than not knowing the shortcut.
 
 ## The decision: a native `<audio>`, not vidstack
 

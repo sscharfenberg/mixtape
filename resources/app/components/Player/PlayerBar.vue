@@ -40,6 +40,7 @@ import PlayerVolume from "Components/Player/PlayerVolume.vue";
 import Icon from "Components/UI/Icon.vue";
 import { usePlayerAudio } from "Composables/usePlayerAudio";
 import { usePlayerQueue } from "Composables/usePlayerQueue";
+import { usePlayerShortcuts } from "Composables/usePlayerShortcuts";
 
 const { t } = useI18n();
 // `hasNext` / `hasPrevious` come FROM the queue rather than being derived here, and that
@@ -48,9 +49,26 @@ const { t } = useI18n();
 // longer "is the index above zero".
 const { current, hasNext, hasPrevious, next, previous } = usePlayerQueue();
 const { isPlaying, currentTime, duration, buffered, attach, detach, toggle, seek } = usePlayerAudio();
+// Bound here rather than in FullLayout, and that placement IS the scoping rule: FullLayout
+// renders this bar with `v-if="current"`, so with an empty queue no document listener
+// exists at all and Space scrolls the page exactly as it always did.
+const { isFastForwarding, bind: bindShortcuts, unbind: unbindShortcuts } = usePlayerShortcuts();
 
 /** The bar element, measured to publish its height. */
 const barRef = ref<HTMLElement | null>(null);
+
+/**
+ * A control's tooltip: what it does, then the key that does the same thing.
+ *
+ * The two halves come from the catalog separately because only the first is a sentence a
+ * translator should be rewriting — "⇧→" is the same on every keyboard this app speaks to.
+ * Joining them here rather than storing three combined strings means the parenthesis shape
+ * is written once, and adding a key to a control is a call site rather than a new key.
+ *
+ * A plain function, not a computed: it takes arguments, and `t` is reactive, so the
+ * template re-renders these on a locale switch anyway.
+ */
+const withKey = (label: string, key: string): string => `${label} (${key})`;
 
 /** The one element in the app that makes sound. Handed to usePlayerAudio on mount. */
 const audioRef = ref<HTMLAudioElement | null>(null);
@@ -78,6 +96,7 @@ let publishedHeight = -1;
  */
 onMounted(() => {
     if (audioRef.value) attach(audioRef.value);
+    bindShortcuts();
 
     /**
      * Measure the bar and publish it, only when the number actually moved.
@@ -110,6 +129,9 @@ onMounted(() => {
 // so the composable is not left holding listeners on a detached node.
 onUnmounted(() => {
     detach();
+    // With no bar there is nothing to control, so the document gets its keys back — Space
+    // scrolls again the moment the queue is emptied.
+    unbindShortcuts();
     document.documentElement.style.removeProperty("--app-player-height");
 });
 </script>
@@ -146,8 +168,28 @@ onUnmounted(() => {
 
         <player-settings class="player-bar__settings" />
 
+        <!-- The skim readout, shown only while Space is held.
+             TWO WORDINGS, and the split is the point. On screen it is the glyph "2×",
+             because this is a glanceable badge over the page and a full sentence at badge
+             size reads as an alert rather than a readout. Aloud it is the whole phrase: the
+             speed change is announced by nothing else at all — no focus moves, no control
+             relabels — so a screen-reader user holding Space would otherwise get silence
+             and a track that suddenly runs fast. `aria-live="polite"` rather than
+             `assertive`: worth saying, not worth interrupting. -->
+        <span v-if="isFastForwarding" class="player-bar__rate" role="status" aria-live="polite">
+            <span aria-hidden="true">{{ t("player.bar.fastForwardShort") }}</span>
+            <span class="sr-only">{{ t("player.bar.fastForward") }}</span>
+        </span>
+
         <div class="player-bar__transport">
+            <!-- The tooltips name the key beside the label. `v-tooltip` directly on each
+                 button rather than the Tooltip wrapper: there is an element to hang it on,
+                 so the wrapper would only add a node (see UI/Tooltip's own note). The
+                 `aria-label` stays the plain label — a keyboard hint is a visual
+                 convenience, and reading "Nächster Titel Shift Pfeil rechts" aloud on every
+                 focus is worse than not knowing the shortcut. -->
             <button
+                v-tooltip="withKey(t('player.bar.previous'), t('player.bar.keys.shiftLeft'))"
                 type="button"
                 class="player-bar__control"
                 :disabled="!hasPrevious"
@@ -160,6 +202,12 @@ onUnmounted(() => {
                  control must not move under a finger that is about to press it again,
                  and a screen reader should hear the same button change its label. -->
             <button
+                v-tooltip="
+                    withKey(
+                        isPlaying ? t('player.bar.pause') : t('player.bar.play'),
+                        `${t('player.bar.keys.space')} — ${t('player.bar.keys.hold')}`
+                    )
+                "
                 type="button"
                 class="player-bar__control player-bar__control--play"
                 :aria-label="isPlaying ? t('player.bar.pause') : t('player.bar.play')"
@@ -168,6 +216,7 @@ onUnmounted(() => {
                 <icon :name="isPlaying ? 'pause' : 'play'" :size="2" />
             </button>
             <button
+                v-tooltip="withKey(t('player.bar.next'), t('player.bar.keys.shiftRight'))"
                 type="button"
                 class="player-bar__control"
                 :disabled="!hasNext"
@@ -298,6 +347,39 @@ onUnmounted(() => {
         grid-area: transport;
 
         gap: map.get(s.$c-player-bar, "gap");
+    }
+
+    /* The 2× skim readout, shown only while Space is held.
+       ABSOLUTELY POSITIONED, and that is the whole design of it rather than a shortcut. It
+       appears and disappears on a keypress, several times in a row while someone hunts
+       through a track — so it must not be a grid item. This grid is laid out with named
+       areas, so an unplaced child lands in an implicit row and grows the bar; even placed,
+       it would shift the transport under a finger that is about to press play again, which
+       is the same thing the play/pause button is one-button-for-both-states to avoid.
+       Floating it clear of the bar's top edge costs the layout nothing at all.
+       `pointer-events: none` because it is a readout: it sits over the page, and a badge
+       that swallowed a click on whatever is behind it would be its own small bug.
+       No transition on purpose — it is feedback for a key that is down RIGHT NOW, so it
+       has to be there the instant the speed changes and gone the instant it does not.
+       (Which also means no reduced-motion guard is needed.)
+       The colours are the play button's own measured pair, read from the same map rather
+       than minted here: the badge says the same thing that button does, and its fill was
+       already proven for contrast against its ink. */
+    &__rate {
+        position: absolute;
+        inset-block-end: calc(100% + #{map.get(s.$c-player-bar, "rate-offset")});
+        inset-inline-end: map.get(s.$c-player-bar, "padding");
+
+        padding: map.get(s.$c-player-bar, "rate-padding");
+
+        background-color: map.get(c.$c-player-bar, "play-background");
+        color: map.get(c.$c-player-bar, "play-surface");
+        border-radius: 100vw;
+
+        font-size: map.get(s.$c-player-bar, "rate-font-size");
+        font-variant-numeric: tabular-nums;
+
+        pointer-events: none;
     }
 
     /* Each ENABLED control sits in a filled pill, so the four buttons in this bar read as

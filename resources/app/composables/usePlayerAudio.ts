@@ -96,13 +96,32 @@ export type UsePlayerAudioReturn = {
     toggle: () => void;
     /** Move the cursor, clamped into the track. */
     seek: (seconds: number) => void;
+    /** How fast the track is playing; `1` is normal. Driven by the hold-to-skim shortcut. */
+    playbackRate: Ref<number>;
+    /** Change the speed. Survives a track change, so a hold that outlives one keeps skimming. */
+    setPlaybackRate: (rate: number) => void;
 };
+
+/** Slowest and fastest the player will go, matching what browsers pitch-correct reliably. */
+const MIN_RATE = 0.25;
+const MAX_RATE = 4;
 
 
 // Module-level state — one element, one set of readings, however many consumers.
 const isPlaying = ref<boolean>(false);
 const currentTime = ref<number>(0);
 const buffered = ref<BufferedRange[]>([]);
+
+/**
+ * Playback speed, `1` being normal.
+ *
+ * Module-level like every other reading here, and applied to the element rather than read
+ * from it, so it survives the two things that would otherwise silently reset it: a track
+ * change (a fresh `src` starts at 1 in some engines) and a remount. A hold that spans the
+ * end of a song therefore keeps skimming into the next one, which is what the gesture
+ * means.
+ */
+const playbackRate = ref<number>(1);
 /**
  * The element's own idea of the duration, kept only as a fallback.
  *
@@ -202,6 +221,16 @@ function load(track: QueueTrack, autoplay: boolean): void {
         buffered.value = [];
         elementDuration.value = 0;
         element.src = track.streamUrl;
+
+        /*
+         * A new source resets `playbackRate` to 1 in some engines and keeps it in others,
+         * so it is re-asserted rather than assumed either way. It matters for exactly one
+         * case, and that case is reachable by accident: a hold-to-skim that runs past the
+         * end of a track. Whichever engine you are on, the next song then starts at the
+         * speed the key is still asking for.
+         */
+        element.preservesPitch = true;
+        element.playbackRate = playbackRate.value;
     }
 
     session.publishMetadata(track);
@@ -325,6 +354,33 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
     }
 
     /**
+     * Change the playback speed.
+     *
+     * `preservesPitch` is set alongside it and is the reason a 2× hold is usable at all:
+     * without it the same samples are simply played faster, so every voice goes up an
+     * octave and the skim is unlistenable rather than merely quick. It is the default in
+     * current engines, but it is a per-element property that a browser is free to reset,
+     * and stating it costs one line against a failure that is obvious only by ear.
+     *
+     * Kept in the ref as well as on the element so the value outlives both a track change
+     * and a remount — see the ref's own note. Published to the OS immediately, because the
+     * lock screen's own progress estimate is a straight line drawn from the last position
+     * state and the rate: leave the rate stale and the lock screen's cursor drifts out of
+     * step with what is being heard.
+     */
+    function setPlaybackRate(rate: number): void {
+        const clamped = Math.min(Math.max(rate, MIN_RATE), MAX_RATE);
+        playbackRate.value = clamped;
+
+        if (element) {
+            element.preservesPitch = true;
+            element.playbackRate = clamped;
+        }
+
+        publishPositionState();
+    }
+
+    /**
      * Take ownership of PlayerBar's element: wire every listener, and load whatever
      * the queue already has without starting it.
      *
@@ -347,6 +403,12 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
         // The level lives in its own singleton; this module owns the element, so it hands
         // it over rather than letting a second module claim it.
         bindVolumeElement(audio);
+
+        // Re-apply the speed to the element we have just taken over. A fresh element starts
+        // at 1 whatever the module last set, so without this a remount mid-hold — or simply
+        // the bar re-rendering — would silently drop back to normal speed while the key is
+        // still down, and the release would then "restore" a rate that was already 1.
+        setPlaybackRate(playbackRate.value);
 
         /** Bind a media event and register its removal, so `detach()` needs no list of its own. */
         const on = <K extends keyof HTMLMediaElementEventMap>(
@@ -504,7 +566,7 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
         elementDuration.value = 0;
     }
 
-    return { isPlaying, currentTime, duration, buffered, attach, detach, play, pause, toggle, seek };
+    return { isPlaying, currentTime, duration, buffered, attach, detach, play, pause, toggle, seek, playbackRate, setPlaybackRate };
 }
 
 /**

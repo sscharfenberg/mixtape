@@ -35,5 +35,13 @@ $player-bar: (
     // in this bar IS one of those and the four buttons have to read as one set — but
     // written from the same global rather than reaching into another component's map, so
     // each owns its own geometry. Move one and check the other.
-    "control-padding": math.round(map.get(s.$border, "base") * 2)
+    "control-padding": math.round(map.get(s.$border, "base") * 2),
+    // The 2× skim badge that floats ABOVE the bar while Space is held. Its own padding
+    // rather than the control pill's, because it is a readout and not a control: it is
+    // never pressed, so it needs no touch target and reads better tight.
+    "rate-padding": 0.2rem 0.6rem,
+    "rate-font-size": 0.75rem,
+    // How far clear of the bar's top edge the badge sits — enough to read as floating over
+    // the page rather than as a piece of the bar that just appeared.
+    "rate-offset": 0.5rem
 ) !default;

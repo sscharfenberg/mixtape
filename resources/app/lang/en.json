@@ -412,7 +412,18 @@
             "volumeLevel": "Set the volume",
             "mute": "Mute",
             "unmute": "Unmute",
-            "settings": "Playback settings"
+            "settings": "Playback settings",
+            "keys": {
+                "space": "Space",
+                "hold": "hold for 2×",
+                "shiftLeft": "⇧←",
+                "shiftRight": "⇧→",
+                "up": "↑",
+                "down": "↓",
+                "mute": "M"
+            },
+            "fastForward": "Double speed",
+            "fastForwardShort": "2×"
         },
         "settings": {
             "mode": "Order",

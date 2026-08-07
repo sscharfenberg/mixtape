@@ -412,7 +412,18 @@
             "volumeLevel": "Lautstärke einstellen",
             "mute": "Stumm schalten",
             "unmute": "Ton einschalten",
-            "settings": "Wiedergabe-Einstellungen"
+            "settings": "Wiedergabe-Einstellungen",
+            "keys": {
+                "space": "Leertaste",
+                "hold": "halten für 2×",
+                "shiftLeft": "⇧←",
+                "shiftRight": "⇧→",
+                "up": "↑",
+                "down": "↓",
+                "mute": "M"
+            },
+            "fastForward": "Doppelte Geschwindigkeit",
+            "fastForwardShort": "2×"
         },
         "settings": {
             "mode": "Reihenfolge",
