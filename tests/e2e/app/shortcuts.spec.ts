@@ -46,8 +46,8 @@ test.use({ storageState: specStorageState("shortcuts") });
  */
 test.describe.configure({ mode: "default" });
 
-test.beforeEach(() => {
-    clearServerQueue("shortcuts");
+test.beforeEach(async () => {
+    await clearServerQueue("shortcuts");
 });
 
 // The other half of the isolation: a tab flushes its queue as it closes, with `keepalive`,

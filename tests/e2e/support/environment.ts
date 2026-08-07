@@ -11,6 +11,7 @@ import { copyFileSync, existsSync, mkdirSync, renameSync, rmSync, writeFileSync 
 import { createConnection } from "node:net";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { setTimeout } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 /** Repo root — this module sits three levels down, in tests/e2e/support/. */
@@ -280,32 +281,60 @@ export const specStorageState = (spec: keyof typeof SPEC_USERS): string =>
  * with a request mid-flight would otherwise throw SQLITE_BUSY rather than wait the
  * millisecond out.
  */
-export const clearServerQueue = (spec: keyof typeof SPEC_USERS): void => {
+export const clearServerQueue = async (spec: keyof typeof SPEC_USERS): Promise<void> => {
     const database = new DatabaseSync(path.join(repoRoot, "storage/e2e.sqlite"));
-    const empty = JSON.stringify({
-        version: 1,
-        tracks: [],
-        currentIndex: -1,
-        repeat: false,
-        shuffle: false,
-        // NOW, and that is the whole reason this WRITES an empty queue rather than deleting
-        // the row. The previous test's tab flushes on its way out, with `keepalive`, so its
-        // PUT can land after this reset has run — and a deleted row would simply be
-        // recreated by it. An empty queue stamped now is NEWER than that request, and the
-        // server ignores a write older than what it holds (PlayerStatePayload::store).
-        updatedAt: Date.now(),
-        positionMs: 0
-    });
+    // BEFORE ANYTHING ELSE, including the prepares: the app holds the same file open, and
+    // `prepare` takes a lock of its own — set after them, the timeout is not in force for
+    // the statement most likely to collide, which surfaced as a bare "database is locked".
+    database.exec("PRAGMA busy_timeout = 2000");
+
+    const write = database.prepare(
+        `INSERT INTO player_states (user_id, queue, updated_at)
+         VALUES ((SELECT id FROM users WHERE name = ?), ?, datetime('now'))
+         ON CONFLICT(user_id) DO UPDATE SET queue = excluded.queue, updated_at = excluded.updated_at`
+    );
+    const read = database.prepare(
+        "SELECT queue FROM player_states WHERE user_id IN (SELECT id FROM users WHERE name = ?)"
+    );
+
+    /** How many tracks the row currently claims. */
+    const queued = (): number => {
+        const row = read.get(SPEC_USERS[spec]) as { queue: string } | undefined;
+
+        return row ? (JSON.parse(row.queue).tracks as string[]).length : 0;
+    };
 
     try {
-        database.exec("PRAGMA busy_timeout = 2000");
-        database
-            .prepare(
-                `INSERT INTO player_states (user_id, queue, updated_at)
-                 VALUES ((SELECT id FROM users WHERE name = ?), ?, datetime('now'))
-                 ON CONFLICT(user_id) DO UPDATE SET queue = excluded.queue, updated_at = excluded.updated_at`
-            )
-            .run(SPEC_USERS[spec], empty);
+        /*
+         * WRITTEN, THEN WATCHED, and the watching is not paranoia. The previous test's tab
+         * flushes its queue as it goes — with `keepalive`, precisely so the request outlives
+         * the page — so it can still be in the air when this runs, and it lands a moment
+         * later. `stopQueueSync` aborts most of them and the server refuses any whose stamp
+         * is older than this one, but a request already past both is a queue nobody in the
+         * next test ever built, and it fails as a row count two too high somewhere else
+         * entirely.
+         *
+         * So: overwrite, then confirm it STAYS overwritten. Two clean reads 40ms apart is
+         * enough for anything fired at the previous context's death, and costs the suite
+         * under three seconds in total.
+         */
+        for (let attempt = 0; attempt < 6; attempt += 1) {
+            write.run(SPEC_USERS[spec], JSON.stringify({
+                version: 1,
+                tracks: [],
+                currentIndex: -1,
+                repeat: false,
+                shuffle: false,
+                // NOW, so the server refuses anything the last test fired before it.
+                updatedAt: Date.now(),
+                positionMs: 0
+            }));
+
+            await setTimeout(40);
+            if (queued() === 0) return;
+        }
+
+        throw new Error(`Could not clear the play queue for ${SPEC_USERS[spec]}: something keeps writing to it`);
     } finally {
         database.close();
     }

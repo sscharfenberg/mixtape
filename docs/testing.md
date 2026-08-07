@@ -274,6 +274,18 @@ this is the record of *why* that code exists.
   4. **`stopQueueSync(page)` in `afterEach`**, because a tab flushes its queue as it closes with
      `keepalive` — that request outlives the test and can land after the next one has reset.
   The symptom of missing any of them is a row count one too high, on a different test every run.
+  `clearServerQueue` also **watches that its write stays written** — a request already past the
+  abort lands a moment later, so it overwrites and re-reads until two reads agree.
+- **`PRAGMA busy_timeout` must be set before `prepare()`, not after.** The app holds the same
+  sqlite file open and `prepare` takes a lock of its own, so a timeout set after the prepares is
+  not in force for the statement most likely to collide — it surfaces as a bare "database is
+  locked" from a helper that looks like it handled exactly that.
+- **Never poll an `m:ss` readout to prove time is passing.** The fixture's audio is ONE SECOND
+  long, so the player's clock says `0:00` for the whole of it, and the only window saying anything
+  else is the sliver between 1.0s and the `ended` that wraps. "Plays, and moves the timeline"
+  polled that readout and was a coin flip — heads on an idle machine, tails under a full suite,
+  about once in fifty runs. Assert the range input's `inputValue()` instead: same number,
+  unrounded, and it is what a screen reader is given anyway.
 - **A popover must be STILL before it is measured.** Panels open with a `rotateY`, and a transform is
   included in `getBoundingClientRect` — so a box read on the click is a couple of pixels from where
   it lands. `:popover-open` and visibility are both true from the first frame, so neither is the

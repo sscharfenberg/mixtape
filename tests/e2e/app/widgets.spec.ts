@@ -29,8 +29,8 @@ test.use({ storageState: specStorageState("widgets") });
  */
 test.describe.configure({ mode: "default" });
 
-test.beforeEach(() => {
-    clearServerQueue("widgets");
+test.beforeEach(async () => {
+    await clearServerQueue("widgets");
 });
 
 // The other half of the isolation: a tab flushes its queue as it closes, with `keepalive`,

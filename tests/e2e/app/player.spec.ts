@@ -51,8 +51,8 @@ test.use({ storageState: specStorageState("player") });
  */
 test.describe.configure({ mode: "default" });
 
-test.beforeEach(() => {
-    clearServerQueue("player");
+test.beforeEach(async () => {
+    await clearServerQueue("player");
 });
 
 // The other half of the isolation: a tab flushes its queue as it closes, with `keepalive`,
@@ -211,9 +211,22 @@ test.describe("the player", () => {
         // The element is really decoding, and the cursor the UI reads comes off it.
         await expect.poll(async () => (await audioState(page)).currentTime, { timeout: 5_000 }).toBeGreaterThan(0.1);
         expect((await audioState(page)).paused).toBe(false);
+
+        /*
+         * ASSERTED ON THE RAIL'S OWN VALUE, NOT ON THE CLOCK BESIDE IT, and that is what
+         * this test used to get wrong. The readout is `m:ss`, so it says "0:00" for the
+         * whole of the fixture's ONE-SECOND file — the only window in which it says
+         * anything else is the sliver between 1.0s and the `ended` that wraps repeat back
+         * to zero. Polling for it was a coin flip that came up heads on an idle machine and
+         * tails under a full suite, roughly once in fifty runs.
+         *
+         * The input carries the same number in seconds, unrounded, which is the honest way
+         * to ask "does the UI follow the element" — and it is the value a screen reader is
+         * given, so it is worth pinning anyway.
+         */
         await expect
-            .poll(() => page.locator(".player-timeline__time").first().innerText())
-            .not.toBe("0:00");
+            .poll(() => page.locator(".player-timeline__input").inputValue(), { timeout: 5_000 })
+            .not.toBe("0");
     });
 
     test("swaps the glyph and the label for pause while playing", async ({ page }) => {
