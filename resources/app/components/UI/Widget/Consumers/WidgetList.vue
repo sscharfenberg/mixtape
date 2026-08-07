@@ -66,7 +66,10 @@ defineProps<{
                         class="widget-list__pip"
                     >
                         <icon :name="pip.icon" :size="0" />
-                        {{ pip.value }}
+                        <!-- The value is its own element rather than a bare text node so it
+                             can be ellipsised: `text-overflow` needs a box to act on, and a
+                             text node has none. -->
+                        <span class="widget-list__pip-value">{{ pip.value }}</span>
                     </span>
                 </span>
             </Link>
@@ -156,10 +159,25 @@ defineProps<{
         font-size: 0.85em;
     }
 
+    /* Most pips are a number and a glyph, but two of them carry a NAME — the albums and songs
+       widgets both pip the artist — and a collaboration credit ("Electric Callboy, Electric
+       Bassboy, Paolo Ferrara") is wider than the card at any queue-open width.
+
+       `min-width: 0` is what lets that happen at all: a flex item will not go below its
+       content width otherwise, and `white-space: nowrap` means the content is one unbreakable
+       run, so the pip pushed straight out of the entry's filled block and was hard-clipped by
+       the card's own `overflow: hidden` — cut mid-word, at an edge nothing on screen explains.
+       (Measured at 920px with the queue open: a 306px pip inside a 230px row.) Wrapping is not
+       the alternative: a two-line pip would break the entry's fixed height, which is the
+       skeleton's whole contract.
+
+       Nothing is lost to the ellipsis, because a pip's tooltip already carries the full
+       "<label>: <value>" — the same trade the entry name makes one line above. */
     &__pip {
         display: inline-flex;
         align-items: center;
 
+        min-width: 0;
         padding: map.get(s.$c-widget-list, "pip-padding");
         gap: 0.4ch;
 
@@ -167,6 +185,22 @@ defineProps<{
         border-radius: map.get(s.$c-widget-list, "pip-radius");
 
         white-space: nowrap;
+
+        /* The glyph is the pip's label, so it is the one part that must never give ground —
+           shrink is distributed in proportion to base width, and without this the icon
+           squashes before the text it names does. */
+        svg {
+            flex-shrink: 0;
+        }
+    }
+
+    /* The half that gives way. `overflow: hidden` is what `text-overflow` needs to act on,
+       and it is on the VALUE rather than the pip so the ellipsis lands after the text instead
+       of clipping the pip's own rounded fill. */
+    &__pip-value {
+        overflow: hidden;
+
+        text-overflow: ellipsis;
     }
 
     &__empty {
