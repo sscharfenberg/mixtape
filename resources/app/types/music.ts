@@ -97,6 +97,15 @@ export interface SongDetail {
      * prints it plainly when it isn't.
      */
     albumUrl: string | null;
+    /**
+     * Who the ALBUM is credited to — a different fact from `artist`, which is who
+     * performed this track. They diverge on a compilation (album artist "Various
+     * Artists", each track its own performer) and on a guest appearance. Null when the
+     * song is filed under no album, or when the album carries no credit of its own.
+     */
+    albumArtist: string | null;
+    /** That artist's own page, or null as above. Same server-decided shape as the URLs around it. */
+    albumArtistUrl: string | null;
     /** Genre name, or null when untagged. */
     genre: string | null;
     /**

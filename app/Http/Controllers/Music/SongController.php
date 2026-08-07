@@ -47,8 +47,19 @@ class SongController extends Controller
         abort_unless($song->type === TrackType::Music, 404);
 
         // Eager-loaded rather than lazily touched in the array below, so the page
-        // costs a fixed four queries no matter how much the scaffold grows.
-        $song->load(['artist:id,name', 'collection:id,name,year', 'genre:id,name']);
+        // costs a fixed number of queries no matter how much the scaffold grows.
+        //
+        // `album_artist_id` HAS to be in the collection's select list even though the
+        // page never reads it: a constrained select that omits the FK leaves Eloquent
+        // nothing to match the nested `albumArtist` rows against, so the relation comes
+        // back null for every album — silently, and identically to a genuinely
+        // uncredited release.
+        $song->load([
+            'artist:id,name',
+            'collection:id,name,year,album_artist_id',
+            'collection.albumArtist:id,name',
+            'genre:id,name',
+        ]);
 
         $totals = $this->collectionTotals($song);
 
@@ -83,6 +94,18 @@ class SongController extends Controller
                 'artistUrl' => $song->artist_id === null
                     ? null
                     : route('music.artists.show', $song->artist_id, absolute: false),
+
+                // Who the RELEASE is credited to, which is not the same fact as who
+                // performed this track: on a compilation the album artist is "Various
+                // Artists" (or the curator) while every track credits its own performer,
+                // and on a guest appearance the two differ the other way round. It is a
+                // property of the album rather than of the file, so it comes off the
+                // collection — null both when the song is filed under no album and when
+                // the album carries no credit of its own.
+                'albumArtist' => $song->collection?->albumArtist?->name,
+                'albumArtistUrl' => $song->collection?->album_artist_id === null
+                    ? null
+                    : route('music.artists.show', $song->collection->album_artist_id, absolute: false),
                 'genre' => $song->genre?->name,
                 'genreUrl' => $song->genre_id === null
                     ? null

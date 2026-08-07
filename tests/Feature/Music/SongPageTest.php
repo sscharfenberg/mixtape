@@ -147,6 +147,59 @@ class SongPageTest extends TestCase
             );
     }
 
+    public function test_the_album_artist_comes_from_the_album_and_is_not_the_tracks_own_performer(): void
+    {
+        /*
+         * The two are different facts, and a compilation is the case that proves it: the
+         * release is credited to one name while each track credits its own performer. If
+         * this ever collapsed into the track's artist the page would show the same name
+         * twice under two labels — plausible-looking, and wrong on every compilation in the
+         * library.
+         */
+        $albumArtist = Artist::factory()->create(['name' => 'Various Artists']);
+        $performer = Artist::factory()->create(['name' => 'Godspeed You! Black Emperor']);
+        $album = Collection::factory()->create(['album_artist_id' => $albumArtist->id]);
+        $song = Track::factory()->create(['collection_id' => $album->id, 'artist_id' => $performer->id]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/songs/{$song->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('song.albumArtist', 'Various Artists')
+                ->where('song.albumArtistUrl', "/music/artists/{$albumArtist->id}")
+                // …and the track's own credit is untouched beside it.
+                ->where('song.artist', 'Godspeed You! Black Emperor')
+                ->where('song.artistUrl', "/music/artists/{$performer->id}")
+            );
+    }
+
+    public function test_an_album_with_no_credit_of_its_own_yields_no_album_artist(): void
+    {
+        // Nullable both ways: no album at all, and an album nobody is credited with. Each
+        // must be a missing fact the page drops, never a dead link.
+        $uncredited = Collection::factory()->create(['album_artist_id' => null]);
+        $filed = Track::factory()->create(['collection_id' => $uncredited->id]);
+        $unfiled = Track::factory()->create(['collection_id' => null]);
+
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get("/music/songs/{$filed->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('song.albumArtist', null)
+                ->where('song.albumArtistUrl', null)
+            );
+
+        $this->actingAs($user)
+            ->get("/music/songs/{$unfiled->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('song.albumArtist', null)
+                ->where('song.albumArtistUrl', null)
+            );
+    }
+
     public function test_untagged_fields_come_through_as_null_rather_than_failing(): void
     {
         // A music file whose tags named no album/genre: the FKs are nullable, and

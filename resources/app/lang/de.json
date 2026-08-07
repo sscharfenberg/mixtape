@@ -296,6 +296,7 @@
             "labels": {
                 "disc": "CD",
                 "track": "Track",
+                "albumArtist": "Album-Künstler",
                 "composer": "Komponist",
                 "publisher": "Label",
                 "codec": "Codec",

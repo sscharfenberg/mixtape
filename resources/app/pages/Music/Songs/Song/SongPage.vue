@@ -180,6 +180,27 @@ const songFacts = computed<Fact[]>(() => {
             value: song.album,
             href: song.albumUrl ?? undefined
         },
+        // Who the RELEASE is credited to — read right after its name, and before the label
+        // that put it out, because those three are the release's own identity.
+        //
+        // NOT a duplicate of the artist tile up in `tags`, and the difference is the reason
+        // it earns a row: that one is who performed THIS TRACK, this one is whose album it
+        // is. On a compilation they diverge on every row ("Various Artists" over a hundred
+        // different performers), and on a guest appearance they diverge the other way. The
+        // labels have to say which is which, hence a key of its own rather than reusing
+        // `music.columns.artist` — two tiles both reading "Künstler" with different names in
+        // them is worse than not showing the second at all.
+        //
+        // Leads to that artist's page like the other credited names do, and only when the
+        // server handed over a URL.
+        {
+            key: "albumArtist",
+            group: album,
+            icon: "artist",
+            label: t("music.song.labels.albumArtist"),
+            value: song.albumArtist,
+            href: song.albumArtistUrl ?? undefined
+        },
         // The one fact with no icon: a record label is a company, and the sprite has no
         // company / tag glyph to stand for one. Better a gap than a misleading picture.
         { key: "publisher", group: album, label: t("music.song.labels.publisher"), value: song.publisher },

@@ -28,6 +28,8 @@ const song = (overrides: Partial<SongDetail> = {}): SongDetail => ({
     artistUrl: "/music/artists/radiohead",
     album: "OK Computer",
     albumUrl: "/music/albums/ok-computer",
+    albumArtist: "Radiohead",
+    albumArtistUrl: "/music/artists/radiohead",
     genre: "Alternative Rock",
     genreUrl: "/music/genres/alternative-rock",
     year: 1997,
@@ -175,6 +177,8 @@ describe("SongPage", () => {
                 artistUrl: null,
                 album: null,
                 albumUrl: null,
+                albumArtist: null,
+                albumArtistUrl: null,
                 genre: null,
                 genreUrl: null,
                 year: null,
@@ -197,6 +201,78 @@ describe("SongPage", () => {
 
             expect(wrapper.find("h2").text()).toBe("Paranoid Android");
             expect(wrapper.text()).not.toContain("null");
+        });
+    });
+
+    describe("the album card", () => {
+        /*
+         * Scoped to the card, because the HERO renders tiles of its own from the same
+         * component — an unscoped `.fact-pair` search finds the hero's album and artist
+         * tiles first, so a "the album row precedes the credit" assertion would compare a
+         * hero index against a card index and pass whatever the card's own order was.
+         */
+        const albumCard = (wrapper: ReturnType<typeof page>) =>
+            wrapper.findAll(".card").find(card => card.find(".card__title").text() === translate("music.song.groups.album"))!;
+
+        /** The card's fact labels, in the order they are read. */
+        const cardLabels = (wrapper: ReturnType<typeof page>): string[] =>
+            albumCard(wrapper)
+                .findAll(".fact-pair__label")
+                .map(node => node.text());
+
+        /** One of the card's tiles, by its label. */
+        const cardTile = (wrapper: ReturnType<typeof page>, label: string) =>
+            albumCard(wrapper)
+                .findAll(".fact-pair")
+                .find(node => node.find(".fact-pair__label").text() === label);
+
+        it("names who the RELEASE is credited to, beside who performed the track", () => {
+            /*
+             * Two facts, not one. They agree on most records, which is exactly why the case
+             * that matters is a compilation: the album is credited to "Various Artists"
+             * while the track credits its own performer. Collapsing them — or labelling both
+             * "Künstler" — would show a reader two tiles with different names and no way to
+             * tell which is which.
+             */
+            const wrapper = page({ artist: "Godspeed You! Black Emperor", albumArtist: "Various Artists" });
+
+            expect(cardTile(wrapper, translate("music.song.labels.albumArtist"))!.text()).toContain("Various Artists");
+            // The track's own credit lives in the TAGS card and is untouched by this.
+            expect(factValue(wrapper, translate("music.columns.artist"))).toBe("Godspeed You! Black Emperor");
+        });
+
+        it("leads to that artist's page, since the credit names something with one", () => {
+            const tile = cardTile(page(), translate("music.song.labels.albumArtist"))!;
+
+            expect(tile.find("a").attributes("href")).toBe("/music/artists/radiohead");
+        });
+
+        it("prints the credit plainly when the server gave no URL", () => {
+            const tile = cardTile(page({ albumArtistUrl: null }), translate("music.song.labels.albumArtist"))!;
+
+            expect(tile.text()).toContain("Radiohead");
+            expect(tile.find("a").exists()).toBe(false);
+        });
+
+        it("drops the row for an album nobody is credited with, rather than showing a blank", () => {
+            const wrapper = page({ albumArtist: null, albumArtistUrl: null });
+
+            expect(cardTile(wrapper, translate("music.song.labels.albumArtist"))).toBeUndefined();
+            // …and the rest of the card is untouched.
+            expect(cardTile(wrapper, translate("music.columns.album"))!.text()).toContain("OK Computer");
+        });
+
+        it("reads the release's identity in order: its name, its credit, then its label", () => {
+            // The card is about the release, so the three facts identifying it sit together
+            // and in that order — a reordering is invisible in a diff and obvious on screen.
+            const labels = cardLabels(page());
+            const at = (label: string) => labels.indexOf(label);
+
+            expect(at(translate("music.columns.album"))).toBeGreaterThanOrEqual(0);
+            expect(at(translate("music.columns.album"))).toBeLessThan(at(translate("music.song.labels.albumArtist")));
+            expect(at(translate("music.song.labels.albumArtist"))).toBeLessThan(
+                at(translate("music.song.labels.publisher"))
+            );
         });
     });
 
