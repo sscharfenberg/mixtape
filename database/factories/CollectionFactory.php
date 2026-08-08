@@ -11,9 +11,8 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 /**
  * @extends Factory<Collection>
  *
- * Defaults to a music album; use ->audiobook() / ->podcastShow() for the other
  * container kinds. Each state keeps the owner FKs consistent with the DB CHECK
- * (album → album_artist only, audiobook → author only, podcast_show → neither).
+ * (album → album_artist only, audiobook → author only).
  */
 class CollectionFactory extends Factory
 {
@@ -40,15 +39,6 @@ class CollectionFactory extends Factory
             'type' => CollectionType::Audiobook,
             'album_artist_id' => null,
             'author_id' => Author::factory(),
-        ]);
-    }
-
-    public function podcastShow(): static
-    {
-        return $this->state(fn () => [
-            'type' => CollectionType::PodcastShow,
-            'album_artist_id' => null,
-            'author_id' => null,
         ]);
     }
 }

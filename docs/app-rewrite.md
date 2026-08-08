@@ -32,6 +32,37 @@ legacy app is already Vue 3 + TS + `<script setup>`, this is _not_ about "adding
 - **Typed throughout**: preserve strict TS.
 - Preserve the app's core value and the maintenance flows below.
 
+## The header's areas, and what earns a place in it
+
+Every top-level area is conditional (2026-08-08). `useSiteAreas` builds the list, and each entry
+answers a different question:
+
+| Area | Shown when | Where the answer comes from |
+| --- | --- | --- |
+| Music | the library holds music | `library.music`, a shared prop |
+| Audiobooks | the library holds audiobooks | `library.audiobook`, a shared prop |
+| Playlists | either of the above | the same two flags |
+| Now playing | the play queue holds something | `usePlayerQueue`, in the browser |
+
+**An empty area is a link to a page that says nothing**, and this instance may legitimately hold one
+kind and not the other — so the server answers with one `SELECT DISTINCT type FROM tracks`
+(`HandleInertiaRequests`), on the leading half of the `(type, created_at)` index. It is deliberately
+not cached: the invalidation would ride the nightly scan, and the first failure mode of a stale
+cache is the worst one this has — importing a library and finding the menu still empty.
+
+**Now playing is the odd one out**, and has to be: the queue is client state so the player survives
+Inertia swapping pages, so no request can know whether that link belongs. It therefore appears and
+disappears mid-visit, which is why it sits LAST — a link that comes and goes shifts whatever follows
+it, and nothing follows this one. The page itself stays reachable whatever the queue holds: a URL
+that 404s depending on a browser's localStorage would be a worse answer than a page saying the queue
+is empty.
+
+**Podcasts were an area until 2026-08-08 and are gone entirely** — pages, route, icon, i18n, the
+`podcast` / `podcast_show` enum cases, the library path and the type CHECKs (one migration narrows
+them; the originals were edited so a fresh install never mints the wide one). A podcast is something
+you listen to on the service that publishes it, not a folder of mp3s anybody downloads, so the
+scaffold was never going to be finished.
+
 ## Frontend conventions
 
 **Pages live in their own directory, with a `*Page` entry file.** Each Inertia page is a folder under

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Dev;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -17,6 +18,11 @@ use Tests\TestCase;
  */
 class IconsPageTest extends TestCase
 {
+    // The page renders the app shell, and the header asks the library which areas it
+    // holds anything of (HandleInertiaRequests) — so even a page about icons needs the
+    // `tracks` table to exist.
+    use RefreshDatabase;
+
     /** The gallery renders and its names are the icon directory's file names, sorted. */
     public function test_it_lists_the_icon_files_as_sprite_symbol_ids(): void
     {

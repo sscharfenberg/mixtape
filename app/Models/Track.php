@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A playable row — one unified table for music, audiobook chapters, and (future)
- * podcast episodes (option B). Identity is the audio-stream `content_hash`, not
+ * (option B). Identity is the audio-stream `content_hash`, not
  * the `path`, so a rename or re-tag keeps the id (data-model.md → "the one
  * fact"); two files with identical audio are two rows (clones) sharing a hash.
  *

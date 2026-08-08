@@ -21,7 +21,7 @@ class CleanLibrary extends Command
     use ResolvesLibraryAreas;
 
     protected $signature = 'app:clean
-                            {--area=* : Limit to one or more areas (music, audiobooks, podcast_shows). Default: all}';
+                            {--area=* : Limit to one or more areas (music, audiobooks). Default: all}';
 
     protected $description = 'Delete OS/Samba junk files from the media library shares';
 

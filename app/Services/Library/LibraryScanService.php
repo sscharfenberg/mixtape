@@ -94,9 +94,9 @@ final class LibraryScanService
         $root = trim((string) config('mixtape.library.paths.'.$type->libraryPathKey()));
 
         // An unconfigured (empty) path means this area simply isn't in use on
-        // this instance — skip it, touching no rows. Common for podcast_shows,
-        // which many collections won't have. This is NOT the same as a configured
-        // path that has gone missing (below).
+        // this instance — skip it, touching no rows. A collection with no audiobooks
+        // is the ordinary case. This is NOT the same as a configured path that has
+        // gone missing (below).
         if ($root === '') {
             $this->announce($progress, "{$type->value}: not configured — skipped");
 
@@ -356,13 +356,6 @@ final class LibraryScanService
                 $attributes['narrator_id'] = $narrator?->id;
                 $attributes['collection_id'] = $collection?->id;
                 break;
-
-            case TrackType::Podcast:
-                // No legacy reference — minimal for now: episode under a show, no
-                // contributor taxonomy (podcast tracks are unconstrained by the CHECK).
-                $collection = $this->collection(CollectionType::PodcastShow, $meta->album, [], $meta->year);
-                $attributes['collection_id'] = $collection?->id;
-                break;
         }
 
         return $attributes;
@@ -487,10 +480,6 @@ final class LibraryScanService
             case TrackType::Audiobook:
                 Narrator::query()->whereDoesntHave('tracks')->delete();
                 Author::query()->whereDoesntHave('audiobooks')->delete();
-                break;
-
-            case TrackType::Podcast:
-                // No contributor taxonomy for podcasts yet.
                 break;
         }
     }

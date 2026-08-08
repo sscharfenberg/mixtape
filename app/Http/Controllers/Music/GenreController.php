@@ -67,7 +67,7 @@ class GenreController extends Controller
      * unknown id is a 404 before this runs.
      *
      * No type guard, unlike SongController and AlbumController: those two share the
-     * `tracks` / `collections` tables with audiobooks and podcasts, so a bare binding
+     * `tracks` / `collections` tables with audiobooks, so a bare binding
      * would serve an audiobook chapter under /music/songs/…. A genre row is not a
      * container of anything — it is a name other rows point at — so there is nothing to
      * exclude here. What IS scoped is every number below, to music tracks.
@@ -276,7 +276,7 @@ class GenreController extends Controller
              * that have one track from a compilation.
              *
              * COALESCEd, and not for tidiness: an artist wins a genre on their track counts
-             * across ALL types, so one whose only tracks here are podcast episodes joins to
+             * across ALL types, so one whose only tracks here are audiobook chapters joins to
              * no row — and Postgres sorts NULLs FIRST under DESC, which would open the tab
              * with exactly the artists who have nothing in it.
              */
@@ -373,7 +373,7 @@ class GenreController extends Controller
     {
         $query = Track::query()
             ->where('tracks.genre_id', $genre->id)
-            // Scoped to music like everything else here: a podcast episode may legally
+            // Scoped to music like everything else here: an audiobook chapter may legally
             // carry a `genre_id` (only audiobooks are barred, by the tracks CHECK).
             ->where('tracks.type', TrackType::Music)
             ->leftJoin('artists', 'tracks.artist_id', '=', 'artists.id')

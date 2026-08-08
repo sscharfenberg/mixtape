@@ -92,7 +92,6 @@ export const serverEnv: Record<string, string> = {
      */
     MIXTAPE_MUSIC_PATH: MEDIA_ROOT,
     MIXTAPE_AUDIOBOOKS_PATH: "",
-    MIXTAPE_PODCAST_SHOWS_PATH: "",
     MIXTAPE_STREAM_INTERNAL_PREFIX: ""
 };
 

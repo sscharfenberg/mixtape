@@ -134,13 +134,12 @@ class UpdateLibraryCommandTest extends TestCase
 
     public function test_default_run_skips_unconfigured_areas_without_failing(): void
     {
-        // The reported scenario: a default (all-areas) run with no podcasts (and
-        // no audiobooks) configured must succeed and send no failure e-mail.
+        // The reported scenario: a default (all-areas) run with an area left
+        // unconfigured.
         Mail::fake();
         $this->media('a/01.mp3', ['hash' => 'h1', 'title' => 'One', 'artist' => 'A', 'album' => 'Alb']);
         config([
             'mixtape.library.paths.audiobooks' => '',
-            'mixtape.library.paths.podcast_shows' => '',
             'mixtape.scan.alert_email' => 'ops@example.com',
         ]);
 

@@ -143,12 +143,12 @@ identical audio are two rows (clones) sharing a hash.
 
 | Name | Kind | Default | Meaning |
 | --- | --- | --- | --- |
-| `--area` | option (repeatable) | all | Limit to `music`, `audiobooks`, and/or `podcast_shows`. |
+| `--area` | option (repeatable) | all | Limit to `music` and/or `audiobooks`. |
 | `--skip-cleanup` | flag | off | Skip the junk-file cleanup step. |
 
 ### Config (`config/mixtape.php`)
 
-- `library.paths.{music,audiobooks,podcast_shows}` — absolute server paths per
+- `library.paths.{music,audiobooks}` — absolute server paths per
   area (`MIXTAPE_*_PATH`; default under `/var/media`).
 - `scan.extensions` — audio extensions to scan (default `['mp3']`).
 - `scan.cleanup_masks` — junk-file patterns for the cleanup step.
@@ -157,8 +157,8 @@ identical audio are two rows (clones) sharing a hash.
   `library` channel (`storage/logs/library.log`) and exits non-zero on failure.
 
 > **Unused areas:** leave an area's path **empty (or unset)** to disable it — the
-> scan skips it (touching no rows), so a collection with no podcasts just leaves
-> `podcast_shows` empty. There are no code defaults; the `.env` values are the
+> scan skips it (touching no rows), so a collection with no audiobooks just leaves
+> `MIXTAPE_AUDIOBOOKS_PATH` empty. There are no code defaults; the `.env` values are the
 > config. A **non-empty** path that isn't a directory is treated as a failure (a
 > typo or a dropped mount), so the area isn't silently "found empty" and
 > orphan-deleted.
@@ -217,7 +217,7 @@ error.
 
 | Name | Kind | Default | Meaning |
 | --- | --- | --- | --- |
-| `--area` | option (repeatable) | all | Limit to `music`, `audiobooks`, and/or `podcast_shows`. |
+| `--area` | option (repeatable) | all | Limit to `music` and/or `audiobooks`. |
 
 ### Related code
 

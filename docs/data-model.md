@@ -212,7 +212,8 @@ effect on `tracks`: a drop from **seven** taxonomy FKs to **four** (`collection_
 `genre_id` + `narrator_id`), of which any given row uses 2–3.
 
 The reason to adopt it **now** rather than leave it optional: **adding a third type stays cheap.** A
-`podcast` (or audio-drama, lecture, …) becomes a new `collections.type` value plus at most a contributor
+an audio-drama or lecture kind (podcasts were tried and dropped, 2026-08-08 — see below) becomes a new
+`collections.type` value plus at most a contributor
 field or two — **not a new container column that lands null on every existing row.** Container growth is
 exactly where the "does every new type cost more columns?" pain lives, and this removes it. (Generalising
 *contributors* the same way would make a new type truly zero-column — but that is option C, and it
@@ -223,7 +224,7 @@ complicates the scanner + UI for a payoff a bounded 2–4 types doesn't justify.
 ```
 collections
   id               uuid pk
-  type             album | audiobook | podcast_show          # enum → varchar + CHECK
+  type             album | audiobook                        # enum → varchar + CHECK
   name             string
   year             int   nullable
   cover_path       string nullable                              # RELATIVE to the area root — the album's own directory image
@@ -235,7 +236,7 @@ collections
 
 tracks
   id               uuid pk                                   # independent random uuid (NOT uuidv5(hash))
-  type             music | audiobook | podcast               # playable kind; corresponds to collection.type
+  type             music | audiobook                        # playable kind; corresponds to collection.type
   collection_id    uuid  fk → collections   (restrict)       # ONE container FK, every type; taxonomy FKs = restrict (b#1)
   artist_id        uuid  fk → artists       nullable  (music)      # performer
   genre_id         uuid  fk → genres        nullable  (music)
@@ -252,8 +253,8 @@ tracks
 `type` is stored on `tracks` (not just derived through the join) because a Postgres `CHECK` can't
 reference another table — the type-guard above needs the value locally; the scanner keeps it in step
 with the collection. The two enums are **parallel but not identical**: a track's `type` is the *playable
-kind* (`music` / `audiobook` / `podcast`), its collection's `type` is the *container kind* (`album` /
-`audiobook` / `podcast_show`), mapping `music↔album`, `audiobook↔audiobook`, `podcast↔podcast_show`. The
+kind* (`music` / `audiobook`), its collection's `type` is the *container kind* (`album` /
+`audiobook`), mapping `music↔album` and `audiobook↔audiobook`. The
 guard now covers a **smaller** set of columns than literal B (the container and both owners moved to
 `collections`), and `collections` carries its own small type-guard for the two owner FKs.
 
@@ -572,7 +573,7 @@ player_states
 2. ~~**Tracks split: A / B / C.**~~ **Decided 2026-07-20 → B + the collections half-step:** unify the
    playable row into one `tracks` table; merge `albums` + `audiobooks` into `collections`; keep the two
    taxonomy *trees* separate; reject C. Rationale + shape in (a). The playlist / `plays` / share-link
-   designs all assume it, and a future `podcast`-style type is a new `collections.type` value rather than
+   designs all assume it, and a future kind is a new `collections.type` value rather than
    new columns.
 3. ~~**Play-queue persistence.**~~ **Decided 2026-07-20 → client composable, server-persisted.** The live
    queue is a client composable (`usePlayerQueue`, in a persistent layout — forced by the browser audio

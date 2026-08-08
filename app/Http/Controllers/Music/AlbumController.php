@@ -38,7 +38,7 @@ class AlbumController extends Controller
      *
      * `{album}` resolves through implicit binding on the collection UUID, so an
      * unknown id is a 404 before this runs; the type check is what keeps an audiobook
-     * or a podcast show — same table — from being served as an album, exactly as
+     * — same table — from being served as an album, exactly as
      * SongController guards the track table's other types.
      */
     public function __invoke(Request $request, Collection $album, CoverService $covers): Response

@@ -3,6 +3,8 @@
 namespace App\Http\Middleware;
 
 use App\Enums\Locale;
+use App\Enums\TrackType;
+use App\Models\Track;
 use App\Services\Player\PlayerStatePayload;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -27,6 +29,24 @@ class HandleInertiaRequests extends Middleware
     public function version(Request $request): ?string
     {
         return parent::version($request);
+    }
+
+    /**
+     * Which media kinds the library holds anything of.
+     *
+     * Keyed by the enum's own values so a new kind reaches the client by existing, and
+     * `false` for a kind with no rows rather than an absent key — the header reads it as a
+     * boolean and an `undefined` would light the link up.
+     *
+     * @return array<string, bool>
+     */
+    private static function areasWithTracks(): array
+    {
+        $present = Track::query()->distinct()->pluck('type');
+
+        return collect(TrackType::cases())
+            ->mapWithKeys(fn (TrackType $type) => [$type->value => $present->contains($type)])
+            ->all();
     }
 
     /**
@@ -62,6 +82,18 @@ class HandleInertiaRequests extends Middleware
                 'emailVerification' => Features::enabled(Features::emailVerification()),
                 'twoFactorAuthentication' => Features::enabled(Features::twoFactorAuthentication()),
             ],
+            // WHICH AREAS THE LIBRARY ACTUALLY HAS, so the header offers Music only to a
+            // collection with music in it and Audiobooks only to one with audiobooks —
+            // an empty area is a link to a page saying nothing, and this instance may
+            // legitimately hold one kind and not the other.
+            //
+            // ONE `DISTINCT` RATHER THAN TWO `EXISTS`, and no cache. The column is the
+            // leading half of the `(type, created_at)` index, so this is an index scan
+            // over a handful of distinct values — cheaper than the round trip that
+            // carries it. A cache would have to be invalidated by the nightly scan, and
+            // its first failure mode is the worst one this feature has: importing a
+            // library and finding the menu still empty.
+            'library' => fn (): array => self::areasWithTracks(),
             // Player settings the CLIENT has to honour but the server owns. Only the
             // position heartbeat so far: the browser runs the clock (it is the only thing
             // that knows whether audio is playing), and this is the operator's say in how

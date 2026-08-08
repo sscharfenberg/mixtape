@@ -91,14 +91,13 @@ class AlbumsPageTest extends TestCase
             );
     }
 
-    public function test_audiobooks_and_podcast_shows_stay_out_of_the_album_listing(): void
+    public function test_audiobooks_stay_out_of_the_album_listing(): void
     {
         // `collections` is one table for all three container kinds (data-model.md →
         // "the collections half-step"), so the type scope is what keeps this listing
         // about music.
         $this->album('Luciferian Towers');
         Collection::factory()->audiobook()->create();
-        Collection::factory()->podcastShow()->create();
 
         $this->actingAs(User::factory()->create())
             ->get('/music/albums')

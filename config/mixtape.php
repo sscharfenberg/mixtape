@@ -12,8 +12,10 @@ return [
     | before anything is analysed. On the live box the media sits under
     | `/var/media`; the per-area env overrides let a dev machine point elsewhere.
     |
-    | `podcast_shows` is a v2 addition — the legacy app only had music and
-    | audiobooks. The keys here line up with App\Enums\TrackType::libraryPathKey().
+    | The keys here line up with App\Enums\TrackType::libraryPathKey(). There were
+    | three areas until 2026-08-08: podcasts were dropped whole, because a podcast is
+    | something you listen to on the service that publishes it rather than a folder of
+    | mp3s anybody downloads.
     |
     | No baked-in defaults on purpose: an area's path is whatever `.env` says, so
     | all three behave the same. Empty OR absent → the area is disabled (app:update
@@ -28,7 +30,6 @@ return [
         'paths' => [
             'music' => env('MIXTAPE_MUSIC_PATH'),
             'audiobooks' => env('MIXTAPE_AUDIOBOOKS_PATH'),
-            'podcast_shows' => env('MIXTAPE_PODCAST_SHOWS_PATH'),
         ],
     ],
 

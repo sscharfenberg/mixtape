@@ -207,10 +207,10 @@ class LibraryScanServiceTest extends TestCase
 
     public function test_an_unconfigured_area_is_skipped_not_failed(): void
     {
-        // The common "I have no podcasts" case: an empty path is not an error.
-        config(['mixtape.library.paths.podcast_shows' => '']);
+        // The common "I have no audiobooks" case: an empty path is not an error.
+        config(['mixtape.library.paths.audiobooks' => '']);
 
-        $summary = $this->scanner->scan([TrackType::Podcast]);
+        $summary = $this->scanner->scan([TrackType::Audiobook]);
 
         $this->assertSame(0, $summary->discovered());
         $this->assertSame(0, $summary->inserted() + $summary->deleted());

@@ -2,9 +2,7 @@
 
 namespace Tests\Feature\Music;
 
-use App\Enums\TrackType;
 use App\Models\Artist;
-use App\Models\Collection;
 use App\Models\Genre;
 use App\Models\Track;
 use App\Models\User;
@@ -239,36 +237,6 @@ class GenresPageTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->where('table.rows.0.songs', 3)
                 ->where('table.rows.0.artists', 0)
-            );
-    }
-
-    public function test_a_podcast_episode_does_not_count_towards_a_genres_totals(): void
-    {
-        // The `type = music` scope. A podcast episode is the one non-music track a DB
-        // CHECK still lets carry a genre (only audiobooks are barred), and none are
-        // imported yet — so without this test the scope is an untested claim.
-        $genre = Genre::factory()->create(['name' => 'Ambient']);
-        $this->tracks(Artist::factory()->create(), $genre, 1, duration: 100.0, size: 1_000_000);
-
-        Track::factory()->create([
-            'type' => TrackType::Podcast,
-            'collection_id' => Collection::factory()->podcastShow()->create()->id,
-            'genre_id' => $genre->id,
-            'artist_id' => Artist::factory()->create()->id,
-            'duration' => 3600.0,
-            'size' => 50_000_000,
-        ]);
-
-        $this->actingAs(User::factory()->create())
-            ->get('/music/genres')
-            ->assertInertia(fn (Assert $page) => $page
-                ->has('table.rows', 1)
-                // The music track only — an hour of podcast would be unmissable, and its
-                // host must not be counted as a musician working in this genre.
-                ->where('table.rows.0.songs', 1)
-                ->where('table.rows.0.artists', 1)
-                ->where('table.rows.0.duration', 100)
-                ->where('table.rows.0.size', 1_000_000)
             );
     }
 

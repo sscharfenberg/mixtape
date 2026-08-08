@@ -27,7 +27,7 @@ return new class extends Migration
             $table->uuid('id')->primary(); // independent random uuid — NOT derived from the hash
 
             // Playable kind; the CHECK below guards the taxonomy FKs against it.
-            $table->enum('type', ['music', 'audiobook', 'podcast']);
+            $table->enum('type', ['music', 'audiobook']);
 
             // --- Taxonomy FKs (all `restrict`, all nullable) ---------------------
             // restrict, not cascade: deleting an artist must never delete their
@@ -81,7 +81,7 @@ return new class extends Migration
 
         if ($pgsql) {
             // Type-guard: music tracks carry no narrator; audiobook tracks carry no
-            // artist/genre. podcast is unconstrained here (data-model.md → (a)).
+            // artist/genre (data-model.md → (a)).
             DB::statement(
                 'ALTER TABLE tracks ADD CONSTRAINT tracks_type_taxonomy_ck CHECK ('
                 ."(type <> 'music' OR narrator_id IS NULL) AND "

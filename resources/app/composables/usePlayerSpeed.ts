@@ -10,7 +10,7 @@
  * one element making sound" is that module's invariant.
  *
  * TWO NUMBERS, and keeping them apart is the whole design. `speed` is the SETTING — what
- * the popover shows, what is persisted, what a listener means by "I play podcasts at 2×".
+ * the popover shows, what is persisted, what a listener means by "I play audiobooks at 2×".
  * `effectiveRate` is what the element is actually doing, which is the setting times the
  * skim multiplier while Space is held. Collapsing them into one value is the version where
  * a hold silently persists 6× as the reader's preference, and where letting go of Space at

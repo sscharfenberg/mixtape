@@ -53,9 +53,10 @@ class GenresController extends Controller
     public function __invoke(Request $request): Response
     {
         // One reusable correlated base: "the music tracks tagged with the genre in the
-        // current row". Scoped to music like every query in this namespace — a podcast
-        // episode may legally carry a `genre_id` (only audiobooks are barred, by the
-        // tracks CHECK), so without the scope a future podcast import would inflate these.
+        // current row". Scoped to music like every query in this namespace: `tracks` holds audiobook chapters as well as
+        // music, and a chapter cannot carry an artist or a genre at all — the type CHECK
+        // forbids it. So the scope is belt-and-braces today, and what keeps the numbers right
+        // the day a kind that CAN carry them is added.
         $tracksOfGenre = fn (): \Illuminate\Database\Query\Builder => Track::query()
             ->where('tracks.type', TrackType::Music)
             ->whereColumn('tracks.genre_id', 'genres.id')

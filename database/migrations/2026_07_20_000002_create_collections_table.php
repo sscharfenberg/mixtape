@@ -10,7 +10,7 @@ return new class extends Migration
     /**
      * `collections` — the merged albums + audiobooks container (data-model.md →
      * (a), "the collections half-step"). One table with a `type` holds a music
-     * album, an audiobook, or (future) a podcast show, so a track has ONE
+     * album or an audiobook, so a track has ONE
      * `collection_id` regardless of media type and adding a new type stays cheap.
      *
      * The container-level owner lives here (not on `tracks`): `album_artist_id`
@@ -27,7 +27,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
 
             // enum → varchar + value CHECK on Postgres (data-model.md → (c)).
-            $table->enum('type', ['album', 'audiobook', 'podcast_show']);
+            $table->enum('type', ['album', 'audiobook']);
             $table->string('name', 255)->collation($collation);
             $table->year('year')->nullable();
             $table->boolean('cover')->default(false); // has a Folder.jpg alongside it
@@ -61,7 +61,7 @@ return new class extends Migration
         });
 
         if ($pgsql) {
-            // Owner is set only for its own type; podcast_show → both null.
+            // Owner is set only for its own type.
             DB::statement(
                 'ALTER TABLE collections ADD CONSTRAINT collections_owner_type_ck CHECK ('
                 ."(type = 'album' OR album_artist_id IS NULL) AND "

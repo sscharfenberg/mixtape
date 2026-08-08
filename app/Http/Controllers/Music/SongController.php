@@ -40,8 +40,8 @@ class SongController extends Controller
      * Render one song. `{song}` resolves through implicit binding on the Track
      * UUID, so an unknown id is a 404 before this runs.
      *
-     * Tracks are one table for music, audiobook chapters and (future) podcast
-     * episodes, so a bare binding would happily serve an audiobook chapter under
+     * Tracks are one table for music and audiobook chapters, so a bare binding
+     * would happily serve an audiobook chapter under
      * /music/songs/… — the type check is what keeps this route about music.
      */
     public function __invoke(Request $request, Track $song, CoverService $covers): Response

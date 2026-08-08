@@ -1,17 +1,24 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
-import { useSiteAreas } from "Composables/useSiteAreas";
+import { resetPlayerQueueForTests, usePlayerQueue } from "Composables/usePlayerQueue";
 import type { SiteArea } from "Composables/useSiteAreas";
+import { useSiteAreas } from "Composables/useSiteAreas";
+import { resetInertia, setPage } from "Testing/inertia";
 import { mountApp, translate } from "Testing/mount";
 
+vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
+
 /*
- * useSiteAreas exists so the two presentations of the site menu — SiteMenuLinks (inline)
- * and SiteMenuPopover (compact) — cannot drift apart. So the test that earns its keep is
- * the one asserting both consumers get the same list, plus that labels come from the
- * catalog (they must follow a runtime locale switch, not be baked in at build time).
+ * The header's areas, which stopped being a constant list on 2026-08-08: every one of
+ * them now has to earn its place, and each earns it from a different fact.
  *
- * It calls useI18n(), so it only works inside a component — hence the probe below rather
- * than a direct call.
+ * Music and audiobooks come from the SERVER (only it knows what the library holds),
+ * playlists from either of those, and Now Playing from the QUEUE — client state that
+ * changes with no request to notice it, which is why that entry appears and disappears
+ * mid-visit and why it sits last, where coming and going shifts nothing after it.
+ *
+ * Read through a real i18n instance rather than a stubbed `t`, so a renamed catalog key
+ * fails here instead of rendering as its own name.
  */
 
 /** Minimal host component: runs the composable and exposes its result to the test. */
@@ -20,51 +27,88 @@ const probe = defineComponent({
     template: "<div />"
 });
 
-/** Mount the probe and read the computed areas back out. */
-const areasFor = (locale: "de" | "en"): SiteArea[] =>
-    (mountApp(probe, { locale }).vm as unknown as { areas: SiteArea[] }).areas;
+/**
+ * The areas as they would render for a given library, in order.
+ *
+ * Mounted rather than called: the composable uses `useI18n()`, which needs a component
+ * instance — the same probe the first version of this file used, for the same reason.
+ */
+const areasFor = (library: Record<string, boolean>, locale: "de" | "en" = "de"): SiteArea[] => {
+    setPage({ props: { library } });
+
+    return (mountApp(probe, { locale }).vm as unknown as { areas: SiteArea[] }).areas;
+};
+
+const FULL = { music: true, audiobook: true };
 
 describe("useSiteAreas", () => {
-    it("lists the four top-level areas in display order", () => {
-        expect(areasFor("de").map(area => area.href)).toStrictEqual([
+    beforeEach(() => {
+        resetInertia();
+        resetPlayerQueueForTests();
+    });
+
+    it("offers music, audiobooks and playlists to a library that has both kinds", () => {
+        expect(areasFor(FULL).map(area => area.href)).toStrictEqual(["/music", "/audiobooks", "/playlists"]);
+    });
+
+    it("hides an area the library has nothing in", () => {
+        // An empty area is a link to a page that says nothing — and an instance
+        // legitimately holds one kind and not the other.
+        expect(areasFor({ music: true, audiobook: false }).map(area => area.href)).toStrictEqual([
             "/music",
+            "/playlists"
+        ]);
+        expect(areasFor({ music: false, audiobook: true }).map(area => area.href)).toStrictEqual([
             "/audiobooks",
-            "/podcasts",
             "/playlists"
         ]);
     });
 
-    it("gives every area an icon", () => {
-        expect(areasFor("de").map(area => area.icon)).toStrictEqual(["music", "audiobook", "podcast", "playlist"]);
+    it("offers nothing at all to an empty library, playlists included", () => {
+        // A playlist of an empty library is not a feature, it is a form nobody can fill.
+        expect(areasFor({ music: false, audiobook: false })).toStrictEqual([]);
     });
 
-    it("takes its labels from the catalog", () => {
-        expect(areasFor("de").map(area => area.label)).toStrictEqual([
-            translate("header.siteMenu.music", "de"),
-            translate("header.siteMenu.audiobooks", "de"),
-            translate("header.siteMenu.podcasts", "de"),
-            translate("header.siteMenu.playlists", "de")
+    it("hides everything when the server said nothing, rather than throwing", () => {
+        // Any response that omits the prop — an older page, an error view — must leave
+        // the header standing.
+        expect(areasFor({} as Record<string, boolean>)).toStrictEqual([]);
+    });
+
+    it("adds Now Playing once the queue holds something, and drops it again", () => {
+        expect(areasFor(FULL).map(area => area.href)).not.toContain("/now-playing");
+
+        usePlayerQueue().enqueue({
+            id: "a",
+            name: "Track a",
+            artist: null,
+            album: null,
+            coverUrl: null,
+            duration: 100,
+            href: "/music/songs/a",
+            streamUrl: "/music/songs/a/stream"
+        });
+
+        expect(areasFor(FULL).map(area => area.href)).toStrictEqual([
+            "/music",
+            "/audiobooks",
+            "/playlists",
+            "/now-playing"
         ]);
+
+        usePlayerQueue().clear();
+        expect(areasFor(FULL).map(area => area.href)).not.toContain("/now-playing");
     });
 
-    it("renders labels in the active locale", () => {
-        const german = areasFor("de").map(area => area.label);
-        const english = areasFor("en").map(area => area.label);
-
-        expect(english).toStrictEqual([
+    it("labels every area from the catalog, in the active locale", () => {
+        expect(areasFor(FULL, "en").map(area => area.label)).toStrictEqual([
             translate("header.siteMenu.music", "en"),
             translate("header.siteMenu.audiobooks", "en"),
-            translate("header.siteMenu.podcasts", "en"),
             translate("header.siteMenu.playlists", "en")
         ]);
-        // Guard against both catalogs being identical, which would make the test vacuous.
-        expect(english).not.toStrictEqual(german);
     });
 
-    it("hands both site-menu presentations the same list", () => {
-        const inline = areasFor("de");
-        const popover = areasFor("de");
-
-        expect(popover).toStrictEqual(inline);
+    it("names an icon for each, since the compact menu shows glyphs alone", () => {
+        expect(areasFor(FULL).map(area => area.icon)).toStrictEqual(["music", "audiobook", "playlist"]);
     });
 });

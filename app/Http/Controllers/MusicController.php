@@ -261,7 +261,7 @@ class MusicController extends Controller
              */
             ->select('genres.*')
             ->addSelect(['artist_counts.artists_count', 'album_counts.albums_count'])
-            // Scoped to music like every other number on this page: a podcast episode may
+            // Scoped to music like every other number on this page: an audiobook chapter may
             // legally carry a genre (only audiobooks are barred by the tracks CHECK).
             ->withCount(['tracks as songs_count' => fn ($q) => $q->where('type', TrackType::Music)])
             ->tap(fn (Builder $q) => match ($mode) {

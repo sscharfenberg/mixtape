@@ -32,7 +32,7 @@ trait ResolvesLibraryAreas
                 ->first(fn (TrackType $t) => $t->libraryPathKey() === $name || $t->value === $name);
 
             if ($type === null) {
-                $this->error("Unknown area '{$name}'. Valid areas: music, audiobooks, podcast_shows.");
+                $this->error("Unknown area '{$name}'. Valid areas: music, audiobooks.");
 
                 return null;
             }

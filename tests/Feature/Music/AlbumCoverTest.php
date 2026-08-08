@@ -231,7 +231,7 @@ class AlbumCoverTest extends TestCase
 
     public function test_an_audiobooks_cover_is_not_reachable_under_music(): void
     {
-        // `collections` holds audiobooks and podcast shows too; this route is music.
+        // `collections` holds audiobooks too; this route is about music.
         $audiobook = Collection::factory()->audiobook()->create();
 
         $this->actingAs(User::factory()->create())

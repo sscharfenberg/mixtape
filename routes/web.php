@@ -17,10 +17,10 @@ use App\Http\Controllers\Music\SongCoverController;
 use App\Http\Controllers\Music\SongsController;
 use App\Http\Controllers\Music\SongStreamController;
 use App\Http\Controllers\MusicController;
+use App\Http\Controllers\NowPlayingController;
 use App\Http\Controllers\Player\PlayController;
 use App\Http\Controllers\Player\PlayerStateController;
 use App\Http\Controllers\PlaylistsController;
-use App\Http\Controllers\PodcastsController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -43,8 +43,14 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         // Scaffolds for now: each renders a placeholder page.
         Route::get('/music', MusicController::class)->name('music');
         Route::get('/audiobooks', AudiobooksController::class)->name('audiobooks');
-        Route::get('/podcasts', PodcastsController::class)->name('podcasts');
         Route::get('/playlists', PlaylistsController::class)->name('playlists');
+
+        // What is playing right now. Offered by the header only while the queue holds
+        // something (useSiteAreas), but reachable regardless: the queue is client state,
+        // so the server cannot know whether this page has anything to show — and a URL
+        // that 404s depending on a browser's localStorage would be a worse answer than a
+        // page that says the queue is empty.
+        Route::get('/now-playing', NowPlayingController::class)->name('now-playing');
 
         // Music sub-sections — the "see all" targets from the browse widgets. All four
         // are real server-driven listings.

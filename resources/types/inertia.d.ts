@@ -42,6 +42,10 @@ declare module "@inertiajs/core" {
                 // How far into the loaded track this queue had got, in milliseconds.
                 positionMs: number;
             } | null;
+            // Which media kinds the library actually holds anything of, keyed by
+            // TrackType's own values — what the header's areas are built from
+            // (useSiteAreas). False for a kind with no rows, never absent.
+            library: Record<string, boolean>;
             // Player settings the client honours but the server owns
             // (config/mixtape.php → the player). `positionHeartbeat` is in seconds of
             // PLAYBACK, and 0 turns the heartbeat off.

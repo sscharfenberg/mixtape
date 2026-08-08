@@ -47,7 +47,7 @@ class AlbumCoverController extends Controller
      * revalidation in between a 304.
      *
      * The album type check mirrors the listing's: `collections` also holds audiobooks
-     * and podcast shows, and this route is about music.
+     * and this route is about music.
      */
     public function __invoke(Request $request, Collection $album): BinaryFileResponse
     {

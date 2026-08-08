@@ -33,7 +33,7 @@ class UpdateLibrary extends Command
     use ResolvesLibraryAreas;
 
     protected $signature = 'app:update
-                            {--area=* : Limit to one or more areas (music, audiobooks, podcast_shows). Default: all}
+                            {--area=* : Limit to one or more areas (music, audiobooks). Default: all}
                             {--skip-cleanup : Skip the junk-file cleanup step}';
 
     protected $description = 'Scan the media library into the database (cleanup, then a content-hash diff)';

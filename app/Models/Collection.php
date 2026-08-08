@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * A container of tracks — the merged albums + audiobooks table (data-model.md →
  * (a), "the collections half-step"). `type` says which container kind it is and
  * a DB CHECK ties the owner FK to it: `album_artist` only on albums, `author`
- * only on audiobooks (podcast shows have neither).
+ * only on audiobooks (an album has neither).
  */
 #[Fillable(['type', 'name', 'year', 'cover_path', 'album_artist_id', 'author_id'])]
 class Collection extends Model

@@ -11,8 +11,8 @@ use Illuminate\Support\Facades\DB;
 /**
  * How often a TRACK has been listened to — yours, and everybody else's.
  *
- * A track, not a song: `tracks` is one table for music, audiobook chapters and (future)
- * podcast episodes, and a listen is a listen whatever kind of thing was listened to. Nothing
+ * A track, not a song: `tracks` is one table for music and audiobook chapters, and a listen
+ * is a listen whatever kind of thing was listened to. Nothing
  * here knows or asks about the type, so the audiobook pages can read it the day they exist
  * without this file changing. Only the SENTENCES are per-subject, because "you played this
  * song 3 times" is the wrong noun for a chapter — those live with the page that says them.

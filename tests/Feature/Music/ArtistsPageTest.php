@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Music;
 
-use App\Enums\TrackType;
 use App\Models\Artist;
 use App\Models\Collection;
 use App\Models\Track;
@@ -23,8 +22,9 @@ use Tests\TestCase;
  *     the reading the column deliberately commits to (the other count lives on the detail
  *     page, see ArtistPageTest);
  *   - the totals are scoped to MUSIC tracks, which nothing else in the app can catch
- *     today — podcasts aren't imported yet, and a podcast episode is the one non-music
- *     track a database CHECK still lets carry an `artist_id`.
+ *     today: since podcasts were dropped (2026-08-08) the only other kind is an
+ *     audiobook chapter, and the `tracks` CHECK forbids one of those an `artist_id` at
+ *     all — so the scope is belt-and-braces until a kind that CAN carry one arrives.
  */
 class ArtistsPageTest extends TestCase
 {
@@ -131,34 +131,6 @@ class ArtistsPageTest extends TestCase
                 ->where('table.rows.1.name', 'Tommy Peoples')
                 ->where('table.rows.1.albums', 0)
                 ->where('table.rows.1.songs', 1)
-            );
-    }
-
-    public function test_a_podcast_episode_does_not_count_towards_a_musicians_totals(): void
-    {
-        // The `type = music` scope, and the only way to see it: `tracks` is one table for
-        // all three media kinds, and a podcast episode is the one non-music track that may
-        // legally carry an `artist_id` (the tracks CHECK bars only audiobooks from one). No
-        // podcasts are imported yet, so without this test the scope is an untested claim.
-        $artist = Artist::factory()->create(['name' => 'Brian Eno']);
-        $this->track($artist, $this->compilation('Ambient 1'), duration: 100.0, size: 1_000_000);
-
-        Track::factory()->create([
-            'type' => TrackType::Podcast,
-            'collection_id' => Collection::factory()->podcastShow()->create()->id,
-            'artist_id' => $artist->id,
-            'duration' => 3600.0,
-            'size' => 50_000_000,
-        ]);
-
-        $this->actingAs(User::factory()->create())
-            ->get('/music/artists')
-            ->assertInertia(fn (Assert $page) => $page
-                ->has('table.rows', 1)
-                // The music track only — an hour of podcast would be unmissable here.
-                ->where('table.rows.0.songs', 1)
-                ->where('table.rows.0.duration', 100)
-                ->where('table.rows.0.size', 1_000_000)
             );
     }
 

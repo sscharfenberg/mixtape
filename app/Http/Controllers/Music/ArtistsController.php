@@ -57,11 +57,11 @@ class ArtistsController extends Controller
      */
     public function __invoke(Request $request): Response
     {
-        // One reusable correlated base: "this artist's own music tracks". Scoped to
-        // music like every other query in this namespace — `tracks` is one table for all
-        // three media kinds and a podcast episode may legally carry an `artist_id` (only
-        // audiobooks are barred from one, by the tracks CHECK), so without the scope a
-        // future podcast import would quietly inflate these numbers.
+        // One reusable correlated base: "this artist's own music tracks". Scoped to music
+        // like every other query in this namespace: `tracks` holds audiobook chapters as well as
+        // music, and a chapter cannot carry an artist or a genre at all — the type CHECK
+        // forbids it. So the scope is belt-and-braces today, and what keeps the numbers right
+        // the day a kind that CAN carry them is added.
         $tracksOfArtist = fn (): \Illuminate\Database\Query\Builder => Track::query()
             ->where('tracks.type', TrackType::Music)
             ->whereColumn('tracks.artist_id', 'artists.id')

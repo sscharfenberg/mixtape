@@ -62,7 +62,7 @@ class ArtistController extends Controller
      * unknown id is a 404 before this runs.
      *
      * No type guard here, unlike SongController and AlbumController: those two share the
-     * `tracks` / `collections` tables with audiobooks and podcasts, so a bare binding
+     * `tracks` / `collections` tables with audiobooks, so a bare binding
      * would serve an audiobook chapter under /music/songs/…. The artists table is
      * music-only by construction (the tracks CHECK bars an audiobook from carrying an
      * `artist_id` at all), so there is nothing to exclude.
@@ -195,7 +195,7 @@ class ArtistController extends Controller
     {
         $query = Track::query()
             ->where('tracks.artist_id', $artist->id)
-            // Scoped to music like everything else in this namespace: a podcast episode may
+            // Scoped to music like everything else in this namespace: an audiobook chapter may
             // legally carry an `artist_id`, and only audiobooks are barred by the CHECK.
             ->where('tracks.type', TrackType::Music)
             ->leftJoin('collections', 'tracks.collection_id', '=', 'collections.id')
@@ -354,7 +354,7 @@ class ArtistController extends Controller
      * only as an album-artist legitimately has none, and "0:00" beside "3 albums" reads
      * as the fact it is.
      *
-     * Scoped to music for the same reason the listing is — a podcast episode may legally
+     * Scoped to music for the same reason the listing is — an audiobook chapter may legally
      * carry an `artist_id`.
      *
      * @return array{songs: int, duration: float, size: int}

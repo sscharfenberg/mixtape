@@ -570,7 +570,7 @@ www-data, from the app root:
    `composer install --no-dev` includes it — but a box last deployed before it was
    added needs a fresh install.
 2. **`.env` has the scanner block** (`MIXTAPE_MUSIC_PATH`, `MIXTAPE_AUDIOBOOKS_PATH`,
-   `MIXTAPE_PODCAST_SHOWS_PATH`, `MIXTAPE_SCAN_ALERT_EMAIL` — see
+   `MIXTAPE_SCAN_ALERT_EMAIL` — see
    [`files/env.prod.template`](files/env.prod.template)). There are **no code
    defaults**: an unset path disables that area. After editing `.env`, re-cache:
    `php artisan config:cache` (a stale cached config is the classic "my new env var

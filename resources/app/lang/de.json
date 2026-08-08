@@ -39,8 +39,8 @@
             "open": "Navigation öffnen",
             "music": "Musik",
             "audiobooks": "Hörbücher",
-            "podcasts": "Podcasts",
-            "playlists": "Wiedergabelisten"
+            "playlists": "Wiedergabelisten",
+            "nowPlaying": "Aktuelle Wiedergabe"
         },
         "language": {
             "label": "Sprache"

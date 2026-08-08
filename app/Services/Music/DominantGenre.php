@@ -88,9 +88,10 @@ class DominantGenre
         $column = "tracks.{$owner}";
 
         // Level 1 — how many music tracks this owner has in each genre. Scoped to music
-        // like every query in the Music area: a podcast episode may legally carry both an
-        // artist and a genre (only audiobooks are barred by the tracks CHECK), and it has
-        // no business voting on what a musician mostly plays.
+        // like every query in the Music area: `tracks` holds audiobook chapters as well as
+        // music, and a chapter cannot carry an artist or a genre at all — the type CHECK
+        // forbids it. So the scope is belt-and-braces today, and what keeps the numbers right
+        // the day a kind that CAN carry them is added.
         $perGenre = Track::query()
             ->where('tracks.type', TrackType::Music)
             ->whereNotNull($column)
