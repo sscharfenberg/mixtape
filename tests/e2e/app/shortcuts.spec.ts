@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { openQueuePanel, stopQueueSync } from "../support/actions";
+import { enqueueFromHero, openQueuePanel, stopQueueSync } from "../support/actions";
 import { clearServerQueue, specStorageState } from "../support/environment";
 
 /*
@@ -61,9 +61,7 @@ const queueASong = async (page: Page): Promise<void> => {
     await page.goto("/music/songs");
     await page.locator("tbody tr").first().click();
     await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
-    await page.locator(".hero-section__menu .popover-button").click();
-    await page.locator(".hero-section__menu .popover-list-item").nth(1).click();
-    await expect(page.locator(".play-queue__row")).toHaveCount(1);
+    await enqueueFromHero(page);
     await expect(page.locator(".player-bar")).toBeVisible();
 };
 

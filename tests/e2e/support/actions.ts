@@ -1,5 +1,5 @@
 import { expect } from "@playwright/test";
-import type { Page } from "@playwright/test";
+import type { Page, Request } from "@playwright/test";
 import { SEED_USER } from "./environment";
 
 /**
@@ -106,7 +106,7 @@ export const expectOnTablePage = async (page: Page, pageNumber: number): Promise
  */
 export const countDocumentRequests = async (page: Page, block: () => Promise<void>): Promise<number> => {
     let requests = 0;
-    const listener = (request: import("@playwright/test").Request): void => {
+    const listener = (request: Request): void => {
         if (request.resourceType() === "document") requests += 1;
     };
 
@@ -144,20 +144,74 @@ export const openQueuePanel = async (page: Page): Promise<void> => {
 /**
  * Put the play-queue panel away after an enqueue, cancelling its peek.
  *
- * Adding to the queue now reveals the panel for three seconds and then hides it again, so
- * "there is a queue" and "the panel is shut" stopped being the same instant. Escape is used
- * rather than waiting the peek out: it is instant, and it also CANCELS the pending auto-close,
- * so a test that reopens the panel a moment later cannot have it shut under itself by a timer
- * from the enqueue before.
+ * Adding to the queue reveals the panel for three seconds and then hides it again, so "there
+ * is a queue" and "the panel is shut" stopped being the same instant — and a pending
+ * auto-close is a timer that will move the layout under whatever the test does next. TWO WAYS
+ * THAT BIT, both on one test, and they are why the dismissal lives in the enqueue helper below
+ * rather than at the call sites that happened to notice:
+ *
+ *   - THE PEEK COVERS THE MENU IT CAME FROM. The panel overlays the trailing edge of the page,
+ *     which on a detail page is where the hero's action menu sits, so a second enqueue's click
+ *     has nowhere to land: Playwright waits out the three seconds and then clicks. Seven
+ *     enqueues in a row took twenty-four seconds.
+ *   - THE AUTO-CLOSE RACES THE NEXT ACTION. On CI that same click landed just AFTER the peek
+ *     had closed itself — so instead of shutting the panel it opened it, and a test asserting
+ *     the panel was shut watched it stay visible for the full timeout. It failed there and
+ *     nowhere else.
+ *
+ * IT WAITS FOR THE PEEK BEFORE DISMISSING IT, which is not belt-and-braces: `isVisible()` is a
+ * snapshot, and a check made in the instant between the queue growing and the panel appearing
+ * reports "already shut" — leaving the peek to open a moment later, behind the test's back, in
+ * exactly the state this is meant to prevent. Waiting cannot hang, because a grown queue always
+ * peeks (and a panel that was already open is visible anyway).
+ *
+ * Escape rather than waiting the peek out: it is instant, and it also CANCELS the pending
+ * auto-close, so nothing left over from an enqueue can shut a panel the test later opens.
+ *
+ * Module-local on purpose. Every spec reaches it through `enqueueFromHero`, so the rule stays
+ * one rule — "an enqueue leaves the panel shut; open it if you need it" — rather than something
+ * each call site can forget.
  */
-export const dismissQueuePeek = async (page: Page): Promise<void> => {
+const dismissQueuePeek = async (page: Page): Promise<void> => {
     const panel = page.locator(".play-queue");
 
-    if (await panel.isVisible()) {
-        await page.keyboard.press("Escape");
-    }
-
+    await expect(panel).toBeVisible();
+    await page.keyboard.press("Escape");
     await expect(panel).toBeHidden();
+};
+
+/**
+ * Enqueue the subject of the page currently open, through the hero menu.
+ *
+ * SHARED BY THREE SPECS, and copied into each of them until the peek arrived: the queue, the
+ * player and the shortcuts all begin by putting a song in the queue, and all three then had to
+ * learn the same thing about what an enqueue leaves on screen. One copy now, so the next change
+ * to that starting state is made once.
+ *
+ * The lone "enqueue" Button in the hero's #actions is gone (2026-08-06): the SubjectMenu in
+ * the heading offers both verbs, so a button offering one was redundant. Every spec that used
+ * to press it now opens the menu and picks the second item — which is also the path a reader
+ * takes. Scoped to `.hero-section__menu`, because the site menu, the user menu, the queue menu
+ * and the player settings all use `.popover-list-item` too.
+ *
+ * IT LEAVES THE PANEL SHUT — see `dismissQueuePeek` for what that saves. Pass `keepPeek` only
+ * to watch the peek itself.
+ *
+ * @param page     the page to drive; its hero must be the subject to queue
+ * @param options  `keepPeek` leaves the peek on screen, for the one test that asserts it
+ */
+export const enqueueFromHero = async (page: Page, options: { keepPeek?: boolean } = {}): Promise<void> => {
+    // WAITED FOR, because enqueuing from the hero is asynchronous where the old button was
+    // not: the menu asks the server for the subject's tracks (an optional Inertia prop), so
+    // the queue grows a round trip after the click. Without this a caller reads the queue —
+    // or the transport's disabled states — before the tracks have landed.
+    const before = await page.locator(".play-queue__row").count();
+
+    await page.locator(".hero-section__menu .popover-button").click();
+    await page.locator(".hero-section__menu .popover-list-item").nth(1).click();
+    await expect(page.locator(".play-queue__row")).toHaveCount(before + 1);
+
+    if (!options.keepPeek) await dismissQueuePeek(page);
 };
 
 /**

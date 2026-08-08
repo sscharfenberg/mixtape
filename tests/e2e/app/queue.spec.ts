@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { dismissQueuePeek, openQueuePanel, stopQueueSync } from "../support/actions";
+import { enqueueFromHero, openQueuePanel, stopQueueSync } from "../support/actions";
 import { clearServerQueue, specStorageState } from "../support/environment";
 
 /*
@@ -49,27 +49,6 @@ test.afterEach(async ({ page }) => {
     await stopQueueSync(page);
 });
 
-/**
- * Enqueue the subject of the page currently open, through the hero menu.
- *
- * The lone "enqueue" Button in the hero's #actions is gone (2026-08-06): the SubjectMenu in
- * the heading offers both verbs, so a button offering one was redundant. Every spec that used
- * to press it now opens the menu and picks the second item — which is also the path a reader
- * takes. Scoped to `.hero-section__menu`, because the site menu, the user menu, the queue menu
- * and the player settings all use `.popover-list-item` too.
- */
-const enqueueFromHero = async (page: Page): Promise<void> => {
-    // WAITED FOR, because enqueuing from the hero is asynchronous where the old button was
-    // not: the menu asks the server for the subject's tracks (an optional Inertia prop), so
-    // the queue grows a round trip after the click. Without this a caller reads the queue —
-    // or the transport's disabled states — before the tracks have landed.
-    const before = await page.locator(".play-queue__row").count();
-
-    await page.locator(".hero-section__menu .popover-button").click();
-    await page.locator(".hero-section__menu .popover-list-item").nth(1).click();
-    await expect(page.locator(".play-queue__row")).toHaveCount(before + 1);
-};
-
 /** Open a song's page and put it in the queue. Returns the song's title. */
 const enqueueFirstSong = async (page: import("@playwright/test").Page): Promise<string> => {
     await page.goto("/music/songs");
@@ -77,9 +56,11 @@ const enqueueFirstSong = async (page: import("@playwright/test").Page): Promise<
     await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
     const title = await page.locator(".hero-section__title").first().innerText();
     await enqueueFromHero(page);
-    // Opened explicitly: the panel is an overlay toggled from the header at every width now,
-    // so having a queue no longer puts it on screen. Almost every test below reads the rows,
-    // so it belongs here rather than at each call site.
+    // Opened explicitly, and DELIBERATELY rather than by the peek the enqueue would otherwise
+    // leave standing: the panel is an overlay toggled from the header at every width now, so
+    // having a queue no longer puts it on screen. Almost every test below reads the rows, so it
+    // belongs here rather than at each call site — and a panel opened here carries no pending
+    // auto-close, which a peeked one does.
     await openQueuePanel(page);
 
     return title;
@@ -154,7 +135,7 @@ test.describe("the play queue", () => {
         const panel = page.locator(".play-queue");
         await expect(panel).toHaveCount(0);
 
-        await enqueueFromHero(page);
+        await enqueueFromHero(page, { keepPeek: true });
 
         // Opened by nothing but the enqueue.
         await expect(panel).toBeVisible();
@@ -438,12 +419,10 @@ test.describe("the play queue on a narrow screen", () => {
          * most of it, so the queue is not something you carry around open. Queuing a
          * song must not shove the page aside.
          *
-         * Adding to the queue PEEKS the panel for three seconds now, so "shut" is the state
-         * after that peek rather than immediately — dismissed here instead of waited out,
-         * which also cancels the pending auto-close so it cannot shut the panel again below.
+         * Adding to the queue PEEKS the panel for three seconds, which `enqueueFromHero` puts
+         * away again — so "shut" here is the resting state, not the instant after the enqueue.
          */
         await enqueueFromCard(page);
-        await dismissQueuePeek(page);
 
         await expect(page.locator(".play-queue")).toBeHidden();
         await expect(page.locator(".play-queue-toggle")).toBeVisible();
@@ -477,8 +456,6 @@ test.describe("the play queue on a narrow screen", () => {
 
     test("swaps the toggle's glyph for a close once it is open", async ({ page }) => {
         await enqueueFromCard(page);
-        // The enqueue peeks the panel open; the glyph asserted first is the RESTING one.
-        await dismissQueuePeek(page);
         const toggle = page.locator(".play-queue-toggle");
 
         // Icon writes `xlink:href`, and a real browser will not hand that back under
@@ -504,8 +481,6 @@ test.describe("the play queue on a narrow screen", () => {
          * over a light page it reads as a seam. A ResizeObserver keeps it honest.
          */
         await enqueueFromCard(page);
-        // Dismiss the peek first, so the auto-close from the enqueue cannot fire mid-resize.
-        await dismissQueuePeek(page);
         await page.locator(".play-queue-toggle").click();
         await expect(page.locator(".play-queue")).toBeVisible();
 
@@ -745,11 +720,12 @@ test.describe("the play queue scrolling to the loaded track", () => {
         const song = await enqueueFirstSong(page);
 
         /*
-         * SHUT WHILE QUEUEING, and this is the overlay's real cost rather than a test
-         * quirk: the panel covers the trailing edge of the page, which on a detail page is
-         * exactly where the hero's action menu sits — the control this queues with. It was
-         * reachable while the content was inset to clear the panel; now a reader queueing
-         * more tracks closes the panel first, and so does this test.
+         * SHUT WHILE QUEUEING, and this is the overlay's real cost rather than a test quirk:
+         * the panel covers the trailing edge of the page, which on a detail page is exactly
+         * where the hero's action menu sits — the control this queues with. It was reachable
+         * while the content was inset to clear the panel; now a reader queueing more tracks
+         * closes the panel first, and so does this test. `enqueueFirstSong` opened it, so this
+         * click is a plain close with no peek timer behind it to reopen anything.
          */
         await page.locator(".play-queue-toggle").click();
         await expect(page.locator(".play-queue")).toBeHidden();
