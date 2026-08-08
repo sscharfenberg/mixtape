@@ -75,7 +75,13 @@ export default defineConfig({
      */
     webServer: {
         command: `php artisan serve --host=127.0.0.1 --port=${PORT} --no-reload`,
-        url: `${BASE_URL}/login`,
+        // THE HEALTH ROUTE, not a page: readiness here means "PHP is answering", and a
+        // page means whatever that page happens to need. `/login` was the probe until a
+        // shared prop started reading the library on every render — which the app is
+        // entitled to do, and which deadlocked the suite, since global setup migrates only
+        // AFTER the server is up. `/up` is Laravel's own health endpoint (bootstrap/app.php)
+        // and touches nothing.
+        url: `${BASE_URL}/up`,
         reuseExistingServer: !process.env.CI,
         timeout: 60_000,
         stdout: "ignore",

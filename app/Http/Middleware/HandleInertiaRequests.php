@@ -32,6 +32,28 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
+     * Every kind reported as absent, without asking the database.
+     *
+     * WHAT A GUEST GETS, and not as an economy: SiteMenu renders nothing at all without a
+     * signed-in user (every area it links to is behind `auth`), so the query would answer a
+     * question nobody asks. It also keeps the LOGIN PAGE renderable with no database at
+     * all — which is not hypothetical: the E2E harness waits for `/login` to answer before
+     * it migrates, so a shared prop that touched `tracks` deadlocked the whole suite behind
+     * a table that did not exist yet (CI, 2026-08-08).
+     *
+     * The shape is the same map rather than an empty one, so a consumer never has to tell
+     * "no library" from "did not ask".
+     *
+     * @return array<string, bool>
+     */
+    private static function noAreas(): array
+    {
+        return collect(TrackType::cases())
+            ->mapWithKeys(fn (TrackType $type) => [$type->value => false])
+            ->all();
+    }
+
+    /**
      * Which media kinds the library holds anything of.
      *
      * Keyed by the enum's own values so a new kind reaches the client by existing, and
@@ -93,7 +115,9 @@ class HandleInertiaRequests extends Middleware
             // carries it. A cache would have to be invalidated by the nightly scan, and
             // its first failure mode is the worst one this feature has: importing a
             // library and finding the menu still empty.
-            'library' => fn (): array => self::areasWithTracks(),
+            'library' => fn (): array => $request->user() === null
+                ? self::noAreas()
+                : self::areasWithTracks(),
             // Player settings the CLIENT has to honour but the server owns. Only the
             // position heartbeat so far: the browser runs the clock (it is the only thing
             // that knows whether audio is playing), and this is the operator's say in how

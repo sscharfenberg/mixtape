@@ -260,6 +260,12 @@ this is the record of *why* that code exists.
   failed is broken, and check after `waitForLoadState("networkidle")`.
 - **`getByLabel(/Passwort/)` is ambiguous** — it matches the input *and* the "Passwort anzeigen"
   reveal button. `signIn()` uses ids.
+- **The web-server probe must not need the database.** Playwright brings the server up and waits
+  for `webServer.url` BEFORE global setup migrates, so a probe pointed at a page fails the moment
+  that page starts reading a table — which is exactly how a shared prop counting the library's media
+  kinds took the whole suite down on CI while passing locally against a database left over from the
+  last run (2026-08-08). The probe is `/up`, Laravel's health route. To reproduce that class of
+  failure locally, `rm storage/e2e.sqlite` first: a stale one hides it completely.
 - **A fresh browser context is no longer a fresh PLAYER.** Since the queue syncs to
   `player_states` (2026-08-07) it follows the *user*, so a spec inherits whatever queue another one
   left. A spec that touches the queue needs all four of these, and each was found by the failure

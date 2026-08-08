@@ -6,6 +6,7 @@ use App\Enums\TrackType;
 use App\Models\Track;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -59,6 +60,25 @@ class NavigationAreasTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->where('library.music', false)
                 ->where('library.audiobook', true)
+            );
+    }
+
+    public function test_a_guest_page_asks_the_database_nothing(): void
+    {
+        /*
+         * The login page has to render with no database at all, and that is not a
+         * hypothetical: the E2E harness waits for the server to answer BEFORE it migrates,
+         * so a shared prop touching `tracks` deadlocks the whole suite behind a table that
+         * does not exist yet (CI, 2026-08-08). SiteMenu renders nothing without a user
+         * anyway, so there is no question to answer here.
+         */
+        DB::statement('DROP TABLE tracks');
+
+        $this->get('/login')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('library.music', false)
+                ->where('library.audiobook', false)
             );
     }
 

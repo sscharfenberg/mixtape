@@ -50,6 +50,13 @@ kind and not the other — so the server answers with one `SELECT DISTINCT type 
 not cached: the invalidation would ride the nightly scan, and the first failure mode of a stale
 cache is the worst one this has — importing a library and finding the menu still empty.
 
+**A guest is asked nothing.** `SiteMenu` renders only for a signed-in user — every area is behind
+`auth` — so the flags are computed only when there is one. That is also what keeps the login page
+renderable with **no database at all**, which is not hypothetical: the E2E harness waits for the
+server to answer before it migrates, so a shared prop reading `tracks` deadlocked the whole suite
+behind a table that did not exist yet (CI, 2026-08-08). The readiness probe now asks `/up`, Laravel's
+health route, rather than a page — readiness means "PHP is answering", not "the app has data".
+
 **Now playing is the odd one out**, and has to be: the queue is client state so the player survives
 Inertia swapping pages, so no request can know whether that link belongs. It therefore appears and
 disappears mid-visit, which is why it sits LAST — a link that comes and goes shifts whatever follows
