@@ -16,11 +16,17 @@ return new class extends Migration
      * recording keeps its plays as long as any copy of that audio survives, and
      * loses them only when the last copy is gone.
      *
-     * Most-played aggregates by `tracks.content_hash`, not `track_id` — the same
-     * recording on an album + a compilation + a best-of counts as ONE song
-     * (open decision #5). That is a `plays → tracks` join + `GROUP BY
-     * t.content_hash`; the FK indexes here serve the join/filter, so `plays` needs
-     * no content_hash of its own.
+     * Most-played aggregates by `track_id` — each file counts for itself, so the same
+     * recording on an album + a compilation + a best-of is three entries (data-model.md,
+     * decision #5, re-decided 2026-08-08; it read `content_hash` here until then, which
+     * nothing ever implemented). So both most-played grains are answered by the indexes
+     * below with no join at all, and `plays` needs no hash column of its own. A SUBJECT's
+     * count — an artist's, a genre's, an album's — does join `plays → tracks` and filters on
+     * the taxonomy FK, which `tracks` already indexes.
+     *
+     * COMMENT-ONLY CHANGE to an applied migration: the schema below is untouched, and this
+     * file is not re-run. It is edited rather than left lying because a migration docblock is
+     * where the next person looks to find out what an index is for.
      */
     public function up(): void
     {

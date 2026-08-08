@@ -13,9 +13,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * One listen, written by the client's "played" beacon on `ended`/threshold. The
  * event's own time is `played_at` (there are no created/updated timestamps).
  *
- * Most-played is aggregated by `tracks.content_hash`, not `track_id`, so the same
- * recording across an album + compilation + best-of counts once (open decision
- * #5) — a `plays → tracks` join + `GROUP BY t.content_hash`.
+ * Every count over these rows groups by `track_id` — each file counts for itself, so the
+ * same recording across an album + compilation + best-of is three entries (data-model.md,
+ * decision #5, re-decided 2026-08-08 away from `content_hash`). App\Services\Player\PlayCounts
+ * is the one place that reads them, for a single track and for a whole artist / genre / album.
  */
 #[Fillable(['user_id', 'track_id', 'played_at'])]
 class Play extends Model

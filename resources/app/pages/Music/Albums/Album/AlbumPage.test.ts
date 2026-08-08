@@ -54,6 +54,7 @@ const page = (albumOverrides: Record<string, unknown> = {}, rows = [row()]) =>
     mountApp(AlbumPage, {
         props: {
             album: album(albumOverrides),
+            plays: { own: 0, others: 0 },
             table: {
                 rows,
                 total: rows.length,

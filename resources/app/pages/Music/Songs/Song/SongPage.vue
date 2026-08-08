@@ -31,6 +31,7 @@ import { Head } from "@inertiajs/vue3";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
+import PlayCountFacts from "Components/Music/PlayCountFacts.vue";
 import SubjectMenu from "Components/Music/SubjectMenu.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Facts, { type Fact } from "Components/UI/Card/Facts.vue";
@@ -45,9 +46,9 @@ const props = defineProps<{
     song: SongDetail;
     /**
      * How often this song has been listened to: the reader's own listens and everybody
-     * else's, counted across every copy of the recording (App\Services\Player\PlayCounts).
-     * Raw counts — a zero is something this page leaves unsaid, which is a decision about
-     * display and so belongs here.
+     * else's, counted against THIS row (App\Services\Player\PlayCounts — a copy of the same
+     * recording on another album keeps its own count). Raw counts — a zero is something this
+     * page leaves unsaid, which is a decision about display and so belongs here.
      */
     plays: { own: number; others: number };
 }>();
@@ -99,15 +100,6 @@ const bitRate = (): string | null => {
  * component in the template, since the compiler resolves the `<facts>` tag against
  * the setup bindings and would find the ref first.
  */
-/**
- * A play count as a tile's value: the figure and the multiplication sign, nothing else.
- *
- * `×` is U+00D7, not the letter x — this is a count of times, and it sits beside real
- * numbers. No pluralisation, which the tile format is what buys: "1×" is right in both
- * languages where a sentence would have wanted "einmal" in one of them.
- */
-const timesPlayed = (count: number): string => `${count}×`;
-
 const songFacts = computed<Fact[]>(() => {
     const song = props.song;
     const tags = t("music.song.groups.tags");
@@ -342,57 +334,12 @@ const songFacts = computed<Fact[]>(() => {
                     />
                     <!-- What this song's listening amounts to, in the hero's own tiles rather
                          than as prose beneath them: a count is a labelled value like the three
-                         above it, and a sentence among them read as a broken tile.
-
-                         A COUNT OF ZERO IS NOT SHOWN AT ALL — the owner's rule, and the right
-                         one: a page full of "0×" on a fresh library would say only that the
-                         feature exists. Each half appears on its own terms, so a song only the
-                         reader has heard shows one tile.
-
-                         ONE GLYPH FOR BOTH, the ear (`plays`) — the label carries WHOSE
-                         listening it is, and the icon says what kind of fact it is, which is
-                         what an icon in a FactPair is for. It has its own file rather than
-                         borrowing the audio card's `channels`: two facts on one page sharing
-                         a picture is how a reader learns that the picture means nothing.
-
-                         A TOOLTIP, because the number alone is ambiguous in three ways a
-                         tile has no room to answer: what counts as a play at all, whether
-                         repeats count, and whether the same recording on another album
-                         counts here. `v-tooltip` on the component lands on FactPair's own
-                         <li> root, so the tile keeps its markup and the list its semantics.
-
-                         AND THE SAME SENTENCE AS A DESCRIPTION, for the reason OptionBubbles
-                         documents: the directive is pointer-and-focus only, so on its own it
-                         explains the number to everyone except the readers who cannot see
-                         the tile. `aria-describedby` points at a visually hidden span, which
-                         is the pattern that component already established. -->
-                    <fact-pair
-                        v-if="plays.own > 0"
-                        v-tooltip="t('music.song.plays.ownTip')"
-                        icon="plays"
-                        :label="t('music.song.plays.own')"
-                        :value="timesPlayed(plays.own)"
-                        aria-describedby="song-plays-own"
-                    />
-                    <fact-pair
-                        v-if="plays.others > 0"
-                        v-tooltip="t('music.song.plays.othersTip')"
-                        icon="plays"
-                        :label="t('music.song.plays.others')"
-                        :value="timesPlayed(plays.others)"
-                        aria-describedby="song-plays-others"
-                    />
+                         above it, and a sentence among them read as a broken tile. The tiles,
+                         the zero rule, the tooltips and the live refresh all live in
+                         PlayCountFacts, shared with the artist / genre / album heroes. -->
+                    <play-count-facts :plays="plays" subject="song" />
                 </template>
             </hero-section>
-            <!-- What the two listening tiles' tooltips say, for readers who never see a
-                 tooltip. Hidden text rather than `aria-description`, which is ARIA 1.3 and
-                 still uneven across engines; `aria-describedby` onto an `.sr-only` span is
-                 what OptionBubbles settled on for the identical problem. Rendered only when
-                 the tile they describe is. -->
-            <p v-if="plays.own > 0" id="song-plays-own" class="sr-only">{{ t("music.song.plays.ownTip") }}</p>
-            <p v-if="plays.others > 0" id="song-plays-others" class="sr-only">
-                {{ t("music.song.plays.othersTip") }}
-            </p>
             <facts :facts="songFacts" wide-groups />
         </div>
     </container>

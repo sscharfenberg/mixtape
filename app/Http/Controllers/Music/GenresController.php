@@ -8,6 +8,7 @@ use App\Models\Genre;
 use App\Models\Track;
 use App\Services\DataTableService;
 use App\Services\Music\DominantGenre;
+use App\Services\Player\PlayCounts;
 use App\Services\Search\FoldedSearch;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -34,6 +35,12 @@ use Inertia\Response;
  * The consequence worth knowing while reading a row: a genre can hold hundreds of songs
  * and still count 0 artists — it is nobody's *main* genre, only everybody's second one.
  * That is the intended reading, not missing data.
+ *
+ * The fifth number, `plays`, is the READER'S OWN listens and the only column here that
+ * differs per viewer: listening events over the genre's tracks, not the instance's total.
+ * This box is shared with family and friends, and what makes a browse list useful is what
+ * YOU have played — the yours/others split belongs on the detail page, where a tile can
+ * label it. Same rule and same shape as the artists listing's.
  *
  * Every row also carries an `href` to the genre's own page (GenreController), which is
  * what makes the table's rows clickable — the frontend only follows what the server puts
@@ -69,6 +76,13 @@ class GenresController extends Controller
             // listing with its songs.
             ->leftJoinSub(DominantGenre::artistCountsPerGenre(), 'main', 'main.genre_id', '=', 'genres.id')
             ->selectRaw('coalesce(main.artists_count, 0) as artists_count')
+            // THE READER'S OWN listens, not the instance's — see the class docblock. The
+            // second grouped join on this query, and for the same reason as the first: the
+            // column is SORTABLE, so it is computed for every genre before the sort can run,
+            // and a correlated count would re-probe the plays table once per genre (measured
+            // at 914 ms against 123 ms on a five-year table — PlayCounts::ownPerArtist).
+            ->leftJoinSub(PlayCounts::ownPerGenre($request->user()), 'own_plays', 'own_plays.subject_id', '=', 'genres.id')
+            ->selectRaw('coalesce(own_plays.plays, 0) as plays_count')
             ->addSelect([
                 'songs_count' => $tracksOfGenre()->selectRaw('count(*)'),
                 'duration_total' => $tracksOfGenre()->selectRaw('coalesce(sum(duration), 0)'),
@@ -78,7 +92,7 @@ class GenresController extends Controller
         $table = DataTableService::buildResponse(
             query: $query,
             request: $request,
-            sortable: ['name', 'artists', 'songs', 'duration', 'size'],
+            sortable: ['name', 'artists', 'songs', 'duration', 'size', 'plays'],
             // Sort keys → real columns. Every aggregate sorts by its SELECT alias, which
             // both Postgres and SQLite resolve in ORDER BY; the name sorts on the raw
             // (ICU-collated) column, which is fine for ORDER BY — only LIKE is not (see
@@ -89,6 +103,7 @@ class GenresController extends Controller
                 'songs' => 'songs_count',
                 'duration' => 'duration_total',
                 'size' => 'size_total',
+                'plays' => 'plays_count',
             ],
             // Most audio first — the same default, and the same reasoning, as the Artists
             // listing: the genre you have the most of is the one you are most likely
@@ -110,6 +125,9 @@ class GenresController extends Controller
                 // the viewer's locale (Utils/formatting.ts), like every other listing.
                 'duration' => (float) $genre->duration_total,
                 'size' => (int) $genre->size_total,
+                // The reader's own listens, raw count and all — a zero prints as a dash on
+                // the page, which is a display decision and belongs there.
+                'plays' => (int) $genre->plays_count,
                 // Makes the row clickable in the frontend DataTable, which visits this on
                 // a row click / card tap (and the name cell renders it as a real link).
                 // Relative so it works whatever host serves the app.

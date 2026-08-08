@@ -13,6 +13,7 @@ import Widget from "Components/UI/Widget/Widget.vue";
 import WidgetModeToggle from "Components/UI/Widget/WidgetModeToggle.vue";
 import { useWidgetMode } from "Composables/useWidgetMode";
 import type { AlbumEntry, WidgetMode, WidgetModes } from "Types/music";
+import { formatTimesPlayed } from "Utils/formatting";
 import WidgetList, { type WidgetListItem } from "./WidgetList.vue";
 
 const props = defineProps<WidgetModes<AlbumEntry>>();
@@ -38,7 +39,12 @@ const items = computed<WidgetListItem[]>(() =>
         href: album.href,
         pips: [
             album.artist ? { icon: "artist", value: album.artist, label: t("music.columns.artist") } : null,
-            album.year !== null ? { icon: "calendar", value: String(album.year), label: t("music.columns.year") } : null
+            album.year !== null ? { icon: "calendar", value: String(album.year), label: t("music.columns.year") } : null,
+            // Conditional like the two above it, though for a different reason: those drop
+            // when the TAG is missing, this drops when the reader has never played the record.
+            album.plays > 0
+                ? { icon: "plays", value: formatTimesPlayed(album.plays), label: t("music.pips.playCount") }
+                : null
         ].filter(pip => pip !== null)
     }))
 );

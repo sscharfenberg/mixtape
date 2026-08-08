@@ -24,10 +24,11 @@ use Tests\TestCase;
  * countable as a song, and that the two numbers the page shows are split the way a reader
  * would expect.
  *
- * THE COUNTS ARE BY `content_hash`, and that is the one behaviour here that would look like
- * a bug if you did not know it: the same recording sits in the library several times over —
- * album, compilation, best-of — and counting by id would report three small numbers where
- * the truth is one larger one.
+ * THE COUNTS ARE BY `track_id` — listens to the row whose page this is, and no other. That
+ * was the reverse until 2026-08-08 (a song counted every copy of its recording); the owner's
+ * call turned it around and data-model.md decision #5 was re-decided to match. PlayCounts'
+ * own docblock has the argument. The test below is the one that would have caught the old
+ * rule still in place, so it is worth keeping pointed at the new one.
  */
 class PlayHistoryTest extends TestCase
 {
@@ -134,11 +135,15 @@ class PlayHistoryTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page->where('plays.own', 0)->where('plays.others', 0));
     }
 
-    public function test_listens_to_another_copy_of_the_same_recording_count_here_too(): void
+    public function test_another_copy_of_the_same_recording_keeps_its_own_count(): void
     {
-        // The album track and the best-of track are one recording with one content hash.
-        // Counting by id would tell a reader they had played this song twice when they had
-        // played it five times.
+        // The album track and the best-of track share a content hash and are still two
+        // files, each with its own page. Playing the compilation copy three times leaves the
+        // album copy's page saying 2 — the page is about the file.
+        //
+        // This is what makes the figures add up: an album's own count is the sum of its
+        // tracks', where hash-matching had each track quietly counting its twin elsewhere and
+        // the two numbers disagreeing with no way for a reader to tell which was lying.
         $reader = User::factory()->create();
         $hash = str_repeat('a', 64);
         $album = $this->track(['content_hash' => $hash]);
@@ -149,6 +154,10 @@ class PlayHistoryTest extends TestCase
 
         $this->actingAs($reader)
             ->get("/music/songs/{$album->id}")
-            ->assertInertia(fn (Assert $page) => $page->where('plays.own', 5));
+            ->assertInertia(fn (Assert $page) => $page->where('plays.own', 2));
+
+        $this->actingAs($reader)
+            ->get("/music/songs/{$compilation->id}")
+            ->assertInertia(fn (Assert $page) => $page->where('plays.own', 3));
     }
 }

@@ -31,6 +31,12 @@ export interface WidgetModes<T> {
 interface WidgetEntry {
     id: string;
     name: string;
+    /**
+     * How many times THE READER has played this — 0 where they never have, and then the
+     * widget draws no pip at all. The only per-viewer number on the Music page: every other
+     * pip is a fact about the collection (MusicController).
+     */
+    plays: number;
     /** The entry's own page — the whole row is a link to it. Decided server-side. */
     href: string;
 }

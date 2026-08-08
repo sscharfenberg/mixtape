@@ -15,6 +15,7 @@ import Widget from "Components/UI/Widget/Widget.vue";
 import WidgetModeToggle from "Components/UI/Widget/WidgetModeToggle.vue";
 import { useWidgetMode } from "Composables/useWidgetMode";
 import type { GenreEntry, WidgetMode, WidgetModes } from "Types/music";
+import { formatTimesPlayed } from "Utils/formatting";
 import WidgetList, { type WidgetListItem } from "./WidgetList.vue";
 
 const props = defineProps<WidgetModes<GenreEntry>>();
@@ -43,8 +44,13 @@ const items = computed<WidgetListItem[]>(() =>
         pips: [
             { icon: "artist", value: String(genre.artists), label: t("music.pips.artistCount") },
             { icon: "album", value: String(genre.albums), label: t("music.pips.albumCount") },
-            { icon: "song", value: String(genre.songs), label: t("music.pips.songCount") }
-        ]
+            { icon: "song", value: String(genre.songs), label: t("music.pips.songCount") },
+            // Dropped at zero, unlike the three counts above it: this one is about the reader,
+            // not the collection — see ArtistsWidget, which documents the rule.
+            genre.plays > 0
+                ? { icon: "plays", value: formatTimesPlayed(genre.plays), label: t("music.pips.playCount") }
+                : null
+        ].filter(pip => pip !== null)
     }))
 );
 </script>
@@ -54,7 +60,7 @@ const items = computed<WidgetListItem[]>(() =>
         <template #title>
             <icon name="genre" />
             {{ t("music.widgets.genres") }}
-            <widget-mode-toggle v-model="mode" name="genres-mode" :modes="modes" popular-by="duration" />
+            <widget-mode-toggle v-model="mode" name="genres-mode" :modes="modes" popular-by="playsThenDuration" />
         </template>
         <widget-list :items="items" />
         <template #footer>

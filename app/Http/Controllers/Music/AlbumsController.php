@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Collection;
 use App\Models\Track;
 use App\Services\DataTableService;
+use App\Services\Player\PlayCounts;
 use App\Services\Search\FoldedSearch;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -82,6 +83,17 @@ class AlbumsController extends Controller
             // mtime is the truest "when did this last change" (the same choice the
             // Music page's `latest` album mode makes).
             ->withMax('tracks', 'modified_at')
+            // THE READER'S OWN listens — the only column here that differs per viewer, and
+            // deliberately not the instance-wide total (this box is shared; what makes a
+            // browse list useful is what YOU have played). Counted as listening EVENTS, so
+            // playing a record twice through is 24 rather than 12.
+            //
+            // A grouped join rather than a correlated count, because the column is SORTABLE
+            // and a sortable column is computed for every album before the sort can run — the
+            // measurement that settled it is in PlayCounts::ownPerArtist. LEFT, and COALESCEd
+            // below, so an album nobody has played still lists with a 0.
+            ->leftJoinSub(PlayCounts::ownPerAlbum($request->user()), 'own_plays', 'own_plays.subject_id', '=', 'collections.id')
+            ->selectRaw('coalesce(own_plays.plays, 0) as plays_count')
             ->addSelect([
                 // COUNT(DISTINCT disc) — the same count the song page's "1/2" comes
                 // from, so the two pages can never disagree about how many discs an
@@ -101,7 +113,7 @@ class AlbumsController extends Controller
         $table = DataTableService::buildResponse(
             query: $query,
             request: $request,
-            sortable: ['name', 'year', 'artist', 'songs', 'discs', 'modifiedAt', 'duration'],
+            sortable: ['name', 'year', 'artist', 'songs', 'discs', 'modifiedAt', 'duration', 'plays'],
             // Sort keys → real columns. The aggregates sort by their SELECT alias,
             // which both Postgres and SQLite resolve in ORDER BY; the two name
             // columns sort on the raw (ICU-collated) name, which is fine for ORDER BY
@@ -114,6 +126,7 @@ class AlbumsController extends Controller
                 'discs' => 'discs_count',
                 'modifiedAt' => 'tracks_max_modified_at',
                 'duration' => 'tracks_sum_duration',
+                'plays' => 'plays_count',
             ],
             // Newest first: what a listener wants from a 1200-album listing is "what
             // has changed lately", not the top of the alphabet — and since an album's
@@ -148,6 +161,9 @@ class AlbumsController extends Controller
                 // the page (Utils/formatting.ts), against the viewer's locale and
                 // timezone.
                 'duration' => $album->tracks_sum_duration === null ? null : (float) $album->tracks_sum_duration,
+                // The reader's own listens, raw count and all — a zero prints as a dash on
+                // the page, which is a display decision and belongs there.
+                'plays' => (int) $album->plays_count,
                 // Parsed explicitly: an aggregate attribute is NOT the related
                 // model's own attribute, so Track's `modified_at` datetime cast does
                 // not reach it and `withMax` hands back whatever string the driver

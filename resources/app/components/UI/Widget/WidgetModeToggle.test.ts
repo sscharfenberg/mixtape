@@ -75,9 +75,13 @@ describe("WidgetModeToggle", () => {
         ]);
     });
 
-    it("says popular means most-played by default, and most-minutes where it does", () => {
+    it("says popular means most-played, and names the second sort key where there is one", () => {
+        // Both variants describe the READER'S listening — the taxonomies just add a
+        // tie-break so their cards stay populated before much has been played.
         expect(hints(toggle())[1]).toBe(translate("music.mode.tip.popular_plays"));
-        expect(hints(toggle({ popularBy: "duration" }))[1]).toBe(translate("music.mode.tip.popular_duration"));
+        expect(hints(toggle({ popularBy: "playsThenDuration" }))[1]).toBe(
+            translate("music.mode.tip.popular_playsThenDuration")
+        );
     });
 
     it("explains every mode, since the icons carry no words", () => {

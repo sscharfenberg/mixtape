@@ -27,7 +27,7 @@ import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import type { ColumnDef, TableResponse } from "Types/dataTable";
-import { formatClock, formatFileSize } from "Utils/formatting";
+import { formatClock, formatFileSize, formatTimesPlayed } from "Utils/formatting";
 
 /** One genre row as shaped by GenresController's rowMapper — every value raw. */
 interface GenreRow {
@@ -42,6 +42,8 @@ interface GenreRow {
     duration: number;
     /** Total size of those files in bytes. */
     size: number;
+    /** How many times THE READER has played its songs — 0 where they never have. */
+    plays: number;
     /** The genre's detail page — makes the row clickable and backs the name link. */
     href: string;
 }
@@ -71,7 +73,8 @@ const columns = computed<ColumnDef<GenreRow>[]>(() => [
     { key: "artists", label: t("music.columns.artists"), sortable: true, visibleInCard: true, align: "right" },
     { key: "songs", label: t("music.columns.songs"), sortable: true, visibleInCard: true, align: "right" },
     { key: "duration", label: t("music.columns.duration"), sortable: true, visibleInCard: true, align: "right" },
-    { key: "size", label: t("music.columns.size"), sortable: true, visibleInCard: true, align: "right" }
+    { key: "size", label: t("music.columns.size"), sortable: true, visibleInCard: true, align: "right" },
+    { key: "plays", label: t("music.plays.columnLabel"), sortable: true, visibleInCard: true, align: "right" }
 ]);
 </script>
 
@@ -91,6 +94,13 @@ const columns = computed<ColumnDef<GenreRow>[]>(() => [
                  so a genre whose tracks were all pruned reads "0:00" rather than blank. -->
             <template #cell-duration="{ row }">{{ formatClock(row.duration) }}</template>
             <template #cell-size="{ row }">{{ formatFileSize(row.size, locale) }}</template>
+            <!-- A dash rather than "0×" for a genre the reader has never played: on a column
+                 where most rows are empty until a library has been lived in, a page of zeroes
+                 reads as broken data. The server sends the raw 0, which is what the sort
+                 needs; drawing it as nothing is the page's decision. -->
+            <template #cell-plays="{ row }">
+                {{ row.plays > 0 ? formatTimesPlayed(row.plays) : "—" }}
+            </template>
             <template #empty>
                 <p>{{ t("components.datatable.no_results") }}</p>
             </template>

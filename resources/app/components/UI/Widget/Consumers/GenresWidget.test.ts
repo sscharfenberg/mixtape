@@ -21,6 +21,7 @@ const genre = (overrides: Partial<GenreEntry> = {}): GenreEntry => ({
     artists: 20,
     albums: 45,
     songs: 360,
+    plays: 0,
     href: "/music/genres/genre-1",
     ...overrides
 });

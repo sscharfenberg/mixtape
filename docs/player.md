@@ -25,6 +25,10 @@ queue_ for the shape both files build on rather than revisit.
 | A stream that fails, and what it says                         | ✅ `Utils/playbackError`, 2026-08-07           |
 | Resuming mid-track (position synced + restored)               | ✅ 2026-08-07 — `play-queue.md` owns it        |
 | Listen history — what counts as a play, and counting it       | ✅ 2026-08-07 — _What counts as a play_ below  |
+| Play counts on the artist / genre / album pages + listings    | ✅ 2026-08-08 — _What counts as a play_ below  |
+| A play pip on all four Music-page widgets                     | ✅ 2026-08-08 — _What counts as a play_ below  |
+| `popular` re-ranked by the reader's own listens               | ✅ 2026-08-08 — _What counts as a play_ below  |
+| Counts that refresh in place when a track finishes            | ✅ 2026-08-08 — _Keeping the number honest_    |
 | Real playback in a browser                                    | ✅ Playwright, incl. under the prod CSP        |
 | Screen-off on a real phone                                    | ✅ **Android / Chrome, 2026-08-07** — below    |
 
@@ -227,11 +231,141 @@ picture is how a reader learns the picture means nothing) on both tiles: the lab
 listening it is, and the icon says what kind of fact it is. Each tile carries a **tooltip** and the
 same sentence as an `aria-describedby` description, because the figure alone cannot say what counts
 as a play, whether repeats count, or whether the same recording on another album counts here — and
-because a tooltip on its own explains the number to everyone except the readers who cannot see it. The
-counts are by **`content_hash`**, so the album track and the best-of track are one recording:
-counting by id would tell a reader they had played a song twice when they had played it five
-times, and would disagree with most-played, which `data-model.md` settled on the hash for the same
-reason.
+because a tooltip on its own explains the number to everyone except the readers who cannot see it.
+
+**The counts are by `track_id`** — listens to this row, and no other. That was the reverse until
+**2026-08-08**: a song counted every copy of its recording (`content_hash`), on the grounds that
+the album track and the best-of track are one song, which is what `data-model.md` settled for
+most-played in open decision #5. The owner reversed it, and it leaves the app **more** consistent
+rather than less: `MusicController`'s most-played songs always ranked by `withCount('plays')`,
+i.e. by id, so the song page was the only place in the app claiming the other rule. It also
+removed arithmetic no reader could reproduce — an album whose track figures summed to more than
+the album's own, because each track was quietly counting its twin elsewhere. What it costs is
+real: play a song from the best-of and its entry on the album shows nothing. That is the honest
+reading — these are two files, and the page is about the file. **`data-model.md` decision #5 is
+now out of step with the code** and should be revisited when most-played is built for real.
+
+### The same counts for an artist, a genre and an album (2026-08-08)
+
+The artist, genre and album heroes carry the same two tiles, and the three listings carry a
+sortable **VON DIR GESPIELT** column. `PlayCounts` grew `forArtist` / `forGenre` / `forAlbum`
+beside `forTrack`, and the frontend grew `Components/Music/PlayCountFacts` — one component for
+all four heroes, since only the tooltip's noun differs. The song page was refitted onto it, so
+the zero rule, the glyph and the descriptions now exist once.
+
+**A SUBJECT COUNTS BY `track_id`** — listening events — and since the song page was moved onto
+the same rule (above) that is now the app's only rule. Every play row belongs to exactly one
+track and so to exactly one artist, which makes a straight join already exact; hash-matching
+would count one recording twice for any artist holding two copies of it, which is the normal case
+in this collection (the album and the best-of). The property it buys is that **the figures add
+up**: an album's count is the sum of its tracks', which `SubjectPlayCountsTest` asserts directly
+rather than by inspection — it plays a third copy of one track filed on another record and checks
+that the album's total ignores it.
+
+**The listings show only the READER'S OWN listens** (the owner's call), making it the app's only
+per-viewer column: this instance is shared with family and friends, and a browse list sorts
+usefully on what *you* have played. The yours/others split stays on the detail page, where a tile
+can label it. A count of zero comes over as `0` — the sort needs it — and the page draws it as a
+dash, because a column of "0×" on a library not yet lived in reads as broken data.
+
+**The Music page's four widgets carry a play pip too** — same figure, same rule, and it **drops
+out at zero** where the counts beside it (albums, songs, artists) always render. Those are facts
+about the collection, where 0 is an answer; this one is about the reader, and "you have never
+played this" on every card of a library not yet lived in is noise.
+
+**Adding that pip forced `popular` to be rebuilt, and the bug report is the clearest statement of
+why.** The three widgets that offer the mode ranked it three-quarters wrong once a play count was
+visible beside it:
+
+| Widget          | `popular` was                | is now                                     |
+| --------------- | ---------------------------- | ------------------------------------------ |
+| Songs           | most played, **household**, gated at **>1 play** | the reader's own listens, any song they have played |
+| Artists, genres | **most minutes of audio**    | the reader's own listens, **then** minutes |
+
+Two separate complaints, one cause. The genres card showed *"Heavy Metal 2×, Melodic Death Metal
+—, Progressive Metal 1×, Black Metal —"*: it was sorting by total duration (which tracks song
+count closely, hence "this looks like it sorts by number of songs"), and an order that contradicts
+the numbers printed on it reads as a broken sort. And the songs card said **"not enough data"**
+while three songs had plays, because the `>1` gate treated a single listen as noise — a theory
+that hid the answer exactly when the data was thin enough to matter.
+
+**Ranked by the reader, not the household**, and that is the fix rather than a preference: the pip
+beside it is the reader's own, so a household ranking would keep putting a card showing "1×" above
+one showing "5×" with nothing on screen to explain it. `popular` now means one thing everywhere —
+*what you have played most*.
+
+**Minutes stay as the artists/genres second key**, which is what keeps those cards populated: they
+default to `popular`, and a strict play ranking would open both on a nearly empty card until a lot
+has been listened to. A played entry can never sit below an unplayed one; the unplayed tail keeps
+the old, useful "most audio" order. The songs card takes no such fallback — an unplayed song has
+no business in a most-played list — so its "not enough data" note survives, now for the one case
+that deserves it: nothing has been played at all.
+
+**The ORDER BY uses the grouped subquery, the pip the correlated one**, in the same method. That
+is not inconsistency: the sort is computed for every row before the limit applies (the grouped
+shape's case), the pip for the four rows that survive it (the correlated shape's case). The joined
+count is **COALESCEd** in the ORDER BY, which is load-bearing rather than tidy — an unplayed
+artist has no row in the subquery, and Postgres sorts NULLs FIRST under DESC, which would float
+exactly the artists nobody has played to the top of "most played". SQLite sorts them last, so the
+suite would never have shown it.
+
+**Both query shapes exist on purpose, and which is right depends on the row count.** The widgets
+use a **correlated** subquery (`PlayCounts::ownCountForArtist` and siblings) because they show
+four rows and order by something else, so the engine evaluates it four times. The listings use
+the **grouped** one (`ownPerArtist`) because they SORT by it, so every row must be counted before
+the sort can run. Using either in the other's place is the expensive mistake in one direction or
+the other.
+
+**The listings use a grouped `leftJoinSub`, not the correlated subquery every other column on
+those pages uses**, and that was measured rather than assumed. A sortable column must be computed
+for every parent row before the sort can run, and a correlated count re-probes `plays` once per
+parent. Against a synthetic 500k-row `plays` table on the dev box (12,074 tracks / 639 artists /
+139 genres / 955 albums):
+
+| Query                                             | 500k plays | 100k plays |
+| ------------------------------------------------- | ---------- | ---------- |
+| Artists listing before this change (baseline)     | 11 ms      | 11 ms      |
+| One detail page, own + others                     | **0.4 ms** | 0.4 ms     |
+| Genres sorted by plays, correlated subqueries     | **914 ms** | —          |
+| Genres sorted by plays, grouped `leftJoinSub`     | **123 ms** | 30 ms      |
+| Artists / albums sorted by plays, grouped         | 123 / 134 ms | 30 ms    |
+
+So the cost is linear in the `plays` table — roughly **25–30 ms per 100k rows** — and stays
+predictable for years at the write rate `PlayController` projects. The correlated shape stays
+right for `songs_count`, which rides `tracks.artist_id` and touches nothing else. A display-only
+column (sort left on duration) would have cost 22 ms, because Postgres then computes it for the
+25 rows on the page only; making it **sortable** is what buys the whole-table pass.
+
+### Keeping the number on screen honest
+
+The counts arrive as Inertia props rendered *before* the listener had heard anything, so a track
+finishing on the very page showing its count used to leave the figure a request behind until the
+next navigation — which reads as the feature being broken. Two small pieces close it:
+
+- **`usePlayEvents`** — a module singleton holding a counter, ticked by `playBeacon` **only on
+  `response.ok`**. `fetch` resolves just as happily for a 419 or a 500 as for the 204 that means a
+  row was written, and a page told to refresh after a failed write re-fetches the number it
+  already has, which is indistinguishable from a count that refuses to move.
+- **`PlayCountFacts` watches it and calls `router.reload({ only: ["plays"] })`.** That is the
+  reason every controller sends these counts as their own top-level prop rather than folding them
+  into `artist` / `album` / `genre`: `only` can then name them. `reload` forces `preserveState`
+  and `preserveScroll` (they are applied *after* the caller's options, so they cannot be
+  overridden), so an open popover, a table's sort and the reader's place on the page all survive.
+
+**It asks on every play rather than guessing whether the page cares.** The obvious guard — "only
+if the played track is the one on screen" — is right for a song page and wrong for the other
+three: an artist, genre or album counts every listen to any of *its* tracks, and the browser has
+no idea which artist the played track belonged to (the queue holds titles, not taxonomy). One
+rule for all four, and the server recomputing is definitionally right.
+
+**Detail pages only.** On a listing the figure lives inside the `table` prop, so refreshing it
+would re-run the whole DataTable query to move one number on a row the reader is probably not
+looking at. Listings refresh on navigation.
+
+**None of this is in the E2E suite**, for the reason the rest of the play counting is not: the
+fixture's audio is one second long against rows claiming minutes, so the threshold can never be
+reached there. `PlayCountFacts.test.ts` and `playBeacon.test.ts` own the behaviour;
+`SubjectPlayCountsTest` owns the counting and the sort.
 
 **Not in the E2E suite, deliberately.** The fixture's audio is one second long against rows
 claiming minutes, so a threshold measured in heard seconds can never be reached there. The

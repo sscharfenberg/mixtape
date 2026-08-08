@@ -329,66 +329,27 @@ describe("SongPage", () => {
 
     describe("what it says about listening", () => {
         /*
-         * The counts are the server's, but WHETHER TO SAY ANYTHING is this page's decision —
-         * which is why it is tested here and not in assertInertia. A zero is left unsaid: a
-         * fresh library would otherwise be a wall of "0×" tiles saying only that the feature
-         * exists.
-         *
-         * Read out of the HERO's own metadata row, because that is the claim — these are
-         * tiles like the artist and the year beside them, not prose under them.
+         * The tiles themselves — the zero rule, the tooltips, the live refresh — belong to
+         * PlayCountFacts and are tested there, once, rather than once per page that renders
+         * it. What is left here is the claim only this page makes: that the counts land in
+         * the HERO's own metadata row, as tiles like the artist and the year beside them,
+         * and not as prose underneath. That placement was a real decision (a sentence among
+         * those tiles read as a broken one) and it is the half a refactor breaks.
          */
 
-        /** The listening tiles in the hero, as `label value` text. */
-        const tiles = (wrapper: ReturnType<typeof page>): string[] =>
+        /** The count printed by each listening tile in the hero, in render order. */
+        const heroPlayCounts = (wrapper: ReturnType<typeof page>): string[] =>
             wrapper
-                .findAll(".hero-section__metadata .fact-pair")
+                .findAll(".hero-section__metadata .fact-pair .fact-pair__value")
                 .map(node => node.text())
-                .filter(text => text.includes("×"));
+                .filter(text => text.includes("\u00d7"));
 
-        it("says nothing at all about a song nobody has played", () => {
-            expect(tiles(page())).toStrictEqual([]);
+        it("puts the listening tiles in the hero's metadata row, not below it", () => {
+            expect(heroPlayCounts(page({}, "de", { own: 3, others: 5 }))).toStrictEqual(["3\u00d7", "5\u00d7"]);
         });
 
-        it("counts the reader's own listens", () => {
-            expect(tiles(page({}, "de", { own: 3, others: 0 }))).toStrictEqual(["Von dir3×"]);
-        });
-
-        it("counts everybody else's separately", () => {
-            expect(tiles(page({}, "de", { own: 0, others: 5 }))).toStrictEqual(["Von anderen5×"]);
-        });
-
-        it("shows both when both have happened, the reader's first", () => {
-            expect(tiles(page({}, "de", { own: 2, others: 4 }))).toStrictEqual(["Von dir2×", "Von anderen4×"]);
-        });
-
-        it("explains what the number means to everyone, not only to a pointer", () => {
-            /*
-             * Three things the figure alone cannot answer: what counts as a play, whether
-             * repeats count, and whether the same recording elsewhere counts here. The
-             * tooltip says all three — and `v-tooltip` is pointer-and-focus only, so the
-             * same sentence is also a description, which is the half a test can read.
-             */
-            const wrapper = page({}, "de", { own: 3, others: 5 });
-            const tiles = wrapper.findAll(".hero-section__metadata .fact-pair");
-            const described = tiles.filter(tile => tile.attributes("aria-describedby") !== undefined);
-
-            expect(described).toHaveLength(2);
-            expect(wrapper.find("#song-plays-own").text()).toContain("Hälfte");
-            expect(wrapper.find("#song-plays-others").text()).toContain("gehört");
-        });
-
-        it("describes nothing it is not showing", () => {
-            const wrapper = page({}, "de", { own: 0, others: 4 });
-
-            expect(wrapper.find("#song-plays-own").exists()).toBe(false);
-            expect(wrapper.find("#song-plays-others").exists()).toBe(true);
-        });
-
-        it("needs no plural rule, which is what the tile format buys", () => {
-            // As a sentence this was a real fork — German wants "einmal", not "1-mal" — and
-            // as a tile it is simply the figure.
-            expect(tiles(page({}, "de", { own: 1, others: 0 }))).toStrictEqual(["Von dir1×"]);
-            expect(tiles(page({}, "en", { own: 1, others: 0 }))).toStrictEqual(["By you1×"]);
+        it("says nothing about a song nobody has played", () => {
+            expect(heroPlayCounts(page())).toStrictEqual([]);
         });
     });
 });

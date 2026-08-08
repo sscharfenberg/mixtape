@@ -21,8 +21,16 @@
  * pseudo-element (see the styles), so the padding is clickable while the link's
  * accessible name stays just the value — "Luciferian Towers", not "ALBUM Luciferian
  * Towers".
+ *
+ * Pass `description` and the tile carries a sentence explaining the figure, for the readers
+ * a tooltip never reaches. It is the same text `v-tooltip` shows, rendered visually hidden
+ * inside the <li> and pointed at by `aria-describedby` — the pattern OptionBubbles
+ * established, and the reason it lives HERE rather than at the call site: a tooltip on its
+ * own explains the value to everybody except the people who cannot see it, and a caller who
+ * has to remember a second element to make that true will eventually forget.
  *****************************************************************************/
 import { Link } from "@inertiajs/vue3";
+import { useId } from "vue";
 import Icon from "Components/UI/Icon.vue";
 
 defineProps<{
@@ -41,11 +49,29 @@ defineProps<{
      * (a song's album does, its codec does not).
      */
     href?: string;
+    /**
+     * A sentence saying what the value means, for anyone who never sees a tooltip. Rendered
+     * visually hidden inside the tile and wired up with `aria-describedby`. Omit where the
+     * label and value already say everything (an album's name needs no explaining; a play
+     * count does).
+     */
+    description?: string;
 }>();
+
+/**
+ * The id linking the tile to its hidden description. Generated rather than passed in
+ * because a caller cannot keep ids unique across a hero that renders several described
+ * tiles — and a duplicate id makes every one of them describe the first.
+ */
+const descriptionId = useId();
 </script>
 
 <template>
-    <li class="fact-pair" :class="{ 'fact-pair--link': href }">
+    <li
+        class="fact-pair"
+        :class="{ 'fact-pair--link': href }"
+        :aria-describedby="description ? descriptionId : undefined"
+    >
         <span class="fact-pair__label">
             <icon v-if="icon" :name="icon" :size="0" />
             {{ label }}
@@ -59,6 +85,9 @@ defineProps<{
             >{{ value }}</Link
         >
         <span v-else class="fact-pair__value" :class="{ 'fact-pair__value--mono': mono }">{{ value }}</span>
+        <!-- Inside the <li>, not after it: the tile's host is a <ul>, where a stray <p>
+             between items is invalid markup and a `role="list"` browsers may then drop. -->
+        <span v-if="description" :id="descriptionId" class="sr-only">{{ description }}</span>
     </li>
 </template>
 

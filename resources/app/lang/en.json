@@ -236,8 +236,8 @@
             "random": "Random",
             "tip": {
                 "latest": "Latest — newest file timestamp",
-                "popular_duration": "Popular — most minutes in the collection",
-                "popular_plays": "Popular — most played",
+                "popular_playsThenDuration": "Popular — the ones you have played most, then the most minutes",
+                "popular_plays": "Popular — the ones you have played most",
                 "random": "Random — a shuffled selection"
             }
         },
@@ -278,7 +278,8 @@
             "albumCount": "Number of albums",
             "songCount": "Number of songs",
             "artistCount": "Number of artists",
-            "totalDuration": "Total playing time"
+            "totalDuration": "Total playing time",
+            "playCount": "Played by you"
         },
         "channel": {
             "stereo": "Stereo",
@@ -313,12 +314,27 @@
                 "bitRate": "kbps",
                 "sampleRate": "Hz"
             },
-            "vbr": "VBR",
-            "plays": {
-                "own": "By you",
-                "ownTip": "How often you have played this song. It counts once half the track has been heard — after four minutes for a long one. Repeats count separately, and the same recording on another album counts here too.",
-                "others": "By others",
+            "vbr": "VBR"
+        },
+        "plays": {
+            "own": "By you",
+            "others": "By others",
+            "columnLabel": "Played by you",
+            "song": {
+                "ownTip": "How often you have played this song. It counts once half the track has been heard — after four minutes for a long one. Repeats count separately. It means this file: the same recording on another album is counted there.",
                 "othersTip": "How often everybody else has played this song, put together — counted the same way as yours."
+            },
+            "artist": {
+                "ownTip": "How often you have played this artist's songs. Each song counts once half of it has been heard — after four minutes for a long one — so playing an album twice through counts twice.",
+                "othersTip": "How often everybody else has played this artist's songs, put together — counted the same way as yours."
+            },
+            "genre": {
+                "ownTip": "How often you have played songs in this genre. Each song counts once half of it has been heard — after four minutes for a long one. Repeats count too.",
+                "othersTip": "How often everybody else has played songs in this genre, put together — counted the same way as yours."
+            },
+            "album": {
+                "ownTip": "How often you have played this album's songs. Each song counts once half of it has been heard — after four minutes for a long one. It means this record's own tracks: the same recording on another album counts there.",
+                "othersTip": "How often everybody else has played this album's songs, put together — counted the same way as yours."
             }
         },
         "empty": "Nothing here yet",

@@ -65,6 +65,7 @@ const page = (overrides: Record<string, unknown> = {}, locale: "de" | "en" = "de
     mountApp(ArtistPage, {
         props: {
             artist: artist(overrides),
+            plays: { own: 0, others: 0 },
             discography: [],
             table: {
                 rows: [row()],

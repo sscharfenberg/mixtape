@@ -18,6 +18,7 @@ const song = (overrides: Partial<SongEntry> = {}): SongEntry => ({
     name: "Paranoid Android",
     artist: "Radiohead",
     year: 1997,
+    plays: 0,
     href: "/music/songs/song-1",
     ...overrides
 });

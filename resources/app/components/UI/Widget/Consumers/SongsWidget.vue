@@ -15,6 +15,7 @@ import Widget from "Components/UI/Widget/Widget.vue";
 import WidgetModeToggle from "Components/UI/Widget/WidgetModeToggle.vue";
 import { useWidgetMode } from "Composables/useWidgetMode";
 import type { SongEntry, WidgetMode, WidgetModes } from "Types/music";
+import { formatTimesPlayed } from "Utils/formatting";
 import WidgetList, { type WidgetListItem } from "./WidgetList.vue";
 
 const props = defineProps<WidgetModes<SongEntry>>();
@@ -42,7 +43,13 @@ const items = computed<WidgetListItem[]>(() =>
         href: song.href,
         pips: [
             song.artist ? { icon: "artist", value: song.artist, label: t("music.columns.artist") } : null,
-            song.year !== null ? { icon: "calendar", value: String(song.year), label: t("music.columns.year") } : null
+            song.year !== null ? { icon: "calendar", value: String(song.year), label: t("music.columns.year") } : null,
+            // The reader's OWN listens — which is deliberately not what `popular` ranks by
+            // (that is the whole household), so a card can lead the popular set showing a
+            // small number here. MusicController's `songs()` explains the pair.
+            song.plays > 0
+                ? { icon: "plays", value: formatTimesPlayed(song.plays), label: t("music.pips.playCount") }
+                : null
         ].filter(pip => pip !== null)
     }))
 );

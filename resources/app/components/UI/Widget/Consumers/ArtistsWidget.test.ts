@@ -23,6 +23,7 @@ const artist = (overrides: Partial<ArtistEntry> = {}): ArtistEntry => ({
     albums: 24,
     songs: 406,
     duration: 131_284,
+    plays: 0,
     href: "/music/artists/artist-1",
     ...overrides
 });
@@ -52,9 +53,20 @@ describe("ArtistsWidget", () => {
         expect(shown.join(" ")).not.toContain("131284");
     });
 
-    it("keeps every pip when the counts are zero", () => {
+    it("keeps every collection pip when the counts are zero", () => {
         // 0 is an answer here — an artist can perform tracks without owning an album.
         expect(pips(widget(artist({ albums: 0, songs: 0, duration: 0 })))).toStrictEqual(["0", "0", "0:00"]);
+    });
+
+    it("adds a play pip once the reader has listened", () => {
+        expect(pips(widget(artist({ plays: 34 })))).toStrictEqual(["24", "406", "36:28:04", "34\u00d7"]);
+    });
+
+    it("drops the play pip at zero, unlike the three counts beside it", () => {
+        // The one per-viewer pip, and the one exception to the rule above: "you have never
+        // played this" is nothing to report, and on a library not yet lived in it would put
+        // an identical "0" on every card in every widget.
+        expect(pips(widget(artist({ plays: 0 })))).toStrictEqual(["24", "406", "36:28:04"]);
     });
 
     it("links the entry to the artist's own page", () => {

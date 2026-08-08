@@ -236,8 +236,8 @@
             "random": "Zufällig",
             "tip": {
                 "latest": "Neueste — neuester Dateizeitstempel",
-                "popular_duration": "Beliebt — meiste Minuten in der Sammlung",
-                "popular_plays": "Beliebt — am häufigsten gespielt",
+                "popular_playsThenDuration": "Beliebt — von dir am häufigsten gespielt, dann meiste Minuten",
+                "popular_plays": "Beliebt — von dir am häufigsten gespielt",
                 "random": "Zufällig — zufällige Auswahl"
             }
         },
@@ -278,7 +278,8 @@
             "albumCount": "Anzahl Alben",
             "songCount": "Anzahl Songs",
             "artistCount": "Anzahl Künstler",
-            "totalDuration": "Gesamtspielzeit"
+            "totalDuration": "Gesamtspielzeit",
+            "playCount": "Von dir gespielt"
         },
         "channel": {
             "stereo": "Stereo",
@@ -313,12 +314,27 @@
                 "bitRate": "kbit/s",
                 "sampleRate": "Hz"
             },
-            "vbr": "VBR",
-            "plays": {
-                "own": "Von dir",
-                "ownTip": "So oft hast du diesen Titel gehört. Gezählt wird, sobald die Hälfte gelaufen ist – bei langen Titeln nach vier Minuten. Wiederholungen zählen einzeln, und dieselbe Aufnahme auf einem anderen Album zählt mit.",
-                "others": "Von anderen",
+            "vbr": "VBR"
+        },
+        "plays": {
+            "own": "Von dir",
+            "others": "Von anderen",
+            "columnLabel": "Von dir gespielt",
+            "song": {
+                "ownTip": "So oft hast du diesen Titel gehört. Gezählt wird, sobald die Hälfte gelaufen ist – bei langen Titeln nach vier Minuten. Wiederholungen zählen einzeln. Gemeint ist diese Datei: dieselbe Aufnahme auf einem anderen Album wird dort gezählt.",
                 "othersTip": "So oft haben alle anderen zusammen diesen Titel gehört – auf dieselbe Art gezählt wie bei dir."
+            },
+            "artist": {
+                "ownTip": "So oft hast du Titel dieses Künstlers gehört. Gezählt wird jeder Titel einzeln, sobald die Hälfte gelaufen ist – bei langen Titeln nach vier Minuten. Ein Album zweimal durchgehört zählt also doppelt.",
+                "othersTip": "So oft haben alle anderen zusammen Titel dieses Künstlers gehört – auf dieselbe Art gezählt wie bei dir."
+            },
+            "genre": {
+                "ownTip": "So oft hast du Titel dieses Genres gehört. Gezählt wird jeder Titel einzeln, sobald die Hälfte gelaufen ist – bei langen Titeln nach vier Minuten. Wiederholungen zählen mit.",
+                "othersTip": "So oft haben alle anderen zusammen Titel dieses Genres gehört – auf dieselbe Art gezählt wie bei dir."
+            },
+            "album": {
+                "ownTip": "So oft hast du Titel dieses Albums gehört. Gezählt wird jeder Titel einzeln, sobald die Hälfte gelaufen ist – bei langen Titeln nach vier Minuten. Gemeint sind die Titel dieser Platte: dieselbe Aufnahme auf einem anderen Album zählt dort.",
+                "othersTip": "So oft haben alle anderen zusammen Titel dieses Albums gehört – auf dieselbe Art gezählt wie bei dir."
             }
         },
         "empty": "Noch keine Einträge",

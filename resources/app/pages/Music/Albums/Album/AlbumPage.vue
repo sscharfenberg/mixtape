@@ -31,6 +31,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import DataTable from "Components/DataTable/DataTable.vue";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
+import PlayCountFacts from "Components/Music/PlayCountFacts.vue";
 import SubjectMenu from "Components/Music/SubjectMenu.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Container from "Components/UI/Container.vue";
@@ -105,6 +106,14 @@ const props = defineProps<{
     album: AlbumDetail;
     /** Its tracks, as the server-driven table payload (rows + pagination + sort + search). */
     table: TableResponse<TrackRow>;
+    /**
+     * How often this record has been listened to: the reader's own listens and everybody
+     * else's, as listening events over ITS tracks (App\Services\Player\PlayCounts, which
+     * explains why that will not equal the sum of the songs' own figures). Its own prop
+     * rather than a member of `album` because PlayCountFacts refreshes exactly this key in
+     * place when a track finishes. Raw counts — a zero is something the tiles leave unsaid.
+     */
+    plays: { own: number; others: number };
 }>();
 
 const { t, locale } = useI18n();
@@ -221,6 +230,9 @@ const columns = computed<ColumnDef<TrackRow>[]>(() => [
                         :label="t('music.columns.modifiedAt')"
                         :value="modified"
                     />
+                    <!-- Last, and only when there is something to say: what has actually been
+                         listened to comes after what the record IS. See PlayCountFacts. -->
+                    <play-count-facts :plays="plays" subject="album" />
                 </template>
             </hero-section>
 

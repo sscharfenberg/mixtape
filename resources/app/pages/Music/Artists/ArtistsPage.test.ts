@@ -26,7 +26,9 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
 
 /** A table payload, defaulted around one artist with a catalogue of their own. */
 const table = (overrides: Record<string, unknown> = {}) => ({
-    rows: [{ id: "artist-1", name: "Radiohead", albums: 9, songs: 118, duration: 51727, size: 10485760, href: "/music/artists/artist-1" }],
+    rows: [
+        { id: "artist-1", name: "Radiohead", albums: 9, songs: 118, duration: 51727, size: 10485760, plays: 34, href: "/music/artists/artist-1" }
+    ],
     total: 1,
     totalUnfiltered: 1,
     page: 1,
@@ -59,7 +61,7 @@ describe("ArtistsPage", () => {
         ]);
     });
 
-    it("declares the five columns, with no artwork among them", () => {
+    it("declares the six columns, with no artwork among them", () => {
         const headers = page()
             .findAll("th")
             .map(node => node.text());
@@ -69,7 +71,8 @@ describe("ArtistsPage", () => {
             translate("music.columns.albums"),
             translate("music.columns.songs"),
             translate("music.columns.duration"),
-            translate("music.columns.size")
+            translate("music.columns.size"),
+            translate("music.plays.columnLabel")
         ]);
         expect(headers).not.toContain(translate("music.columns.cover"));
     });

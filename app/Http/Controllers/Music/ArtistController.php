@@ -11,6 +11,7 @@ use App\Models\Track;
 use App\Services\DataTableService;
 use App\Services\Music\DominantGenre;
 use App\Services\Music\QueuePayload;
+use App\Services\Player\PlayCounts;
 use App\Services\Search\FoldedSearch;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -88,6 +89,16 @@ class ArtistController extends Controller
             // The songs tab, as the same server-driven payload every listing sends. It owns
             // the page's query params outright, for the reason given in the class docblock.
             'table' => $this->songTable($request, $artist),
+            // How much of this artist has been listened to — the reader's own listens and
+            // everybody else's, as listening EVENTS (App\Services\Player\PlayCounts explains
+            // why a subject counts by track and a single song counts by content hash).
+            //
+            // ITS OWN PROP, not a member of `artist`, and that is load-bearing rather than
+            // tidy: the player refreshes this number in place when a track finishes, through
+            // a partial reload naming exactly this key. Folded into `artist` it would drag
+            // the whole hero — name, genre, every total — back over the wire to move one
+            // figure.
+            'plays' => PlayCounts::forArtist($artist, $request->user()),
             'artist' => [
                 'id' => $artist->id,
                 'name' => $artist->name,

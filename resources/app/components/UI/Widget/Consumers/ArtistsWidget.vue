@@ -15,7 +15,7 @@ import Widget from "Components/UI/Widget/Widget.vue";
 import WidgetModeToggle from "Components/UI/Widget/WidgetModeToggle.vue";
 import { useWidgetMode } from "Composables/useWidgetMode";
 import type { ArtistEntry, WidgetMode, WidgetModes } from "Types/music";
-import { formatClock } from "Utils/formatting";
+import { formatClock, formatTimesPlayed } from "Utils/formatting";
 import WidgetList, { type WidgetListItem } from "./WidgetList.vue";
 
 const props = defineProps<WidgetModes<ArtistEntry>>();
@@ -32,8 +32,14 @@ const mode = useWidgetMode("artists", "popular", modes);
 /**
  * Active-mode artists as list entries: what each one adds up to across the collection.
  *
- * All three pips always render — unlike the albums/songs widgets, where a pip stands for a
- * TAG that can be missing, these are counts, and 0 is an answer rather than absent data.
+ * The first three pips always render — unlike the albums/songs widgets, where a pip stands
+ * for a TAG that can be missing, these are counts, and 0 is an answer rather than absent
+ * data.
+ *
+ * THE PLAY PIP IS THE EXCEPTION, and drops out at zero. It is not a fact about the
+ * collection but about the reader, and "you have never played this" is nothing to report —
+ * on a library not yet lived in it would put an identical "0" on every card in every widget.
+ * Same rule as the hero tiles', and the same reason the listings draw a dash there.
  */
 const items = computed<WidgetListItem[]>(() =>
     (props[mode.value] ?? props.latest).map(artist => ({
@@ -43,8 +49,11 @@ const items = computed<WidgetListItem[]>(() =>
         pips: [
             { icon: "album", value: String(artist.albums), label: t("music.pips.albumCount") },
             { icon: "song", value: String(artist.songs), label: t("music.pips.songCount") },
-            { icon: "duration", value: formatClock(artist.duration) ?? "", label: t("music.pips.totalDuration") }
-        ]
+            { icon: "duration", value: formatClock(artist.duration) ?? "", label: t("music.pips.totalDuration") },
+            artist.plays > 0
+                ? { icon: "plays", value: formatTimesPlayed(artist.plays), label: t("music.pips.playCount") }
+                : null
+        ].filter(pip => pip !== null)
     }))
 );
 </script>
@@ -54,7 +63,7 @@ const items = computed<WidgetListItem[]>(() =>
         <template #title>
             <icon name="artist" />
             {{ t("music.widgets.artists") }}
-            <widget-mode-toggle v-model="mode" name="artists-mode" :modes="modes" popular-by="duration" />
+            <widget-mode-toggle v-model="mode" name="artists-mode" :modes="modes" popular-by="playsThenDuration" />
         </template>
         <widget-list :items="items" />
         <template #footer>

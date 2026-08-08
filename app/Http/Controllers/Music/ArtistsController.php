@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Artist;
 use App\Models\Track;
 use App\Services\DataTableService;
+use App\Services\Player\PlayCounts;
 use App\Services\Search\FoldedSearch;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -33,6 +34,12 @@ use Inertia\Response;
  * their discography, and the reading this column commits to — so 0-albums-with-N-songs is
  * expected here, not missing data. The other count is not shown anywhere: an artist's
  * albums are the ones they are credited with, full stop.
+ *
+ * `plays` is the READER'S OWN listens, and the only column on this page that differs per
+ * viewer. It counts listening events over the artist's tracks — so a run through an album
+ * twice is 24, not 12 — and it is deliberately not the instance-wide total: this box is
+ * shared with family and friends, and what makes a browse list useful is what YOU have
+ * played. The yours/others split belongs on the detail page, where a tile can label it.
  *
  * Every row also carries an `href` to the artist's own page (ArtistController), which is
  * what makes the table's rows clickable — the frontend only follows what the server
@@ -72,6 +79,18 @@ class ArtistsController extends Controller
             // The discography. The collections CHECK pins `album_artist_id` to
             // `type = 'album'`, so this needs no type clause of its own (Artist::albums()).
             ->withCount('albums')
+            // THE READER'S OWN listens, not the instance's. This one is shared with family
+            // and friends, so a household total would answer a question nobody asked of a
+            // browse list — "how much have I played this artist" is what sorts usefully. The
+            // yours/others split lives on the detail page, where there is room to label it.
+            //
+            // A grouped join, unlike every aggregate above it, because this column is
+            // SORTABLE and a sortable column is computed for every artist before the sort can
+            // run — see PlayCounts::ownPerArtist for the measurement that settled the shape.
+            // LEFT, and COALESCEd below: an artist nobody has played has no row here and
+            // still belongs in the listing.
+            ->leftJoinSub(PlayCounts::ownPerArtist($request->user()), 'own_plays', 'own_plays.subject_id', '=', 'artists.id')
+            ->selectRaw('coalesce(own_plays.plays, 0) as plays_count')
             ->addSelect([
                 'songs_count' => $tracksOfArtist()->selectRaw('count(*)'),
                 // COALESCEd rather than left NULL, which is what keeps a track-less
@@ -85,7 +104,7 @@ class ArtistsController extends Controller
         $table = DataTableService::buildResponse(
             query: $query,
             request: $request,
-            sortable: ['name', 'albums', 'songs', 'duration', 'size'],
+            sortable: ['name', 'albums', 'songs', 'duration', 'size', 'plays'],
             // Sort keys → real columns. Every aggregate sorts by its SELECT alias, which
             // both Postgres and SQLite resolve in ORDER BY; the name sorts on the raw
             // (ICU-collated) column, which is fine for ORDER BY — only LIKE is not (see
@@ -96,6 +115,7 @@ class ArtistsController extends Controller
                 'songs' => 'songs_count',
                 'duration' => 'duration_total',
                 'size' => 'size_total',
+                'plays' => 'plays_count',
             ],
             // Most audio first, which is the same "popular" reading the Music page's
             // artists widget opens on (MusicController::artists) — the artist you have the
@@ -118,6 +138,10 @@ class ArtistsController extends Controller
                 // the viewer's locale (Utils/formatting.ts), like every other listing.
                 'duration' => (float) $artist->duration_total,
                 'size' => (int) $artist->size_total,
+                // The reader's own listens. Sent as the raw count including 0 — the page
+                // decides that a zero prints as a dash, which is a display decision and so
+                // belongs there rather than here.
+                'plays' => (int) $artist->plays_count,
                 // Makes the row clickable in the frontend DataTable, which visits this on
                 // a row click / card tap (and the name cell renders it as a real link).
                 'href' => route('music.artists.show', $artist->id, absolute: false),

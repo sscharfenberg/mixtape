@@ -22,6 +22,7 @@ const album = (overrides: Partial<AlbumEntry> = {}): AlbumEntry => ({
     name: "OK Computer",
     artist: "Radiohead",
     year: 1997,
+    plays: 0,
     href: "/music/albums/album-1",
     ...overrides
 });

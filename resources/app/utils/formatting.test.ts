@@ -6,7 +6,8 @@ import {
     formatDecimals,
     formatDuration,
     formatFileSize,
-    formatPosition
+    formatPosition,
+    formatTimesPlayed
 } from "Utils/formatting";
 
 /*
@@ -210,5 +211,28 @@ describe("formatPosition", () => {
     it("returns null without an index, so the cell drops instead of reading 0", () => {
         expect(formatPosition(null, 8)).toBeNull();
         expect(formatPosition(null, null)).toBeNull();
+    });
+});
+
+describe("formatTimesPlayed", () => {
+    it("writes the count with a multiplication sign", () => {
+        expect(formatTimesPlayed(34)).toBe("34\u00d7");
+    });
+
+    it("uses U+00D7, not the letter x", () => {
+        // It sits beside real numbers in a tile and a table cell; an "x" reads as a typo
+        // and sorts as a letter if anyone ever parses it back.
+        expect(formatTimesPlayed(2)).not.toContain("x");
+        expect(formatTimesPlayed(2).codePointAt(1)).toBe(0x00d7);
+    });
+
+    it("needs no plural rule, which is the whole reason it is a figure and not a sentence", () => {
+        // German wants "einmal" where English wants "once"; "1\u00d7" is right in both.
+        expect(formatTimesPlayed(1)).toBe("1\u00d7");
+    });
+
+    it("formats a zero rather than refusing it — hiding it is the caller's decision", () => {
+        // The hero tiles omit a zero, the listings draw a dash. Neither rule belongs here.
+        expect(formatTimesPlayed(0)).toBe("0\u00d7");
     });
 });

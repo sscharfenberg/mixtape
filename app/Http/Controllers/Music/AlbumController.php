@@ -10,6 +10,7 @@ use App\Services\DataTableService;
 use App\Services\Media\CoverService;
 use App\Services\Music\DominantGenre;
 use App\Services\Music\QueuePayload;
+use App\Services\Player\PlayCounts;
 use App\Services\Search\FoldedSearch;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -64,6 +65,12 @@ class AlbumController extends Controller
                 fn (): array => QueuePayload::fromQuery(QueuePayload::query()->where('tracks.collection_id', $album->id))
             ),
             'table' => $this->trackTable($request, $album),
+            // How much of this record has been listened to — the reader's own listens and
+            // everybody else's, as listening EVENTS (see App\Services\Player\PlayCounts, which
+            // also explains why this will not equal the sum of its songs' own figures).
+            // Its own prop rather than a member of `album`, so the player can refresh just
+            // this figure when a track finishes without dragging the whole hero back with it.
+            'plays' => PlayCounts::forAlbum($album, $request->user()),
             'album' => [
                 'id' => $album->id,
                 'name' => $album->name,

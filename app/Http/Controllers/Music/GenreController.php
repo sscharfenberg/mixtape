@@ -11,6 +11,7 @@ use App\Models\Track;
 use App\Services\DataTableService;
 use App\Services\Music\DominantGenre;
 use App\Services\Music\QueuePayload;
+use App\Services\Player\PlayCounts;
 use App\Services\Search\FoldedSearch;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -113,6 +114,11 @@ class GenreController extends Controller
             'artists' => $artists->all(),
             // The songs tab, as the payload that owns the page's query params.
             'table' => $this->songTable($request, $genre),
+            // How much of this genre has been listened to — the reader's own listens and
+            // everybody else's, as listening EVENTS (see App\Services\Player\PlayCounts).
+            // Its own prop rather than a member of `genre`, so the player can refresh just
+            // this figure when a track finishes without dragging the whole hero back with it.
+            'plays' => PlayCounts::forGenre($genre, $request->user()),
         ]);
     }
 

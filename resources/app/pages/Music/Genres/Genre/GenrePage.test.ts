@@ -74,6 +74,7 @@ const props = (overrides: Record<string, unknown> = {}) => ({
             href: "/music/artists/artist-2"
         }
     ],
+    plays: { own: 0, others: 0 },
     table: {
         rows: [
             {

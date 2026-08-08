@@ -8,8 +8,10 @@
 > four forks are now decided: the **scan model** (content-hash *diff*, not truncate-and-rebuild), the
 > **tracks split** (option B + the collections half-step), **play-queue persistence** (client composable +
 > server `player_states`), and the **playlist-reorder strategy** (contiguous positions) — see
-> [Open decisions](#open-decisions) for each. The fifth — most-played — aggregates by `content_hash`, so
-> clones count as one song. Treat the schemas below as the recommended direction, not final migrations;
+> [Open decisions](#open-decisions) for each. The fifth — most-played — **aggregates by `track_id`**
+> (re-decided 2026-08-08, reversing the original `content_hash` grain once play counts were built; see
+> #5 and [`player.md`](player.md) → *What counts as a play*), so each file counts for itself.
+> Treat the schemas below as the recommended direction, not final migrations;
 > the next step is drafting the v2 migrations + models. Written 2026-07-19; decisions settled 2026-07-20.
 
 ## Scope
@@ -127,8 +129,8 @@ tags. So:
   *"also appears in 2 other places"* and links to them. The same lookup powers **self-healing playlists**:
   when a file is deleted but a clone survives, the scan **repoints** that track's `playlist_tracks` and
   `plays` to the surviving copy before removing the row (relink-then-cascade, b#4) — automatic, no
-  dead entries. The same hash also drives **most-played by recording** (aggregate `plays` by
-  `content_hash`, so clones count as one song) — decided, decision #5.
+  dead entries. The hash does **not** drive the play grain: most-played counts by `track_id`, so each
+  file keeps its own figure (re-decided 2026-08-08 — decision #5).
 
 **Known limit (graceful):** if two clones are moved *in the same scan*, two unclaimed rows share a hash
 and step 4 can't tell which new file was which old row. It disambiguates on directory / tags; in the
@@ -417,10 +419,12 @@ Recommended indexes:
 - **`plays` (new) — most-played is per-user *and* global:** `(user_id, played_at)` for a user's history
   feed; `(track_id)` for **global** most-played (also serves the relink `UPDATE … WHERE track_id = …` and
   the cascade check); `(user_id, track_id)` for **per-user** most-played. Both most-played views **group
-  by `tracks.content_hash`** (#5) via a `plays → tracks` join — the `plays` FK indexes serve the
-  join/filter, the existing `tracks.content_hash` index the grouping, so no extra `plays` index is
-  needed (pre-aggregate into a materialized view only if `plays` ever grows enough to feel it). `plays`
-  is the only unbounded-growth table, so these are the read indexes that matter most.
+  by `plays.track_id`** (#5), so they are answered by these indexes alone — no join to `tracks` at all,
+  which is one fewer table than the original `content_hash` grain needed (pre-aggregate into a
+  materialized view only if `plays` ever grows enough to feel it). A *subject's* count — an artist's, a
+  genre's, an album's — does join `plays → tracks` and filters on the taxonomy FK, which the
+  `tracks.artist_id` / `genre_id` / `(collection_id, …)` indexes already serve. `plays` is the only
+  unbounded-growth table, so these are the read indexes that matter most.
 - **`playlist_tracks`:** `(playlist_id, position)` for ordered render (also covers `playlist_id`);
   `track_id` for the reverse lookup ("which playlists contain this track") + the relink `UPDATE` + the
   cascade check.
@@ -553,8 +557,9 @@ player_states
   want *revocable per-link* shares (a separate `shares` table, later).
 - **Listen history / most-played:** the client fires a "played" beacon on `ended`/threshold as the queue
   advances → the `plays` table. Same unified `track_id`, so listens count uniformly across playlists,
-  albums, and ad-hoc queue plays; **most-played then aggregates by `content_hash`** (#5), so the same
-  recording on album + compilation + best-of counts once. This dovetails with relink-then-cascade (b#4):
+  albums, and ad-hoc queue plays; **most-played then aggregates by `track_id`** (#5), so the same
+  recording on album + compilation + best-of counts three times, once per file. Relink-then-cascade
+  (b#4) still applies to the rows themselves:
   a recording keeps its count as long as *any* copy of that audio survives, and loses it only when the
   last copy is gone — exactly the "hash nowhere in the DB → don't care" rule.
 - **Cross-device resume:** because the whole player-state (queue + `current_index` + `position_ms`)
@@ -586,16 +591,35 @@ player_states
    write-amplification that gap-based / LexoRank optimise away is noise here. `(playlist_id, position)`
    stays **non-unique** (transient mid-txn dups); same rule for `playlists.position`. Reconsider only at
    thousands of items *plus* frequent concurrent moves — not this app.
-5. ~~**Most-played aggregation grain.**~~ **Decided 2026-07-20 → aggregate by `content_hash`.** Most-played
-   groups by `tracks.content_hash`, not `track_id` / `path`, so a recording that lives on its album, a
-   compilation, and a best-of counts as **one** song (they share a hash). Different *audio* — studio vs
-   live vs remastered — has a different hash and counts separately, which is the desired behaviour and
-   falls out for free. Both grains from (c) group the same way: global = `GROUP BY t.content_hash`,
-   per-user = `WHERE user_id = ? … GROUP BY t.content_hash` (join `plays → tracks`). Display picks a
-   representative clone for the title/artist label, since clones share audio but their *tags* can differ.
+5. ~~**Most-played aggregation grain.**~~ **Re-decided 2026-08-08 → aggregate by `track_id`.** Every play
+   count the app shows groups by the row that was played, so a recording living on its album, a
+   compilation and a best-of counts as **three** entries, each with its own figure.
 
-**Every decision is now settled** — #5 aggregates most-played by `content_hash` (clones count once). The
-proposal is ready to become the v2 schema: draft the migrations + models (`Track`, `Collection`,
+   _Originally decided 2026-07-20 the other way_ — `GROUP BY t.content_hash`, clones counted once, on the
+   grounds that a reader thinks of those copies as one song. What settled it against that, once play
+   counts were actually built (2026-08-07/08, see [`player.md`](player.md) → *What counts as a play*):
+
+   - **The only most-played that exists already counts by id.** `MusicController`'s `popular` widget modes
+     rank songs with `withCount('plays')`. The hash rule was never implemented anywhere; the song page
+     briefly was the sole exception, and reversing it left one rule in the whole app instead of two.
+   - **It is what makes the figures add up.** An album's count is the sum of its tracks'. Under the hash
+     rule each track quietly counted its twin elsewhere, so the tracks summed to more than the record
+     they sit on — with nothing on screen to say which number was the odd one.
+   - **A subject count cannot use the hash anyway.** "Plays of this artist" joins `plays → tracks` and
+     filters on `artist_id`; matching by hash would count one recording twice for any artist holding two
+     copies of it, which is the normal case in this collection.
+
+   The cost, accepted knowingly: play a song from the best-of and its entry on the album shows nothing.
+   That is the honest reading — these are two files, and a page is about the file. The `content_hash`
+   index keeps both its other jobs (rename-matching in the scan, relink-then-cascade on delete); it is
+   only the play grain that no longer uses it.
+
+   **There is no most-played PAGE, and there may never be** — the feature exists as the widgets' `popular`
+   modes. If one is ever built, it inherits this grain; the "pick a representative clone for the label"
+   problem the old decision carried disappears with it, since a row already has its own tags.
+
+**Every decision is now settled** — #5 aggregates most-played by `track_id` (each file counts for itself).
+The proposal is ready to become the v2 schema: draft the migrations + models (`Track`, `Collection`,
 taxonomy, `Playlist`, `PlaylistTrack`, `PlayerState`) and the `usePlayerQueue` composable shape.
 
 ---

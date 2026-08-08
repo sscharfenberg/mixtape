@@ -151,3 +151,20 @@ export const formatPosition = (index: number | null, total: number | null): stri
 
     return total !== null && index <= total ? `${index}/${total}` : `${index}`;
 };
+
+/**
+ * A count of listens, e.g. "34×".
+ *
+ * `×` is U+00D7, not the letter x — this is a count of times and it sits beside real
+ * numbers. Locale-independent on purpose: the sign carries the meaning in both languages,
+ * where a sentence would have wanted "einmal" for "1" in one of them and "once" in the
+ * other. That is what lets the same string serve a hero tile and a table cell.
+ *
+ * Shared by PlayCountFacts and the three listings' plays column, so the hero and the table
+ * can never disagree about how a play count is written. Neither of them prints a bare zero
+ * — the tiles hide, the tables draw a dash — but that is each one's own display decision,
+ * so it is not baked in here.
+ *
+ * @param count how many listens, already counted by the server
+ */
+export const formatTimesPlayed = (count: number): string => `${count}×`;

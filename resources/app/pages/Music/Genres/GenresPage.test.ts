@@ -22,7 +22,9 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
 
 /** A table payload, defaulted around one well-populated genre. */
 const table = (overrides: Record<string, unknown> = {}) => ({
-    rows: [{ id: "genre-1", name: "Alternative Rock", artists: 42, songs: 118, duration: 51727, size: 10485760, href: "/music/genres/genre-1" }],
+    rows: [
+        { id: "genre-1", name: "Alternative Rock", artists: 42, songs: 118, duration: 51727, size: 10485760, plays: 12, href: "/music/genres/genre-1" }
+    ],
     total: 1,
     totalUnfiltered: 1,
     page: 1,
@@ -55,7 +57,7 @@ describe("GenresPage", () => {
         ]);
     });
 
-    it("declares the five columns in reading order", () => {
+    it("declares the six columns in reading order", () => {
         expect(
             page()
                 .findAll("th")
@@ -65,7 +67,8 @@ describe("GenresPage", () => {
             translate("music.columns.artists"),
             translate("music.columns.songs"),
             translate("music.columns.duration"),
-            translate("music.columns.size")
+            translate("music.columns.size"),
+            translate("music.plays.columnLabel")
         ]);
     });
 

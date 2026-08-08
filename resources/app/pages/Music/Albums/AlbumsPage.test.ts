@@ -40,6 +40,7 @@ const table = (overrides: Record<string, unknown> = {}) => ({
             duration: 3193,
             modifiedAt: "2024-03-09T18:04:00Z",
             coverUrl: "/covers/album-1.jpg",
+            plays: 7,
             href: "/music/albums/album-1"
         }
     ],
@@ -78,7 +79,7 @@ describe("AlbumsPage", () => {
         ]);
     });
 
-    it("leads with artwork and then the eight columns in reading order", () => {
+    it("leads with artwork and then the rest of the columns in reading order", () => {
         const headers = page()
             .findAll("th")
             .map(node => node.text());
@@ -91,7 +92,8 @@ describe("AlbumsPage", () => {
             translate("music.columns.songs"),
             translate("music.columns.discs"),
             translate("music.columns.modifiedAt"),
-            translate("music.columns.duration")
+            translate("music.columns.duration"),
+            translate("music.plays.columnLabel")
         ]);
     });
 

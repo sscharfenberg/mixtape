@@ -37,6 +37,7 @@ import { Head } from "@inertiajs/vue3";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import Discography, { type DiscographyAlbum } from "Components/Music/Discography/Discography.vue";
+import PlayCountFacts from "Components/Music/PlayCountFacts.vue";
 import SubjectMenu from "Components/Music/SubjectMenu.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Container from "Components/UI/Container.vue";
@@ -79,6 +80,13 @@ const props = defineProps<{
     discography: DiscographyAlbum[];
     /** Their songs, as the server-driven table payload (rows + pagination + sort + search). */
     table: TableResponse<SongRow>;
+    /**
+     * How often this artist has been listened to: the reader's own listens and everybody
+     * else's, as listening events (App\Services\Player\PlayCounts). Its own prop rather than
+     * a member of `artist` because PlayCountFacts refreshes exactly this key in place when a
+     * track finishes. Raw counts — a zero is something the tiles leave unsaid.
+     */
+    plays: { own: number; others: number };
 }>();
 
 const { t, locale } = useI18n();
@@ -161,6 +169,9 @@ const tabs = computed<TabDefinition[]>(() => [
                     <fact-pair icon="song" :label="t('music.columns.songs')" :value="String(artist.songs)" />
                     <fact-pair icon="duration" :label="t('music.columns.duration')" :value="playingTime" />
                     <fact-pair icon="file" :label="t('music.columns.size')" :value="totalSize" />
+                    <!-- Last, and only when there is something to say: what has actually been
+                         listened to comes after what the artist IS. See PlayCountFacts. -->
+                    <play-count-facts :plays="plays" subject="artist" />
                 </template>
             </hero-section>
 

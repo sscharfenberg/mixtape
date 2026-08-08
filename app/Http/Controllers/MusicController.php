@@ -8,8 +8,11 @@ use App\Models\Artist;
 use App\Models\Collection;
 use App\Models\Genre;
 use App\Models\Track;
+use App\Models\User;
 use App\Services\Music\DominantGenre;
+use App\Services\Player\PlayCounts;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -30,21 +33,27 @@ class MusicController extends Controller
 
     /**
      * Render the Music browse page. Albums get latest/random only; songs,
-     * artists and genres also get a "popular" set (songs by plays, the two
-     * taxonomies by total file duration). `stats` carries the collection totals
+     * artists and genres also get a "popular" set — all three ranked by THE READER'S OWN
+     * listens (2026-08-08), the two taxonomies falling back to total file duration so their
+     * cards stay populated before much has been played. `stats` carries the collection totals
      * for the stats widget.
      */
-    public function __invoke(): Response
+    public function __invoke(Request $request): Response
     {
+        // Read once and closed over rather than reached for inside each query: every widget
+        // carries a play pip, and that count is the reader's own — the only per-viewer number
+        // on this page.
+        $reader = $request->user();
+
         // Each widget's data is a closure so a partial reload (the footer's
         // refresh button → router.reload({ only: ['artists'] })) re-runs ONLY
         // that widget's query — reshuffling its `random` — instead of all four.
         // Full page loads still evaluate every closure.
         return Inertia::render('Music/MusicPage', [
-            'albums' => fn () => $this->modes($this->albums(...)),
-            'artists' => fn () => $this->modes($this->artists(...), ['popular']),
-            'genres' => fn () => $this->modes($this->genres(...), ['popular']),
-            'songs' => fn () => $this->modes($this->songs(...), ['popular']),
+            'albums' => fn () => $this->modes(fn (string $mode) => $this->albums($mode, $reader)),
+            'artists' => fn () => $this->modes(fn (string $mode) => $this->artists($mode, $reader), ['popular']),
+            'genres' => fn () => $this->modes(fn (string $mode) => $this->genres($mode, $reader), ['popular']),
+            'songs' => fn () => $this->modes(fn (string $mode) => $this->songs($mode, $reader), ['popular']),
             'stats' => fn () => $this->stats(),
         ]);
     }
@@ -98,13 +107,19 @@ class MusicController extends Controller
      * the true "recently added" after a bulk import; `random` shuffles. (No
      * `popular` mode — the owner scoped it to songs/artists/genres.)
      *
-     * @return array<int, array{id: string, name: string, artist: ?string, year: ?int, href: string}>
+     * Each row also carries the reader's OWN listens to it, as the card's play pip.
+     *
+     * @return array<int, array{id: string, name: string, artist: ?string, year: ?int, plays: int, href: string}>
      */
-    private function albums(string $mode): array
+    private function albums(string $mode, ?User $reader): array
     {
         return Collection::query()
             ->where('type', CollectionType::Album)
             ->with('albumArtist:id,name')
+            // CORRELATED, not the grouped subquery the albums LISTING uses, and the choice is
+            // measured — see PlayCounts::ownCountForArtist. Nothing here sorts by it, so the
+            // engine evaluates it for the four rows that survive the limit.
+            ->addSelect(['plays_count' => PlayCounts::ownCountForAlbum($reader)])
             ->when(
                 $mode === 'random',
                 fn (Builder $q) => $q->inRandomOrder(),
@@ -117,6 +132,7 @@ class MusicController extends Controller
                 'name' => $album->name,
                 'artist' => $album->albumArtist?->name,
                 'year' => $album->year,
+                'plays' => (int) $album->plays_count,
                 // Decided here like every other route in the app, so the widget links
                 // wherever the listing's rows link and the two cannot drift.
                 'href' => route('music.albums.show', $album->id, absolute: false),
@@ -127,29 +143,53 @@ class MusicController extends Controller
     /**
      * Four music songs (music-type tracks). `latest` orders by file mtime
      * (`modified_at`), the true "recently added" after a bulk scan; `random`
-     * shuffles. `popular` is the most-played by play count (the `plays` table,
-     * all users) — but restricted to songs with MORE THAN ONE play
-     * (`has('plays', '>', 1)`): a single listen is noise, not popularity. Until
-     * real listens accumulate this set is usually empty, and the widget shows a
-     * "not enough data" note rather than a meaningless ranking. (Counts are
-     * per track *row*; the schema's clone-aggregation by `content_hash` — open
-     * decision #5 — is deferred; a top-four teaser doesn't need it.)
+     * shuffles. `popular` is the most-played by play count (the `plays` table, all users),
+     * over every song with AT LEAST ONE play.
+     *
+     * It was gated at more than one play until 2026-08-08, on the theory that a single listen
+     * is noise rather than popularity. In practice that theory hid the answer: a library with
+     * three played songs showed "not enough data" while the data was sitting right there, and
+     * the pip on every other card made the emptiness look like a fault. A top-four teaser over
+     * a young `plays` table is thin, not wrong — and the ranking earns its meaning as listening
+     * accumulates. The "not enough data" note now appears only when NOTHING has been played,
+     * which is the one case where there is genuinely nothing to rank.
+     *
+     * `popular` COUNTS THE READER, not the household, and that changed on 2026-08-08. It
+     * ranked everybody's listens before, which reads as a shared "what gets played here" set —
+     * a defensible thing to want, and wrong beside a pip. Every card now carries the reader's
+     * own count, so a household ranking could put a song showing "1×" above one showing "5×"
+     * with nothing on screen to explain the order. An order that contradicts the number
+     * printed next to it is read as a bug.
+     *
+     * It counts by `track_id`, which since 2026-08-08 is the app's one grain — data-model.md
+     * decision #5 was re-decided to match what this method always did. See
+     * App\Services\Player\PlayCounts.
      *
      * The YEAR comes off the song's album rather than the track, because a track has none
      * of its own — it is a fact about the release. Eager-loaded rather than joined so the
      * `select` above stays a track select; four rows make the second query free.
      *
-     * @return array<int, array{id: string, name: string, artist: ?string, year: ?int, href: string}>
+     * @return array<int, array{id: string, name: string, artist: ?string, year: ?int, plays: int, href: string}>
      */
-    private function songs(string $mode): array
+    private function songs(string $mode, ?User $reader): array
     {
         return Track::query()
             ->where('type', TrackType::Music)
             ->with(['artist:id,name', 'collection:id,year'])
             ->select(['id', 'name', 'artist_id', 'collection_id'])
+            // AFTER the select above, not before: `select()` REPLACES the list, so the other
+            // order silently drops this sub-select and every card reports 0 — a wrong number
+            // rather than an error, the same trap genres() documents.
+            ->addSelect(['own_plays_count' => PlayCounts::ownCountForTrack($reader)])
             ->tap(fn (Builder $q) => match ($mode) {
                 'random' => $q->inRandomOrder(),
-                'popular' => $q->has('plays', '>', 1)->withCount('plays')->orderByDesc('plays_count'),
+                // Ordered by the alias `addSelect` put on the query above — both engines
+                // resolve a SELECT alias in ORDER BY. The filter is a separate EXISTS rather
+                // than a reuse of that subquery, because a scalar count cannot be a WHERE
+                // condition; with no reader it matches nothing, which is the honest answer.
+                'popular' => $q
+                    ->whereHas('plays', fn ($plays) => $plays->where('plays.user_id', $reader?->id))
+                    ->orderByDesc('own_plays_count'),
                 default => $q->orderByDesc('modified_at'),
             })
             ->limit(self::LIMIT)
@@ -159,6 +199,9 @@ class MusicController extends Controller
                 'name' => $song->name,
                 'artist' => $song->artist?->name,
                 'year' => $song->collection?->year,
+                // Aliased away from `plays_count`, which `withCount('plays')` already owns in
+                // the popular branch — and which counts EVERYBODY's listens, not the reader's.
+                'plays' => (int) $song->own_plays_count,
                 'href' => route('music.songs.show', $song->id, absolute: false),
             ])
             ->all();
@@ -172,9 +215,18 @@ class MusicController extends Controller
      * NULL. Postgres sorts NULLs FIRST under `ORDER BY … DESC`, which floated
      * those track-less artists to the top of "latest" (invisible on SQLite,
      * which sorts NULLs last). Requiring tracks drops them and keeps the widget
-     * to real performers. `popular` (the default in the widget) orders by total
-     * file duration — the artist with the most audio; `latest` by the newest
-     * track's mtime; `random` shuffles.
+     * to real performers. `popular` (the default in the widget) orders by THE READER'S OWN
+     * listens, then by total file duration; `latest` by the newest track's mtime; `random`
+     * shuffles.
+     *
+     * THE TWO-KEY ORDER IS THE DESIGN, and it changed on 2026-08-08. It was minutes alone —
+     * "the artist with the most audio" — which was defensible until every card grew a play
+     * pip: the set then showed unplayed artists above played ones, and an order that
+     * contradicts the numbers printed on it is read as a bug (it was reported as exactly
+     * that). Plays first fixes it; minutes second is what keeps the card POPULATED on a
+     * library nobody has listened to much, where a strict play ranking would leave this
+     * widget's DEFAULT view nearly empty. So a played artist can never sit below an unplayed
+     * one, and the unplayed tail keeps the old, useful order.
      *
      * Each row also carries the three numbers its card shows as pips: how many albums are
      * credited to them, how many tracks they perform, and what those add up to in seconds.
@@ -188,17 +240,34 @@ class MusicController extends Controller
      * `tracks_sum_duration` is aliased away by hand below for the reason the genre page's
      * totals document — an aggregate landing on an attribute that HAS a cast gets that cast.
      *
-     * @return array<int, array{id: string, name: string, albums: int, songs: int, duration: float, href: string}>
+     * A fourth pip carries the reader's OWN listens across those tracks — correlated rather
+     * than grouped, for the four-rows reason PlayCounts::ownCountForArtist spells out.
+     *
+     * @return array<int, array{id: string, name: string, albums: int, songs: int, duration: float, plays: int, href: string}>
      */
-    private function artists(string $mode): array
+    private function artists(string $mode, ?User $reader): array
     {
         return Artist::query()
             ->has('tracks')
             ->withCount(['albums', 'tracks'])
             ->withSum('tracks as total_duration', 'duration')
+            ->addSelect(['plays_count' => PlayCounts::ownCountForArtist($reader)])
             ->tap(fn (Builder $q) => match ($mode) {
                 'random' => $q->inRandomOrder(),
-                'popular' => $q->withSum('tracks', 'duration')->orderByDesc('tracks_sum_duration'),
+                // The GROUPED subquery, not the correlated one selected above: this is an
+                // ORDER BY, so it is computed for every artist before the limit can apply —
+                // the one case where aggregating `plays` once beats probing it per row
+                // (PlayCounts::ownCountForArtist carries the measurement).
+                //
+                // COALESCEd rather than ordered on the raw joined column, and that is
+                // load-bearing: an unplayed artist has no row in the subquery, and Postgres
+                // sorts NULLs FIRST under DESC — which would float exactly the artists nobody
+                // has played to the top of "most played". SQLite sorts them last, so the suite
+                // would never have shown it.
+                'popular' => $q->withSum('tracks', 'duration')
+                    ->leftJoinSub(PlayCounts::ownPerArtist($reader), 'popularity', 'popularity.subject_id', '=', 'artists.id')
+                    ->orderByRaw('coalesce(popularity.plays, 0) desc')
+                    ->orderByDesc('tracks_sum_duration'),
                 default => $q->withMax('tracks', 'modified_at')->orderByDesc('tracks_max_modified_at'),
             })
             ->limit(self::LIMIT)
@@ -210,6 +279,7 @@ class MusicController extends Controller
                 'songs' => (int) $artist->tracks_count,
                 // Raw seconds; the widget clocks it against the viewer's locale.
                 'duration' => (float) ($artist->total_duration ?? 0),
+                'plays' => (int) $artist->plays_count,
                 'href' => route('music.artists.show', $artist->id, absolute: false),
             ])
             ->all();
@@ -219,9 +289,10 @@ class MusicController extends Controller
      * Four genres that have tracks. Genres are minted from track tags, so they
      * normally always have some — but `has('tracks')` guards the same Postgres
      * NULLS-FIRST trap as artists() should a genre ever be orphaned (all its
-     * tracks pruned). `popular` (the default in the widget) orders by total file
-     * duration — the genre with the most audio; `latest` by the newest track's
-     * mtime; `random` shuffles.
+     * tracks pruned). `popular` (the default in the widget) orders by THE READER'S OWN
+     * listens, then by total file duration — the same two-key order as the artists widget,
+     * and for the same reason (artists() carries the argument); `latest` by the newest
+     * track's mtime; `random` shuffles.
      *
      * Each row also carries the three numbers its card shows as pips, and they use exactly
      * the rules the genre's own page uses, so a reader meeting the same genre twice is not
@@ -237,9 +308,12 @@ class MusicController extends Controller
      * Both dominant counts arrive as LEFT joins and are COALESCEd: a genre can hold plenty
      * of songs while being nobody's main genre, and would otherwise report null.
      *
-     * @return array<int, array{id: string, name: string, artists: int, albums: int, songs: int, href: string}>
+     * A fourth pip carries the reader's OWN listens to its songs — correlated rather than
+     * grouped, for the four-rows reason PlayCounts::ownCountForArtist spells out.
+     *
+     * @return array<int, array{id: string, name: string, artists: int, albums: int, songs: int, plays: int, href: string}>
      */
-    private function genres(string $mode): array
+    private function genres(string $mode, ?User $reader): array
     {
         $albumCounts = DB::query()
             ->fromSub(DominantGenre::albumWinners(), 'album_winners')
@@ -261,12 +335,18 @@ class MusicController extends Controller
              */
             ->select('genres.*')
             ->addSelect(['artist_counts.artists_count', 'album_counts.albums_count'])
+            ->addSelect(['plays_count' => PlayCounts::ownCountForGenre($reader)])
             // Scoped to music like every other number on this page: an audiobook chapter may
             // legally carry a genre (only audiobooks are barred by the tracks CHECK).
             ->withCount(['tracks as songs_count' => fn ($q) => $q->where('type', TrackType::Music)])
             ->tap(fn (Builder $q) => match ($mode) {
                 'random' => $q->inRandomOrder(),
-                'popular' => $q->withSum('tracks', 'duration')->orderByDesc('tracks_sum_duration'),
+                // Grouped and COALESCEd, exactly as artists() documents — including why the
+                // NULL handling is not tidiness.
+                'popular' => $q->withSum('tracks', 'duration')
+                    ->leftJoinSub(PlayCounts::ownPerGenre($reader), 'popularity', 'popularity.subject_id', '=', 'genres.id')
+                    ->orderByRaw('coalesce(popularity.plays, 0) desc')
+                    ->orderByDesc('tracks_sum_duration'),
                 default => $q->withMax('tracks', 'modified_at')->orderByDesc('tracks_max_modified_at'),
             })
             ->limit(self::LIMIT)
@@ -277,6 +357,7 @@ class MusicController extends Controller
                 'artists' => (int) ($genre->artists_count ?? 0),
                 'albums' => (int) ($genre->albums_count ?? 0),
                 'songs' => (int) $genre->songs_count,
+                'plays' => (int) $genre->plays_count,
                 'href' => route('music.genres.show', $genre->id, absolute: false),
             ])
             ->all();

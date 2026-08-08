@@ -16,8 +16,16 @@
  * FAILURE IS SILENT, like every other beacon in the player. A lost play is a
  * missing row in a ranking; a toast about it would be noise about something the
  * listener can neither act on nor care about.
+ *
+ * SUCCESS IS NOT SILENT, though — it is announced on usePlayEvents so a page
+ * showing a play count can go and re-read it. That is the ONE thing this module
+ * says about a request it otherwise ignores, and it says it only for a response
+ * the server actually accepted: a page told to refresh after a failed write would
+ * re-fetch the same number it already has, which looks like a count that will not
+ * move.
  *****************************************************************************/
 import { usePage } from "@inertiajs/vue3";
+import { notifyPlayRecorded } from "Composables/usePlayEvents";
 
 /** Where a listen is recorded (PlayController). */
 const PLAYS_URL = "/player/plays";
@@ -43,9 +51,15 @@ export function reportPlay(trackId: string): void {
                 "X-CSRF-TOKEN": usePage().props.csrfToken ?? ""
             },
             body: JSON.stringify({ trackId })
-        }).catch(() => {
-            // Offline, or refused. Nothing here is recoverable and nothing depends on it.
-        });
+        })
+            .then((response) => {
+                // `response.ok`, not merely "the promise settled": fetch resolves for a 419
+                // or a 500 just as happily as for the 204 that means the row was written.
+                if (response.ok) notifyPlayRecorded(trackId);
+            })
+            .catch(() => {
+                // Offline, or refused. Nothing here is recoverable and nothing depends on it.
+            });
     } catch {
         // `fetch` itself missing (a very old WebView). Playback is unaffected.
     }
