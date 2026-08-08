@@ -1,0 +1,78 @@
+/******************************************************************************
+ * contextual size tokens — component:playlist
+ * @type {Sass}
+ * One entry in the playlists listing (pages/Playlists → `li.playlist`). The entry is
+ * built as a small hero: the same inset, the same corner, the same rotating gradient
+ * ring, the same chrome title. So `padding`, `radius`, `border` and the whole title
+ * block below are the hero's values, COPIED rather than read across — a contextual
+ * partial consumes globals, never another partial's tokens, which means the two files
+ * have to be retuned together and each owns its own decision. If the hero's frame
+ * changes, this is the second place to follow it.
+ *
+ * What is NOT copied is the cover square (an entry has no artwork) and the hero's
+ * `gap` (the hero's separates a text column from a picture; here it separates the
+ * title from the lines under it, which want the tighter rung).
+ * Consumed as s.$c-playlist via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$playlist: (
+    // The panel: the hero's inset, corner and featured ring width. The ring is
+    // `featured` for the hero's reason — at a hairline the six-hue ramp
+    // (c.$c-playlist "border-ramp") renders as one muddy colour.
+    "padding": map.get(s.$padding, "portrait"),
+    "radius": map.get(s.$radius, "featured"),
+    "border": map.get(s.$border, "featured"),
+    // Between entries in the list. The panel's own inset, so the space BETWEEN two
+    // entries matches the space inside one and the column reads as evenly spaced.
+    "list-gap": map.get(s.$padding, "portrait"),
+    // Down the entry: title → description → facts. The tight rung, so the three read as
+    // one block hanging off the title rather than as three stacked things.
+    "row-gap": map.get(s.$padding, "base"),
+    // Across the title row: grip → title → menu. Same rung, so the grip sits as close to
+    // the title as the description does below it.
+    "column-gap": map.get(s.$padding, "base"),
+    // Between the fact tiles, both axes since they wrap — the rung the facts card and the
+    // hero's metadata row both use between theirs, re-picked here per the token rules.
+    "facts-gap": map.get(s.$padding, "base"),
+    // The drag grip's own inset. `base` all round: it is an icon with nothing beside it,
+    // so this is the whole difference between a 16px glyph and something a thumb can find
+    // on a phone — the same problem the play queue's grip solved by widening its strip.
+    "handle-padding": map.get(s.$padding, "base"),
+    "handle-radius": map.get(s.$radius, "base"),
+    // The keyboard focus ring around a focused entry, used as both width and offset so it
+    // sits one line-width clear of the panel it traces (the rule s.$c-facts "link-outline"
+    // records: a ring drawn tight against what it surrounds reads as part of it).
+    "focus-outline": map.get(s.$border, "base"),
+    // ── the title, copied from s.$c-hero-section ─────────────────────────────────────
+    // The per-breakpoint scale, and the tight leading a wrapped title needs. Unitless
+    // leading on purpose: the component multiplies it by 1em for the chrome gradient's
+    // tile height, so one number keeps the leading and the ramp in step at every rung.
+    "title-font-size": (
+            "base": 1.75rem,
+            "portrait": 1.9rem,
+            "landscape": 2rem,
+            "desktop": 2.6rem
+        ),
+    "title-line-height": 1.1,
+    // The synthwave treatment's dimensions, all in `em` so they scale with whichever
+    // font-size above is in force. See s.$c-hero-section "title-effect" for what each one
+    // does and why the rim is applied twice.
+    "title-effect": (
+            // Both themes need a real outline; only the width differs, because the two inks
+            // do (see "title-stroke" in the colours partial — fog on white, WHITE on black).
+            // Dark mode's used to be a 0.01em hairline on the assumption that the neon fill
+            // separated itself from a black panel, and it does not: at that width a white
+            // stroke is invisible and the ramp's dark upper third sank into the surface. It
+            // is a shade finer than light mode's because white on black is the higher-
+            // contrast pair of the two — past ~0.03em the outline starts to dominate the
+            // chrome it frames. `light-dark()` is colours only, hence a second key here and
+            // the theme-dark override at the call site.
+            "stroke": 0.03em,
+            "stroke-dark": 0.022em,
+            "rim": 0.025em,
+            "glow": 0.1em,
+            "bloom": 0.3em
+        )
+) !default;

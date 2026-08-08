@@ -1,0 +1,14 @@
+/******************************************************************************
+ * contextual typography tokens — component:playlist
+ * @type {Sass}
+ * One entry in the playlists listing (pages/Playlists → `li.playlist`). One named
+ * decision, the same one t.$c-hero-section makes: the entry's title is set in the
+ * headline family, because it is a heading and every heading in the app shares a face.
+ * Consumed as t.$c-playlist via `@use "Abstracts/typography" as t;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-typography-tokens" as t;
+
+$playlist: (
+    "title": map.get(t.$font, "headline")
+) !default;

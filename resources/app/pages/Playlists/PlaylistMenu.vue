@@ -40,9 +40,13 @@ const reference = computed<string>(() => `playlist-menu-${props.playlist.id}`);
 </script>
 
 <template>
+    <!-- `--rounded --subtle`: the quiet variant, a flat grey pill rather than the site
+         menu's navy gradient. The same pair SubjectMenu passes, and for the same reason —
+         this trigger opens a PANEL's own menu, so it should sit quietly inside it. -->
     <pop-over
         icon="more"
         :reference="reference"
+        class-string="popover-button--rounded popover-button--subtle"
         :aria-label="t('playlists.menu.actions', { name: playlist.name })"
         width="20ch"
     >

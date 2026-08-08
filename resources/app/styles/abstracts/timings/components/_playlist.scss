@@ -1,0 +1,28 @@
+/******************************************************************************
+ * contextual timing tokens — component:playlist
+ * @type {Sass}
+ * One entry in the playlists listing (pages/Playlists → `li.playlist`).
+ *
+ * `border-rotate` is one full turn of the entry's gradient ring — `tectonic`, the rung
+ * added for exactly this kind of ambient decoration, so the ramp drifts (18° a second)
+ * rather than spins. The hero's ring takes the same rung, and must: two of these panels
+ * turning at different speeds on one page would read as a fault rather than as a choice.
+ *
+ * `border-stagger` is what keeps a COLUMN of them from turning in lockstep. It is applied
+ * as a negative `animation-delay` per entry, so nothing waits to start — each ring simply
+ * begins further into the same loop. 3s against a 20s turn is deliberately not a neat
+ * divisor of it: at 4s every fifth entry would match, where 3s takes twenty of them to
+ * come back round, which is more than any listener has.
+ *
+ * Consumed as ti.$c-playlist via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$playlist: (
+    "border-rotate": map.get(ti.$timings, "tectonic"),
+    "border-stagger": 3s,
+    // The hover / focus halo. "fast", matching the DataTable row and the queue row — a row
+    // that lights up under the pointer should do it at the same speed everywhere.
+    "hover": map.get(ti.$timings, "fast")
+) !default;

@@ -1,0 +1,23 @@
+/******************************************************************************
+ * contextual z-index token — component:playlist
+ * @type {Sass}
+ * The rung for everything an entry has to lift above its own stretched link.
+ *
+ * The whole entry is clickable, done the only way an <a> can cover a box it does not
+ * wrap: a positioned `::after` spread over the panel. Being positioned, that overlay
+ * paints above every non-positioned descendant of the same stacking context whatever the
+ * DOM order — so the two real controls (the drag grip and the actions menu) and the
+ * gradient ring all need a rung of their own, or the entry would navigate while nothing
+ * inside it could be pressed. Exactly the trap the play queue's row documents.
+ *
+ * "raised" is enough for all three, because the overlay itself takes no z-index (rung 0).
+ * The ring is on the same rung and cannot conflict: it is masked to the border and carries
+ * `pointer-events: none`. The entry isolates its own stacking context, so this rung stays
+ * contained to that panel — and the actions popover is unaffected, since a `[popover]`
+ * dialog is promoted to the TOP LAYER and escapes ancestor stacking contexts entirely.
+ * Consumed as z.$c-playlist via `@use "Abstracts/z-indexes" as z;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-z-index-tokens" as z;
+
+$playlist: map.get(z.$scale, "raised") !default;

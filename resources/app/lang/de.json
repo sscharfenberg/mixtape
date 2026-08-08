@@ -377,6 +377,7 @@
     },
     "playlists": {
         "createLink": "Neue Wiedergabeliste anlegen",
+        "reorder": "Wiedergabeliste „{name}“ verschieben",
         "facts": {
             "tracks": "Titel",
             "createdAt": "Angelegt",

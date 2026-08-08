@@ -69,13 +69,17 @@ $hero-section: (
     // font-size above is in force — a glow measured in px would swamp the 1.75rem title
     // and disappear on the 2.6rem one.
     "title-effect": (
-            // Light mode needs a real outline, and a pale one (see c.$c-hero-section
-            // "title-stroke") only registers at this width. Dark mode keeps the hairline it
-            // already reads well with, so the two are separate values rather than one
-            // compromise. `light-dark()` is colours only, hence a second key and the
-            // theme-dark override at the call site.
+            // Both themes need a real outline; only the width differs, because the two inks
+            // do (see "title-stroke" in the colours partial — fog on white, WHITE on black).
+            // Dark mode's used to be a 0.01em hairline on the assumption that the neon fill
+            // separated itself from a black panel, and it does not: at that width a white
+            // stroke is invisible and the ramp's dark upper third sank into the surface. It
+            // is a shade finer than light mode's because white on black is the higher-
+            // contrast pair of the two — past ~0.03em the outline starts to dominate the
+            // chrome it frames. `light-dark()` is colours only, hence a second key here and
+            // the theme-dark override at the call site.
             "stroke": 0.03em,
-            "stroke-dark": 0.01em,
+            "stroke-dark": 0.022em,
             // The dark rim that does the legibility work. Barely blurred on purpose: it has to
             // read as an edge on the letters, not as a shadow near them. Applied TWICE in the
             // filter chain, because one pass at this radius is too faint to hold an edge

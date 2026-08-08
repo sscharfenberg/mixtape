@@ -79,13 +79,41 @@ describe("PlaylistsPage", () => {
         expect(link.find("span.playlist__title").text()).toBe("Nachtfahrt");
     });
 
-    it("keeps the menu trigger OUT of the row's link, which may not contain a button", () => {
-        // The reason this is a test and not a comment: nesting it is invalid markup that
-        // renders perfectly, and a click would then both open the menu and follow the link.
+    it("keeps both controls OUT of the row's link, which may not contain a button", () => {
+        // The reason this is a test and not a comment: nesting either is invalid markup that
+        // renders perfectly, and a click would then both press the control and follow the
+        // link. The whole entry being clickable is what makes it tempting to nest them.
         const row = page().find("li.playlist");
 
         expect(row.find("a.playlist__link button").exists()).toBe(false);
-        expect(row.find(".popover button").exists()).toBe(true);
+        expect(row.find(".playlist__handle").exists()).toBe(true);
+        expect(row.find(".playlist__menu button").exists()).toBe(true);
+    });
+
+    it("gives every row a reorder grip, named for the playlist it moves", () => {
+        // A real button rather than a decorative glyph, and NOT disabled: reordering is not
+        // built yet, and a disabled control would leave the tab order and stop being
+        // announced — so the affordance would vanish for the readers most likely to need it.
+        const grip = page([playlist({ name: "Nachtfahrt" })]).find("button.playlist__handle");
+
+        expect(grip.attributes("type")).toBe("button");
+        expect(grip.attributes("disabled")).toBeUndefined();
+        expect(grip.attributes("aria-label")).toContain("Nachtfahrt");
+    });
+
+    it("publishes each row's position, which is what staggers the ring animations", () => {
+        // The delay is `--playlist-index` * a negative step, so a column of entries drifts
+        // instead of pulsing in unison. Lose the index and every ring locks to the same
+        // angle — a change nothing else in the stack would notice.
+        const rows = page([playlist({ id: "a" }), playlist({ id: "b" }), playlist({ id: "c" })]).findAll(
+            "li.playlist"
+        );
+
+        expect(rows.map(row => row.attributes("style"))).toStrictEqual([
+            "--playlist-index: 0;",
+            "--playlist-index: 1;",
+            "--playlist-index: 2;"
+        ]);
     });
 
     it("gives every row's menu its own popover, so two rows cannot share one", () => {

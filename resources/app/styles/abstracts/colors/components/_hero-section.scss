@@ -124,18 +124,30 @@ $hero-section: (
             light-dark(map.get(c.$retro, "c6", "light"), map.get(c.$retro, "c6", "dark")) 75%
         ),
     // The outline around the letters, THEME-SPLIT in colour and (in the sizes partial) in
-    // width. Dark mode needs almost nothing — the neon fill separates from a black panel
-    // on its own, so a mid grey hairline is the whole edge. Light mode does need an
-    // outline, because the ramp's own pale stops (a white specular line at the midline,
-    // blue above it) run out of contrast on a white panel — and it is a LIGHT one by
-    // choice: a near-black outline reads heavier and dirtier against the chrome, where fog
-    // separates the glyphs from the panel without adding weight to them. It only works at
-    // the wider width, though; a hairline this pale would be invisible.
+    // width. Both sides are now LIGHTER than the panel they sit on, which is the thing this
+    // token has had to learn twice: the outline's job is to separate the glyphs from the
+    // surface, and a DARK rim cannot do that on either theme — the drop-shadow chain already
+    // supplies the dark contour, and a dark stroke on top only eats into the letter it is
+    // meant to define.
+    //
+    // Light mode: fog rather than near-black, because the ramp's own pale stops (a white
+    // specular line at the midline, blue above it) run out of contrast on a white panel, and
+    // a near-black outline reads heavier and dirtier against the chrome. It only works at the
+    // wider width; a hairline this pale would be invisible.
+    //
+    // Dark mode: WHITE, which reverses an earlier judgement (2026-08-08). It used to be a mid
+    // grey hairline, on the theory that "the neon fill separates from a black panel on its
+    // own" — it does not. The ramp's upper third is a DARK blue, so the tops of the letters
+    // sank into the panel and the title read as smudged, which is what the owner noticed.
+    // Rendered side by side: black at 0.03em and 0.05em both made it WORSE (the stroke
+    // consumed the glyph and merged with the background), while white at 0.02em was
+    // immediately legible. Past roughly 0.03em the outline starts to dominate the chrome it is
+    // framing, so the width settled just under that.
     //
     // Two things that did NOT help light mode, measured, so they needn't be retried: a
     // thicker glow rim (a blurred shadow outside the glyphs cannot make an edge) and
     // neutralising the white specular stop (barely any difference).
-    "title-stroke": light-dark(map.get(c.$grey, "fog"), map.get(c.$grey, "slate")),
+    "title-stroke": light-dark(map.get(c.$grey, "fog"), map.get(c.$grey, "white")),
     // The neon immediately around the glyphs, then a wider bloom that reads as the sign
     // lighting the panel rather than as an outline.
     "title-glow": light-dark(map.get(c.$retro, "c7", "light"), map.get(c.$retro, "c7", "dark")),
