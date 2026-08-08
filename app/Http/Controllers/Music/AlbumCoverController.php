@@ -2,11 +2,10 @@
 
 namespace App\Http\Controllers\Music;
 
-use App\Enums\CollectionType;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Music\AlbumCoverRequest;
 use App\Models\Collection;
 use App\Services\Media\CoverService;
-use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -49,10 +48,8 @@ class AlbumCoverController extends Controller
      * The album type check mirrors the listing's: `collections` also holds audiobooks
      * and this route is about music.
      */
-    public function __invoke(Request $request, Collection $album): BinaryFileResponse
+    public function __invoke(AlbumCoverRequest $request, Collection $album): BinaryFileResponse
     {
-        abort_unless($album->type === CollectionType::Album, Response::HTTP_NOT_FOUND);
-
         $path = $this->covers->albumPath($album);
 
         abort_if($path === null, Response::HTTP_NOT_FOUND);

@@ -57,6 +57,27 @@ class VerifyEmailTest extends TestCase
         $this->assertNull($user->fresh()->email_verified_at);
     }
 
+    public function test_a_link_naming_a_user_that_is_gone_is_a_404_not_a_403(): void
+    {
+        /*
+         * The two failures VerifyEmailRequest distinguishes, and the only one nothing else
+         * covers. A deleted account leaves valid signed links in inboxes; they must answer
+         * 404 (the row this names is gone) rather than 403 (the link is wrong), which is
+         * also what `findOrFail` did before the check moved into the request.
+         */
+        $user = User::factory()->unverified()->create();
+
+        $url = URL::temporarySignedRoute(
+            'verify-email',
+            Carbon::now()->addMinutes(60),
+            ['id' => $user->getKey(), 'hash' => sha1($user->getEmailForVerification())]
+        );
+
+        $user->delete();
+
+        $this->get($url)->assertNotFound();
+    }
+
     public function test_an_unsigned_link_is_rejected(): void
     {
         $user = User::factory()->unverified()->create();

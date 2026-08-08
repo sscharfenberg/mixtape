@@ -2,14 +2,13 @@
 
 namespace App\Http\Controllers\Music;
 
-use App\Enums\TrackType;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Music\ShowSongRequest;
 use App\Models\Track;
 use App\Services\Media\CoverService;
 use App\Services\Music\QueuePayload;
 use App\Services\Player\PlayCounts;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -44,10 +43,8 @@ class SongController extends Controller
      * would happily serve an audiobook chapter under
      * /music/songs/… — the type check is what keeps this route about music.
      */
-    public function __invoke(Request $request, Track $song, CoverService $covers): Response
+    public function __invoke(ShowSongRequest $request, Track $song, CoverService $covers): Response
     {
-        abort_unless($song->type === TrackType::Music, 404);
-
         // Eager-loaded rather than lazily touched in the array below, so the page
         // costs a fixed number of queries no matter how much the scaffold grows.
         //

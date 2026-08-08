@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Player;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Player\StorePlayRequest;
 use App\Models\Play;
-use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 /**
@@ -32,23 +32,12 @@ use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
  */
 class PlayController extends Controller
 {
-    /**
-     * Write the listen.
-     *
-     * The track is validated as EXISTING rather than as music: `plays` is keyed on the
-     * unified `tracks` table, and the day an audiobook chapter can be queued its listens
-     * belong here too — a type check would silently drop them, which is the worst of the
-     * three possible behaviours.
-     */
-    public function __invoke(Request $request): SymfonyResponse
+    /** Write the listen. What is accepted, and why the track is not type-checked, is StorePlayRequest's. */
+    public function __invoke(StorePlayRequest $request): SymfonyResponse
     {
-        $validated = $request->validate([
-            'trackId' => ['required', 'uuid', 'exists:tracks,id'],
-        ]);
-
         Play::query()->create([
             'user_id' => $request->user()->id,
-            'track_id' => $validated['trackId'],
+            'track_id' => $request->validated('trackId'),
             'played_at' => now(),
         ]);
 

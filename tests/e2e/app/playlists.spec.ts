@@ -61,6 +61,7 @@ const DUPLICATE = `E2E Doppelt ${STAMP}`;
 const DISCARDED = `E2E Verworfen ${STAMP}`;
 const STAGGERED = `E2E Versetzt ${STAMP}`;
 const MENU_ROW = `E2E Menü ${STAMP}`;
+const EDITED = `E2E Bearbeitet ${STAMP}`;
 
 /**
  * Press "create" and wait for the POST itself to come back.
@@ -217,8 +218,66 @@ test.describe("the playlists area", () => {
 
         await row.locator(".popover button").click();
 
-        await expectSlow(row.getByRole("link", { name: /^Bearbeiten$/u })).toBeVisible();
+        await expectSlow(row.getByRole("link", { name: /^Metadaten bearbeiten$/u })).toBeVisible();
         await expectSlow(page).toHaveURL(/\/playlists$/u);
+    });
+
+    test("edits a playlist's metadata through the menu, and says it did", async ({ page }) => {
+        /*
+         * The edit journey end to end, which neither other layer can see whole: the menu
+         * carries the row's id, the form arrives already filled in, the save PUTs and lands
+         * back on the listing with the new name on it.
+         *
+         * The prefilled fields are the assertion worth having twice over. UpdatePlaylistTest
+         * proves the server SENDS the metadata and PlaylistMetadataPage.test.ts proves the
+         * page seeds its refs from it — but only a browser proves the two meet across a real
+         * Inertia visit, and a form that opens empty would silently blank whatever the reader
+         * had written the moment they pressed Save.
+         */
+        await createPlaylist(page, EDITED, "Erste Fassung.");
+
+        const row = page.locator("li.playlist", { hasText: EDITED });
+        await row.locator(".popover button").click();
+        await row.getByRole("link", { name: /^Metadaten bearbeiten$/u }).click();
+
+        await page.waitForURL(/\/playlists\/[0-9a-f-]+\/edit$/u);
+        await expectSlow(page.locator("#name")).toHaveValue(EDITED);
+        await expectSlow(page.locator("#description")).toHaveValue("Erste Fassung.");
+
+        await page.locator("#description").fill("Zweite Fassung.");
+        const saved = page.waitForResponse(
+            response => /\/playlists\/[0-9a-f-]+$/u.test(response.url()) && response.request().method() === "PUT"
+        );
+        await page.getByRole("button", { name: /^Änderungen speichern$/u }).click();
+        await saved;
+
+        await page.waitForURL(/\/playlists$/u);
+        const edited = page.locator("li.playlist", { hasText: EDITED });
+        await expectSlow(edited.locator(".playlist__description")).toHaveText("Zweite Fassung.");
+        // An edit is a change, so the listing now has something to say about one.
+        await expectSlow(edited.getByText("Geändert", { exact: true })).toBeVisible();
+    });
+
+    test("re-saving a playlist without renaming it is not a clash with itself", async ({ page }) => {
+        // The unique rule ignores the row being edited. Without that, pressing Save on an
+        // untouched name reports it as taken by the very playlist wearing it — and only a
+        // real submit through the real form shows the reader what that looks like.
+        const name = `E2E Unverändert ${STAMP}`;
+        await createPlaylist(page, name);
+
+        const row = page.locator("li.playlist", { hasText: name });
+        await row.locator(".popover button").click();
+        await row.getByRole("link", { name: /^Metadaten bearbeiten$/u }).click();
+        await page.waitForURL(/\/playlists\/[0-9a-f-]+\/edit$/u);
+
+        const saved = page.waitForResponse(
+            response => /\/playlists\/[0-9a-f-]+$/u.test(response.url()) && response.request().method() === "PUT"
+        );
+        await page.getByRole("button", { name: /^Änderungen speichern$/u }).click();
+        await saved;
+
+        await page.waitForURL(/\/playlists$/u);
+        await expectSlow(page.getByText("Du hast bereits eine Wiedergabeliste mit diesem Namen.")).toHaveCount(0);
     });
 
     test("says a name is taken while the reader is still in the field", async ({ page }) => {

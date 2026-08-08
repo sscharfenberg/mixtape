@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\ResendVerificationRequest;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -32,15 +33,8 @@ class ResendVerificationController extends Controller
      * if that user hasn't already verified. Always flashes the same generic
      * success message regardless of outcome to prevent enumeration.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(ResendVerificationRequest $request): RedirectResponse
     {
-        precognitive(function () use ($request) {
-            $request->validate([
-                'name' => ['required', 'string', 'min:3', 'max:80'],
-                'email' => ['required', 'string', 'email', 'max:255'],
-            ]);
-        });
-
         $user = User::query()
             ->where('email', $request->string('email')->value())
             ->where('name', $request->string('name')->value())

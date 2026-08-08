@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\ConfirmPasswordRequest;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
 class ConfirmPasswordController extends Controller
@@ -20,12 +20,8 @@ class ConfirmPasswordController extends Controller
      * that follows passes the middleware. A wrong password returns a 422 with
      * the error keyed on `password` so the inline field can show it.
      */
-    public function store(Request $request): JsonResponse
+    public function store(ConfirmPasswordRequest $request): JsonResponse
     {
-        $request->validate([
-            'password' => ['required', 'string'],
-        ]);
-
         if (! Hash::check($request->password, $request->user()->password)) {
             return response()->json([
                 'errors' => ['password' => [__('auth.password')]],

@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\NewPasswordRequest;
 use App\Models\User;
-use App\Rules\PasswordEntropy;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -12,7 +12,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rules\Password as PasswordRule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -50,22 +49,13 @@ class NewPasswordController extends Controller
     /**
      * Reset the user's password.
      *
-     * Precognitive validation backs the live field feedback / strength meter;
-     * the actual reset is delegated to Fortify's password broker, which
+     * NewPasswordRequest carries the rules — including the strength policy behind the
+     * live meter; the actual reset is delegated to Fortify's password broker, which
      * re-validates the token before invoking the closure below. On success the
      * user is logged straight in and sent to the dashboard.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(NewPasswordRequest $request): RedirectResponse
     {
-        precognitive(function () use ($request) {
-            $request->validate([
-                'token' => ['required', 'string'],
-                'email' => ['required', 'string', 'email', 'max:255', 'exists:users,email'],
-                'password' => ['required', 'string', PasswordRule::default(), new PasswordEntropy],
-                'password_confirmation' => ['required', 'string', 'same:password'],
-            ]);
-        });
-
         $status = Password::broker(config('fortify.passwords'))->reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function (User $user, string $password) {

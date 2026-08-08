@@ -28,7 +28,7 @@ use Tests\TestCase;
  * 500-ed every create on the real server. There is no honest guard for that here — a test
  * asserting on the compiled SQL passes on sqlite whether the lock is present or not — so
  * anything touching row locks, window functions or aggregate shapes wants a query against
- * the dev database before it is called done (see CreatePlaylistController::create).
+ * the dev database before it is called done (see PlaylistMetadataController::insert).
  */
 class CreatePlaylistTest extends TestCase
 {
@@ -51,7 +51,7 @@ class CreatePlaylistTest extends TestCase
         $this->actingAs(User::factory()->create())
             ->get('/playlists/create')
             ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->component('Playlists/Create/CreatePlaylistPage'));
+            ->assertInertia(fn (Assert $page) => $page->component('Playlists/Metadata/PlaylistMetadataPage'));
     }
 
     public function test_the_create_route_does_not_swallow_the_word_create(): void

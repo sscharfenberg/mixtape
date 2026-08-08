@@ -3,9 +3,8 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Http\Requests\Auth\VerifyEmailRequest;
 use Illuminate\Auth\Events\Verified;
-use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -14,23 +13,23 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * Not behind auth: the user is identified by the signed {id}/{hash} params, so
  * verification works even though registration logged them out. `signed`
- * middleware enforces the URL's integrity and expiry; the {hash} is re-checked
- * here against the current e-mail. On success it flashes a toast and sends the
- * user to the login page to sign in.
+ * middleware enforces the URL's integrity and expiry, and VerifyEmailRequest
+ * re-checks the {hash} against the current e-mail. On success it flashes a toast
+ * and sends the user to the login page to sign in.
  */
 class VerifyEmailController extends Controller
 {
     /**
-     * @param  string  $id  The user's primary key, from the signed URL.
-     * @param  string  $hash  SHA-1 of the user's e-mail, for integrity.
+     * Mark the address verified and send the user on to sign in.
+     *
+     * Both checks the link needs — that the user exists, and that the `{hash}` still matches
+     * their current address — are VerifyEmailRequest's, which also decides which of 404 and
+     * 403 each failure gets. `verifiable()` hands back the user it already resolved doing
+     * that, so this never looks the row up twice.
      */
-    public function __invoke(Request $request, string $id, string $hash): Response
+    public function __invoke(VerifyEmailRequest $request): Response
     {
-        $user = User::findOrFail($id);
-
-        if (! hash_equals(sha1($user->getEmailForVerification()), $hash)) {
-            abort(403, __('auth.verification_link_invalid'));
-        }
+        $user = $request->verifiable();
 
         if (! $user->hasVerifiedEmail()) {
             $user->markEmailAsVerified();

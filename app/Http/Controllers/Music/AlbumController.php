@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Music;
 
-use App\Enums\CollectionType;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Music\ShowAlbumRequest;
 use App\Models\Collection;
 use App\Models\Track;
 use App\Services\DataTableService;
@@ -42,10 +42,8 @@ class AlbumController extends Controller
      * — same table — from being served as an album, exactly as
      * SongController guards the track table's other types.
      */
-    public function __invoke(Request $request, Collection $album, CoverService $covers): Response
+    public function __invoke(ShowAlbumRequest $request, Collection $album, CoverService $covers): Response
     {
-        abort_unless($album->type === CollectionType::Album, 404);
-
         $album->load('albumArtist:id,name');
 
         $totals = $this->trackTotals($album);

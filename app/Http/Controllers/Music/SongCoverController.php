@@ -2,11 +2,10 @@
 
 namespace App\Http\Controllers\Music;
 
-use App\Enums\TrackType;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Music\SongCoverRequest;
 use App\Models\Track;
 use App\Services\Media\CoverService;
-use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -39,10 +38,8 @@ class SongCoverController extends Controller
      * The same music-only type check SongController makes: the tracks table also
      * holds audiobook chapters, and this route is about music.
      */
-    public function __invoke(Request $request, Track $song): BinaryFileResponse
+    public function __invoke(SongCoverRequest $request, Track $song): BinaryFileResponse
     {
-        abort_unless($song->type === TrackType::Music, Response::HTTP_NOT_FOUND);
-
         $path = $this->covers->path($song);
 
         abort_if($path === null, Response::HTTP_NOT_FOUND);

@@ -51,6 +51,7 @@ return [
 
     'playlist' => [
         'created' => 'Die Wiedergabeliste ":name" wurde angelegt.',
+        'updated' => 'Die Wiedergabeliste ":name" wurde gespeichert.',
     ],
 
 ];

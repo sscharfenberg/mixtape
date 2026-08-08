@@ -95,6 +95,36 @@ Fortify's cache-backed login throttle, the stale `public/hot` that blanks every 
 re-seeded E2E library) are documented in [`docs/testing.md`](docs/testing.md) — **read it before
 writing tests in this repo.**
 
+**Validation & authorization — FORM REQUESTS, never inline** (ported from cantrip.me, 2026-08-08).
+Every endpoint that validates input or guards a subject gets a class in
+`app/Http/Requests/<Area>/<Verb><Thing>Request.php`, type-hinted in the action. Controllers do not
+call `$request->validate()`, do not wrap anything in `precognitive()`, and do not `abort_if` /
+`abort_unless` on the routed model — a controller says what happens, the request says what is
+allowed to reach it.
+
+- **`rules()` / `messages()` / `attributes()`** live there. Precognition needs nothing extra: a
+  FormRequest filters its own rules to `Precognition-Validate-Only` and short-circuits with a 204
+  when they pass, so the old `precognitive(fn () => $request->validate(…))` wrapper is redundant.
+- **`authorize()`** is where ownership and subject-kind checks go. The routed model is already
+  resolved (binding is substituted in middleware), so read it with `$this->route('playlist')`.
+- **Override `failedAuthorization()` to `abort(404)`** wherever a 403 would confirm that a row
+  exists — this instance is internet-facing and shared, so "you may not edit that" is a
+  disclosure. 403 is only right when the caller already demonstrably knows the subject exists.
+- **`prepareForValidation()` cleans input BEFORE the rules see it** (trimming, `''` → `null`), so
+  `unique` and `max` measure what will actually be stored, and `validated()` is what the controller
+  writes.
+- **Share along the axis that repeats** — traits in `Requests/<Area>/Concerns/`, not a base class:
+  fields are shared by create+update while ownership is shared by edit+update, and one inheritance
+  chain cannot express both. Declare the seam `abstract` rather than resolving a collision with
+  `insteadof`.
+
+Three things deliberately stay inline, because they are neither validation nor authorization: a
+resource that turns out to have no file (`abort_if($path === null, …)` in the cover routes — only
+the service knows, after the model is in hand), `Dashboard\DeleteAccountController`'s manual
+password check (a `ValidationException` there would not reach its `fetch()` caller as JSON — its
+docblock explains), and `app/Actions/Fortify/*` (Fortify resolves those itself and hands them
+arrays, so there is no request to inject).
+
 **Linting the frontend** — use **`npm run lint`** (runs ESLint then Stylelint, both with `--fix`).
 Don't invoke `eslint` / `stylelint` directly. `npm run build` runs the same lint first, so a lint
 error fails the build before anything compiles. **Always run `npm run lint` after editing any

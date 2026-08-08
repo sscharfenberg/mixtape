@@ -20,7 +20,7 @@ use App\Http\Controllers\MusicController;
 use App\Http\Controllers\NowPlayingController;
 use App\Http\Controllers\Player\PlayController;
 use App\Http\Controllers\Player\PlayerStateController;
-use App\Http\Controllers\Playlists\CreatePlaylistController;
+use App\Http\Controllers\Playlists\PlaylistMetadataController;
 use App\Http\Controllers\PlaylistsController;
 use App\Http\Middleware\HandleControllerPrecognitiveRequest;
 use Illuminate\Support\Facades\Route;
@@ -47,18 +47,32 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         Route::get('/audiobooks', AudiobooksController::class)->name('audiobooks');
         Route::get('/playlists', PlaylistsController::class)->name('playlists');
 
-        // Making one. `/playlists/create` is registered here, ahead of any
-        // `/playlists/{playlist}` a detail page will add later, so "create" keeps
-        // matching this route instead of being read as a playlist id.
+        // A playlist's METADATA — its name and blurb — created and edited through one
+        // controller and one page (PlaylistMetadataController says why).
         //
-        // HandleControllerPrecognitiveRequest drives the form's live validation (the
-        // base middleware only handles closure routes — see the middleware's docblock).
-        Route::get('/playlists/create', [CreatePlaylistController::class, 'show'])
+        // `/playlists/create` is registered ahead of the `{playlist}` routes below so
+        // "create" keeps matching it rather than being read as a playlist id, and those
+        // are UUID-constrained so a stray segment 404s at the router instead of reaching
+        // model binding. Ownership is checked in the controller, which answers 404 rather
+        // than 403 for someone else's playlist — see its `mine()`.
+        //
+        // HandleControllerPrecognitiveRequest drives the form's live validation on both
+        // submits (the base middleware only handles closure routes — see its docblock).
+        Route::get('/playlists/create', [PlaylistMetadataController::class, 'create'])
             ->name('playlists.create');
 
-        Route::post('/playlists', [CreatePlaylistController::class, 'store'])
+        Route::post('/playlists', [PlaylistMetadataController::class, 'store'])
             ->middleware(['throttle:30,1', HandleControllerPrecognitiveRequest::class])
             ->name('playlists.store');
+
+        Route::get('/playlists/{playlist}/edit', [PlaylistMetadataController::class, 'edit'])
+            ->whereUuid('playlist')
+            ->name('playlists.edit');
+
+        Route::put('/playlists/{playlist}', [PlaylistMetadataController::class, 'update'])
+            ->whereUuid('playlist')
+            ->middleware(['throttle:30,1', HandleControllerPrecognitiveRequest::class])
+            ->name('playlists.update');
 
         // What is playing right now. Offered by the header only while the queue holds
         // something (useSiteAreas), but reachable regardless: the queue is client state,

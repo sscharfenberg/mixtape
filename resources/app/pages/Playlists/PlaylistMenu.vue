@@ -2,8 +2,9 @@
 /******************************************************************************
  * PlaylistMenu
  * The per-row actions menu on the playlists listing — everything you can do to one
- * playlist as a whole. One item so far (edit); rename / delete / play / enqueue land
- * here rather than as more buttons on the row, which is the point of it being a menu.
+ * playlist as a whole. One item so far, "edit metadata", which opens the same form the
+ * playlist was created through (Playlists/Metadata); delete / play / enqueue land here
+ * rather than as more buttons on the row, which is the point of it being a menu.
  *
  * It sits BESIDE the row's <a>, never inside it. An <a> may not contain interactive
  * content, and a <button> nested in one is not merely invalid markup — the click runs
@@ -17,6 +18,7 @@
  * reference is one a test can name and one that survives a re-render (the random default
  * is regenerated on remount, so the DOM id a trigger points at would change under it).
  *****************************************************************************/
+import { Link } from "@inertiajs/vue3";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "Components/UI/Icon.vue";
@@ -52,13 +54,14 @@ const reference = computed<string>(() => `playlist-menu-${props.playlist.id}`);
     >
         <ul class="popover-list">
             <li>
-                <!-- PLACEHOLDER destination, like the row's own link: there is no edit page
-                     yet. It becomes an Inertia <Link :href="…"> the moment there is one,
-                     which is why it is already an anchor rather than a button. -->
-                <a class="popover-list-item" href="https://www.google.com">
+                <!-- The metadata form, over this playlist. A real Inertia <Link> now that
+                     there is somewhere to go — so the visit is client-side like every other
+                     navigation, and `prefetch` warms it on hover, which is cheap for a page
+                     that is two fields and no query. -->
+                <Link class="popover-list-item" :href="`/playlists/${playlist.id}/edit`" prefetch>
                     <icon name="settings" :size="1" />
-                    {{ t("playlists.menu.edit") }}
-                </a>
+                    {{ t("playlists.menu.editMetadata") }}
+                </Link>
             </li>
         </ul>
     </pop-over>

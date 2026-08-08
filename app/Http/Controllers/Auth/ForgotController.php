@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\ForgotRequest;
 use App\Models\User;
 use App\Notifications\ForgotUsernameNotification;
 use Illuminate\Http\RedirectResponse;
@@ -33,19 +34,11 @@ class ForgotController extends Controller
     /**
      * Handle a "forgot password" or "forgot username" form submission.
      *
-     * Precognitive so the form can live-validate a single field on blur
-     * without dispatching an email.
+     * Validation — including the live per-field checks the form makes on blur — is
+     * ForgotRequest's, so nothing is dispatched until the whole form is sound.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(ForgotRequest $request): RedirectResponse
     {
-        precognitive(function () use ($request) {
-            $request->validate([
-                'type' => ['required', 'in:password,name'],
-                'email' => ['required', 'string', 'email', 'max:255'],
-                'name' => ['required_if:type,password', 'string', 'min:3', 'max:80'],
-            ]);
-        });
-
         return match ($request->string('type')->value()) {
             'password' => $this->sendPasswordResetLink($request),
             'name' => $this->sendUsernameReminder($request),

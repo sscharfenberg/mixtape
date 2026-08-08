@@ -51,6 +51,7 @@ return [
 
     'playlist' => [
         'created' => 'The playlist ":name" has been created.',
+        'updated' => 'The playlist ":name" has been saved.',
     ],
 
 ];

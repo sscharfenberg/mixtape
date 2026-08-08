@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Music;
 
 use App\Enums\TrackType;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Music\SongStreamRequest;
 use App\Models\Track;
-use Illuminate\Http\Request;
 use Illuminate\Http\Response as LaravelResponse;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -46,10 +46,8 @@ class SongStreamController extends Controller
      * step whenever something is deleted between library scans, and a dead <audio>
      * src is the honest answer — the same call SongCoverController makes.
      */
-    public function __invoke(Request $request, Track $song): BinaryFileResponse|LaravelResponse
+    public function __invoke(SongStreamRequest $request, Track $song): BinaryFileResponse|LaravelResponse
     {
-        abort_unless($song->type === TrackType::Music, Response::HTTP_NOT_FOUND);
-
         $path = $song->absolutePath();
 
         abort_unless(is_file($path) && is_readable($path), Response::HTTP_NOT_FOUND);

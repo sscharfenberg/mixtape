@@ -386,22 +386,26 @@
         },
         "menu": {
             "actions": "Actions for {name}",
-            "edit": "Edit"
+            "editMetadata": "Edit metadata"
         },
         "empty": {
             "headline": "No playlists yet",
             "text": "A playlist is your own running order across the collection — music and audiobook chapters mixed however you like. Create your first one, then add tracks to it from any song or album page."
         },
-        "create": {
-            "headline": "New playlist",
-            "intro": "The playlist starts empty. You add tracks to it afterwards, from wherever you are listening — a song or album page.",
+        "form": {
             "nameLabel": "Name",
             "nameHint": "Only you can see it — but no two of your playlists may share a name.",
             "descriptionLabel": "Description",
             "descriptionHint": "Optional. What is this playlist for?",
-            "submit": "Create playlist",
-            "submitting": "Creating …",
-            "cancel": "Cancel"
+            "cancel": "Cancel",
+            "createHeadline": "New playlist",
+            "createIntro": "The playlist starts empty. You add tracks to it afterwards, from wherever you are listening — a song or album page.",
+            "createSubmit": "Create playlist",
+            "createSubmitting": "Creating …",
+            "editHeadline": "Edit metadata",
+            "editIntro": "This playlist's name and description. The tracks in it are left untouched.",
+            "editSubmit": "Save changes",
+            "editSubmitting": "Saving …"
         }
     },
     "components": {

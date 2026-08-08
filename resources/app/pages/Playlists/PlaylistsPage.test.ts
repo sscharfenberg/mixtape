@@ -124,8 +124,13 @@ describe("PlaylistsPage", () => {
         expect(new Set(targets).size).toBe(2);
     });
 
-    it("offers the edit action in the menu", () => {
-        expect(page().find(".popover-list-item").text()).toContain(translate("playlists.menu.edit"));
+    it("points each row's menu at that playlist's own metadata form", () => {
+        // The href carries the row's id, so a menu that lost it would open the wrong
+        // playlist's form — or, with a stale id, someone else's 404.
+        const item = page([playlist({ id: "abc-123" })]).find("a.popover-list-item");
+
+        expect(item.attributes("href")).toBe("/playlists/abc-123/edit");
+        expect(item.text()).toContain(translate("playlists.menu.editMetadata"));
     });
 
     it("shows a playlist's description", () => {
