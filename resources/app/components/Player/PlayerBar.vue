@@ -147,8 +147,19 @@ onUnmounted(() => {
     <div v-if="current" ref="barRef" class="player-bar" :aria-label="t('player.bar.label')" role="region">
         <!-- Renders nothing (a <audio> without `controls` is display:none in every UA
              stylesheet) and is deliberately not hidden with `hidden`, which some
-             engines treat as a reason to drop media loading. -->
-        <audio ref="audioRef" preload="metadata" />
+             engines treat as a reason to drop media loading.
+
+             `preload="none"`, because "metadata" is not one request: a hydrated queue
+             sets `src` on every page load, and to answer "metadata" for a long mp3 the
+             engine range-hops the file — front for the Xing header, tail for ID3v1 —
+             opening a NEW http request per range and aborting the one in flight once it
+             has enough. Measured on an 83-minute, 161 MB track: FIVE requests and up to
+             13 MB per reload, with nothing playing, each one a full PHP request because
+             the stream route is behind auth. Nothing on the page wanted them — the
+             timeline's total comes from the queue (getID3 at scan time, see
+             `usePlayerAudio`'s `duration`), and the restored position is applied on
+             `loadedmetadata`, which now arrives when playback starts instead. -->
+        <audio ref="audioRef" preload="none" />
 
         <cover-image
             :src="current.coverUrl"

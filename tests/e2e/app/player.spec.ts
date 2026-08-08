@@ -168,6 +168,44 @@ test.describe("the player", () => {
         expect(state.paused).toBe(true);
     });
 
+    test("cues a restored queue without fetching a byte of it", async ({ page }) => {
+        /*
+         * `preload="none"` ON THE BAR'S <audio>, ASSERTED WHERE IT IS VISIBLE. A hydrated
+         * queue sets `src` on every page load, and under the "metadata" this element used
+         * to carry, the engine answered that by range-hopping the file — front for the
+         * Xing header, tail for ID3v1 — a NEW http request per range, each one a full PHP
+         * request because the stream route is behind auth. Measured against the real
+         * collection (2026-08-08): FIVE requests and up to 13 MB per reload of an
+         * 83-minute track, with nothing playing and nobody waiting for any of it.
+         *
+         * It cannot be a Vitest assertion: happy-dom has no network behind an <audio src>,
+         * so the attribute would be all there was to check, and checking the attribute is
+         * checking the template. What is worth pinning is the CONSEQUENCE — that a reload
+         * costs nothing until someone presses play — and only a browser can be asked.
+         *
+         * The fixture's file is one second long, so this counts requests rather than
+         * bytes: the number that must not creep back up is the number of round trips.
+         */
+        await enqueueSongs(page, 1);
+
+        const streamed: string[] = [];
+        page.on("request", request => {
+            if (request.url().includes("/stream")) streamed.push(request.url());
+        });
+
+        await page.reload();
+        await expect(page.locator(".player-bar")).toBeVisible();
+        // The element is cued — the queue came back and the src is on it...
+        expect((await audioState(page)).src).toMatch(/^\/music\/songs\/[0-9a-f-]{36}\/stream$/u);
+        // ...and not one byte was asked for.
+        expect(streamed).toHaveLength(0);
+
+        // The press is what fetches, which is the whole point: nothing was lost, it was
+        // only deferred to the moment a listener actually wanted the audio.
+        await playButton(page).click();
+        await expect.poll(() => streamed.length, { timeout: 5_000 }).toBeGreaterThan(0);
+    });
+
     test("answers the stream request with audio, not a page", async ({ page }) => {
         // The route, the auth on it, and the Content-Type — end to end. A redirect to
         // /login here would present as an <audio> that simply never plays.

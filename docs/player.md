@@ -508,7 +508,7 @@ Background playback splits in two, and **both halves now hold**:
 
 ## What the build learned
 
-Four things worth writing down, because each cost time and none is obvious from the plan:
+Five things worth writing down, because each cost time and none is obvious from the plan:
 
 1. **Symfony already does HTTP Range.** This plan asserted that `response()->file()` does not.
    It does: `BinaryFileResponse::prepare()` reads the `Range` header and answers `206` with a
@@ -526,6 +526,24 @@ Four things worth writing down, because each cost time and none is obvious from 
 4. **Re-assigning the same `src` re-downloads the file.** Setting `src` runs the media load
    algorithm again, so repeat-one — and the same song sitting twice in a queue, which is a normal
    thing to do — rewinds via `currentTime = 0` instead, keeping the buffer it already had.
+5. **`preload="metadata"` is not one request** (found 2026-08-08, on the live dev site). A hydrated
+   queue sets `src` on every page load, and to answer "metadata" the engine range-hops the file —
+   front for the Xing header, tail for the ID3v1 tag — opening a **new HTTP request per range** and
+   aborting the one in flight once it has enough. On an 83-minute, 161 MB track that was **five
+   requests and up to 13 MB per reload with nothing playing**, four `206`s and one nginx `499`
+   (client closed request, which DevTools renders as *canceled*) — and because the stream route is
+   behind auth, five full PHP requests, not one. Nothing on the page wanted them: the timeline's
+   total comes from the queue (`duration` prefers the getID3 figure the scanner stored, and falls
+   back to the element only when there is none), and a restored position is applied on
+   `loadedmetadata`, which under `preload="none"` simply arrives when playback starts. The bar now
+   carries **`preload="none"`**, so a reload costs nothing until someone presses play. What is given
+   up is the warm buffer on that first press — one round trip over the internet, nothing on the LAN
+   — and scrubbing before pressing play gets *better*, because the fetch then starts at the seek
+   point rather than at zero. It is pinned by a Playwright spec (*cues a restored queue without
+   fetching a byte of it*) rather than a Vitest one: happy-dom has no network behind an `<audio
+   src>`, so there the attribute would be all there was to check, and the consequence is the thing
+   worth asserting. None of this touches playback itself — the engine still opens a fresh request
+   per seek and per resume-after-suspend, which is what Range is for.
 
 ## How it fits together
 

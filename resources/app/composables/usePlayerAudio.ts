@@ -704,8 +704,11 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
         );
 
         /*
-         * A queue restored from storage, or one built before the bar mounted. Loaded so the
-         * timeline can draw its total and the first press starts instantly.
+         * A queue restored from storage, or one built before the bar mounted. Pointed at the
+         * track so the element is cued and a press has somewhere to start — but it FETCHES
+         * NOTHING, because the bar carries `preload="none"` (which that attribute's comment
+         * explains: "metadata" cost five requests and megabytes on every reload of a long
+         * track, for a duration the queue already knew).
          *
          * WHETHER IT ALSO PLAYS IS THE INTENT, not a constant — and `false` used to be
          * hardcoded here, which is the other half of the bug `play()` documents above. Page
