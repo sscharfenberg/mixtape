@@ -82,7 +82,20 @@ import { useQueueReorder } from "./useQueueReorder";
 const { t } = useI18n();
 const { tracks, currentIndex, isEmpty, totalDuration, jumpTo, remove } = usePlayerQueue();
 const { play } = usePlayerAudio();
-const { isOpen, setOpen } = usePlayQueuePanel();
+const { isOpen, open, close, setOpen } = usePlayQueuePanel();
+
+/**
+ * How long a peek lasts.
+ *
+ * The same 3000ms the enqueue toast is given (SubjectMenu), so the two announcements of one
+ * action appear and leave together rather than staggering. A plain constant rather than a
+ * timing token: the `timings/` group is CSS durations, and this is a behavioural delay — the
+ * same call useToast makes for its own DEFAULT_DURATION.
+ */
+const PEEK_MS = 3000;
+
+/** Pending auto-close. Its presence is also what marks the panel as "open because of a peek". */
+let peekTimer: ReturnType<typeof setTimeout> | undefined;
 
 /** The popover element itself, so its state can be driven and read. */
 const layer = useTemplateRef<HTMLElement>("layer");
@@ -108,9 +121,59 @@ function apply(open: boolean): void {
     if (!open && showing) el.hidePopover();
 }
 
-/** Adopt the element's state — fired for a light dismiss, Escape, the back gesture, and our own calls. */
+/**
+ * Cancel a pending auto-close: once the reader has touched the panel, it is theirs.
+ *
+ * Without this a peek would pull the panel out from under someone who moved onto it to drag a
+ * row or press a remove — three seconds is long enough to start something and far too short to
+ * finish it. Bound to `pointerenter` and `focusin` on the panel rather than the layer, because
+ * the layer passes clicks through (`pointer-events: none`) and so gets no pointer events of its
+ * own.
+ */
+function keepOpen(): void {
+    clearTimeout(peekTimer);
+    peekTimer = undefined;
+}
+
+/**
+ * PEEK: show the panel for a moment whenever the queue GROWS, then put it away.
+ *
+ * On growth rather than on any change, because "something was added" is the event worth
+ * showing — a removal or a reorder is something the reader is already looking at, and a
+ * `playNow` that replaces a long queue with a short one has added nothing.
+ *
+ * A panel the reader opened themselves is LEFT ALONE: the timer's own existence is the test
+ * for whether the panel is open because of a peek, so an enqueue while it is deliberately open
+ * neither restarts nor schedules an auto-close. Enqueueing again mid-peek does restart it.
+ */
+watch(
+    () => tracks.value.length,
+    (now, before) => {
+        if (now <= before) return;
+        if (isOpen.value && peekTimer === undefined) return;
+
+        open();
+        clearTimeout(peekTimer);
+        peekTimer = setTimeout(() => {
+            peekTimer = undefined;
+            close();
+        }, PEEK_MS);
+    }
+);
+
+/**
+ * Adopt the element's state — fired for a light dismiss, Escape, the back gesture, and our own
+ * calls.
+ *
+ * A CLOSE ALSO CANCELS A PENDING PEEK, which is not tidiness: without it, dismissing a peeking
+ * panel and reopening it within the three seconds left the original timer running, and it shut
+ * the panel again under a reader who had just asked for it. Any close means the auto-close has
+ * nothing left to do.
+ */
 function handleToggle(event: ToggleEvent): void {
-    setOpen(event.newState === "open");
+    const open = event.newState === "open";
+    if (!open) keepOpen();
+    setOpen(open);
 }
 
 watch(isOpen, apply);
@@ -211,7 +274,12 @@ watch(
 
 <template>
     <div v-if="!isEmpty" ref="layer" class="play-queue-layer" popover="auto" @toggle="handleToggle">
-            <aside class="play-queue" :aria-label="t('player.queue.label')">
+            <aside
+                class="play-queue"
+                :aria-label="t('player.queue.label')"
+                @pointerenter="keepOpen"
+                @focusin="keepOpen"
+            >
             <header class="play-queue__header">
                 <h2 class="play-queue__title">
                     <icon name="playlist" :size="1" />

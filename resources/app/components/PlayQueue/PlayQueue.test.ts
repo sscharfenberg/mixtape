@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import type { QueueTrack } from "Composables/usePlayerQueue";
 import { resetPlayerQueueForTests, usePlayerQueue } from "Composables/usePlayerQueue";
+import { resetPlayQueuePanelForTests, usePlayQueuePanel } from "Composables/usePlayQueuePanel";
 import { resetInertia } from "Testing/inertia";
 import { iconNames, mountApp, translate } from "Testing/mount";
 import PlayQueue from "./PlayQueue.vue";
@@ -55,6 +56,7 @@ describe("PlayQueue", () => {
     beforeEach(() => {
         resetInertia();
         resetPlayerQueueForTests();
+        resetPlayQueuePanelForTests();
         window.localStorage.clear();
     });
 
@@ -245,5 +247,84 @@ describe("PlayQueue", () => {
         const wrapper = await panel([track("a", "Airbag")]);
 
         expect(wrapper.find("aside").attributes("aria-label")).toBe(translate("player.queue.label"));
+    });
+
+    describe("the peek", () => {
+        /*
+         * Adding to the queue reveals the panel for a moment and then puts it away. The
+         * TIMING is what belongs here — a browser adds nothing to a setTimeout, and fake
+         * timers make the three seconds free — while whether the panel is really on screen is
+         * the Playwright spec's business, since only a browser has a top layer.
+         *
+         * Note these enqueue AFTER mounting, unlike `panel()` above: the peek watches the
+         * count for GROWTH, so a queue that was already full when the component appeared is
+         * not an addition and must not open anything.
+         */
+
+        /** Mount over an empty queue, so a later enqueue is a real growth event. */
+        const mounted = async () => {
+            const wrapper = mountApp(PlayQueue, { attachTo: document.body });
+            await nextTick();
+
+            return wrapper;
+        };
+
+        it("opens on a growing queue and closes itself again", async () => {
+            vi.useFakeTimers();
+            await mounted();
+            expect(usePlayQueuePanel().isOpen.value).toBe(false);
+
+            usePlayerQueue().enqueue([track("1", "Airbag")]);
+            await nextTick();
+            expect(usePlayQueuePanel().isOpen.value).toBe(true);
+
+            vi.advanceTimersByTime(3000);
+            expect(usePlayQueuePanel().isOpen.value).toBe(false);
+            vi.useRealTimers();
+        });
+
+        it("does not open for a removal", async () => {
+            vi.useFakeTimers();
+            await mounted();
+            usePlayerQueue().enqueue([track("1", "Airbag"), track("2", "Avalon")]);
+            await nextTick();
+            vi.advanceTimersByTime(3000);
+
+            usePlayerQueue().remove(0);
+            await nextTick();
+
+            expect(usePlayQueuePanel().isOpen.value).toBe(false);
+            vi.useRealTimers();
+        });
+
+        it("leaves a panel the reader opened themselves alone", async () => {
+            // No auto-close is scheduled for a panel that was already deliberately open, or
+            // an enqueue would shut a panel somebody is reading.
+            vi.useFakeTimers();
+            await mounted();
+            usePlayQueuePanel().toggle();
+            expect(usePlayQueuePanel().isOpen.value).toBe(true);
+
+            usePlayerQueue().enqueue([track("1", "Airbag")]);
+            await nextTick();
+            vi.advanceTimersByTime(3000);
+
+            expect(usePlayQueuePanel().isOpen.value).toBe(true);
+            vi.useRealTimers();
+        });
+
+        it("keeps the panel open once the reader touches it", async () => {
+            // Three seconds is long enough to start a drag and far too short to finish one.
+            vi.useFakeTimers();
+            const wrapper = await mounted();
+            usePlayerQueue().enqueue([track("1", "Airbag")]);
+            await nextTick();
+
+            wrapper.find("aside.play-queue").element.dispatchEvent(new Event("pointerenter"));
+            vi.advanceTimersByTime(3000);
+
+            expect(usePlayQueuePanel().isOpen.value).toBe(true);
+            vi.useRealTimers();
+        });
     });
 });

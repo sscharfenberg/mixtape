@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { openQueuePanel, stopQueueSync } from "../support/actions";
+import { dismissQueuePeek, openQueuePanel, stopQueueSync } from "../support/actions";
 import { clearServerQueue, specStorageState } from "../support/environment";
 
 /*
@@ -136,6 +136,33 @@ test.describe("the play queue", () => {
         await page.goto("/music/songs");
         await expect(page.locator("table")).toBeVisible();
         await expect(page.locator(".dt-cards")).toBeHidden();
+    });
+
+    test("peeks itself open when something is queued, then puts itself away", async ({ page }) => {
+        /*
+         * The behaviour's point is that nobody pressed anything: the panel reveals what was
+         * just added and then gets out of the way. The three seconds are asserted by WAITING
+         * — a fake clock would only prove the setTimeout — and the browser is the only layer
+         * that can say the panel was genuinely on screen, the top layer being its whole
+         * mechanism. PlayQueue's own spec covers the branches (growth only, a deliberately
+         * open panel left alone, a touch cancelling the close) on a fake clock, cheaply.
+         */
+        await page.goto("/music/songs");
+        await page.locator("tbody tr").first().click();
+        await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
+
+        const panel = page.locator(".play-queue");
+        await expect(panel).toHaveCount(0);
+
+        await enqueueFromHero(page);
+
+        // Opened by nothing but the enqueue.
+        await expect(panel).toBeVisible();
+        await expect(page.locator(".play-queue-toggle")).toHaveAttribute("aria-expanded", "true");
+
+        // And gone again on its own. Generous, because the wait is real: the peek is 3s.
+        await expect(panel).toBeHidden({ timeout: 8_000 });
+        await expect(page.locator(".play-queue-toggle")).toHaveAttribute("aria-expanded", "false");
     });
 
     test("light-dismisses: Escape, a click outside, and the header follows either", async ({ page }) => {
@@ -410,8 +437,13 @@ test.describe("the play queue on a narrow screen", () => {
          * The whole point of the narrow layout: 280px of panel on a 420px screen is
          * most of it, so the queue is not something you carry around open. Queuing a
          * song must not shove the page aside.
+         *
+         * Adding to the queue PEEKS the panel for three seconds now, so "shut" is the state
+         * after that peek rather than immediately — dismissed here instead of waited out,
+         * which also cancels the pending auto-close so it cannot shut the panel again below.
          */
         await enqueueFromCard(page);
+        await dismissQueuePeek(page);
 
         await expect(page.locator(".play-queue")).toBeHidden();
         await expect(page.locator(".play-queue-toggle")).toBeVisible();
@@ -445,6 +477,8 @@ test.describe("the play queue on a narrow screen", () => {
 
     test("swaps the toggle's glyph for a close once it is open", async ({ page }) => {
         await enqueueFromCard(page);
+        // The enqueue peeks the panel open; the glyph asserted first is the RESTING one.
+        await dismissQueuePeek(page);
         const toggle = page.locator(".play-queue-toggle");
 
         // Icon writes `xlink:href`, and a real browser will not hand that back under
@@ -470,6 +504,8 @@ test.describe("the play queue on a narrow screen", () => {
          * over a light page it reads as a seam. A ResizeObserver keeps it honest.
          */
         await enqueueFromCard(page);
+        // Dismiss the peek first, so the auto-close from the enqueue cannot fire mid-resize.
+        await dismissQueuePeek(page);
         await page.locator(".play-queue-toggle").click();
         await expect(page.locator(".play-queue")).toBeVisible();
 

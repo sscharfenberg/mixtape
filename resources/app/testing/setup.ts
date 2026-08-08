@@ -90,3 +90,33 @@ if (typeof document !== "undefined" && typeof document.execCommand === "undefine
         configurable: true
     });
 }
+
+/**
+ * The Popover API's three methods, which happy-dom does not implement at all.
+ *
+ * The app leans on it in two places — PopOver for every menu, and PlayQueue for the panel —
+ * and PlayQueue calls it straight on a template ref, so without this every test that opens
+ * the panel dies on `el.showPopover is not a function`.
+ *
+ * NO-OPS ON PURPOSE, and the reason is the rule at the top of this file. A popover's whole
+ * behaviour is the TOP LAYER — painting order, light dismiss, Escape, the back gesture — and
+ * happy-dom has no top layer to put anything in, so a richer fake would only be asserting
+ * itself. What the unit tests assert is the app's own state (usePlayQueuePanel's flag, which
+ * the panel mirrors from the element's `toggle` event in a real browser); whether the element
+ * is genuinely on screen, and whether it dismisses, is the Playwright spec's business.
+ *
+ * `:popover-open` therefore never matches here, which the component's own guard tolerates: it
+ * skips a `hidePopover()` it thinks is unnecessary and calls `showPopover()` more than once,
+ * both harmless against a stub.
+ */
+for (const method of ["showPopover", "hidePopover", "togglePopover"] as const) {
+    // HTMLElement, not Element: that is where the API is declared, and where TypeScript's DOM
+    // lib knows to find it.
+    if (typeof HTMLElement !== "undefined" && typeof HTMLElement.prototype[method] === "undefined") {
+        Object.defineProperty(HTMLElement.prototype, method, {
+            value: () => {},
+            writable: true,
+            configurable: true
+        });
+    }
+}

@@ -41,6 +41,8 @@ export type UsePlayQueuePanelReturn = {
     isOpen: ComputedRef<boolean>;
     /** Flip it — what the header's toggle button does. */
     toggle: () => void;
+    /** Show it. Used by the PEEK, which reveals the panel for a moment when the queue grows. */
+    open: () => void;
     /** Force it shut, for a caller that needs to guarantee the content is clear. */
     close: () => void;
     /**
@@ -71,6 +73,11 @@ export function usePlayQueuePanel(): UsePlayQueuePanelReturn {
         open.value = !open.value;
     }
 
+    /** Show it, whatever it was. */
+    function show(): void {
+        open.value = true;
+    }
+
     /** Close it, whatever it was. */
     function close(): void {
         open.value = false;
@@ -81,7 +88,7 @@ export function usePlayQueuePanel(): UsePlayQueuePanelReturn {
         open.value = next;
     }
 
-    return { isOpen: computed(() => open.value), toggle, close, setOpen };
+    return { isOpen: computed(() => open.value), toggle, open: show, close, setOpen };
 }
 
 /** Reset the singleton — tests only, since module state outlives a test file. */

@@ -118,21 +118,6 @@ export const countDocumentRequests = async (page: Page, block: () => Promise<voi
 };
 
 /**
- * End a queue spec without letting its last breath reach the next one.
- *
- * THE HOLE `clearServerQueue` CANNOT CLOSE. A tab flushes its queue as it goes, with
- * `keepalive` precisely so the request outlives the page — so it is fired while Playwright
- * tears the context down, and it can land AFTER the next test has reset the account. That
- * test then finds a queue nobody in it built and fails on a count one too high, which is
- * exactly as confusing as it sounds. Worse, it is a race: it fails on some runs and not
- * others, and never in the file it belongs to.
- *
- * Two steps, and the ORDER is the whole trick. The route is installed first, so the browser
- * has somewhere to drop the request; then the page is closed with `runBeforeUnload`, which
- * makes the flush happen HERE — awaited, inside the test that owns it — rather than at some
- * unknowable moment during teardown. What the context teardown then unloads is nothing.
- */
-/**
  * Open the play-queue panel, whatever width the test is running at.
  *
  * EVERY SPEC THAT TOUCHES THE PANEL NEEDS THIS SINCE 2026-08-08. The panel used to stand
@@ -156,6 +141,40 @@ export const openQueuePanel = async (page: Page): Promise<void> => {
     await expect(panel).toBeVisible();
 };
 
+/**
+ * Put the play-queue panel away after an enqueue, cancelling its peek.
+ *
+ * Adding to the queue now reveals the panel for three seconds and then hides it again, so
+ * "there is a queue" and "the panel is shut" stopped being the same instant. Escape is used
+ * rather than waiting the peek out: it is instant, and it also CANCELS the pending auto-close,
+ * so a test that reopens the panel a moment later cannot have it shut under itself by a timer
+ * from the enqueue before.
+ */
+export const dismissQueuePeek = async (page: Page): Promise<void> => {
+    const panel = page.locator(".play-queue");
+
+    if (await panel.isVisible()) {
+        await page.keyboard.press("Escape");
+    }
+
+    await expect(panel).toBeHidden();
+};
+
+/**
+ * End a queue spec without letting its last breath reach the next one.
+ *
+ * THE HOLE `clearServerQueue` CANNOT CLOSE. A tab flushes its queue as it goes, with
+ * `keepalive` precisely so the request outlives the page — so it is fired while Playwright
+ * tears the context down, and it can land AFTER the next test has reset the account. That
+ * test then finds a queue nobody in it built and fails on a count one too high, which is
+ * exactly as confusing as it sounds. Worse, it is a race: it fails on some runs and not
+ * others, and never in the file it belongs to.
+ *
+ * Two steps, and the ORDER is the whole trick. The route is installed first, so the browser
+ * has somewhere to drop the request; then the page is closed with `runBeforeUnload`, which
+ * makes the flush happen HERE — awaited, inside the test that owns it — rather than at some
+ * unknowable moment during teardown. What the context teardown then unloads is nothing.
+ */
 export const stopQueueSync = async (page: Page): Promise<void> => {
     await page.route("**/player/state", route => route.abort());
     await page.close({ runBeforeUnload: true });
