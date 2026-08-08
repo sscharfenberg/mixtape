@@ -1,3 +1,17 @@
+/******************************************************************************
+ * .form-row__addon — the static icon segment welded to a field's leading edge
+ * @type {Sass}
+ * Shares the field's fill, border and focus ink so the pair reads as one
+ * control, and squares off the seam between them (the addon keeps the left
+ * corners, the field the right).
+ *
+ * `<textarea>` is matched alongside `input` throughout, by class rather than by
+ * element: a textarea IS the text field with more lines, and a row that lit its
+ * input on focus but left the addon beside a focused textarea dark would look
+ * broken in any form holding both. The addon stretches to the textarea's full
+ * height (the slot's default cross-axis alignment) with its icon at the top,
+ * which is what keeps the welded edge unbroken down a multi-line field.
+ *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "Abstracts/colors" as c;
 @use "Abstracts/sizes" as s;
@@ -16,13 +30,17 @@
 
     &:has(input:not([readonly])):focus .form-row__addon,
     &:has(input:not([readonly])):focus-visible .form-row__addon,
-    &:has(input:not([readonly])):focus-within .form-row__addon {
+    &:has(input:not([readonly])):focus-within .form-row__addon,
+    &:has(.form-textarea:not([readonly])):focus .form-row__addon,
+    &:has(.form-textarea:not([readonly])):focus-visible .form-row__addon,
+    &:has(.form-textarea:not([readonly])):focus-within .form-row__addon {
         background-color: map.get(c.$c-input, "background-focus");
         color: map.get(c.$c-input, "surface-focus");
         border-color: map.get(c.$c-input, "border-focus");
     }
 
-    &:has(.form-row__addon) .form-input {
+    &:has(.form-row__addon) .form-input,
+    &:has(.form-row__addon) .form-textarea {
         border-left-width: 0;
 
         border-top-left-radius: 0;

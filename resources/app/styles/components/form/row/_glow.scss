@@ -8,9 +8,12 @@
  * segment and breaking at the seams. The slot is rounded to the field's outer
  * corners so the glow follows its shape.
  *
- * Scoped to rows that hold a `.form-input` (the text field), so a checkbox row —
- * whose bare <input type="checkbox"> is also an `input` inside a __slot — never
- * picks up the field glow (it has its own).
+ * Scoped to rows that hold a `.form-input` or a `.form-textarea` (the text
+ * fields), so a checkbox row — whose bare <input type="checkbox"> is also an
+ * `input` inside a __slot — never picks up the field glow (it has its own). The
+ * textarea is named explicitly rather than covered by a looser selector: it is
+ * the same field with more lines, and a form mixing the two must light both the
+ * same way or the multi-line row reads as disabled next to the single-line one.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "Abstracts/colors" as c;
@@ -18,7 +21,8 @@
 @use "Abstracts/timings" as ti;
 
 // rounded to the field's outer corners + transition, only on text-field rows.
-.form-row:has(.form-input) .form-row__slot {
+.form-row:has(.form-input) .form-row__slot,
+.form-row:has(.form-textarea) .form-row__slot {
     border-radius: map.get(s.$c-input, "radius");
 
     @media (prefers-reduced-motion: no-preference) {
@@ -29,7 +33,8 @@
 // :focus-within covers the input and the trailing show/hide button (which keeps
 // input focus via mousedown.prevent), matching the addon/button focus rules'
 // selector shape. A tight edge glow plus a wider soft halo.
-.form-row:has(.form-input:not([readonly])):focus-within .form-row__slot {
+.form-row:has(.form-input:not([readonly])):focus-within .form-row__slot,
+.form-row:has(.form-textarea:not([readonly])):focus-within .form-row__slot {
     box-shadow:
         0 0 0.3em 0 map.get(c.$c-input, "glow"),
         0 0 0.7em 0.05em map.get(c.$c-input, "glow");

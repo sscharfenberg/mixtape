@@ -20,7 +20,9 @@ use App\Http\Controllers\MusicController;
 use App\Http\Controllers\NowPlayingController;
 use App\Http\Controllers\Player\PlayController;
 use App\Http\Controllers\Player\PlayerStateController;
+use App\Http\Controllers\Playlists\CreatePlaylistController;
 use App\Http\Controllers\PlaylistsController;
+use App\Http\Middleware\HandleControllerPrecognitiveRequest;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -44,6 +46,19 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         Route::get('/music', MusicController::class)->name('music');
         Route::get('/audiobooks', AudiobooksController::class)->name('audiobooks');
         Route::get('/playlists', PlaylistsController::class)->name('playlists');
+
+        // Making one. `/playlists/create` is registered here, ahead of any
+        // `/playlists/{playlist}` a detail page will add later, so "create" keeps
+        // matching this route instead of being read as a playlist id.
+        //
+        // HandleControllerPrecognitiveRequest drives the form's live validation (the
+        // base middleware only handles closure routes — see the middleware's docblock).
+        Route::get('/playlists/create', [CreatePlaylistController::class, 'show'])
+            ->name('playlists.create');
+
+        Route::post('/playlists', [CreatePlaylistController::class, 'store'])
+            ->middleware(['throttle:30,1', HandleControllerPrecognitiveRequest::class])
+            ->name('playlists.store');
 
         // What is playing right now. Offered by the header only while the queue holds
         // something (useSiteAreas), but reachable regardless: the queue is client state,

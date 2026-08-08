@@ -23,6 +23,22 @@ class PlaylistTrack extends Model
     /** Only `created_at` — entries are appended/reordered, never "updated". */
     const UPDATED_AT = null;
 
+    /**
+     * Writing an entry bumps its PLAYLIST's `updated_at`.
+     *
+     * Without this, a playlist's `updated_at` only ever moves when its name or
+     * description is edited — so the listing's "changed" fact would say nothing about
+     * the thing a listener actually changes, which is what is IN the playlist. Eloquent
+     * touches owners on save AND on delete (Model::delete calls touchOwners before the
+     * row goes), so adding, reordering and removing tracks all count.
+     *
+     * The entry's own `UPDATED_AT` being null is unrelated: this updates the parent's
+     * column, not this row's.
+     *
+     * @var array<int, string>
+     */
+    protected $touches = ['playlist'];
+
     /** @return array<string, string> */
     protected function casts(): array
     {

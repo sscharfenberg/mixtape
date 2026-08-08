@@ -4,6 +4,14 @@
  * ported from cantrip.me's $components.input. consumed as s.$c-input via
  * `@use "Abstracts/sizes" as s;`. `radius: 100vw` gives pill-shaped inputs;
  * `radius-px` is the concrete corner value the addon/button use to join cleanly.
+ *
+ * `padding` is the text inset of the field itself, shared by the single-line
+ * FormInput and the multi-line FormTextarea so the two never sit in one form with
+ * their text starting at different places. Character/ex units rather than a step
+ * off the scale, because the inset is measured against the field's own type: the
+ * generous 4ch on the TRAILING side is clearance for the valid check-mark and the
+ * validating spinner, which are absolutely positioned over that corner (see
+ * components/form/row/_valid.scss) and would otherwise sit on top of the text.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "../global-size-tokens" as s;
@@ -12,6 +20,7 @@ $input: (
     "radius": map.get(s.$radius, "featured"),
     "radius-px": 20px,
     "border": map.get(s.$border, "base"),
+    "padding": 0.75ex 4ch 0.75ex 2ch,
     "line-height": map.get(s.$icons, "medium"),
     "icon": map.get(s.$icons, "medium")
 ) !default;

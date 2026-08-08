@@ -375,6 +375,34 @@
             }
         }
     },
+    "playlists": {
+        "createLink": "Create new playlist",
+        "facts": {
+            "tracks": "Tracks",
+            "createdAt": "Created",
+            "duration": "Duration",
+            "updatedAt": "Modified"
+        },
+        "menu": {
+            "actions": "Actions for {name}",
+            "edit": "Edit"
+        },
+        "empty": {
+            "headline": "No playlists yet",
+            "text": "A playlist is your own running order across the collection — music and audiobook chapters mixed however you like. Create your first one, then add tracks to it from any song or album page."
+        },
+        "create": {
+            "headline": "New playlist",
+            "intro": "The playlist starts empty. You add tracks to it afterwards, from wherever you are listening — a song or album page.",
+            "nameLabel": "Name",
+            "nameHint": "Only you can see it — but no two of your playlists may share a name.",
+            "descriptionLabel": "Description",
+            "descriptionHint": "Optional. What is this playlist for?",
+            "submit": "Create playlist",
+            "submitting": "Creating …",
+            "cancel": "Cancel"
+        }
+    },
     "components": {
         "datatable": {
             "search": "Search",

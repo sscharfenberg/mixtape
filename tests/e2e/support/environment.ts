@@ -72,6 +72,25 @@ export const serverEnv: Record<string, string> = {
     APP_LOCALE: "de",
     DB_CONNECTION: "sqlite",
     DB_DATABASE: DATABASE,
+    /*
+     * SURVIVING THREE WORKERS ON ONE SQLITE FILE. Keeping sessions out of the database
+     * (below) stops the worst of the contention, but any spec that WRITES through the app —
+     * creating a playlist, syncing a queue, logging a play — can still meet a concurrent
+     * read, and sqlite's default is to fail that write immediately with "database is
+     * locked". It surfaces as a 500 on a page that is entirely correct, on a different spec
+     * each run, which is the worst kind of intermittent (it cost a full-suite run to
+     * diagnose, 2026-08-08).
+     *
+     * `busy_timeout` makes a blocked writer WAIT rather than throw; WAL lets readers carry
+     * on while it holds the lock, so the wait is rarely needed at all. `synchronous=off` is
+     * safe here and nowhere else: this database is deleted and re-seeded at the start of
+     * every run, so durability across a crash buys nothing and costs an fsync per write.
+     *
+     * config/database.php reads these three from the environment for this reason.
+     */
+    DB_BUSY_TIMEOUT: "5000",
+    DB_JOURNAL_MODE: "wal",
+    DB_SYNCHRONOUS: "off",
     SESSION_DRIVER: "file",
     SESSION_SECURE_COOKIE: "false",
     CACHE_STORE: "file",
@@ -177,6 +196,15 @@ export const buildAssets = (): void => {
 export const resetDatabase = (): void => {
     mkdirSync(path.dirname(DATABASE), { recursive: true });
     writeFileSync(DATABASE, "");
+    /*
+     * The WAL sidecars go with it. Truncating the main file alone leaves a write-ahead log
+     * and shared-memory index describing a database that no longer exists, and sqlite's
+     * first act on opening the fresh file is to replay them — so a run could start against
+     * the tail of the previous one's writes, or simply refuse to open. Harmless when they
+     * are absent (`force`), which is every run before WAL was switched on.
+     */
+    rmSync(`${DATABASE}-wal`, { force: true });
+    rmSync(`${DATABASE}-shm`, { force: true });
 
     artisan("config:clear");
     artisan("migrate:fresh", "--force");

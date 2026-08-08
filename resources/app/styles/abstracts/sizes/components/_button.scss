@@ -7,6 +7,13 @@
  * thin neon tube; the glow spreads (blur / halo) are `em`-based effect
  * constants that live in the component. consumed as s.$c-button via
  * `@use "Abstracts/sizes" as s;`.
+ *
+ * `halo-clearance` is the one metric a NEIGHBOUR needs: how much room to leave under a
+ * button before the next thing starts. The neon look paints far outside the button's box
+ * — a `0 0 2em 0.5em` halo plus a reflection that is scaled, rotated and blurred by `1em`
+ * — and none of that participates in layout, so a normal gutter leaves the glow lying
+ * across whatever follows (which is exactly what the playlists listing did). `rem`, not
+ * the component's own `em`, because the consumer is a page whose font size is its own.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "../global-size-tokens" as s;
@@ -16,5 +23,6 @@ $button: (
     "border": map.get(s.$border, "base"),
     "radius": map.get(s.$radius, "base"),
     "gap": 0.5ch,
-    "min-height": map.get(s.$icons, "medium")
+    "min-height": map.get(s.$icons, "medium"),
+    "halo-clearance": 3rem
 ) !default;

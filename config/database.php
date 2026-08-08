@@ -38,9 +38,21 @@ return [
             'database' => env('DB_DATABASE', database_path('database.sqlite')),
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
-            'busy_timeout' => null,
-            'journal_mode' => null,
-            'synchronous' => null,
+            /*
+             * Env-driven rather than the skeleton's hardcoded nulls, for ONE consumer: the
+             * Playwright run, which points the app at a throwaway sqlite file and then drives
+             * it from three workers at once. Left at null, a write that meets a concurrent
+             * read fails instantly with "database is locked" — a 500 from a page that is
+             * perfectly correct, on a different spec every run. A busy timeout makes the
+             * writer wait, and WAL lets readers carry on while it does.
+             *
+             * Null by default, so nothing changes for a developer's local sqlite; production
+             * is PostgreSQL and never reads this block at all. See
+             * tests/e2e/support/environment.ts, which sets both.
+             */
+            'busy_timeout' => env('DB_BUSY_TIMEOUT'),
+            'journal_mode' => env('DB_JOURNAL_MODE'),
+            'synchronous' => env('DB_SYNCHRONOUS'),
             'transaction_mode' => 'DEFERRED',
         ],
 

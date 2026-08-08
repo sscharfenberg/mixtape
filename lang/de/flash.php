@@ -49,4 +49,8 @@ return [
         'deactivated' => 'Die Zwei-Faktor-Authentifizierung wurde deaktiviert.',
     ],
 
+    'playlist' => [
+        'created' => 'Die Wiedergabeliste ":name" wurde angelegt.',
+    ],
+
 ];

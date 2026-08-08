@@ -50,7 +50,7 @@ const model = defineModel<string>();
 @layer components {
     .form-input {
         width: 100%;
-        padding: 0.75ex 4ch 0.75ex 2ch;
+        padding: map.get(s.$c-input, "padding");
         border: map.get(s.$c-input, "border") solid map.get(c.$c-input, "border");
 
         background-color: map.get(c.$c-input, "background");

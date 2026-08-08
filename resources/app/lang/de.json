@@ -375,6 +375,34 @@
             }
         }
     },
+    "playlists": {
+        "createLink": "Neue Wiedergabeliste anlegen",
+        "facts": {
+            "tracks": "Titel",
+            "createdAt": "Angelegt",
+            "duration": "Dauer",
+            "updatedAt": "Geändert"
+        },
+        "menu": {
+            "actions": "Aktionen für {name}",
+            "edit": "Bearbeiten"
+        },
+        "empty": {
+            "headline": "Noch keine Wiedergabeliste",
+            "text": "Eine Wiedergabeliste ist deine eigene Reihenfolge quer durch die Sammlung — Musik und Hörbuch-Kapitel gemischt, so wie du willst. Leg deine erste an, danach kannst du von jeder Song- oder Album-Seite aus Titel hinzufügen."
+        },
+        "create": {
+            "headline": "Neue Wiedergabeliste",
+            "intro": "Die Wiedergabeliste startet leer. Titel fügst du danach dort hinzu, wo du sie hörst — auf der Song- oder Album-Seite.",
+            "nameLabel": "Name",
+            "nameHint": "Nur für dich sichtbar — zwei deiner Wiedergabelisten dürfen aber nicht gleich heißen.",
+            "descriptionLabel": "Beschreibung",
+            "descriptionHint": "Optional. Wofür ist diese Wiedergabeliste gedacht?",
+            "submit": "Wiedergabeliste anlegen",
+            "submitting": "Wird angelegt …",
+            "cancel": "Abbrechen"
+        }
+    },
     "components": {
         "datatable": {
             "search": "Suche",

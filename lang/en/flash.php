@@ -49,4 +49,8 @@ return [
         'deactivated' => 'Two-factor authentication has been deactivated.',
     ],
 
+    'playlist' => [
+        'created' => 'The playlist ":name" has been created.',
+    ],
+
 ];
