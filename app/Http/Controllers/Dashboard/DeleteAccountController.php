@@ -3,11 +3,10 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Dashboard\DeleteAccountRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 
 /**
  * Permanently delete the authenticated user's account (ported from cantrip.me).
@@ -19,31 +18,21 @@ use Illuminate\Support\Facades\Hash;
 class DeleteAccountController extends Controller
 {
     /**
-     * Checks the current password, logs the user out, invalidates the
-     * session, and deletes the user record. Responds with JSON when the
-     * request expects it (so the confirmation modal can avoid a full Inertia
-     * visit), or with a redirect to the landing page otherwise.
+     * Log the user out, invalidate the session, and delete the record.
      *
-     * The password check is manual rather than `$request->validate()`:
-     * bootstrap/app.php only renders validation exceptions as JSON for `api/*`
-     * or Precognition requests, so the automatic exception-to-JSON path this
-     * route's fetch()-based modal (useDeleteAccount.ts) depends on would
-     * otherwise silently fall back to a redirect instead of a 422 body.
+     * The password confirmation is DeleteAccountRequest's — which is a restoration rather
+     * than a change: the check was hand-rolled here to work around a JSON-rendering
+     * condition that no longer holds, and the request class records why.
+     *
+     * What stays here is the SHAPE of the answer, which is not validation. The modal drives
+     * this with fetch() rather than an Inertia visit (so a failure cannot scroll the
+     * dashboard behind it or pollute the global errors bag), so a JSON caller gets the
+     * redirect target as a payload to hand to `router.visit()`; anything else gets a real
+     * redirect.
      */
-    public function destroy(Request $request): JsonResponse|RedirectResponse
+    public function destroy(DeleteAccountRequest $request): JsonResponse|RedirectResponse
     {
         $user = $request->user();
-        $password = $request->string('password')->value();
-
-        if ($password === '' || ! Hash::check($password, $user->password)) {
-            $message = __('auth.password_incorrect');
-
-            if ($request->expectsJson()) {
-                return response()->json(['errors' => ['password' => [$message]]], 422);
-            }
-
-            return back()->withErrors(['password' => $message]);
-        }
 
         Auth::guard(config('fortify.guard'))->logout();
         $request->session()->invalidate();

@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\ConfirmPasswordRequest;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Hash;
 
 class ConfirmPasswordController extends Controller
 {
@@ -17,17 +16,12 @@ class ConfirmPasswordController extends Controller
      * password has been freshly confirmed. The 2FA composable (useTwoFactorAuth)
      * posts here first (fetch, JSON) to set `auth.password_confirmed_at` via
      * $request->session()->passwordConfirmed(), so the real management request
-     * that follows passes the middleware. A wrong password returns a 422 with
-     * the error keyed on `password` so the inline field can show it.
+     * that follows passes the middleware. A wrong password is ConfirmPasswordRequest's
+     * business, and answers 422 with the error keyed on `password` so the inline field can
+     * show it.
      */
     public function store(ConfirmPasswordRequest $request): JsonResponse
     {
-        if (! Hash::check($request->password, $request->user()->password)) {
-            return response()->json([
-                'errors' => ['password' => [__('auth.password')]],
-            ], 422);
-        }
-
         $request->session()->passwordConfirmed();
 
         return response()->json(['confirmed' => true]);

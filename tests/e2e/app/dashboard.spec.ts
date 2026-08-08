@@ -124,6 +124,44 @@ test.describe("the settings dashboard", () => {
         await expect(page.locator("dialog.modal-dialog")).toBeHidden();
     });
 
+    test("shows a wrong password inline, without deleting anything or moving the page", async ({ page }) => {
+        /*
+         * THE ONE SUBMIT THIS FILE MAKES, and it is safe precisely because it fails: a wrong
+         * password deletes nothing, so the shared account survives.
+         *
+         * It earns a browser because the whole chain only exists here. useDeleteAccount drives
+         * this with fetch() rather than an Inertia visit, so the server's 422 has to arrive as
+         * JSON — which depends on `shouldRenderJsonWhen` matching `Accept: application/json`
+         * (bootstrap/app.php) — and its `errors.password[0]` has to reach the form row. The
+         * password check moved into DeleteAccountRequest on 2026-08-08, which means a
+         * ValidationException now produces that body where a hand-built `response()->json()`
+         * used to; the shapes agree, and this is what says so.
+         *
+         * The other half of the assertion is what must NOT happen: no navigation, no scroll,
+         * no global error bag. That is the entire reason the modal uses fetch().
+         */
+        await openDeleteModal(page);
+
+        await page.locator("#delete-password").fill("definitely-not-the-password");
+
+        const answered = page.waitForResponse(
+            response => response.url().endsWith("/user/delete") && response.request().method() === "DELETE"
+        );
+        // The same locator the "locked until a password is typed" test uses — the modal's
+        // confirm reads "Löschen", not the section trigger's "Benutzerkonto löschen".
+        await page.locator(".modal-dialog__footer button[type='submit']").click();
+        const response = await answered;
+
+        expect(response.status()).toBe(422);
+        await expect(page.locator("dialog.modal-dialog .form-row__error")).toHaveText(
+            /Das Passwort ist nicht korrekt\./u
+        );
+
+        // Still here, still signed in, modal still open.
+        await expect(page.locator("dialog.modal-dialog")).toBeVisible();
+        await expect(page).toHaveURL(/\/dashboard/u);
+    });
+
     test("still has an account to come back to", async ({ page }) => {
         // The guard on every test above: none of them may actually delete, because the whole
         // signed-in suite shares this one session.

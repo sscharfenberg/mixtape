@@ -4,6 +4,7 @@ namespace Tests\Feature\Dashboard;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 /**
@@ -59,6 +60,26 @@ class DeleteAccountTest extends TestCase
 
         $this->assertAuthenticatedAs($user);
         $this->assertDatabaseHas('users', ['id' => $user->id]);
+    }
+
+    public function test_a_non_json_request_with_a_wrong_password_comes_back_with_a_field_error(): void
+    {
+        /*
+         * The other half of the answer, and the one the modal never asks for: an ordinary
+         * form post gets a redirect-back-with-errors rather than a 422 body. It behaved this
+         * way before the check moved into DeleteAccountRequest too — `back()->withErrors()`
+         * by hand then, a ValidationException rendered the same way now — and pinning it is
+         * what says the move changed nothing for a caller that does not want JSON.
+         */
+        $user = User::factory()->create(['password' => Hash::make('passwort')]);
+
+        $this->actingAs($user)
+            ->from('/dashboard')
+            ->delete('/user/delete', ['password' => 'wrong-password'])
+            ->assertRedirect('/dashboard')
+            ->assertSessionHasErrors(['password' => __('auth.password_incorrect')]);
+
+        $this->assertNotNull($user->fresh());
     }
 
     public function test_validates_required_password(): void
