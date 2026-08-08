@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { stopQueueSync } from "../support/actions";
+import { openQueuePanel, stopQueueSync } from "../support/actions";
 import { clearServerQueue, specStorageState } from "../support/environment";
 
 /*
@@ -375,6 +375,7 @@ test.describe("the player's keyboard shortcuts", () => {
          * quietly stopped Space from scrolling on every page forever would be a worse bug
          * than any it fixed. Checked on a page long enough to scroll.
          */
+        await openQueuePanel(page);
         await page.locator(".play-queue .popover-button").click();
         // By the `--caution` variant, not by position: the repeat toggle sits above it.
         await page.locator(".play-queue .popover-list-item--caution").click();

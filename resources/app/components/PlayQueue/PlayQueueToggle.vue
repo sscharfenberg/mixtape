@@ -1,21 +1,21 @@
 <script setup lang="ts">
 /**************************************************************************
  * PlayQueueToggle
- * The header button that shows and hides the play queue on a narrow screen.
+ * The header button that shows and hides the play queue — at EVERY width.
  *
- * It exists only below the `landscape` step, and the CSS is what decides that
- * rather than a JS width check: from `landscape` up the panel is an ordinary
- * column in the layout grid, permanently on screen while the queue holds
- * anything, so a control for it would toggle nothing. Hiding it in CSS keeps the
- * single source of truth for "which layout am I in" in one place — a media query
- * beside the panel's own — instead of a matchMedia listener that has to be kept
- * in step with it.
+ * It used to hide itself from `landscape` up, because up there the panel stood
+ * permanently open and a button flipping a flag nothing read would have been worse
+ * than no button. That arrangement is gone (see PlayQueue's banner: the dashboard's
+ * right-aligned headings left no room to inset), so the panel is now opened the same
+ * way on a desktop as on a phone, and this is the control that does it everywhere.
+ * One consequence worth naming: there is no longer any "which layout am I in"
+ * question here, so nothing needs a media query or a matchMedia listener.
  *
- * It also disappears when the queue is EMPTY, at any width. An empty queue draws
+ * It disappears when the queue is EMPTY, at any width. An empty queue draws
  * no panel at all, so the button would open nothing; worse, it would be a control
  * that appears to do something and does not.
  *
- * The glyph doubles as the state: `playlist` to open, `close` to shut again. It
+ * The glyph doubles as the state: `play_queue` to open, `close` to shut again. It
  * borrows the global `.popover-button` classes rather than a look of its own, so
  * it sits beside the site and user menus as a peer — it is not a popover trigger,
  * but it is the same kind of round header control, and the alternative was a
@@ -41,19 +41,6 @@ const { isOpen, toggle } = usePlayQueuePanel();
         :aria-label="isOpen ? t('player.queue.hide') : t('player.queue.show')"
         @click="toggle"
     >
-        <icon :name="isOpen ? 'close' : 'playlist'" />
+        <icon :name="isOpen ? 'close' : 'play_queue'" />
     </button>
 </template>
-
-<style scoped lang="scss">
-@use "Abstracts/mixins" as m;
-
-/* Narrow screens only. From `landscape` up the panel is a column that is simply
-   there, so there is nothing to toggle — and a button that flips a flag nothing
-   reads is worse than no button, because it looks like it should do something. */
-.play-queue-toggle {
-    @include m.mq("landscape") {
-        display: none;
-    }
-}
-</style>

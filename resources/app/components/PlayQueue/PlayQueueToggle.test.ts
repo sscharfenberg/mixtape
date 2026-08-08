@@ -52,7 +52,7 @@ describe("PlayQueueToggle", () => {
         usePlayerQueue().enqueue(track("a"));
         const wrapper = mountApp(PlayQueueToggle);
 
-        expect(iconNames(wrapper)).toStrictEqual(["playlist"]);
+        expect(iconNames(wrapper)).toStrictEqual(["play_queue"]);
         expect(wrapper.find("button").attributes("aria-expanded")).toBe("false");
         expect(wrapper.find("button").attributes("aria-label")).toBe(translate("player.queue.show"));
     });

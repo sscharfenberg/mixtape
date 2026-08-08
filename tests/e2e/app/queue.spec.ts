@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { stopQueueSync } from "../support/actions";
+import { openQueuePanel, stopQueueSync } from "../support/actions";
 import { clearServerQueue, specStorageState } from "../support/environment";
 
 /*
@@ -77,7 +77,10 @@ const enqueueFirstSong = async (page: import("@playwright/test").Page): Promise<
     await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
     const title = await page.locator(".hero-section__title").first().innerText();
     await enqueueFromHero(page);
-    await expect(page.locator(".play-queue")).toBeVisible();
+    // Opened explicitly: the panel is an overlay toggled from the header at every width now,
+    // so having a queue no longer puts it on screen. Almost every test below reads the rows,
+    // so it belongs here rather than at each call site.
+    await openQueuePanel(page);
 
     return title;
 };
@@ -135,33 +138,117 @@ test.describe("the play queue", () => {
         await expect(page.locator(".dt-cards")).toBeHidden();
     });
 
-    test("widens at `full`, and the content inset widens with it", async ({ page }) => {
+    test("light-dismisses: Escape, a click outside, and the header follows either", async ({ page }) => {
+        /*
+         * The panel is a native `[popover]`, which is what buys all of this — and browser
+         * behaviour is only observable in a browser, so this is the only layer that can check
+         * it. Three paths, one mechanism (Chrome routes them through CloseWatcher): Escape, a
+         * click outside, and on Android the back gesture. The back gesture is the one this
+         * cannot drive — desktop Chromium has no such input, and `goBack()` would navigate
+         * rather than dismiss — so it is covered by the same attribute and nothing else.
+         *
+         * THE HEADER FOLLOWING IS THE HALF THAT BROKE FIRST. The browser can close the panel
+         * without anything in the app being asked, so PlayQueue mirrors the element's `toggle`
+         * event back into usePlayQueuePanel. Bound with an `onMounted` `addEventListener` it
+         * silently never fired — the panel is `v-if`d on a non-empty queue, so at mount there
+         * was no element to bind to — and Escape closed the panel while the header went on
+         * offering a close icon for it. Hence `aria-expanded` in both halves below.
+         */
+        await enqueueFirstSong(page);
+        const panel = page.locator(".play-queue");
+        const toggle = page.locator(".play-queue-toggle");
+
+        await expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+        await page.keyboard.press("Escape");
+        await expect(panel).toBeHidden();
+        await expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+        await openQueuePanel(page);
+        await page.locator("main").click({ position: { x: 200, y: 200 } });
+        await expect(panel).toBeHidden();
+        await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    });
+
+    test("stays open when the click lands inside it, or on its own menu", async ({ page }) => {
+        /*
+         * The other half of light dismiss, and not a given: the queue's menu is a popover
+         * INSIDE a popover. Nesting is what keeps both up — an `auto` popover closes every
+         * other `auto` popover that is not its ancestor, so were the menu anywhere but a
+         * descendant of the panel, opening it would dismiss the panel underneath it.
+         */
+        await enqueueFirstSong(page);
+        const panel = page.locator(".play-queue");
+
+        await page.locator(".play-queue__header").click({ position: { x: 5, y: 5 } });
+        await expect(panel).toBeVisible();
+
+        await page.locator(".play-queue .popover-button").click();
+        await expect(page.locator(".play-queue .popover-list-item").first()).toBeVisible();
+        await expect(panel).toBeVisible();
+    });
+
+    test("keeps the grip's tooltip above the panel, now that both are in the top layer", async ({ page }) => {
+        /*
+         * A CONSEQUENCE OF THE PANEL BEING PROMOTED, checked rather than assumed. The tooltip
+         * layer is itself a `popover="manual"`, so both live in the top layer — where painting
+         * order is promotion order, not z-index. It works because useTooltipLayer hides and
+         * re-shows the one tip per trigger, so every tooltip is promoted after the panel; a
+         * tip that was merely repositioned would have stayed underneath it.
+         */
+        await enqueueFirstSong(page);
+
+        await page.locator(".play-queue__grip").first().hover();
+
+        const tip = page.locator("[role='tooltip']");
+        await expect(tip).toBeVisible();
+
+        // Overlapping the panel rather than tucked behind its edge.
+        const boxes = await page.evaluate(() => {
+            const t = document.querySelector("[role='tooltip']")!.getBoundingClientRect();
+            const p = document.querySelector(".play-queue")!.getBoundingClientRect();
+
+            return { tipRight: Math.round(t.right), panelLeft: Math.round(p.left) };
+        });
+        expect(boxes.tipRight).toBeGreaterThan(boxes.panelLeft);
+    });
+
+    test("widens at `full`, and moves the content not at all", async ({ page }) => {
         /*
          * This describe runs at 1440px, which IS the `full` line — so the panel is 360px
          * here and 280px below it (asserted at 420px in the narrow-screen block).
          *
-         * The second assertion is the one worth having. The width lives in PlayQueue and
-         * the room made for it lives in FullLayout's `--content-inset-end`; they are one
-         * decision in two files, and if they drift the page's trailing column slides under
-         * an opaque panel. Comparing <main>'s content edge against the panel's leading edge
-         * is what catches that, and it can only be done in a real browser.
+         * The second assertion REPLACED its own opposite. The panel used to inset the content
+         * (FullLayout published `--content-inset-end`, Container applied it) and this test
+         * checked the two numbers had not drifted apart. Now that it overlays at every width,
+         * the thing worth pinning is that opening it moves nothing: same content box open and
+         * shut, which is the whole reason an overlay was the half kept when the dashboard
+         * forced the choice.
          */
         await enqueueFirstSong(page);
         await page.goto("/music/songs");
+        await openQueuePanel(page);
 
         const panel = (await page.locator(".play-queue").boundingBox())!;
         expect(Math.round(panel.width)).toBe(360);
 
-        const clear = await page.evaluate(() => {
-            const content = document.querySelector("main .container") ?? document.querySelector("main");
-            const box = content!.getBoundingClientRect();
-            const style = getComputedStyle(content!);
+        const contentBox = async () =>
+            page.evaluate(() => {
+                const content = document.querySelector("main .container") ?? document.querySelector("main");
+                const box = content!.getBoundingClientRect();
+                const style = getComputedStyle(content!);
 
-            return box.right - parseFloat(style.paddingRight);
-        });
+                return { right: Math.round(box.right - parseFloat(style.paddingRight)), width: Math.round(box.width) };
+            });
 
-        // The content's inner edge stops at or before the panel starts — never under it.
-        expect(clear).toBeLessThanOrEqual(panel.x);
+        const open = await contentBox();
+        await page.locator(".play-queue-toggle").click();
+        await expect(page.locator(".play-queue")).toBeHidden();
+        const shut = await contentBox();
+
+        expect(open).toStrictEqual(shut);
+        // And it really is over the content, not beside it.
+        expect(open.right).toBeGreaterThan(panel.x);
     });
 
     test("empties back to the footer when the queue is cleared", async ({ page }) => {
@@ -194,13 +281,18 @@ test.describe("the play queue synced to the server", () => {
          * removed entirely. Wiping storage first leaves the server as the only place the queue
          * can possibly come from — which is also exactly what a second device looks like.
          */
-        const title = await enqueueFirstSong(page);
-
-        // The sync rides the queue's coalesced flush, so wait for the request itself rather
-        // than guessing at the delay.
-        await page.waitForResponse(
+        /*
+         * ARMED BEFORE THE ENQUEUE, which it was not until 2026-08-08. The sync rides the
+         * queue's coalesced trailing flush, so waiting for the request AFTER the action that
+         * causes it is a race — and it became a lost one when `enqueueFirstSong` grew a step
+         * (it opens the panel now), widening the window enough for the PUT to land before
+         * anything was listening. Registering first cannot race.
+         */
+        const synced = page.waitForResponse(
             response => response.url().includes("/player/state") && response.request().method() === "PUT"
         );
+        const title = await enqueueFirstSong(page);
+        await synced;
 
         await page.evaluate(() => window.localStorage.clear());
         await page.reload();
@@ -212,10 +304,12 @@ test.describe("the play queue synced to the server", () => {
     });
 
     test("clears on the server too, so the other device does not restore it forever", async ({ page }) => {
-        await enqueueFirstSong(page);
-        await page.waitForResponse(
+        // Armed first, for the reason the test above sets out.
+        const synced = page.waitForResponse(
             response => response.url().includes("/player/state") && response.request().method() === "PUT"
         );
+        await enqueueFirstSong(page);
+        await synced;
 
         await page.locator(".play-queue .popover-button").click();
         await page.locator(".play-queue .popover-list-item--caution").click();
@@ -276,6 +370,10 @@ test.describe("the play queue at library scale", () => {
         }, rows);
         await page.reload();
         await expect(page.locator(".play-queue__row")).toHaveCount(rows);
+        // A reload shuts the panel — usePlayQueuePanel is deliberately not persisted, so that
+        // every visit starts with the content unobstructed — and a closed panel has no
+        // geometry to measure.
+        await openQueuePanel(page);
 
         const measured = await page.evaluate(() => {
             const row = document.querySelector(".play-queue__row") as HTMLElement;
@@ -353,7 +451,7 @@ test.describe("the play queue on a narrow screen", () => {
         // the plain `href` name the way happy-dom does — hence the qualified read.
         const glyph = () => toggle.locator("use").evaluate(el => el.getAttribute("xlink:href"));
 
-        expect(await glyph()).toBe("#playlist");
+        expect(await glyph()).toBe("#play_queue");
         await expect(toggle).toHaveAttribute("aria-expanded", "false");
 
         await toggle.click();
@@ -425,12 +523,28 @@ test.describe("reordering the play queue", () => {
             await enqueueFromHero(page);
         }
         await expect(page.locator(".play-queue__row")).toHaveCount(count);
+        // The rows exist as soon as the queue does; being ON SCREEN is a separate fact now,
+        // and a drag needs real geometry.
+        await openQueuePanel(page);
 
         return titles;
     };
 
     /** The queue's titles, in the order the panel shows them. */
-    const order = (page: import("@playwright/test").Page) => page.locator(".play-queue__name").allInnerTexts();
+    /**
+     * The queue's titles in DOM order.
+     *
+     * `allTextContents`, NOT `allInnerTexts`, and that distinction is load-bearing here: the
+     * rows carry `content-visibility: auto` (see the list's styles — it is what makes a
+     * 12,000-track queue cheap), and `innerText` is EMPTY for a subtree the browser has
+     * skipped. That never showed while the panel stood permanently open at this width, because
+     * the rows had long since been rendered; now that it is opened moments before the drag, a
+     * freshly-shown row can still be skipped when the assertion first looks — the drag had
+     * worked and the order read `["(Nice Dream)", "", ""]`. `textContent` is parsed text and
+     * owes nothing to layout, which is exactly what an ordering assertion wants.
+     */
+    const order = async (page: import("@playwright/test").Page): Promise<string[]> =>
+        (await page.locator(".play-queue__name").allTextContents()).map(text => text.trim());
 
     /**
      * Drag the row at `from` onto the row at `to`, by its grip.
@@ -575,8 +689,8 @@ test.describe("reordering the play queue", () => {
 test.describe("the play queue scrolling to the loaded track", () => {
     /*
      * Short viewport ON PURPOSE: scrolling only exists when the queue is longer than the
-     * list, and ~420px leaves room for four or five rows. Width stays at `full` so the
-     * panel is simply present without a toggle.
+     * list, and ~420px leaves room for four or five rows. Width stays at `full` so the panel
+     * is at its widest; it is opened like everywhere else (enqueueFirstSong does it).
      */
     test.use({ viewport: { width: 1440, height: 420 } });
 
@@ -594,9 +708,20 @@ test.describe("the play queue scrolling to the loaded track", () => {
          */
         const song = await enqueueFirstSong(page);
 
+        /*
+         * SHUT WHILE QUEUEING, and this is the overlay's real cost rather than a test
+         * quirk: the panel covers the trailing edge of the page, which on a detail page is
+         * exactly where the hero's action menu sits — the control this queues with. It was
+         * reachable while the content was inset to clear the panel; now a reader queueing
+         * more tracks closes the panel first, and so does this test.
+         */
+        await page.locator(".play-queue-toggle").click();
+        await expect(page.locator(".play-queue")).toBeHidden();
+
         // The same track eight times — duplicates are a normal queue, and it saves seven
         // page loads over queueing eight different songs.
         for (let i = 0; i < 7; i += 1) await enqueueFromHero(page);
+        await openQueuePanel(page);
         await expect(page.locator(".play-queue__row")).toHaveCount(8);
         await expect(page.locator(".player-bar__name")).toHaveText(song);
 
@@ -628,15 +753,30 @@ test.describe("the play queue scrolling to the loaded track", () => {
 test.describe("the play queue from landscape up", () => {
     test.use({ viewport: { width: 900, height: 850 } });
 
-    test("is simply there, with no toggle to press", async ({ page }) => {
+    test("stays shut until the header's toggle is pressed, exactly as on a phone", async ({ page }) => {
+        /*
+         * THE BEHAVIOUR THAT CHANGED, and the reason it did. This width used to get a panel
+         * that was simply there, with the toggle hidden and the content inset to clear it.
+         * That could not be squared with the dashboard, whose headings are RIGHT-aligned: no
+         * trailing room to give, so the panel overlaid the content there and sat beside it
+         * everywhere else. One behaviour at every width was the answer.
+         */
         await page.goto("/music/songs");
         await page.locator("tbody tr").first().click();
         await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
         await enqueueFromHero(page);
 
+        // A queue, but no panel — and a toggle that is now offered at this width too.
+        await expect(page.locator(".play-queue")).toBeHidden();
+        const toggle = page.locator(".play-queue-toggle");
+        await expect(toggle).toBeVisible();
+
+        await toggle.click();
         await expect(page.locator(".play-queue")).toBeVisible();
-        // The button exists in the DOM but the media query hides it at this width.
-        await expect(page.locator(".play-queue-toggle")).toBeHidden();
+
+        // And it closes again from the same button.
+        await toggle.click();
+        await expect(page.locator(".play-queue")).toBeHidden();
     });
 
     test("spans header to player bar however short the queue is", async ({ page }) => {

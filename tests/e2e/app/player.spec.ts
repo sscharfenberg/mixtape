@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { stopQueueSync } from "../support/actions";
+import { openQueuePanel, stopQueueSync } from "../support/actions";
 import { clearServerQueue, specStorageState } from "../support/environment";
 
 /*
@@ -329,6 +329,7 @@ test.describe("the player", () => {
     test("wraps back to the first track with repeat on", async ({ page }) => {
         const [first, second] = await enqueueSongs(page, 2);
         await enableRepeat(page);
+        await openQueuePanel(page);
         await page.locator(".play-queue__load").nth(1).click();
         await expect(page.locator(".player-bar__name")).toHaveText(second);
 
@@ -351,6 +352,7 @@ test.describe("the player", () => {
         const [, second] = await enqueueSongs(page, 2);
         await enableRepeat(page);
 
+        await openQueuePanel(page);
         const row = page.locator(".play-queue__row").nth(1);
         const box = (await row.boundingBox())!;
         await row.click({ position: { x: 3, y: box.height / 2 } });
@@ -380,6 +382,7 @@ test.describe("the player", () => {
          * is exactly what a listener's click does; without it the test asserts nothing but
          * Playwright's opinion.
          */
+        await openQueuePanel(page);
         await page.locator(".play-queue__name").nth(1).click({ force: true });
 
         await expect(page.locator(".player-bar__name")).toHaveText(second);
@@ -396,6 +399,7 @@ test.describe("the player", () => {
          */
         await enqueueSongs(page, 2);
 
+        await openQueuePanel(page);
         await page.locator(".play-queue__remove").first().click();
 
         await expect(page.locator(".play-queue__row")).toHaveCount(1);

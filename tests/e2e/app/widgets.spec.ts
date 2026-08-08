@@ -149,30 +149,27 @@ test.describe("the music widgets", () => {
          * Reported from the field: at 920px with the play queue open, an album credited to
          * "Electric Callboy, Electric Bassboy, Paolo Ferrara" ran straight out of its card.
          *
-         * Two of the four widgets pip a NAME (albums and songs both pip the artist), and a
-         * collaboration credit is wider than the card once the queue has taken a column. The
-         * pip is `white-space: nowrap`, so with the flex item's default `min-width: auto` it
-         * could not shrink below that one unbreakable run: it pushed out of the entry's
-         * filled block and was hard-clipped by the card's `overflow: hidden` — cut mid-word,
-         * no ellipsis, at an edge nothing on screen explains. Measured before the fix: a
-         * 306px pip inside a 230px row, its right edge 46px past the card's.
+         * Two of the four widgets pip a NAME (albums and songs both pip the artist). The pip
+         * is `white-space: nowrap`, so with the flex item's default `min-width: auto` it could
+         * not shrink below that one unbreakable run: it pushed out of the entry's filled block
+         * and was hard-clipped by the card's `overflow: hidden` — cut mid-word, no ellipsis,
+         * at an edge nothing on screen explains. Measured before the fix: a 306px pip inside a
+         * 230px row, its right edge 46px past the card's.
          *
-         * BOTH HALVES OF THE REPORTED CONDITION ARE LOAD-BEARING, which the first version of
-         * this test got wrong by keeping only the viewport: at 920px with no queue the group
-         * still fits two ~430px cards and the credit fits inside one, so the test passed
-         * against the unfixed CSS. It is the queue taking a column that makes the card
-         * ~290px. Asserted RELATIONALLY (the pip stays inside its entry) so it keeps meaning
-         * at whatever width a future layout picks.
+         * HOW THE VALUE IS MADE TOO LONG CHANGED, and the note it replaces is worth keeping in
+         * view. It used to read "both halves of the reported condition are load-bearing … it is
+         * the queue taking a column that makes the card ~290px", because at 920px with no queue
+         * two ~430px cards fit and the reported credit did not overflow one. The queue stopped
+         * taking a column on 2026-08-08 (it overlays at every width now — see PlayQueue), so
+         * that lever is gone and the test went green against nothing.
+         *
+         * The subject was never the queue, though: it is a value too long for its pip. So the
+         * injected string is now unambiguously too long for any card this layout produces,
+         * which makes the test independent of how the content column happens to be sized. The
+         * assertions are unchanged and still RELATIONAL — the pip stays inside its entry, the
+         * card does not grow — so they keep meaning at whatever width a future layout picks.
          */
         await page.setViewportSize({ width: 920, height: 900 });
-
-        // Put something in the queue, which is what narrows the content column.
-        await page.goto("/music/songs");
-        await page.locator("tbody tr").first().click();
-        await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
-        await page.locator(".hero-section__menu .popover-button").click();
-        await page.locator(".hero-section__menu .popover-list-item").nth(1).click();
-        await expect(page.locator(".play-queue__row")).toHaveCount(1);
 
         await page.goto("/music");
         await expect(page.locator(".widget-list__item").first()).toBeVisible();
@@ -187,7 +184,10 @@ test.describe("the music widgets", () => {
             const card = pip.closest(".widget") as HTMLElement;
             const widthBefore = card.getBoundingClientRect().width;
 
-            value.textContent = "Electric Callboy, Electric Bassboy, Paolo Ferrara";
+            // The reported credit, extended until it cannot fit any card this layout makes —
+            // see the note above for why the width no longer comes from the queue.
+            value.textContent =
+                "Electric Callboy, Electric Bassboy, Paolo Ferrara, Giacomo Rossi, Annika Lindqvist-Bergström";
 
             return {
                 valueClipped: value.scrollWidth > value.clientWidth,

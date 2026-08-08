@@ -34,12 +34,10 @@
 
     padding-inline: var(--container-padding-inline);
 
-    /* Extra trailing room for the play queue, which floats ABOVE the page rather
-       than taking a column from it — so nothing else has to move, and <main> keeps
-       reaching the window edge for the full-bleed headings to run off (see
-       FullLayout). `--content-inset-end` is published there and is 0 unless the
-       queue is on screen beside the content, which is why the header's own
-       Container — outside that element — is untouched by this. */
-    padding-inline-end: calc(var(--container-padding-inline) + var(--content-inset-end, 0px));
+    /* NO trailing exception for the play queue any more. This used to add a
+       `--content-inset-end` published by FullLayout, so the page's trailing column stayed
+       clear of a panel that stood permanently open from `landscape` up. The panel is an
+       overlay at every width now (PlayQueue's banner says why the dashboard settled that),
+       so there is nothing to clear and every page's box is symmetrical again. */
 }
 </style>

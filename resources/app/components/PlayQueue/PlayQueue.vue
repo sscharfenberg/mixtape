@@ -11,17 +11,38 @@
  * would still reserve its 280px, and the page would sit off-centre for a queue
  * that isn't there.
  *
- * It OVERLAYS at every width rather than taking a column, and <main> keeps the full
- * window. That is not a visual preference: the app's headings are drawn as tabs with
- * one side deliberately open, hidden past the edge of the screen, and a <main> that
- * stops short of the window leaves that opening in plain view on all 21 pages that
- * use one. Nothing inside the page should have to know the queue exists — so the
- * queue floats above it and Container carries the inset that keeps content clear.
+ * IT OVERLAYS, AND IT IS TOGGLED, AT EVERY WIDTH — the same behaviour on a phone and on
+ * a desktop since 2026-08-08. It used to stand permanently open from `landscape` up with
+ * the content inset to clear it, and the dashboard is what settled that: its headings are
+ * RIGHT-aligned, so there is no trailing room to give, and the panel ended up over the
+ * content there and beside it everywhere else. Two behaviours for one control is worse
+ * than either.
  *
- * What changes with width is only whether it is on screen: from `landscape` up it is
- * always there, and below that PlayQueueToggle (in the header) opens it, because
- * 280px of a phone is most of the screen and a queue you carry around open is one
- * permanently in the way.
+ * The overlay is the half worth keeping. Taking a column narrows <main>, and the app's
+ * headings are drawn as tabs with one side deliberately open, hidden past the edge of the
+ * screen — a <main> that stops short of the window leaves that opening in plain view on all
+ * 21 pages that use one. Nothing inside a page should have to know the queue exists, and
+ * now nothing does: no inset is published, and no page reserves room.
+ *
+ * PlayQueueToggle (in the header) is the only way it OPENS, which is also why 280px of a
+ * phone being most of the screen stopped being a special case.
+ *
+ * IT LIGHT-DISMISSES, because it is a native `[popover]` — the same mechanism the menus use
+ * (PopOver). That one attribute buys three behaviours the app would otherwise have to
+ * hand-roll, and hand-roll consistently: a click anywhere outside closes it, Escape closes
+ * it, and on Android the back gesture closes it instead of leaving the page (Chrome routes
+ * all three through CloseWatcher). A panel that overlays the content is a panel a reader
+ * wants out of the way with the gesture they already use for everything else.
+ *
+ * Two consequences worth knowing rather than discovering. Opening ANOTHER auto popover —
+ * the site menu, the user menu, the player's volume or settings — closes this one, because
+ * that is what light dismiss means when the two are not nested; the queue's OWN menu is a
+ * descendant, so it nests and both stay up. And pressing the player bar's transport closes
+ * the panel too, the bar being outside it.
+ *
+ * It is `auto`, not `manual`, and non-modal either way: the page behind stays live, which it
+ * must, since navigating with the queue open is the whole point of the panel outliving the
+ * page.
  *
  * CLICKING A ROW PLAYS THAT TRACK — anywhere in it. The row is an <li> holding an
  * EMPTY <button> stretched across the whole of it, because a <button> may not
@@ -47,7 +68,7 @@
  * so this is a settled trade, not an oversight. If the route is ever wanted back it
  * belongs in a per-row menu, never on the title.
  *****************************************************************************/
-import { computed, ref, watch } from "vue";
+import { computed, ref, useTemplateRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import PlayQueueMenu from "Components/PlayQueue/PlayQueueMenu.vue";
@@ -61,7 +82,54 @@ import { useQueueReorder } from "./useQueueReorder";
 const { t } = useI18n();
 const { tracks, currentIndex, isEmpty, totalDuration, jumpTo, remove } = usePlayerQueue();
 const { play } = usePlayerAudio();
-const { isOpen } = usePlayQueuePanel();
+const { isOpen, setOpen } = usePlayQueuePanel();
+
+/** The popover element itself, so its state can be driven and read. */
+const layer = useTemplateRef<HTMLElement>("layer");
+
+/**
+ * Keep the element and the shared flag in step, in both directions.
+ *
+ * DOWN: the header's toggle writes the flag, and this shows or hides the popover to match.
+ * Guarded on the element's own `:popover-open`, because `showPopover()` on a popover that is
+ * already showing — and `hidePopover()` on one that is not — both THROW, and the mirror below
+ * means this watcher regularly runs when the element is already where it should be.
+ *
+ * UP: `handleToggle` adopts whatever the browser did on its own. That is the half that makes
+ * light dismiss work as more than a visual: without it the flag would still read "open" after
+ * a click outside, and the header would keep offering a close icon for a panel that is gone.
+ */
+function apply(open: boolean): void {
+    const el = layer.value;
+    if (!el) return;
+
+    const showing = el.matches(":popover-open");
+    if (open && !showing) el.showPopover();
+    if (!open && showing) el.hidePopover();
+}
+
+/** Adopt the element's state — fired for a light dismiss, Escape, the back gesture, and our own calls. */
+function handleToggle(event: ToggleEvent): void {
+    setOpen(event.newState === "open");
+}
+
+watch(isOpen, apply);
+
+/*
+ * The ELEMENT is watched, not just the flag, and it has to be: the panel is `v-if`d on the
+ * queue having anything, and this component mounts with an empty one — so the element does not
+ * exist yet when the component does. It appears later, possibly with the flag already true
+ * (queue emptied while the panel was open, then filled again), and adopting the flag as it
+ * appears is what keeps that case behaving as it did before the element became a popover.
+ *
+ * The `toggle` listener is bound in the TEMPLATE for the same reason, rather than added here
+ * on mount: Vue re-attaches it every time the element is created, where an `onMounted`
+ * `addEventListener` ran once against nothing and silently never fired. That was this
+ * change's first bug — Escape closed the panel and the header went on showing a close icon.
+ */
+watch(layer, el => {
+    if (el) apply(isOpen.value);
+});
 
 /**
  * Load the clicked row into the player AND start it.
@@ -142,7 +210,7 @@ watch(
 </script>
 
 <template>
-    <div v-if="!isEmpty" class="play-queue-layer" :class="{ 'play-queue-layer--open': isOpen }">
+    <div v-if="!isEmpty" ref="layer" class="play-queue-layer" popover="auto" @toggle="handleToggle">
             <aside class="play-queue" :aria-label="t('player.queue.label')">
             <header class="play-queue__header">
                 <h2 class="play-queue__title">
@@ -211,7 +279,7 @@ watch(
                         :aria-label="t('player.queue.remove', { name: track.name })"
                         @click="remove(index)"
                     >
-                        <icon name="close" :size="1" />
+                        <icon name="playlist_remove" :size="1" />
                     </button>
                 </li>
             </ol>
@@ -262,27 +330,37 @@ $bleed: map.get(s.$c-play-queue, "padding");
    coordinate system rather than a surface. It sits on the "sticky" rung, above
    <main> ("raised"), and before PlayerBar in the DOM so the bar paints over it. */
 .play-queue-layer {
-    display: none;
     position: fixed;
     inset: var(--app-header-height, 0) 0 var(--app-player-height, 0) 0;
     z-index: z.$c-play-queue;
 
     box-sizing: border-box;
+
+    overflow: visible;
+
+    /* THE UA SHEET'S `[popover]` DEFAULTS, NEUTRALISED. A popover ships as a centred,
+       content-sized, bordered box (`width/height: fit-content; margin: auto; border: solid;
+       padding: 0.25em; overflow: auto; background: Canvas`), which is the right default for a
+       menu and wrong for a full-height coordinate system. `width`/`height: auto` matter most:
+       left with `fit-content` they would beat the `inset` above and the layer would hug the
+       panel instead of spanning the window. */
+    width: auto;
     max-width: map.get(s.$c-app, "max");
-    margin-inline: auto;
+    height: auto;
+    padding: 0;
+    border: 0;
+
+    background: none;
+    color: inherit;
+
+    /* NO `display` HERE, deliberately. The UA hides `[popover]` until `:popover-open`, and an
+       author `display` — of either value — beats that and pins the panel permanently open or
+       permanently shut. This is the one property to leave alone now that the element's own
+       state, rather than a class, says whether it is showing. */
 
     pointer-events: none;
-
-    // Below `landscape` the panel is opened by the header's toggle; from there up
-    // it is simply always there. `display` rather than a transform, so a closed
-    // panel costs no paint and is out of the tab order.
-    &--open {
-        display: block;
-    }
-
-    @include m.mq("landscape") {
-        display: block;
-    }
+    margin-block: 0;
+    margin-inline: auto;
 }
 
 /* The panel itself, pinned to the layer's trailing edge, and FULL HEIGHT AT EVERY

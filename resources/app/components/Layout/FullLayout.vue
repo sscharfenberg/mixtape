@@ -14,11 +14,12 @@
  * the music every time you opened an album.
  *
  * The body is a plain block and <main> spans the window, as it did before the queue
- * existed. The queue floats ABOVE the page rather than taking a column from it, and
- * `--with-queue` only publishes how much trailing room Container should leave so
- * content stays clear of it. That is what keeps the app's full-bleed headings — tabs
- * with one side drawn open, meant to be hidden past the edge of the screen — running
- * off the window on all 21 pages that use one.
+ * existed. The queue floats ABOVE the page and reserves nothing: it is an overlay at
+ * every width now, opened from the header (see PlayQueue's banner for what the
+ * dashboard settled), so this layout has no trailing inset to publish and no class to
+ * carry. That is also what keeps the app's full-bleed headings — tabs with one side
+ * drawn open, meant to be hidden past the edge of the screen — running off the window
+ * on all 21 pages that use one.
  *
  * The footer and the PlayerBar are alternatives, not neighbours: once a track is
  * loaded the bar takes the footer's place. It shows on "there is a current track"
@@ -51,7 +52,7 @@ defineProps<{
     breadcrumbs?: BreadcrumbItem[];
 }>();
 
-const { isEmpty, current, hydrate } = usePlayerQueue();
+const { current, hydrate } = usePlayerQueue();
 
 // Restore the stored queue once, here, because this is the one component that
 // mounts before any page and never unmounts. It needs Inertia's shared props to
@@ -61,7 +62,7 @@ hydrate();
 
 <template>
     <app-header />
-    <div class="app-body" :class="{ 'app-body--with-queue': !isEmpty }">
+    <div class="app-body">
         <app-main>
             <container><breadcrumb :crumbs="breadcrumbs ?? []" /></container>
             <slot />
@@ -75,46 +76,18 @@ hydrate();
 </template>
 
 <style scoped lang="scss">
-@use "sass:map"; // https://sass-lang.com/documentation/modules/map
-@use "Abstracts/mixins" as m;
-@use "Abstracts/sizes" as s;
+/* A plain block, and now nothing more than that. <main> spans the window exactly as it
+   did before the queue existed, and that is the point of the whole arrangement: the
+   app's headings are tabs with one side drawn open, meant to be hidden past the edge of
+   the screen, and a <main> that stops short leaves that opening in plain view on all 21
+   pages that use one.
 
-/* A plain block. <main> spans the window exactly as it did before the queue
-   existed, and that is the point of this whole arrangement: the app's headings are
-   tabs with one side drawn open, meant to be hidden past the edge of the screen,
-   and a <main> that stops short leaves that opening in plain view on all 21 pages
-   that use one.
-
-   This WAS a two-column grid capped to the cage. It kept the content still, but at
-   the cost of narrowing <main>, and nothing inside a page should have to know the
-   queue exists. So the panel overlays instead (see PlayQueue) and the inset that
-   keeps content clear of it is published here for Container to apply — one number,
-   read by the one component whose job is already "hold the content's box".
-
-   Only from `landscape` up: below that the panel is opened on demand and covers
-   the page while it is, which is what an overlay on a phone is for. */
-$queue: map.get(s.$c-play-queue, "width");
-$queue-full: map.get(s.$c-play-queue, "width-full");
-$gap: map.get(s.$c-play-queue, "gap");
-
+   THIS USED TO PUBLISH `--content-inset-end` from `landscape` up, so Container could
+   keep the page's trailing column clear of a permanently-open panel — and it widened at
+   `full` to match the panel's own step, two files holding one decision. All of it is
+   gone with the panel becoming an overlay everywhere (PlayQueue's banner says why), and
+   with it the class of bug where the two numbers drift: there is no number. */
 .app-body {
     flex: 1 1 auto;
-
-    @include m.mq("landscape") {
-        &--with-queue {
-            --content-inset-end: calc(#{$queue} + #{$gap});
-        }
-    }
-
-    /* The panel widens at `full`, so the inset has to widen with it AT THE SAME
-       BREAKPOINT. These two are one decision expressed in two files — PlayQueue owns
-       the width, this owns the room made for it — and the failure mode if they drift
-       is quiet: the page's trailing column simply sits under an opaque panel, on the
-       one screen size nobody develops at. */
-    @include m.mq("full") {
-        &--with-queue {
-            --content-inset-end: calc(#{$queue-full} + #{$gap});
-        }
-    }
 }
 </style>

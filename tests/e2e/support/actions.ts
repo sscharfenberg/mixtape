@@ -132,6 +132,30 @@ export const countDocumentRequests = async (page: Page, block: () => Promise<voi
  * makes the flush happen HERE — awaited, inside the test that owns it — rather than at some
  * unknowable moment during teardown. What the context teardown then unloads is nothing.
  */
+/**
+ * Open the play-queue panel, whatever width the test is running at.
+ *
+ * EVERY SPEC THAT TOUCHES THE PANEL NEEDS THIS SINCE 2026-08-08. The panel used to stand
+ * permanently open from `landscape` up, so a desktop-width test could enqueue something and
+ * read the rows straight away; it is an overlay toggled from the header at every width now
+ * (the dashboard's right-aligned headings left no trailing room to inset — see PlayQueue's
+ * banner), which means "there is a queue" and "the queue is on screen" became two different
+ * facts. This asserts the second.
+ *
+ * Idempotent: a panel that is already open is left alone, so a helper chain can call it
+ * without tracking who called it first.
+ */
+export const openQueuePanel = async (page: Page): Promise<void> => {
+    const panel = page.locator(".play-queue");
+
+    if (!(await panel.isVisible())) {
+        // The toggle only exists while the queue holds something, which is the caller's job.
+        await page.locator(".play-queue-toggle").click();
+    }
+
+    await expect(panel).toBeVisible();
+};
+
 export const stopQueueSync = async (page: Page): Promise<void> => {
     await page.route("**/player/state", route => route.abort());
     await page.close({ runBeforeUnload: true });

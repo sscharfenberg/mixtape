@@ -149,7 +149,7 @@ async function enqueueSubject(): Promise<void> {
             </li>
             <li>
                 <button type="button" class="popover-list-item" :disabled="busy" @click="enqueueSubject">
-                    <icon :name="busy ? 'refresh' : 'enqueue'" :size="1" :rotate="busy" />
+                    <icon :name="busy ? 'refresh' : 'playlist_add'" :size="1" :rotate="busy" />
                     {{ t("player.enqueue") }}
                 </button>
             </li>
