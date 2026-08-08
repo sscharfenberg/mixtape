@@ -257,7 +257,9 @@ li.playlist {
     border-radius: map.get(s.$c-playlist, "radius");
 
     @media (prefers-reduced-motion: no-preference) {
-        transition: box-shadow map.get(ti.$c-playlist, "hover");
+        transition:
+            background-color map.get(ti.$c-playlist, "hover"),
+            box-shadow map.get(ti.$c-playlist, "hover");
     }
 
     /* THE ROTATING RING, the hero's technique unchanged: fill the ::before with the hue
@@ -311,12 +313,15 @@ li.playlist {
         }
     }
 
-    /* Under the pointer, or holding focus somewhere inside: a halo in the app's control
-       neon. It cannot be a border colour — that edge is already six colours and turning —
-       and the halo is the same signal the hovered DataTable row and the open popover give,
-       so "this is live" reads the same across the app. */
+    /* Under the pointer, or holding focus somewhere inside: the fill shifts a rung and a
+       halo comes up in the app's control neon. Both, because either alone is too quiet —
+       the DataTable's row-hover records the same finding — and neither can be a border
+       colour here, that edge being already six colours and turning. The halo is the signal
+       the hovered table row and the open popover give, so "this is live" reads the same
+       across the app. */
     &:hover,
     &:focus-within {
+        background-color: map.get(c.$c-playlist, "background-hover");
         box-shadow: 0 0 0.6em 0.1em map.get(c.$c-playlist, "hover-halo");
     }
 }

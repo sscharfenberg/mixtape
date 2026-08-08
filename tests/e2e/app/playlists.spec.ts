@@ -61,6 +61,7 @@ const DUPLICATE = `E2E Doppelt ${STAMP}`;
 const DISCARDED = `E2E Verworfen ${STAMP}`;
 const STAGGERED = `E2E Versetzt ${STAMP}`;
 const MENU_ROW = `E2E Menü ${STAMP}`;
+const HOVERED = `E2E Zeiger ${STAMP}`;
 const EDITED = `E2E Bearbeitet ${STAMP}`;
 
 /**
@@ -131,6 +132,45 @@ test.describe("the playlists area", () => {
         // A brand-new playlist has neither a playtime nor a change to report.
         await expectSlow(row.getByText("Dauer", { exact: true })).toHaveCount(0);
         await expectSlow(row.getByText("Geändert", { exact: true })).toHaveCount(0);
+    });
+
+    test("lights an entry under the pointer: the fill shifts and a halo comes up", async ({ page }) => {
+        /*
+         * Pure CSS, so only a browser can see it — and worth seeing, because both halves are
+         * silent when they break. A mistyped token leaves the fill unchanged and a lost
+         * `&:hover` leaves the halo off, and either way the entry simply stops responding to
+         * the pointer with no error anywhere.
+         *
+         * BOTH are asserted because neither carries the signal alone: the fill is one rung
+         * along the grey ladder (deliberately subtle) and the halo does the shouting — the
+         * same split the DataTable's own row-hover settled on.
+         */
+        await createPlaylist(page, HOVERED);
+        const row = page.locator("li.playlist", { hasText: HOVERED });
+
+        const paint = () =>
+            row.evaluate(el => {
+                const cs = getComputedStyle(el);
+
+                return { background: cs.backgroundColor, shadow: cs.boxShadow };
+            });
+
+        /*
+         * THE POINTER IS PARKED SOMEWHERE, and after the redirect that somewhere is over an
+         * entry: Playwright leaves the mouse where the last click put it, and the submit
+         * button's coordinates land on a row once the listing renders. Read straight away,
+         * the "resting" state was the halo 22% of the way through its fade — a shadow with a
+         * fifth of the alpha and a fifth of the blur, which looks like nothing in particular
+         * and matches neither state. So: move off first, then wait for the fade to finish
+         * before calling it rest.
+         */
+        await page.mouse.move(5, 5);
+        await expectSlow.poll(async () => (await paint()).shadow).toBe("none");
+        const rest = await paint();
+
+        await row.hover();
+        await expectSlow.poll(async () => (await paint()).background).not.toBe(rest.background);
+        await expectSlow.poll(async () => (await paint()).shadow).not.toBe("none");
     });
 
     test("does not let the entry's own styles leak onto the page's icons", async ({ page }) => {

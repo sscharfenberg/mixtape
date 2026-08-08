@@ -38,11 +38,24 @@ $playlist: (
             light-dark(map.get(c.$retro, "c6", "light"), map.get(c.$retro, "c6", "dark")),
             light-dark(map.get(c.$retro, "c7", "light"), map.get(c.$retro, "c7", "dark"))
         ),
-    // The whole entry is one link, so it needs to say when it is under the pointer — and a
-    // panel already wearing a six-hue ring cannot answer that with a border colour. It
-    // answers with a halo in the app's control neon (retro `c3`, what the hovered DataTable
-    // row and the open popover both glow with), so "this is live" reads the same here as
-    // everywhere else. Opacity-only adjust, the one colour maths allowed outside the palette.
+    // The whole entry is one link, so it needs to say when it is under the pointer — and it
+    // says it the way every other clickable row in the app does: a fill SHIFT plus a halo.
+    // The DataTable's own note records why both are needed ("on its own this was too quiet
+    // to read as 'this row is the target' … it now only carries the fill while `row-glow`
+    // does the shouting"), and an entry already wearing a six-hue rotating ring can answer
+    // even less with a border colour than a table row can.
+    //
+    // OPAQUE, and that is the one place this parts company with the DataTable and the play
+    // queue, which share a translucent wash. Theirs layers over a table's own surface; an
+    // entry is an opaque card on a grey page, so a semi-transparent grey would replace the
+    // white rather than tint it and the page would show through — darker than intended and
+    // no longer reading as a card. So it is a straight palette pick one rung along the
+    // ladder in each direction: white → astral, black → ebony. The fact tiles inside are
+    // themselves translucent, so they pick this up and shift with the card.
+    "background-hover": light-dark(map.get(c.$grey, "astral"), map.get(c.$grey, "ebony")),
+    // The halo: the app's control neon (retro `c3`, what the hovered DataTable row and the
+    // open popover both glow with), so "this is live" reads the same here as everywhere
+    // else. Opacity-only adjust, the one colour maths allowed outside the palette.
     "hover-halo": light-dark(
             color.adjust(map.get(c.$retro, "c3", "light"), $alpha: -0.55),
             color.adjust(map.get(c.$retro, "c3", "dark"), $alpha: -0.5)
