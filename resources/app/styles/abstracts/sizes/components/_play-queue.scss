@@ -62,6 +62,19 @@ $play-queue: (
         // column, and the smallest rung of the scale (4px) is already too much air.
         // This is also the row's only new height: 24px cover + 2px + a 16px glyph is
         // 42px, against the 35px that two lines of text ask for.
-        "grip-gap": 0.125rem
+        "grip-gap": 0.125rem,
+        // What a row is worth to the layout while the browser is skipping it — the other
+        // half of `content-visibility: auto` (see the component).
+        //
+        // MEASURED, and measured TWICE, because the first figure was the wrong box: a
+        // 2,000-row queue is 108,016px of scroll height, or 54.008px a row — but
+        // `contain-intrinsic-size` replaces the CONTENT box, and the row's own 0.375rem of
+        // padding is then added on top. Seeded with 54px the list grew to 131,560px
+        // (65.8px a row) and every scrollbar in the panel lied by a fifth. 54 − 12 = 42.
+        //
+        // A wrong figure is not a broken layout but a jumpy scrollbar, and `auto` in the
+        // property means the real height replaces this one as soon as a row has been
+        // rendered once — so it only has to be right for rows nobody has reached yet.
+        "row-estimate": 42px
     )
 ) !default;

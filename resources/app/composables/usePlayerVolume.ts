@@ -53,6 +53,13 @@ const FULL_VOLUME = 1;
 export type UsePlayerVolumeReturn = {
     /** Output level, 0–1. `1` is the browser's own default: unity gain, no attenuation. */
     volume: Ref<number>;
+    /**
+     * How many times somebody has CHANGED the level or the mute, this page life.
+     *
+     * A counter rather than a flag, so a consumer can watch it: what it distinguishes is a
+     * gesture from a value, which the level itself cannot. See {@link changes} below.
+     */
+    changes: Ref<number>;
     /** Whether output is muted, which is separate from a level of zero. */
     isMuted: Ref<boolean>;
     /** Nothing audible either way — what a control draws its mute glyph from. */
@@ -65,6 +72,21 @@ export type UsePlayerVolumeReturn = {
 
 const volume = ref<number>(FULL_VOLUME);
 const isMuted = ref<boolean>(false);
+
+/**
+ * A tick per deliberate change — turned up, turned down, muted, unmuted.
+ *
+ * WHY A COUNTER AND NOT THE LEVEL ITSELF: the level moves for two very different reasons,
+ * and only one of them is a gesture. `hydrateVolume` restores what was stored, on the first
+ * bind, which happens in PlayerBar's `onMounted` — AFTER its children's setup, so anything
+ * watching the level is already listening when the restore lands and cannot tell it from
+ * somebody turning the knob. The volume readout greeted every page load on exactly that
+ * (reported 2026-08-08).
+ *
+ * Bumped only where a change was ASKED for, and only when it actually changed something,
+ * so a key pressed at the ceiling still ticks nothing.
+ */
+const changes = ref<number>(0);
 
 /**
  * The level to return to when a mute is lifted.
@@ -175,12 +197,18 @@ export function usePlayerVolume(): UsePlayerVolumeReturn {
      * distinction for the glyph, so the two states stay separately undoable.
      */
     function setVolume(value: number): void {
+        const before = { level: volume.value, muted: isMuted.value };
+
         volume.value = Math.min(Math.max(value, 0), 1);
 
         if (volume.value > 0) {
             levelBeforeMute = volume.value;
             isMuted.value = false;
         }
+
+        // Only a real move counts as a change: ↑ at full volume clamps to the level it
+        // already had, and nothing happened worth showing anyone.
+        if (volume.value !== before.level || isMuted.value !== before.muted) changes.value += 1;
 
         applyVolume();
         persistVolume();
@@ -202,11 +230,14 @@ export function usePlayerVolume(): UsePlayerVolumeReturn {
             isMuted.value = true;
         }
 
+        // Always a change: a mute toggled is a mute toggled.
+        changes.value += 1;
+
         applyVolume();
         persistVolume();
     }
 
-    return { volume, isMuted, isSilent, setVolume, toggleMute };
+    return { volume, changes, isMuted, isSilent, setVolume, toggleMute };
 }
 
 /**
@@ -222,6 +253,7 @@ export function resetPlayerVolumeForTests(): void {
     element = null;
     volume.value = FULL_VOLUME;
     isMuted.value = false;
+    changes.value = 0;
     levelBeforeMute = FULL_VOLUME;
     hydrated = false;
 }

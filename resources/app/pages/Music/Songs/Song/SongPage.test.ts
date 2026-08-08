@@ -330,42 +330,65 @@ describe("SongPage", () => {
     describe("what it says about listening", () => {
         /*
          * The counts are the server's, but WHETHER TO SAY ANYTHING is this page's decision —
-         * which is why it is tested here and not in assertInertia. A zero is left unsaid: it
-         * is a sentence about nothing, and a fresh library would otherwise be a wall of
-         * "others played this song 0 times".
+         * which is why it is tested here and not in assertInertia. A zero is left unsaid: a
+         * fresh library would otherwise be a wall of "0×" tiles saying only that the feature
+         * exists.
+         *
+         * Read out of the HERO's own metadata row, because that is the claim — these are
+         * tiles like the artist and the year beside them, not prose under them.
          */
 
-        /** The listening lines, as rendered. */
-        const lines = (wrapper: ReturnType<typeof page>): string[] =>
-            wrapper.findAll(".song__plays span").map(node => node.text());
+        /** The listening tiles in the hero, as `label value` text. */
+        const tiles = (wrapper: ReturnType<typeof page>): string[] =>
+            wrapper
+                .findAll(".hero-section__metadata .fact-pair")
+                .map(node => node.text())
+                .filter(text => text.includes("×"));
 
         it("says nothing at all about a song nobody has played", () => {
-            expect(page().find(".song__plays").exists()).toBe(false);
+            expect(tiles(page())).toStrictEqual([]);
         });
 
         it("counts the reader's own listens", () => {
-            expect(lines(page({}, "de", { own: 3, others: 0 }))).toStrictEqual([
-                "Du hast diesen Titel 3-mal gehört"
-            ]);
+            expect(tiles(page({}, "de", { own: 3, others: 0 }))).toStrictEqual(["Von dir3×"]);
         });
 
         it("counts everybody else's separately", () => {
-            expect(lines(page({}, "de", { own: 0, others: 5 }))).toStrictEqual([
-                "Andere haben diesen Titel 5-mal gehört"
-            ]);
+            expect(tiles(page({}, "de", { own: 0, others: 5 }))).toStrictEqual(["Von anderen5×"]);
         });
 
-        it("says both when both have happened, the reader's first", () => {
-            expect(lines(page({}, "de", { own: 2, others: 4 }))).toHaveLength(2);
+        it("shows both when both have happened, the reader's first", () => {
+            expect(tiles(page({}, "de", { own: 2, others: 4 }))).toStrictEqual(["Von dir2×", "Von anderen4×"]);
         });
 
-        it("says it in words for a single listen, which is what German wants there", () => {
-            // "1-mal" is not how anyone writes it; the plural form is a real fork rather
-            // than a number swap, which is why this goes through vue-i18n's pluralisation.
-            expect(lines(page({}, "de", { own: 1, others: 0 }))).toStrictEqual([
-                "Du hast diesen Titel einmal gehört"
-            ]);
-            expect(lines(page({}, "en", { own: 1, others: 0 }))).toStrictEqual(["You played this song once"]);
+        it("explains what the number means to everyone, not only to a pointer", () => {
+            /*
+             * Three things the figure alone cannot answer: what counts as a play, whether
+             * repeats count, and whether the same recording elsewhere counts here. The
+             * tooltip says all three — and `v-tooltip` is pointer-and-focus only, so the
+             * same sentence is also a description, which is the half a test can read.
+             */
+            const wrapper = page({}, "de", { own: 3, others: 5 });
+            const tiles = wrapper.findAll(".hero-section__metadata .fact-pair");
+            const described = tiles.filter(tile => tile.attributes("aria-describedby") !== undefined);
+
+            expect(described).toHaveLength(2);
+            expect(wrapper.find("#song-plays-own").text()).toContain("Hälfte");
+            expect(wrapper.find("#song-plays-others").text()).toContain("gehört");
+        });
+
+        it("describes nothing it is not showing", () => {
+            const wrapper = page({}, "de", { own: 0, others: 4 });
+
+            expect(wrapper.find("#song-plays-own").exists()).toBe(false);
+            expect(wrapper.find("#song-plays-others").exists()).toBe(true);
+        });
+
+        it("needs no plural rule, which is what the tile format buys", () => {
+            // As a sentence this was a real fork — German wants "einmal", not "1-mal" — and
+            // as a tile it is simply the figure.
+            expect(tiles(page({}, "de", { own: 1, others: 0 }))).toStrictEqual(["Von dir1×"]);
+            expect(tiles(page({}, "en", { own: 1, others: 0 }))).toStrictEqual(["By you1×"]);
         });
     });
 });

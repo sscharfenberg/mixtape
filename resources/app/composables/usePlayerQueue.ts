@@ -50,6 +50,7 @@
 import { usePage } from "@inertiajs/vue3";
 import type { ComputedRef, Ref } from "vue";
 import { computed, ref } from "vue";
+import { announceQueueSaveFailure, noteQueueSaveSucceeded } from "Utils/queueSaveWarning";
 
 /**
  * Storage key — deliberately NOT versioned, unlike the two keys before it
@@ -586,12 +587,23 @@ export function notePlaybackProgress(): void {
     commit("position");
 }
 
-/** Put one payload in storage, swallowing failure — see {@link flushQueueWrites} for why. */
-function writeEntry(key: string, payload: PersistedQueue | PersistedPosition): void {
+/**
+ * Put one payload in storage, and say whether it landed.
+ *
+ * Still swallows the exception — a full or disabled storage must not take the player down —
+ * but no longer swallows the FACT. The caller reports it once (see
+ * Utils/queueSaveWarning): the queue on screen is still correct and still playing, and the
+ * only thing at risk is whether it comes back tomorrow, which is exactly the kind of thing a
+ * listener should be told rather than discover.
+ */
+function writeEntry(key: string, payload: PersistedQueue | PersistedPosition): boolean {
     try {
         window.localStorage.setItem(key, JSON.stringify(payload));
+
+        return true;
     } catch {
         // Storage full, or blocked by the browser. The in-memory queue is unaffected.
+        return false;
     }
 }
 
@@ -642,9 +654,30 @@ function syncToServer(unloading: boolean): void {
                 updatedAt: localUpdatedAt,
                 positionMs: Math.round(writtenPosition * 1000)
             })
-        }).catch(() => {
-            // Offline, or refused. Nothing here is recoverable and nothing depends on it.
-        });
+        })
+            .then(response => {
+                /*
+                 * A REFUSAL IS NOT ONLY A THROWN ERROR: a 419 after a session rotation, a
+                 * 422 from a shape this build no longer sends, a 500 — all resolve happily
+                 * and store nothing. Checking the status is the difference between "the
+                 * queue is on the server" and "the request left the building".
+                 *
+                 * NOT ON THE WAY OUT, though. `unloading` means the tab is closing, and a
+                 * toast raised into a page that is being torn down is one nobody can read;
+                 * the local copy is written either way, and the next flush on the next
+                 * visit will say so if the server is still refusing.
+                 */
+                if (response.ok) {
+                    noteQueueSaveSucceeded("server");
+                } else if (!unloading) {
+                    announceQueueSaveFailure("server");
+                }
+            })
+            .catch(() => {
+                // Offline, or the request never left. Playback is untouched; only whether
+                // this queue follows the listener to another device is at stake.
+                if (!unloading) announceQueueSaveFailure("server");
+            });
     } catch {
         // `fetch` itself missing (a very old WebView) — the queue still works locally.
     }
@@ -683,15 +716,17 @@ export function flushQueueWrites(unloading = false): void {
     const userId = currentUserId();
     localUpdatedAt = Date.now();
 
+    let stored = true;
+
     if (dirty.has("tracks")) {
-        writeEntry(STORAGE_KEY, { version: PERSISTED_VERSION, userId, tracks: tracks.value.map(toPersisted) });
+        stored = writeEntry(STORAGE_KEY, { version: PERSISTED_VERSION, userId, tracks: tracks.value.map(toPersisted) });
     }
     // The POINTER IS WRITTEN ON EVERY FLUSH, even one that only touched the list, because
     // it is where the stamp lives and the stamp has to be as new as the newest change. It
     // costs ~110 characters against the list's megabytes, so the split this key exists for
     // — never rewriting the LIST for a track change — is untouched.
     writtenPosition = readPosition?.() ?? 0;
-    writeEntry(POSITION_STORAGE_KEY, {
+    stored = writeEntry(POSITION_STORAGE_KEY, {
         version: PERSISTED_VERSION,
         userId,
         currentIndex: currentIndex.value,
@@ -699,7 +734,16 @@ export function flushQueueWrites(unloading = false): void {
         shuffle: shuffle.value,
         updatedAt: localUpdatedAt,
         positionMs: Math.round(writtenPosition * 1000)
-    });
+    }) && stored;
+
+    // Once per failure, and reset by the next write that works — a browser that started
+    // refusing has usually stopped for good, and one that recovers is worth hearing from
+    // again if it fails a second time.
+    if (stored) {
+        noteQueueSaveSucceeded("browser");
+    } else {
+        announceQueueSaveFailure("browser");
+    }
 
     dirty.clear();
 

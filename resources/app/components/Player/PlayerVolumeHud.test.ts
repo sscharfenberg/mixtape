@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
-import { resetPlayerVolumeForTests, usePlayerVolume } from "Composables/usePlayerVolume";
+import { bindVolumeElement, resetPlayerVolumeForTests, usePlayerVolume } from "Composables/usePlayerVolume";
 import { mountApp } from "Testing/mount";
 import PlayerVolumeHud from "./PlayerVolumeHud.vue";
 
@@ -24,15 +24,27 @@ describe("PlayerVolumeHud", () => {
     beforeEach(() => {
         vi.useFakeTimers();
         resetPlayerVolumeForTests();
+        window.localStorage.clear();
         document.body.innerHTML = "";
     });
 
     it("says nothing on a page load, where the level was merely restored", async () => {
-        // The stored level arrives on the first bind, and a box announcing a change nobody
-        // made would greet every visit.
+        /*
+         * THE BUG THE OWNER FOUND (2026-08-08): the box greeted every page load.
+         *
+         * The restore is what did it, and the ORDER is why this test has to bind an element
+         * rather than just mount the component: `usePlayerVolume` reads storage on the first
+         * bind, PlayerBar binds in `onMounted`, and a child's setup runs BEFORE its parent's
+         * mounted hook — so the watcher was already listening when the stored level landed,
+         * and a restore looked exactly like somebody turning the knob.
+         */
+        window.localStorage.setItem("mixtape.volume.v1", JSON.stringify({ volume: 0.42, muted: false }));
         mountApp(PlayerVolumeHud);
+
+        bindVolumeElement(document.createElement("audio"));
         await nextTick();
 
+        expect(usePlayerVolume().volume.value).toBeCloseTo(0.42);
         expect(hud()).toBeNull();
     });
 

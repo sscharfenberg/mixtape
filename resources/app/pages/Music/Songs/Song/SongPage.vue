@@ -100,23 +100,13 @@ const bitRate = (): string | null => {
  * the setup bindings and would find the ref first.
  */
 /**
- * The listening lines, as sentences rather than counted tiles.
+ * A play count as a tile's value: the figure and the multiplication sign, nothing else.
  *
- * A COUNT OF ZERO IS NOT SHOWN AT ALL — the owner's rule, and the right one: "others played
- * this song 0 times" is a sentence about nothing, and a page full of zeroes on a fresh
- * library would say only that the feature exists. So a song nobody has played says nothing,
- * and each half appears on its own terms.
- *
- * Pluralised through vue-i18n rather than by interpolating a number into one string, so
- * German can say "einmal" where it wants a word and "{count}-mal" where it wants a figure —
- * which English cannot do with the same sentence.
+ * `×` is U+00D7, not the letter x — this is a count of times, and it sits beside real
+ * numbers. No pluralisation, which the tile format is what buys: "1×" is right in both
+ * languages where a sentence would have wanted "einmal" in one of them.
  */
-const playLines = computed<string[]>(() =>
-    [
-        props.plays.own > 0 ? t("music.song.plays.own", props.plays.own) : null,
-        props.plays.others > 0 ? t("music.song.plays.others", props.plays.others) : null
-    ].filter((line): line is string => line !== null)
-);
+const timesPlayed = (count: number): string => `${count}×`;
 
 const songFacts = computed<Fact[]>(() => {
     const song = props.song;
@@ -350,15 +340,58 @@ const songFacts = computed<Fact[]>(() => {
                         :label="t('music.columns.year')"
                         :value="String(song.year)"
                     />
+                    <!-- What this song's listening amounts to, in the hero's own tiles rather
+                         than as prose beneath them: a count is a labelled value like the three
+                         above it, and a sentence among them read as a broken tile.
+
+                         A COUNT OF ZERO IS NOT SHOWN AT ALL — the owner's rule, and the right
+                         one: a page full of "0×" on a fresh library would say only that the
+                         feature exists. Each half appears on its own terms, so a song only the
+                         reader has heard shows one tile.
+
+                         ONE GLYPH FOR BOTH, the ear (`plays`) — the label carries WHOSE
+                         listening it is, and the icon says what kind of fact it is, which is
+                         what an icon in a FactPair is for. It has its own file rather than
+                         borrowing the audio card's `channels`: two facts on one page sharing
+                         a picture is how a reader learns that the picture means nothing.
+
+                         A TOOLTIP, because the number alone is ambiguous in three ways a
+                         tile has no room to answer: what counts as a play at all, whether
+                         repeats count, and whether the same recording on another album
+                         counts here. `v-tooltip` on the component lands on FactPair's own
+                         <li> root, so the tile keeps its markup and the list its semantics.
+
+                         AND THE SAME SENTENCE AS A DESCRIPTION, for the reason OptionBubbles
+                         documents: the directive is pointer-and-focus only, so on its own it
+                         explains the number to everyone except the readers who cannot see
+                         the tile. `aria-describedby` points at a visually hidden span, which
+                         is the pattern that component already established. -->
+                    <fact-pair
+                        v-if="plays.own > 0"
+                        v-tooltip="t('music.song.plays.ownTip')"
+                        icon="plays"
+                        :label="t('music.song.plays.own')"
+                        :value="timesPlayed(plays.own)"
+                        aria-describedby="song-plays-own"
+                    />
+                    <fact-pair
+                        v-if="plays.others > 0"
+                        v-tooltip="t('music.song.plays.othersTip')"
+                        icon="plays"
+                        :label="t('music.song.plays.others')"
+                        :value="timesPlayed(plays.others)"
+                        aria-describedby="song-plays-others"
+                    />
                 </template>
             </hero-section>
-            <!-- What this song's listening amounts to, in one or two sentences. Its own
-                 block rather than a facts tile: these are statements about the reader and
-                 the household rather than tags read off the file, and a "3×" in a labelled
-                 tile beside CODEC and BITRATE would read as one more technical field.
-                 Rendered only when there is something to say (see playLines). -->
-            <p v-if="playLines.length > 0" class="song__plays">
-                <span v-for="line in playLines" :key="line">{{ line }}</span>
+            <!-- What the two listening tiles' tooltips say, for readers who never see a
+                 tooltip. Hidden text rather than `aria-description`, which is ARIA 1.3 and
+                 still uneven across engines; `aria-describedby` onto an `.sr-only` span is
+                 what OptionBubbles settled on for the identical problem. Rendered only when
+                 the tile they describe is. -->
+            <p v-if="plays.own > 0" id="song-plays-own" class="sr-only">{{ t("music.song.plays.ownTip") }}</p>
+            <p v-if="plays.others > 0" id="song-plays-others" class="sr-only">
+                {{ t("music.song.plays.othersTip") }}
             </p>
             <facts :facts="songFacts" wide-groups />
         </div>
@@ -367,7 +400,6 @@ const songFacts = computed<Fact[]>(() => {
 
 <style scoped lang="scss">
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
-@use "Abstracts/colors" as c;
 @use "Abstracts/sizes" as s;
 
 /* The hero is one panel and the facts are a row of cards; the page only stacks its
@@ -381,21 +413,4 @@ const songFacts = computed<Fact[]>(() => {
     gap: map.get(s.$c-card, "gap");
 }
 
-/* One line per sentence, and quieter than the cards around it: this is a footnote about the
-   song, not a fact from its tags. `flex` with a wrap rather than two <p>s so the two lines
-   sit together as one block with the page's own rhythm between them — and so a single line
-   costs no empty second row. The colour is the body's own muted ink; nothing here is worth a
-   token of its own, and CLAUDE.md's rule for a page is to read the component's rather than
-   mint a duplicate. */
-.song__plays {
-    display: flex;
-    flex-wrap: wrap;
-
-    margin: 0;
-    gap: 0 map.get(s.$c-card, "gap");
-
-    color: map.get(c.$c-body, "surface");
-
-    font-size: 0.9em;
-}
 </style>

@@ -43,7 +43,7 @@ import { usePlayerVolume } from "Composables/usePlayerVolume";
  */
 const VISIBLE_MS = 2000;
 
-const { volume, isMuted } = usePlayerVolume();
+const { volume, isMuted, changes } = usePlayerVolume();
 
 /** Whether the box is on screen right now — driven only by the watcher below. */
 const isVisible = ref<boolean>(false);
@@ -67,10 +67,14 @@ const percent = computed<number>(() => (isMuted.value ? 0 : Math.round(volume.va
 /**
  * Show the box, and restart the clock.
  *
- * Not `{ immediate: true }` on the watcher: the level is restored from storage on the
- * first bind, and a box announcing a change nobody made would greet every page load.
+ * IT WATCHES THE GESTURE COUNTER, NOT THE PERCENTAGE, and that distinction is the whole of
+ * a bug this shipped with: the level is also written when the stored one is RESTORED, on
+ * the first bind — which happens in PlayerBar's `onMounted`, after this component's setup,
+ * so the watcher was already listening and every page load opened with a volume box.
+ * `usePlayerVolume.changes` ticks only where somebody asked for a change, which is exactly
+ * what this readout is about.
  */
-watch(percent, () => {
+watch(changes, () => {
     isVisible.value = true;
 
     clearTimeout(hideTimer);

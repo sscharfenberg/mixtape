@@ -315,8 +315,10 @@
             },
             "vbr": "VBR",
             "plays": {
-                "own": "You played this song once | You played this song {count} times",
-                "others": "Others played this song once | Others played this song {count} times"
+                "own": "By you",
+                "ownTip": "How often you have played this song. It counts once half the track has been heard — after four minutes for a long one. Repeats count separately, and the same recording on another album counts here too.",
+                "others": "By others",
+                "othersTip": "How often everybody else has played this song, put together — counted the same way as yours."
             }
         },
         "empty": "Nothing here yet",
@@ -403,7 +405,11 @@
             "remove": "Remove {name} from the queue",
             "removeHint": "Remove from the queue",
             "move": "Move {name}",
-            "moveHint": "Drag to reorder — or click it, then {keys}"
+            "moveHint": "Drag to reorder — or click it, then {keys}",
+            "saveFailed": {
+                "browser": "The queue can no longer be saved in this browser — its storage is full or blocked. Playback continues, but the queue may not survive a restart.",
+                "server": "The queue could not be synced to the server. It stays saved in this browser, but it will not follow you to another device for now."
+            }
         },
         "bar": {
             "label": "Now playing",

@@ -315,8 +315,10 @@
             },
             "vbr": "VBR",
             "plays": {
-                "own": "Du hast diesen Titel einmal gehört | Du hast diesen Titel {count}-mal gehört",
-                "others": "Andere haben diesen Titel einmal gehört | Andere haben diesen Titel {count}-mal gehört"
+                "own": "Von dir",
+                "ownTip": "So oft hast du diesen Titel gehört. Gezählt wird, sobald die Hälfte gelaufen ist – bei langen Titeln nach vier Minuten. Wiederholungen zählen einzeln, und dieselbe Aufnahme auf einem anderen Album zählt mit.",
+                "others": "Von anderen",
+                "othersTip": "So oft haben alle anderen zusammen diesen Titel gehört – auf dieselbe Art gezählt wie bei dir."
             }
         },
         "empty": "Noch keine Einträge",
@@ -403,7 +405,11 @@
             "remove": "{name} aus der Warteschlange entfernen",
             "removeHint": "Aus der Warteschlange entfernen",
             "move": "{name} verschieben",
-            "moveHint": "Ziehen zum Umsortieren – oder anklicken, dann {keys}"
+            "moveHint": "Ziehen zum Umsortieren – oder anklicken, dann {keys}",
+            "saveFailed": {
+                "browser": "Die Warteschlange lässt sich nicht mehr im Browser speichern – der Speicher ist voll oder gesperrt. Die Wiedergabe läuft weiter, aber die Warteschlange überlebt einen Neustart womöglich nicht.",
+                "server": "Die Warteschlange konnte nicht mit dem Server abgeglichen werden. Sie bleibt in diesem Browser gespeichert, folgt dir aber vorerst nicht auf andere Geräte."
+            }
         },
         "bar": {
             "label": "Wiedergabe",

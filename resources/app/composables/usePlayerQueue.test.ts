@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { setupI18n } from "@/i18n";
+import de from "@/lang/de.json";
 import type { QueueTrack } from "Composables/usePlayerQueue";
 import {
     bindPositionSource,
@@ -8,7 +10,9 @@ import {
     takeRestoredPosition,
     usePlayerQueue
 } from "Composables/usePlayerQueue";
+import { useToast } from "Composables/useToast";
 import { resetInertia, setPage } from "Testing/inertia";
+import { resetQueueSaveWarningsForTests } from "Utils/queueSaveWarning";
 
 vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
 
@@ -100,6 +104,12 @@ describe("usePlayerQueue", () => {
         // resetting the queue writes nothing but clearing storage below must be real.
         vi.restoreAllMocks();
         resetInertia();
+        // The save warnings translate through the i18n singleton and latch per target, so
+        // both have to be drained or one spec's toast silences the next one's.
+        setupI18n({ legacy: false, locale: "de", messages: { de } });
+        resetQueueSaveWarningsForTests();
+        // Toasts are a module singleton as well; a warning left standing counts twice.
+        useToast().activeToasts.value.forEach(toast => useToast().removeToast(toast.id));
         resetPlayerQueueForTests();
         window.localStorage.clear();
         fetchMock.mockClear();
@@ -1098,6 +1108,109 @@ describe("usePlayerQueue", () => {
 
             expect(typeof takeRestoredPosition()).toBe("number");
             expect(takeRestoredPosition()).toBe(0);
+        });
+    });
+
+    describe("when a save is refused", () => {
+        /*
+         * Both failures stay non-fatal — a full storage or a dead network must never take
+         * the player down — but neither is silent any more. What is at risk is not the music
+         * (it plays on) but whether the queue on screen is the queue that comes back, which
+         * is precisely the kind of thing a listener should be told rather than discover.
+         */
+
+        /** The toasts on screen, as text. */
+        const toasts = () => useToast().activeToasts.value;
+
+        /**
+         * Make every storage write fail, the way a full quota does.
+         *
+         * Spied on the INSTANCE, not on `Storage.prototype`: the suite replaces
+         * `localStorage` with its own MemoryStorage (happy-dom ships none), and that class
+         * has its own `setItem` — a prototype spy would install cleanly and catch nothing.
+         */
+        const fillStorage = () =>
+            vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
+                throw new DOMException("quota", "QuotaExceededError");
+            });
+
+        it("warns when the browser refuses to store the queue, and keeps playing", () => {
+            fillStorage();
+
+            usePlayerQueue().enqueue([track("a"), track("b")]);
+            flushQueueWrites();
+
+            expect(toasts()).toHaveLength(1);
+            expect(toasts()[0].type).toBe("warning");
+            // The queue itself is untouched: the failure is about SURVIVING, not about now.
+            expect(ids()).toStrictEqual(["a", "b"]);
+        });
+
+        it("says it once, however many tracks end", () => {
+            // The queue flushes on every track change, so an unlatched warning would raise a
+            // toast every four minutes for as long as the tab is open.
+            fillStorage();
+
+            usePlayerQueue().enqueue([track("a"), track("b")]);
+            flushQueueWrites();
+            usePlayerQueue().next();
+            flushQueueWrites();
+
+            expect(toasts()).toHaveLength(1);
+        });
+
+        it("speaks again after a write works and then fails a second time", () => {
+            const failing = fillStorage();
+            usePlayerQueue().enqueue(track("a"));
+            flushQueueWrites();
+
+            failing.mockRestore();
+            usePlayerQueue().enqueue(track("b"));
+            flushQueueWrites();
+
+            fillStorage();
+            usePlayerQueue().enqueue(track("c"));
+            flushQueueWrites();
+
+            expect(toasts()).toHaveLength(2);
+        });
+
+        it("warns when the server refuses the sync", async () => {
+            // A 419 after a session rotation resolves happily and stores nothing — which is
+            // why the status is checked rather than only the promise.
+            fetchMock.mockResolvedValueOnce(new Response(null, { status: 419 }));
+
+            usePlayerQueue().enqueue(track("a"));
+            flushQueueWrites();
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(toasts()).toHaveLength(1);
+            expect(toasts()[0].message).toContain("Server");
+        });
+
+        it("warns when the sync never leaves at all", async () => {
+            fetchMock.mockRejectedValueOnce(new Error("offline"));
+
+            usePlayerQueue().enqueue(track("a"));
+            flushQueueWrites();
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(toasts()).toHaveLength(1);
+        });
+
+        it("says nothing about the server while the tab is closing", async () => {
+            // A toast raised into a page being torn down is one nobody can read, and the
+            // local copy was written either way.
+            fetchMock.mockRejectedValueOnce(new Error("offline"));
+
+            usePlayerQueue().enqueue(track("a"));
+            flushQueueWrites(true);
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(toasts()).toHaveLength(0);
         });
     });
 });

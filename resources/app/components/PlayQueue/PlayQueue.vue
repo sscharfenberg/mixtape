@@ -503,6 +503,25 @@ $bleed: map.get(s.$c-play-queue, "padding");
         position: relative;
         align-items: center;
 
+        /* OFF-SCREEN ROWS ARE NOT RENDERED AT ALL, which is what lets this panel hold a
+           whole genre. Measured on a 2,000-track queue: every row was being laid out and
+           painted — 28,000 nodes, ~850ms to first paint, a visibly slow scroll — and bulk
+           enqueue made that a thing one click can do.
+
+           `content-visibility` RATHER THAN WINDOWING, and the difference is what stays
+           working. A virtual list renders a slice and fakes the rest, which breaks
+           everything this panel already does correctly: SortableJS drags rows that must
+           exist to be dragged, Alt+↑/↓ moves focus between rows that must exist to be
+           focused, and `scrollIntoView` finds a row that must exist to be found. Skipped
+           content is still in the DOM and still focusable — the browser renders it the
+           moment focus, find-in-page or a scroll makes it relevant — so all three keep
+           working with no code at all.
+
+           `auto` in the intrinsic size is what keeps the scrollbar honest: the estimate
+           below is used until a row has been rendered once, and its real height after. */
+        content-visibility: auto;
+        contain-intrinsic-size: auto map.get(s.$c-play-queue, "row", "row-estimate");
+
         /* One row of context above and below when the loaded track is scrolled into
            view — see scrollCurrentIntoView, which measures the height and publishes it,
            because a row with no artist line is shorter than one with. The zero fallback

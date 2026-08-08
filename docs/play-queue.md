@@ -26,7 +26,7 @@ This file is the client half **as built**.
 | Play / enqueue a whole subject                   | ✅ 2026-08-06 — the hero menu, _Filling it_ below                |
 | Server sync (`player_states`)                    | ✅ 2026-08-07 — _Following the listener, not the browser_ below  |
 | Play-history beacon                              | ✅ 2026-08-07 — [`player.md`](player.md) owns what counts        |
-| A visible failure when a write is refused        | ⬜ swallowed silently today — see _Known edges_                  |
+| A visible failure when a write is refused        | ✅ 2026-08-07 — a warning toast, said once per failure           |
 
 ## What it is
 
@@ -532,16 +532,34 @@ grip, so **tapping the cover no longer plays the track** — the other ~90% of t
 
 ## Known edges, and what is deliberately absent
 
-- **A refused write is silent.** `flushQueueWrites()` swallows `QuotaExceededError` per key — a full
-  or disabled storage must not take the player down — and the previous payload survives, so a reload
-  can restore an older, shorter list with no hint anything was dropped. Nothing surfaces it and
-  nothing caps the queue's length. Post-trim that would be a **DOM guard rather than a storage one**;
-  the panel renders every row (no virtualization) and will feel it long before 16,000 tracks.
-- **Bulk enqueue arrived 2026-08-06, and with it the sizes above became reachable in one click.**
-  A big genre really can put thousands of rows in the queue now, which is exactly the case the
-  panel's un-virtualized list will feel first — the storage has the room (16,000 tracks post-trim),
-  the DOM does not. That is the next thing to measure, and `content-visibility` is the cheap first
-  move.
+- **A refused write is no longer silent** (2026-08-07). The exception is still swallowed — a full or
+  disabled storage, or a dead network, must never take the player down — but the FACT is not. Two
+  warnings, because the remedies differ: a browser that refuses is full or locked down and the queue
+  will not survive this tab, while a server that refuses leaves the browser's copy intact and only
+  costs the listener the trip to another device. `Utils/queueSaveWarning` latches each target until
+  a write to it succeeds again, because the queue flushes on every track change and an unlatched
+  warning would raise a toast every four minutes for as long as the tab is open. A **warning**
+  rather than an error, deliberately: the music is playing and the queue on screen is right; only
+  its survival is at risk. And nothing is said about the server while the tab is CLOSING — a toast
+  raised into a page being torn down is one nobody can read.
+- **The panel skips the rows nobody is looking at** (2026-08-07), which is what makes bulk enqueue
+  survivable: a big genre really can put thousands of rows in the queue in one click. Measured at
+  2,000 rows, `content-visibility: auto` on the row cut main-thread blocking during load from
+  **810ms to 302ms**, the longest single task from **331ms to 151ms**, and first paint from
+  **528ms to 268ms** — both conditions against one build, the optimisation toggled from outside.
+
+  **Not windowing**, and the difference is what stays working. A virtual list renders a slice and
+  fakes the rest, which breaks three things this panel already does correctly: SortableJS drags
+  rows that must exist to be dragged, Alt+↑/↓ moves focus between rows that must exist to be
+  focused, and `scrollIntoView` finds a row that must exist to be found. Skipped content is still
+  in the DOM and still focusable — the browser renders it the moment focus, find-in-page or a
+  scroll makes it relevant — so all three keep working with no code at all.
+
+  **`contain-intrinsic-size` is the half that can go wrong quietly.** It replaces the CONTENT box,
+  so the row's own padding is added on top: seeded with the measured 54px row height the list came
+  out a fifth too tall (65.8px a row) and every scrollbar in the panel lied. The figure is 42px, and
+  the E2E guard asserts a rendered row and the total scroll height agree — a timing threshold would
+  only be a flake waiting for a busy machine.
 - **The shuffle walk is in-memory only**, so a reload restarts the pass, and an edit that renumbers
   rows does too. Both are argued in _Playing in a random order_ — they are the two things about
   shuffle a listener could actually notice, and persisting the walk is the known fix.

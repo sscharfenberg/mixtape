@@ -142,10 +142,14 @@ itself — and a filtered element becomes the **containing block for its `positi
 descendants**. Left inside the bar, "the middle of the viewport" resolves to the middle of a 60px
 strip along the bottom edge. Anything else fixed that the bar ever renders meets the same trap.
 
-**It watches the percentage, not the level**, which is what makes `M` show up here too: muting is a
-volume gesture with even less on screen than the arrows, and it moves the figure to 0 and back. The
-one press that shows nothing is a key at a ceiling — ↑ at 100% clamps to the level it already had, so
-nothing changed and nothing is announced. By then the box is up anyway from the press before it.
+**It watches the GESTURE, not the level** — `usePlayerVolume.changes`, a counter ticked only where
+somebody asked for a change. Watching the value looked equivalent and was not: the level is also
+written when the stored one is RESTORED, on the first bind, which happens in PlayerBar's
+`onMounted` — after this component's setup, so the watcher was already listening and **every page
+load opened with a volume box** (reported 2026-08-08). The counter also keeps the two behaviours
+that were right: `M` shows the box (muting is a volume gesture with even less on screen than the
+arrows), and ↑ at 100% shows nothing, because clamping to the level you already had is not a
+change.
 
 **No ARIA, deliberately.** The box is `aria-hidden`: a screen reader announcing every step of a
 five-press climb would be reading noise, and the slider it mirrors already carries `aria-valuetext`,
@@ -180,6 +184,14 @@ consequences fall out, both wanted — skipping at 90% still counts (the thresho
 before), and a track played at 3× counts after 80 seconds of your time, because the seconds counted
 are the track's.
 
+**A jump is discounted when it STARTS.** `timeupdate` fires whenever the position changes —
+including during a seek — and nothing promises it arrives after `seeked`, so both that event and
+`seeking` move the mark, and the two places that move the cursor deliberately (the resume, and a
+scrub committed through `seek()`) move it themselves rather than waiting to be told. The bug that
+taught this: one 645-second track played to five minutes in recorded FOUR plays, one per page load,
+because the restored position arrived as a single 250-second delta of "time heard" and sailed past
+the four-minute threshold every time.
+
 **It rides `timeupdate`, never a timer**, for the reason the position heartbeat does: a hidden tab
 throttles timers to once a minute while media events keep coming, and a tab left playing in the
 background is exactly the listening worth recording. There is deliberately no upper bound on a
@@ -204,9 +216,18 @@ audiobook chapter is as countable as a song the day chapters become playable. On
 are per-subject: "you played this song 3 times" is the wrong noun for a chapter, so those live with
 the page that says them.
 
-**What the song page shows**, from `PlayCounts::forTrack`: *"Du hast diesen Titel 3-mal gehört"*
-and *"Andere haben diesen Titel 5-mal gehört"*, each omitted when its count is zero — a sentence
-about nothing is worse than silence, and a fresh library would otherwise be a wall of zeroes. The
+**What the song page shows**, from `PlayCounts::forTrack`: two tiles in the hero's metadata row,
+**VON DIR 3×** and **VON ANDEREN 5×**, each omitted when its count is zero — a fresh library would
+otherwise be a wall of "0×" saying only that the feature exists. They are `FactPair`s, the same
+tile the artist and the year beside them are: a count is a labelled value, and the sentences this
+started as read as broken tiles in that row. The tile format also retires a plural rule — "1×" is
+right in both languages where a sentence wanted "einmal" in one of them. The glyph is the ear
+(`plays`, its own file rather than the audio card's `channels` — two facts on one page sharing a
+picture is how a reader learns the picture means nothing) on both tiles: the label says whose
+listening it is, and the icon says what kind of fact it is. Each tile carries a **tooltip** and the
+same sentence as an `aria-describedby` description, because the figure alone cannot say what counts
+as a play, whether repeats count, or whether the same recording on another album counts here — and
+because a tooltip on its own explains the number to everyone except the readers who cannot see it. The
 counts are by **`content_hash`**, so the album track and the best-of track are one recording:
 counting by id would tell a reader they had played a song twice when they had played it five
 times, and would disagree with most-played, which `data-model.md` settled on the hash for the same

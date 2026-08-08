@@ -231,6 +231,71 @@ test.describe("the play queue synced to the server", () => {
     });
 });
 
+test.describe("the play queue at library scale", () => {
+    test.use({ viewport: { width: 1440, height: 900 } });
+
+    test("skips the rows nobody is looking at, and still measures them right", async ({ page }) => {
+        /*
+         * Bulk enqueue made a thousand-row queue something one click can produce, and the
+         * panel renders every row — so `content-visibility: auto` lets the browser skip the
+         * ones off screen. Measured at 2,000 rows (2026-08-07): main-thread blocking during
+         * load fell from 810ms to 302ms, the longest single task from 331ms to 151ms, and
+         * first paint from 528ms to 268ms.
+         *
+         * THE TIMINGS ARE NOT WHAT THIS ASSERTS — a threshold in milliseconds is a flake
+         * waiting for a busy machine. What it pins is the pair that has to agree: the
+         * property being on, and `contain-intrinsic-size` matching what a row really is.
+         * Get the second one wrong and nothing looks broken — the scrollbar simply lies, in
+         * proportion to how far off the estimate is. It was wrong once, by the row's own
+         * padding (54px instead of 42px), and the list came out a fifth too tall.
+         *
+         * Seeded through storage rather than by queueing 200 songs: the subject is the
+         * panel at scale, and the enqueue path has its own tests.
+         */
+        const rows = 200;
+        const rowHeight = 54;
+
+        await enqueueFirstSong(page);
+        // The queue writes late (a trailing flush), so the payload this test rewrites does
+        // not exist the instant the row appears.
+        await expect
+            .poll(() => page.evaluate(() => window.localStorage.getItem("mixtape.queue") !== null))
+            .toBe(true);
+
+        await page.evaluate(count => {
+            // The stored payload the app just wrote, so the user it belongs to is right.
+            const stored = JSON.parse(window.localStorage.getItem("mixtape.queue")!);
+            stored.tracks = Array.from({ length: count }, (_, index) => ({
+                id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+                name: `Track number ${index}`,
+                artist: "Some Artist",
+                album: "Some Album",
+                duration: 210
+            }));
+            window.localStorage.setItem("mixtape.queue", JSON.stringify(stored));
+        }, rows);
+        await page.reload();
+        await expect(page.locator(".play-queue__row")).toHaveCount(rows);
+
+        const measured = await page.evaluate(() => {
+            const row = document.querySelector(".play-queue__row") as HTMLElement;
+            const list = document.querySelector(".play-queue__list") as HTMLElement;
+
+            return {
+                skipping: getComputedStyle(row).contentVisibility,
+                scrollHeight: list.scrollHeight,
+                renderedRowHeight: row.getBoundingClientRect().height
+            };
+        });
+
+        expect(measured.skipping).toBe("auto");
+        // A rendered row and a skipped one have to be the same height, or the scrollbar
+        // lies about how much queue there is.
+        expect(Math.abs(measured.renderedRowHeight - rowHeight)).toBeLessThan(1);
+        expect(Math.abs(measured.scrollHeight - rows * rowHeight)).toBeLessThan(rows);
+    });
+});
+
 test.describe("the play queue on a narrow screen", () => {
     test.use({ viewport: { width: 420, height: 850 } });
 

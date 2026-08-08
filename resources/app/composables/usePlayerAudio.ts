@@ -448,6 +448,9 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
         const target = Math.min(Math.max(seconds, 0), duration.value || 0);
         currentTime.value = target;
         element.currentTime = target;
+        // Same reason as the resume: the mark moves with the cursor, whatever order the
+        // element's own events arrive in.
+        lastHeardAt = target;
         publishPositionState();
     }
 
@@ -568,17 +571,36 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
             // `seeking` and only later `timeupdate`, and the bar would show 0:00 until then.
             currentTime.value = seconds;
             lastHeartbeatAt = seconds;
+            // AND the listen mark, without waiting for `seeking` to be delivered: a restored
+            // position is the one jump that is guaranteed to be large, and crediting it as
+            // time heard is exactly the bug this seek caused.
+            lastHeardAt = seconds;
             publishPositionState();
         });
 
         // The seek itself, so the cursor lands as soon as the element agrees rather
         // than at the next timeupdate.
+        /*
+         * A JUMP IS DISCOUNTED WHEN IT STARTS, not when it lands, and the difference is a
+         * bug the owner found: one track played to five minutes in recorded FOUR plays.
+         * `timeupdate` fires when the position changes — including DURING a seek — and
+         * nothing promises it arrives after `seeked`. So the reading that followed a
+         * restored position was a jump of everything heard in the previous session
+         * (250 seconds in one delta) landing as time heard now, past the threshold, on
+         * every page load of a track resumed past four minutes.
+         *
+         * Both events move the mark, because either can be the first to tell us.
+         */
+        const markSeek = (): void => {
+            lastHeardAt = audio.currentTime;
+        };
+
+        on("seeking", markSeek);
+
         on("seeked", () => {
             currentTime.value = audio.currentTime;
             buffered.value = readBuffered(audio);
-            // Move the mark WITHOUT crediting the jump: this is what keeps a scrub from
-            // being mistaken for listening (see countHeardTime).
-            lastHeardAt = audio.currentTime;
+            markSeek();
         });
 
         on("ended", handleEnded);

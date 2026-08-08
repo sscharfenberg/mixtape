@@ -595,6 +595,42 @@ describe("usePlayerAudio", () => {
             expect(reported()).toStrictEqual(["a", "a"]);
         });
 
+        it("does not count the position it RESUMED from as time heard", () => {
+            /*
+             * THE BUG THE OWNER FOUND (2026-08-07): one track, played to five minutes in
+             * with a few pauses, recorded FOUR plays — 18:48:15, 18:49:19, 19:13:49,
+             * 20:06:52 against a 645-second track whose threshold is four minutes. A minute
+             * apart is not four minutes of listening.
+             *
+             * The resume is what did it. A page load restores the stored position by
+             * assigning `currentTime`, and the reading that follows is a jump of everything
+             * heard in the PREVIOUS session — 250 seconds arriving as one delta, straight
+             * past the threshold. So every reload of a track resumed past four minutes was
+             * worth another play.
+             */
+            usePlayerQueue().enqueue(track("a", 645));
+            const element = attachElement();
+            usePlayerAudio().play();
+
+            /*
+             * A page load's restored position: the element jumps to where it left off. The
+             * READING COMES FIRST, deliberately — a browser fires `timeupdate` when the
+             * position changes, including during a seek, and nothing promises it arrives
+             * after `seeked`. Dispatched the friendly way round this test passes against
+             * the bug it exists for.
+             */
+            element.currentTime = 250;
+            element.dispatchEvent(new Event("seeking"));
+            element.dispatchEvent(new Event("timeupdate"));
+            element.dispatchEvent(new Event("seeked"));
+
+            expect(reported()).toStrictEqual([]);
+
+            // …and it still counts what is heard AFTER the resume, from where it resumed.
+            playFor(element, 250 + 241);
+            expect(reported()).toStrictEqual(["a"]);
+        });
+
         it("says nothing about a track whose length nobody knows", () => {
             // Half of an unknown duration is zero, and a threshold of zero would report a
             // play the instant the first reading arrived.
