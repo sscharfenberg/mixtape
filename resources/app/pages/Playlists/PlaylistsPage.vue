@@ -11,8 +11,9 @@
  * is blank. It stays in the same place once the list fills, so it never moves.
  *
  * AN ENTRY IS A SMALL HERO — the detail pages' panel, at list scale: the same inset,
- * corner, chrome title and slowly rotating gradient ring (tokens copied into
- * `*.$c-playlist`, see the styles). Each ring starts at a different point in the same
+ * corner and slowly rotating gradient ring (tokens copied into `*.$c-playlist`, see the
+ * styles). Its title wears the shared `.text-chrome` treatment, which is chrome from
+ * `landscape` up and a flat tint below — the machinery is too heavy for phone-sized type. Each ring starts at a different point in the same
  * turn, so a column of them drifts rather than pulsing in unison; the phase comes from
  * `--playlist-index`, published per row below.
  *
@@ -30,6 +31,7 @@
  * tile at all.
  *****************************************************************************/
 import { Head, Link } from "@inertiajs/vue3";
+import { useTemplateRef } from "vue";
 import { useI18n } from "vue-i18n";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Container from "Components/UI/Container.vue";
@@ -39,11 +41,22 @@ import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import type { PlaylistEntry } from "Types/playlists";
 import { formatDateTime, formatDuration } from "Utils/formatting";
 import PlaylistMenu from "./PlaylistMenu.vue";
+import { usePlaylistReorder } from "./usePlaylistReorder";
 
-defineProps<{
+const props = defineProps<{
     /** The reader's own playlists, in their own order — empty for a fresh account. */
     playlists: PlaylistEntry[];
 }>();
+
+/**
+ * The listing element, and the order the page actually renders.
+ *
+ * `entries` rather than the prop directly: a drag has to show before the server has agreed
+ * to it, and an Inertia prop cannot be written. usePlaylistReorder owns that copy, keeps it
+ * seeded from the prop, and persists whatever the reader does to it.
+ */
+const list = useTemplateRef<HTMLUListElement>("list");
+const { entries, onEntryKeydown, shortcutLabel } = usePlaylistReorder(list, () => props.playlists);
 
 const { t, locale } = useI18n();
 const { setBreadcrumbs } = useBreadcrumbs();
@@ -88,7 +101,7 @@ const playtimeOf = (seconds: number | null): string =>
             </Link>
         </p>
 
-        <ul v-if="playlists.length" class="playlist__list">
+        <ul v-if="entries.length" ref="list" class="playlist__list">
             <!-- `--playlist-index` is the row's position in the list, and the ONLY thing
                  this template knows about the look: the ring's animation reads it as a
                  negative delay, so every entry sits at its own point in the same turn.
@@ -96,28 +109,33 @@ const playtimeOf = (seconds: number | null): string =>
                  only carry a fixed set of phases, and a listing has as many entries as the
                  reader has playlists. -->
             <li
-                v-for="(playlist, index) in playlists"
+                v-for="(playlist, index) in entries"
                 :key="playlist.id"
                 class="playlist"
                 :style="{ '--playlist-index': index }"
+                @keydown="onEntryKeydown($event, index)"
             >
-                <!-- The reorder grip. A real <button>, and one that does nothing yet:
-                     reordering is not built, and this is the tab stop the eventual keyboard
-                     alternative hangs off — the play queue's grip has exactly this shape and
-                     says so ("pressing it does nothing on its own, and that is the honest
-                     shape of a handle"). It is deliberately NOT `disabled`, which would take
-                     it out of the tab order and stop it being announced at all. -->
+                <!-- The reorder grip: the only thing a drag starts from, and the tab stop the
+                     keyboard alternative hangs off. Pressing it does nothing on its own — the
+                     drag is a pointer gesture and Alt+↑/↓ is the keyboard one — which is the
+                     honest shape of a handle, and the same shape the play queue's grip has.
+                     THE HINT SAYS "CLICK IT FIRST" because it has to: Alt+↑/↓ moves the FOCUSED
+                     entry, so hovering one and pressing the keys does nothing at all, which is
+                     exactly how it reads as broken. `aria-keyshortcuts` keeps ARIA's canonical
+                     spelling while the tooltip names the key this keyboard actually prints. -->
                 <button
                     type="button"
                     class="playlist__handle"
+                    v-tooltip="t('playlists.reorderHint', { keys: shortcutLabel })"
                     :aria-label="t('playlists.reorder', { name: playlist.name })"
+                    aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
                 >
                     <icon name="drag" :size="1" />
                 </button>
 
                 <!-- PLACEHOLDER destination: the playlist detail page does not exist yet. -->
                 <a class="playlist__link" href="https://www.google.com">
-                    <span class="playlist__title">{{ playlist.name }}</span>
+                    <span class="playlist__title text-chrome">{{ playlist.name }}</span>
                 </a>
 
                 <playlist-menu :playlist="playlist" class="playlist__menu" />
@@ -334,6 +352,39 @@ li.playlist {
    with a sprite name. Losing this split silently unstyles the whole entry — which is
    precisely what it did once. */
 .playlist {
+    /* THE ENTRY IN YOUR HAND — the clone that follows the pointer during a drag
+       (`dragClass`). Sortable builds it with `cloneNode`, so it keeps this component's scope
+       attribute and every class; what it does not keep is its place on the page, because it is
+       appended to <body> to stay clear of clipping ancestors. The fill and ink it was
+       inheriting therefore have to be restated, or the entry is drawn in whatever colours the
+       page happens to use. The shadow is what says "lifted"; its offsets are em-based effect
+       constants, as the ring's are.
+
+       The ROTATING RING IS STILLED on the clone: `--playlist-index` is an inline custom
+       property, so the clone inherits the phase but not the element's animation state, and a
+       ring turning on a box that is already following the pointer is one motion too many. */
+    &--dragging {
+        background-color: map.get(c.$c-playlist, "background");
+        color: map.get(c.$c-playlist, "surface");
+        box-shadow: 0 0.25em 0.75em 0 map.get(c.$c-playlist, "drag-shadow");
+
+        cursor: grabbing;
+
+        &::before {
+            animation: none;
+        }
+    }
+
+    /* THE GAP IT LEFT — the real <li>, still in the list, which Sortable moves around to show
+       where a drop would land (`ghostClass`). Faded rather than hidden: collapsing it would
+       make the listing jump by a whole entry the moment a drag started, and the point of the
+       gap is that it shows the destination. */
+    &--ghost {
+        opacity: 0.4;
+
+        background-color: map.get(c.$c-playlist, "background-hover");
+    }
+
     /* THE WHOLE PANEL IS THE LINK. An <a> cannot wrap this box — the grip and the menu are
        interactive, and an <a> may contain neither — so it stretches a positioned ::after
        over the panel instead. `inset: 0` resolves against `.playlist`, which is what its
@@ -454,34 +505,15 @@ li.playlist {
         }
     }
 
-    /* The entry's heading, in the hero's chrome. Everything below this point is
-       s.$c-hero-section / c.$c-hero-section's treatment, re-read from the playlist tokens —
-       see the sizes partial for why it is copied rather than shared.
-
-       The letters are painted the way the app wordmark is: the fill is a BACKGROUND clipped
-       to the glyphs with the text itself transparent, which is the only way to run a
-       gradient through type. Small sizes get the flat tint and the chrome gradient waits for
-       `landscape`, exactly as the wordmark's and the hero's do — the gradient splits at its
-       own midline, and a heading this size isn't tall enough for that split to read as
-       anything but noise.
-
-       `display: block` so the span takes the anchor's width and its line boxes are the
-       gradient's tiles; `overflow-wrap: anywhere` because playlist names do contain single
-       unbroken monsters. */
+    /* The entry's heading. Everything about how the lettering is PAINTED — the chrome ramp
+       from `landscape` up, the flat tint below it, the stroke, the glow, the leading — is the
+       shared `.text-chrome` class (styles/components/_text-chrome.scss), which this element
+       carries in the template. What is left here is what belongs to the heading rather than to
+       the treatment: how big it is, and in what face. */
     &__title {
-        $line-height: map.get(s.$c-playlist, "title-line-height");
-
         display: block;
 
-        overflow-wrap: anywhere;
-
-        background-color: map.get(c.$c-playlist, "title-fill");
-        background-clip: text;
-        -webkit-text-stroke: map.get(s.$c-playlist, "title-effect", "stroke") map.get(c.$c-playlist, "title-stroke");
-        -webkit-text-fill-color: transparent;
-
         font-family: map.get(t.$c-playlist, "title");
-        line-height: $line-height;
 
         @include m.mqset(
             "font-size",
@@ -490,35 +522,6 @@ li.playlist {
             #{map.get(s.$c-playlist, "title-font-size", "landscape")},
             #{map.get(s.$c-playlist, "title-font-size", "desktop")}
         );
-
-        @include m.mq("landscape") {
-            $rim: 0 0 map.get(s.$c-playlist, "title-effect", "rim") map.get(c.$c-playlist, "title-contour");
-
-            background-color: transparent;
-            background-image: map.get(c.$c-playlist, "title-gradient");
-
-            /* ONE ramp PER LINE, which is what keeps a wrapped title reading as chrome. A
-               background paints over the element's whole box, so left to itself the ramp
-               stretches across every line at once and the white specular line that should
-               cross the letters lands in the gap between two of them. Sized to exactly one
-               line box and tiled down instead, every line gets the full dark-blue →
-               specular → pink run.
-
-               The height is `$line-height * 1em`, not `1lh`: `em` resolves against this
-               element's own font-size, and `line-height` above is the same unitless number
-               against the same font-size, so the tile matches the line box at every
-               breakpoint with no dependency on `lh` support. */
-            background-repeat: repeat-y;
-            background-size: 100% ($line-height * 1em);
-
-            /* The chain's ORDER is the legibility. Each filter takes the previous result, so
-               the near-black rim has to come first to hug the letters — put it after the neon
-               and it rings the glow instead of the glyphs. It runs TWICE because one pass at
-               that radius cannot hold an edge against the bloom further out. */
-            filter: drop-shadow($rim) drop-shadow($rim)
-                drop-shadow(0 0 map.get(s.$c-playlist, "title-effect", "glow") map.get(c.$c-playlist, "title-glow"))
-                drop-shadow(0 0 map.get(s.$c-playlist, "title-effect", "bloom") map.get(c.$c-playlist, "title-bloom"));
-        }
     }
 
     /* Hidden on the narrowest screens, along with the facts below. At phone width the panel
@@ -558,6 +561,29 @@ li.playlist {
             display: flex;
         }
 
+        /* FROM `desktop` UP EACH PAIR READS ACROSS rather than stacking its label over its
+           value. A tile is `flex-direction: column` by default, which is right in a facts card
+           where several sit in a narrow panel — and wrong in an entry, where the row has width
+           to spare and the stacked pairs make every entry two lines taller than it needs to be.
+           Reaching for FactPair's own class from here is the same move the hero makes for the
+           tile's halo; it works without `:deep()` because these tiles are rendered by this page
+           (so their root carries its scope id) rather than slotted into it.
+
+           `center`, NOT `baseline`, and this went the wrong way first. The argument for baseline
+           was that the label is a step below body size and the value a step above, so a shared
+           text baseline ought to read as one line. Measured, it does not: the label is itself a
+           flex row (it carries the icon), and aligning the two boxes on their first baselines
+           left the label's box 2.3px above the tile's middle while the value's sat exactly on
+           it — the small caps visibly ride high. With `center` all three mid-points agree. */
+        @include m.mq("desktop") {
+            .fact-pair {
+                align-items: center;
+                flex-direction: row;
+
+                gap: map.get(s.$c-facts, "label-icon-gap");
+            }
+        }
+
         /* `flex-grow: 0`, unlike the same tile inside a facts card where growing is what
            stops a line ending ragged: here a few chips sit against a wide panel, and
            stretching them across it would read as a table nobody asked for. The hero's
@@ -568,9 +594,4 @@ li.playlist {
     }
 }
 
-// Dark mode keeps the title's hairline outline: the neon fill already separates from a
-// black panel, and light mode's heavier stroke would only grey the letters down here.
-@include m.theme-dark(".playlist__title") {
-    -webkit-text-stroke-width: map.get(s.$c-playlist, "title-effect", "stroke-dark");
-}
 </style>

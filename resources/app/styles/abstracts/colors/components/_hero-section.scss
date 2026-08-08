@@ -102,57 +102,8 @@ $hero-section: (
             color.adjust(map.get(c.$brand, "light1", "contrast"), $alpha: -0.25),
             color.adjust(map.get(c.$brand, "dark2", "contrast"), $alpha: -0.55)
         ),
-    // The title's synthwave treatment, walking the same hues the app wordmark does
-    // (AppHeaderTitle) — but picked HERE from the global palette rather than read off
-    // c.$c-title: a contextual partial consumes globals, never another partial's tokens.
-    // The two files therefore have to be retuned together, which is the trade for each
-    // owning its own decision.
-    //
-    // `title-fill` is the flat version for small type: the chrome gradient below splits
-    // at its own midline, and a 24px heading is not tall enough for that split to read as
-    // anything but noise, so the effect is gated to `landscape` and up exactly as the
-    // wordmark's is.
-    "title-fill": light-dark(map.get(c.$retro, "c5", "light"), map.get(c.$retro, "c6", "dark")),
-    // Dark blue → blue → a white specular line at the midline → violet → purple → pink:
-    // chrome lettering, and the reason the stops double up at 50%.
-    "title-gradient": linear-gradient(
-            light-dark(map.get(c.$retro, "c1", "light"), map.get(c.$retro, "c1", "dark")) 25%,
-            light-dark(map.get(c.$retro, "c2", "light"), map.get(c.$retro, "c2", "dark")) 35%,
-            map.get(c.$grey, "white") 50%,
-            light-dark(map.get(c.$retro, "c4", "light"), map.get(c.$retro, "c4", "dark")) 50%,
-            light-dark(map.get(c.$retro, "c5", "light"), map.get(c.$retro, "c5", "dark")) 55%,
-            light-dark(map.get(c.$retro, "c6", "light"), map.get(c.$retro, "c6", "dark")) 75%
-        ),
-    // The outline around the letters, THEME-SPLIT in colour and (in the sizes partial) in
-    // width. Both sides are now LIGHTER than the panel they sit on, which is the thing this
-    // token has had to learn twice: the outline's job is to separate the glyphs from the
-    // surface, and a DARK rim cannot do that on either theme — the drop-shadow chain already
-    // supplies the dark contour, and a dark stroke on top only eats into the letter it is
-    // meant to define.
-    //
-    // Light mode: fog rather than near-black, because the ramp's own pale stops (a white
-    // specular line at the midline, blue above it) run out of contrast on a white panel, and
-    // a near-black outline reads heavier and dirtier against the chrome. It only works at the
-    // wider width; a hairline this pale would be invisible.
-    //
-    // Dark mode: WHITE, which reverses an earlier judgement (2026-08-08). It used to be a mid
-    // grey hairline, on the theory that "the neon fill separates from a black panel on its
-    // own" — it does not. The ramp's upper third is a DARK blue, so the tops of the letters
-    // sank into the panel and the title read as smudged, which is what the owner noticed.
-    // Rendered side by side: black at 0.03em and 0.05em both made it WORSE (the stroke
-    // consumed the glyph and merged with the background), while white at 0.02em was
-    // immediately legible. Past roughly 0.03em the outline starts to dominate the chrome it is
-    // framing, so the width settled just under that.
-    //
-    // Two things that did NOT help light mode, measured, so they needn't be retried: a
-    // thicker glow rim (a blurred shadow outside the glyphs cannot make an edge) and
-    // neutralising the white specular stop (barely any difference).
-    "title-stroke": light-dark(map.get(c.$grey, "fog"), map.get(c.$grey, "white")),
-    // The neon immediately around the glyphs, then a wider bloom that reads as the sign
-    // lighting the panel rather than as an outline.
-    "title-glow": light-dark(map.get(c.$retro, "c7", "light"), map.get(c.$retro, "c7", "dark")),
-    "title-bloom": light-dark(map.get(c.$retro, "c8", "light"), map.get(c.$retro, "c8", "dark")),
-    // Between the two, a tight black shadow: it is what keeps the letters legible where
-    // the glow would otherwise wash their edges out.
-    "title-contour": map.get(c.$grey, "black")
+    // The title's synthwave lettering — the ramp, the stroke, the glow chain — used to be
+    // copied HERE and again in the playlist entry's partial. It is now one shared group,
+    // c.$c-text-chrome / s.$c-text-chrome, worn by both via the `.text-chrome` class; only the
+    // title's font-size and face stay with each consumer (2026-08-08).
 ) !default;

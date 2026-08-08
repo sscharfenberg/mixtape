@@ -21,6 +21,7 @@ use App\Http\Controllers\NowPlayingController;
 use App\Http\Controllers\Player\PlayController;
 use App\Http\Controllers\Player\PlayerStateController;
 use App\Http\Controllers\Playlists\PlaylistMetadataController;
+use App\Http\Controllers\Playlists\PlaylistOrderController;
 use App\Http\Controllers\PlaylistsController;
 use App\Http\Middleware\HandleControllerPrecognitiveRequest;
 use Illuminate\Support\Facades\Route;
@@ -64,6 +65,14 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         Route::post('/playlists', [PlaylistMetadataController::class, 'store'])
             ->middleware(['throttle:30,1', HandleControllerPrecognitiveRequest::class])
             ->name('playlists.store');
+
+        // The reader's own ordering, written by the listing's drag handles. A collection-level
+        // resource because an ordering belongs to the SET, not to any one playlist — and it
+        // cannot be mistaken for one: the `{playlist}` routes below are UUID-constrained, so
+        // "order" never matches them.
+        Route::put('/playlists/order', PlaylistOrderController::class)
+            ->middleware('throttle:60,1')
+            ->name('playlists.order');
 
         Route::get('/playlists/{playlist}/edit', [PlaylistMetadataController::class, 'edit'])
             ->whereUuid('playlist')

@@ -33,6 +33,7 @@ import Sortable from "sortablejs";
 import type { Ref } from "vue";
 import { nextTick, onBeforeUnmount, watch } from "vue";
 import { usePlayerQueue } from "Composables/usePlayerQueue";
+import { prefersMotion } from "Utils/motion";
 import { altKeyLabel, shortcut } from "Utils/platform";
 
 /**
@@ -60,17 +61,6 @@ export type UseQueueReorderReturn = {
     /** The shortcut as THIS keyboard prints it (`⌥↑/↓` or `Alt+↑/↓`), for the grip's hint. */
     shortcutLabel: string;
 };
-
-/**
- * Whether the reader has asked for motion.
- *
- * Written positively (`no-preference`) rather than as a `reduce` opt-out, matching
- * the repo's motion rule — so a browser that reports nothing at all gets no
- * animation either.
- */
-function prefersMotion(): boolean {
-    return window.matchMedia("(prefers-reduced-motion: no-preference)").matches;
-}
 
 /**
  * Wire drag-and-drop and Alt+↑/↓ onto the queue's scrolling `<ol>`.

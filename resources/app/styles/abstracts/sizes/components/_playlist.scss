@@ -3,11 +3,16 @@
  * @type {Sass}
  * One entry in the playlists listing (pages/Playlists → `li.playlist`). The entry is
  * built as a small hero: the same inset, the same corner, the same rotating gradient
- * ring, the same chrome title. So `padding`, `radius`, `border` and the whole title
- * block below are the hero's values, COPIED rather than read across — a contextual
- * partial consumes globals, never another partial's tokens, which means the two files
- * have to be retuned together and each owns its own decision. If the hero's frame
- * changes, this is the second place to follow it.
+ * ring, the same type scale. So `padding`, `radius`, `border` and the title scale are the
+ * hero's values, COPIED rather than read across — a contextual partial consumes globals,
+ * never another partial's tokens, which means the two files have to be retuned together and
+ * each owns its own decision. If the hero's frame changes, this is the second place to
+ * follow it.
+ *
+ * The one thing that is NOT copied any more is how the title is PAINTED: the ramp, the
+ * stroke and the glow chain were duplicated here until 2026-08-08 and are now the shared
+ * s.$c-text-chrome / c.$c-text-chrome group, worn via the `.text-chrome` class. Leading went
+ * with them — the ramp is tiled at exactly that height, so it belongs to the treatment.
  *
  * What is NOT copied is the cover square (an entry has no artwork) and the hero's
  * `gap` (the hero's separates a text column from a picture; here it separates the
@@ -45,34 +50,12 @@ $playlist: (
     // sits one line-width clear of the panel it traces (the rule s.$c-facts "link-outline"
     // records: a ring drawn tight against what it surrounds reads as part of it).
     "focus-outline": map.get(s.$border, "base"),
-    // ── the title, copied from s.$c-hero-section ─────────────────────────────────────
-    // The per-breakpoint scale, and the tight leading a wrapped title needs. Unitless
-    // leading on purpose: the component multiplies it by 1em for the chrome gradient's
-    // tile height, so one number keeps the leading and the ramp in step at every rung.
+    // The per-breakpoint scale, the hero's, copied. How the letters are painted at each of
+    // these sizes is s.$c-text-chrome's business, not this file's — see the banner.
     "title-font-size": (
             "base": 1.75rem,
             "portrait": 1.9rem,
             "landscape": 2rem,
             "desktop": 2.6rem
-        ),
-    "title-line-height": 1.1,
-    // The synthwave treatment's dimensions, all in `em` so they scale with whichever
-    // font-size above is in force. See s.$c-hero-section "title-effect" for what each one
-    // does and why the rim is applied twice.
-    "title-effect": (
-            // Both themes need a real outline; only the width differs, because the two inks
-            // do (see "title-stroke" in the colours partial — fog on white, WHITE on black).
-            // Dark mode's used to be a 0.01em hairline on the assumption that the neon fill
-            // separated itself from a black panel, and it does not: at that width a white
-            // stroke is invisible and the ramp's dark upper third sank into the surface. It
-            // is a shade finer than light mode's because white on black is the higher-
-            // contrast pair of the two — past ~0.03em the outline starts to dominate the
-            // chrome it frames. `light-dark()` is colours only, hence a second key here and
-            // the theme-dark override at the call site.
-            "stroke": 0.03em,
-            "stroke-dark": 0.022em,
-            "rim": 0.025em,
-            "glow": 0.1em,
-            "bloom": 0.3em
         )
 ) !default;

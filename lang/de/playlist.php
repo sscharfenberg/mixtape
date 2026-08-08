@@ -23,6 +23,7 @@ return [
         'name.max' => 'Der Name darf höchstens :max Zeichen enthalten.',
         'name.unique' => 'Du hast bereits eine Wiedergabeliste mit diesem Namen.',
         'description.max' => 'Die Beschreibung darf höchstens :max Zeichen enthalten.',
+        'ids.incomplete' => 'Die Reihenfolge muss alle deine Wiedergabelisten enthalten.',
     ],
 
     'attributes' => [

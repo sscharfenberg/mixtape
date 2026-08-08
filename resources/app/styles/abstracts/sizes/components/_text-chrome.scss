@@ -1,0 +1,43 @@
+/******************************************************************************
+ * contextual size tokens — component:text-chrome
+ * @type {Sass}
+ * The synthwave lettering's dimensions (styles/components/_text-chrome.scss). Everything is
+ * in `em` so one set of numbers serves every consumer: a hero title runs to 2.6rem and a
+ * playlist entry's to the same scale today, but a future caller at any size gets a glow in
+ * proportion rather than one tuned for somebody else's type.
+ *
+ * NOT FONT-SIZE. That stays with each consumer, which is the seam: this group owns how the
+ * lettering is PAINTED, the caller owns how big it is and in what face.
+ *
+ * Consumed as s.$c-text-chrome via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+
+$text-chrome: (
+    // Tight-leaded so a long title wraps into a block rather than a ladder — and owned HERE
+    // rather than by the caller, because the ramp is tiled at exactly this height (one per
+    // line box, see the component's `background-size`). Unitless on purpose: the component
+    // multiplies it by 1em, which resolves against whatever font-size the caller set, so one
+    // number keeps the leading and the tile in step at every size. Let the two drift and the
+    // chrome bands stop lining up with the lines they belong to.
+    "line-height": 1.1,
+    // Light mode needs a real outline, and a pale one (c.$c-text-chrome "stroke") only
+    // registers at this width. Dark mode's is finer: white on black is the higher-contrast
+    // pair, and light mode's width would start to dominate the chrome it frames.
+    // `light-dark()` is colours only, hence a second key and the theme-dark override in the
+    // component.
+    "stroke": 0.03em,
+    "stroke-dark": 0.022em,
+    // The dark rim that does the legibility work. Barely blurred on purpose: it has to read as
+    // an edge on the letters, not as a shadow near them. Applied TWICE in the filter chain,
+    // because one pass at this radius is too faint to hold an edge against the bloom further
+    // out.
+    "rim": 0.025em,
+    // Then the neon at the glyphs, and the bloom around them.
+    "glow": 0.1em,
+    // Kept SHORT because a hero's metadata tiles sit right under its title, and a filter blur
+    // reaches its full radius: at 1em the bloom washed blue over their top edges, at 0.5em it
+    // still lifted them, and at 0.3em they come back clean while the letters keep their halo.
+    // Measured, not derived — the gap below the title is smaller than even this radius, so
+    // what matters is where the blur's density falls off, not where it ends.
+    "bloom": 0.3em
+) !default;

@@ -67,7 +67,7 @@
                  clipping a background to the glyphs with `-webkit-text-fill-color: transparent`,
                  which any button slotted inside would inherit and render invisible. -->
             <div v-if="$slots.title || $slots.menu" class="hero-section__heading">
-                <div v-if="$slots.title" class="hero-section__title"><slot name="title" /></div>
+                <div v-if="$slots.title" class="hero-section__title text-chrome"><slot name="title" /></div>
                 <div v-if="$slots.menu" class="hero-section__menu"><slot name="menu" /></div>
             </div>
             <!-- role="list" because the marker is styled away, and Safari/VoiceOver drop
@@ -294,64 +294,21 @@
     }
 
     /* The page's heading, at whatever level the caller passed (an <h2> here — see the
-       banner). Bigger than body text and
-       tight-leaded so a long title wraps into a block rather than a ladder;
-       `overflow-wrap` because titles do contain single unbroken monsters (a URL, a
-       40-character German compound).
+       banner). Everything about how the lettering is PAINTED — the chrome ramp from
+       `landscape` up, the flat tint below it, the stroke, the glow chain, the leading — is the
+       shared `.text-chrome` class (styles/components/_text-chrome.scss), which this element
+       carries in the template alongside its own. It was a copy here and a second copy in the
+       playlist entry until 2026-08-08; the two had to be retuned together twice, and the
+       second time only because someone remembered the other existed.
 
-       The slotted heading has its UA type and margin flattened so this type wins: the
+       What is left is what belongs to the HEADING rather than to the treatment: how big it is,
+       in what face, and the flattening of the slotted element's own type so this wins. The
        caller picks the ELEMENT (which level belongs in the document outline) and the hero
-       decides how it looks.
-
-       The letters are painted the way the app wordmark is (AppHeaderTitle): the fill is a
-       BACKGROUND clipped to the glyphs, with the text itself transparent, which is the
-       only way to run a gradient through type. Small sizes get the flat tint and the
-       chrome gradient waits for `landscape`, exactly as the wordmark's does — the gradient
-       splits at its own midline, and a 24px heading isn't tall enough for that split to
-       read as anything but noise.
-
-       The glow is a `filter`, not the wordmark's `text-shadow`, and that is forced by the
-       slot. `text-shadow` paints ABOVE an element's background, so on a single element it
-       would wash over the gradient it is supposed to be lighting; the wordmark dodges that
-       by stacking two copies of its text, which needs the text twice in the markup — and
-       here the text is the caller's, once. `drop-shadow` filters the element as already
-       rendered, so the glow follows the glyph shapes and sits behind them, gradient
-       intact. The bloom is a fraction of the wordmark's 5em: a filter blurs the real painted
-       result, so a wide radius costs far more than a shadow, reads as fog rather than as
-       neon, and — the reason it is as short as it is — spills over the metadata tiles
-       sitting directly beneath the title.
-
-       The chain's ORDER is the legibility. Each filter takes the previous result, so the
-       near-black rim has to come first to hug the letters — put it after the neon and it
-       ends up ringing the glow instead of the glyphs, which is what made this title read
-       as softer than the wordmark. It is applied twice because a single pass at that radius
-       can't hold an edge against the bloom. Two passes stand in for the second
-       `-webkit-text-stroke` the wordmark can afford (0.06em black at 50%, on the copy of
-       the text underneath its gradient copy) and this can't: one element has one stroke,
-       and it is the one below.
-
-       That STROKE is what carries light mode, and its width is worth the extra rule: measured
-       side by side, a thicker rim barely helped on the white panel (a blurred shadow outside
-       the glyphs cannot produce an edge) and neutralising the ramp's white specular stop
-       changed almost nothing — the outline is what holds the letters together, and at the
-       hairline width it does nothing at all. The dark panel needs none of it, so the width
-       drops back there via `theme-dark`. Its colour is already theme-split in the token;
-       `light-dark()` does not do lengths, which is why the width takes a rule of its own. */
+       decides how it looks. */
     &__title {
-        $line-height: map.get(s.$c-hero-section, "title-line-height");
-
-        overflow-wrap: anywhere;
-
         min-width: 0; // flex item since the heading row arrived; see `__heading`
 
-        background-color: map.get(c.$c-hero-section, "title-fill");
-        background-clip: text;
-        -webkit-text-stroke: map.get(s.$c-hero-section, "title-effect", "stroke")
-            map.get(c.$c-hero-section, "title-stroke");
-        -webkit-text-fill-color: transparent; // inherited by the slotted heading
-
         font-family: map.get(t.$c-hero-section, "title");
-        line-height: $line-height;
 
         @include m.mqset(
             "font-size",
@@ -361,41 +318,6 @@
             #{map.get(s.$c-hero-section, "title-font-size", "desktop")}
         );
 
-        @include m.mq("landscape") {
-            $rim: 0 0 map.get(s.$c-hero-section, "title-effect", "rim") map.get(c.$c-hero-section, "title-contour");
-
-            background-color: transparent;
-            background-image: map.get(c.$c-hero-section, "title-gradient");
-
-            /* ONE ramp PER LINE, and this pair of lines is the whole reason a wrapped title
-               still reads as chrome. A background paints over the element's box, so left to
-               itself the ramp stretches across every line at once: the first line sits in the
-               dark-blue 25% region, the last in the pink 75% one, and the white specular line
-               that is supposed to cross the letters lands in the gap between two of them. Sized
-               to exactly one line box and tiled down instead, every line gets the full
-               dark-blue → specular → pink run — i.e. each line renders like the single-line
-               title, which is the effect the ramp was tuned for.
-
-               The height is `$line-height * 1em`, not `1lh`: `em` resolves against this
-               element's own font-size, and `line-height` above is the same unitless number
-               against the same font-size, so the tile matches the line box exactly at every
-               breakpoint — with no dependency on `lh` unit support. Tiles start at the
-               padding-box top, which is where the first line box starts (the title carries no
-               padding of its own), so tile n and line n stay aligned however many lines there
-               are. `repeat-y` rather than `repeat` states the intent: the tile is already full
-               width, so only the vertical repetition is doing anything. */
-            background-repeat: repeat-y;
-            background-size: 100% ($line-height * 1em);
-
-            filter: drop-shadow($rim) drop-shadow($rim)
-                drop-shadow(
-                    0 0 map.get(s.$c-hero-section, "title-effect", "glow") map.get(c.$c-hero-section, "title-glow")
-                )
-                drop-shadow(
-                    0 0 map.get(s.$c-hero-section, "title-effect", "bloom") map.get(c.$c-hero-section, "title-bloom")
-                );
-        }
-
         > :slotted(*) {
             margin: 0;
 
@@ -404,11 +326,6 @@
         }
     }
 
-    // Dark mode keeps the hairline: the neon fill already separates from a black panel, and
-    // light mode's heavier outline would only grey the letters down here.
-    @include m.theme-dark(".hero-section__title") {
-        -webkit-text-stroke-width: map.get(s.$c-hero-section, "title-effect", "stroke-dark");
-    }
 
     /* A wrapping row of tiles rather than one line of prose. The UA list marker and padding
        go (normalize.css leaves lists alone). */

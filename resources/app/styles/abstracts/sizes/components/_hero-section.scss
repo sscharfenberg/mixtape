@@ -56,43 +56,5 @@ $hero-section: (
             "portrait": 1.9rem,
             "landscape": 2rem,
             "desktop": 2.6rem
-        ),
-    // Tight-leaded so a long title wraps into a block rather than a ladder — and a NAMED
-    // value rather than a literal at the call site, because the chrome gradient is tiled
-    // at exactly this height (one ramp per line box, see the `background-size` note in
-    // HeroSection). Unitless on purpose: the component multiplies it by 1em, which
-    // resolves against whichever "title-font-size" rung is in force, so one number keeps
-    // the leading and the gradient's tile in step at every breakpoint. Let the two drift
-    // and the chrome bands stop lining up with the lines they belong to.
-    "title-line-height": 1.1,
-    // The synthwave treatment's dimensions, all in `em` so they scale with whichever
-    // font-size above is in force — a glow measured in px would swamp the 1.75rem title
-    // and disappear on the 2.6rem one.
-    "title-effect": (
-            // Both themes need a real outline; only the width differs, because the two inks
-            // do (see "title-stroke" in the colours partial — fog on white, WHITE on black).
-            // Dark mode's used to be a 0.01em hairline on the assumption that the neon fill
-            // separated itself from a black panel, and it does not: at that width a white
-            // stroke is invisible and the ramp's dark upper third sank into the surface. It
-            // is a shade finer than light mode's because white on black is the higher-
-            // contrast pair of the two — past ~0.03em the outline starts to dominate the
-            // chrome it frames. `light-dark()` is colours only, hence a second key here and
-            // the theme-dark override at the call site.
-            "stroke": 0.03em,
-            "stroke-dark": 0.022em,
-            // The dark rim that does the legibility work. Barely blurred on purpose: it has to
-            // read as an edge on the letters, not as a shadow near them. Applied TWICE in the
-            // filter chain, because one pass at this radius is too faint to hold an edge
-            // against the bloom further out.
-            "rim": 0.025em,
-            // Then the neon at the glyphs, and the bloom around them.
-            "glow": 0.1em,
-            // Kept SHORT because the metadata tiles sit right under the title, and a filter
-            // blur reaches its full radius: at 1em the bloom washed blue over their top
-            // edges, at 0.5em it still lifted them, and at 0.3em they come back clean while
-            // the letters keep their halo. Measured, not derived — the gap below the title
-            // is smaller than even this radius, so what matters is where the blur's density
-            // falls off, not where it ends.
-            "bloom": 0.3em
         )
 ) !default;

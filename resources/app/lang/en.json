@@ -378,6 +378,7 @@
     "playlists": {
         "createLink": "Create new playlist",
         "reorder": "Move playlist “{name}”",
+        "reorderHint": "Drag to reorder – or click it, then {keys}",
         "facts": {
             "tracks": "Tracks",
             "createdAt": "Created",

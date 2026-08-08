@@ -1,10 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getLayoutProps, resetInertia } from "Testing/inertia";
+import { nextTick } from "vue";
+import { getLayoutProps, resetInertia, routerCalls } from "Testing/inertia";
 import { mountApp, translate } from "Testing/mount";
 import type { PlaylistEntry } from "Types/playlists";
 import PlaylistsPage from "./PlaylistsPage.vue";
 
 vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
+
+/*
+ * SortableJS, stubbed to a no-op constructor. It binds document-level pointer listeners the
+ * moment it is built and expects elements with real geometry, neither of which happy-dom has —
+ * and the DRAG is Playwright's job anyway. What this leaves testable is the keyboard path and
+ * the order the page renders, which is all the logic there is.
+ */
+vi.mock("sortablejs", () => ({ default: class { destroy() {} } }));
 
 /*
  * PlaylistsController's own feature test pins the props — who is listed, in what order,
@@ -202,5 +211,89 @@ describe("PlaylistsPage", () => {
 
     it("shows no empty-state copy once a playlist exists", () => {
         expect(page().text()).not.toContain(translate("playlists.empty.headline"));
+    });
+
+    describe("reordering", () => {
+        /*
+         * The KEYBOARD half, which is where the logic is. A drag is a stream of pointer events
+         * over elements with real geometry, so it belongs to Playwright — SortableJS is mocked
+         * out of these tests entirely (see the mock at the top of the file), and a "drag" here
+         * would only assert the mock's arithmetic. Alt+↑/↓ goes through the same `move()`, so
+         * what is proven here is proven for both: the order the page renders, and the request
+         * that persists it.
+         */
+
+        /** Three entries, in a known order. */
+        const three = () => [
+            playlist({ id: "a", name: "Ambient" }),
+            playlist({ id: "b", name: "Metal" }),
+            playlist({ id: "c", name: "Zydeco" })
+        ];
+
+        /** The titles as rendered, in DOM order. */
+        const titles = (wrapper: ReturnType<typeof page>) =>
+            wrapper.findAll(".playlist__title").map(node => node.text());
+
+        /** Press Alt+Arrow on the nth entry's grip. */
+        const move = async (wrapper: ReturnType<typeof page>, index: number, key: string) => {
+            wrapper
+                .findAll("button.playlist__handle")[index]
+                .element.dispatchEvent(new KeyboardEvent("keydown", { key, altKey: true, bubbles: true }));
+            await nextTick();
+        };
+
+        it("moves an entry down with Alt+ArrowDown", async () => {
+            const wrapper = page(three());
+
+            await move(wrapper, 0, "ArrowDown");
+
+            expect(titles(wrapper)).toStrictEqual(["Metal", "Ambient", "Zydeco"]);
+        });
+
+        it("moves an entry up with Alt+ArrowUp", async () => {
+            const wrapper = page(three());
+
+            await move(wrapper, 2, "ArrowUp");
+
+            expect(titles(wrapper)).toStrictEqual(["Ambient", "Zydeco", "Metal"]);
+        });
+
+        it("persists the whole new order, not just the entry that moved", async () => {
+            // The server renumbers from what it is sent, so a partial list would leave the rest
+            // interleaved — ReorderPlaylistsRequest refuses one outright.
+            const wrapper = page(three());
+
+            await move(wrapper, 0, "ArrowDown");
+
+            expect(routerCalls[routerCalls.length - 1]).toMatchObject({
+                method: "put",
+                url: "/playlists/order"
+            });
+        });
+
+        it("does nothing at the ends of the listing", async () => {
+            // And leaves the keystroke alone rather than swallowing it, so a reader at the top
+            // of the list can still use their arrow keys.
+            const wrapper = page(three());
+
+            await move(wrapper, 0, "ArrowUp");
+            expect(titles(wrapper)).toStrictEqual(["Ambient", "Metal", "Zydeco"]);
+            expect(routerCalls).toHaveLength(0);
+
+            await move(wrapper, 2, "ArrowDown");
+            expect(titles(wrapper)).toStrictEqual(["Ambient", "Metal", "Zydeco"]);
+            expect(routerCalls).toHaveLength(0);
+        });
+
+        it("ignores an arrow without Alt, which is how a reader scrolls", async () => {
+            const wrapper = page(three());
+
+            wrapper
+                .findAll("button.playlist__handle")[0]
+                .element.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+            await nextTick();
+
+            expect(titles(wrapper)).toStrictEqual(["Ambient", "Metal", "Zydeco"]);
+        });
     });
 });

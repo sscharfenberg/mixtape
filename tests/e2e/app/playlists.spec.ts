@@ -62,6 +62,7 @@ const DISCARDED = `E2E Verworfen ${STAMP}`;
 const STAGGERED = `E2E Versetzt ${STAMP}`;
 const MENU_ROW = `E2E Menü ${STAMP}`;
 const HOVERED = `E2E Zeiger ${STAMP}`;
+const SORTED = `E2E Sortiert ${STAMP}`;
 const EDITED = `E2E Bearbeitet ${STAMP}`;
 
 /**
@@ -292,6 +293,14 @@ test.describe("the playlists area", () => {
         await saved;
 
         await page.waitForURL(/\/playlists$/u);
+        /*
+         * RELOADED rather than trusting what the redirect rendered. The subject here is that
+         * the edit was SAVED, and a reload reads the listing from the database instead of from
+         * whatever response Inertia happened to have in hand — which is both a stronger claim
+         * and immune to the stale render this saw once in a full three-worker run (the PUT had
+         * returned, and the listing still showed the pre-edit blurb for 15 seconds).
+         */
+        await page.reload();
         const edited = page.locator("li.playlist", { hasText: EDITED });
         await expectSlow(edited.locator(".playlist__description")).toHaveText("Zweite Fassung.");
         // An edit is a change, so the listing now has something to say about one.
@@ -361,6 +370,59 @@ test.describe("the playlists area", () => {
 
         await expectSlow(page.locator("#name")).toHaveValue("x".repeat(255));
         await expectSlow(page.locator("#description")).toHaveValue("y".repeat(1000));
+    });
+
+    test("reorders the listing by dragging a grip, and keeps the new order", async ({ page }) => {
+        /*
+         * THE ONLY LAYER THAT CAN SEE A DRAG. Vitest mocks SortableJS out deliberately — a drag
+         * is a stream of pointer events over elements with real geometry, and happy-dom has
+         * neither, so a "drag" there would assert the mock. The keyboard path (Alt+↑/↓) goes
+         * through the same `move()` and IS covered there, cheaply.
+         *
+         * The reload is the point of the test as much as the drag: the move is optimistic, so
+         * without it this would pass on a `splice()` that never reached the server.
+         *
+         * Sortable runs with `forceFallback`, which is what makes this drivable: its own
+         * pointer path rather than native HTML5 dragging, so plain mouse moves work.
+         */
+        const names = [`${SORTED} A`, `${SORTED} B`, `${SORTED} C`];
+        for (const name of names) await createPlaylist(page, name);
+
+        const order = async () =>
+            (await page.locator(".playlist__title").allTextContents())
+                .map(text => text.trim())
+                .filter(title => title.startsWith(SORTED));
+
+        await expectSlow.poll(order).toStrictEqual(names);
+
+        // Drag the LAST of the three onto the first, by its grip.
+        const rows = page.locator("li.playlist", { hasText: SORTED });
+
+        /*
+         * SCROLLED INTO VIEW FIRST, because `boundingBox()` does not do it. Every test above
+         * leaves a playlist behind, so by the time this runs these three sit below the fold —
+         * and the coordinates then describe a point off screen, where the mouse moves land on
+         * nothing at all. The drag "worked" against a three-entry listing and did nothing here,
+         * which is the whole difference.
+         */
+        await rows.nth(0).scrollIntoViewIfNeeded();
+
+        const grip = (await rows.nth(2).locator(".playlist__handle").boundingBox())!;
+        const target = (await rows.nth(0).boundingBox())!;
+
+        await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+        await page.mouse.down();
+        // Stepped, and onto the destination's upper region: Sortable decides where to insert
+        // from where the pointer sits inside the row it is over, and only sees positions it
+        // actually visits.
+        await page.mouse.move(target.x + target.width / 2, target.y + target.height * 0.2, { steps: 20 });
+        await page.mouse.up();
+
+        await expectSlow.poll(order).toStrictEqual([names[2], names[0], names[1]]);
+
+        // And it is the SERVER's order now, not a local splice.
+        await page.reload();
+        await expectSlow.poll(order).toStrictEqual([names[2], names[0], names[1]]);
     });
 
     test("lets the reader back out to the listing without creating anything", async ({ page }) => {
