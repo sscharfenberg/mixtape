@@ -5,6 +5,13 @@
  * control, and squares off the seam between them (the addon keeps the left
  * corners, the field the right).
  *
+ * THE FIELD IS NOT ALWAYS AN INPUT. A Select welded to an addon needs the same seam and
+ * gets it explicitly at the bottom of this file, because its field is a trigger BUTTON
+ * inside a wrapper — nothing here matches it by accident, and the two controls drew a
+ * double border against each other until they were named. That block also re-picks the
+ * addon's corner from the SELECT's radius (the two controls round differently) and follows
+ * the select's OPEN state, which moves the seam a second time.
+ *
  * `<textarea>` is matched alongside `input` throughout, by class rather than by
  * element: a textarea IS the text field with more lines, and a row that lit its
  * input on focus but left the addon beside a focused textarea dark would look
@@ -46,4 +53,51 @@
         border-top-left-radius: 0;
         border-bottom-left-radius: 0;
     }
+
+    /* A SELECT WELDED TO THE ADDON — the same seam, and it has to be spelled out
+       separately because the field is not `.form-input`: Select renders a wrapper holding a
+       trigger BUTTON, so the rule above cannot reach it and the two controls each drew their
+       own 2px border against each other. Measured before the fix: the addon's right edge and
+       the button's left edge both at x=576.4, which is a 4px line beside every 2px one, with
+       the button's rounded left corners cutting into the addon's square right edge.
+
+       Named here rather than solved inside Select, though that component already welds its
+       OWN optional addon exactly this way. This is the seam between a FORM ROW and whatever
+       it holds, and a row is entitled to weld anything: the next Select dropped into one
+       would otherwise re-find this. Unlayered, so it wins over Select's own
+       `@layer components` rules regardless of specificity. */
+    &:has(.form-row__addon) .form-select__button {
+        border-left-width: 0;
+
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+    }
+
+    /* THE ADDON TAKES THE SELECT'S CORNER, not the input's. The two controls round
+       differently on purpose — an input is `featured` (12px), a select is `base` (4px) — so an
+       addon carrying the input's radius welded to a select produced one object with a 12px
+       left end and a 4px right one. There is no reading of that shape that is not a mistake. */
+    &:has(.form-select) .form-row__addon {
+        border-radius: map.get(s.$c-select, "radius") 0 0 map.get(s.$c-select, "radius");
+    }
+
+    /* OPEN: the addon lights with the control it is welded to. Without this the trigger goes
+       to the select's open ink while the addon holds the resting one, and the pair stops
+       reading as one object at exactly the moment it is being used. */
+    &:has(.form-select__button.open) .form-row__addon {
+        background-color: map.get(c.$c-select, "background-open");
+        color: map.get(c.$c-select, "surface-open");
+        border-color: map.get(c.$c-select, "border-open");
+    }
+
+    /* AND IT KEEPS ITS OUTER CORNERS WHILE OPEN — deliberately, and this is the one place
+       Select's own equivalent must NOT be copied. That component squares its addon's
+       bottom-left (or top-left) corner when the panel opens, because its listbox is anchored
+       to `.form-select`, which CONTAINS that addon: the panel really does run underneath it,
+       and a rounded corner would sit on top of a square edge.
+
+       The row's addon is outside `.form-select`, so the panel starts at the trigger's left
+       edge and there is nothing beneath the addon at all. Squaring it there cut the corner off
+       against the modal's own background — a clipped box rather than a welded one. Tried,
+       looked wrong, removed (2026-08-09). */
 }

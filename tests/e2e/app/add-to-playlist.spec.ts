@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { specStorageState } from "../support/environment";
+import { enqueueFromHero, openQueuePanel, stopQueueSync } from "../support/actions";
+import { clearServerQueue, specStorageState } from "../support/environment";
 
 /*
  * Adding a song to a playlist from its own page, in a real engine.
@@ -12,10 +13,12 @@ import { specStorageState } from "../support/environment";
  * pinned elsewhere (AddTracksToPlaylistTest for the write, AddablePlaylistsPropTest for the
  * prop, useAddToPlaylist.test.ts for the control), and that they meet is not.
  *
- * The rest of the feature is deliberately NOT re-tested here. The queue's own modal is covered
- * by QueuePlaylistModal.test.ts, which can drive a queue directly; giving it a browser would
- * mean an account of its own (a queue follows the USER — see queue.spec.ts) for a journey whose
- * only unproven half is the same round trip this file already walks.
+ * THE QUEUE'S MODAL IS HERE FOR ONE REASON ONLY: it is the single place in the app where a
+ * Select sits welded to a FormRow's addon, and the seam between them is pure layout. The two
+ * controls each drew their own 2px border against each other until `_addon.scss` learned to
+ * name a select — a defect no unit test has a rendering engine to see, and one that reads as a
+ * doubled line rather than as anything obviously broken. What the modal DOES is covered by
+ * QueuePlaylistModal.test.ts, which can drive a queue directly and far more cheaply.
  *
  * TWO PLAYLISTS, NOT ONE, and that is what makes the assertion stable rather than dependent on
  * what else is in the database: after adding to the first, the select must still be there
@@ -41,6 +44,18 @@ test.use({ storageState: specStorageState("addToPlaylist") });
  * against one account and each would see the other's playlists in its select.
  */
 test.describe.configure({ mode: "default" });
+
+// The queue is server state and follows the account, so this file owes the same reset every
+// queue-touching spec does — even though only one test here builds one.
+test.beforeEach(async () => {
+    await clearServerQueue("addToPlaylist");
+});
+
+// A tab flushes its queue as it closes, with `keepalive`, so that request can outlive the test
+// and land after the next one has reset the account.
+test.afterEach(async ({ page }) => {
+    await stopQueueSync(page);
+});
 
 /** Wide enough for a write contended by three workers on one sqlite file — see playlists.spec.ts. */
 const expectSlow = expect.configure({ timeout: 15_000 });
@@ -132,5 +147,59 @@ test.describe("adding a song to a playlist from its hero", () => {
         await openASong(page);
 
         await expectSlow(page.locator(".add-to-playlist button.btn")).toBeDisabled();
+    });
+
+    test("welds the queue modal's select to its addon as one control, not two", async ({ page }) => {
+        /*
+         * PURE LAYOUT, and the only place in the app that has this pair: FormRow's addon beside
+         * a Select. `.form-input` gets its seam from a rule that cannot reach a Select, whose
+         * field is a trigger BUTTON inside a wrapper — so both drew a full border and the join
+         * was a 4px line with the button's rounded corners cutting into the addon's square edge.
+         *
+         * Asserted as GEOMETRY rather than as a screenshot: the numbers say exactly what was
+         * wrong (two 2px borders meeting at one x, two different radii) and cannot drift with a
+         * font or a theme.
+         */
+        await createPlaylist(page, `E2E Naht ${STAMP}`);
+
+        await page.goto("/music/songs");
+        await page.locator("tbody tr").first().click();
+        await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
+        await enqueueFromHero(page);
+        await openQueuePanel(page);
+
+        await page.locator(".play-queue__header .popover-button").click();
+        await page.getByRole("button", { name: /Zu Wiedergabeliste hinzufügen/u }).click();
+        await expectSlow(page.locator("#queue-playlist-form")).toBeVisible();
+
+        const seam = await page.evaluate(() => {
+            const read = (selector: string) => {
+                const element = document.querySelector(selector)!;
+                const style = getComputedStyle(element);
+
+                return {
+                    left: Math.round(element.getBoundingClientRect().left),
+                    right: Math.round(element.getBoundingClientRect().right),
+                    borderLeft: style.borderLeftWidth,
+                    borderRight: style.borderRightWidth,
+                    radius: style.borderRadius
+                };
+            };
+
+            return {
+                addon: read("#queue-playlist-form .form-row__addon"),
+                field: read("#queue-playlist-form .form-select__button")
+            };
+        });
+
+        // They touch, and exactly ONE border is drawn where they do: the addon's right one.
+        expect(seam.field.left).toBe(seam.addon.right);
+        expect(seam.field.borderLeft).toBe("0px");
+        expect(seam.addon.borderRight).toBe("2px");
+
+        // And the pair rounds to ONE shape — the select's 4px corner on both ends, not the
+        // input's 12px on the addon and 4px on the field.
+        expect(seam.addon.radius).toBe("4px 0px 0px 4px");
+        expect(seam.field.radius).toBe("0px 4px 4px 0px");
     });
 });
