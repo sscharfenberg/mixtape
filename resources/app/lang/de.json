@@ -441,6 +441,18 @@
             "editIntro": "Name und Beschreibung dieser Wiedergabeliste. Die enthaltenen Titel bleiben unverändert.",
             "editSubmit": "Änderungen speichern",
             "editSubmitting": "Wird gespeichert …"
+        },
+        "add": {
+            "song": "Diesen Song zu einer Wiedergabeliste hinzufügen",
+            "album": "Dieses Album zu einer Wiedergabeliste hinzufügen",
+            "artist": "Diesen Künstler zu einer Wiedergabeliste hinzufügen",
+            "genre": "Dieses Genre zu einer Wiedergabeliste hinzufügen",
+            "label": "Wiedergabeliste",
+            "placeholder": "Wiedergabeliste wählen",
+            "submit": "Hinzufügen",
+            "saving": "Wird hinzugefügt …",
+            "exhausted": "Schon in allen deinen Wiedergabelisten enthalten.",
+            "duplicatesHint": "Titel, die schon drin sind, werden übersprungen."
         }
     },
     "components": {
@@ -493,7 +505,9 @@
             "saveFailed": {
                 "browser": "Die Warteschlange lässt sich nicht mehr im Browser speichern – der Speicher ist voll oder gesperrt. Die Wiedergabe läuft weiter, aber die Warteschlange überlebt einen Neustart womöglich nicht.",
                 "server": "Die Warteschlange konnte nicht mit dem Server abgeglichen werden. Sie bleibt in diesem Browser gespeichert, folgt dir aber vorerst nicht auf andere Geräte."
-            }
+            },
+            "addToPlaylist": "Zu Wiedergabeliste hinzufügen",
+            "addIntro": "Der Titel aus der Warteschlange wird zu einer Wiedergabeliste hinzugefügt. | Alle {count} Titel der Warteschlange werden zu einer Wiedergabeliste hinzugefügt."
         },
         "bar": {
             "label": "Wiedergabe",

@@ -39,9 +39,8 @@ final class QueuePayload
      *
      * ORDER IS ALBUM-THEN-DISC-THEN-TRACK, deliberately, whatever the subject: a listener who
      * presses "play artist" expects records to arrive as records, not as an alphabetical list
-     * of titles. `year_sort` folds a missing year to 0 so undated material lands last under the
-     * descending sort rather than first — the same trap (and fix) the artist page's own songs
-     * table documents, and the reason this cannot just `orderByDesc('collections.year')`.
+     * of titles. It lives in {@see inPlayingOrder} rather than here, because adding a subject
+     * to a playlist needs the same sequence without the payload.
      *
      * THE TYPE FILTER IS THE CALLER'S, with music as the default because every caller here
      * is a music page. It became a parameter when the play queue learned to restore itself
@@ -57,16 +56,36 @@ final class QueuePayload
      */
     public static function fromQuery(Builder $tracks, ?TrackType $only = TrackType::Music): array
     {
-        return self::selectFrom($tracks, $only)
+        return self::inPlayingOrder(self::selectFrom($tracks, $only))
+            ->get()
+            ->map(fn (object $track): array => self::entry($track))
+            ->all();
+    }
+
+    /**
+     * Put a query over `tracks` in PLAYING order — album, then disc, then track.
+     *
+     * Split out of {@see fromQuery} for the caller that wants the order without the payload:
+     * App\Services\Playlists\PlaylistAdditions resolves a subject to bare ids, and a playlist
+     * built from "add this artist" has to hold them in the sequence "play this artist" would
+     * have played them. One definition, so the two cannot drift.
+     *
+     * The query must already join `collections` — {@see selectFrom} does, and a caller using
+     * this on its own has to.
+     *
+     * `year_sort` folds a missing year to 0 so undated material lands last under the descending
+     * sort rather than first (Postgres puts NULLs first under DESC). Both engines resolve a
+     * SELECT alias in ORDER BY, which is why this can be sorted on rather than repeated.
+     */
+    public static function inPlayingOrder(Builder $tracks): Builder
+    {
+        return $tracks
             ->selectRaw('coalesce(collections.year, 0) as year_sort')
             ->orderByDesc('year_sort')
             ->orderBy('collections.name')
             ->orderBy('tracks.disc')
             ->orderBy('tracks.track')
-            ->orderBy('tracks.name')
-            ->get()
-            ->map(fn (object $track): array => self::entry($track))
-            ->all();
+            ->orderBy('tracks.name');
     }
 
     /**

@@ -347,19 +347,21 @@ php artisan app:playlist {name=Testliste} {--user=} {--tracks=12} {--type=music}
 
 ### Why it exists
 
-Nothing in the UI adds a track to a playlist yet, so the only ways to get a
-populated one are a seeder or this — and a seeder is useless on any instance
-whose collection is real. `LibrarySeeder`'s tracks are factory rows pointing at
-paths no file was ever written to, so the playlist *looks* right and every row is
-silently unplayable; worse, running `migrate:fresh --seed` on a box that has a
-scanned collection would throw that collection away to fix it. (That seeder is
-switched off in `DatabaseSeeder` for exactly this reason.) This command picks
-from `tracks` instead, so whatever `app:update` found on disk is what lands in
-the playlist, and pressing play really plays.
+It was written when nothing in the UI could add a track to a playlist, so the
+only ways to get a populated one were a seeder or this — and a seeder is useless
+on any instance whose collection is real. `LibrarySeeder`'s tracks are factory
+rows pointing at paths no file was ever written to, so the playlist *looks* right
+and every row is silently unplayable; worse, running `migrate:fresh --seed` on a
+box that has a scanned collection would throw that collection away to fix it.
+(That seeder is switched off in `DatabaseSeeder` for exactly this reason.) This
+command picks from `tracks` instead, so whatever `app:update` found on disk is
+what lands in the playlist, and pressing play really plays.
 
-It is the **temporary half of a feature**: once a song or album page can add to a
-playlist, this stops being the only way to build one. It stays useful for filling
-a long list quickly.
+**The UI caught up on 2026-08-09** — every detail page's hero and the play
+queue's menu can add to a playlist now (`POST /playlists/{playlist}/tracks`) — so
+this is no longer the only way to build one. It stays useful for filling a long
+list quickly with something arbitrary, which is what a test playlist wants and
+what a hand-picked one is not.
 
 ### What it does
 

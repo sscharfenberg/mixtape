@@ -28,6 +28,12 @@ export type RouterCall = {
     method: string;
     /** First argument — the URL for visit/get/post, or the options object for reload. */
     url?: string;
+    /**
+     * The BODY, for the verbs that carry one. Recorded because some calls are only
+     * meaningful together with what they sent: "add to playlist" posts either a subject or a
+     * list of track ids to the same URL, so the URL alone does not say what happened.
+     */
+    data?: unknown;
     /** The options bag, when one was passed. */
     options?: Record<string, unknown>;
 };
@@ -101,18 +107,25 @@ export const emitRouterEvent = (event: RouterEvent, payload?: unknown): void => 
     listeners.get(event)?.forEach(handler => handler(payload));
 };
 
-/** Record a router call and hand back a resolved promise, matching the real API's shape. */
-const record = (method: string, url?: string, options?: Record<string, unknown>): void => {
-    routerCalls.push({ method, url, options });
+/**
+ * Record a router call and hand back a resolved promise, matching the real API's shape.
+ *
+ * `data` is left OFF the record when the call carried none, rather than stored as undefined:
+ * several specs compare a recorded call with `toStrictEqual`, which counts an undefined key as
+ * a difference — so an always-present field would fail every one of them for a body that was
+ * never sent.
+ */
+const record = (method: string, url?: string, options?: Record<string, unknown>, data?: unknown): void => {
+    routerCalls.push(data === undefined ? { method, url, options } : { method, url, data, options });
 };
 
 /** The mock router. `on()` returns its own unsubscribe, as the real one does. */
 export const router = {
     visit: (url: string, options?: Record<string, unknown>) => record("visit", url, options),
-    get: (url: string, data?: unknown, options?: Record<string, unknown>) => record("get", url, options),
-    post: (url: string, data?: unknown, options?: Record<string, unknown>) => record("post", url, options),
-    put: (url: string, data?: unknown, options?: Record<string, unknown>) => record("put", url, options),
-    patch: (url: string, data?: unknown, options?: Record<string, unknown>) => record("patch", url, options),
+    get: (url: string, data?: unknown, options?: Record<string, unknown>) => record("get", url, options, data),
+    post: (url: string, data?: unknown, options?: Record<string, unknown>) => record("post", url, options, data),
+    put: (url: string, data?: unknown, options?: Record<string, unknown>) => record("put", url, options, data),
+    patch: (url: string, data?: unknown, options?: Record<string, unknown>) => record("patch", url, options, data),
     delete: (url: string, options?: Record<string, unknown>) => record("delete", url, options),
     reload: (options?: Record<string, unknown>) => record("reload", undefined, options),
     prefetch: (url: string, options?: Record<string, unknown>) => record("prefetch", url, options),

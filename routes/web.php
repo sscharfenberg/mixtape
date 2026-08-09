@@ -25,6 +25,7 @@ use App\Http\Controllers\Playlists\PlaylistExportController;
 use App\Http\Controllers\Playlists\PlaylistMetadataController;
 use App\Http\Controllers\Playlists\PlaylistOrderController;
 use App\Http\Controllers\Playlists\PlaylistTrackOrderController;
+use App\Http\Controllers\Playlists\PlaylistTracksController;
 use App\Http\Controllers\PlaylistsController;
 use App\Http\Middleware\HandleControllerPrecognitiveRequest;
 use Illuminate\Support\Facades\Route;
@@ -92,6 +93,19 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
             ->whereUuid('playlist')
             ->middleware('throttle:30,1')
             ->name('playlists.export');
+
+        // Tracks INTO one playlist — what a detail page's "add to playlist" block writes, and
+        // what the play queue's menu writes for everything it holds. A POST because every call
+        // appends rows; a double submit is made harmless by the service skipping what the
+        // playlist already has, not by the verb. The body names its tracks either as a subject
+        // ("this artist") or as a list of ids (the queue) — see the request.
+        //
+        // Throttled on the same bound as the export beside it: this is a deliberate press, not
+        // something a player fires per track.
+        Route::post('/playlists/{playlist}/tracks', PlaylistTracksController::class)
+            ->whereUuid('playlist')
+            ->middleware('throttle:30,1')
+            ->name('playlists.tracks.store');
 
         // The running order INSIDE one playlist, written by the detail page's drag handles.
         // Nested under the playlist because its entries belong to it and to nothing else —

@@ -5,6 +5,7 @@
  * re-exports these with a "c-" prefix, so $button (in _button.scss) is
  * consumed as s.$c-button via `@use "Abstracts/sizes" as s;`.
  *****************************************************************************/
+@forward "add-to-playlist";
 @forward "app";
 @forward "badge";
 @forward "breadcrumb";

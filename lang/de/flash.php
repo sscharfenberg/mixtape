@@ -52,6 +52,12 @@ return [
     'playlist' => [
         'created' => 'Die Wiedergabeliste ":name" wurde angelegt.',
         'updated' => 'Die Wiedergabeliste ":name" wurde gespeichert.',
+        // Genau ein Titel wird benannt, mehrere werden gezählt — wer zwölf Titel hinzufügt,
+        // weiß, welche es waren; wer einen hinzufügt, will ihn bestätigt bekommen.
+        'track_added' => '":name" wurde zu ":playlist" hinzugefügt.',
+        'tracks_added' => ':count Titel wurden zu ":playlist" hinzugefügt.',
+        // Kein Fehler, sondern eine Antwort: die Wiedergabeliste enthält bereits alles davon.
+        'tracks_already' => '":playlist" enthält bereits alle diese Titel.',
     ],
 
 ];

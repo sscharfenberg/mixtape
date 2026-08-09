@@ -289,7 +289,19 @@ export const SPEC_USERS = {
     widgets: "spec-widgets",
     // Playlists are PRIVATE PER OWNER, so this account also owns the fixture the spec
     // reads — a playlist seeded for anyone else would 404 for it.
-    playlistDetail: "spec-playlist-detail"
+    playlistDetail: "spec-playlist-detail",
+    /*
+     * The only account here that owns nothing and leaves everything: its spec CREATES
+     * playlists, which is state no other spec should have to see.
+     *
+     * It is not about the queue, unlike the four above. Adding rows to the shared account's
+     * playlist listing broke `playlists.spec.ts`'s DRAG test — that one scrolls three of its
+     * own rows into view and computes pointer coordinates from them, and every extra row
+     * above pushes those coordinates somewhere the drag no longer lands. The failure appeared
+     * in a file this one never touches, which is the exact shape of problem an account per
+     * spec exists to prevent.
+     */
+    addToPlaylist: "spec-add-to-playlist"
 } as const;
 
 /** Where a spec account's signed-in session is parked by the setup project. */

@@ -60,7 +60,7 @@ const page = (
     overrides: Partial<SongDetail> = {},
     locale: "de" | "en" = "de",
     plays: { own: number; others: number } = { own: 0, others: 0 }
-) => mountApp(SongPage, { props: { song: song(overrides), plays }, locale });
+) => mountApp(SongPage, { props: { song: song(overrides), plays, addablePlaylists: [] }, locale });
 
 /** The rendered value sitting next to `label`, or undefined when the row is absent. */
 const factValue = (wrapper: ReturnType<typeof page>, label: string): string | undefined =>

@@ -33,6 +33,7 @@ import DataTable from "Components/DataTable/DataTable.vue";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import PlayCountFacts from "Components/Music/PlayCountFacts.vue";
 import SubjectMenu from "Components/Music/SubjectMenu.vue";
+import AddToPlaylist from "Components/Playlists/AddToPlaylist.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Container from "Components/UI/Container.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
@@ -114,6 +115,13 @@ const props = defineProps<{
      * place when a track finishes. Raw counts — a zero is something the tiles leave unsaid.
      */
     plays: { own: number; others: number };
+    /**
+     * The ids of the reader's playlists that do NOT already hold every one of this record's
+     * tracks — what the hero's "add to playlist" block may offer. Ids only: the names and the
+     * reader's own ordering come from the shared `playlists` prop, so this page narrows one
+     * list rather than carrying a second copy of it.
+     */
+    addablePlaylists: string[];
 }>();
 
 const { t, locale } = useI18n();
@@ -233,6 +241,12 @@ const columns = computed<ColumnDef<TrackRow>[]>(() => [
                     <!-- Last, and only when there is something to say: what has actually been
                          listened to comes after what the record IS. See PlayCountFacts. -->
                     <play-count-facts :plays="plays" subject="album" />
+                </template>
+                <!-- Under the facts, because it acts on the thing they have just identified —
+                     and separate from the `#menu` above, which is for PLAYING it. The server
+                     decides which playlists may be offered; this only draws them. -->
+                <template #actions>
+                    <add-to-playlist subject="album" :subject-id="album.id" :addable="addablePlaylists" />
                 </template>
             </hero-section>
 

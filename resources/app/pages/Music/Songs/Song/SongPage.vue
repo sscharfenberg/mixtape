@@ -33,6 +33,7 @@ import { useI18n } from "vue-i18n";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import PlayCountFacts from "Components/Music/PlayCountFacts.vue";
 import SubjectMenu from "Components/Music/SubjectMenu.vue";
+import AddToPlaylist from "Components/Playlists/AddToPlaylist.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Facts, { type Fact } from "Components/UI/Card/Facts.vue";
 import Container from "Components/UI/Container.vue";
@@ -51,6 +52,13 @@ const props = defineProps<{
      * page leaves unsaid, which is a decision about display and so belongs here.
      */
     plays: { own: number; others: number };
+    /**
+     * The ids of the reader's playlists that do NOT already hold this song — what the hero's
+     * "add to playlist" block may offer. Ids only: the names and the reader's own ordering
+     * come from the shared `playlists` prop, so this page narrows one list rather than
+     * carrying a second copy of it.
+     */
+    addablePlaylists: string[];
 }>();
 
 const { t, locale } = useI18n();
@@ -338,6 +346,12 @@ const songFacts = computed<Fact[]>(() => {
                          the zero rule, the tooltips and the live refresh all live in
                          PlayCountFacts, shared with the artist / genre / album heroes. -->
                     <play-count-facts :plays="plays" subject="song" />
+                </template>
+                <!-- Under the facts, because it acts on the thing they have just identified —
+                     and separate from the `#menu` above, which is for PLAYING the song. The
+                     server decides which playlists may be offered; this only draws them. -->
+                <template #actions>
+                    <add-to-playlist subject="song" :subject-id="song.id" :addable="addablePlaylists" />
                 </template>
             </hero-section>
             <facts :facts="songFacts" wide-groups />

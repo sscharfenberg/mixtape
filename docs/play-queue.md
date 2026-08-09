@@ -27,6 +27,7 @@ This file is the client half **as built**.
 | Server sync (`player_states`)                    | ✅ 2026-08-07 — _Following the listener, not the browser_ below  |
 | Play-history beacon                              | ✅ 2026-08-07 — [`player.md`](player.md) owns what counts        |
 | A visible failure when a write is refused        | ✅ 2026-08-07 — a warning toast, said once per failure           |
+| Add the whole queue to a playlist                | ✅ 2026-08-09 — the panel's menu, _The panel_ below              |
 
 ## What it is
 
@@ -282,7 +283,12 @@ fails two files away from its cause.
 The fix took four parts, and each one was found by the failure the last one left behind:
 
 1. **An account per spec file** that leaves a queue (`queue`, `player`, `shortcuts`, `widgets`),
-   seeded by `E2ESeeder` and signed in by the setup project.
+   seeded by `E2ESeeder` and signed in by the setup project. The list has since grown two entries
+   that leave **playlists** rather than a queue (`playlist-detail`, `add-to-playlist`) — the rule
+   turned out to be about user-scoped state a spec *writes*, not about the queue. The second of
+   those was found the same way as everything above: creating playlists moved the rows
+   `playlists.spec.ts` computes drag coordinates from, and the suite failed in a file the new spec
+   never touches.
 2. **`test.describe.configure({ mode: "default" })` in those files.** The account is worthless
    without it: `fullyParallel` parallelises at the TEST level, not the file level, so the tests in
    one file otherwise run *concurrently against the account they share* — and each sees the others'
@@ -436,9 +442,28 @@ a panel whose every other pixel plays the track that is a trap. The row's hit ar
 button positioned across it**, which is also what gives the play overlay a real bounding box: its
 focus ring traces the row, and a browser test can click it.
 
-**Its menu holds verbs only**, since 2026-08-06 — clearing the queue today, "save queue as playlist"
-next. Repeat was its first entry and has moved to the player bar (see above), which leaves the menu
-with nothing but actions and no setting sitting one row above a destructive one.
+**Its menu holds verbs only**, since 2026-08-06. Repeat was its first entry and has moved to the
+player bar (see above), which leaves the menu with nothing but actions and no setting sitting one
+row above a destructive one. There are two now: **add everything to a playlist** (2026-08-09) and
+**clear**, in that order, because clearing is the entry a mis-aimed click must not land on.
+
+**Add-to-playlist opens a modal** (`QueuePlaylistModal`), not another row — it is a decision with an
+argument to it, and a select nested inside a popover would be a popover inside a popover with a
+button that must close neither. It is also the one entry that has to `hidePopover()` by hand:
+`clear` empties the queue, which unmounts the whole panel and takes its popover out of the DOM with
+it, while this one leaves the panel standing.
+
+**It sends track ids, where a detail-page hero sends a subject** — and that difference is forced.
+The queue is client state in an order the reader arranged, and the server's copy of it is written
+late on purpose (_Written late, and flushed on the way out_ above), so asking `player_states` what
+is queued would sometimes answer with the queue from a minute ago. The ids are read at the press
+rather than at the open, so a track that finished while the modal sat there changes nothing.
+
+One honest asymmetry follows: the modal offers **every** playlist, while a hero hides the ones that
+already hold its subject. The server cannot compute that for a queue it has not been sent, and
+posting the whole queue up just to draw a select would be the request the modal exists to make. The
+write is unaffected — it skips what a playlist already holds and reports what actually landed — so
+the cost is only that a reader may pick a playlist and be told "already in there".
 
 ### Reordering (built 2026-08-04)
 

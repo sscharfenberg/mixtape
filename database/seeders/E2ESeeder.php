@@ -151,7 +151,8 @@ class E2ESeeder extends Seeder
      * listing sorted by insertion is stable too.
      */
     /**
-     * An account per E2E spec file that leaves a play queue behind.
+     * An account per E2E spec file that leaves USER-SCOPED STATE behind — a play queue for
+     * most of them, playlists for the last two.
      *
      * THE PLAY QUEUE IS SERVER STATE NOW (`player_states`, synced by usePlayerQueue), and
      * that broke an assumption the suite had always been able to make: that a fresh browser
@@ -164,12 +165,20 @@ class E2ESeeder extends Seeder
      * sequentially against an account nothing else can reach. What they still owe each other
      * is a reset between tests, which is `clearServerQueue` in the E2E support.
      *
+     * PLAYLISTS NEEDED THE SAME TREATMENT for a different reason, and `spec-add-to-playlist`
+     * is the case that showed it: that spec creates playlists, and rows added to the shared
+     * account's listing moved the coordinates `playlists.spec.ts`'s DRAG test computes from
+     * its own rows — a failure in a file the new one never touches. Anything user-scoped and
+     * written by a spec belongs to an account of its own, queue or not.
+     *
      * The names are the spec files they serve, so a stray row in the database says which
      * spec left it. Everything else keeps signing in as the canonical seeded account.
      */
     private function seedSpecUsers(): void
     {
-        foreach (['spec-queue', 'spec-player', 'spec-shortcuts', 'spec-widgets', 'spec-playlist-detail'] as $name) {
+        $names = ['spec-queue', 'spec-player', 'spec-shortcuts', 'spec-widgets', 'spec-playlist-detail', 'spec-add-to-playlist'];
+
+        foreach ($names as $name) {
             User::factory()->create([
                 'name' => $name,
                 'email' => $name.'@mixtape.test',
@@ -218,10 +227,13 @@ class E2ESeeder extends Seeder
      * The playlists the fixture ships with — one populated, one empty, per account that
      * needs them.
      *
-     * WHY THE FIXTURE CARRIES THEM AT ALL: nothing in the UI adds a track to a playlist yet,
-     * so a populated one cannot be built by driving the app. Without these, a spec would have
-     * to INSERT its own (which playlist-detail.spec.ts did until this landed), and a human
-     * running the E2E app to look at something would find a playlists area with nothing in it.
+     * WHY THE FIXTURE CARRIES THEM AT ALL: they were written when nothing in the UI could add
+     * a track to a playlist, so a populated one could not be built by driving the app. Without
+     * these, a spec would have to INSERT its own (which playlist-detail.spec.ts did until this
+     * landed), and a human running the E2E app to look at something would find a playlists area
+     * with nothing in it. The UI caught up on 2026-08-09, but building a twelve-entry fixture
+     * through the browser would cost every spec that reads it a dozen round trips to arrive at
+     * rows a seeder writes in one statement.
      *
      * BOTH accounts get the populated one because playlists are PRIVATE PER OWNER: the
      * canonical reader's copy is what a person browsing the seeded app sees, and

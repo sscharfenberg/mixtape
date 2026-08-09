@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Music;
 
 use App\Enums\CollectionType;
+use App\Enums\PlaylistSubject;
 use App\Enums\TrackType;
 use App\Http\Controllers\Controller;
 use App\Models\Artist;
@@ -13,6 +14,7 @@ use App\Services\Music\DominantGenre;
 use App\Services\Music\FannedCovers;
 use App\Services\Music\QueuePayload;
 use App\Services\Player\PlayCounts;
+use App\Services\Playlists\PlaylistAdditions;
 use App\Services\Search\FoldedSearch;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -87,6 +89,13 @@ class ArtistController extends Controller
             // at all to a visit that is just browsing. See App\Services\Music\QueuePayload.
             'queueTracks' => Inertia::optional(
                 fn (): array => QueuePayload::fromQuery(QueuePayload::query()->where('tracks.artist_id', $artist->id))
+            ),
+            // Which of the reader's playlists the hero's "add to playlist" may offer: the ids
+            // of those that do not already hold EVERY one of this artist's tracks. Ids only —
+            // the names and the reader's ordering are the shared `playlists` prop.
+            // SongController's copy carries the full reasoning.
+            'addablePlaylists' => fn (): array => PlaylistAdditions::openTo(
+                $request->user(), PlaylistSubject::Artist, $artist->id
             ),
             // The albums tab: every album they are credited with, in one go. No paging
             // because there is nothing to page — see the class docblock.

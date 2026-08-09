@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Music;
 
+use App\Enums\PlaylistSubject;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Music\ShowAlbumRequest;
 use App\Models\Collection;
@@ -11,6 +12,7 @@ use App\Services\Media\CoverService;
 use App\Services\Music\DominantGenre;
 use App\Services\Music\QueuePayload;
 use App\Services\Player\PlayCounts;
+use App\Services\Playlists\PlaylistAdditions;
 use App\Services\Search\FoldedSearch;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -61,6 +63,13 @@ class AlbumController extends Controller
             // at all to a visit that is just browsing. See App\Services\Music\QueuePayload.
             'queueTracks' => Inertia::optional(
                 fn (): array => QueuePayload::fromQuery(QueuePayload::query()->where('tracks.collection_id', $album->id))
+            ),
+            // Which of the reader's playlists the hero's "add to playlist" may offer: the ids
+            // of those that do not already hold EVERY one of this album's tracks. Ids only —
+            // the names and the reader's ordering are the shared `playlists` prop.
+            // SongController's copy carries the full reasoning.
+            'addablePlaylists' => fn (): array => PlaylistAdditions::openTo(
+                $request->user(), PlaylistSubject::Album, $album->id
             ),
             'table' => $this->trackTable($request, $album),
             // How much of this record has been listened to — the reader's own listens and

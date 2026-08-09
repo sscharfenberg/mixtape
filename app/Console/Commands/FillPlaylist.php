@@ -16,17 +16,23 @@ use function Laravel\Prompts\select;
 /**
  * Fills a playlist with tracks taken at random from the library that is ACTUALLY THERE.
  *
- * WHY THIS EXISTS RATHER THAN A SEEDER. Nothing in the UI adds a track to a playlist yet, so
- * the only ways to get a populated one are a seeder or this. A seeder is useless on any
- * instance whose collection is real: LibrarySeeder's tracks are factory rows pointing at
- * paths no file was ever written to, so the playlist looks right and every row is silently
- * unplayable — and running `migrate:fresh --seed` on a box that has a scanned collection
- * would throw that collection away to fix it. That seeder is switched off in DatabaseSeeder
- * for exactly this reason. This command picks from `tracks` instead, so whatever
- * `app:update` found on disk is what lands in the playlist, and pressing play really plays.
+ * WHY THIS EXISTS RATHER THAN A SEEDER. It was written when nothing in the UI could add a
+ * track to a playlist, so the only ways to get a populated one were a seeder or this. A
+ * seeder is useless on any instance whose collection is real: LibrarySeeder's tracks are
+ * factory rows pointing at paths no file was ever written to, so the playlist looks right and
+ * every row is silently unplayable — and running `migrate:fresh --seed` on a box that has a
+ * scanned collection would throw that collection away to fix it. That seeder is switched off
+ * in DatabaseSeeder for exactly this reason. This command picks from `tracks` instead, so
+ * whatever `app:update` found on disk is what lands in the playlist, and pressing play really
+ * plays.
  *
- * It is the temporary half of a feature: once a song / album page can add to a playlist, this
- * stops being the only way to build one. It stays useful for filling a long list quickly.
+ * THE UI CAUGHT UP ON 2026-08-09 (PlaylistTracksController + App\Services\Playlists\
+ * PlaylistAdditions), so this is no longer the only way to build a playlist. It stays useful
+ * for filling a long list quickly with something arbitrary — which is what a test playlist
+ * wants and what a hand-picked one is not. Note the two APPEND differently on purpose: this
+ * creates entries one at a time (a dozen rows, and `$touches` does the rest), where the
+ * service bulk-inserts and touches the playlist by hand because "add this artist" can be
+ * hundreds of rows.
  *
  * Nothing here is destructive — it only ever APPENDS, so running it twice gives a longer
  * playlist rather than a replaced one, and it is safe against a real account's real data.

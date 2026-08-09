@@ -78,6 +78,9 @@ const page = (
         props: {
             artist: artist(overrides),
             plays: { own: 0, others: 0 },
+            // Not what these tests are about; the hero's add-to-playlist area draws nothing
+            // for a reader with no offer, which keeps it out of the assertions below.
+            addablePlaylists: [],
             discography: [],
             covers: [],
             ...props,

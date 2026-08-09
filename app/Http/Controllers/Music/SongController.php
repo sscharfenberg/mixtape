@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\Music;
 
+use App\Enums\PlaylistSubject;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Music\ShowSongRequest;
 use App\Models\Track;
 use App\Services\Media\CoverService;
 use App\Services\Music\QueuePayload;
 use App\Services\Player\PlayCounts;
+use App\Services\Playlists\PlaylistAdditions;
 use Illuminate\Database\Eloquent\Builder;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -71,6 +73,19 @@ class SongController extends Controller
             // at all to a visit that is just browsing. See App\Services\Music\QueuePayload.
             'queueTracks' => Inertia::optional(
                 fn (): array => QueuePayload::fromQuery(QueuePayload::query()->where('tracks.id', $song->id))
+            ),
+            // WHICH of the reader's playlists the hero's "add to playlist" may offer: the ids
+            // of those that do not already hold this song. Ids only — the names and the
+            // reader's own ordering come from the shared `playlists` prop, so the page narrows
+            // one list rather than being sent a second copy of it.
+            //
+            // Sent with the page rather than fetched on demand, unlike `queueTracks` above: it
+            // is a handful of UUIDs whatever the subject, and the select has to be drawable the
+            // moment the hero is read. The same round trip that reports a successful add
+            // recomputes it, which is why the playlist just written to disappears from the
+            // list by itself.
+            'addablePlaylists' => fn (): array => PlaylistAdditions::openTo(
+                $request->user(), PlaylistSubject::Song, $song->id
             ),
             // How often this song has been listened to — the reader's own listens and
             // everybody else's, counted across every copy of the recording (see

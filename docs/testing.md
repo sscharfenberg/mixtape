@@ -282,6 +282,14 @@ this is the record of *why* that code exists.
   The symptom of missing any of them is a row count one too high, on a different test every run.
   `clearServerQueue` also **watches that its write stays written** — a request already past the
   abort lands a moment later, so it overwrites and re-reads until two reads agree.
+- **The rule above is not about the queue.** It is about **user-scoped state a spec writes**, and
+  the queue was only the first kind. `add-to-playlist.spec.ts` creates playlists, and rows added to
+  the shared account's listing moved the coordinates `playlists.spec.ts`'s DRAG test computes from
+  its own three rows — so a new spec broke a file it never touches, in a way that read as a broken
+  drag. Steps 1 and 2 above (own account + `mode: "default"`) are the parts that generalise; a
+  fixture nothing else can reach cannot be disturbed by what your spec leaves behind. Add the
+  account to `SPEC_USERS` and to `E2ESeeder::seedSpecUsers` — the setup project mints a session for
+  every entry automatically.
 - **`PRAGMA busy_timeout` must be set before `prepare()`, not after.** The app holds the same
   sqlite file open and `prepare` takes a lock of its own, so a timeout set after the prepares is
   not in force for the statement most likely to collide — it surfaces as a bare "database is

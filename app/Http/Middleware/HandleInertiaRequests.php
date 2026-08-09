@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Enums\Locale;
 use App\Enums\TrackType;
+use App\Models\Playlist;
 use App\Models\Track;
 use App\Services\Player\PlayerStatePayload;
 use Illuminate\Http\Request;
@@ -118,6 +119,34 @@ class HandleInertiaRequests extends Middleware
             'library' => fn (): array => $request->user() === null
                 ? self::noAreas()
                 : self::areasWithTracks(),
+            // THE READER'S OWN PLAYLISTS, names only, in the order they arranged them —
+            // whatever "add to playlist" is on screen picks from this one list.
+            //
+            // SHARED RATHER THAN A PAGE PROP because one of its two consumers is not on a page:
+            // the play queue's "add everything to a playlist" lives in FullLayout, so it can be
+            // opened from anywhere, including pages that know nothing about playlists. The
+            // other consumer — the detail-page heroes — then narrows this list rather than
+            // sending its own copy of it (see their `addablePlaylists`, which is ids only).
+            //
+            // Empty for a guest WITHOUT ASKING THE DATABASE, the rule `library` records
+            // directly below: nothing offers this to a signed-out reader, and the login page
+            // has to render on a box whose tables may not exist yet (the E2E harness waits on
+            // `/login` before it migrates).
+            'playlists' => fn (): array => $request->user() === null
+                ? []
+                : Playlist::query()
+                    ->where('user_id', $request->user()->id)
+                    // The same two keys the listing sorts by, and it has to be: a select that
+                    // ordered them differently from the page they were arranged on would read
+                    // as a different set of playlists.
+                    ->orderBy('position')
+                    ->orderBy('name')
+                    ->get(['id', 'name'])
+                    ->map(fn (Playlist $playlist): array => [
+                        'id' => $playlist->id,
+                        'name' => $playlist->name,
+                    ])
+                    ->all(),
             // Player settings the CLIENT has to honour but the server owns. Only the
             // position heartbeat so far: the browser runs the clock (it is the only thing
             // that knows whether audio is playing), and this is the operator's say in how

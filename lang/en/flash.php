@@ -52,6 +52,12 @@ return [
     'playlist' => [
         'created' => 'The playlist ":name" has been created.',
         'updated' => 'The playlist ":name" has been saved.',
+        // Exactly one track is named, several are counted — somebody adding twelve knows what
+        // they were; somebody adding one wants it confirmed back to them.
+        'track_added' => '":name" was added to ":playlist".',
+        'tracks_added' => ':count tracks were added to ":playlist".',
+        // Not a failure but an answer: the playlist already holds all of it.
+        'tracks_already' => '":playlist" already holds all of those tracks.',
     ],
 
 ];
