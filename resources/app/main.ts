@@ -4,12 +4,12 @@
 import "@/styles/app.scss";
 import { createInertiaApp, router } from "@inertiajs/vue3";
 import { doesProgressBarExist, finishProgress, setProgress, startProgress } from "@sscharfenberg/progressbar";
-import type { DefineComponent } from "vue";
 import { createApp, h } from "vue";
 import type { Composer } from "vue-i18n";
 import { getI18n, loadLocaleMessages, setupI18n } from "@/i18n";
 import FullLayout from "./components/Layout/FullLayout.vue";
 import { vTooltip } from "./directives/vTooltip";
+import { resolvePage } from "./resolvePage";
 
 // Single source of truth: APP_NAME in .env, mirrored to the frontend via VITE_APP_NAME.
 const appName = import.meta.env.VITE_APP_NAME;
@@ -18,15 +18,7 @@ const appName = import.meta.env.VITE_APP_NAME;
  * mount Inertia App
  *****************************************************************************/
 createInertiaApp({
-    resolve: name => {
-        const pages = import.meta.glob<DefineComponent>("./pages/**/*.vue");
-        const pageLoader = pages[`./pages/${name}.vue`];
-        if (!pageLoader) {
-            throw new Error(`Page not found: ${name}`);
-        }
-
-        return pageLoader();
-    },
+    resolve: resolvePage,
     layout: () => FullLayout,
     setup({ el, App, props, plugin }) {
         // The server (ConfigureLocale → Inertia share) picks the active locale;
