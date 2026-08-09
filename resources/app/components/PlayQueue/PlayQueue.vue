@@ -68,20 +68,17 @@
  * so this is a settled trade, not an oversight. If the route is ever wanted back it
  * belongs in a per-row menu, never on the title.
  *****************************************************************************/
-import { computed, ref, useTemplateRef, watch } from "vue";
+import { computed, useTemplateRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import PlayQueueMenu from "Components/PlayQueue/PlayQueueMenu.vue";
+import QueueList from "Components/PlayQueue/QueueList.vue";
 import Icon from "Components/UI/Icon.vue";
-import { usePlayerAudio } from "Composables/usePlayerAudio";
 import { usePlayerQueue } from "Composables/usePlayerQueue";
 import { usePlayQueuePanel } from "Composables/usePlayQueuePanel";
 import { formatClock } from "Utils/formatting";
-import { useQueueReorder } from "./useQueueReorder";
 
 const { t } = useI18n();
-const { tracks, currentIndex, isEmpty, totalDuration, jumpTo, remove } = usePlayerQueue();
-const { play } = usePlayerAudio();
+const { tracks, isEmpty, totalDuration } = usePlayerQueue();
 const { isOpen, open, close, setOpen } = usePlayQueuePanel();
 
 /**
@@ -195,23 +192,6 @@ watch(layer, el => {
 });
 
 /**
- * Load the clicked row into the player AND start it.
- *
- * Both halves, because the row's label says "play this" — and because a click is a
- * user gesture, which is the only moment the browser will let playback begin. Loading
- * without playing would leave the listener pressing a second button for something
- * they already asked for, and by then the gesture is gone.
- *
- * `jumpTo` alone is enough when something is already playing (the player follows the
- * queue's pointer), so this exists for the paused case — and for the row that is
- * ALREADY loaded, where nothing changes for the player to react to.
- */
-const playRow = (index: number): void => {
-    jumpTo(index);
-    play();
-};
-
-/**
  * The queue's running time as a clock, for the panel header.
  *
  * A total rather than a per-row duration because at 280px a row has no space for
@@ -219,54 +199,20 @@ const playRow = (index: number): void => {
  */
 const totalClock = computed(() => formatClock(totalDuration.value));
 
-/** The scrolling <ol>. Held to find the loaded row and to publish its height. */
-const list = ref<HTMLOListElement | null>(null);
-
-// Drag-and-drop by the grip, plus Alt+↑/↓ — both in useQueueReorder beside this file,
-// which needs the list element for the same two reasons this component holds it: that
-// is what Sortable mounts on, and what a moved row is re-focused through.
-const { onRowKeydown, onGripPointerdown, shortcutLabel } = useQueueReorder(list);
-
 /**
- * Bring the loaded track into view, one row clear of the edge it approached.
+ * The list, so opening the panel can bring the loaded row into view.
  *
- * It exists because the pointer moves without anyone touching the list: next/prev,
- * auto-advance at the end of a track, the repeat wrap. Any of those can leave the
- * row that is now playing off-screen, and a queue showing the wrong part of itself
- * is worse than one that scrolls under you.
- *
- * THE ARITHMETIC IS THE BROWSER'S, not ours. `scroll-margin-block` grows the row's
- * scroll box by one row on each edge and `block: "nearest"` then scrolls only when
- * that grown box does not fit — which is both "leave a row of context" and "leave an
- * already-visible row alone", without this function comparing a single rectangle.
- * The margin is MEASURED rather than tokenised because rows are not one height: a
- * track whose file carried no artist has one line, not two. It is published as a
- * custom property so the declaration itself stays in the stylesheet.
- *
- * Smoothness is deliberately absent here — `scroll-behavior` on the list carries it,
- * under the repo's `prefers-reduced-motion: no-preference` guard, so the motion
- * decision sits in CSS with every other one. `scrollIntoView` with no `behavior`
- * honours that computed value.
+ * The panel is `display: none` while shut on a phone, and scrolling a hidden element does
+ * nothing — so by the time it is opened, several tracks may have gone by unscrolled. Only this
+ * component knows it has just opened; only QueueList holds the <ol>. Hence the reach across,
+ * which is the smaller seam of the two available.
  */
-const scrollCurrentIntoView = (): void => {
-    const row = list.value?.children.item(currentIndex.value) as HTMLElement | null;
+const rows = useTemplateRef<InstanceType<typeof QueueList>>("rows");
 
-    if (!row) return;
-
-    list.value?.style.setProperty("--queue-row-height", `${row.offsetHeight}px`);
-    row.scrollIntoView({ block: "nearest", inline: "nearest" });
-};
-
-// `flush: "post"` because the row has to exist first: queueing a track and it
-// becoming current happen in the same tick.
-watch(currentIndex, scrollCurrentIntoView, { flush: "post" });
-
-// Opening the panel on a phone, where it is `display: none` while shut — scrolling a
-// hidden element does nothing, so several tracks may have gone by unscrolled.
 watch(
     isOpen,
     open => {
-        if (open) scrollCurrentIntoView();
+        if (open) rows.value?.scrollCurrentIntoView();
     },
     { flush: "post" }
 );
@@ -287,70 +233,7 @@ watch(
                 </h2>
                 <play-queue-menu />
             </header>
-            <ol ref="list" class="play-queue__list">
-                <li
-                    v-for="(track, index) in tracks"
-                    :key="`${track.id}-${index}`"
-                    class="play-queue__row"
-                    :class="{ 'play-queue__row--current': index === currentIndex }"
-                    :aria-current="index === currentIndex ? 'true' : undefined"
-                    @keydown="onRowKeydown($event, index)"
-                >
-                    <!-- Empty on purpose: this button IS the row's hit area (see the styles),
-                         and its accessible name comes from the label rather than from any
-                         content. It has nothing inside it because everything visible in the
-                         row is either one of the two controls that must stay above it, or
-                         text that should play the track when clicked. -->
-                    <button
-                        type="button"
-                        class="play-queue__load"
-                        :aria-label="t('player.queue.load', { name: track.name })"
-                        @click="playRow(index)"
-                    ></button>
-                    <!-- The drag handle, and the only thing Sortable will start a drag from.
-                         The cover is INSIDE it so the grip is a 24px-wide strip rather than a
-                         lone 16px glyph — see the component banner for what that costs.
-
-                         THE HINT SAYS "CLICK IT FIRST", and it has to: the keyboard
-                         alternative moves the FOCUSED row, so hovering one and pressing the
-                         keys does nothing at all — which is exactly how it read as broken.
-                         The keys are named for the keyboard in front of the reader (⌥ on a
-                         Mac), while `aria-keyshortcuts` keeps ARIA's canonical spelling,
-                         which is what assistive tech expects to parse and announce in its
-                         own words. The handler itself sits on the <li> — keydown bubbles,
-                         so it works from any of the row's three controls. -->
-                    <button
-                        type="button"
-                        class="play-queue__grip"
-                        v-tooltip="t('player.queue.moveHint', { keys: shortcutLabel })"
-                        :aria-label="t('player.queue.move', { name: track.name })"
-                        aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
-                        @pointerdown="onGripPointerdown"
-                    >
-                        <cover-image :src="track.coverUrl" :title="track.name" size="tiny" decorative />
-                        <icon name="drag" :size="0" />
-                    </button>
-                    <span class="play-queue__meta">
-                        <!-- Both lines are plain text, deliberately. The title used to be a
-                             real <Link> to the song's page, and in a panel whose every other
-                             pixel plays the track that is a trap: the one spot a listener
-                             actually aims for was the one spot that navigated away instead.
-                             So it stays under the load button's overlay and plays like the
-                             rest of the row. -->
-                        <span class="play-queue__name">{{ track.name }}</span>
-                        <span v-if="track.artist" class="play-queue__artist">{{ track.artist }}</span>
-                    </span>
-                    <button
-                        type="button"
-                        class="play-queue__remove"
-                        v-tooltip="t('player.queue.removeHint')"
-                        :aria-label="t('player.queue.remove', { name: track.name })"
-                        @click="remove(index)"
-                    >
-                        <icon name="playlist_remove" :size="1" />
-                    </button>
-                </li>
-            </ol>
+            <queue-list ref="rows" layout="panel" />
 
             <!-- Count and running time LAST, and a sibling of the list rather than a child
                  of it — which is what keeps it out of the scrolling area and on screen for
@@ -511,265 +394,6 @@ $bleed: map.get(s.$c-play-queue, "padding");
 
         font-size: 0.85em;
         font-variant-numeric: tabular-nums;
-    }
-
-    &__remove,
-    &__grip,
-    &__load {
-        display: inline-flex;
-        align-items: center;
-
-        padding: 0;
-        border: 0;
-
-        background: none;
-        color: map.get(c.$c-play-queue, "control");
-
-        cursor: pointer;
-
-        @media (prefers-reduced-motion: no-preference) {
-            transition: color ti.$c-play-queue linear;
-        }
-
-        &:hover {
-            color: map.get(c.$c-play-queue, "control-hover");
-        }
-    }
-
-    /* THE WHOLE ROW PLAYS THE TRACK, and this transparent overlay button is what
-       makes it so. It is out of the row's flex flow and sized to the whole of it,
-       which is both a far better target than any glyph and the reason the markup can
-       stay honest: still ONE button with one accessible name, so a screen reader
-       hears "Play <track>" exactly as before.
-
-       It has to be done this way round rather than by wrapping the row in a
-       <button>: the row holds two more buttons (the grip and remove), and a
-       <button> may contain neither. The overlay inverts the problem — one big
-       transparent target, with the two genuine controls lifted above it.
-
-       It was a stretched `::after` on a button that wrapped the cover, until the
-       cover became the drag grip and left it with nothing to wrap. An empty button
-       positioned directly is the same hit area with one box instead of two — and it
-       has a real bounding box, so its focus ring traces the row (a 0×0 button's
-       would be a dot) and a browser test can click it like any other control. The
-       radius matches the row's, so that ring follows the rounded corners.
-
-       `inset: 0` resolves against `&__row`, which is the nearest positioned
-       ancestor. That is what the row's `position: relative` is for. */
-    &__load {
-        position: absolute;
-        inset: 0;
-
-        border-radius: map.get(s.$c-play-queue, "row", "radius");
-    }
-
-    /* …and the two real controls are lifted back above it. A POSITION IS REQUIRED,
-       not just a z-index: the overlay is positioned, so it paints above every
-       non-positioned descendant of the same stacking context regardless of DOM
-       order, and without this it would silently swallow both — the row would play
-       the track while nothing could be dragged or removed.
-
-       Everything else stays UNDER the overlay on purpose — the title and artist
-       lines included, so that aiming at the words plays the track. */
-    &__remove,
-    &__grip {
-        position: relative;
-        z-index: 1;
-    }
-
-    /* THE DRAG HANDLE: the cover with the drag glyph beneath it, as one column.
-       Stacked rather than placed beside the cover because at 280px the row has no
-       horizontal room to give — the title ellipsises first, and a leading or
-       trailing handle column would take 24px straight out of it. This way the grip
-       costs the title nothing and the row grows by a few pixels instead.
-
-       It is a real <button> so the reorder is reachable without a pointer at all:
-       it is the tab stop that carries `aria-keyshortcuts`, which is how a keyboard
-       user finds out Alt+↑/↓ moves the row. Pressing it does nothing on its own,
-       and that is the honest shape of a handle.
-
-       `grab` / `grabbing` is the whole reason the cursor is declared per control
-       rather than inherited from the row: everything else in the row plays the
-       track and says `pointer`; this strip moves it. */
-    &__grip {
-        flex-direction: column;
-
-        gap: map.get(s.$c-play-queue, "row", "grip-gap");
-
-        cursor: grab;
-
-        &:active {
-            cursor: grabbing;
-        }
-    }
-
-    /* The list scrolls, not the panel: the header (with the clear button) has to
-       stay reachable however long the queue gets.
-
-       THE PADDING / NEGATIVE-MARGIN PAIR IS WHAT LETS THE CURRENT ROW GLOW AT
-       ALL. A scroll container clips on BOTH axes: `overflow-y: auto` forces the
-       other axis to `auto` as well (a lone `visible` is not honoured next to a
-       scrolling one), so `overflow-x: visible` cannot be asked for and an outer
-       box-shadow has nowhere to go. It survived only as fragments at the row's
-       corners, with the first row's halo cut off flat against the top edge —
-       which is the bug this pair fixes.
-
-       The room has to be INSIDE the clip box, so the padding provides it and a
-       negative margin of exactly the panel's own padding reclaims it: the list's
-       scroll box grows to the panel's inner edge while every row stays precisely
-       where it was. That last part is the whole point — at 280px the title is
-       already the first thing to ellipsise (see sizes/components/_play-queue.scss),
-       so buying glow room with row width is not a trade this panel can afford.
-
-       It reads the panel's `padding` token rather than declaring a size of its
-       own because the two are not merely equal, they must stay equal: the margin
-       has to cancel that exact padding or the rows shift. */
-    &__list {
-        overflow-y: auto;
-
-        flex: 1 1 auto;
-
-        padding: $bleed;
-
-        margin: -$bleed;
-
-        list-style: none;
-
-        /* Carries the smoothness for scrollCurrentIntoView, which passes no `behavior`
-           of its own so that this decision lives here with the rest of the motion.
-           `scroll-behavior` affects PROGRAMMATIC scrolls only — a wheel or a drag is
-           untouched by it, so nobody's own scrolling is being animated. */
-        @media (prefers-reduced-motion: no-preference) {
-            scroll-behavior: smooth;
-        }
-    }
-
-    &__row {
-        display: flex;
-        position: relative;
-        align-items: center;
-
-        /* OFF-SCREEN ROWS ARE NOT RENDERED AT ALL, which is what lets this panel hold a
-           whole genre. Measured on a 2,000-track queue: every row was being laid out and
-           painted — 28,000 nodes, ~850ms to first paint, a visibly slow scroll — and bulk
-           enqueue made that a thing one click can do.
-
-           `content-visibility` RATHER THAN WINDOWING, and the difference is what stays
-           working. A virtual list renders a slice and fakes the rest, which breaks
-           everything this panel already does correctly: SortableJS drags rows that must
-           exist to be dragged, Alt+↑/↓ moves focus between rows that must exist to be
-           focused, and `scrollIntoView` finds a row that must exist to be found. Skipped
-           content is still in the DOM and still focusable — the browser renders it the
-           moment focus, find-in-page or a scroll makes it relevant — so all three keep
-           working with no code at all.
-
-           `auto` in the intrinsic size is what keeps the scrollbar honest: the estimate
-           below is used until a row has been rendered once, and its real height after. */
-        content-visibility: auto;
-        contain-intrinsic-size: auto map.get(s.$c-play-queue, "row", "row-estimate");
-
-        /* One row of context above and below when the loaded track is scrolled into
-           view — see scrollCurrentIntoView, which measures the height and publishes it,
-           because a row with no artist line is shorter than one with. The zero fallback
-           makes an unmeasured row behave like a plain `scrollIntoView`, never break. */
-        scroll-margin-block: var(--queue-row-height, 0);
-
-        padding: map.get(s.$c-play-queue, "row", "padding");
-        gap: map.get(s.$c-play-queue, "row", "gap");
-
-        border-radius: map.get(s.$c-play-queue, "row", "radius");
-
-        /* One cursor for the whole row, set here because `cursor` INHERITS —
-           which is the only reason the artist line needed fixing at all. It is a
-           bare <span>, so it fell through to `auto` and drew an I-beam over its
-           glyphs, and a caret in the middle of a row you click to play reads as a
-           row you can select text in. Declaring it on the row covers the padding,
-           the gaps and both text lines in one place; the two buttons keep their
-           own declaration, since "a button is clickable" is true on its own and
-           should not depend on a rule further up. */
-        cursor: pointer;
-
-        @media (prefers-reduced-motion: no-preference) {
-            transition:
-                background-color ti.$c-play-queue ease-out,
-                box-shadow ti.$c-play-queue ease-out;
-        }
-
-        &:hover {
-            background-color: map.get(c.$c-play-queue, "row-hover");
-        }
-
-        /* The loaded track wears the house "this one is live" treatment — the same
-           two-layer neon halo the DataTable's hovered row and an open popover use,
-           over a low-alpha fill of the same colour. The glow spreads are em-based
-           effect constants, per the note in sizes/components/_button.scss.
-
-           TIGHTER THAN THE DATATABLE'S, deliberately. That one is tuned for a row
-           several hundred pixels wide with open page around it; the same 1.5em halo
-           on a 280px row in a scrolling panel is both out of proportion and wider
-           than any room the clip box can be given (`&__list` above caps it at the
-           panel's padding). The outer layer is sized to land just inside that room,
-           so the halo fades out on its own instead of being cut off flat. */
-        &--current {
-            background-color: map.get(c.$c-play-queue, "current-background");
-            box-shadow:
-                0 0 0.25em 0.04em map.get(c.$c-play-queue, "current-glow"),
-                0 0 0.4em 0.08em map.get(c.$c-play-queue, "current-glow");
-        }
-
-        /* THE ROW IN YOUR HAND — the clone that follows the pointer during a drag
-           (`dragClass`). Sortable builds it with `cloneNode`, so it keeps this
-           component's scope attribute and all of its classes; what it does not keep
-           is its place in the panel, because it is appended to <body> to stay clear
-           of the list's clipping and of the player bar painting over it. The two
-           things it was inheriting from the panel — surface colour and background —
-           therefore have to be restated here, or the row is drawn in whatever
-           colours the page happens to use. The shadow is what says "lifted"; its
-           offsets are em-based effect constants, per the note on the glow above. */
-        &--dragging {
-            background-color: map.get(c.$c-play-queue, "background");
-            color: map.get(c.$c-play-queue, "surface");
-            box-shadow: 0 0.25em 0.75em 0 map.get(c.$c-play-queue, "drag-shadow");
-
-            cursor: grabbing;
-        }
-
-        /* THE GAP IT LEFT — the real <li>, still in the list, which Sortable moves
-           around to show where a drop would land (`ghostClass`). Faded rather than
-           hidden: collapsing it would make the list jump by a row the moment a drag
-           started, and the whole point of the gap is that it shows the destination. */
-        &--ghost {
-            opacity: 0.4;
-
-            background-color: map.get(c.$c-play-queue, "row-hover");
-        }
-    }
-
-    /* `min-width: 0` is what lets the two lines below ellipsise. Without it this
-       flex item refuses to shrink under its content width, an unbreakable title
-       pushes the row wider than the 280px panel, and `text-overflow` never fires
-       because nothing is overflowing. Same trap as the breadcrumb's label. */
-    &__meta {
-        display: flex;
-        flex-direction: column;
-
-        min-width: 0;
-        flex: 1 1 auto;
-    }
-
-    &__name,
-    &__artist {
-        overflow: hidden;
-
-        white-space: nowrap;
-
-        text-overflow: ellipsis;
-    }
-
-    &__artist {
-        color: map.get(c.$c-play-queue, "muted");
-
-        font-size: 0.85em;
     }
 }
 </style>

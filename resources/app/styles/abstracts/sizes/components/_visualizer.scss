@@ -1,0 +1,39 @@
+/******************************************************************************
+ * contextual size tokens — component:visualizer
+ * @type {Sass}
+ * The Now Playing page's EQ (Components/Player/Visualizer): how tall the row is, how the bars are
+ * spaced, and how far the glow spreads.
+ *
+ * KEPT SHORT ON PURPOSE (the owner's brief: "not too tall"). It sits between the track that is
+ * playing and the two either side of it, so anything taller starts pushing the thing the page is
+ * actually about off the top of a phone. A literal rather than a `$scale` rung: this is a picture
+ * height chosen by eye against the cards above and below it, which is exactly the case the
+ * spacing ladder does not decide.
+ * Consumed as s.$c-visualizer via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$visualizer: (
+    // Two rungs, and the step is small deliberately: the bars want to feel like a strip rather
+    // than a panel at every width, so a desktop gets a little more presence and not a chart.
+    "height": (
+        "base": 3.5rem,
+        "landscape": 4.5rem
+    ),
+    // Between bars. A hair, in absolute units rather than a rung: at 24 bars across a phone each
+    // one is only a few pixels wide, and a gap that scaled with the spacing ladder would eat more
+    // of the bar than it separates.
+    "gap": 2px,
+    // The bars' own corner. Rounded only at the TOP in the component (a bar grows from a
+    // baseline, so a rounded foot would float), which is why this is a single value rather than
+    // a pair.
+    "bar-radius": map.get(s.$radius, "base"),
+    // How far the wash under the bars spreads. Generous next to the bars' own width, because a
+    // glow that stops at the bar's edge reads as a border rather than as light.
+    "glow": 1.5rem,
+    // What a bar shows when there is no reading at all — a baseline, not a collapsed element.
+    // Without it an idle EQ is an invisible gap in the page, which reads as something failing to
+    // load rather than as silence.
+    "idle-bar": 2px
+) !default;

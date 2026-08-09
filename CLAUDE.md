@@ -256,3 +256,9 @@ instance, written for someone else's server.
   it is stored — and why a small queue looks deterministic), and its **storage** — the trimmed payload,
   the separate pointer key, writes coalesced behind a flush-on-hide, and what a browser's storage
   budget actually allows.
+- [`docs/now-playing.md`](docs/now-playing.md) — the Now Playing page (**built 2026-08-09**): four
+  rows over the live queue. Why "what plays next" needed the shuffle **pre-draw**, why the extra track
+  facts are fetched rather than stored on the queue, and the EQ visualiser — **measured, not argued**:
+  `/dev/audio-probe` proved routed audio survives screen-off (away 215s, advanced 215s), so the
+  analyser is wired directly with no toggle. Also records what no test can see (Playwright runs
+  Chromium muted, so the bars never move in CI).

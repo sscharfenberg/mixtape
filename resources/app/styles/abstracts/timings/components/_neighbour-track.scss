@@ -1,0 +1,13 @@
+/******************************************************************************
+ * contextual timing token — component:NeighbourTrack.vue
+ * @type {Sass}
+ * How fast the previous / next card answers the pointer. `fast`, matching the DataTable row, the
+ * Discography tile and the queue row — the whole card is a button, so it owes the same immediate
+ * feedback any other pressable surface does, and anything slower reads as lag rather than as a
+ * response.
+ * Consumed as ti.$c-neighbour-track via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$neighbour-track: map.get(ti.$timings, "fast") !default;

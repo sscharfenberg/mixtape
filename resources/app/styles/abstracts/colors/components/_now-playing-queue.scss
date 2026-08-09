@@ -1,0 +1,21 @@
+/******************************************************************************
+ * contextual color tokens — component:now-playing-queue
+ * @type {Sass}
+ * The queue as the Now Playing page draws it (pages/NowPlaying/NowPlayingQueue): the quiet ink of
+ * its secondary lines, and the mark on the row that is loaded.
+ *
+ * The row's SURFACE comes from c.$c-card — the list sits on the page's own card fill rather than
+ * inventing a second one. Only what this list decides for itself is here.
+ * Consumed as c.$c-now-playing-queue via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-color-tokens" as c;
+
+$now-playing-queue: (
+    // The artist, album, runtime and totals — everything that is not the title. The same muted
+    // pair the rest of this page uses, re-picked from the globals per the token rules.
+    "muted": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
+    // The loaded row's edge and title. The app's control neon: down a long list a coloured edge is
+    // findable at a glance where a glyph in one cell is not.
+    "current": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark"))
+) !default;

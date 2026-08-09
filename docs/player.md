@@ -31,6 +31,7 @@ queue_ for the shape both files build on rather than revisit.
 | Counts that refresh in place when a track finishes            | ✅ 2026-08-08 — _Keeping the number honest_    |
 | Real playback in a browser                                    | ✅ Playwright, incl. under the prod CSP        |
 | Screen-off on a real phone                                    | ✅ **Android / Chrome, 2026-08-07** — below    |
+| Screen-off with the element ROUTED through Web Audio          | ✅ **2026-08-09** — `/dev/audio-probe`, below  |
 
 **Still not built, deliberately:** the queue does not SKIP ON past a track that will not play. It
 says which one failed and stops there, because a file that vanished between scans is worth noticing
@@ -469,6 +470,49 @@ would be a worse bug than any of the ones the guards below fix.
 Discoverability is the transport tooltips only, which name the key beside the label. The
 `aria-label` stays the plain label deliberately: a key hint is a visual convenience, and reading
 "Nächster Titel Shift Pfeil rechts" aloud on every focus is worse than not knowing the shortcut.
+
+## The Web Audio probe — `/dev/audio-probe`
+
+A **permanent dev-only diagnostic**, behind `auth`, linked from nowhere and registered only outside
+production. It answers one question: **does audio keep playing when the screen goes off, with the
+`<audio>` element routed through an `AudioContext`?**
+
+That question is not academic. Reading levels off a playing element needs
+`createMediaElementSource()`, which **permanently** redirects that element's output into a graph —
+`disconnect()` yields silence rather than ordinary playback, and a second call on the same element
+throws. If a browser suspends the context while the page is hidden, the music stops in the worst
+possible way: the element still reports playing, the timeline still advances, the lock screen still
+says playing, and there is no sound.
+
+**How to run it:** pick *routed*, press start, hear sound, lock the phone for a minute or two, come
+back and read the verdict. Then repeat with *direct* as a control — direct playback is known to
+survive, so if that fails too the phone or the network is at fault and the routed result says
+nothing.
+
+**What it measures, and why that shape:** wall clock against audio clock. Nothing on screen can be
+watched while the screen is off and `requestAnimationFrame` stops dead, so the page records
+`Date.now()` and `currentTime` as it goes away and reads both on return. "Away 215.0s — audio
+advanced 215.0s → PLAYED THROUGH", or the stall. Alongside it: a journal of every media event and
+every `AudioContext` state change (a context going `suspended` while hidden and `running` on return
+is the smoking gun, with its timing), a 15-second sampler — throttled to about once a minute while
+hidden, which is exactly the evidence that says *when* a clock stopped — and a **peak level**,
+because flat bars alone cannot distinguish silence from a graph wired to nothing.
+
+It plays the library's **longest** music track, deliberately: one that ended while the screen was
+off would stop legitimately and read as a stall.
+
+**It shares nothing with the real player** — its own element, its own context, no `usePlayerAudio`
+— so what it proves is a fact about the browser rather than about this app's wiring. It does read
+the queue, only to warn when one is loaded: the real `PlayerBar` would then have a second `<audio>`
+on the page and every reading would be ambiguous.
+
+**The answer so far (2026-08-09, owner's Android):** routed audio survives — away 215s, audio
+advanced 215s. That is what cleared the Now Playing visualiser to wire the analyser directly, with
+no toggle and no second element. See [`now-playing.md`](now-playing.md) for what each outcome would
+have decided.
+
+**Kept rather than deleted** once it had answered: it is the way to ask again for a new phone, a
+browser update, or a listener reporting silence.
 
 ## The decision: a native `<audio>`, not vidstack
 

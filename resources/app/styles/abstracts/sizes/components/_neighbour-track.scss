@@ -1,0 +1,26 @@
+/******************************************************************************
+ * contextual size tokens — component:neighbour-track
+ * @type {Sass}
+ * The Now Playing page's previous / next cards (pages/NowPlaying/NeighbourTrack): the gap between
+ * its parts and the size of its label.
+ *
+ * Its padding, border and radius come from s.$c-card — it is a Card, and one panel should not be
+ * described twice. Only what the card decides for itself lives here.
+ * Consumed as s.$c-neighbour-track via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$neighbour-track: (
+    // Between the label, the artwork and the facts. The rung the hero puts between its own
+    // stacked blocks, re-picked here rather than read across.
+    "gap": map.get(s.$padding, "base"),
+    // The label and the facts, a step below body copy: they annotate the title rather than
+    // competing with it. The same literal the hero's blurb uses, for the same reason.
+    "font-size": 0.9rem,
+    // A fact chip's inset and the gap between chips. Tight — a chip holds two or three words, and
+    // anything more makes a row of them look like buttons.
+    "chip-padding": 0.25ex 1ch,
+    "chip-gap": 0.5ch,
+    "chip-radius": map.get(s.$radius, "base")
+) !default;

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AudiobooksController;
 use App\Http\Controllers\Dashboard\DashboardController;
+use App\Http\Controllers\Dev\AudioProbeController;
 use App\Http\Controllers\Dev\IconsController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LocaleController;
@@ -220,4 +221,13 @@ require __DIR__.'/web.auth.php';
 // the public instance never exposes them (this app is internet-facing).
 if (! app()->isProduction()) {
     Route::get('/icons', IconsController::class)->name('dev.icons');
+
+    // Does audio survive the screen going off once the element is routed through an
+    // AudioContext? A throwaway measurement standing in front of the Now Playing page's EQ
+    // visualiser — see the controller. Behind `auth` unlike the gallery beside it, because
+    // what it plays is: the stream route is authenticated, so a page rendered for a guest
+    // would offer a player that could only redirect to the login form.
+    Route::get('/dev/audio-probe', AudioProbeController::class)
+        ->middleware('auth')
+        ->name('dev.audio-probe');
 }

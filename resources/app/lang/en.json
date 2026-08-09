@@ -548,5 +548,21 @@
         },
         "enqueue": "Add to queue",
         "enqueued": "“{name}” was added to the queue."
+    },
+    "nowPlaying": {
+        "previous": "Previous track",
+        "next": "Next track",
+        "stepTo": "{direction}: {name}",
+        "no": {
+            "previous": "Nothing before this",
+            "next": "Nothing after this"
+        },
+        "empty": "Nothing is playing. Start something from the music collection or a playlist.",
+        "status": {
+            "playing": "Playing",
+            "paused": "Paused",
+            "end": "End of queue"
+        },
+        "toSongPage": "To the song page"
     }
 }

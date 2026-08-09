@@ -1,0 +1,49 @@
+/******************************************************************************
+ * contextual color tokens — component:visualizer
+ * @type {Sass}
+ * The Now Playing page's EQ (Components/Player/Visualizer): the ramp each bar is painted with,
+ * the glow under them, and the flat colour of a bar with nothing to show.
+ *
+ * THE RAMP IS PER BAR, NOT ACROSS THE ROW, which is what makes it read as a level meter rather
+ * than as a decorative stripe: a short bar shows only the bottom of the ramp and a loud one
+ * reaches the top, so the colour tells you the same thing the height does. Painted bottom-up
+ * magenta → violet → blue, the loudest end being the coolest — the synthwave convention, and the
+ * one that keeps a wall of quiet bars from looking like an alarm.
+ *
+ * Every stop is a named entry from the retro palette, per the token rules: the ramp picks hues,
+ * it never mints them. Consumed as c.$c-visualizer via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$visualizer: (
+    // Bottom of the ramp — where a quiet bar lives, and therefore the colour most of this
+    // component is most of the time. `c6` (the palette's magenta) because at low heights the bars
+    // are little more than a lit baseline, and the baseline should be the warm end.
+    "ramp-low": light-dark(map.get(c.$retro, "c6", "light"), map.get(c.$retro, "c6", "dark")),
+    // The middle, and the reason the ramp is three stops rather than two: magenta straight into
+    // blue passes through a muddy grey-violet at the halfway point, which is exactly where a bar
+    // spends most of its time on ordinary music. `c5` is that transit painted as a real hue.
+    "ramp-mid": light-dark(map.get(c.$retro, "c5", "light"), map.get(c.$retro, "c5", "dark")),
+    // The top, reached only by the loudest bands. `c2` rather than the control neon `c3`: this is
+    // decoration, and borrowing the colour every interactive control glows with would make a
+    // passing kick drum look like something you could press.
+    "ramp-high": light-dark(map.get(c.$retro, "c2", "light"), map.get(c.$retro, "c2", "dark")),
+    // The wash under the bars. An opacity-only adjust of the ramp's warm end — the one colour
+    // operation the token rules allow outside the palette — so the glow is the bars' own light
+    // spilling rather than a fourth hue nobody chose.
+    //
+    // HEAVIER ON LIGHT than on dark, which is upside-down from "keep them in step" and is what
+    // actually looks even: a glow is blurred over many pixels, so what reaches the eye is a
+    // fraction of the stated alpha, and on a white page that fraction has to fight a background
+    // already at maximum lightness. The hero's metadata halo records the same lesson.
+    "glow": light-dark(
+            color.adjust(map.get(c.$retro, "c6", "light"), $alpha: -0.55),
+            color.adjust(map.get(c.$retro, "c6", "dark"), $alpha: -0.75)
+        ),
+    // A bar with no reading: nothing is playing, the graph has not been wired, or the reader asked
+    // for reduced motion. Deliberately NOT a dimmed ramp — a grey baseline says "no signal", where
+    // a faint magenta says "very quiet music", and those are different facts.
+    "idle": light-dark(map.get(c.$grey, "infra"), map.get(c.$grey, "bunker"))
+) !default;

@@ -66,6 +66,7 @@
 import { usePage } from "@inertiajs/vue3";
 import type { ComputedRef, Ref } from "vue";
 import { computed, ref, watch } from "vue";
+import { bindAnalyserElement } from "Composables/useAudioAnalyser";
 import type { QueueTrack } from "Composables/usePlayerQueue";
 import { bindPositionSource, notePlaybackProgress, takeRestoredPosition, usePlayerQueue } from "Composables/usePlayerQueue";
 import { applyPlaybackRate, bindSpeedElement } from "Composables/usePlayerSpeed";
@@ -86,6 +87,16 @@ export type BufferedRange = {
 export type UsePlayerAudioReturn = {
     /** Whether the listener wants music right now — see point 3 of the module note. */
     isPlaying: Ref<boolean>;
+    /**
+     * Whether the queue ran to its end rather than being paused.
+     *
+     * Both leave the player stopped, so nothing about the ELEMENT can tell them apart — this is
+     * set at the one moment the difference exists (a track ending with nothing to follow) and
+     * cleared as soon as anything plays or a different track is loaded. The Now Playing page's
+     * status badge is what reads it: "paused" is waiting for a press, "end of queue" has nothing
+     * left to press.
+     */
+    queueFinished: Ref<boolean>;
     /** The play cursor in seconds, read from the element. */
     currentTime: Ref<number>;
     /** The loaded track's playing time in seconds, or 0 while nothing is loaded. */
@@ -109,6 +120,9 @@ export type UsePlayerAudioReturn = {
 
 // Module-level state — one element, one set of readings, however many consumers.
 const isPlaying = ref<boolean>(false);
+
+/** See the return type: set only when the queue genuinely ran out, cleared by anything playing. */
+const queueFinished = ref<boolean>(false);
 const currentTime = ref<number>(0);
 const buffered = ref<BufferedRange[]>([]);
 /**
@@ -299,6 +313,9 @@ function requestPlayback(): void {
 function load(track: QueueTrack, autoplay: boolean): void {
     if (!element) return;
 
+    // A different track is loaded, so whatever the queue did before this is no longer what the
+    // player is doing — stepping back from a finished queue must not still read as finished.
+    queueFinished.value = false;
     currentTime.value = 0;
     // A new load is a new listen — including the rewind repeat-one comes back through, which
     // is what makes ten loops ten plays.
@@ -342,6 +359,7 @@ function stopAndUnload(audio: HTMLAudioElement): void {
     audio.removeAttribute("src");
     audio.load();
     isPlaying.value = false;
+    queueFinished.value = false;
     currentTime.value = 0;
     buffered.value = [];
     elementDuration.value = 0;
@@ -363,6 +381,12 @@ function handleEnded(): void {
 
     if (!queue.next()) {
         isPlaying.value = false;
+        // THE QUEUE REALLY RAN OUT, which is the only place that can be known. A stopped player
+        // looks identical whether the listener pressed pause or the last track finished with
+        // nothing behind it, and those are entirely different things to say — so the difference is
+        // recorded at the one moment it exists rather than guessed at later from `hasNext`, which
+        // is false on the last track however it got there.
+        queueFinished.value = true;
         publishPlaybackState();
 
         return;
@@ -484,6 +508,12 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
         // claim it. Binding also re-asserts the stored speed onto a fresh element, which
         // starts at 1 whatever the listener last chose.
         bindSpeedElement(audio);
+
+        // The Now Playing visualiser's analyser, handed over the same way — and DELIBERATELY
+        // inert until something asks for readings. Routing an element through an AudioContext
+        // cannot be undone, so a listener who never opens that page is never routed at all
+        // (useAudioAnalyser's banner has the argument, and the measurement behind it).
+        bindAnalyserElement(audio);
 
         /*
          * The queue persists the play position but cannot read it — it lives on this
@@ -607,6 +637,8 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
 
         on("play", () => {
             isPlaying.value = true;
+            // Anything playing means the queue is not finished, whatever it was a moment ago.
+            queueFinished.value = false;
             publishPlaybackState();
         });
 
@@ -732,6 +764,7 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
         teardown = [];
         element = null;
         bindVolumeElement(null);
+        bindAnalyserElement(null);
         // The queue must not keep a closure over an element that has left the document.
         bindPositionSource(null);
         pendingResume = 0;
@@ -748,7 +781,7 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
         elementDuration.value = 0;
     }
 
-    return { isPlaying, currentTime, duration, buffered, attach, detach, play, pause, toggle, seek };
+    return { isPlaying, queueFinished, currentTime, duration, buffered, attach, detach, play, pause, toggle, seek };
 }
 
 /**
@@ -771,6 +804,7 @@ export function resetPlayerAudioForTests(): void {
     playReported = false;
     forgetPlaybackFailure();
     isPlaying.value = false;
+    queueFinished.value = false;
     currentTime.value = 0;
     buffered.value = [];
     elementDuration.value = 0;

@@ -548,5 +548,21 @@
         },
         "enqueue": "In die Warteschlange",
         "enqueued": "„{name}“ wurde in die Warteschlange gestellt."
+    },
+    "nowPlaying": {
+        "previous": "Vorheriger Titel",
+        "next": "Nächster Titel",
+        "stepTo": "{direction}: {name}",
+        "no": {
+            "previous": "Nichts davor",
+            "next": "Nichts danach"
+        },
+        "empty": "Es läuft gerade nichts. Starte etwas aus der Musik-Sammlung oder einer Wiedergabeliste.",
+        "status": {
+            "playing": "Läuft",
+            "paused": "Pausiert",
+            "end": "Ende der Warteschlange"
+        },
+        "toSongPage": "Zur Song-Seite"
     }
 }

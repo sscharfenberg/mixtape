@@ -1,0 +1,29 @@
+/******************************************************************************
+ * contextual color tokens — component:neighbour-track
+ * @type {Sass}
+ * The Now Playing page's previous / next cards (pages/NowPlaying/NeighbourTrack): the quiet ink
+ * its label and facts are set in, and the edge it lights on hover.
+ *
+ * The card's SURFACE is not here on purpose — it is a Card, and it reads c.$c-card for the fill,
+ * border and radius rather than minting a second definition of the same panel. What this file
+ * holds is only what the card decides for itself.
+ * Consumed as c.$c-neighbour-track via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-color-tokens" as c;
+
+$neighbour-track: (
+    // The label and the facts, a step quieter than the title they hang off — the same muted pair
+    // the hero's blurb and the fact labels use, re-picked from the globals per the token rules
+    // (a contextual partial consumes globals, never another partial's tokens).
+    "muted": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
+    // The border under a pointer or a focus ring. The app's control neon, because unlike the
+    // visualiser beside it this card really IS something you press.
+    "edge-active": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
+    // The fill behind each fact chip — ONE STEP off the card it sits on, and no more. The card is
+    // already a panel on a page, so a third surface has to be quiet or the hierarchy reads as
+    // three boxes rather than as facts inside a card. `mystic` on the light side and `ebony` on
+    // the dark, the same asymmetric pair the add-to-playlist area records: the same nominal step
+    // reads far louder on black, because the eye has nothing else that dark to compare it with.
+    "chip": light-dark(map.get(c.$grey, "mystic"), map.get(c.$grey, "ebony"))
+) !default;

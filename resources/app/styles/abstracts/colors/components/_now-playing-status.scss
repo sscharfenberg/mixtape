@@ -1,0 +1,39 @@
+/******************************************************************************
+ * contextual color tokens — component:now-playing-status
+ * @type {Sass}
+ * The Now Playing hero's status pill: playing, paused, or the queue has run out.
+ *
+ * NOT the shared Badge's palette, and not the Badge component either. That pill is built for the
+ * dashboard's two-factor state — a filled box with a `backdrop-filter` behind it — and on this
+ * page it read as a white slab with a haze under it, which is what the owner reported. This one is
+ * an OUTLINE: the state is carried by the ink and the border, so the pill sits beside the "to the
+ * song page" link as its peer rather than shouting over it.
+ *
+ * Picked from the global `$state` palette, per the token rules — the same three states every other
+ * status in this app uses, so "playing" is the same green as any other success.
+ * Consumed as c.$c-now-playing-status via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-color-tokens" as c;
+
+$now-playing-status: (
+    // Sound is coming out. `success`, because it is the state everything else on the page is
+    // describing — the one where the player is doing its job.
+    "playing": light-dark(
+            map.get(c.$state, "light", "success", "color"),
+            map.get(c.$state, "dark", "success", "color")
+        ),
+    // Stopped, and waiting for a press. `caution` rather than `warning`: nothing is wrong, the
+    // listener asked for this, and an alarm colour over their own pause would be nagging.
+    "paused": light-dark(
+            map.get(c.$state, "light", "caution", "color"),
+            map.get(c.$state, "dark", "caution", "color")
+        ),
+    // The queue ran out — which is NOT the same as paused and is the whole reason there are three
+    // states (see the page). `warning`, because unlike a pause it is a state the listener has to
+    // do something about before any sound happens again.
+    "end": light-dark(
+            map.get(c.$state, "light", "warning", "color"),
+            map.get(c.$state, "dark", "warning", "color")
+        )
+) !default;
