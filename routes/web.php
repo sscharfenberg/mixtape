@@ -21,6 +21,7 @@ use App\Http\Controllers\NowPlayingController;
 use App\Http\Controllers\Player\PlayController;
 use App\Http\Controllers\Player\PlayerStateController;
 use App\Http\Controllers\Playlists\PlaylistController;
+use App\Http\Controllers\Playlists\PlaylistExportController;
 use App\Http\Controllers\Playlists\PlaylistMetadataController;
 use App\Http\Controllers\Playlists\PlaylistOrderController;
 use App\Http\Controllers\Playlists\PlaylistTrackOrderController;
@@ -83,6 +84,14 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         Route::get('/playlists/{playlist}', PlaylistController::class)
             ->whereUuid('playlist')
             ->name('playlists.show');
+
+        // The playlist as a downloadable .m3u. A GET because the browser does the download
+        // itself — see the controller for why that beats a fetch-and-blob — with the format,
+        // the encoding and the path prefix as query params on that read.
+        Route::get('/playlists/{playlist}/export', PlaylistExportController::class)
+            ->whereUuid('playlist')
+            ->middleware('throttle:30,1')
+            ->name('playlists.export');
 
         // The running order INSIDE one playlist, written by the detail page's drag handles.
         // Nested under the playlist because its entries belong to it and to nothing else —

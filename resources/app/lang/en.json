@@ -398,6 +398,29 @@
             "reorder": "Move “{name}”",
             "reorderHint": "Drag to reorder – or click it, then {keys}"
         },
+        "export": {
+            "open": "Export playlist file",
+            "header": "Export playlist file",
+            "intro": "An .m3u file to take with you — for another player, a phone or a car stereo. It holds the tracks in this order; it plays wherever the music files live.",
+            "formatLabel": "File format",
+            "formatSimple": "simple .m3u",
+            "formatSimpleHint": "Just the file paths, one line per track. Every player understands it — but the device shows whatever the files are named.",
+            "formatExtended": "extended .m3u",
+            "formatExtendedHint": "Adds #EXTINF lines with artist, title and length, so the player shows the names as they read here — if it supports the format.",
+            "encodingLabel": "File encoding",
+            "encodingUtf8": "UTF-8",
+            "encodingUtf8Hint": "For everything modern: Mac, phone, VLC. Handles every character your collection contains.",
+            "encodingWindows": "Windows-1252",
+            "encodingWindowsHint": "For older devices that render UTF-8 as gibberish — a car stereo, say. Characters outside Western Europe become “?”.",
+            "prefixLabel": "Path prefix",
+            "prefixHint": "Put in front of every path — where the music lives as far as the device playing the file is concerned. Leave empty for relative paths.",
+            "submit": "Download .m3u"
+        },
+        "sort": {
+            "open": "Sort playlist",
+            "done": "Playlist sorted by file path.",
+            "already": "The playlist is already sorted by file path."
+        },
         "empty": {
             "headline": "No playlists yet",
             "text": "A playlist is your own running order across the collection — music and audiobook chapters mixed however you like. Create your first one, then add tracks to it from any song or album page."

@@ -24,15 +24,20 @@
  * row can carry its own play button (PlaylistController says the same from its end).
  *****************************************************************************/
 import { Head } from "@inertiajs/vue3";
-import { computed } from "vue";
+import { computed, ref, useTemplateRef } from "vue";
 import { useI18n } from "vue-i18n";
+import Button from "Components/Form/Button.vue";
 import CoverSleeves from "Components/Music/CoverSleeves.vue";
+import PlayCountFacts from "Components/Music/PlayCountFacts.vue";
 import SubjectMenu from "Components/Music/SubjectMenu.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Container from "Components/UI/Container.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
+import Icon from "Components/UI/Icon.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
+import { useToast } from "Composables/useToast";
 import { formatDateTime, formatDuration } from "Utils/formatting";
+import PlaylistExportModal from "./PlaylistExportModal.vue";
 import PlaylistTracks, { type PlaylistTrackRow } from "./PlaylistTracks.vue";
 
 /** The playlist itself, as PlaylistController shaped it — every value raw. */
@@ -56,6 +61,15 @@ const props = defineProps<{
     playlist: PlaylistDetail;
     /** Its entries, in the reader's own order, each already a queue entry. */
     tracks: PlaylistTrackRow[];
+    /**
+     * How often this playlist has been listened to: the reader's own listens and everybody
+     * else's, as listening events (App\Services\Player\PlayCounts). Its own prop rather than
+     * a member of `playlist` because PlayCountFacts refreshes exactly this key in place when a
+     * track finishes. Raw counts — a zero is something the tiles leave unsaid.
+     */
+    plays: { own: number; others: number };
+    /** What the export modal's prefix field opens with, from config via the controller. */
+    exportPrefix: string;
     /**
      * Up to three cover URLs for the hero's fan, picked at random per request and one per
      * album (PlaylistController::fannedCovers). Empty when nothing in the playlist carries
@@ -99,6 +113,40 @@ const playtime = computed<string>(() =>
  * reads the same as on null without a second type.
  */
 const dateOf = (iso: string | null): string => formatDateTime(iso, locale.value) ?? "";
+
+/** Whether the export modal is open. Mounted only while it is, like the dashboard's. */
+const exporting = ref(false);
+
+/**
+ * The list, so the hero's Sort button can reach the verb it exposes.
+ *
+ * The list owns the order — it must, since a drag has to show before the server agrees — and
+ * the button that sorts it lives in the hero, one component up. Reaching down for a verb is
+ * the smaller seam than lifting the order into this page and drilling it back with an event
+ * per gesture; PlaylistTracks' `defineExpose` says the same from its side.
+ */
+const rows = useTemplateRef<InstanceType<typeof PlaylistTracks>>("rows");
+
+const { addToast } = useToast();
+
+/**
+ * Put the playlist in file order.
+ *
+ * NO SPINNER AND NOTHING TO WAIT FOR, which is the point: the rows carry their own `path`, so
+ * the new order is worked out and rendered inside this click, and the PUT that records it is
+ * the same background write a drag does. The alternative — ask the server to sort, wait, and
+ * re-render — is a round trip in front of an answer the page already had.
+ *
+ * The toast is what makes the change legible. A list that silently rearranges itself is hard
+ * to read as a result of the button just pressed, and the two outcomes are genuinely
+ * different: a playlist that was ALREADY in file order changes nothing, and saying so is more
+ * honest than a success message about work that did not happen.
+ */
+function sort(): void {
+    const moved = rows.value?.sortByPath() ?? false;
+
+    addToast(t(moved ? "playlists.sort.done" : "playlists.sort.already"), moved ? "success" : "info", 3000);
+}
 </script>
 
 <template>
@@ -149,14 +197,45 @@ const dateOf = (iso: string | null): string => formatDateTime(iso, locale.value)
                         :value="dateOf(playlist.updatedAt)"
                         icon="refresh"
                     />
+                    <!-- Last, and only when there is something to say: what has actually been
+                         listened to comes after what the playlist IS. The same component and
+                         the same position the four Music detail pages use. -->
+                    <play-count-facts :plays="plays" subject="playlist" />
+                </template>
+                <!-- What the reader can DO with the playlist as a file or as an order, under
+                     the facts because both act on the thing those facts have just identified.
+                     The hero's `#menu` above is for PLAYING it; these two change or export it,
+                     which is a different kind of verb and belongs where it can carry a label. -->
+                <template #actions>
+                    <Button variant="default" type="button" @click="exporting = true">
+                        <icon name="file_export" :size="1" />
+                        <span>{{ t("playlists.export.open") }}</span>
+                    </Button>
+                    <!-- No spinner and no disabled state: the sort happens in this click — see
+                         `sort()`. A button that cannot be pressed twice would be describing a
+                         wait that does not exist. -->
+                    <Button variant="default" type="button" @click="sort">
+                        <icon name="sort" :size="1" />
+                        <span>{{ t("playlists.sort.open") }}</span>
+                    </Button>
                 </template>
             </hero-section>
 
             <!-- The id goes down with the entries because the list owns its own reordering,
-                 and the PUT that persists it is nested under this playlist. -->
-            <playlist-tracks :playlist-id="playlist.id" :tracks="tracks" />
+                 and the PUT that persists it is nested under this playlist. `ref` so the hero's
+                 Sort button can reach the verb it exposes. -->
+            <playlist-tracks ref="rows" :playlist-id="playlist.id" :tracks="tracks" />
         </div>
     </container>
+
+    <!-- Mounted only while open, like the dashboard's modals: the form's three fields then
+         start from their defaults every time rather than remembering the last export. -->
+    <playlist-export-modal
+        v-if="exporting"
+        :playlist-id="playlist.id"
+        :default-prefix="exportPrefix"
+        @close="exporting = false"
+    />
 </template>
 
 <style scoped lang="scss">

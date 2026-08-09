@@ -42,6 +42,7 @@ const track = (overrides: Partial<PlaylistTrackRow> = {}): PlaylistTrackRow => (
     artist: "Radiohead",
     album: "OK Computer",
     year: 1997,
+    path: "Radiohead/OK Computer/01 Airbag.mp3",
     duration: 284,
     coverUrl: null,
     href: "/music/songs/track-1",
@@ -197,6 +198,63 @@ describe("PlaylistTracks", () => {
             expect(grip.exists()).toBe(true);
             expect(grip.attributes("aria-label")).toContain("Airbag");
             expect(grip.attributes("aria-keyshortcuts")).toBe("Alt+ArrowUp Alt+ArrowDown");
+        });
+    });
+
+    describe("sorting by path", () => {
+        /*
+         * The verb the hero's Sort button reaches for. It is here rather than on the page
+         * because the list owns the order — and its value is that it happens in the CLICK: the
+         * rows carry their own `path`, so there is nothing to wait for.
+         */
+        const paths = (): PlaylistTrackRow[] => [
+            track({ entryId: "e1", name: "Zoo", path: "Zebra/album/01.mp3" }),
+            track({ entryId: "e2", name: "Ant", path: "Ant/album/01.mp3" }),
+            track({ entryId: "e3", name: "Mid", path: "Mango/album/01.mp3" })
+        ];
+
+        it("puts the rows in file order, immediately", async () => {
+            const wrapper = list(paths());
+
+            expect(wrapper.vm.sortByPath()).toBe(true);
+            await nextTick();
+
+            expect(titles(wrapper)).toStrictEqual(["Ant", "Mid", "Zoo"]);
+        });
+
+        it("sorts naturally, so track 2 precedes track 10", async () => {
+            // `numeric: true`. Unpadded numbers are what a hand-made rip leaves behind, and a
+            // plain string sort files 10 before 2.
+            const wrapper = list([
+                track({ entryId: "e1", name: "ten", path: "a/10.mp3" }),
+                track({ entryId: "e2", name: "two", path: "a/2.mp3" })
+            ]);
+
+            wrapper.vm.sortByPath();
+            await nextTick();
+
+            expect(titles(wrapper)).toStrictEqual(["two", "ten"]);
+        });
+
+        it("persists the new order to the same endpoint a drag uses", () => {
+            list(paths()).vm.sortByPath();
+
+            expect(routerCalls[routerCalls.length - 1]).toMatchObject({
+                method: "put",
+                url: "/playlists/playlist-1/tracks/order"
+            });
+        });
+
+        it("does nothing at all when the playlist is already in file order", () => {
+            // Reported back so the page can say "already sorted" rather than claiming to have
+            // done work — and no request, because there is nothing to record.
+            const wrapper = list([
+                track({ entryId: "e1", path: "a/1.mp3" }),
+                track({ entryId: "e2", path: "b/1.mp3" })
+            ]);
+
+            expect(wrapper.vm.sortByPath()).toBe(false);
+            expect(routerCalls).toHaveLength(0);
         });
     });
 

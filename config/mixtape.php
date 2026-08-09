@@ -135,6 +135,31 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Playlists
+    |--------------------------------------------------------------------------
+    |
+    | `export.path_prefix` is what the .m3u export offers as the default prefix in front of
+    | every stored path. Stored paths are area-relative and carry no root (a track's row says
+    | `Radiohead/OK Computer/01 Airbag.mp3`), because the database must not bake in where the
+    | collection happens to be mounted — so an exported playlist is only useful once it is
+    | told where the FILES will be from the point of view of whatever plays them.
+    |
+    | Which is not this server. It is the reader's Mac, where the Samba share mounts at
+    | /Volumes/media/music, or their car's USB stick, where the same music sits at the root.
+    | So this is a DEFAULT for a text field the reader edits per export, not a setting the
+    | app obeys — and deliberately NOT an env var: it describes the machine doing the
+    | listening, which the server has no way to know and no business tracking.
+    |
+    */
+
+    'playlists' => [
+        'export' => [
+            'path_prefix' => '/Volumes/media/music',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Cover art
     |--------------------------------------------------------------------------
     |

@@ -27,6 +27,13 @@ return [
         'tracks.incomplete' => 'Die Reihenfolge muss alle Titel der Wiedergabeliste enthalten.',
     ],
 
+    'export' => [
+        'format.in' => 'Unbekanntes Dateiformat.',
+        'encoding.in' => 'Unbekannte Zeichenkodierung.',
+        'prefix.max' => 'Das Pfad-Präfix darf höchstens :max Zeichen enthalten.',
+        'prefix.not_regex' => 'Das Pfad-Präfix darf keinen Zeilenumbruch enthalten.',
+    ],
+
     'attributes' => [
         'name' => 'Name',
         'description' => 'Beschreibung',

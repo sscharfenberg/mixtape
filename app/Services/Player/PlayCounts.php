@@ -8,6 +8,7 @@ use App\Enums\TrackType;
 use App\Models\Artist;
 use App\Models\Collection;
 use App\Models\Genre;
+use App\Models\Playlist;
 use App\Models\Track;
 use App\Models\User;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -112,6 +113,39 @@ final class PlayCounts
     public static function forAlbum(Collection $album, ?User $user): array
     {
         return self::forSubject('collection_id', $album->id, $user, musicOnly: false);
+    }
+
+    /**
+     * Play counts for everything in one playlist.
+     *
+     * NOT `forSubject`, and it cannot be: the other three subjects are a COLUMN on `tracks`, so
+     * a play belongs to them through a foreign key it already carries. Playlist membership lives
+     * in a pivot instead, so this joins through it — the only structural difference, and the
+     * reason this is a method rather than another `forSubject('…_id', …)` line.
+     *
+     * NO TYPE CLAUSE, matching the page it feeds: a playlist may deliberately mix music with
+     * audiobook chapters and its own facts count both, so its plays must too. A tile counting
+     * listens that the "Titel" tile beside it does not count is arithmetic a reader cannot
+     * reproduce — which is the class docblock's rule, reaching the opposite answer here from the
+     * one it reaches for an artist.
+     *
+     * A TRACK IN A PLAYLIST TWICE COUNTS ITS PLAYS TWICE, because the join yields a row per
+     * ENTRY. That is the honest reading of "how much of this playlist has been listened to" —
+     * somebody who put a song in twice hears it twice — and it keeps the figure consistent with
+     * the track count beside it, which also counts entries rather than distinct tracks.
+     *
+     * @return array{own: int, others: int}
+     */
+    public static function forPlaylist(Playlist $playlist, ?User $user): array
+    {
+        $plays = fn () => DB::table('plays')
+            ->join('playlist_tracks', 'playlist_tracks.track_id', '=', 'plays.track_id')
+            ->where('playlist_tracks.playlist_id', $playlist->id);
+
+        $total = $plays()->count();
+        $own = $user ? $plays()->where('plays.user_id', $user->id)->count() : 0;
+
+        return ['own' => $own, 'others' => $total - $own];
     }
 
     /**

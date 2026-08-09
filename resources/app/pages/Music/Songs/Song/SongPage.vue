@@ -269,7 +269,7 @@ const songFacts = computed<Fact[]>(() => {
         {
             key: "path",
             group: file,
-            icon: "file",
+            icon: "path",
             label: t("music.song.labels.path"),
             value: song.path,
             wide: true,

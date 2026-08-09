@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { settled } from "../support/actions";
@@ -55,6 +56,23 @@ const REORDERABLE = "Umsortieren";
 
 /** How many entries the populated playlists hold — E2ESeeder::PLAYLIST_TRACKS. */
 const ENTRIES = 7;
+
+/**
+ * The fixture's entries in FILE order, which is what "sort by path" must produce.
+ *
+ * Written out rather than derived: E2ESeeder gives each track a numbered path
+ * (`/music/006.mp3`), so file order is a real, knowable order and deliberately not the one the
+ * playlist is seeded in — a sort that did nothing would otherwise pass.
+ */
+const order = [
+    "Karma Police",
+    "Fitter Happier",
+    "Girls & Boys",
+    "Roads",
+    "There Is a Light That Never Goes Out",
+    "Svefn-g-englar",
+    "Avalon"
+];
 
 /** Open a playlist by name, the way a reader does: from the listing. */
 const openFromListing = async (page: Page, name: string): Promise<void> => {
@@ -321,6 +339,73 @@ test.describe("a playlist's detail page", () => {
         });
     });
 
+    test.describe("exporting", () => {
+        /*
+         * The download itself, which nothing below Playwright can prove: the modal performs no
+         * request — it hands a URL to the browser — so what is asserted is that a real file
+         * arrives, named after the playlist, with the bytes the options asked for.
+         *
+         * The BYTE-level rules (the CRLF, the `-1` for an unknown runtime, the Windows-1252
+         * substitution, the prefix join) are pinned server-side in ExportPlaylistTest, where
+         * they can be varied cheaply. What is left here is the wiring between the two.
+         */
+        test("downloads the playlist as an .m3u named after it", async ({ page }) => {
+            await openFromListing(page, POPULATED);
+            await page.getByRole("button", { name: /Playlist-Datei exportieren/u }).click();
+            await expect(page.locator("#playlist-export-form")).toBeVisible();
+
+            const download = page.waitForEvent("download");
+            await page.getByRole("button", { name: /\.m3u herunterladen/u }).click();
+            const file = await download;
+
+            expect(file.suggestedFilename()).toBe("Roadtrip.m3u");
+
+            const body = readFileSync((await file.path())!, "utf8");
+            // One line per entry, CRLF, in the playlist's own order — and the configured prefix
+            // in front of each, since nothing here changed the field.
+            expect(body.split("\r\n").filter(Boolean)).toHaveLength(ENTRIES);
+            expect(body.startsWith("/Volumes/media/music/")).toBe(true);
+        });
+
+        test("carries the options the reader chose into the file", async ({ page }) => {
+            // The extended flavour and an emptied prefix, so the file is visibly a different
+            // one — which is the whole point of the three fields.
+            await openFromListing(page, POPULATED);
+            await page.getByRole("button", { name: /Playlist-Datei exportieren/u }).click();
+
+            // The LABEL, not the input: RadioButton hides the real <input> behind a styled
+            // span, so it carries no accessible name and cannot be checked directly. Clicking
+            // the label is what a reader does anyway.
+            await page.locator('label[for="format_extended"]').click();
+            await page.locator("#export-prefix").fill("");
+
+            const download = page.waitForEvent("download");
+            await page.getByRole("button", { name: /\.m3u herunterladen/u }).click();
+            const body = readFileSync((await (await download).path())!, "utf8");
+
+            expect(body.startsWith("#EXTM3U\r\n")).toBe(true);
+            expect(body).toContain("#EXTINF:");
+            // Relative paths: no prefix means the bare stored path.
+            expect(body).not.toContain("/Volumes/");
+        });
+
+        test("leaves the page where it was", async ({ page }) => {
+            // An `attachment` response navigates nowhere, which is the reason for doing the
+            // download natively rather than through a blob — and worth pinning, because a
+            // mis-typed header would silently replace the page with the file's text.
+            await openFromListing(page, POPULATED);
+            const url = page.url();
+
+            await page.getByRole("button", { name: /Playlist-Datei exportieren/u }).click();
+            const download = page.waitForEvent("download");
+            await page.getByRole("button", { name: /\.m3u herunterladen/u }).click();
+            await download;
+
+            expect(page.url()).toBe(url);
+            await expect(page.locator(".playlist-tracks__item")).toHaveCount(ENTRIES);
+        });
+    });
+
     test.describe("reordering", () => {
         /*
          * Its OWN playlist, because these tests write — see the file's banner. They also assert
@@ -382,6 +467,52 @@ test.describe("a playlist's detail page", () => {
 
             await page.reload();
             await expect.poll(() => rowTitles(page)).toStrictEqual(expected);
+        });
+
+        test("sorts the whole playlist by path, in the click, and keeps it", async ({ page }) => {
+            /*
+             * The claim the feature is built on: no round trip to wait through. The rows carry
+             * their own `path`, so the new order is rendered in the frame the button was
+             * pressed in — asserted BEFORE the PUT is awaited, which is what makes it a test of
+             * "immediately" rather than of "eventually".
+             *
+             * The fixture's paths are numbered (`/music/006.mp3`), so file order is a different
+             * order from the one it is seeded in, and both are known.
+             */
+            await openFromListing(page, REORDERABLE);
+
+            const put = page.waitForResponse(
+                response => response.url().includes("/tracks/order") && response.request().method() === "PUT"
+            );
+            await page.getByRole("button", { name: /Playlist sortieren/u }).click();
+
+            // No `poll`, deliberately: this must already be true.
+            const sorted = (await page.locator(".playlist-tracks__name").allTextContents()).map(t => t.trim());
+            expect(sorted).toStrictEqual([...sorted].sort((a, b) => order.indexOf(a) - order.indexOf(b)));
+            expect(sorted[0]).toBe("Karma Police");
+            expect(sorted[1]).toBe("Fitter Happier");
+
+            await expect(page.locator(".toast-container__item")).toBeVisible();
+
+            await put;
+            await page.reload();
+            await settled(page);
+            expect(await rowTitles(page)).toStrictEqual(sorted);
+        });
+
+        test("says so rather than pretending, when it is already in order", async ({ page }) => {
+            // Pressed twice: the second press moves nothing, so claiming success would be a
+            // message about work that did not happen.
+            await openFromListing(page, REORDERABLE);
+            await page.getByRole("button", { name: /Playlist sortieren/u }).click();
+            await page.reload();
+            await settled(page);
+
+            const before = await rowTitles(page);
+            await page.getByRole("button", { name: /Playlist sortieren/u }).click();
+
+            await expect(page.getByText(/bereits nach Dateipfad sortiert/u)).toBeVisible();
+            expect(await rowTitles(page)).toStrictEqual(before);
         });
 
         test("does not move at the ends, and leaves the keystroke alone", async ({ page }) => {

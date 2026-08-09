@@ -4,6 +4,7 @@ namespace Tests\Feature\Playlists;
 
 use App\Models\Artist;
 use App\Models\Collection;
+use App\Models\Play;
 use App\Models\Playlist;
 use App\Models\PlaylistTrack;
 use App\Models\Track;
@@ -105,6 +106,77 @@ class PlaylistPageTest extends TestCase
         $this->actingAs($reader)
             ->get("/playlists/{$bare->id}")
             ->assertInertia(fn (Assert $page) => $page->where('playlist.description', null));
+    }
+
+    public function test_the_hero_counts_the_playlist_s_plays(): void
+    {
+        /*
+         * Counted through the PIVOT, which is the only structural difference from the other
+         * four subjects — theirs are a column on `tracks`, so a play reaches them by a key it
+         * already carries. And with NO type clause: a playlist may mix music with audiobook
+         * chapters and its "Titel" tile counts both, so a plays tile that counted only music
+         * would be arithmetic a reader cannot reproduce.
+         */
+        $playlist = $this->ownedPlaylist($reader);
+        $stranger = User::factory()->create();
+        $track = Track::factory()->create();
+        PlaylistTrack::factory()->create(['playlist_id' => $playlist->id, 'track_id' => $track->id]);
+
+        Play::factory()->count(2)->create(['user_id' => $reader->id, 'track_id' => $track->id]);
+        Play::factory()->create(['user_id' => $stranger->id, 'track_id' => $track->id]);
+        // A play of something that is NOT in this playlist must not be counted.
+        Play::factory()->create(['user_id' => $reader->id, 'track_id' => Track::factory()->create()->id]);
+
+        $this->actingAs($reader)
+            ->get("/playlists/{$playlist->id}")
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('plays.own', 2)
+                ->where('plays.others', 1)
+            );
+    }
+
+    public function test_a_track_listed_twice_counts_its_plays_twice(): void
+    {
+        // The honest reading of "how much of this playlist has been listened to" — somebody who
+        // put a song in twice hears it twice — and it keeps the figure consistent with the track
+        // count beside it, which also counts entries rather than distinct tracks.
+        $playlist = $this->ownedPlaylist($reader);
+        $track = Track::factory()->create();
+        PlaylistTrack::factory()->create(['playlist_id' => $playlist->id, 'track_id' => $track->id, 'position' => 0]);
+        PlaylistTrack::factory()->create(['playlist_id' => $playlist->id, 'track_id' => $track->id, 'position' => 1]);
+        Play::factory()->create(['user_id' => $reader->id, 'track_id' => $track->id]);
+
+        $this->actingAs($reader)
+            ->get("/playlists/{$playlist->id}")
+            ->assertInertia(fn (Assert $page) => $page->where('plays.own', 2));
+    }
+
+    public function test_a_row_carries_the_file_path_the_client_sorts_on(): void
+    {
+        // The only reason a path reaches the client: "sort by path" is then something the page
+        // does to the list in front of it rather than something it waits for the server to
+        // answer. Area-relative, exactly as stored.
+        $playlist = $this->ownedPlaylist($reader);
+        $track = Track::factory()->create(['path' => 'Radiohead/OK Computer/01 Airbag.mp3']);
+        PlaylistTrack::factory()->create(['playlist_id' => $playlist->id, 'track_id' => $track->id]);
+
+        $this->actingAs($reader)
+            ->get("/playlists/{$playlist->id}")
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('tracks.0.path', 'Radiohead/OK Computer/01 Airbag.mp3')
+            );
+    }
+
+    public function test_it_sends_the_configured_export_prefix(): void
+    {
+        // The modal's field opens with it. Config rather than a literal in the page, because it
+        // describes the machine that will PLAY the file.
+        config(['mixtape.playlists.export.path_prefix' => '/mnt/music']);
+        $playlist = $this->ownedPlaylist($reader);
+
+        $this->actingAs($reader)
+            ->get("/playlists/{$playlist->id}")
+            ->assertInertia(fn (Assert $page) => $page->where('exportPrefix', '/mnt/music'));
     }
 
     public function test_the_hero_carries_the_same_four_facts_the_listing_does(): void

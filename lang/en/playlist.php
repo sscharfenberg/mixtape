@@ -27,6 +27,13 @@ return [
         'tracks.incomplete' => 'The order must contain every track in the playlist.',
     ],
 
+    'export' => [
+        'format.in' => 'Unknown file format.',
+        'encoding.in' => 'Unknown file encoding.',
+        'prefix.max' => 'The path prefix may not be longer than :max characters.',
+        'prefix.not_regex' => 'The path prefix may not contain a line break.',
+    ],
+
     'attributes' => [
         'name' => 'name',
         'description' => 'description',

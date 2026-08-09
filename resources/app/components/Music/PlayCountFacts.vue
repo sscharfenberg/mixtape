@@ -2,9 +2,9 @@
 /******************************************************************************
  * PlayCountFacts
  * The two hero tiles saying how often a subject has been listened to — VON DIR and
- * VON ANDEREN — for a song, an artist, a genre or an album.
+ * VON ANDEREN — for a song, an artist, a genre, an album or a playlist.
  *
- * ONE COMPONENT FOR ALL FOUR because only the tooltip's noun differs. The tiles, the
+ * ONE COMPONENT FOR ALL FIVE because only the tooltip's noun differs. The tiles, the
  * glyph, the "hide a zero" rule and the live refresh below are identical everywhere,
  * and four copies of that is how four pages start disagreeing about what a play is.
  * It renders FactPairs, so drop it straight into a HeroSection's `#metadata` slot
@@ -34,7 +34,7 @@ import { usePlayEvents } from "Composables/usePlayEvents";
 import { formatTimesPlayed } from "Utils/formatting";
 
 /** What kind of thing the counts describe — decides only which sentences are shown. */
-export type PlayCountSubject = "song" | "artist" | "genre" | "album";
+export type PlayCountSubject = "song" | "artist" | "genre" | "album" | "playlist";
 
 const props = defineProps<{
     /** The reader's own listens and everybody else's, raw (App\Services\Player\PlayCounts). */
@@ -61,6 +61,8 @@ const tips = computed<{ own: string; others: string }>(() => {
             return { own: t("music.plays.genre.ownTip"), others: t("music.plays.genre.othersTip") };
         case "album":
             return { own: t("music.plays.album.ownTip"), others: t("music.plays.album.othersTip") };
+        case "playlist":
+            return { own: t("music.plays.playlist.ownTip"), others: t("music.plays.playlist.othersTip") };
         default:
             return { own: t("music.plays.song.ownTip"), others: t("music.plays.song.othersTip") };
     }

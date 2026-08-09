@@ -78,6 +78,12 @@ export interface PlaylistTrackRow extends QueueTrack {
     entryId: string;
     /** The album's release year, or null for a loose file or an untagged rip. */
     year: number | null;
+    /**
+     * The file's own area-relative path — what "sort by path" sorts on, and the only reason
+     * it is on the client at all. PlaylistController says why sending it is both cheap and
+     * safe; usePlaylistTrackReorder::sortByPath is what uses it.
+     */
+    path: string;
 }
 
 const props = defineProps<{
@@ -103,11 +109,23 @@ const { play } = usePlayerAudio();
  * seeded from the prop, and persists whatever the reader does to it.
  */
 const list = useTemplateRef<HTMLUListElement>("list");
-const { entries, onRowKeydown, shortcutLabel } = usePlaylistTrackReorder(
+const { entries, onRowKeydown, shortcutLabel, sortByPath } = usePlaylistTrackReorder(
     list,
     () => props.tracks,
     () => props.playlistId
 );
+
+/**
+ * Sorting is offered by a button in the HERO, which is a different component — so the page
+ * reaches in and calls this rather than the list emitting upward.
+ *
+ * Deliberately that way round. The list owns the optimistic order (it has to: a drag must show
+ * before the server agrees), and moving that state up to the page so the hero could reach it
+ * would mean prop-drilling the order back down plus an event for every gesture. One imperative
+ * call is the smaller seam, and it is the same shape a `<dialog>`'s `showModal()` is: the thing
+ * that owns the state exposes a verb.
+ */
+defineExpose({ sortByPath });
 
 /**
  * How long the track runs, as a clock. Empty for a file whose tags carried no duration, which

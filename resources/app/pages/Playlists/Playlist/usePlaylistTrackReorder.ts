@@ -48,6 +48,8 @@ export type UsePlaylistTrackReorderReturn = {
     onRowKeydown: (event: KeyboardEvent, index: number) => void;
     /** The shortcut as THIS keyboard prints it (`⌥↑/↓` or `Alt+↑/↓`), for the grip's hint. */
     shortcutLabel: string;
+    /** Put the whole playlist in file order. Returns false when it was already in it. */
+    sortByPath: () => boolean;
 };
 
 /**
@@ -107,6 +109,45 @@ export function usePlaylistTrackReorder(
         next.splice(to, 0, moved);
         entries.value = next;
         persist();
+    }
+
+    /**
+     * Put the whole playlist in FILE ORDER — the album-folder order the collection sits in on
+     * disk — and persist it. Returns whether anything actually moved.
+     *
+     * IT HAPPENS IN THE CLICK, with no round trip to wait through, and that is the whole
+     * reason `path` is on a row at all: with the sort key in hand the new order is a local
+     * `sort()`, so the list is already right in the frame the button was pressed in and the PUT
+     * that follows is the same background write a drag does. Asking the server to sort and
+     * re-render instead would have put a spinner in front of an answer the page could work out
+     * itself.
+     *
+     * SORTED HERE, SENT AS AN EXPLICIT ORDER — so there is no collation to disagree about. The
+     * server is told the sequence rather than asked to compute one, which is what keeps the
+     * page and the database in step; had both sorted independently, JavaScript's comparison and
+     * Postgres's collation would part company on the first umlaut (the trap this suite's
+     * DataTable notes record).
+     *
+     * `numeric: true` is what makes "track 2" precede "track 10" where a rip left the numbers
+     * unpadded; padded ones are unaffected. `undefined` for the locale means the reader's own,
+     * which is right for a per-user ordering nobody else sees.
+     *
+     * `already` short-circuits the PUT rather than the sort: pressing the button on a sorted
+     * playlist should cost nothing, and the caller wants to know so it can say "already in
+     * order" instead of claiming to have done something.
+     */
+    function sortByPath(): boolean {
+        const sorted = [...entries.value].sort((a, b) =>
+            a.path.localeCompare(b.path, undefined, { numeric: true })
+        );
+
+        const already = sorted.every((entry, index) => entry.entryId === entries.value[index]?.entryId);
+        if (already) return false;
+
+        entries.value = sorted;
+        persist();
+
+        return true;
     }
 
     /**
@@ -213,5 +254,5 @@ export function usePlaylistTrackReorder(
      */
     const shortcutLabel = shortcut(altKeyLabel(), "↑/↓");
 
-    return { entries, onRowKeydown, shortcutLabel };
+    return { entries, onRowKeydown, shortcutLabel, sortByPath };
 }

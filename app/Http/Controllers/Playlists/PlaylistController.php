@@ -7,6 +7,7 @@ use App\Http\Requests\Playlists\ShowPlaylistRequest;
 use App\Models\Playlist;
 use App\Services\Music\FannedCovers;
 use App\Services\Music\QueuePayload;
+use App\Services\Player\PlayCounts;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -61,6 +62,16 @@ class PlaylistController extends Controller
             ] + $this->facts($playlist, $entries),
             'tracks' => $entries->pluck('track')->all(),
             'covers' => $this->fannedCovers($entries),
+            // How much of this playlist has been listened to — the reader's own listens and
+            // everybody else's, as listening EVENTS (App\Services\Player\PlayCounts). Its own
+            // prop rather than a member of `playlist`, so the player can refresh just this
+            // figure when a track finishes without dragging the whole hero back with it — the
+            // same split the four Music detail pages make.
+            'plays' => PlayCounts::forPlaylist($playlist, $request->user()),
+            // The default the export modal's prefix field opens with. Config rather than a
+            // literal in the page, because it describes the machine that will PLAY the file
+            // rather than anything about this playlist (config/mixtape.php says more).
+            'exportPrefix' => (string) config('mixtape.playlists.export.path_prefix'),
         ]);
     }
 
@@ -138,6 +149,7 @@ class PlaylistController extends Controller
                 'playlist_tracks.id as entry_id',
                 'tracks.collection_id',
                 'collections.year as album_year',
+                'tracks.path',
             ])
             ->orderBy('playlist_tracks.position')
             ->orderBy('playlist_tracks.id')
@@ -148,6 +160,16 @@ class PlaylistController extends Controller
                     // Raw, and null for a track filed under no album or an untagged rip —
                     // the row drops the chip rather than printing a zero.
                     'year' => $row->album_year === null ? null : (int) $row->album_year,
+                    // THE FILE'S OWN PATH, area-relative, and the only reason it goes to the
+                    // client: "sort by path" is then something the page can do to the list in
+                    // front of it, in the frame the click happened in, instead of asking the
+                    // server what the new order is and waiting to be told. See
+                    // usePlaylistSort — the round trip still happens, it just stops being
+                    // something the reader waits through.
+                    //
+                    // It reveals nothing the reader cannot already have: the export writes
+                    // these very paths into a file they download, which is the point of it.
+                    'path' => $row->path,
                 ],
                 'albumKey' => $row->collection_id ?? $row->id,
             ]);

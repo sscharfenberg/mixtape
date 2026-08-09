@@ -398,6 +398,29 @@
             "reorder": "„{name}“ verschieben",
             "reorderHint": "Ziehen zum Umsortieren – oder anklicken, dann {keys}"
         },
+        "export": {
+            "open": "Playlist-Datei exportieren",
+            "header": "Playlist-Datei exportieren",
+            "intro": "Eine .m3u-Datei zum Mitnehmen — für einen anderen Player, ein Handy oder das Autoradio. Die Datei enthält die Titel in dieser Reihenfolge; abgespielt wird sie dort, wo die Musikdateien liegen.",
+            "formatLabel": "Dateiformat",
+            "formatSimple": "einfache .m3u",
+            "formatSimpleHint": "Nur die Dateipfade, eine Zeile pro Titel. Versteht wirklich jeder Player — und das Autoradio zeigt die Titel dann so an, wie die Dateien heißen.",
+            "formatExtended": "erweiterte .m3u",
+            "formatExtendedHint": "Zusätzlich #EXTINF-Zeilen mit Künstler, Titel und Länge. Der Player zeigt die Namen dann so an, wie sie hier stehen — sofern er das Format unterstützt.",
+            "encodingLabel": "Zeichenkodierung",
+            "encodingUtf8": "UTF-8",
+            "encodingUtf8Hint": "Für alles Moderne: Mac, Handy, VLC. Kann jedes Zeichen, das in deiner Sammlung vorkommt.",
+            "encodingWindows": "Windows-1252",
+            "encodingWindowsHint": "Für ältere Geräte, die UTF-8 als Buchstabensalat anzeigen — etwa das Autoradio. Zeichen außerhalb Westeuropas werden zu „?“.",
+            "prefixLabel": "Pfad-Präfix",
+            "prefixHint": "Wird jedem Pfad vorangestellt — der Ort der Musik aus Sicht des Geräts, das die Datei abspielt. Leer lassen für relative Pfade.",
+            "submit": ".m3u herunterladen"
+        },
+        "sort": {
+            "open": "Playlist sortieren",
+            "done": "Playlist nach Dateipfad sortiert.",
+            "already": "Die Playlist ist bereits nach Dateipfad sortiert."
+        },
         "empty": {
             "headline": "Noch keine Wiedergabeliste",
             "text": "Eine Wiedergabeliste ist deine eigene Reihenfolge quer durch die Sammlung — Musik und Hörbuch-Kapitel gemischt, so wie du willst. Leg deine erste an, danach kannst du von jeder Song- oder Album-Seite aus Titel hinzufügen."

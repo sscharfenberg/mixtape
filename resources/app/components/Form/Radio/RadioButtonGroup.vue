@@ -21,6 +21,16 @@ interface RadioButtonOption {
     checked: boolean;
     /** Optional icon name rendered alongside the label. */
     icon?: string;
+    /**
+     * Optional hint explaining what choosing this option means — for a pair whose labels
+     * name a format but not its consequence.
+     *
+     * Applied to the option's `<label>`, which is what `v-tooltip` needs: the directive
+     * listens on `focusin`, so a keyboard user focusing the `<input>` INSIDE that label
+     * still gets it, and the layer adds `aria-describedby` while it is shown. Empty or
+     * absent makes the element inert, so a group without hints costs nothing.
+     */
+    tooltip?: string;
 }
 
 const props = withDefaults(
@@ -52,6 +62,7 @@ const classList = computed(() => ["radio-group", `radio-group--${props.layout}`]
     <ul role="list" :class="classList" :aria-label="t('common.availableOptions')">
         <li v-for="button in radioButtons" :key="button.value" class="radio-group__item">
             <radio-button
+                v-tooltip="button.tooltip"
                 :value="button.value"
                 :name="name"
                 :label="button.label"
