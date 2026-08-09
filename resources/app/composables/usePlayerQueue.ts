@@ -235,6 +235,20 @@ export type UsePlayerQueueReturn = {
     hasNext: ComputedRef<boolean>;
     /** Whether stepping back is possible at all — what the transport's previous button reads. */
     hasPrevious: ComputedRef<boolean>;
+    /**
+     * The track `next()` would load, or null when there is none.
+     *
+     * Correct under shuffle as well as in order, which is the whole reason `shufflePick` exists —
+     * see it. Null exactly when `hasNext` is false, so a caller may use either.
+     */
+    nextTrack: ComputedRef<QueueTrack | null>;
+    /**
+     * The track `previous()` would load, or null when there is none.
+     *
+     * Under shuffle that is the track actually HEARD before this one, not the row above — which
+     * has probably not been played at all. Null exactly when `hasPrevious` is false.
+     */
+    previousTrack: ComputedRef<QueueTrack | null>;
     /** Load the next track, wrapping to the first when repeat is on. Returns false at a hard end. */
     next: () => boolean;
     /** Load the previous track. Returns false when there is nothing behind the loaded one. */
@@ -300,6 +314,23 @@ const shuffle = ref<boolean>(false);
  */
 const shuffleWalk = ref<number[]>([]);
 const shuffleCursor = ref<number>(NOTHING);
+
+/**
+ * The row `next()` will take when it next has to DRAW one — decided ahead of the press.
+ *
+ * IT EXISTS SO THAT "WHAT PLAYS NEXT" CAN BE SHOWN. The draw used to happen inside the press,
+ * which meant there was no next track until you asked for one, and a page promising one could
+ * only have lied. Drawing it when the CURRENT row is recorded instead costs nothing and changes
+ * no statistics: the same bag, the same single draw per step, just made earlier.
+ *
+ * It is a promise, and {@link shuffledNext} keeps it — the row shown is the row that plays,
+ * unless the queue changed underneath in a way that renumbered it, at which point the pick is
+ * forgotten with the walk and redrawn.
+ *
+ * NOTHING when there is nothing to promise: shuffle off, an empty queue, or a finished pass
+ * with repeat off — which is the same condition `hasNext` reports false on.
+ */
+const shufflePick = ref<number>(NOTHING);
 
 /** Guards `hydrate()` against a second run, since FullLayout is mounted once but tests mount it repeatedly. */
 let hydrated = false;
@@ -834,6 +865,10 @@ function asList(input: QueueTrack | QueueTrack[]): QueueTrack[] {
 function resetShuffleWalk(): void {
     shuffleWalk.value = [];
     shuffleCursor.value = NOTHING;
+    // The pick is a row NUMBER drawn against this walk, so it is wrong for exactly the same
+    // reasons and at exactly the same moments. Callers that go on to load a row redraw it
+    // through noteShuffleStep; `clear()` has no row to load and correctly leaves it empty.
+    shufflePick.value = NOTHING;
 }
 
 /**
@@ -851,6 +886,7 @@ function noteShuffleStep(index: number): void {
 
     shuffleWalk.value = [...shuffleWalk.value.slice(0, shuffleCursor.value + 1), index];
     shuffleCursor.value = shuffleWalk.value.length - 1;
+    drawShufflePick();
 }
 
 /** Rows not yet played in this shuffle pass — the pool `next()` draws from. */
@@ -858,6 +894,43 @@ function unplayedIndices(): number[] {
     const played = new Set(shuffleWalk.value);
 
     return tracks.value.map((_, index) => index).filter(index => !played.has(index));
+}
+
+/**
+ * Decide now which row a draw would take, and remember it — see {@link shufflePick}.
+ *
+ * It mirrors {@link shuffledNext}'s draw exactly, including the wrap: at the end of a pass with
+ * repeat on, the next pass excludes the row playing now wherever the queue holds another, so
+ * what is promised is never "this track again". The one case it does NOT cover is a RETRACE,
+ * and it must not — a walk with a path ahead of the cursor already knows what comes next, and
+ * `nextTrack` reads that path directly rather than this pick.
+ *
+ * Called wherever the answer could have changed: every recorded step, an append (which widens
+ * the pool), and repeat being toggled (which is what makes an exhausted pass have a next at
+ * all).
+ */
+function drawShufflePick(): void {
+    if (!shuffle.value || currentIndex.value === NOTHING) {
+        shufflePick.value = NOTHING;
+
+        return;
+    }
+
+    let candidates = unplayedIndices();
+
+    if (candidates.length === 0) {
+        if (!repeat.value) {
+            shufflePick.value = NOTHING;
+
+            return;
+        }
+
+        const others = tracks.value.map((_, index) => index).filter(index => index !== currentIndex.value);
+        candidates = others.length > 0 ? others : tracks.value.map((_, index) => index);
+    }
+
+    shufflePick.value =
+        candidates.length > 0 ? candidates[Math.floor(Math.random() * candidates.length)] : NOTHING;
 }
 
 /**
@@ -911,6 +984,45 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
     );
 
     /**
+     * The track that will play next, which is a different question from whether one exists.
+     *
+     * Under shuffle it answers from two places, and the order matters: a path AHEAD OF THE CURSOR
+     * wins, because after stepping back `next()` retraces what was really heard rather than
+     * drawing — so the pre-drawn pick is only what happens when there is no path to retrace. In
+     * order it is simply the row below, or the first row when repeat is on and this is the last.
+     *
+     * An out-of-range index reads as `undefined` and is normalised to null, which is what makes
+     * `shufflePick`'s NOTHING sentinel fall through to "there is no next track" with no test of
+     * its own.
+     */
+    const nextTrack = computed<QueueTrack | null>(() => {
+        if (currentIndex.value === NOTHING) return null;
+
+        if (!shuffle.value) {
+            if (currentIndex.value < tracks.value.length - 1) return tracks.value[currentIndex.value + 1] ?? null;
+
+            return repeat.value ? (tracks.value[0] ?? null) : null;
+        }
+
+        const retracing = shuffleCursor.value > NOTHING && shuffleCursor.value < shuffleWalk.value.length - 1;
+
+        return retracing
+            ? (tracks.value[shuffleWalk.value[shuffleCursor.value + 1]] ?? null)
+            : (tracks.value[shufflePick.value] ?? null);
+    });
+
+    /** The track behind this one — the walk's previous step under shuffle, the row above in order. */
+    const previousTrack = computed<QueueTrack | null>(() => {
+        if (currentIndex.value === NOTHING) return null;
+
+        if (shuffle.value) {
+            return shuffleCursor.value > 0 ? (tracks.value[shuffleWalk.value[shuffleCursor.value - 1]] ?? null) : null;
+        }
+
+        return currentIndex.value > 0 ? (tracks.value[currentIndex.value - 1] ?? null) : null;
+    });
+
+    /**
      * Replace the queue wholesale and load one of its tracks — the "play this album now"
      * operation.
      *
@@ -946,6 +1058,10 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
         if (wasEmpty) {
             currentIndex.value = 0;
             noteShuffleStep(0);
+        } else {
+            // The walk survives an append, but the POOL just grew — and a pass that had run out
+            // now has somewhere to go, so what is promised has to be reconsidered.
+            drawShufflePick();
         }
         commit("tracks", "position");
     }
@@ -1068,6 +1184,10 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
             return true;
         }
 
+        // READ BEFORE THE RESET BELOW, which clears it: a wrap into a new pass still has to play
+        // the row that was promised, and resetShuffleWalk forgets the promise along with the walk.
+        const promised = shufflePick.value;
+
         let candidates = unplayedIndices();
 
         if (candidates.length === 0) {
@@ -1079,7 +1199,17 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
         }
         if (candidates.length === 0) return false;
 
-        const pick = candidates[Math.floor(Math.random() * candidates.length)];
+        /*
+         * THE PROMISE IS KEPT WHEREVER IT STILL STANDS. `drawShufflePick` decided this row when
+         * the current one loaded, and the Now Playing page has been showing it since — so
+         * re-rolling here would make the page a liar every time. The candidacy test is what makes
+         * that safe rather than blind: a pick that is no longer drawable (the queue changed, the
+         * row was played by a jump) falls back to a fresh draw instead of replaying something.
+         */
+        const pick = candidates.includes(promised)
+            ? promised
+            : candidates[Math.floor(Math.random() * candidates.length)];
+
         currentIndex.value = pick;
         noteShuffleStep(pick);
         commit("position");
@@ -1117,6 +1247,9 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
      */
     function toggleRepeat(): void {
         repeat.value = !repeat.value;
+        // Repeat is what decides whether a finished pass has a next track at all, so the promise
+        // is made or withdrawn here as well as at every step.
+        drawShufflePick();
         commit("position");
     }
 
@@ -1273,6 +1406,8 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
         totalDuration,
         hasNext,
         hasPrevious,
+        nextTrack,
+        previousTrack,
         playNow,
         enqueue,
         playNext,
@@ -1315,6 +1450,7 @@ export function resetPlayerQueueForTests(): void {
     currentIndex.value = NOTHING;
     repeat.value = false;
     shuffle.value = false;
+    shufflePick.value = NOTHING;
     resetShuffleWalk();
     hydrated = false;
 }

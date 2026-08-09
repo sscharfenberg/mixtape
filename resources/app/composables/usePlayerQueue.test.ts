@@ -483,6 +483,194 @@ describe("usePlayerQueue", () => {
         });
     });
 
+    describe("what plays next, before it plays", () => {
+        /*
+         * `nextTrack` / `previousTrack` exist so the Now Playing page can NAME the neighbours of
+         * the loaded track. In order that is arithmetic; under shuffle it is the whole reason
+         * `shufflePick` was added, because the draw used to happen inside the press and there was
+         * nothing to show until you asked.
+         *
+         * The assertion that matters in every shuffle case below is the same one: WHAT WAS SHOWN
+         * IS WHAT PLAYS. A pre-draw that were re-rolled at the press would pass a "there is a next
+         * track" test and still make the page a liar on every single step.
+         */
+
+        /** Always pick the first remaining candidate, so a random draw becomes an assertable one. */
+        const alwaysFirst = () => vi.spyOn(Math, "random").mockReturnValue(0);
+
+        it("names the row below, and the one above", () => {
+            const queue = usePlayerQueue();
+            queue.enqueue([track("a"), track("b"), track("c")]);
+
+            expect(queue.nextTrack.value?.id).toBe("b");
+            expect(queue.previousTrack.value).toBeNull();
+
+            queue.next();
+            expect(queue.previousTrack.value?.id).toBe("a");
+            expect(queue.nextTrack.value?.id).toBe("c");
+        });
+
+        it("has nothing next at the end of an ordered queue, until repeat says otherwise", () => {
+            const queue = usePlayerQueue();
+            queue.enqueue([track("a"), track("b")]);
+            queue.next();
+
+            expect(queue.nextTrack.value).toBeNull();
+
+            queue.toggleRepeat();
+            expect(queue.nextTrack.value?.id).toBe("a");
+        });
+
+        it("plays exactly the track it promised, under shuffle", () => {
+            // The point of the whole mechanism.
+            alwaysFirst();
+            const queue = usePlayerQueue();
+            queue.enqueue([track("a"), track("b"), track("c")]);
+            queue.toggleShuffle();
+
+            const promised = queue.nextTrack.value?.id;
+            expect(promised).toBeDefined();
+
+            queue.next();
+            expect(queue.current.value?.id).toBe(promised);
+        });
+
+        it("plays the promised track even when a re-roll would have picked a different one", () => {
+            /*
+             * THE TEST THAT CAN ACTUALLY FAIL. Every other shuffle assertion here stubs one
+             * `Math.random` for the whole test, so a pre-draw and a re-roll at the press agree by
+             * construction and a broken promise would sail through. Changing the die BETWEEN the
+             * two is what separates them: with four tracks and the loaded row at 0, a draw at 0
+             * takes candidate 1 and a draw at 0.99 takes candidate 3, so honouring the promise and
+             * re-rolling land on visibly different songs.
+             */
+            const queue = usePlayerQueue();
+            queue.enqueue([track("a"), track("b"), track("c"), track("d")]);
+
+            vi.spyOn(Math, "random").mockReturnValue(0);
+            queue.toggleShuffle();
+            const promised = queue.nextTrack.value?.id;
+
+            vi.spyOn(Math, "random").mockReturnValue(0.99);
+            queue.next();
+
+            expect(promised).toBe("b");
+            expect(queue.current.value?.id).toBe(promised);
+        });
+
+        it("keeps promising, and keeps its word, all the way through a pass", () => {
+            alwaysFirst();
+            const queue = usePlayerQueue();
+            queue.enqueue([track("a"), track("b"), track("c"), track("d")]);
+            queue.toggleShuffle();
+
+            while (queue.hasNext.value) {
+                const promised = queue.nextTrack.value?.id;
+                expect(promised).toBeDefined();
+                queue.next();
+                expect(queue.current.value?.id).toBe(promised);
+            }
+
+            // And the pass really did end — the promise is withdrawn rather than left stale.
+            expect(queue.nextTrack.value).toBeNull();
+        });
+
+        it("promises the retrace target after stepping back, not a fresh draw", () => {
+            /*
+             * The precedence that keeps both transport buttons honest: with a path ahead of the
+             * cursor, `next()` replays what was heard. A page reading the pre-draw here would
+             * name a track the press will not play.
+             */
+            alwaysFirst();
+            const queue = usePlayerQueue();
+            queue.enqueue([track("a"), track("b"), track("c")]);
+            queue.toggleShuffle();
+            queue.next();
+
+            const heard = queue.current.value?.id;
+            queue.previous();
+
+            expect(queue.nextTrack.value?.id).toBe(heard);
+            queue.next();
+            expect(queue.current.value?.id).toBe(heard);
+        });
+
+        it("names the track actually heard before this one, not the row above", () => {
+            alwaysFirst();
+            const queue = usePlayerQueue();
+            queue.enqueue([track("a"), track("b"), track("c")]);
+            queue.toggleShuffle();
+
+            const first = queue.current.value?.id;
+            queue.next();
+
+            expect(queue.previousTrack.value?.id).toBe(first);
+        });
+
+        it("never promises the track that is already playing when it wraps", () => {
+            // A wrap draws from a fresh pass, and the row just finished is excluded wherever the
+            // queue holds another — so a promise crossing a pass boundary must respect that too.
+            alwaysFirst();
+            const queue = usePlayerQueue();
+            queue.enqueue([track("a"), track("b")]);
+            queue.toggleShuffle();
+            queue.toggleRepeat();
+
+            // Four steps over a two-track queue crosses two pass boundaries.
+            for (let step = 0; step < 4; step++) {
+                const playing = queue.current.value?.id;
+                const promised = queue.nextTrack.value?.id;
+
+                expect(promised).toBeDefined();
+                expect(promised).not.toBe(playing);
+
+                queue.next();
+                expect(queue.current.value?.id).toBe(promised);
+            }
+        });
+
+        it("withdraws the promise when the queue is emptied", () => {
+            alwaysFirst();
+            const queue = usePlayerQueue();
+            queue.enqueue([track("a"), track("b")]);
+            queue.toggleShuffle();
+            queue.clear();
+
+            expect(queue.nextTrack.value).toBeNull();
+            expect(queue.previousTrack.value).toBeNull();
+        });
+
+        it("redraws after an edit renumbers the rows", () => {
+            /*
+             * The pick is a row NUMBER, so a removal above it names a different song. It is
+             * forgotten with the walk and redrawn — and what it names has to be a track the queue
+             * still holds.
+             */
+            alwaysFirst();
+            const queue = usePlayerQueue();
+            queue.enqueue([track("a"), track("b"), track("c"), track("d")]);
+            queue.toggleShuffle();
+            queue.remove(0);
+
+            const promised = queue.nextTrack.value?.id;
+
+            expect(promised).toBeDefined();
+            expect(queue.tracks.value.map(entry => entry.id)).toContain(promised);
+        });
+
+        it("finds a next again once an append gives an exhausted pass somewhere to go", () => {
+            alwaysFirst();
+            const queue = usePlayerQueue();
+            queue.enqueue([track("a")]);
+            queue.toggleShuffle();
+
+            expect(queue.nextTrack.value).toBeNull();
+
+            queue.enqueue([track("b")]);
+            expect(queue.nextTrack.value?.id).toBe("b");
+        });
+    });
+
     describe("repeating", () => {
         it("is off to begin with, so a queue ends where it ends", () => {
             expect(usePlayerQueue().repeat.value).toBe(false);

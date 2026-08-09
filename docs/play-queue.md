@@ -28,6 +28,7 @@ This file is the client half **as built**.
 | Play-history beacon                              | ✅ 2026-08-07 — [`player.md`](player.md) owns what counts        |
 | A visible failure when a write is refused        | ✅ 2026-08-07 — a warning toast, said once per failure           |
 | Add the whole queue to a playlist                | ✅ 2026-08-09 — the panel's menu, _The panel_ below              |
+| Knowing what plays NEXT under shuffle            | ✅ 2026-08-09 — the pre-draw, _Playing in a random order_ below  |
 
 ## What it is
 
@@ -102,6 +103,29 @@ about.
    begins — excluding the track that just ended wherever the queue holds another, so a wrap never
    immediately replays it. With repeat off, `next()` returns false and the player stops, exactly as it
    does at the end of an ordered queue.
+
+### Drawn one ahead, so it can be shown (2026-08-09)
+
+The draw above used to happen INSIDE the press, which meant there was no next track until somebody
+asked for one — and the Now Playing page, which names it, could only have lied. `shufflePick` now
+holds the row a draw would take, decided when the CURRENT row is recorded, and `shuffledNext()`
+takes it. Same bag, same one draw per step, same distribution: only the moment moved.
+
+Three things make it correct rather than merely earlier:
+
+- **The promise is kept.** The pre-drawn row plays unless it is no longer among the candidates — a
+  queue edit, a jump that played it — in which case it falls back to a fresh draw rather than
+  replaying something.
+- **Retrace still wins.** With a path ahead of the cursor, `next()` replays what was heard, and
+  `nextTrack` reads that path rather than the pick. Otherwise a page would name a track the press
+  would not play.
+- **It is forgotten with the walk.** The pick is a row NUMBER, so every edit that renumbers rows
+  invalidates it for exactly the reasons the table above lists; `resetShuffleWalk` clears it and
+  `noteShuffleStep` redraws it. An APPEND keeps the walk but redraws the pick, because a pass that
+  had run out now has somewhere to go — and `toggleRepeat` redraws for the same reason.
+
+`nextTrack` / `previousTrack` expose the answer to callers, correct in both modes, and null exactly
+when `hasNext` / `hasPrevious` are false.
 
 `previous()` follows the cursor back one step — the track actually **heard** before this one, not the
 row above, which under a random order has probably not played at all. A click in the panel is a
