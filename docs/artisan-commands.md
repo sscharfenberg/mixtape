@@ -14,6 +14,8 @@ and package commands (`migrate`, `queue:work`, …) are not listed here — run
 | [`app:invite`](#appinvite) | Mint a one-time, expiring registration invite link |
 | [`app:update`](#appupdate) | Scan the media library into the database (cleanup + content-hash diff) |
 | [`app:clean`](#appclean) | Delete OS/Samba junk files from the library shares (the cleanup step, standalone) |
+| [`app:encoding`](#appencoding) | Report the library paths a Windows-1252 playlist export cannot name |
+| [`app:playlist`](#appplaylist) | Fill a playlist with random tracks from the scanned library |
 
 ---
 
@@ -225,3 +227,188 @@ error.
 - `app/Console/Commands/Concerns/ResolvesLibraryAreas.php` — `--area` parsing +
   narration shared with `app:update`.
 - `app/Services/Library/LibraryCleanupService.php` — the cleanup logic.
+
+---
+
+## `app:encoding`
+
+Lists the library paths that a **Windows-1252** `.m3u` export cannot name, as a
+Markdown file to work through.
+
+```
+php artisan app:encoding {--area=*} {--output=}
+```
+
+### Why it exists
+
+A playlist can be exported as Windows-1252, which exists for one real reason:
+some car head units render a UTF-8 playlist as mojibake. That encoding covers
+about 250 characters, and `PlaylistExport` writes anything outside them as `?`.
+
+On a path line that is not a cosmetic loss — it is a **dead line**. The player
+looks for a file that cannot exist, and `?` is not even a legal filename
+character on FAT. Nothing in the exporter can rescue it: if a filename holds a
+character the encoding lacks, no byte sequence in a Windows-1252 file can name
+that file. The only fix is to **rename the file**, which is why this reports
+rather than repairs.
+
+The export modal already warns the reader per playlist
+(`resources/app/utils/encoding.ts`, same predicate). This is the other half —
+the owner's view of the **whole collection**, so the handful of offenders can be
+renamed once instead of being warned about forever. On the real collection that
+was 89 paths of 12 074, and they **cluster**: 27 for one band, 23 for another,
+10 for one record. Not 0.7% of every playlist — none of most, and all of a few.
+
+### What it does
+
+Walks the configured library roots (`scan.extensions` only, so artwork and
+sidecars are ignored), tests every **area-relative path** against the encoding,
+and writes a report containing:
+
+1. **Summary** — files scanned, paths that fail, distinct characters, things to
+   rename.
+2. **The characters** — each offender with its code point, Unicode name, how
+   many paths carry it, and what to do about it. Roughly half of what a real
+   collection turns up is **invisible on screen**, so the glyph column is often
+   `—` and the code point is the only handle you get.
+3. **What to rename** — the work list, grouped by path **segment** and ordered
+   by how many files each rename fixes. A bad folder name is one job, not one
+   per track; a name containing an invisible character is reprinted with the
+   offender spelled out (`My Room⟨U+F023⟩.mp3`) so you can see where it sits;
+   and where intl has an ASCII equivalent for every offender, a concrete
+   replacement name is suggested.
+4. **Every affected file** — the full list, so the grouping hides nothing.
+
+> **It reads the filesystem, not the database** — deliberately. Renaming and
+> re-scanning are two steps, and the useful moment to run this is *between* them:
+> you want to know whether the rename you just did was complete, before
+> `app:update` writes the new paths in. Re-running it is how you confirm the list
+> has emptied.
+
+### Arguments & options
+
+| Name | Kind | Default | Meaning |
+| --- | --- | --- | --- |
+| `--area` | option (repeatable) | all | Limit to `music` and/or `audiobooks`. |
+| `--output` | option | `windows-1252-paths.md` in the **current directory** | Where to write the report. A throwaway working file belongs next to whoever ran the command, not in `storage/`. |
+
+### Exit codes
+
+`0` **even when it finds things** — this is a report, not a linter, and a
+collection may legitimately sit with known offenders for as long as its owner
+likes; exiting non-zero would turn a standing list into a nightly cron mail.
+`2` on an unknown `--area`, `1` when the report could not be written (silently
+"succeeding" with no file is the one outcome that would waste real time).
+
+### The workflow
+
+```bash
+php artisan app:encoding          # read windows-1252-paths.md, rename what it lists
+php artisan app:update            # let the database follow — reports the renames as MOVED
+php artisan app:encoding          # confirm the list has emptied
+```
+
+The middle step is the one that is easy to forget, and its absence looks exactly
+like a broken player: until it runs, the database still holds the old paths and
+every file you just renamed is **unplayable**. Because identity is the
+audio-frame hash and not the path, the scan reports renames as *moved* and each
+track keeps its id — so playlists, play counts and share links survive. If it
+reports *new* and *removed* instead, stop and look: a file was not matched.
+
+> **Not every offender needs a new name.** macOS stores filenames decomposed, so
+> `Chèvre` can arrive as `e` + a combining grave. The composed `è` **is** in
+> Windows-1252 and the pair is not, so the same word passes or fails on its
+> normal form alone. The report marks those *precompose only* — the fix changes
+> bytes without changing one visible glyph.
+
+### Related code
+
+- `app/Console/Commands/AuditPathEncoding.php` — the thin command.
+- `app/Services/Library/PathEncodingAudit.php` — the walk and the check. Asks
+  mbstring the same question the exporter does (only the substitute differs), so
+  the two can never disagree; a test pins them together through a real render.
+- `app/Services/Library/PathEncodingAuditResult.php` — the roll-ups (character
+  counts, rename targets).
+- `app/Services/Library/PathEncodingReport.php` — the Markdown document.
+- `app/Services/Playlists/PlaylistExport.php` — the exporter this protects.
+- `resources/app/utils/encoding.ts` — the same check in the browser, for the
+  per-playlist warning in the export modal.
+
+---
+
+## `app:playlist`
+
+Fills a playlist with tracks taken at random from the library that is **actually
+there**.
+
+```
+php artisan app:playlist {name=Testliste} {--user=} {--tracks=12} {--type=music}
+```
+
+### Why it exists
+
+Nothing in the UI adds a track to a playlist yet, so the only ways to get a
+populated one are a seeder or this — and a seeder is useless on any instance
+whose collection is real. `LibrarySeeder`'s tracks are factory rows pointing at
+paths no file was ever written to, so the playlist *looks* right and every row is
+silently unplayable; worse, running `migrate:fresh --seed` on a box that has a
+scanned collection would throw that collection away to fix it. (That seeder is
+switched off in `DatabaseSeeder` for exactly this reason.) This command picks
+from `tracks` instead, so whatever `app:update` found on disk is what lands in
+the playlist, and pressing play really plays.
+
+It is the **temporary half of a feature**: once a song or album page can add to a
+playlist, this stops being the only way to build one. It stays useful for filling
+a long list quickly.
+
+### What it does
+
+1. Validates everything *before* writing anything — an unknown user, an unusable
+   `--type` or an empty library all bail before the playlist is created, so a
+   failed run leaves no half-made playlist behind.
+2. Resolves the owner: `--user` when given, otherwise the only account on the
+   instance, otherwise an interactive picker. It never silently defaults to "the
+   first user" — this box is shared with family and friends, and a command that
+   guessed would occasionally fill a stranger's playlist.
+3. Picks `--tracks` rows `inRandomOrder()`, so two runs give different playlists.
+4. Finds the named playlist for that user, or creates it.
+5. **Appends** them in one transaction and prints the playlist's URL.
+
+> **Nothing here is destructive.** It only ever appends, so running it twice
+> gives a longer playlist rather than a replaced one, and it is safe against a
+> real account's real data. The playlist is matched on `(user_id, name)` — what
+> the account already treats as unique — so a second run tops the same list up
+> rather than failing on the constraint or making "Testliste (2)".
+
+### Arguments & options
+
+| Name | Kind | Default | Meaning |
+| --- | --- | --- | --- |
+| `name` | argument (optional) | `Testliste` | The playlist to fill. Created if the account has none by that name. |
+| `--user` | option | *the only account, or a picker* | Owner's **username** (`users.name`). |
+| `--tracks` | option | `12` | How many tracks to add. Must be ≥ 1. Asking for more than the library holds adds what there is and says so. |
+| `--type` | option | `music` | Which kind to pick: `music`, `audiobook`, or `any`. |
+
+### Examples
+
+```bash
+# 12 random songs into "Testliste", for the only account on the instance
+php artisan app:playlist
+
+# A long audiobook list for a named user
+php artisan app:playlist "Hörproben" --user=Ashaltiriak --tracks=40 --type=audiobook
+```
+
+### Exit codes
+
+`2` on an unusable `--type` or `--tracks` below 1; `1` when the user cannot be
+resolved (unknown name, or no accounts at all) or the library has nothing of the
+requested kind; `0` otherwise.
+
+### Related code
+
+- `app/Console/Commands/FillPlaylist.php` — the command (all of it; there is no
+  service, because there is no second caller).
+- `lang/{de,en}/playlist_command.php` — its console strings.
+- `database/seeders/LibrarySeeder.php` — the seeder this exists instead of, and
+  why it is switched off.

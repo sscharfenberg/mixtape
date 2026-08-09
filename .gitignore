@@ -68,3 +68,9 @@ Thumbs.db
 # target literally, so a host-named directory would leak the host name into this
 # tracked file — the exact thing the rule exists to prevent.
 docs/host.local/
+
+# `php artisan app:encoding` writes its report next to wherever it was run, which is
+# usually here. It is a throwaway working file — a list of paths to rename, re-generated
+# whenever you want it — and it would otherwise show up as an untracked file in the
+# changed-files view this project deploys from.
+windows-1252-paths.md
