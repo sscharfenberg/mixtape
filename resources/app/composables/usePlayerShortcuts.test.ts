@@ -4,6 +4,7 @@ import { usePlayerQueue } from "Composables/usePlayerQueue";
 import { usePlayerShortcuts } from "Composables/usePlayerShortcuts";
 import { resetPlayerSpeedForTests, usePlayerSpeed } from "Composables/usePlayerSpeed";
 import { usePlayerVolume } from "Composables/usePlayerVolume";
+import { resetPlayQueuePanelForTests, usePlayQueuePanel } from "Composables/usePlayQueuePanel";
 import { resetInertia } from "Testing/inertia";
 
 vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
@@ -111,6 +112,9 @@ describe("usePlayerShortcuts", () => {
         audioElement.play = vi.fn().mockResolvedValue(undefined);
         audioElement.pause = vi.fn();
 
+        // Module state like the queue's own, so the panel a Q test opened would otherwise
+        // still be open in the next file that asks.
+        resetPlayQueuePanelForTests();
         resetPlayerSpeedForTests();
         usePlayerAudio().attach(audioElement);
         usePlayerVolume().setVolume(0.5);
@@ -297,6 +301,25 @@ describe("usePlayerShortcuts", () => {
             press("M", { shiftKey: true });
 
             expect(usePlayerVolume().isMuted.value).toBe(true);
+        });
+
+        it("shows and hides the queue panel from Q — the one key here that moves no audio", () => {
+            expect(usePlayQueuePanel().isOpen.value).toBe(false);
+
+            press("q");
+            expect(usePlayQueuePanel().isOpen.value).toBe(true);
+
+            press("Q", { shiftKey: true });
+            expect(usePlayQueuePanel().isOpen.value).toBe(false);
+        });
+
+        it("leaves Q alone in a text field, or a queue name could not be typed", () => {
+            const input = document.createElement("input");
+            document.body.append(input);
+
+            press("q", {}, input);
+
+            expect(usePlayQueuePanel().isOpen.value).toBe(false);
         });
     });
 

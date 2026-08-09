@@ -206,6 +206,25 @@ test.describe("the player's keyboard shortcuts", () => {
         await expect(hud).toBeHidden({ timeout: 5_000 });
     });
 
+    test("shows and hides the queue panel with Q, in the browser's own top layer", async ({ page }) => {
+        /*
+         * The one shortcut that moves no audio, and the only part of it Vitest cannot see:
+         * the flag it flips is read by a watcher that calls `showPopover()` on a native
+         * `[popover]`. Being OPEN is therefore a browser fact — the element is promoted into
+         * the top layer — rather than a class this app applies, and `showPopover()` on an
+         * already-showing popover throws, which is exactly the state a stuck flag produces.
+         */
+        const layer = page.locator(".play-queue-layer");
+        await expect(layer).toBeHidden();
+
+        await page.keyboard.press("KeyQ");
+        await expect(layer).toBeVisible();
+        expect(await layer.evaluate(element => element.matches(":popover-open"))).toBe(true);
+
+        await page.keyboard.press("KeyQ");
+        await expect(layer).toBeHidden();
+    });
+
     test("takes nothing from a password field, so a space in a passphrase is just a space", async ({ page }) => {
         /*
          * The case the owner raised. A real form, a real password input, a real space.

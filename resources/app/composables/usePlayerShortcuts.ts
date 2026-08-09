@@ -43,6 +43,11 @@
  * scrolls the page exactly as it always did. That is not incidental: an app that quietly
  * stops Space from scrolling, on every page, forever, would be a worse bug than any of the
  * ones above.
+ *
+ * That scoping is also what lets `Q` live here rather than in a keymap of its own. It shows
+ * and hides the QUEUE PANEL — no audio moves — and the panel is drawn only for a queue with
+ * something in it, which is the same condition that mounts the bar. So the one key that is
+ * not about playback is still bound exactly when it has something to do.
  *****************************************************************************/
 import type { Ref } from "vue";
 import { ref } from "vue";
@@ -50,6 +55,7 @@ import { usePlayerAudio } from "Composables/usePlayerAudio";
 import { usePlayerQueue } from "Composables/usePlayerQueue";
 import { usePlayerSpeed } from "Composables/usePlayerSpeed";
 import { usePlayerVolume } from "Composables/usePlayerVolume";
+import { usePlayQueuePanel } from "Composables/usePlayQueuePanel";
 import { isInteractive, isTextEntry } from "Utils/interactive";
 
 /** What a caller gets: the skim flag to draw, and the two lifecycle calls. */
@@ -113,6 +119,7 @@ export function usePlayerShortcuts(): UsePlayerShortcutsReturn {
     const queue = usePlayerQueue();
     const volume = usePlayerVolume();
     const rate = usePlayerSpeed();
+    const panel = usePlayQueuePanel();
 
     /**
      * Whether this event is the player's to act on.
@@ -207,6 +214,9 @@ export function usePlayerShortcuts(): UsePlayerShortcutsReturn {
      * because stepping is the rarer intent and the arrows are the obvious home for both.
      * The letters are aliases for the same actions, for a keyboard (or a listener) that
      * would rather not reach for Space and the arrows at all.
+     *
+     * …with one exception: `Q` is not an alias for anything, because the queue panel has no
+     * other key. It is the only shortcut here that touches the VIEW rather than the audio.
      */
     function onKeydown(event: KeyboardEvent): void {
         // Space and the arrows are the ones a focused control would otherwise consume.
@@ -271,6 +281,14 @@ export function usePlayerShortcuts(): UsePlayerShortcutsReturn {
                 break;
             case "r":
                 queue.toggleRepeat();
+                break;
+            // The only key here that moves no audio: it shows and hides the QUEUE PANEL, which
+            // is the one player surface a listener otherwise has to reach the header for. It
+            // belongs in this keymap all the same — the panel exists exactly when the bar that
+            // binds these listeners does, and `N`/`P` are far more useful once you can see what
+            // they are stepping through.
+            case "q":
+                panel.toggle();
                 break;
             default:
                 break;

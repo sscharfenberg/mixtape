@@ -420,9 +420,16 @@ page load quiet.
 | `↑` / `↓`          | volume ±5 % — the level shows in the middle of the screen |
 | `M`                | mute                                             |
 | `S` / `R`          | shuffle / repeat                                 |
+| `Q`                | show / hide the queue panel                      |
 
 Media keys, the lock screen and a car head unit were already wired (`mediaSession.ts`) and are
 unaffected — this is for a keyboard without transport keys.
+
+`Q` is the only key here that moves no audio, and the only one that is not an alias for
+something else — the queue panel has no other shortcut. It earns its place in *this* keymap
+because the listener is bound exactly when the panel can be drawn: FullLayout mounts the bar on
+`v-if="current"`, and a queue with a current track is a queue with something to show. `N` / `P`
+are also much more useful once you can see what they are stepping through.
 
 The skim is RELATIVE to the chosen speed (see *Playback speed* above), so a listener at 3× skims
 at 6× and lands back on 3× rather than on 1×.
