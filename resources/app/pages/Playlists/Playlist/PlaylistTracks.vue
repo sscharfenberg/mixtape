@@ -33,11 +33,22 @@
  * the whole playlist as one, since every entry of it is on screen anyway), so the button acts
  * on the objects in hand.
  *
- * THE TITLE IS THE LINK, not the row — and that is forced rather than chosen. A DataTable row
- * and a Discography tile can make the whole box the click target; this row holds a grip and a
- * button, and an <a> may not contain interactive content (the same constraint the playlists
- * listing works around with a stretched `::after`, which is unavailable here for exactly the
- * same reason — it would swallow both controls). So the title alone navigates.
+ * THE WHOLE ROW IS THE LINK, which is why the markup looks the way it does. An <a> cannot
+ * wrap the row — it holds a grip and a button, and an <a> may not contain interactive content
+ * — so the title's anchor covers the row with a stretched `::after` instead, and the two real
+ * controls are lifted back above that overlay. The playlists listing solves the same problem
+ * the same way.
+ *
+ * It was the TITLE alone at first, and that was wrong in a way only the owner hovering it
+ * found: the row lights up under the pointer along its whole width, so it promises a target
+ * it did not have — everywhere but the words themselves there was no pointer cursor and
+ * nothing to click. Either the promise or the glow had to go, and a listing whose rows are
+ * clickable is what every other listing here does.
+ *
+ * The title therefore no longer underlines on hover: the row is already the target and
+ * already says so, which is the same rule the Songs table's title cell follows. Only FOCUS
+ * draws anything, and it draws a ring around the whole row rather than under the words —
+ * the words are not what gets activated.
  *
  * REORDERING lives in usePlaylistTrackReorder, which owns the optimistic local order and the
  * PUT that persists it; this file supplies the grip, the keyboard handler and the classes.
@@ -160,6 +171,11 @@ function playFrom(index: number): void {
                 <cover-image :src="track.coverUrl" :title="track.name" size="xsmall" decorative />
             </span>
 
+            <!-- The row's NAVIGATION, and the WHOLE ROW is its target: the anchor stretches a
+                 `::after` over the row rather than wrapping it, since it may not contain the
+                 grip or the button. So aiming at a fact chip, the artwork or the empty space
+                 between them opens the song too. `prefetch` warms that page on hover, as
+                 every other listing does. -->
             <Link :href="track.href" class="playlist-tracks__name" prefetch>{{ track.name }}</Link>
 
             <!-- One chip per fact, each dropped rather than shown empty when the tags don't
@@ -203,6 +219,7 @@ function playFrom(index: number): void {
 @use "Abstracts/mixins" as m;
 @use "Abstracts/sizes" as s;
 @use "Abstracts/timings" as ti;
+@use "Abstracts/z-indexes" as z;
 
 /* A column of rows, at every width — see the banner for why this never becomes a grid. The UA
    marker and padding go (normalize.css leaves lists alone). */
@@ -229,8 +246,10 @@ function playFrom(index: number): void {
    partial). */
 .playlist-tracks__item {
     display: flex;
+    position: relative; // positioning context for the stretched link and the hover glow
     align-items: center;
     flex-wrap: wrap;
+    isolation: isolate; // keep the controls' rung contained to this row
 
     box-sizing: border-box;
 
@@ -255,12 +274,10 @@ function playFrom(index: number): void {
 
        `:focus-within` as well as `:hover`, which the card one tab away does not need: this row
        holds real controls, so it can be reached by keyboard without a pointer ever touching
-       it. `position: relative` so the glow paints above the neighbouring rows rather than
-       under them. */
+       it. The row is positioned at all times (see above), which is also what keeps this glow
+       painting above its neighbours rather than under them. */
     &:hover,
     &:focus-within {
-        position: relative;
-
         background-color: map.get(c.$c-playlist-tracks, "hover-background");
         box-shadow:
             0 0 0.6em 0.1em map.get(c.$c-playlist-tracks, "glow"),
@@ -292,10 +309,22 @@ function playFrom(index: number): void {
     }
 }
 
+/* …and the two real controls are lifted back above the overlay. A POSITION IS REQUIRED, not
+   just a z-index: the overlay is positioned, so it paints above every non-positioned
+   descendant of the same stacking context regardless of DOM order, and without this it would
+   silently swallow both — the row would navigate while neither control could be pressed.
+   Exactly the trap the playlists listing and the play queue's row both document. */
+.playlist-tracks__handle,
+.playlist-tracks__play {
+    position: relative;
+    z-index: z.$c-playlist-tracks;
+}
+
 /* THE REORDER GRIP, leading the row at every width. `grab` is the whole reason the cursor is
-   declared here rather than inherited: the rest of the row reads, this strip moves it. The
-   padding is what makes it findable — an icon with nothing beside it is a 19px target
-   otherwise, which is the problem the play queue's grip solved by widening its own strip.
+   declared here rather than inherited: the rest of the row opens the song and says `pointer`,
+   this strip moves it. The padding is what makes it findable — an icon with nothing beside it
+   is a 19px target otherwise, which is the problem the play queue's grip solved by widening
+   its own strip.
 
    A wash even at rest, so the grab area is VISIBLE rather than implied by a floating glyph;
    the same call the listing's handle makes, and deliberately weaker than the active fill so
@@ -360,11 +389,18 @@ function playFrom(index: number): void {
    wrapping inside the row instead of pushing the button off its edge. The same flex trap the
    player bar's meta column and the queue row both document.
 
-   NOT the app's `.text-link` treatment, and underlined only on hover or focus: the house rule
-   every listing follows (see the Songs table's title cell). A permanent underline under the
-   bold title of every row is a page of ruled lines, and the row already lights up under the
-   pointer — but it is more load-bearing here than in a DataTable, where the whole row is the
-   click target, because here this is the only thing that navigates at all. */
+   IT DOES NOT LOOK LIKE A LINK, and no longer underlines on hover: the whole row is the
+   target and the row's own glow already says so, which is the rule every listing here follows
+   (see the Songs table's title cell). An underline would also be pointing at the wrong thing
+   — the words are not what gets activated.
+
+   THE OVERLAY IS WHAT MAKES THE ROW CLICKABLE. An <a> cannot wrap this row, holding as it does
+   a grip and a button, so it stretches a positioned `::after` over it instead. `inset: 0`
+   resolves against `.playlist-tracks__item`, which is what its `position: relative` is for;
+   the radius matches so the focus ring traces the row's rounded corners rather than a
+   rectangle around them. Everything else in the row stays UNDER this overlay on purpose, so
+   aiming at a fact chip or the artwork opens the song; the two real controls are lifted back
+   above it below. */
 .playlist-tracks__name {
     overflow-wrap: anywhere;
     min-width: 0;
@@ -375,9 +411,25 @@ function playFrom(index: number): void {
     font-weight: bold;
     text-decoration: none;
 
-    &:hover,
+    &::after {
+        position: absolute;
+        inset: 0;
+
+        border-radius: map.get(s.$c-playlist-tracks, "radius");
+
+        content: "";
+    }
+
+    /* The focus ring goes on the OVERLAY, not the anchor: the anchor is only as wide as its
+       title, so a ring on it would trace the words while the thing being activated is the
+       whole row. `:focus-visible` so a pointer click doesn't draw one. */
     &:focus-visible {
-        text-decoration: underline;
+        outline: 0;
+
+        &::after {
+            outline: 2px solid currentcolor;
+            outline-offset: -2px;
+        }
     }
 }
 

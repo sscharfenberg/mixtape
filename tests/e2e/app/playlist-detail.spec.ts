@@ -54,12 +54,36 @@ const REORDERABLE = "Umsortieren";
 /** How many entries the populated playlists hold — E2ESeeder::PLAYLIST_TRACKS. */
 const ENTRIES = 7;
 
+/**
+ * Wait out the page-to-page VIEW TRANSITION, without which raw pointer events go nowhere.
+ *
+ * main.ts opts every navigation into the View Transitions API, and while one is running the
+ * browser paints `::view-transition-*` — a pseudo-element tree belonging to the ROOT — over
+ * the whole page in the top layer. Hit testing lands on that, so `elementFromPoint` returns
+ * the <html> element at every coordinate on the page, including one squarely inside a row.
+ *
+ * Locator actions ride this out on their own: `click()` and `hover()` retry until the element
+ * actually receives pointer events. Anything driven through `page.mouse` does NOT — it fires
+ * once, into the snapshot, and nothing happens. That cost an hour twice over, first as a drag
+ * that silently refused to start and then as a click on a row that plainly had a link under
+ * it, both presenting as broken features rather than as mis-timed input.
+ *
+ * Polled on the symptom rather than on `:active-view-transition`, because the symptom is the
+ * precondition the callers actually need: that a coordinate on this page hits something.
+ */
+const settled = async (page: Page): Promise<void> => {
+    await expect
+        .poll(() => page.evaluate(() => document.elementFromPoint(4, 4)?.tagName ?? "NONE"))
+        .not.toBe("HTML");
+};
+
 /** Open a playlist by name, the way a reader does: from the listing. */
 const openFromListing = async (page: Page, name: string): Promise<void> => {
     await page.goto("/playlists");
     await page.locator("li.playlist", { hasText: name }).locator("a.playlist__link").click();
     await page.waitForURL(/\/playlists\/[0-9a-f-]{36}$/u);
     await expect(page.getByRole("heading", { level: 2, name })).toBeVisible();
+    await settled(page);
 };
 
 /** The rows' titles, top to bottom. Waits for the count first — `allTextContents` does not retry. */
@@ -157,14 +181,53 @@ test.describe("a playlist's detail page", () => {
         await expect(tagged.locator(".playlist-tracks__fact:visible")).toHaveCount(4);
     });
 
-    test("opens the song a row's title links to", async ({ page }) => {
-        // The row itself cannot be the link — it holds a grip and a button, and an <a> may not
-        // contain interactive content — so the title is the only thing that navigates.
+    test("opens the song from the title", async ({ page }) => {
         await openFromListing(page, POPULATED);
         await page.locator(".playlist-tracks__name").first().click();
 
         await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}$/u);
         await expect(page.getByRole("heading", { level: 2, name: "Karma Police" })).toBeVisible();
+    });
+
+    test("opens the song from anywhere else in the row, including its padding", async ({ page }) => {
+        /*
+         * The row lights up along its whole width, so it has to BE a target along its whole
+         * width — it promised one and did not have it, which is how the owner found this:
+         * outside the words there was no pointer cursor and nothing to click.
+         *
+         * Aimed at the row's trailing padding, a few pixels inside its edge and clear of every
+         * child, so this fails if the stretched overlay is missing rather than passing on some
+         * child that happens to sit under the pointer.
+         */
+        await openFromListing(page, POPULATED);
+
+        // `position` on the ROW, two pixels into its padding box — left of the grip and clear
+        // of every child, so this fails if the stretched overlay is missing rather than
+        // passing on whatever happens to sit under the pointer. A locator click rather than
+        // `page.mouse`, which also makes Playwright verify the row really receives a pointer
+        // event there (its hit target is the overlay, a descendant, which satisfies the check).
+        await page.locator(".playlist-tracks__item").first().click({ position: { x: 2, y: 20 } });
+
+        await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}$/u);
+        await expect(page.getByRole("heading", { level: 2, name: "Karma Police" })).toBeVisible();
+    });
+
+    test("keeps the two controls out of that overlay", async ({ page }) => {
+        /*
+         * The other half of a stretched link, and the one that breaks silently: the overlay is
+         * positioned, so it paints above every non-positioned descendant whatever the DOM
+         * order — get the rung wrong and the row navigates instead of the button firing. Only
+         * a real click can tell, since the markup is identical either way.
+         */
+        await openFromListing(page, POPULATED);
+        const url = page.url();
+
+        await page.locator(".playlist-tracks__handle").first().click();
+        expect(page.url()).toBe(url);
+
+        await page.locator(".playlist-tracks__play").first().click();
+        await expect(page.locator(".player-bar")).toBeVisible();
+        expect(page.url()).toBe(url);
     });
 
     test("says so when the playlist is empty, and still stands the hero up", async ({ page }) => {
@@ -292,14 +355,15 @@ test.describe("a playlist's detail page", () => {
             const rows = page.locator(".playlist-tracks__item");
 
             /*
-             * THE GRAB IS `hover()`, NOT `mouse.move()` TO A BOUNDING BOX, and that is the
-             * whole reason this test works. A box read from `boundingBox()` and replayed
-             * through `page.mouse` put the pointer where nothing was hit-testable —
-             * `elementsFromPoint` at those exact coordinates returned the <html> element while
-             * `getBoundingClientRect()` on the grip reported the very same rectangle. Sortable
-             * then never saw a mousedown on a handle and the list simply did not move, which
-             * reads as a broken feature rather than as a mis-aimed gesture. `hover()` resolves
-             * and scrolls to the element itself, so the press lands on the grip.
+             * THE GRAB IS `hover()`, NOT `mouse.move()` TO A BOUNDING BOX. A box read from
+             * `boundingBox()` and replayed through `page.mouse` fired into the VIEW TRANSITION
+             * still covering the page — see `settled()` — so Sortable never saw a mousedown on
+             * a handle and the list simply did not move.
+             *
+             * `openFromListing` now waits that out, which makes raw coordinates workable here
+             * again; `hover()` stays because it is the better tool regardless. It resolves and
+             * scrolls to the element and re-checks that the element is what receives the press,
+             * where a replayed rectangle only hopes so.
              */
             await rows.nth(2).locator(".playlist-tracks__handle").hover();
             await page.mouse.down();

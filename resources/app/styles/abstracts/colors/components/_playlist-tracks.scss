@@ -22,6 +22,9 @@
  * whose edges you cannot see is one you aim at by guesswork, on a phone especially. It is
  * deliberately weaker than the active fill (the same pair at a heavier alpha), so the two
  * read as one surface waking up rather than as two different controls.
+ *
+ * That wash goes in OPPOSITE DIRECTIONS per theme — see the token itself. The short of it:
+ * on a near-black row there is no headroom to lift into, so the control sinks instead.
  * Consumed as c.$c-playlist-tracks via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
@@ -58,15 +61,24 @@ $playlist-tracks: (
     // the grip and the play button: quiet at rest (see above), neon when live
     "control": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
     "control-active": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
-    // the wash under one at rest, so its edges are visible rather than implied — and the
-    // heavier version of the same pair when it is live
+    // The wash under one at rest, so its edges are visible rather than implied.
+    //
+    // THE TWO THEMES GO OPPOSITE WAYS, and the dark side is the one that had to be fixed:
+    // `bunker` at half alpha over an `ebony` row is a lift of a few points of lightness,
+    // which is invisible — the control read as part of the row rather than as something to
+    // press. So dark goes DOWN instead, to `black`: on a near-black row the only direction
+    // with any contrast left is darker, and a control that sinks into the surface reads as
+    // a well to press into. Light keeps lifting, where there is headroom above `astral` and
+    // a darker patch would read as a hole punched in the row.
     "control-background": light-dark(
-            color.adjust(map.get(c.$grey, "mystic"), $alpha: -0.6),
-            color.adjust(map.get(c.$grey, "bunker"), $alpha: -0.5)
+            color.adjust(map.get(c.$grey, "iron"), $alpha: -0.65),
+            color.adjust(map.get(c.$grey, "black"), $alpha: -0.35)
         ),
+    // …and the same idea harder when it is live, so the two read as one surface waking up
+    // rather than as two different controls. Dark keeps sinking, light keeps lifting.
     "control-background-active": light-dark(
-            color.adjust(map.get(c.$grey, "mystic"), $alpha: -0.3),
-            color.adjust(map.get(c.$grey, "bunker"), $alpha: -0.3)
+            color.adjust(map.get(c.$grey, "iron"), $alpha: -0.35),
+            color.adjust(map.get(c.$grey, "black"), $alpha: -0.1)
         ),
     // the row's ink, restated on the drag clone — it is appended to <body>, so it inherits
     // nothing from the page it came off

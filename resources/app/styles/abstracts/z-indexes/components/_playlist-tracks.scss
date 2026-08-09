@@ -1,0 +1,19 @@
+/******************************************************************************
+ * contextual z-index token — component:PlaylistTracks.vue
+ * @type {Sass}
+ * The rung for the two controls a playlist row has to lift above its own stretched link.
+ *
+ * The whole row is clickable, done the only way an <a> can cover a box it does not wrap: a
+ * positioned `::after` spread over the row. Being positioned, that overlay paints above
+ * every non-positioned descendant of the same stacking context whatever the DOM order — so
+ * the grip and the play button each need a rung of their own, or the row would navigate
+ * while neither of them could be pressed. Exactly the trap the playlists listing and the
+ * play queue's row both document.
+ *
+ * "raised" is enough, because the overlay itself takes no z-index (rung 0).
+ * Consumed as z.$c-playlist-tracks via `@use "Abstracts/z-indexes" as z;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-z-index-tokens" as z;
+
+$playlist-tracks: map.get(z.$scale, "raised") !default;
