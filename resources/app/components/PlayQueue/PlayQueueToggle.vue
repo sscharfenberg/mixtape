@@ -20,11 +20,22 @@
  * it sits beside the site and user menus as a peer — it is not a popover trigger,
  * but it is the same kind of round header control, and the alternative was a
  * second set of tokens saying the same thing.
+ *
+ * THE TOOLTIP NAMES THE KEY, the transport's convention (`withKey`): a control's
+ * job, then the shortcut that does the same thing. It is the only place `Q` is
+ * discoverable at all — the panel has no other affordance advertising it — which
+ * is why this button has one where the header's other round controls do not.
+ *
+ * IT SAYS "TOGGLE", NOT WHAT THE NEXT PRESS DOES, unlike the `aria-label` beside
+ * it. The label flips with the state because a screen reader should hear what
+ * pressing will do NOW; the tooltip names the key, and a key that toggles is
+ * described once rather than re-read every time the panel opens.
  **************************************************************************/
 import { useI18n } from "vue-i18n";
 import Icon from "Components/UI/Icon.vue";
 import { usePlayerQueue } from "Composables/usePlayerQueue";
 import { usePlayQueuePanel } from "Composables/usePlayQueuePanel";
+import { withKey } from "Utils/platform";
 
 const { t } = useI18n();
 const { isEmpty } = usePlayerQueue();
@@ -38,6 +49,7 @@ const { isOpen, toggle } = usePlayQueuePanel();
         class="play-queue-toggle popover-button popover-button--rounded popover-button--subtle"
         :class="{ 'popover-button--open': isOpen }"
         :aria-expanded="isOpen"
+        v-tooltip="withKey(t('player.queue.toggleHint'), t('player.bar.keys.queue'))"
         :aria-label="isOpen ? t('player.queue.hide') : t('player.queue.show')"
         @click="toggle"
     >

@@ -68,7 +68,7 @@
  * so this is a settled trade, not an oversight. If the route is ever wanted back it
  * belongs in a per-row menu, never on the title.
  *****************************************************************************/
-import { computed, useTemplateRef, watch } from "vue";
+import { computed, ref, useTemplateRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import PlayQueueMenu from "Components/PlayQueue/PlayQueueMenu.vue";
 import QueueList from "Components/PlayQueue/QueueList.vue";
@@ -93,6 +93,20 @@ const PEEK_MS = 3000;
 
 /** Pending auto-close. Its presence is also what marks the panel as "open because of a peek". */
 let peekTimer: ReturnType<typeof setTimeout> | undefined;
+
+/**
+ * Whether THIS opening is a peek — the reactive half of `peekTimer`, for the styles.
+ *
+ * THE PANEL HAS TWO ENTRANCES AND THEY MEAN DIFFERENT THINGS. A press of the header toggle is a
+ * request: the reader asked, so the panel should arrive and get out of the way. A peek is an
+ * ANNOUNCEMENT — nobody asked, it appeared to say something was added — and there a little more
+ * motion is doing real work rather than decorating. So the wipe is the same either way and the
+ * peek adds a light down the panel's inner edge (see the styles).
+ *
+ * A ref rather than reading `peekTimer` directly, because a plain `let` is not reactive and a
+ * class bound to it would never update.
+ */
+const peeking = ref(false);
 
 /** The popover element itself, so its state can be driven and read. */
 const layer = useTemplateRef<HTMLElement>("layer");
@@ -130,6 +144,8 @@ function apply(open: boolean): void {
 function keepOpen(): void {
     clearTimeout(peekTimer);
     peekTimer = undefined;
+    // Once the reader has touched it, this is their panel and not an announcement any more.
+    peeking.value = false;
 }
 
 /**
@@ -149,10 +165,12 @@ watch(
         if (now <= before) return;
         if (isOpen.value && peekTimer === undefined) return;
 
+        peeking.value = true;
         open();
         clearTimeout(peekTimer);
         peekTimer = setTimeout(() => {
             peekTimer = undefined;
+            peeking.value = false;
             close();
         }, PEEK_MS);
     }
@@ -219,7 +237,14 @@ watch(
 </script>
 
 <template>
-    <div v-if="!isEmpty" ref="layer" class="play-queue-layer" popover="auto" @toggle="handleToggle">
+    <div
+        v-if="!isEmpty"
+        ref="layer"
+        class="play-queue-layer"
+        :class="{ 'play-queue-layer--peek': peeking }"
+        popover="auto"
+        @toggle="handleToggle"
+    >
             <aside
                 class="play-queue"
                 :aria-label="t('player.queue.label')"
@@ -312,6 +337,91 @@ $bleed: map.get(s.$c-play-queue, "padding");
     pointer-events: none;
     margin-block: 0;
     margin-inline: auto;
+
+    /* THE LAYER ITSELF NEVER MOVES — it is a coordinate system, not a surface, and animating a
+       full-viewport box would animate nothing anybody can see. These two exist only so the PANEL
+       inside it survives its own exit: closing a popover yanks it out of the top layer and sets
+       `display: none` on the same frame, which cuts the wipe off mid-gesture. `allow-discrete`
+       holds both until the transition below has finished.
+
+       Declared here rather than under `:popover-open`, because a discrete transition has to be
+       described in the state being left as well as the one being entered.
+
+       Same pairing the popover's own content uses (styles/components/popover/_content.scss),
+       split across two elements: the discrete half on the element whose display toggles, the
+       visual half on the one that is actually seen. */
+    @media (prefers-reduced-motion: no-preference) {
+        transition:
+            display map.get(ti.$c-play-queue-panel, "wipe") allow-discrete,
+            overlay map.get(ti.$c-play-queue-panel, "wipe") allow-discrete;
+    }
+}
+
+/* Open. `@starting-style` is what gives the wipe a from-value at all: the panel is not merely
+   hidden while the popover is shut, it is NOT RENDERED (the UA's `[popover]:not(:popover-open)`
+   is `display: none`), so without it the first style the panel ever has is the finished one and
+   nothing transitions. The exit needs no equivalent — the base rule above is the from-value going
+   back. */
+.play-queue-layer:popover-open .play-queue {
+    @media (prefers-reduced-motion: no-preference) {
+        clip-path: inset(0);
+
+        @starting-style {
+            clip-path: inset(0 0 0 100%);
+        }
+    }
+}
+
+/* THE PEEK'S EXTRA: a light running down the panel's inner edge, once. It is the difference
+   between the two entrances — a press of the toggle is a request and should get out of the way,
+   a peek is an announcement that nobody asked for and has something to say. Only the peek gets
+   it, so the deliberate open stays calm.
+
+   A gradient bar translated down, rather than an animated gradient with `@property`: one
+   composited transform beats repainting a gradient sixty times a second, on an element that
+   appears this often. `pointer-events: none` because it sits over the rows. */
+.play-queue-layer--peek:popover-open .play-queue::after {
+    @media (prefers-reduced-motion: no-preference) {
+        position: absolute;
+        inset-inline-start: 0;
+        inset-block: 0;
+        z-index: 1;
+
+        width: map.get(s.$c-play-queue, "sweep");
+
+        background: linear-gradient(
+            to bottom,
+            transparent,
+            map.get(c.$c-play-queue, "current-glow"),
+            transparent
+        );
+
+        content: "";
+
+        pointer-events: none;
+
+        animation: play-queue-sweep map.get(ti.$c-play-queue-panel, "sweep") ease-out;
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    @keyframes play-queue-sweep {
+        0% {
+            opacity: 0;
+
+            transform: translateY(-100%);
+        }
+
+        25% {
+            opacity: 1;
+        }
+
+        100% {
+            opacity: 0;
+
+            transform: translateY(100%);
+        }
+    }
 }
 
 /* The panel itself, pinned to the layer's trailing edge, and FULL HEIGHT AT EVERY
@@ -355,6 +465,25 @@ $bleed: map.get(s.$c-play-queue, "padding");
     color: map.get(c.$c-play-queue, "surface");
 
     pointer-events: auto;
+
+    /* A WIPE, NOT A SLIDE. The panel is revealed from the edge it is pinned to rather than
+       travelling in from off-screen: nothing translates, the rows are already in place as the
+       clip uncovers them, and there is no long journey to sit through on the twentieth repeat —
+       which matters here more than anywhere, because the peek opens this panel by itself every
+       time the queue grows.
+
+       `inset(0 0 0 100%)` insets the LEFT edge fully, leaving zero width at the right — so the
+       panel grows leftwards out of the trailing edge it lives on. Physical rather than logical
+       because `inset()` has no logical form; in an RTL locale this would want the mirror, and
+       this app ships de and en.
+
+       Not a `slide` and not `scaleX`: scaling squashes every glyph in the panel on the way in,
+       which is the cheap-CSS tell. */
+    @media (prefers-reduced-motion: no-preference) {
+        clip-path: inset(0 0 0 100%);
+
+        transition: clip-path map.get(ti.$c-play-queue-panel, "wipe") ease-out;
+    }
 
     &__header {
         display: flex;

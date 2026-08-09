@@ -43,6 +43,7 @@ import { usePlayerAudio } from "Composables/usePlayerAudio";
 import { usePlayerQueue } from "Composables/usePlayerQueue";
 import { usePlayerShortcuts } from "Composables/usePlayerShortcuts";
 import { usePlayerSpeed } from "Composables/usePlayerSpeed";
+import { withKey } from "Utils/platform";
 
 const { t } = useI18n();
 // `hasNext` / `hasPrevious` come FROM the queue rather than being derived here, and that
@@ -63,19 +64,6 @@ const { effectiveRate } = usePlayerSpeed();
 
 /** The bar element, measured to publish its height. */
 const barRef = ref<HTMLElement | null>(null);
-
-/**
- * A control's tooltip: what it does, then the key that does the same thing.
- *
- * The two halves come from the catalog separately because only the first is a sentence a
- * translator should be rewriting — "⇧→" is the same on every keyboard this app speaks to.
- * Joining them here rather than storing three combined strings means the parenthesis shape
- * is written once, and adding a key to a control is a call site rather than a new key.
- *
- * A plain function, not a computed: it takes arguments, and `t` is reactive, so the
- * template re-renders these on a locale switch anyway.
- */
-const withKey = (label: string, key: string): string => `${label} (${key})`;
 
 /** The one element in the app that makes sound. Handed to usePlayerAudio on mount. */
 const audioRef = ref<HTMLAudioElement | null>(null);

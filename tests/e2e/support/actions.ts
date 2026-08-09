@@ -139,6 +139,23 @@ export const openQueuePanel = async (page: Page): Promise<void> => {
     }
 
     await expect(panel).toBeVisible();
+
+    /*
+     * …AND HAS FINISHED ARRIVING. The panel wipes in with `clip-path` from its trailing edge, so
+     * for the length of that transition the LEFT of it — where every row's drag grip lives — is
+     * clipped away, and a clipped region does not take a pointer event. Playwright's visibility
+     * check knows nothing about `clip-path`, so a drag started here pressed on whatever was
+     * behind the panel and moved nothing: two reorder tests failed on it, intermittently, which
+     * is exactly how it reads as a broken drag rather than as a race.
+     *
+     * Waiting on the computed value rather than a duration, so the pause is as short as the
+     * animation actually is. `none` is the reduced-motion answer, where there is no wipe at all.
+     */
+    await page.waitForFunction(() => {
+        const clip = getComputedStyle(document.querySelector(".play-queue")!).clipPath;
+
+        return clip === "none" || clip === "inset(0px)";
+    });
 };
 
 /**

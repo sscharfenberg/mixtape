@@ -44,6 +44,9 @@
 @use "../global-size-tokens" as s;
 
 $play-queue: (
+    // The light that runs down the panel's inner edge on a peek. Wide enough to read as a beam
+    // rather than a hairline, narrow enough that it never looks like a second border.
+    "sweep": 3px,
     "width": 280px,
     // from `full` (1440px) up, where the cage stops growing — see the note above.
     // FullLayout's content inset reads BOTH and must switch at the same breakpoint.

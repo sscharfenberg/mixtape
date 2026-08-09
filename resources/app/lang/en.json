@@ -507,7 +507,8 @@
                 "server": "The queue could not be synced to the server. It stays saved in this browser, but it will not follow you to another device for now."
             },
             "addToPlaylist": "Add to a playlist",
-            "addIntro": "The one queued track will be added to a playlist. | All {count} queued tracks will be added to a playlist."
+            "addIntro": "The one queued track will be added to a playlist. | All {count} queued tracks will be added to a playlist.",
+            "toggleHint": "Toggle the play queue"
         },
         "bar": {
             "label": "Now playing",
@@ -528,7 +529,8 @@
                 "shiftRight": "⇧→",
                 "up": "↑",
                 "down": "↓",
-                "mute": "M"
+                "mute": "M",
+                "queue": "Q"
             },
             "rate": "{rate}× speed"
         },

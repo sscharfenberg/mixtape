@@ -1,6 +1,6 @@
 /******************************************************************************
  * platform
- * Which keyboard the reader is sitting at — and nothing else.
+ * How a keyboard shortcut is NAMED to a reader — and nothing else.
  *
  * It exists because a shortcut has to be NAMED for the machine it is pressed on.
  * The modifier bit that arrives as `event.altKey` is printed "Alt" on a PC
@@ -12,6 +12,10 @@
  * on the platform — that is what feature detection and CSS are for, and the
  * handler itself keeps reading `event.altKey`, which is the same bit on every
  * keyboard. Use this only where a key is being named to a human.
+ *
+ * `withKey` is the platform-independent half of the same job: the shape a hint
+ * takes once the key has a name. It lives here so that "how a shortcut is
+ * written" is one file rather than a convention re-derived per component.
  *****************************************************************************/
 
 /**
@@ -44,3 +48,16 @@ export const altKeyLabel = (): string => (isApplePlatform() ? "⌥" : "Alt");
  */
 export const shortcut = (modifier: string, key: string): string =>
     isApplePlatform() ? `${modifier}${key}` : `${modifier}+${key}`;
+
+/**
+ * Name a control and the key that works it: "Nächster Titel (⇧→)".
+ *
+ * The two halves come from the catalog separately because only the first is a sentence a
+ * translator should be rewriting — "⇧→" and "Q" are the same on every keyboard this app speaks
+ * to. Joining them here rather than storing combined strings means the parenthesis shape is
+ * written once, and giving a control a key hint is a call site rather than a new catalog entry.
+ *
+ * A plain function, not a computed: it takes arguments, and `t` is reactive, so a template
+ * re-renders these on a locale switch anyway.
+ */
+export const withKey = (label: string, key: string): string => `${label} (${key})`;

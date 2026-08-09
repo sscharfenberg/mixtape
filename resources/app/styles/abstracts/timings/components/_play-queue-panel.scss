@@ -1,0 +1,21 @@
+/******************************************************************************
+ * contextual timing tokens — component:play-queue-panel
+ * @type {Sass}
+ * How the play queue's PANEL arrives and leaves (Components/PlayQueue/PlayQueue) — distinct from
+ * ti.$c-play-queue, which is the row's hover and now belongs to QueueList.
+ *
+ * A map rather than a scalar, because the panel has two entrances that want different lengths —
+ * see the component. Consumed as ti.$c-play-queue-panel via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$play-queue-panel: (
+    // The wipe, both directions. `fast` and no slower, because THE PANEL OPENS ITSELF: the peek
+    // shows it for three seconds every time the queue grows, so this plays twenty-odd times in a
+    // listening session. A quarter of a second would be pleasant once and tiring by the tenth.
+    "wipe": map.get(ti.$timings, "fast"),
+    // The light running down the inner edge, on a peek only. Long enough to read as one gesture
+    // rather than a flicker, and comfortably inside the peek's own three seconds.
+    "sweep": map.get(ti.$timings, "portly")
+) !default;

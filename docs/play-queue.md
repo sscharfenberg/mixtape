@@ -28,6 +28,7 @@ This file is the client half **as built**.
 | Play-history beacon                              | ✅ 2026-08-07 — [`player.md`](player.md) owns what counts        |
 | A visible failure when a write is refused        | ✅ 2026-08-07 — a warning toast, said once per failure           |
 | Add the whole queue to a playlist                | ✅ 2026-08-09 — the panel's menu, _The panel_ below              |
+| The panel's entrance                             | ✅ 2026-08-09 — a wipe, and a peek that lights its edge          |
 | Knowing what plays NEXT under shuffle            | ✅ 2026-08-09 — the pre-draw, _Playing in a random order_ below  |
 
 ## What it is
@@ -488,6 +489,41 @@ already hold its subject. The server cannot compute that for a queue it has not 
 posting the whole queue up just to draw a select would be the request the modal exists to make. The
 write is unaffected — it skips what a playlist already holds and reports what actually landed — so
 the cost is only that a reader may pick a playlist and be told "already in there".
+
+### How it arrives (2026-08-09)
+
+**A wipe, not a slide.** `clip-path: inset(0 0 0 100%)` → `inset(0)`, so the panel is revealed
+from the trailing edge it is pinned to rather than travelling in from off-screen. Nothing
+translates, the rows are already in place as the clip uncovers them, and there is no journey to
+sit through — which matters here more than anywhere, because **the peek opens this panel by
+itself every time the queue grows**. It plays twenty-odd times in a listening session, so it is
+`fast` (150ms) and no slower: a quarter-second would be pleasant once and tiring by the tenth.
+
+Two alternatives were rejected: `scaleX` from the edge squashes every glyph on the way in, which
+is the cheap-CSS tell; and the popover's own 90° door swing
+(`styles/components/popover/_content.scss`) is right for a 24ch menu you asked for and a lot of
+rotating pixels at full height.
+
+**The two entrances mean different things, and animate differently.** A press of the header toggle
+is a *request* — the reader asked, so the panel arrives and gets out of the way. A **peek is an
+announcement**: nobody asked, it appeared to say something was queued. So the peek adds a light
+running down the panel's inner edge, once, and the deliberate open stays calm. `usePlayQueuePanel`
+already knew which was which (the peek is the one with the timer); it is a class on the layer,
+not new state.
+
+The sweep is a gradient bar translated down rather than an animated gradient behind `@property`:
+one composited transform beats repainting a gradient sixty times a second on an element that
+appears this often.
+
+**The discrete pair goes on the LAYER, the visual transition on the PANEL**, and that split is the
+part worth remembering. Closing a popover yanks it out of the top layer and sets `display: none`
+on the same frame, cutting the exit off mid-gesture — `transition: display … allow-discrete,
+overlay … allow-discrete` on the layer holds both until the wipe has finished. And `@starting-style`
+on the panel is what gives the wipe a from-value at all: while the popover is shut the panel is not
+merely hidden but **not rendered**, so without it the first style it ever has is the finished one.
+
+Under `prefers-reduced-motion` there is no wipe and no sweep — `clip-path` lives *inside* the motion
+guard rather than being reset under it, so nothing is clipping the panel at all.
 
 ### Reordering (built 2026-08-04)
 

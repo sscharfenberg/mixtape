@@ -69,6 +69,107 @@ const enqueueFirstSong = async (page: import("@playwright/test").Page): Promise<
 test.describe("the play queue", () => {
     test.use({ viewport: { width: 1440, height: 900 } });
 
+    test("wipes in from the edge it is pinned to, and holds itself open to wipe out", async ({ page }) => {
+        /*
+         * The panel is REVEALED rather than moved: `clip-path` uncovers it from the trailing edge,
+         * so nothing translates and the rows are already in place. Caught mid-gesture by hand at
+         * `inset(0px 0px 0px 51.1379%)`, which is the proof it transitions rather than snapping —
+         * not asserted here, because polling a value that is mid-flight is a coin toss.
+         *
+         * What IS assertable is the wiring, and the half that is easy to leave out: the discrete
+         * `display`/`overlay` pair lives on the LAYER, not the panel. Without it, closing yanks
+         * the popover from the top layer on the same frame and the exit is cut off.
+         */
+        await enqueueFirstSong(page);
+        await openQueuePanel(page);
+
+        const wiring = await page.evaluate(() => ({
+            layer: getComputedStyle(document.querySelector(".play-queue-layer")!).transitionProperty,
+            panel: getComputedStyle(document.querySelector(".play-queue")!).transitionProperty
+        }));
+
+        expect(wiring.layer).toContain("display");
+        expect(wiring.layer).toContain("overlay");
+        expect(wiring.panel).toContain("clip-path");
+    });
+
+    test("lights its edge on a peek, and not when the reader asked for it", async ({ page }) => {
+        /*
+         * THE TWO ENTRANCES. A peek is an announcement — nobody asked, the panel appeared to say
+         * something was queued — so it gets a light down its inner edge. A press of the toggle is
+         * a request, and stays calm.
+         */
+        await page.goto("/music/songs");
+        await page.locator("tbody tr").first().click();
+        await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
+
+        // `keepPeek` leaves the peek on screen — the whole point of this test.
+        await enqueueFromHero(page, { keepPeek: true });
+
+        const peeking = await page.evaluate(() => ({
+            marked: document.querySelector(".play-queue-layer")!.classList.contains("play-queue-layer--peek"),
+            sweep: getComputedStyle(document.querySelector(".play-queue")!, "::after").animationName
+        }));
+
+        expect(peeking.marked).toBe(true);
+        expect(peeking.sweep).not.toBe("none");
+
+        // Let the peek expire, then ask for the panel deliberately.
+        await expect(page.locator(".play-queue-layer")).toBeHidden({ timeout: 8_000 });
+        await page.locator(".play-queue-toggle").click();
+        await expect(page.locator(".play-queue-layer")).toBeVisible();
+
+        const asked = await page.evaluate(() => ({
+            marked: document.querySelector(".play-queue-layer")!.classList.contains("play-queue-layer--peek"),
+            sweep: getComputedStyle(document.querySelector(".play-queue")!, "::after").animationName
+        }));
+
+        expect(asked.marked).toBe(false);
+        expect(asked.sweep).toBe("none");
+    });
+
+    test("declines the whole thing for a reader who asked for less motion", async ({ page }) => {
+        // No wipe and no sweep — the panel is simply there. `clip-path` is inside the motion guard
+        // rather than being reset under it, so there is nothing clipping it at all.
+        await page.emulateMedia({ reducedMotion: "reduce" });
+        await enqueueFirstSong(page);
+        await openQueuePanel(page);
+
+        const still = await page.evaluate(() => ({
+            clip: getComputedStyle(document.querySelector(".play-queue")!).clipPath,
+            sweep: getComputedStyle(document.querySelector(".play-queue")!, "::after").animationName
+        }));
+
+        expect(still.clip).toBe("none");
+        expect(still.sweep).toBe("none");
+    });
+
+    test("advertises its keyboard shortcut on the toggle", async ({ page }) => {
+        /*
+         * The Q shortcut has no other affordance anywhere — the panel does not mention it and
+         * nothing else in the header carries a hint — so this tooltip is the whole of its
+         * discoverability. Only a browser can answer it: the text lives in a WeakMap inside the
+         * directive rather than on the element, and it is a real hover into a top-layer element.
+         *
+         * It says "toggle" rather than what the next press does, unlike the button's own
+         * `aria-label`, which flips with the state: a screen reader should hear what pressing
+         * will do NOW, while a key that toggles is described once.
+         */
+        // `enqueueFirstSong` leaves the panel shut for us — the peek would otherwise still be
+        // sliding over the header when the hover lands.
+        await enqueueFirstSong(page);
+
+        /*
+         * A MOVE ONTO the button, not a jump to it. The directive only accepts a hover from a
+         * real mouse and tracks pointer movement to tell one from the emulated hover a tap
+         * produces, so the pointer has to come from somewhere. Then its 300ms open delay.
+         */
+        await page.mouse.move(10, 400);
+        await page.locator(".play-queue-toggle").hover();
+
+        await expect(page.locator("[role='tooltip']")).toHaveText(/\(Q\)/u, { timeout: 10_000 });
+    });
+
     test("shows nothing until something is queued", async ({ page }) => {
         await page.goto("/music/songs");
 
