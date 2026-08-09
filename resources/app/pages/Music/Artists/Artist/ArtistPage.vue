@@ -23,11 +23,16 @@
  * the param says, so switching tabs costs no request and raises no loading state over
  * content that is already on screen. See useTabParam.
  *
- * No `#cover` slot at all, and that is deliberate rather than missing: MixTape stores no
- * artist images, so there is nothing to point an <img> at. HeroSection draws its dashed
- * placeholder only when the slot EXISTS and holds a non-image — i.e. "no artwork on file"
- * — while leaving the slot out says "this kind of page has no artwork", which is the true
- * statement here (see HeroSection's docblock).
+ * THE HERO'S COVER IS A FAN OF THEIR OWN SLEEVES, not a photograph. MixTape stores no artist
+ * images, so for a long time the slot was left out entirely — deliberately, since HeroSection
+ * draws its dashed placeholder only when the slot EXISTS and holds a non-image ("no artwork on
+ * file"), while leaving it out says "this kind of page has no artwork". Both statements were
+ * true and the result was a hero with nothing on its trailing edge.
+ *
+ * Three of their records, fanned, says more than either — it is what an artist looks like in a
+ * collection — and it is the same CoverSleeves the playlist hero and the genre page's artist
+ * cards use. `unframedCover` because a fan brings its own size; the covers arrive already
+ * picked and shuffled (ArtistController → FannedCovers), and nothing here re-orders them.
  *
  * The controller sends raw values (seconds, bytes, plain counts) and the formatting
  * happens here against the active locale — the same split every other page here uses
@@ -36,6 +41,7 @@
 import { Head } from "@inertiajs/vue3";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import CoverSleeves from "Components/Music/CoverSleeves.vue";
 import Discography, { type DiscographyAlbum } from "Components/Music/Discography/Discography.vue";
 import PlayCountFacts from "Components/Music/PlayCountFacts.vue";
 import SubjectMenu from "Components/Music/SubjectMenu.vue";
@@ -78,6 +84,12 @@ const props = defineProps<{
     artist: ArtistDetail;
     /** Every album credited to them, for the albums tab. Unpaginated — see Discography. */
     discography: DiscographyAlbum[];
+    /**
+     * Up to three cover URLs for the hero's fan, picked at random per request and one per
+     * album (ArtistController → FannedCovers). Empty when none of their records carries
+     * artwork, which the fan renders as a single placeholder.
+     */
+    covers: string[];
     /** Their songs, as the server-driven table payload (rows + pagination + sort + search). */
     table: TableResponse<SongRow>;
     /**
@@ -139,7 +151,11 @@ const tabs = computed<TabDefinition[]>(() => [
     <Head :title="artist.name" />
     <container>
         <div class="artist">
-            <hero-section>
+            <!-- `unframed-cover`: the fan is a fixed size, so the hero's cover square would
+                 reserve height it cannot fill — see the prop. -->
+            <hero-section unframed-cover>
+                <!-- Not a photograph, but where one would be — see the banner. -->
+                <template #cover><cover-sleeves :covers="covers" :title="artist.name" scale="hero" /></template>
                 <!-- The page's heading lives here rather than in a <Headline>, as on the song
                      and album pages: the hero sets the type, the level is ours. -->
                 <template #title

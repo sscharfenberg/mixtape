@@ -170,8 +170,19 @@ defineProps<{
     background-color: map.get(c.$c-hero-section, "background");
     border-radius: map.get(s.$c-hero-section, "radius");
 
+    /* TWO COLUMNS ONLY WHEN THERE IS A COVER TO PUT IN THE SECOND. Declared unconditionally,
+       the template still creates that track for a hero that slots nothing into it: the track
+       resolves to zero width, but the `gap` between the two columns does NOT go away — so
+       every coverless hero carried a stripe of dead space inside its trailing padding, which
+       reads as a stray margin nobody wrote.
+
+       `:has()` rather than a prop, keyed off the DOM exactly like the cover slot's own
+       `:has(img)` test below: the caller decides by what it slots in, and cannot get the two
+       out of step by passing a cover and forgetting a flag. */
     @include m.mq("portrait") {
-        grid-template-columns: 1fr auto;
+        &:has(> .hero-section__cover) {
+            grid-template-columns: 1fr auto;
+        }
     }
 
     /* The featured border, drawn as a gradient ring: fill the ::before with the hue ramp

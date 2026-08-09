@@ -24,10 +24,13 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
  * name is data. Sent as `labelKey` it would be looked up, miss, and render the name as a
  * missing-key warning.
  *
- * THERE IS NO #cover SLOT AT ALL — not an empty one. HeroSection draws its dashed
- * placeholder when the slot EXISTS and holds no image ("no artwork on file"); omitting the
- * slot says "this kind of page has no artwork", which is the true statement, since MixTape
- * stores no artist images.
+ * THE #cover SLOT HOLDS A FAN OF THEIR OWN SLEEVES. MixTape stores no artist images, so this
+ * page used to omit the slot entirely — deliberately, since HeroSection draws its dashed "no
+ * artwork on file" placeholder when the slot EXISTS and holds no image, while omitting it says
+ * "this kind of page has no artwork". Both were true and the trailing edge was empty. A few of
+ * their records says more than either, and the layout half of that (a fan hard against the
+ * panel's padding, no phantom column beside it) is measured in browse.spec.ts, since geometry
+ * is not something Vitest can see.
  */
 
 /** The artist, fully described; tests override only what they are about. */
@@ -60,13 +63,24 @@ const row = () => ({
     href: "/music/songs/song-1"
 });
 
-/** Mount the page. */
-const page = (overrides: Record<string, unknown> = {}, locale: "de" | "en" = "de") =>
+/**
+ * Mount the page.
+ *
+ * `overrides` reach the ARTIST; `props` overrides the page's own props, which is how the
+ * cover-fan tests hand it something other than the empty default.
+ */
+const page = (
+    overrides: Record<string, unknown> = {},
+    locale: "de" | "en" = "de",
+    props: Record<string, unknown> = {}
+) =>
     mountApp(ArtistPage, {
         props: {
             artist: artist(overrides),
             plays: { own: 0, others: 0 },
             discography: [],
+            covers: [],
+            ...props,
             table: {
                 rows: [row()],
                 total: 1,
@@ -138,10 +152,27 @@ describe("ArtistPage", () => {
         expect(page({ genreUrl: null }).find(".fact-pair--link").exists()).toBe(false);
     });
 
-    it("offers no artwork slot at all, since MixTape stores no artist images", () => {
-        // Not an EMPTY cover slot — that is how HeroSection is told to draw its "no artwork
-        // on file" placeholder, which would be the wrong statement here.
-        expect(page().find(".hero-section__cover").exists()).toBe(false);
+    it("fans the artist's own sleeves where a photograph would be", () => {
+        // MixTape stores no artist images, so the slot was left out entirely for a long time.
+        // A few of their records says more than an empty trailing edge — and it renders the
+        // covers the server picked, in the order it picked them: the shuffle is the server's,
+        // and re-ordering here would apply it twice.
+        const wrapper = page({}, "de", { covers: ["/covers/a", "/covers/b"] });
+
+        expect(wrapper.find(".hero-section__cover").exists()).toBe(true);
+        expect(wrapper.findAll(".cover-sleeves__sleeve img").map(node => node.attributes("src"))).toStrictEqual([
+            "/covers/a",
+            "/covers/b"
+        ]);
+    });
+
+    it("fans one placeholder when none of their records carries artwork", () => {
+        // Never padded, and never an empty box: CoverSleeves' own degradation rule, which the
+        // page relies on rather than reimplementing.
+        const wrapper = page({}, "de", { covers: [] });
+
+        expect(wrapper.findAll(".cover-sleeves__sleeve")).toHaveLength(1);
+        expect(wrapper.find(".cover-sleeves__sleeve img").exists()).toBe(false);
     });
 
     it("puts the counts on the tabs, so a reader sees how much is behind each", () => {

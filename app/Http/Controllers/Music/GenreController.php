@@ -10,6 +10,7 @@ use App\Models\Genre;
 use App\Models\Track;
 use App\Services\DataTableService;
 use App\Services\Music\DominantGenre;
+use App\Services\Music\FannedCovers;
 use App\Services\Music\QueuePayload;
 use App\Services\Player\PlayCounts;
 use App\Services\Search\FoldedSearch;
@@ -307,32 +308,21 @@ class GenreController extends Controller
     }
 
     /**
-     * Up to three of an artist's covers, picked at RANDOM (owner's call) from the albums
-     * they have in this genre.
+     * Up to three of an artist's covers, for the fanned sleeves on their card.
      *
-     * Random per request, which is a real trade and worth naming: the fan is different on
-     * every visit, and there is deliberately nothing to cache. It is a decorative flourish
-     * whose only job is to look like a stack of records, so a stable pick would buy
-     * cacheability the page does not otherwise need — and re-shuffling is the point.
-     *
-     * Albums with no artwork are dropped rather than fanned as placeholders: a card showing
-     * two sleeves and a grey square reads as a rendering fault, where two sleeves reads as
-     * an artist with two records. An artist whose albums ALL lack artwork yields an empty
-     * list, and the card falls back to a single placeholder — see GenreArtists.vue, which
-     * owns how one, two or three covers are laid out.
+     * Keyed by ALBUM id, which is what FannedCovers dedupes on — free here, since an artist's
+     * albums are distinct rows already, and the shared shape the playlist page genuinely needs
+     * (its cover routes are per track). Every other decision — three, at random, artless
+     * dropped — belongs to that service and is argued there.
      *
      * @param  EloquentCollection<int, Collection>  $albums  one artist's albums in this genre
      * @return array<int, string>
      */
     private function fannedCovers(EloquentCollection $albums): array
     {
-        return $albums
-            ->map(fn (Collection $album): ?string => $this->coverUrl($album))
-            ->filter()
-            ->shuffle()
-            ->take(3)
-            ->values()
-            ->all();
+        return FannedCovers::pick(
+            $albums->map(fn (Collection $album): array => [$album->id, $this->coverUrl($album)])
+        );
     }
 
     /**

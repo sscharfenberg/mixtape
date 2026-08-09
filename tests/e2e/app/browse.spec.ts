@@ -243,3 +243,66 @@ test.describe("the document outline", () => {
         }
     });
 });
+
+test.describe("the detail hero", () => {
+    /*
+     * The hero's TRAILING EDGE, which is geometry and therefore only answerable here.
+     *
+     * `openFirstRow` clicks rather than hardcoding a seeded id, like the outline specs above,
+     * so the fixture stays free to change ids.
+     */
+    const openFirstRow = async (page: Page, listing: string): Promise<void> => {
+        await page.setViewportSize({ width: 1400, height: 1000 });
+        await page.goto(listing);
+        await page.locator("tbody tr").first().click();
+        await page.waitForURL(/\/[0-9a-f-]{36}$/u);
+        await expect(page.locator(".hero-section")).toBeVisible();
+    };
+
+    /** How much panel is left over past the text column's trailing edge. */
+    const slack = async (page: Page): Promise<number> => {
+        const hero = (await page.locator(".hero-section").boundingBox())!;
+        const meta = (await page.locator(".hero-section__meta").boundingBox())!;
+
+        return hero.x + hero.width - (meta.x + meta.width);
+    };
+
+    test("leaves no phantom column on a hero with no cover", async ({ page }) => {
+        /*
+         * A genre has no artwork of any kind, so it slots nothing into `#cover` — and the grid
+         * used to declare its second column anyway. The track then resolved to zero width while
+         * the COLUMN GAP between the two did not go away, so the panel carried a stripe of dead
+         * space inside its trailing padding: a stray margin nobody had written, and invisible to
+         * every assertion that only reads the DOM.
+         *
+         * What is left over past the text column must therefore be the padding and nothing else.
+         * Compared against the panel's OWN padding rather than a literal, so the number cannot go
+         * stale when that token moves.
+         */
+        await openFirstRow(page, "/music/genres");
+
+        const padding = await page
+            .locator(".hero-section")
+            .evaluate(node => parseFloat(getComputedStyle(node).paddingRight));
+
+        expect(await slack(page)).toBeCloseTo(padding, 0);
+    });
+
+    test("fans an artist's own sleeves where a photograph would be", async ({ page }) => {
+        // MixTape stores no artist images, so the hero shows a few of their records instead.
+        // At least one, never more than three, and hard against the trailing padding.
+        await openFirstRow(page, "/music/artists");
+
+        const sleeves = page.locator(".cover-sleeves__sleeve");
+        expect(await sleeves.count()).toBeGreaterThan(0);
+        expect(await sleeves.count()).toBeLessThanOrEqual(3);
+
+        const hero = (await page.locator(".hero-section").boundingBox())!;
+        const fan = (await page.locator(".cover-sleeves").boundingBox())!;
+        const padding = await page
+            .locator(".hero-section")
+            .evaluate(node => parseFloat(getComputedStyle(node).paddingRight));
+
+        expect(hero.x + hero.width - (fan.x + fan.width)).toBeCloseTo(padding, 0);
+    });
+});

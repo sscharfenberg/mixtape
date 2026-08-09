@@ -200,6 +200,49 @@ class ArtistPageTest extends TestCase
             );
     }
 
+    public function test_the_hero_fans_up_to_three_covers_one_per_album(): void
+    {
+        // The artist has no photograph — MixTape stores none — so the hero shows a few of
+        // their own sleeves instead. One per ALBUM and never the same one twice, which is what
+        // stops a fan reading as a rendering fault.
+        $artist = Artist::factory()->create();
+        Collection::factory()->count(5)->create(['album_artist_id' => $artist->id, 'cover_path' => '/art.jpg']);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/artists/{$artist->id}")
+            ->assertOk()
+            ->assertInertia(function (Assert $page) {
+                $page->has('covers', 3);
+
+                $covers = $page->toArray()['props']['covers'];
+                $this->assertSame($covers, array_values(array_unique($covers)));
+            });
+    }
+
+    public function test_a_one_album_artist_fans_a_single_cover_rather_than_three(): void
+    {
+        // Never padded — and this is the COMMON card rather than an edge case: half the
+        // artists in this collection have exactly one album.
+        $artist = Artist::factory()->create();
+        Collection::factory()->create(['album_artist_id' => $artist->id, 'cover_path' => '/art.jpg']);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/artists/{$artist->id}")
+            ->assertInertia(fn (Assert $page) => $page->has('covers', 1));
+    }
+
+    public function test_albums_with_no_artwork_are_left_out_of_the_fan(): void
+    {
+        // Dropped rather than fanned as placeholders. An artist whose records ALL lack artwork
+        // sends nothing, which the page renders as one placeholder sleeve.
+        $artist = Artist::factory()->create();
+        Collection::factory()->count(2)->create(['album_artist_id' => $artist->id, 'cover_path' => null]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/artists/{$artist->id}")
+            ->assertInertia(fn (Assert $page) => $page->has('covers', 0));
+    }
+
     public function test_an_album_with_no_year_sorts_last_rather_than_leading_the_discography(): void
     {
         // The ordering case a single engine cannot prove: Postgres and SQLite disagree on

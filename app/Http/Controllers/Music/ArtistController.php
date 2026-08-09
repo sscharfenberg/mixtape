@@ -10,6 +10,7 @@ use App\Models\Collection;
 use App\Models\Track;
 use App\Services\DataTableService;
 use App\Services\Music\DominantGenre;
+use App\Services\Music\FannedCovers;
 use App\Services\Music\QueuePayload;
 use App\Services\Player\PlayCounts;
 use App\Services\Search\FoldedSearch;
@@ -72,6 +73,10 @@ class ArtistController extends Controller
     {
         $totals = $this->trackTotals($artist);
         $genre = $this->dominantGenre($artist);
+        // Built once and read twice — the albums tab, and the hero's fan of a few of their
+        // sleeves. Two readings of "this artist's records" that must agree, and the cheapest
+        // way to guarantee they do is for them to be the same rows.
+        $discography = $this->discography($artist);
 
         return Inertia::render('Music/Artists/Artist/ArtistPage', [
             // The whole subject as queue entries, for the hero menu's Play / Enqueue.
@@ -85,7 +90,13 @@ class ArtistController extends Controller
             ),
             // The albums tab: every album they are credited with, in one go. No paging
             // because there is nothing to page — see the class docblock.
-            'discography' => $this->discography($artist),
+            'discography' => $discography,
+            // Up to three of their covers for the hero's fanned sleeves, standing in for the
+            // artist photograph MixTape does not store. Keyed by ALBUM id, so the fan is three
+            // different records; everything else about the pick belongs to the service.
+            'covers' => FannedCovers::pick(
+                array_map(fn (array $album): array => [$album['id'], $album['coverUrl']], $discography)
+            ),
             // The songs tab, as the same server-driven payload every listing sends. It owns
             // the page's query params outright, for the reason given in the class docblock.
             'table' => $this->songTable($request, $artist),

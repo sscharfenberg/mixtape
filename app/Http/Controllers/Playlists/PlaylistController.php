@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Playlists;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Playlists\ShowPlaylistRequest;
 use App\Models\Playlist;
+use App\Services\Music\FannedCovers;
 use App\Services\Music\QueuePayload;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\DB;
@@ -153,35 +154,24 @@ class PlaylistController extends Controller
     }
 
     /**
-     * Up to three of the playlist's covers, picked at RANDOM for the hero's fanned sleeves —
-     * the same flourish, and the same component, as an artist card on a genre page.
+     * Up to three of the playlist's covers, for the hero's fanned sleeves.
      *
-     * Random per request, so the fan differs on every visit; there is deliberately nothing
-     * to cache, because re-shuffling IS the effect.
+     * THE KEY IS THE ALBUM, and this page is why FannedCovers takes one at all: a cover URL
+     * here is per TRACK, so ten songs off one record are ten different URLs pointing at the
+     * same picture, and three identical sleeves read as a rendering fault rather than as a
+     * stack of records. Keying by album collapses them before the pick; a track filed under
+     * no album keys on its own id, so a loose file still counts as a record of its own
+     * (`albumKey` carries that fallback — see {@see entries}).
      *
-     * ONE SLEEVE PER ALBUM, which the genre page gets for free and this page has to work
-     * for: a cover URL here is per TRACK, so ten songs off one record are ten different URLs
-     * pointing at the same picture — and three identical sleeves read as a rendering fault
-     * rather than as a stack of records. A track filed under no album keys on its own id, so
-     * a loose file still counts as a record of its own.
-     *
-     * Tracks with no artwork are dropped rather than fanned as placeholders, for the reason
-     * GenreArtists records: two sleeves and a grey square looks broken, where two sleeves
-     * looks like two records. A playlist whose tracks carry no artwork at all yields an empty
-     * list, which the page renders as the hero's single dashed placeholder.
+     * Everything else — three, at random, artless dropped — belongs to the service.
      *
      * @param  SupportCollection<int, array{track: array<string, mixed>, albumKey: string}>  $entries
      * @return array<int, string>
      */
     private function fannedCovers(SupportCollection $entries): array
     {
-        return $entries
-            ->filter(fn (array $entry): bool => $entry['track']['coverUrl'] !== null)
-            ->unique('albumKey')
-            ->shuffle()
-            ->take(3)
-            ->pluck('track.coverUrl')
-            ->values()
-            ->all();
+        return FannedCovers::pick(
+            $entries->map(fn (array $entry): array => [$entry['albumKey'], $entry['track']['coverUrl']])
+        );
     }
 }
