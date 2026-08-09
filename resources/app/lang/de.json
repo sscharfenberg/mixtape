@@ -414,6 +414,8 @@
             "encodingWindowsHint": "Für ältere Geräte, die UTF-8 als Buchstabensalat anzeigen — etwa das Autoradio. Zeichen außerhalb Westeuropas werden zu „?“.",
             "prefixLabel": "Pfad-Präfix",
             "prefixHint": "Wird jedem Pfad vorangestellt — der Ort der Musik aus Sicht des Geräts, das die Datei abspielt. Leer lassen für relative Pfade.",
+            "unplayable": "1 Titel enthält ein Zeichen, das Windows-1252 nicht kann — sein Pfad wird auf dem Gerät nicht gefunden: {named}. Betroffene Zeichen: {characters}. | {count} Titel enthalten Zeichen, die Windows-1252 nicht kann — ihre Pfade werden auf dem Gerät nicht gefunden: {named}. Betroffene Zeichen: {characters}.",
+            "andMore": "{shown} und 1 weiterer | {shown} und {count} weitere",
             "submit": ".m3u herunterladen"
         },
         "sort": {

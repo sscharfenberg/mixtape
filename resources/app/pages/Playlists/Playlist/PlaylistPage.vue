@@ -234,6 +234,7 @@ function sort(): void {
         v-if="exporting"
         :playlist-id="playlist.id"
         :default-prefix="exportPrefix"
+        :tracks="tracks"
         @close="exporting = false"
     />
 </template>

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
 import { mountApp, translate } from "Testing/mount";
 import PlaylistExportModal from "./PlaylistExportModal.vue";
 
@@ -23,8 +24,14 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
  * rather than VTU helpers, since those need a wrapper to hang off.
  */
 
+/** A playlist whose paths are all plain ASCII — nothing for the encoding check to say. */
+const SAFE = [
+    { name: "Airbag", path: "Radiohead/OK Computer/01 Airbag.mp3" },
+    { name: "Bones", path: "Radiohead/The Bends/05 Bones.mp3" }
+];
+
 /** Mount the modal and capture whatever it navigates to. */
-const modal = (defaultPrefix = "/Volumes/media/music") => {
+const modal = (defaultPrefix = "/Volumes/media/music", tracks = SAFE) => {
     const assign = vi.fn();
     Object.defineProperty(window, "location", {
         configurable: true,
@@ -32,7 +39,7 @@ const modal = (defaultPrefix = "/Volumes/media/music") => {
     });
 
     const wrapper = mountApp(PlaylistExportModal, {
-        props: { playlistId: "playlist-1", defaultPrefix }
+        props: { playlistId: "playlist-1", defaultPrefix, tracks }
     });
 
     return { wrapper, assign };
@@ -48,9 +55,17 @@ const submit = (): void => {
         .dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
 };
 
-/** Choose the nth radio of a group, the way a click does. */
-const choose = (name: string, index: number): void => {
-    (document.querySelectorAll<HTMLInputElement>(`input[name="${name}"]`)[index]).click();
+/**
+ * Choose the nth radio of a group, the way a click does.
+ *
+ * Awaits a tick, because anything reading the DOM afterwards is reading a RE-RENDER: the click
+ * only sets the ref, and Vue flushes on the next tick. The tests that read the submitted URL
+ * do not need it — that value is computed in the handler — which is exactly why this bit at
+ * the ones that read rendered text and not at the ones that came before them.
+ */
+const choose = async (name: string, index: number): Promise<void> => {
+    document.querySelectorAll<HTMLInputElement>(`input[name="${name}"]`)[index].click();
+    await nextTick();
 };
 
 /** Type into the prefix field — `input`, which is the event v-model listens for. */
@@ -79,11 +94,11 @@ describe("PlaylistExportModal", () => {
         expect(url.searchParams.get("prefix")).toBe("/Volumes/media/music");
     });
 
-    it("sends the format and encoding the reader chose", () => {
+    it("sends the format and encoding the reader chose", async () => {
         const { assign } = modal();
 
-        choose("format", 1);
-        choose("encoding", 1);
+        await choose("format", 1);
+        await choose("encoding", 1);
         submit();
 
         const url = submitted(assign);
@@ -120,6 +135,98 @@ describe("PlaylistExportModal", () => {
 
         expect(assign).toHaveBeenCalledTimes(1);
         expect(wrapper.emitted("close")).toHaveLength(1);
+    });
+
+    describe("the Windows-1252 warning", () => {
+        /*
+         * The reason it exists: a path Windows-1252 cannot carry comes out with "?" where the
+         * character was, and on a PATH line that is a DEAD line — "?" is not a legal filename
+         * character, so the player looks for a file that cannot exist. Nothing about the
+         * download says so, and the reader finds out in the car.
+         *
+         * Measured against the real collection, the failure CLUSTERS — 27 tracks for one band,
+         * 23 for another — so it is none of most playlists and all of a few.
+         */
+        const RISKY = [
+            { name: "Airbag", path: "Radiohead/OK Computer/01 Airbag.mp3" },
+            { name: "Świt", path: "Mgła/Exercises in Futility/01 Świt.mp3" },
+            { name: "渡頭", path: "Bloody Tyrant/01 渡頭.mp3" }
+        ];
+
+        /** The warning's text, or "" when it is not shown. */
+        const warning = (): string => document.querySelector(".form-legend .warning")?.textContent?.trim() ?? "";
+
+        it("says nothing while UTF-8 is selected, whatever the paths hold", () => {
+            // UTF-8 carries everything, so there is no warning to give — this is a warning
+            // about a CHOICE, not about the playlist.
+            modal("/x", RISKY);
+
+            expect(warning()).toBe("");
+        });
+
+        it("appears the moment Windows-1252 is chosen", async () => {
+            modal("/x", RISKY);
+
+            await choose("encoding", 1);
+
+            expect(warning()).not.toBe("");
+        });
+
+        it("names the tracks that will be missing, and not the ones that will not", async () => {
+            modal("/x", RISKY);
+
+            await choose("encoding", 1);
+
+            expect(warning()).toContain("Świt");
+            expect(warning()).toContain("渡頭");
+            // Plain ASCII survives, so naming it would send the reader after a file that works.
+            expect(warning()).not.toContain("Airbag");
+        });
+
+        it("lists the offending characters, which is the actionable half", async () => {
+            // "ł" says which record and what to rename; "this will not play" leaves them
+            // guessing. De-duplicated, so one character repeated across ten paths is said once.
+            modal("/x", RISKY);
+
+            await choose("encoding", 1);
+
+            expect(warning()).toContain("ł");
+            expect(warning()).toContain("Ś");
+        });
+
+        it("stays silent when every path survives", async () => {
+            modal("/x", SAFE);
+
+            await choose("encoding", 1);
+
+            expect(warning()).toBe("");
+        });
+
+        it("goes away again when the reader switches back to UTF-8", async () => {
+            modal("/x", RISKY);
+
+            await choose("encoding", 1);
+            expect(warning()).not.toBe("");
+
+            await choose("encoding", 0);
+            expect(warning()).toBe("");
+        });
+
+        it("caps the names it lists rather than filling the modal", async () => {
+            // One band's record is 27 dead lines; listing all of them would push the download
+            // button off the panel.
+            const many = Array.from({ length: 9 }, (_, index) => ({
+                name: `Track ${index}`,
+                path: `Mgła/album/0${index} Świt.mp3`
+            }));
+            modal("/x", many);
+
+            await choose("encoding", 1);
+
+            expect(warning()).toContain("Track 3");
+            expect(warning()).not.toContain("Track 8");
+            expect(warning()).toContain("5");
+        });
     });
 
     it("names the two .m3u flavours and the two encodings", () => {

@@ -414,6 +414,8 @@
             "encodingWindowsHint": "For older devices that render UTF-8 as gibberish — a car stereo, say. Characters outside Western Europe become “?”.",
             "prefixLabel": "Path prefix",
             "prefixHint": "Put in front of every path — where the music lives as far as the device playing the file is concerned. Leave empty for relative paths.",
+            "unplayable": "1 track contains a character Windows-1252 cannot carry — its path will not be found on the device: {named}. Characters: {characters}. | {count} tracks contain characters Windows-1252 cannot carry — their paths will not be found on the device: {named}. Characters: {characters}.",
+            "andMore": "{shown} and 1 more | {shown} and {count} more",
             "submit": "Download .m3u"
         },
         "sort": {

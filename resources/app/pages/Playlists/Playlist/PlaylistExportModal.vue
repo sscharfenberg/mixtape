@@ -16,6 +16,16 @@
  * (a playlist that is not yours, an option outside its list) is the browser's to show, not
  * this component's — nothing on this page is stale afterwards either way.
  *
+ * IT WARNS BEFORE THE DOWNLOAD, not after. Windows-1252 carries about 250 characters, and a
+ * path outside them comes out with "?" where the character was — which on a PATH line is not
+ * a cosmetic loss but a dead line, since "?" is not a legal filename character on FAT and the
+ * player looks for a file that cannot exist. No substitute fixes it (see Utils/encoding), so
+ * the only honest thing is to name the tracks that will be missing while the reader can still
+ * choose UTF-8.
+ *
+ * Checked in the browser, against the paths the page already holds for the sort — so the
+ * warning appears the instant Windows-1252 is picked, with no round trip.
+ *
  * THE THREE DEFAULTS ARE NOT THE SAME KIND OF THING. Format and encoding default to what most
  * readers want and are remembered by nothing: they are per-export decisions. The PREFIX comes
  * from the server (`exportPrefix`, out of config/mixtape.php) because it describes the machine
@@ -31,12 +41,20 @@ import FormRow from "Components/Form/FormRow.vue";
 import RadioButtonGroup from "Components/Form/Radio/RadioButtonGroup.vue";
 import Modal from "Components/Modal/Modal.vue";
 import Icon from "Components/UI/Icon.vue";
+import { unencodableInWindows1252 } from "Utils/encoding";
 
 const props = defineProps<{
     /** Which playlist to export — its id builds the URL. */
     playlistId: string;
     /** The prefix field's starting value, from config via the page. */
     defaultPrefix: string;
+    /**
+     * The entries, for the Windows-1252 check — a title to name and a path to test.
+     *
+     * A structural shape rather than PlaylistTrackRow: this modal needs two fields, and taking
+     * the whole row type would tie it to a queue entry it never plays.
+     */
+    tracks: { name: string; path: string }[];
 }>();
 
 const emit = defineEmits<{ close: [] }>();
@@ -117,6 +135,48 @@ const encodings = computed(() => [
 ]);
 
 /**
+ * The tracks Windows-1252 would break, and the characters that break them.
+ *
+ * Empty unless Windows-1252 is actually selected — UTF-8 carries everything, so there is
+ * nothing to say — which is what makes this a warning about a CHOICE rather than about the
+ * playlist. Recomputed by the radio, so it appears and disappears as the reader tries each.
+ */
+const unplayable = computed(() =>
+    encoding.value !== "Windows-1252"
+        ? []
+        : props.tracks
+              .map(track => ({ name: track.name, bad: unencodableInWindows1252(track.path) }))
+              .filter(entry => entry.bad.length > 0)
+);
+
+/**
+ * The warning's sentence: how many, which titles, and which characters are to blame.
+ *
+ * Titles are capped at four and the rest counted, because the failure clusters — a playlist of
+ * one Taiwanese band is 27 dead lines, and listing all of them would push the buttons off the
+ * modal. The CHARACTERS are listed in full and de-duplicated: they are short, and they are the
+ * actionable half — "ł" says which record and what to rename.
+ */
+const warning = computed<string>(() => {
+    const names = unplayable.value.map(entry => entry.name);
+    const characters = [...new Set(unplayable.value.flatMap(entry => entry.bad))];
+    const shown = names.slice(0, 4).join(", ");
+
+    // `t(key, named, plural)` — named params FIRST, the count last. The two-argument form
+    // (`t(key, count)`) that the duration helpers use cannot also carry names.
+    const named =
+        names.length > 4
+            ? t("playlists.export.andMore", { shown, count: names.length - 4 }, names.length - 4)
+            : shown;
+
+    return t(
+        "playlists.export.unplayable",
+        { named, characters: characters.join(" "), count: names.length },
+        names.length
+    );
+});
+
+/**
  * Hand the export URL to the browser and close.
  *
  * `URLSearchParams` rather than string concatenation, so a prefix containing a space or a
@@ -165,6 +225,13 @@ function download(): void {
                     @change="encoding = ($event.target as HTMLInputElement).value as 'UTF-8' | 'Windows-1252'"
                 />
             </form-row>
+
+            <!-- Only while Windows-1252 is selected, and only when it would actually cost
+                 something. `modifier: "warning"` recolours this one item; the legend above keeps
+                 its own neutral note. -->
+            <form-legend v-if="unplayable.length" :items="[{ slot: 'unplayable', icon: 'warning', modifier: 'warning' }]">
+                <template #unplayable>{{ warning }}</template>
+            </form-legend>
 
             <!-- Free text rather than a picker: the path names a place on ANOTHER machine — a
                  Mac's mount point, a car's USB stick — so there is nothing here to browse. -->
