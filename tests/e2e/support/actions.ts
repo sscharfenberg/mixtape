@@ -233,3 +233,31 @@ export const stopQueueSync = async (page: Page): Promise<void> => {
     await page.route("**/player/state", route => route.abort());
     await page.close({ runBeforeUnload: true });
 };
+
+/**
+ * Wait out the page-to-page VIEW TRANSITION, without which raw pointer events go nowhere.
+ *
+ * main.ts opts every navigation into the View Transitions API, and while one is running the
+ * browser paints `::view-transition-*` — a pseudo-element tree belonging to the ROOT — over the
+ * whole page in the top layer. Hit testing lands on that, so `document.elementFromPoint` returns
+ * the <html> element at every coordinate on the page, including one squarely inside a row, while
+ * `getBoundingClientRect()` on that row reports exactly the rectangle you would expect.
+ *
+ * Locator actions ride this out on their own: `click()` and `hover()` retry until the element
+ * really receives pointer events. Anything driven through `page.mouse` does NOT — it fires once,
+ * into the snapshot, and nothing happens. So call this after a navigation and before any raw
+ * pointer work: a drag by a grip, a click at a measured offset, a hover on a coordinate.
+ *
+ * It cost an hour twice before being understood, once as a SortableJS drag that silently refused
+ * to start and once as a click on a row that plainly had a stretched link under it — both
+ * presenting as broken features rather than as mis-timed input.
+ *
+ * Polled on the SYMPTOM rather than on `:active-view-transition`, because the symptom is the
+ * precondition a caller actually needs: that a coordinate on this page hits something. (4, 4) is
+ * inside the app header, which every page carries.
+ */
+export const settled = async (page: Page): Promise<void> => {
+    await expect
+        .poll(() => page.evaluate(() => document.elementFromPoint(4, 4)?.tagName ?? "NONE"))
+        .not.toBe("HTML");
+};

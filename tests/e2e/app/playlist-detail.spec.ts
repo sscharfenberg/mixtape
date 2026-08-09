@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { settled } from "../support/actions";
 import { specStorageState } from "../support/environment";
 
 /*
@@ -34,6 +35,7 @@ import { specStorageState } from "../support/environment";
  * two files away from the cause. The reason of its own: playlists are private per owner, so
  * the fixture has to belong to whoever is signed in here anyway.
  */
+
 /*
  * SERIAL, and not for readable ordering — the suite is `fullyParallel`, which splits a FILE
  * across workers at the TEST level, and the reorder specs WRITE to a playlist the others read.
@@ -53,29 +55,6 @@ const REORDERABLE = "Umsortieren";
 
 /** How many entries the populated playlists hold — E2ESeeder::PLAYLIST_TRACKS. */
 const ENTRIES = 7;
-
-/**
- * Wait out the page-to-page VIEW TRANSITION, without which raw pointer events go nowhere.
- *
- * main.ts opts every navigation into the View Transitions API, and while one is running the
- * browser paints `::view-transition-*` — a pseudo-element tree belonging to the ROOT — over
- * the whole page in the top layer. Hit testing lands on that, so `elementFromPoint` returns
- * the <html> element at every coordinate on the page, including one squarely inside a row.
- *
- * Locator actions ride this out on their own: `click()` and `hover()` retry until the element
- * actually receives pointer events. Anything driven through `page.mouse` does NOT — it fires
- * once, into the snapshot, and nothing happens. That cost an hour twice over, first as a drag
- * that silently refused to start and then as a click on a row that plainly had a link under
- * it, both presenting as broken features rather than as mis-timed input.
- *
- * Polled on the symptom rather than on `:active-view-transition`, because the symptom is the
- * precondition the callers actually need: that a coordinate on this page hits something.
- */
-const settled = async (page: Page): Promise<void> => {
-    await expect
-        .poll(() => page.evaluate(() => document.elementFromPoint(4, 4)?.tagName ?? "NONE"))
-        .not.toBe("HTML");
-};
 
 /** Open a playlist by name, the way a reader does: from the listing. */
 const openFromListing = async (page: Page, name: string): Promise<void> => {
@@ -145,7 +124,7 @@ test.describe("a playlist's detail page", () => {
     test("hugs the fan instead of reserving a cover square around it", async ({ page }) => {
         /*
          * The whitespace fix (`unframedCover`). A CoverImage at hero size fills whatever square
-         * it is given, so the hero declares one — but a fan of sleeves is a FIXED 152×96, and
+         * it is given, so the hero declares one — but a fan of sleeves is a FIXED size, and
          * inside a 240px square it sat centred with a band of empty panel above and below.
          *
          * Measured rather than eyeballed, and against the FAN rather than a fixed number: the

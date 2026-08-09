@@ -172,7 +172,7 @@ Seed login: **`Ashaltiriak` / `passwort`**, and note that **login is by `name`, 
 | `environment.ts` | Ports, paths, the server env overrides, the generated media area, and the stand-up/teardown primitives. |
 | `globalSetup.ts` / `globalTeardown.ts` | Run them, in the right order. |
 | `auth.setup.ts` | The `setup` project: signs in for real and stores the session. |
-| `actions.ts` | `signIn`, `columnValues`, `pageHeading`, `clockToSeconds`, `fold`, `expectOnTablePage`, `countDocumentRequests`. |
+| `actions.ts` | `signIn`, `columnValues`, `pageHeading`, `clockToSeconds`, `fold`, `expectOnTablePage`, `countDocumentRequests`, `openQueuePanel`, `enqueueFromHero`, `stopQueueSync`, `settled`. |
 
 ---
 
@@ -292,6 +292,21 @@ this is the record of *why* that code exists.
   polled that readout and was a coin flip — heads on an idle machine, tails under a full suite,
   about once in fifty runs. Assert the range input's `inputValue()` instead: same number,
   unrounded, and it is what a screen reader is given anyway.
+- **After a navigation, `page.mouse` fires into the VIEW TRANSITION and nothing happens.** `main.ts`
+  opts every navigation into the View Transitions API, and while one runs the browser paints
+  `::view-transition-*` — a pseudo tree belonging to the **root** — over the whole page in the top
+  layer. Hit testing lands on that, so `document.elementFromPoint` returns the `<html>` element at
+  *every* coordinate on the page, including (5, 5), while `getBoundingClientRect()` on the element
+  you were aiming at reports exactly the rectangle you expect. Measured: immediately after
+  navigating every probe answers `HTML`; 700ms later the same points answer with the real element.
+  Locator actions ride it out, retrying until the element genuinely receives pointer events —
+  **anything through `page.mouse` does not**, it fires once into the snapshot. Call `settled(page)`
+  after the navigation and before any raw pointer work (a drag by a grip, a click at a measured
+  offset). It cost an hour twice before being understood: once as a SortableJS drag that silently
+  refused to start, once as a click on a row that plainly had a stretched link under it — both
+  presenting as broken *features* rather than as mis-timed input. Prefer a locator action with
+  `{ position }` over raw coordinates where one will do; it waits *and* verifies the element is
+  what receives the press.
 - **A popover must be STILL before it is measured.** Panels open with a `rotateY`, and a transform is
   included in `getBoundingClientRect` — so a box read on the click is a couple of pixels from where
   it lands. `:popover-open` and visibility are both true from the first frame, so neither is the
