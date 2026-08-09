@@ -1,0 +1,44 @@
+/******************************************************************************
+ * contextual size tokens — component:PlaylistTracks.vue
+ * @type {Sass}
+ * The list of entries on a playlist's detail page: one row per track, at every width.
+ *
+ * The row's frame — border, radius, padding, gap — is the genre page's artist card and the
+ * Discography tile, re-picked from the globals rather than read across (a contextual
+ * partial consumes globals, never another partial's tokens). Deliberately so: a reader who
+ * has just come from either of those should meet the same object here, not a third idea of
+ * what a listed row is.
+ *
+ * `radius` is the `featured` rung for the same reason the artist cards use it — these rows
+ * sit directly under the hero panel, and corners that agree with it read as part of the
+ * page rather than as something dropped onto it.
+ *
+ * `control-gap` and `control-padding` belong to the two icon buttons at the trailing edge.
+ * The padding is what makes them findable: a bare 19px glyph is a 19px target otherwise,
+ * which is the problem the play queue's grip and the listing's drag handle both solved by
+ * widening their own strip.
+ * Consumed as s.$c-playlist-tracks via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$playlist-tracks: (
+    "border": map.get(s.$border, "base"),
+    // matches the hero panel these rows sit under — see above
+    "radius": map.get(s.$radius, "featured"),
+    "row-padding": map.get(s.$padding, "base"),
+    // between rows
+    "gap": map.get(s.$padding, "base"),
+    // inside a row: title to facts to controls
+    "row-gap": map.get(s.$padding, "base"),
+    // the facts, each in its own chip: the gap between them, and each chip's padding and
+    // rounding. Literals for the padding for the reason the Discography's are — what a chip
+    // needs is enough room to read as a pill, not a step of the page's rhythm.
+    "meta-gap": 0.5ch,
+    "meta-padding": 0.1rem 0.6rem,
+    "meta-radius": map.get(s.$radius, "base"),
+    // the two icon buttons at the trailing edge
+    "control-gap": 0.25rem,
+    "control-padding": 0.35rem,
+    "control-radius": map.get(s.$radius, "base")
+) !default;

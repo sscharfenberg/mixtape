@@ -1,0 +1,165 @@
+<script setup lang="ts">
+/******************************************************************************
+ * PlaylistPage
+ * One playlist's detail page, at /playlists/{id} (route `playlists.show`) — where a row of
+ * the Playlists listing leads. Nested under the listing's folder like the four Music detail
+ * pages: the detail view lives inside the listing it came from, mirroring the URL.
+ *
+ * TWO blocks, the shape every detail page here has: the hero — the playlist's name, the
+ * menu that acts on it as a whole, and a fan of a few of its covers — and below it the
+ * entries themselves.
+ *
+ * THE FAN STANDS IN FOR ARTWORK A PLAYLIST DOES NOT HAVE. A playlist is a name over other
+ * people's records, so there is nothing to photograph; three of its own sleeves, picked at
+ * random per visit and fanned out (CoverSleeves, the same object the genre page's artist
+ * cards lead with), say what is in it better than a placeholder would. It goes in the hero's
+ * `#cover` slot, which is what puts it on the trailing edge — and when the playlist's tracks
+ * carry no artwork at all the component renders a single placeholder, which is precisely
+ * what makes the hero draw its dashed "no artwork on file" square around it.
+ *
+ * THE WHOLE PLAYLIST IS ALREADY HERE, unlike the Music detail pages, whose songs tables are
+ * paginated and whose hero menus therefore fetch `queueTracks` on the first press. Every
+ * entry of a playlist is on screen, so its queue payload IS the page's content — which is
+ * why SubjectMenu is handed the tracks rather than left to go back for them, and why each
+ * row can carry its own play button (PlaylistController says the same from its end).
+ *****************************************************************************/
+import { Head } from "@inertiajs/vue3";
+import { computed } from "vue";
+import { useI18n } from "vue-i18n";
+import CoverSleeves from "Components/Music/CoverSleeves.vue";
+import SubjectMenu from "Components/Music/SubjectMenu.vue";
+import FactPair from "Components/UI/Card/FactPair.vue";
+import Container from "Components/UI/Container.vue";
+import HeroSection from "Components/UI/HeroSection.vue";
+import { useBreadcrumbs } from "Composables/useBreadcrumbs";
+import { formatDateTime, formatDuration } from "Utils/formatting";
+import PlaylistTracks, { type PlaylistTrackRow } from "./PlaylistTracks.vue";
+
+/** The playlist itself, as PlaylistController shaped it — every value raw. */
+interface PlaylistDetail {
+    id: string;
+    name: string;
+    /** How many entries it holds. 0 is the normal state right after creating one. */
+    tracks: number;
+    /** Total playing time in raw seconds, or null when it plays for no time at all. */
+    duration: number | null;
+    /** ISO-8601 instant, formatted here — the server knows neither the locale nor the timezone. */
+    createdAt: string | null;
+    /** ISO-8601 instant of the last change, or null when nothing has happened since it was created. */
+    updatedAt: string | null;
+}
+
+const props = defineProps<{
+    /** The playlist being shown, with the four numbers its hero prints. */
+    playlist: PlaylistDetail;
+    /** Its entries, in the reader's own order, each already a queue entry. */
+    tracks: PlaylistTrackRow[];
+    /**
+     * Up to three cover URLs for the hero's fan, picked at random per request and one per
+     * album (PlaylistController::fannedCovers). Empty when nothing in the playlist carries
+     * artwork, which renders as the hero's dashed placeholder.
+     */
+    covers: string[];
+}>();
+
+const { t, locale } = useI18n();
+const { setBreadcrumbs } = useBreadcrumbs();
+// The playlist's own crumb is a raw label, not a key — its name is data. The parent chip is
+// the listing this row came from, matching the trail the Music detail pages set.
+setBreadcrumbs([
+    { labelKey: "header.siteMenu.playlists", href: "/playlists", icon: "playlist" },
+    { label: props.playlist.name }
+]);
+
+/**
+ * How long the playlist plays, as a human breakdown ("1 Stunde, 12 Minuten").
+ *
+ * `formatDuration` rather than `formatClock`, and the same call the listing's row makes so
+ * the two agree: a total is read as an amount of time, not as a position on a timeline, and
+ * it grows an hours part on its own for a long playlist while still saying plain minutes for
+ * a short one. The ROWS below use `formatClock`, deliberately — a single track's length is
+ * read against a timeline.
+ *
+ * Empty for a playlist that plays for no time, which drops the tile: the server sends null
+ * there, and "0 Sekunden" beside a track count of 0 says nothing twice.
+ */
+const playtime = computed<string>(() =>
+    props.playlist.duration === null || props.playlist.duration === 0
+        ? ""
+        : formatDuration(props.playlist.duration, (key, count) => t(`common.duration.${key}`, count))
+);
+
+/**
+ * An ISO-8601 instant in the reader's locale and timezone.
+ *
+ * Returns "" rather than null for a missing or unparseable one, because that is FactPair's
+ * caller contract: an empty value is a tile the caller should not render, and `v-if` on ""
+ * reads the same as on null without a second type.
+ */
+const dateOf = (iso: string | null): string => formatDateTime(iso, locale.value) ?? "";
+</script>
+
+<template>
+    <Head :title="playlist.name" />
+    <container>
+        <div class="playlist-page">
+            <hero-section>
+                <!-- Not artwork, but where artwork would be — see the banner. -->
+                <template #cover><cover-sleeves :covers="covers" :title="playlist.name" /></template>
+                <!-- The page's heading lives here rather than in a <Headline>, as on the
+                     detail pages: the hero sets the type, the level is ours. <h2> because the
+                     document's <h1> is the wordmark in AppHeader, which every page carries. -->
+                <template #title
+                    ><h2>{{ playlist.name }}</h2></template
+                >
+                <!-- Play or enqueue the whole playlist. Handed the tracks, so neither verb
+                     costs a request. Pinned to the far end of the heading line by the hero,
+                     not by anything here. -->
+                <template #menu><subject-menu subject="playlist" :tracks="tracks" /></template>
+                <!-- The same four facts the listing's row carries, so a playlist reads the
+                     same in both places. Only the track count is unconditional: a count of 0
+                     is an answer about the playlist, where the other three are facts that can
+                     genuinely be absent — nothing to play, and nothing changed since it was
+                     made. -->
+                <template #metadata>
+                    <fact-pair :label="t('playlists.facts.tracks')" :value="String(playlist.tracks)" icon="song" />
+                    <fact-pair
+                        v-if="playtime"
+                        :label="t('playlists.facts.duration')"
+                        :value="playtime"
+                        icon="duration"
+                    />
+                    <fact-pair
+                        v-if="dateOf(playlist.createdAt)"
+                        :label="t('playlists.facts.createdAt')"
+                        :value="dateOf(playlist.createdAt)"
+                        icon="recent"
+                    />
+                    <fact-pair
+                        v-if="dateOf(playlist.updatedAt)"
+                        :label="t('playlists.facts.updatedAt')"
+                        :value="dateOf(playlist.updatedAt)"
+                        icon="refresh"
+                    />
+                </template>
+            </hero-section>
+
+            <playlist-tracks :tracks="tracks" />
+        </div>
+    </container>
+</template>
+
+<style scoped lang="scss">
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/sizes" as s;
+
+/* Stacks the page's blocks and spaces them, taking the CardGroup's own gutter
+   (s.$c-card "gap") so the rhythm down the page matches the rhythm between two cards — the
+   same rule, for the same reason, as the four Music detail pages. */
+.playlist-page {
+    display: flex;
+    flex-direction: column;
+
+    gap: map.get(s.$c-card, "gap");
+}
+</style>

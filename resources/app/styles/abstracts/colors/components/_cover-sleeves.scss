@@ -1,0 +1,27 @@
+/******************************************************************************
+ * contextual color tokens — component:CoverSleeves.vue
+ * @type {Sass}
+ * The fanned stack of album sleeves. One token, and it is the whole illusion:
+ * `shadow` is what makes the fan read as three separate records rather than one
+ * smeared image, since the rotated covers overlap and the middle one has to be
+ * lifted off its neighbours. The sleeve's own hairline edge comes from CoverImage —
+ * drawing a second one here is what made the first attempt look like picture frames.
+ *
+ * Both rungs are dark and translucent: a shadow is an absence of light on either
+ * theme, so this deepens rather than inverting — only the strength differs, since a
+ * dark surface needs more of it to register at all.
+ *
+ * Lifted out of `_genre-artists.scss` with the sizes when the fan became a component
+ * of its own (2026-08-09); the value is unchanged.
+ * Consumed as c.$c-cover-sleeves via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$cover-sleeves: (
+    "shadow": light-dark(
+            color.adjust(map.get(c.$grey, "asher"), $alpha: -0.7),
+            color.adjust(map.get(c.$grey, "black"), $alpha: -0.5)
+        )
+) !default;

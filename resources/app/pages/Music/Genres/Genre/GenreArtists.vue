@@ -9,26 +9,21 @@
  * around "in this genre" — which is not a question an artist page or an album page
  * can ask. If a second caller ever needs it, that is the moment to promote it.
  *
- * THE FAN DEGRADES HONESTLY, which is the load-bearing decision here rather than a
- * fallback. In this collection half of all artists have exactly one album and only a
- * third have three or more, so the three-cover fan is the MINORITY card and the
- * one-cover card is the common one. Padding a stack out to three by repeating a
- * sleeve, or by filling with placeholders, would make the most frequent card on the
- * page look like a rendering fault. So: three or more covers fan three, two fan two,
- * one sits straight, and an artist whose albums carry no artwork at all gets a single
- * placeholder.
+ * THE FAN OF SLEEVES IS NOT THIS COMPONENT'S ANY MORE. It was, until a playlist's hero
+ * wanted the same object; it is now CoverSleeves, which owns how one, two or three
+ * covers are laid out and why (its banner keeps that argument). What is left here is
+ * the card around it.
  *
  * The covers arrive already picked and already shuffled — the server sends up to three
  * at random per request (see GenreController::fannedCovers), so the fan is different
- * on every visit by design. Nothing here re-orders them.
+ * on every visit by design. Nothing on this path re-orders them.
  *
- * Rotation is a STATIC transform, not a transition, so it needs no reduced-motion
- * guard; the hover lift does, and has one.
+ * The hover lift is a transition, and carries its reduced-motion guard.
  *****************************************************************************/
 import { Link } from "@inertiajs/vue3";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
+import CoverSleeves from "Components/Music/CoverSleeves.vue";
 import { formatClock, formatDecimals } from "Utils/formatting";
 
 /** One artist of this genre, as GenreController shaped them — every value raw. */
@@ -62,34 +57,6 @@ const props = defineProps<{
 
 const { t, locale } = useI18n();
 
-/**
- * The sleeves to draw, in DOM order, each with the class that places it.
- *
- * Built as an explicit list rather than left to `v-for` over `covers` with index maths in
- * the template, because the middle sleeve must come LAST in the DOM: the three overlap,
- * and the one on top is the one painted last. Doing it with z-index instead would work
- * until the cards sit inside the tab panel's stacking context, which is exactly the sort
- * of thing that breaks silently much later.
- */
-const sleeves = (artist: GenreArtist): { src: string | null; position: string }[] => {
-    const covers = artist.covers.slice(0, 3);
-
-    if (covers.length === 0) return [{ src: null, position: "single" }];
-    if (covers.length === 1) return [{ src: covers[0], position: "single" }];
-    if (covers.length === 2) {
-        return [
-            { src: covers[0], position: "left" },
-            { src: covers[1], position: "right" }
-        ];
-    }
-
-    return [
-        { src: covers[0], position: "left" },
-        { src: covers[2], position: "right" },
-        { src: covers[1], position: "middle" }
-    ];
-};
-
 /** The artist's song count, grouped for the active locale, already pluralised. */
 const songCount = (artist: GenreArtist): string => t("music.genre.artists.songCount", artist.songs);
 
@@ -112,23 +79,10 @@ const total = computed(() => formatDecimals(props.artists.length, locale.value))
     <ul v-if="artists.length > 0" class="genre-artists" :aria-label="t('music.genre.artists.label', { total })">
         <li v-for="artist in artists" :key="artist.id" class="genre-artists__item">
             <Link :href="artist.href" class="genre-artists__link" prefetch>
-                <!-- `aria-hidden`: the fan is decoration for the artist's name, which is the
-                     next thing inside the same link. Naming each sleeve would have a screen
-                     reader read three album titles before reaching the person. -->
-                <span class="genre-artists__fan" aria-hidden="true">
-                    <span
-                        v-for="(sleeve, index) in sleeves(artist)"
-                        :key="index"
-                        :class="['genre-artists__sleeve', `genre-artists__sleeve--${sleeve.position}`]"
-                    >
-                        <!-- `large` is the 96px step, which is exactly what a sleeve is here.
-                             NOT `xlarge`: that one fills its container but carries the HERO
-                             frame with it — the thick `featured` border and rounding meant
-                             for a 240px sleeve — which at this size reads as a picture frame
-                             around the art rather than the edge of a record. -->
-                        <cover-image :src="sleeve.src" :title="artist.name" size="large" decorative />
-                    </span>
-                </span>
+                <!-- The fan owns its own layout, its own degradation rule and its own
+                     `aria-hidden` — it is decoration for the artist's name, which is the next
+                     thing inside the same link. -->
+                <cover-sleeves :covers="artist.covers" :title="artist.name" />
                 <span class="genre-artists__name">{{ artist.name }}</span>
                 <!-- One chip per number, like the Discography's facts — all three always
                      render, because a count of zero is a fact about the artist rather than a
@@ -213,58 +167,6 @@ const total = computed(() => formatDecimals(props.artists.length, locale.value))
            Same as the Discography tile's. */
         &:focus-visible {
             outline: 2px solid currentcolor;
-        }
-    }
-
-    /* The fan's box. `position: relative` so the sleeves can stack on top of one another,
-       and a FIXED height because they are absolutely positioned and would otherwise
-       contribute nothing to the card's height — every card would collapse to its text. */
-    &__fan {
-        display: flex;
-        position: relative;
-        align-items: center;
-        justify-content: center;
-
-        width: 100%;
-        max-width: map.get(s.$c-genre-artists, "fan-box");
-        height: map.get(s.$c-genre-artists, "fan-size");
-    }
-
-    /* Sized by its content — the CoverImage inside is already exactly one sleeve wide — so
-       there is no second copy of that measurement here to drift from it. `line-height: 0`
-       because the image is inline content and would otherwise sit on a text baseline,
-       leaving a sliver of box beneath it for the shadow to trace. */
-    &__sleeve {
-        position: absolute;
-
-        overflow: hidden;
-
-        border-radius: map.get(s.$c-genre-artists, "fan-radius");
-
-        /* Each sleeve carries the shadow that lifts it off the one beneath; the fan is built
-           from overlap, so this is what keeps the stack legible as separate records rather
-           than one flat shape. CoverImage draws the hairline edge itself. */
-        box-shadow: 0 2px 6px -1px map.get(c.$c-genre-artists, "fan-shadow");
-
-        line-height: 0;
-
-        /* Deliberately OUTSIDE the reduced-motion guard: these are static transforms, not
-           motion. The rule covers transitions and running animations; a sleeve that is
-           simply drawn at an angle animates nothing. */
-        &--left {
-            transform: translateX(calc(-1 * #{map.get(s.$c-genre-artists, "fan-offset")}))
-                rotate(calc(-1 * #{map.get(s.$c-genre-artists, "fan-angle")}));
-        }
-
-        &--right {
-            transform: translateX(map.get(s.$c-genre-artists, "fan-offset"))
-                rotate(map.get(s.$c-genre-artists, "fan-angle"));
-        }
-
-        /* Straight on, and painted last — it is the one on top. */
-        &--middle,
-        &--single {
-            transform: none;
         }
     }
 

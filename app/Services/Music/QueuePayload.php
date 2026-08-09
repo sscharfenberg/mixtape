@@ -57,6 +57,39 @@ final class QueuePayload
      */
     public static function fromQuery(Builder $tracks, ?TrackType $only = TrackType::Music): array
     {
+        return self::selectFrom($tracks, $only)
+            ->selectRaw('coalesce(collections.year, 0) as year_sort')
+            ->orderByDesc('year_sort')
+            ->orderBy('collections.name')
+            ->orderBy('tracks.disc')
+            ->orderBy('tracks.track')
+            ->orderBy('tracks.name')
+            ->get()
+            ->map(fn (object $track): array => self::entry($track))
+            ->all();
+    }
+
+    /**
+     * The joins and columns a queue entry is built from, applied to a query over `tracks`
+     * — everything {@see fromQuery} does EXCEPT choosing the order and running it.
+     *
+     * Public for the caller that cannot use `fromQuery`, and there is exactly one kind:
+     * something whose order is its own data. A saved playlist is the reader's running
+     * order (`playlist_tracks.position`), so the album-then-disc-then-track sort above
+     * would silently rewrite it — while the eight fields the player needs must still be
+     * the same eight, shaped the same way. Hence the split: order here, shape in
+     * {@see entry}.
+     *
+     * It calls `select()`, not `addSelect()`, so anything the caller selected before this
+     * is dropped; add extra columns AFTER calling it. Those extra columns are also why
+     * this returns the builder rather than the rows — the playlist page reads the album
+     * year and the entry's own id off the same query.
+     *
+     * @param  Builder  $tracks  a query over the `tracks` table, already narrowed to the subject
+     * @param  TrackType|null  $only  restrict to one kind of track, or null for any
+     */
+    public static function selectFrom(Builder $tracks, ?TrackType $only = TrackType::Music): Builder
+    {
         return $tracks
             ->when($only !== null, fn (Builder $query) => $query->where('tracks.type', $only->value))
             ->leftJoin('artists', 'tracks.artist_id', '=', 'artists.id')
@@ -68,28 +101,37 @@ final class QueuePayload
                 'tracks.cover',
                 'artists.name as artist_name',
                 'collections.name as album_name',
-            ])
-            ->selectRaw('coalesce(collections.year, 0) as year_sort')
-            ->orderByDesc('year_sort')
-            ->orderBy('collections.name')
-            ->orderBy('tracks.disc')
-            ->orderBy('tracks.track')
-            ->orderBy('tracks.name')
-            ->get()
-            ->map(fn (object $track): array => [
-                'id' => $track->id,
-                'name' => $track->name,
-                'artist' => $track->artist_name,
-                'album' => $track->album_name,
-                // Raw seconds; the panel formats them (the project's server-sends-raw rule).
-                'duration' => $track->duration === null ? null : (float) $track->duration,
-                'coverUrl' => $track->cover
-                    ? route('music.songs.cover', $track->id, absolute: false)
-                    : null,
-                'href' => route('music.songs.show', $track->id, absolute: false),
-                'streamUrl' => route('music.songs.stream', $track->id, absolute: false),
-            ])
-            ->all();
+            ]);
+    }
+
+    /**
+     * One selected row as a queue entry — THE definition of the shape, and the reason this
+     * class exists at all (see the class docblock: four pages hand the player tracks, and a
+     * fifth one shaped slightly differently would be taken and then fail on the field that
+     * was missing).
+     *
+     * Public alongside {@see selectFrom} so a caller that adds columns of its own can still
+     * map through this rather than repeating the eight fields; the extra columns it selected
+     * are simply ignored here and merged on by the caller.
+     *
+     * @param  object  $track  a row from a query {@see selectFrom} shaped
+     * @return array<string, mixed> one entry in the shape `QueueTrack` expects
+     */
+    public static function entry(object $track): array
+    {
+        return [
+            'id' => $track->id,
+            'name' => $track->name,
+            'artist' => $track->artist_name,
+            'album' => $track->album_name,
+            // Raw seconds; the panel formats them (the project's server-sends-raw rule).
+            'duration' => $track->duration === null ? null : (float) $track->duration,
+            'coverUrl' => $track->cover
+                ? route('music.songs.cover', $track->id, absolute: false)
+                : null,
+            'href' => route('music.songs.show', $track->id, absolute: false),
+            'streamUrl' => route('music.songs.stream', $track->id, absolute: false),
+        ];
     }
 
     /** A query over `tracks`, for a caller that only wants to add its own `where`. */

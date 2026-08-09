@@ -371,7 +371,8 @@
                 "artist": "Künstler",
                 "album": "Album",
                 "genre": "Genre",
-                "song": "Titel"
+                "song": "Titel",
+                "playlist": "Wiedergabeliste"
             }
         }
     },
@@ -388,6 +389,14 @@
         "menu": {
             "actions": "Aktionen für {name}",
             "editMetadata": "Metadaten bearbeiten"
+        },
+        "detail": {
+            "label": "Titel dieser Wiedergabeliste",
+            "empty": "Diese Wiedergabeliste ist noch leer. Titel fügst du dort hinzu, wo du sie hörst — auf der Song- oder Album-Seite.",
+            "play": "„{name}“ abspielen",
+            "playHint": "Abspielen",
+            "enqueue": "„{name}“ in die Warteschlange stellen",
+            "enqueueHint": "In die Warteschlange"
         },
         "empty": {
             "headline": "Noch keine Wiedergabeliste",

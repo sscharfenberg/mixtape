@@ -8,6 +8,8 @@ use App\Enums\TrackType;
 use App\Models\Artist;
 use App\Models\Collection;
 use App\Models\Genre;
+use App\Models\Playlist;
+use App\Models\PlaylistTrack;
 use App\Models\Track;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -45,6 +47,9 @@ use Illuminate\Support\Facades\Hash;
  * - Some tracks claim embedded cover art and some do not. The claim is a lie in both
  *   cases (no file exists), which is deliberate: it exercises CoverImage's 404
  *   fallback, the one case that needs a real browser to verify.
+ * - A populated PLAYLIST and an empty one, per account that reads them. Nothing in the UI
+ *   adds a track to a playlist yet, so this is the only way either page gets a populated
+ *   one — see seedPlaylists() and the PLAYLIST_TRACKS constant.
  */
 class E2ESeeder extends Seeder
 {
@@ -164,7 +169,7 @@ class E2ESeeder extends Seeder
      */
     private function seedSpecUsers(): void
     {
-        foreach (['spec-queue', 'spec-player', 'spec-shortcuts', 'spec-widgets'] as $name) {
+        foreach (['spec-queue', 'spec-player', 'spec-shortcuts', 'spec-widgets', 'spec-playlist-detail'] as $name) {
             User::factory()->create([
                 'name' => $name,
                 'email' => $name.'@mixtape.test',
@@ -204,7 +209,122 @@ class E2ESeeder extends Seeder
                 $this->seedTrack($collection, $artists[$album['artist']], $genres[$album['genre']], $name, $index + 1, $trackNumber, $album['bitRate']);
             }
         }
+
+        // Last, because it picks tracks out of the library above by name.
+        $this->seedPlaylists();
     }
+
+    /**
+     * The playlists the fixture ships with — one populated, one empty, per account that
+     * needs them.
+     *
+     * WHY THE FIXTURE CARRIES THEM AT ALL: nothing in the UI adds a track to a playlist yet,
+     * so a populated one cannot be built by driving the app. Without these, a spec would have
+     * to INSERT its own (which playlist-detail.spec.ts did until this landed), and a human
+     * running the E2E app to look at something would find a playlists area with nothing in it.
+     *
+     * BOTH accounts get the populated one because playlists are PRIVATE PER OWNER: the
+     * canonical reader's copy is what a person browsing the seeded app sees, and
+     * `spec-playlist-detail` needs its own or the page it reads would 404. That account owns
+     * its playlists for the reason SPEC_USERS exists — its spec presses play, and a play queue
+     * follows the user across workers.
+     *
+     * The EMPTY one exists because that is the state a new account meets first, and the page
+     * has a whole branch for it.
+     */
+    private function seedPlaylists(): void
+    {
+        $tracks = Track::query()->whereIn('name', self::PLAYLIST_TRACKS)->pluck('id', 'name');
+
+        $row = 0;
+        foreach (['Ashaltiriak', 'spec-playlist-detail'] as $owner) {
+            $userId = User::query()->where('name', $owner)->value('id');
+
+            $this->seedPlaylist(
+                $userId,
+                ++$row,
+                'Roadtrip',
+                // In the constant's order, which is the point of it — see PLAYLIST_TRACKS.
+                array_map(fn (string $name): string => $tracks[$name], self::PLAYLIST_TRACKS),
+                // Changed after it was made, so the hero's and the row's "Geändert" tile has
+                // something to print. Fixed instants, not now(): a rendered date must not
+                // change between runs.
+                '2026-07-22 10:15:00',
+                '2026-07-30 18:42:00',
+            );
+
+            $this->seedPlaylist($userId, ++$row, 'Ganz frisch', [], '2026-07-31 08:05:00', '2026-07-31 08:05:00');
+        }
+    }
+
+    /**
+     * One playlist and its entries, at fixed ids and fixed instants.
+     *
+     * The timestamps are written back with a QUERY update after the entries exist, and that
+     * is load-bearing rather than tidy: PlaylistTrack::$touches bumps its playlist's
+     * `updated_at` on every insert, with `now()` — so a playlist created the obvious way
+     * carries the moment the suite happened to run, and any assertion on the date it renders
+     * would be different on every run. A query update fires no model events, so it wins.
+     *
+     * `created_at === $changedAt` is how a playlist says "nothing has happened to me since":
+     * both controllers compare the two and send null, and the page then prints no "changed"
+     * tile at all.
+     *
+     * @param  array<int, string>  $trackIds  the entries, in the order the playlist holds them
+     */
+    private function seedPlaylist(string $userId, int $row, string $name, array $trackIds, string $createdAt, string $changedAt): void
+    {
+        $playlist = Playlist::query()->create([
+            'id' => $this->id(5, $row),
+            'user_id' => $userId,
+            'name' => $name,
+            'description' => $trackIds === [] ? null : 'Für die lange Fahrt.',
+            'position' => $row,
+        ]);
+
+        foreach ($trackIds as $index => $trackId) {
+            PlaylistTrack::query()->create([
+                // Unique across every playlist, so two of them cannot collide on an entry id.
+                'id' => $this->id(6, ($row * 100) + $index + 1),
+                'playlist_id' => $playlist->id,
+                'track_id' => $trackId,
+                'position' => $index,
+                'created_at' => $createdAt,
+            ]);
+        }
+
+        Playlist::query()->whereKey($playlist->id)->update(['created_at' => $createdAt, 'updated_at' => $changedAt]);
+    }
+
+    /**
+     * The seeded playlist's entries, BY NAME and in the order it holds them.
+     *
+     * Every choice here is a case the detail page has to handle, so the fixture exercises
+     * them without a spec having to build anything:
+     *
+     * - THE ORDER IS NEITHER ALPHABETICAL NOR THE LIBRARY'S. A playlist IS its running order,
+     *   so a page that quietly sorted by title would look perfectly fine against a list that
+     *   happened to be sorted already. This one starts at K and goes back to G.
+     * - Three of them ("Karma Police", "Roads", "There Is a Light…") carry cover art, and all
+     *   three are off DIFFERENT albums — so the hero's fan draws its full three sleeves, which
+     *   is the case that needs the per-album dedupe (a cover URL is per track, so several
+     *   songs off one record would fan the same picture three times).
+     * - "Fitter Happier" is the fixture's one UNTAGGED track: no duration, no bit rate. Its
+     *   row must drop the clock chip rather than print "0:00".
+     * - "Svefn-g-englar" carries accents and "There Is a Light That Never Goes Out" is long
+     *   enough to wrap a narrow row.
+     *
+     * @var list<string>
+     */
+    private const PLAYLIST_TRACKS = [
+        'Karma Police',
+        'Girls & Boys',
+        'Roads',
+        'Fitter Happier',
+        'There Is a Light That Never Goes Out',
+        'Svefn-g-englar',
+        'Avalon',
+    ];
 
     /**
      * Create the genres, keyed by name so the album loop can look one up.

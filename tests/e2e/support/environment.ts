@@ -209,11 +209,16 @@ export const resetDatabase = (): void => {
     artisan("config:clear");
     artisan("migrate:fresh", "--force");
     /*
-     * E2ESeeder, NOT the default `--seed`. DatabaseSeeder runs LibrarySeeder, which is
-     * deliberately random (factories, random_int, inRandomOrder) and re-rolled on every
-     * run — good for a developer wanting a plausible library, wrong for a browser test,
-     * which then cannot name a song and meets thin edge cases unpredictably. E2ESeeder is
-     * a fixed fixture: same ids, names, durations and timestamps every time.
+     * E2ESeeder, NOT the default `--seed`, and that is now doubly true: DatabaseSeeder no
+     * longer calls LibrarySeeder at all (it exists for developing without an mp3 collection,
+     * and every dev box has one), so the default would leave a run with an account and an
+     * empty library.
+     *
+     * It was never the right seeder anyway. LibrarySeeder is deliberately random (factories,
+     * random_int, inRandomOrder) and re-rolled on every run — good for a developer wanting a
+     * plausible library, wrong for a browser test, which then cannot name a song and meets
+     * thin edge cases unpredictably. E2ESeeder is a fixed fixture: same ids, names, durations
+     * and timestamps every time.
      */
     artisan("db:seed", "--class=Database\\Seeders\\E2ESeeder", "--force");
 };
@@ -281,7 +286,10 @@ export const SPEC_USERS = {
     queue: "spec-queue",
     player: "spec-player",
     shortcuts: "spec-shortcuts",
-    widgets: "spec-widgets"
+    widgets: "spec-widgets",
+    // Playlists are PRIVATE PER OWNER, so this account also owns the fixture the spec
+    // reads — a playlist seeded for anyone else would 404 for it.
+    playlistDetail: "spec-playlist-detail"
 } as const;
 
 /** Where a spec account's signed-in session is parked by the setup project. */

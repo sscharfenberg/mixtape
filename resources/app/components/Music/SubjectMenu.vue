@@ -3,23 +3,30 @@
  * SubjectMenu
  * The menu in a detail page's hero: everything you can do with the SUBJECT of that page
  * as a whole — play it now, or add it to the queue. One component for the artist, album,
- * genre and song pages, because the two verbs behave identically on all four and only the
- * word in the label and the tracks behind it differ.
+ * genre, song and playlist pages, because the two verbs behave identically on all five and
+ * only the word in the label and the tracks behind it differ.
  *
  * PLAY MEANS REPLACE. "Play this artist" empties the queue and puts their records in it,
  * which is what a listener means by it and what every player does; "enqueue" appends and
  * leaves what is playing alone. The two are one click apart in the same menu, so the
  * labels have to be unambiguous — hence "{subject} abspielen" rather than a bare "Play".
  *
- * IT FETCHES THE TRACKS WHEN PRESSED, not when the page loads. Every one of these pages
+ * IT FETCHES THE TRACKS WHEN PRESSED, not when the page loads. Every one of the MUSIC pages
  * paginates its songs table, so the rows on screen are never the whole subject, and the
- * whole subject can be thousands of tracks. The controllers therefore declare
+ * whole subject can be thousands of tracks. Those controllers therefore declare
  * `queueTracks` as an OPTIONAL Inertia prop (App\Services\Music\QueuePayload) and this
  * asks for it by name with a partial reload. There is no endpoint to call because this app
  * has no REST API by design — a partial reload IS the Inertia way to fetch more of a page.
  *
  * The fetched payload is kept for the life of the page: pressing play and then enqueue
  * costs one round trip, not two, and the second press is instant.
+ *
+ * …UNLESS THE PAGE ALREADY HAS THEM, which is what the optional `tracks` prop is for. A
+ * playlist is not paginated: it is a hand-made list, every entry is on screen, and each row
+ * carries its own play button — so the queue payload is the page's content rather than an
+ * extra to go back for. Handed that, this never reaches for the network and `busy` never
+ * turns true. Deliberately a prop rather than a second component: what the two verbs MEAN
+ * is the thing worth stating once, and it does not change with where the tracks came from.
  *
  * It reads usePlayerQueue and usePlayerAudio directly rather than emitting upward: both
  * are module singletons, so a page in between would only be prop-drilling. Same call
@@ -36,11 +43,17 @@ import { usePlayerQueue } from "Composables/usePlayerQueue";
 import { useToast } from "Composables/useToast";
 
 /** Which kind of thing this page is about — decides the wording, nothing else. */
-type Subject = "artist" | "album" | "genre" | "song";
+type Subject = "artist" | "album" | "genre" | "song" | "playlist";
 
 const props = defineProps<{
     /** The subject of the page this menu sits on. */
     subject: Subject;
+    /**
+     * The subject's tracks, when the page already holds all of them — a playlist. Omit it
+     * and the menu fetches `queueTracks` on the first press instead (see the banner). An
+     * empty array is a real answer, not "unset": a playlist with nothing in it says so.
+     */
+    tracks?: QueueTrack[];
 }>();
 
 const { t } = useI18n();
@@ -65,8 +78,14 @@ const subjectLabel = computed<string>(() => t(`music.subjectMenu.subject.${props
  * server runs that closure and nothing else on the page re-renders. Wrapped in a promise
  * because Inertia reports through callbacks, and both verbs need to act AFTER the payload
  * has landed.
+ *
+ * A caller that passed them in short-circuits the whole thing — see the `tracks` prop.
+ * `!== undefined` rather than a truthiness test, so an empty playlist resolves to "nothing
+ * to play" instead of falling through to a reload for a prop its controller never sends.
  */
 async function loadTracks(): Promise<QueueTrack[]> {
+    if (props.tracks !== undefined) return props.tracks;
+
     const alreadyThere = page.props.queueTracks as QueueTrack[] | undefined;
     if (alreadyThere) return alreadyThere;
 

@@ -20,6 +20,7 @@ use App\Http\Controllers\MusicController;
 use App\Http\Controllers\NowPlayingController;
 use App\Http\Controllers\Player\PlayController;
 use App\Http\Controllers\Player\PlayerStateController;
+use App\Http\Controllers\Playlists\PlaylistController;
 use App\Http\Controllers\Playlists\PlaylistMetadataController;
 use App\Http\Controllers\Playlists\PlaylistOrderController;
 use App\Http\Controllers\PlaylistsController;
@@ -73,6 +74,14 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         Route::put('/playlists/order', PlaylistOrderController::class)
             ->middleware('throttle:60,1')
             ->name('playlists.order');
+
+        // One playlist and everything in it — the row-click target of the listing above.
+        // Registered after `create` and `order` like the two routes below it, and
+        // UUID-constrained for the same reason: those two literal segments must keep
+        // matching their own routes rather than being read as a playlist id.
+        Route::get('/playlists/{playlist}', PlaylistController::class)
+            ->whereUuid('playlist')
+            ->name('playlists.show');
 
         Route::get('/playlists/{playlist}/edit', [PlaylistMetadataController::class, 'edit'])
             ->whereUuid('playlist')

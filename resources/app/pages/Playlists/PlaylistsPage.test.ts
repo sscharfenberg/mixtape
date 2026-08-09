@@ -80,11 +80,11 @@ describe("PlaylistsPage", () => {
         expect(wrapper.findAll("ul.playlist__list > li.playlist")).toHaveLength(2);
     });
 
-    it("names each playlist inside its own link", () => {
-        const row = page([playlist({ name: "Nachtfahrt" })]).find("li.playlist");
+    it("names each playlist inside a link to its own page", () => {
+        const row = page([playlist({ id: "playlist-1", name: "Nachtfahrt" })]).find("li.playlist");
         const link = row.find("a.playlist__link");
 
-        expect(link.attributes("href")).toBe("https://www.google.com");
+        expect(link.attributes("href")).toBe("/playlists/playlist-1");
         expect(link.find("span.playlist__title").text()).toBe("Nachtfahrt");
     });
 

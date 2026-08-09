@@ -1,0 +1,37 @@
+/******************************************************************************
+ * contextual size tokens — component:CoverSleeves.vue
+ * @type {Sass}
+ * The fanned stack of album sleeves — an artist card on a genre page, the hero of a
+ * playlist. Lifted out of `_genre-artists.scss` when the fan became a component of its
+ * own (2026-08-09); the numbers are unchanged, so nothing moved on screen.
+ *
+ * `size` is the middle sleeve's edge length and a plain literal, because it is a picture
+ * size chosen by eye rather than a step of the page's rhythm — big enough that a cover is
+ * recognisable, small enough that a hundred of them still grid. It matches CoverImage's
+ * `large` step, which is what a sleeve is here: the sleeves size themselves from the
+ * artwork, so this only has to reserve the row they sit in.
+ *
+ * `offset` is how far the outer two slide sideways and `angle` how far they tip; both are
+ * deliberately modest, since the effect should read as a stack of records rather than as a
+ * card trick. `box` reserves the width the rotated stack actually occupies — a rotated
+ * square is wider than its side, so without it the outer sleeves are clipped by whatever
+ * padding surrounds them.
+ * Consumed as s.$c-cover-sleeves via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$cover-sleeves: (
+    // the fan's own height — CoverImage's `large` step, see above
+    "size": 6rem,
+    // the box the rotated stack is given, so the tipped outer sleeves are not clipped
+    "box": 9.5rem,
+    // how far the outer sleeves slide out from behind the middle one
+    "offset": 1.75rem,
+    // and how far they tip. Mirrored left/right by the component.
+    "angle": 9deg,
+    // each sleeve's rounding — the `base` rung, matching what CoverImage gives its own
+    // `large` step, so the shadow traces the same shape as the artwork it lifts. The
+    // sleeve draws no border of its own: CoverImage already carries one.
+    "radius": map.get(s.$radius, "base")
+) !default;

@@ -1,0 +1,13 @@
+/******************************************************************************
+ * contextual timing token — component:PlaylistTracks.vue
+ * @type {Sass}
+ * How fast a playlist row — and the two controls inside it — answer the pointer.
+ * `fast`, matching the DataTable row, the Discography tile and the queue row it shares
+ * its look with: a pointer affordance has to land immediately or it reads as lag rather
+ * than as feedback.
+ * Consumed as ti.$c-playlist-tracks via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$playlist-tracks: map.get(ti.$timings, "fast") !default;

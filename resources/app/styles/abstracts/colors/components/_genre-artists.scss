@@ -12,10 +12,8 @@
  * alternation in a grid whose column count changes with the viewport produces a
  * pattern that reshuffles as you resize rather than one that helps.
  *
- * `fan-shadow` is what makes the fan read as three separate records rather than one
- * smeared image: the rotated covers overlap, so the middle one needs to be lifted off
- * its neighbours. The sleeve's own hairline edge comes from CoverImage — drawing a
- * second one here is what made the first attempt look like picture frames.
+ * The fan itself owns no colour here any more: it became CoverSleeves when the playlist
+ * page wanted the same object, and its sleeve shadow went with it (c.$c-cover-sleeves).
  * Consumed as c.$c-genre-artists via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
@@ -49,14 +47,5 @@ $genre-artists: (
     "meta-background": light-dark(
             color.adjust(map.get(c.$grey, "iron"), $alpha: -0.6),
             color.adjust(map.get(c.$grey, "asher"), $alpha: -0.5)
-        ),
-    // what lifts each sleeve off the one beneath it — the other half of the illusion, and
-    // the half this component owns (CoverImage draws the sleeve's own hairline edge). Both rungs are dark
-    // and translucent: a shadow is an absence of light on either theme, so this
-    // deepens rather than inverting — it is only the strength that differs, since a
-    // dark surface needs more of it to register at all.
-    "fan-shadow": light-dark(
-            color.adjust(map.get(c.$grey, "asher"), $alpha: -0.7),
-            color.adjust(map.get(c.$grey, "black"), $alpha: -0.5)
         )
 ) !default;

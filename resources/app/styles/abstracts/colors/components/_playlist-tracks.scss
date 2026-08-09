@@ -1,0 +1,61 @@
+/******************************************************************************
+ * contextual color tokens — component:PlaylistTracks.vue
+ * @type {Sass}
+ * One entry of a playlist, as a row: the track's title, the facts that place it, and the
+ * two controls that play or queue it.
+ *
+ * The row's fill, edge, hover wash and halo are the genre page's artist card — re-picked
+ * from the globals rather than read across (a contextual partial consumes globals, never
+ * another partial's tokens). Deliberately so: an entry here is the same OBJECT as a card
+ * there, and a reader arriving from either should not meet two ideas of what a listed row
+ * looks like. The halo is the app's control neon, which the DataTable's clickable rows and
+ * the open popover also light up with, because it means the same thing everywhere.
+ *
+ * The two controls stay QUIET AT REST, like the play queue's per-row grip and remove
+ * buttons: they are the same glyph on every row, so at full contrast a list of thirty
+ * entries is sixty competing marks and the titles stop being what you read first. They come
+ * up to the control neon under the pointer or on focus, which is also where the row's own
+ * halo appears — one moment, two signals, saying "this row is live".
+ * Consumed as c.$c-playlist-tracks via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$playlist-tracks: (
+    // the row's own fill — the artist card's, and behind that the Discography tile's `odd`
+    "background": light-dark(
+            color.adjust(map.get(c.$grey, "astral"), $alpha: -0.25),
+            color.adjust(map.get(c.$grey, "ebony"), $alpha: -0.25)
+        ),
+    // the row's edge, matching the same
+    "border": light-dark(
+            color.adjust(map.get(c.$grey, "slate"), $alpha: -0.25),
+            color.adjust(map.get(c.$grey, "charcoal"), $alpha: -0.25)
+        ),
+    // hover — a shift of the row's own fill rather than a repaint, since it already
+    // carries one
+    "hover-background": light-dark(
+            color.adjust(map.get(c.$grey, "iron"), $alpha: -0.65),
+            color.adjust(map.get(c.$grey, "abbey"), $alpha: -0.4)
+        ),
+    // the halo around a live row — the app's control neon, as everywhere else
+    "glow": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
+    // the facts, one step down from the title so the title reads first
+    "surface-meta": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
+    // each fact sits in its own chip — a neutral wash that darkens on light and lifts on
+    // dark, so it reads the same against either theme's row fill
+    "meta-background": light-dark(
+            color.adjust(map.get(c.$grey, "iron"), $alpha: -0.6),
+            color.adjust(map.get(c.$grey, "asher"), $alpha: -0.5)
+        ),
+    // the play / enqueue buttons: quiet at rest (see above), neon when live
+    "control": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
+    "control-active": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
+    // and the wash that appears under one, so a hovered button reads as a target rather
+    // than as a glyph that merely changed colour
+    "control-background-active": light-dark(
+            color.adjust(map.get(c.$grey, "mystic"), $alpha: -0.3),
+            color.adjust(map.get(c.$grey, "bunker"), $alpha: -0.3)
+        )
+) !default;

@@ -54,7 +54,9 @@ test.describe("a genre's tabs", () => {
         await expect(cards.first()).toBeVisible();
 
         for (const card of await cards.all()) {
-            const sleeves = await card.locator(".genre-artists__sleeve").count();
+            // `.cover-sleeves__sleeve` since the fan became CoverSleeves — the card holds one,
+            // it no longer draws it.
+            const sleeves = await card.locator(".cover-sleeves__sleeve").count();
             expect(sleeves).toBeGreaterThan(0);
             expect(sleeves).toBeLessThanOrEqual(3);
             // Three chips — songs, albums, playing time — under a non-empty name.

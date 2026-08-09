@@ -133,10 +133,12 @@ const playtimeOf = (seconds: number | null): string =>
                     <icon name="drag" :size="1" />
                 </button>
 
-                <!-- PLACEHOLDER destination: the playlist detail page does not exist yet. -->
-                <a class="playlist__link" href="https://www.google.com">
+                <!-- The playlist's own page. A real Inertia <Link> now that there is
+                     somewhere to go, so the visit is client-side like every other
+                     navigation; `prefetch` warms it on hover. -->
+                <Link class="playlist__link" :href="`/playlists/${playlist.id}`" prefetch>
                     <span class="playlist__title text-chrome">{{ playlist.name }}</span>
-                </a>
+                </Link>
 
                 <playlist-menu :playlist="playlist" class="playlist__menu" />
 

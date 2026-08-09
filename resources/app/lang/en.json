@@ -371,7 +371,8 @@
                 "artist": "artist",
                 "album": "album",
                 "genre": "genre",
-                "song": "song"
+                "song": "song",
+                "playlist": "playlist"
             }
         }
     },
@@ -388,6 +389,14 @@
         "menu": {
             "actions": "Actions for {name}",
             "editMetadata": "Edit metadata"
+        },
+        "detail": {
+            "label": "Tracks in this playlist",
+            "empty": "This playlist is still empty. You add tracks to it from wherever you are listening — a song or album page.",
+            "play": "Play “{name}”",
+            "playHint": "Play",
+            "enqueue": "Add “{name}” to the queue",
+            "enqueueHint": "Add to queue"
         },
         "empty": {
             "headline": "No playlists yet",

@@ -7,19 +7,14 @@ import type { GenreArtist } from "./GenreArtists.vue";
 vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
 
 /*
- * The artist cards, and above all the rule that decides how many sleeves a card fans.
+ * The artist cards: the numbers each one carries about its artist WITHIN this genre, and
+ * that the whole card is a link to them.
  *
- * That rule is the reason this component exists rather than three lines in the page: in
- * this collection half of all artists have exactly one album and only a third have three
- * or more, so the ONE-cover card is the common case and the three-cover fan is the
- * exception. Every wrong answer here is visible on most of the page at once — a repeated
- * sleeve, a placeholder wedged in beside two real covers, or a fan that silently drops a
- * cover the server sent.
- *
- * The middle sleeve's DOM ORDER is tested too, and it is not fussiness: the three overlap,
- * and the one painted last is the one on top. Ordering by z-index instead would work until
- * these cards sit inside a stacking context, which is the kind of thing that breaks long
- * after the change that caused it.
+ * The fan of sleeves each card leads with is NOT tested here any more — it became
+ * CoverSleeves when the playlist hero wanted the same object, and its degradation rule
+ * (three, two, one, placeholder) went with it to CoverSleeves.test.ts. What is left on this
+ * side is the one thing that would still break silently: that the covers the server sent
+ * reach it at all.
  */
 
 /** An artist with sensible defaults; tests override only what they are about. */
@@ -37,83 +32,32 @@ const artist = (overrides: Partial<GenreArtist> = {}): GenreArtist => ({
 /** Mount the tab over a list of artists. */
 const tab = (artists: GenreArtist[]) => mountApp(GenreArtists, { props: { artists } });
 
-/** The position modifier of each rendered sleeve, in DOM order. */
-const sleevePositions = (wrapper: ReturnType<typeof tab>): string[] =>
-    wrapper.findAll(".genre-artists__sleeve").map(node => {
-        const modifier = node.classes().find(name => name.startsWith("genre-artists__sleeve--"));
-
-        return (modifier ?? "").replace("genre-artists__sleeve--", "");
-    });
-
-/** The `src` of each sleeve's image, with null for a placeholder. */
+/** The `src` of every sleeve image on the page, in DOM order. */
 const sleeveSources = (wrapper: ReturnType<typeof tab>): (string | null)[] =>
-    wrapper.findAll(".genre-artists__sleeve").map(node => node.find("img").exists() ? node.find("img").attributes("src") ?? null : null);
+    wrapper.findAll(".cover-sleeves__sleeve").map(node => (node.find("img").exists() ? node.find("img").attributes("src") ?? null : null));
 
 describe("GenreArtists", () => {
     beforeEach(() => {
         resetInertia();
     });
 
-    describe("the cover fan degrades honestly", () => {
-        it("fans three sleeves when the artist has three covers", () => {
-            const wrapper = tab([artist({ covers: ["/covers/1", "/covers/2", "/covers/3"] })]);
-
-            expect(sleevePositions(wrapper)).toStrictEqual(["left", "right", "middle"]);
-        });
-
-        it("paints the middle sleeve last, so it is the one on top", () => {
-            // DOM order IS the stacking order here — see the note above.
-            const wrapper = tab([artist()]);
-
-            // Index arithmetic rather than .at(): the project's tsconfig targets ES2020.
-            const positions = sleevePositions(wrapper);
-            expect(positions[positions.length - 1]).toBe("middle");
-        });
-
-        it("fans two sleeves for a two-album artist rather than padding to three", () => {
-            const wrapper = tab([artist({ covers: ["/covers/1", "/covers/2"] })]);
-
-            expect(sleevePositions(wrapper)).toStrictEqual(["left", "right"]);
-        });
-
-        it("shows one sleeve straight on for a one-album artist — the commonest card", () => {
-            const wrapper = tab([artist({ covers: ["/covers/1"] })]);
-
-            expect(sleevePositions(wrapper)).toStrictEqual(["single"]);
-        });
-
-        it("never repeats a cover to fill the fan", () => {
-            const wrapper = tab([artist({ covers: ["/covers/only"] })]);
-
-            expect(sleeveSources(wrapper)).toStrictEqual(["/covers/only"]);
-        });
-
-        it("falls back to a single placeholder when no album carries artwork", () => {
-            const wrapper = tab([artist({ covers: [] })]);
-
-            expect(sleevePositions(wrapper)).toStrictEqual(["single"]);
-            // A placeholder, not a broken image pointing at nothing.
-            expect(sleeveSources(wrapper)).toStrictEqual([null]);
-        });
-
-        it("caps the fan at three even if the server ever sent more", () => {
-            const wrapper = tab([artist({ covers: ["/1", "/2", "/3", "/4", "/5"] })]);
-
-            expect(wrapper.findAll(".genre-artists__sleeve")).toHaveLength(3);
-        });
-
-        it("renders the covers it was given, in the order they arrived", () => {
-            // The server shuffles; this component must not re-order, or the randomness
-            // would be applied twice and the middle sleeve would not be the middle one sent.
+    describe("the cover fan", () => {
+        it("hands each card's own covers to the fan, in the order the server sent them", () => {
+            // The seam, and all this side owns: how those covers are laid out — and what
+            // happens when there are two, one or none — is CoverSleeves' rule and its test.
+            // The middle one comes last in the DOM, which is why the order reads /a /c /b.
             const wrapper = tab([artist({ covers: ["/a", "/b", "/c"] })]);
 
             expect(sleeveSources(wrapper)).toStrictEqual(["/a", "/c", "/b"]);
         });
 
-        it("hides the fan from assistive tech, since the name follows it in the same link", () => {
-            const wrapper = tab([artist()]);
+        it("gives every card its own fan, so two artists cannot share one", () => {
+            const wrapper = tab([
+                artist({ id: "a", covers: ["/one"] }),
+                artist({ id: "b", covers: ["/two"] })
+            ]);
 
-            expect(wrapper.find(".genre-artists__fan").attributes("aria-hidden")).toBe("true");
+            expect(sleeveSources(wrapper)).toStrictEqual(["/one", "/two"]);
         });
     });
 
