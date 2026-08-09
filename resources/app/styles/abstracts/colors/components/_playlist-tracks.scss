@@ -11,11 +11,17 @@
  * looks like. The halo is the app's control neon, which the DataTable's clickable rows and
  * the open popover also light up with, because it means the same thing everywhere.
  *
- * The two controls stay QUIET AT REST, like the play queue's per-row grip and remove
- * buttons: they are the same glyph on every row, so at full contrast a list of thirty
- * entries is sixty competing marks and the titles stop being what you read first. They come
- * up to the control neon under the pointer or on focus, which is also where the row's own
- * halo appears — one moment, two signals, saying "this row is live".
+ * The two controls — the grip that leads a row and the play button that ends it — stay QUIET
+ * AT REST, like the play queue's per-row grip and remove buttons: they are the same glyph on
+ * every row, so at full contrast a list of thirty entries is sixty competing marks and the
+ * titles stop being what you read first. They come up to the control neon under the pointer
+ * or on focus, which is also where the row's own halo appears — one moment, two signals,
+ * saying "this row is live".
+ *
+ * Both carry a WASH EVEN AT REST, though, which is the listing's handle finding: a control
+ * whose edges you cannot see is one you aim at by guesswork, on a phone especially. It is
+ * deliberately weaker than the active fill (the same pair at a heavier alpha), so the two
+ * read as one surface waking up rather than as two different controls.
  * Consumed as c.$c-playlist-tracks via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
@@ -49,13 +55,25 @@ $playlist-tracks: (
             color.adjust(map.get(c.$grey, "iron"), $alpha: -0.6),
             color.adjust(map.get(c.$grey, "asher"), $alpha: -0.5)
         ),
-    // the play / enqueue buttons: quiet at rest (see above), neon when live
+    // the grip and the play button: quiet at rest (see above), neon when live
     "control": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
     "control-active": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
-    // and the wash that appears under one, so a hovered button reads as a target rather
-    // than as a glyph that merely changed colour
+    // the wash under one at rest, so its edges are visible rather than implied — and the
+    // heavier version of the same pair when it is live
+    "control-background": light-dark(
+            color.adjust(map.get(c.$grey, "mystic"), $alpha: -0.6),
+            color.adjust(map.get(c.$grey, "bunker"), $alpha: -0.5)
+        ),
     "control-background-active": light-dark(
             color.adjust(map.get(c.$grey, "mystic"), $alpha: -0.3),
             color.adjust(map.get(c.$grey, "bunker"), $alpha: -0.3)
+        ),
+    // the row's ink, restated on the drag clone — it is appended to <body>, so it inherits
+    // nothing from the page it came off
+    "surface": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "mystic")),
+    // what says "lifted" under the row following the pointer
+    "drag-shadow": light-dark(
+            color.adjust(map.get(c.$grey, "black"), $alpha: -0.65),
+            color.adjust(map.get(c.$grey, "black"), $alpha: -0.45)
         )
 ) !default;

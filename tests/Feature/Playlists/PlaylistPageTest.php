@@ -88,6 +88,25 @@ class PlaylistPageTest extends TestCase
             );
     }
 
+    public function test_the_hero_carries_the_owners_blurb_and_null_when_there_is_none(): void
+    {
+        // Null rather than "": the hero renders no paragraph at all for one, and an empty one
+        // for the other — and the form already stores a blank description as null.
+        $reader = User::factory()->create();
+        $described = Playlist::factory()->create([
+            'user_id' => $reader->id, 'name' => 'A', 'description' => 'Quiet things.',
+        ]);
+        $bare = Playlist::factory()->create(['user_id' => $reader->id, 'name' => 'B', 'description' => null]);
+
+        $this->actingAs($reader)
+            ->get("/playlists/{$described->id}")
+            ->assertInertia(fn (Assert $page) => $page->where('playlist.description', 'Quiet things.'));
+
+        $this->actingAs($reader)
+            ->get("/playlists/{$bare->id}")
+            ->assertInertia(fn (Assert $page) => $page->where('playlist.description', null));
+    }
+
     public function test_the_hero_carries_the_same_four_facts_the_listing_does(): void
     {
         /*

@@ -157,6 +157,35 @@ describe("usePlayerQueue", () => {
             expect(queue.current.value?.id).toBe("c");
         });
 
+        it("starts playNow at the track asked for, not the first", () => {
+            // What a PLAYLIST row needs: pressing play on the fourth entry means "queue the
+            // whole list and start there", not "queue this one song".
+            const queue = usePlayerQueue();
+
+            queue.playNow([track("a"), track("b"), track("c")], 2);
+
+            expect(ids()).toStrictEqual(["a", "b", "c"]);
+            expect(queue.current.value?.id).toBe("c");
+        });
+
+        it("clamps a start index past the end rather than loading nothing", () => {
+            // Silent otherwise: the pointer would name a row that does not exist, and the
+            // player would sit there with a full queue and nothing loaded.
+            const queue = usePlayerQueue();
+
+            queue.playNow([track("a"), track("b")], 99);
+
+            expect(queue.current.value?.id).toBe("b");
+        });
+
+        it("clamps a negative start index to the first track", () => {
+            const queue = usePlayerQueue();
+
+            queue.playNow([track("a"), track("b")], -3);
+
+            expect(queue.current.value?.id).toBe("a");
+        });
+
         it("slots playNext directly after the loaded track", () => {
             const queue = usePlayerQueue();
 

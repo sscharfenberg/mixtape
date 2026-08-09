@@ -54,6 +54,9 @@ class PlaylistController extends Controller
             'playlist' => [
                 'id' => $playlist->id,
                 'name' => $playlist->name,
+                // Null when the owner left it empty (the form stores "" as null), which the
+                // hero renders as no paragraph at all rather than an empty one.
+                'description' => $playlist->description,
             ] + $this->facts($playlist, $entries),
             'tracks' => $entries->pluck('track')->all(),
             'covers' => $this->fannedCovers($entries),

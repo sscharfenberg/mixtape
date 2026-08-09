@@ -8,9 +8,16 @@
  * hero's 5px frame around a 48px square would be a tenth of the picture. Same
  * decision at four scales, so it needs four sets of values.
  *
- * The three small sizes are FIXED, and should stay that way: they sit in table rows
+ * The four small sizes are FIXED, and should stay that way: they sit in table rows
  * and list rows, where a picture that resized with the viewport would take the row
  * height with it and stop the column scanning as a column.
+ *
+ * `xsmall` sits BETWEEN `tiny` and `small`, which the t-shirt names do not admit and
+ * this comment therefore has to: the scale reads tiny (24) < xsmall (32) < small (48)
+ * < large (96). `tiny` was named first and kept its name rather than being renumbered,
+ * since renaming a rung moves every consumer of it. It exists because a playlist row
+ * wanted artwork small enough not to set the row's height — 48px made the row half as
+ * tall again — and 24px is a favicon rather than a record.
  *
  * `xlarge` has NO width here at all, which is why it is absent from this map. It
  * fills whatever it is placed in — the hero's frame (itself 220/200/240 per
@@ -30,6 +37,8 @@
 
 $cover-image: (
     "tiny": 24px,
+    // Between `tiny` and `small` despite the name — see the note above.
+    "xsmall": 32px,
     "small": 48px,
     "large": 96px,
     // NB: no "xlarge" width — it fills its container. See the note above.

@@ -231,10 +231,17 @@ class E2ESeeder extends Seeder
      *
      * The EMPTY one exists because that is the state a new account meets first, and the page
      * has a whole branch for it.
+     *
+     * The THIRD, for the spec account only, is there because reordering WRITES: a drag spec
+     * renumbers the playlist it drags, and a fixture shared with the tests that assert the
+     * reader's own order would leave those passing or failing on which ran first. It holds the
+     * same entries — what it is for is being disturbed.
      */
     private function seedPlaylists(): void
     {
         $tracks = Track::query()->whereIn('name', self::PLAYLIST_TRACKS)->pluck('id', 'name');
+        // In the constant's order, which is the point of it — see PLAYLIST_TRACKS.
+        $entries = array_map(fn (string $name): string => $tracks[$name], self::PLAYLIST_TRACKS);
 
         $row = 0;
         foreach (['Ashaltiriak', 'spec-playlist-detail'] as $owner) {
@@ -244,8 +251,7 @@ class E2ESeeder extends Seeder
                 $userId,
                 ++$row,
                 'Roadtrip',
-                // In the constant's order, which is the point of it — see PLAYLIST_TRACKS.
-                array_map(fn (string $name): string => $tracks[$name], self::PLAYLIST_TRACKS),
+                $entries,
                 // Changed after it was made, so the hero's and the row's "Geändert" tile has
                 // something to print. Fixed instants, not now(): a rendered date must not
                 // change between runs.
@@ -254,6 +260,18 @@ class E2ESeeder extends Seeder
             );
 
             $this->seedPlaylist($userId, ++$row, 'Ganz frisch', [], '2026-07-31 08:05:00', '2026-07-31 08:05:00');
+
+            // The one the drag specs are allowed to renumber — see the note above.
+            if ($owner === 'spec-playlist-detail') {
+                $this->seedPlaylist(
+                    $userId,
+                    ++$row,
+                    'Umsortieren',
+                    $entries,
+                    '2026-07-22 10:15:00',
+                    '2026-07-30 18:42:00',
+                );
+            }
         }
     }
 

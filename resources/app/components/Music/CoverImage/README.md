@@ -16,7 +16,7 @@ Album / track artwork. The **only** place the app draws a cover — never hand-r
 | ------------ | ------------------------------------------ | --------- | -------------------------------------------------------------------- |
 | `src`        | `string \| null`                           | `null`    | The artwork URL. `null` ⇒ the placeholder glyph, not a broken image. |
 | `title`      | `string`                                   | —         | What the picture is _of_ — an album or song name. Becomes the `alt`. |
-| `size`       | `"tiny" \| "small" \| "large" \| "xlarge"` | `"small"` | See below — a size is a triple, not just a width.                    |
+| `size`       | `"tiny" \| "xsmall" \| "small" \| "large" \| "xlarge"` | `"small"` | See below — a size is a triple, not just a width. |
 | `decorative` | `boolean`                                  | `false`   | Renders `alt=""` and hides the placeholder from assistive tech.      |
 
 ## Sizes — a triple, not a width
@@ -28,6 +28,7 @@ and the hero's 5px frame around a 48px square would be a tenth of the picture.
 | Size     | Width                     | Radius     | Frame      | Used for                          |
 | -------- | ------------------------- | ---------- | ---------- | --------------------------------- |
 | `tiny`   | 24px                      | `base`     | `base`     | (no consumer yet)                 |
+| `xsmall` | 32px                      | `base`     | `base`     | a playlist's own rows             |
 | `small`  | 48px                      | `base`     | `base`     | every table / list row            |
 | `large`  | 96px                      | `base`     | `base`     | (no consumer yet)                 |
 | `xlarge` | **100% of its container** | `featured` | `featured` | the detail-page hero, album cards |
@@ -41,8 +42,14 @@ It briefly carried a 240px ceiling, and that was wrong in exactly the case a flu
 column wider than the cap left the cover short of its own card. A caller that needs a bound puts it on
 the **container**, where the rest of that layout's sizing already lives.
 
-The three small sizes stay fixed on purpose: they sit in rows whose height must not move with the
+The four small sizes stay fixed on purpose: they sit in rows whose height must not move with the
 viewport, or the column stops scanning as a column.
+
+`xsmall` sits **between `tiny` and `small`**, which the t-shirt names do not admit: the scale reads
+tiny (24) < xsmall (32) < small (48) < large (96). `tiny` was named first and kept its name rather
+than being renumbered, since renaming a rung moves every consumer of it. It exists because a
+playlist's rows wanted artwork small enough not to set the row's height — at 48px the row was half
+as tall again — while 24px is a favicon rather than a record.
 
 Metrics live in `abstracts/sizes/components/_cover-image.scss`, colours in the `colors` twin.
 

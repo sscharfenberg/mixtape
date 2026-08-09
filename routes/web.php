@@ -23,6 +23,7 @@ use App\Http\Controllers\Player\PlayerStateController;
 use App\Http\Controllers\Playlists\PlaylistController;
 use App\Http\Controllers\Playlists\PlaylistMetadataController;
 use App\Http\Controllers\Playlists\PlaylistOrderController;
+use App\Http\Controllers\Playlists\PlaylistTrackOrderController;
 use App\Http\Controllers\PlaylistsController;
 use App\Http\Middleware\HandleControllerPrecognitiveRequest;
 use Illuminate\Support\Facades\Route;
@@ -82,6 +83,14 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         Route::get('/playlists/{playlist}', PlaylistController::class)
             ->whereUuid('playlist')
             ->name('playlists.show');
+
+        // The running order INSIDE one playlist, written by the detail page's drag handles.
+        // Nested under the playlist because its entries belong to it and to nothing else —
+        // the collection-level `/playlists/order` above orders the playlists themselves.
+        Route::put('/playlists/{playlist}/tracks/order', PlaylistTrackOrderController::class)
+            ->whereUuid('playlist')
+            ->middleware('throttle:60,1')
+            ->name('playlists.tracks.order');
 
         Route::get('/playlists/{playlist}/edit', [PlaylistMetadataController::class, 'edit'])
             ->whereUuid('playlist')

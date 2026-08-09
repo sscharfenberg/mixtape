@@ -393,10 +393,10 @@
         "detail": {
             "label": "Tracks in this playlist",
             "empty": "This playlist is still empty. You add tracks to it from wherever you are listening — a song or album page.",
-            "play": "Play “{name}”",
-            "playHint": "Play",
-            "enqueue": "Add “{name}” to the queue",
-            "enqueueHint": "Add to queue"
+            "play": "Play the playlist from “{name}”",
+            "playHint": "Play the playlist from here",
+            "reorder": "Move “{name}”",
+            "reorderHint": "Drag to reorder – or click it, then {keys}"
         },
         "empty": {
             "headline": "No playlists yet",

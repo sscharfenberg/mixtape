@@ -24,6 +24,7 @@ return [
         'name.unique' => 'You already have a playlist with this name.',
         'description.max' => 'The description may not be longer than :max characters.',
         'ids.incomplete' => 'The order must contain all of your playlists.',
+        'tracks.incomplete' => 'The order must contain every track in the playlist.',
     ],
 
     'attributes' => [

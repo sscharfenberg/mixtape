@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /******************************************************************************
  * CoverImage
- * Album / track artwork, at one of four sizes. The single place the app decides
+ * Album / track artwork, at one of five sizes. The single place the app decides
  * what a cover looks like and how it behaves when there isn't one — before this,
  * every listing and hero carried its own copy of the same <img>, the same frame,
  * the same placeholder glyph and the same load-failure guard.
@@ -16,7 +16,7 @@
  *    component draws a muted glyph instead — deliberately with no FRAME of its own:
  *    inside a HeroSection the hero already draws its dashed square around whatever
  *    is not an `<img>`, and in a table row the bare icon is the whole signal. It
- *    does hold the same BOX as the image at the three fixed sizes, though, which is
+ *    does hold the same BOX as the image at the four fixed sizes, though, which is
  *    a different thing: a music note is far smaller than the cover it stands in
  *    for, so without it a list mixing tagged and untagged files got rows of two
  *    heights, and a flex row laying out cover-then-text (the play queue, the player
@@ -39,11 +39,15 @@ import { useI18n } from "vue-i18n";
 import Icon from "Components/UI/Icon.vue";
 
 /**
- * The sizes artwork is shown at. The three small ones are fixed, because they sit in rows
+ * The sizes artwork is shown at. The four small ones are fixed, because they sit in rows
  * whose height should not move; `xlarge` is the page anchor and has no width of its own —
  * it fills whatever container it is given.
+ *
+ * The order is tiny (24) < xsmall (32) < small (48) < large (96), which the names do not
+ * admit: `tiny` was named first and kept its name rather than every consumer being moved
+ * to make room. See the size token's own note.
  */
-export type CoverSize = "tiny" | "small" | "large" | "xlarge";
+export type CoverSize = "tiny" | "xsmall" | "small" | "large" | "xlarge";
 
 const props = withDefaults(
     defineProps<{
@@ -59,9 +63,9 @@ const props = withDefaults(
          */
         title: string;
         /**
-         * How big to draw it: tiny 24px, small 48px, large 96px — or `xlarge`, which has no
-         * width of its own and fills its container, so the page-anchor cover adapts on its
-         * own and the CONTAINER is what bounds it.
+         * How big to draw it: tiny 24px, xsmall 32px, small 48px, large 96px — or `xlarge`,
+         * which has no width of its own and fills its container, so the page-anchor cover
+         * adapts on its own and the CONTAINER is what bounds it.
          */
         size?: CoverSize;
         /**
@@ -94,8 +98,14 @@ watch(
     }
 );
 
-/** The glyph size that sits comfortably inside each cover size. */
-const ICON_SIZE: Record<CoverSize, number> = { tiny: 1, small: 2, large: 3, xlarge: 5 };
+/**
+ * The glyph size that sits comfortably inside each cover size.
+ *
+ * `xsmall` shares `tiny`'s step rather than taking the next one up: the glyph at step 2 is
+ * 24px, which in a 32px box leaves four pixels of margin and reads as a note crammed into a
+ * square instead of standing in for a picture.
+ */
+const ICON_SIZE: Record<CoverSize, number> = { tiny: 1, xsmall: 1, small: 2, large: 3, xlarge: 5 };
 </script>
 
 <template>
@@ -143,6 +153,11 @@ const ICON_SIZE: Record<CoverSize, number> = { tiny: 1, small: 2, large: 3, xlar
     &--tiny {
         width: map.get(s.$c-cover-image, "tiny");
         height: map.get(s.$c-cover-image, "tiny");
+    }
+
+    &--xsmall {
+        width: map.get(s.$c-cover-image, "xsmall");
+        height: map.get(s.$c-cover-image, "xsmall");
     }
 
     &--small {
@@ -223,6 +238,11 @@ const ICON_SIZE: Record<CoverSize, number> = { tiny: 1, small: 2, large: 3, xlar
     &--tiny {
         width: map.get(s.$c-cover-image, "tiny");
         height: map.get(s.$c-cover-image, "tiny");
+    }
+
+    &--xsmall {
+        width: map.get(s.$c-cover-image, "xsmall");
+        height: map.get(s.$c-cover-image, "xsmall");
     }
 
     &--small {

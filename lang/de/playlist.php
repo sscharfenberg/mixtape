@@ -24,6 +24,7 @@ return [
         'name.unique' => 'Du hast bereits eine Wiedergabeliste mit diesem Namen.',
         'description.max' => 'Die Beschreibung darf höchstens :max Zeichen enthalten.',
         'ids.incomplete' => 'Die Reihenfolge muss alle deine Wiedergabelisten enthalten.',
+        'tracks.incomplete' => 'Die Reihenfolge muss alle Titel der Wiedergabeliste enthalten.',
     ],
 
     'attributes' => [

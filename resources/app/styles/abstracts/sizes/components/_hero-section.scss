@@ -43,6 +43,11 @@ $hero-section: (
     // The halo's spread. Short on purpose: it should read as the tile sitting slightly off
     // the panel, not as a second glow answering the title's.
     "metadata-halo": 0.5rem,
+    // The subject's own blurb, a step below body size — it is a caption to the title, and at
+    // full size it reads as the page's opening paragraph rather than as a note about the
+    // thing. A literal, like the title scale above: a type size chosen by eye against the
+    // heading beside it, which is exactly the case the shared scale does not decide.
+    "description-font-size": 0.9rem,
     // A per-breakpoint set, tracking the app title's scale (s.$c-title "font-size":
     // 1.2 / 1.4 / 2.2 / 3rem) a step below it at the widths where that title is the
     // bigger of the two. The page's h1 should be the loudest thing on the page without

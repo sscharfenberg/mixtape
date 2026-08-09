@@ -393,10 +393,10 @@
         "detail": {
             "label": "Titel dieser Wiedergabeliste",
             "empty": "Diese Wiedergabeliste ist noch leer. Titel fügst du dort hinzu, wo du sie hörst — auf der Song- oder Album-Seite.",
-            "play": "„{name}“ abspielen",
-            "playHint": "Abspielen",
-            "enqueue": "„{name}“ in die Warteschlange stellen",
-            "enqueueHint": "In die Warteschlange"
+            "play": "Wiedergabeliste ab „{name}“ abspielen",
+            "playHint": "Wiedergabeliste ab hier abspielen",
+            "reorder": "„{name}“ verschieben",
+            "reorderHint": "Ziehen zum Umsortieren – oder anklicken, dann {keys}"
         },
         "empty": {
             "headline": "Noch keine Wiedergabeliste",

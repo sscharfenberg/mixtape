@@ -7,7 +7,7 @@
  * it with their own art and credits — so it takes everything through slots and knows
  * nothing about what it is describing.
  *
- * Five slots, all optional:
+ * Six slots, all optional:
  *   #cover     the artwork — a <CoverImage size="xlarge">, which sizes and frames
  *              ITSELF to this square. Pass anything that is not an <img> (a bare
  *              <Icon>, or a CoverImage with no art, which renders its glyph) and the
@@ -18,6 +18,9 @@
  *              component's ROOT element carries the slot scope id, so `:slotted(img)`
  *              reached inside it), leaving two places declaring one square with the
  *              hero quietly winning.
+ *
+ *              …unless `unframedCover` says the content brings its own size — see
+ *              the prop.
  *   #title     the heading element. Its UA type is flattened so the hero's own
  *              headline face and size win, which lets the caller choose the level
  *              without anything here having to know.
@@ -33,6 +36,10 @@
  *              far end of the heading's line, level with its first line, and is a
  *              sibling of #title rather than part of it (the styles say why: a button
  *              inside the title inherits its transparent text fill and disappears).
+ *   #description  the subject's own words about itself, between the title and the facts —
+ *              a playlist's blurb today. Prose rather than a tile, which is why it is not
+ *              part of #metadata: that slot is a <ul> of chips, and a sentence in one
+ *              would be a chip the width of the panel.
  *   #metadata  the labelled values under the title — artist / album / year for a song.
  *              Rendered as a wrapping row of list items, so pass `FactPair`s (the same
  *              tile the facts cards are built from) and they will line up here; the row
@@ -54,13 +61,39 @@
  * ring instead of a flat border, which is what makes the top of a detail page read as
  * its loudest element without a second card style.
  *****************************************************************************/
+defineProps<{
+    /**
+     * The cover slot holds something that brings its OWN size — so place it, do not frame it.
+     *
+     * Off by default, which is the case every Music detail page wants: a `CoverImage
+     * size="xlarge"` has no width of its own and fills whatever it is given, so the hero has
+     * to declare the square (220 / 200 / 240px per breakpoint) or there is nothing to fill.
+     * The dashed placeholder depends on that square too — an album with no artwork renders a
+     * bare glyph, and the frame is the only thing left saying how big the missing picture was.
+     *
+     * On, the box shrinks to its content and draws no frame at all. The playlist page needs it
+     * because a fan of sleeves (CoverSleeves) is a FIXED size, so the square reserved 240px of
+     * height for a 96px object and the hero opened with a band of empty panel. It also draws
+     * its own placeholder when there is nothing to fan, so a dashed frame around it would be
+     * the second thing saying the same.
+     */
+    unframedCover?: boolean;
+}>();
 </script>
 
 <template>
     <div class="hero-section">
-        <div v-if="$slots.cover" class="hero-section__cover"><slot name="cover" /></div>
+        <div
+            v-if="$slots.cover"
+            :class="['hero-section__cover', { 'hero-section__cover--unframed': unframedCover }]"
+        >
+            <slot name="cover" />
+        </div>
 
-        <div v-if="$slots.title || $slots.metadata || $slots.actions" class="hero-section__meta">
+        <div
+            v-if="$slots.title || $slots.description || $slots.metadata || $slots.actions"
+            class="hero-section__meta"
+        >
             <!-- The heading row: the title, and whatever acts on the subject as a whole pinned
                  to the far end of it. The menu is a SIBLING of the title rather than something
                  passed into it, and that is not tidiness — `__title` paints its letters by
@@ -70,6 +103,9 @@
                 <div v-if="$slots.title" class="hero-section__title text-chrome"><slot name="title" /></div>
                 <div v-if="$slots.menu" class="hero-section__menu"><slot name="menu" /></div>
             </div>
+            <!-- The subject in its own words, under the title and above the facts: it says
+                 what the thing IS, which a reader wants before the numbers describing it. -->
+            <p v-if="$slots.description" class="hero-section__description"><slot name="description" /></p>
             <!-- role="list" because the marker is styled away, and Safari/VoiceOver drop
                  list semantics from an unmarked list. -->
             <ul v-if="$slots.metadata" class="hero-section__metadata" role="list">
@@ -245,6 +281,54 @@
             background-color: map.get(c.$c-hero-section, "cover-placeholder-background");
             color: map.get(c.$c-hero-section, "cover-placeholder-icon");
         }
+
+        /* THE CONTENT BRINGS ITS OWN SIZE — see the `unframedCover` prop. Every declaration
+           here undoes one the square made, and each has to be undone explicitly rather than
+           the square being made conditional: the width is a per-breakpoint set (three more
+           media queries to mirror), and `aspect-ratio` and the dashed frame are separate
+           decisions that happen to hang off the same case.
+
+           `width: auto` and `aspect-ratio: auto` are what actually remove the whitespace: a
+           fan of sleeves is 152×96, and in a 240px square it sat centred with a band of empty
+           panel above and below it. The frame goes with them, because whatever is slotted in
+           is now responsible for saying it has nothing to show — CoverSleeves draws its own
+           placeholder sleeve, and a dashed box around that says it twice.
+
+           `overflow: visible` because the fan's outer sleeves are ROTATED, so they reach
+           beyond their own box; clipped to a box that now hugs them, their corners would be
+           cut off. The square could afford to clip, being far bigger than what it held. */
+        &--unframed {
+            overflow: visible;
+
+            width: auto;
+            aspect-ratio: auto;
+
+            @include m.mq("landscape") {
+                width: auto;
+            }
+
+            @include m.mq("desktop") {
+                width: auto;
+            }
+
+            &:not(:has(img)) {
+                border: 0;
+
+                background-color: transparent;
+            }
+        }
+    }
+
+    /* The subject's own words. Sized down a step from the body copy and one rung quieter in
+       ink, so it reads as a caption to the title rather than competing with the facts under
+       it — and `margin: 0` because it is a <p> inside a flex column that already spaces its
+       children with a gap. */
+    &__description {
+        margin: 0;
+
+        color: map.get(c.$c-hero-section, "description");
+
+        font-size: map.get(s.$c-hero-section, "description-font-size");
     }
 
     /* Column 1 — the text leads, the art follows. Explicit rather than left to

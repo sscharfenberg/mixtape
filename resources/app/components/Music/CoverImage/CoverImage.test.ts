@@ -39,6 +39,9 @@ describe("CoverImage", () => {
 
     it.each([
         ["tiny", 1],
+        // `xsmall` shares tiny's glyph step: at 32px the next one up leaves four pixels of
+        // margin and reads as a note crammed into a square.
+        ["xsmall", 1],
         ["small", 2],
         ["large", 3],
         ["xlarge", 5]

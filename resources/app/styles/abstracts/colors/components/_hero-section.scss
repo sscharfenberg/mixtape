@@ -102,6 +102,10 @@ $hero-section: (
             color.adjust(map.get(c.$brand, "light1", "contrast"), $alpha: -0.25),
             color.adjust(map.get(c.$brand, "dark2", "contrast"), $alpha: -0.55)
         ),
+    // The subject's own blurb, one step quieter than the body copy: it is a caption to the
+    // title, and at full contrast it competes with the facts beneath it. The same muted pair
+    // the fact labels use, re-picked from the globals.
+    "description": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
     // The title's synthwave lettering — the ramp, the stroke, the glow chain — used to be
     // copied HERE and again in the playlist entry's partial. It is now one shared group,
     // c.$c-text-chrome / s.$c-text-chrome, worn by both via the `.text-chrome` class; only the

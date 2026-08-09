@@ -13,10 +13,11 @@
  * sit directly under the hero panel, and corners that agree with it read as part of the
  * page rather than as something dropped onto it.
  *
- * `control-gap` and `control-padding` belong to the two icon buttons at the trailing edge.
- * The padding is what makes them findable: a bare 19px glyph is a 19px target otherwise,
- * which is the problem the play queue's grip and the listing's drag handle both solved by
- * widening their own strip.
+ * `control-padding` belongs to the row's two icon buttons — the grip that leads it and the
+ * play button that ends it. It is what makes them findable: a bare 19px glyph is a 19px
+ * target otherwise, which is the problem the play queue's grip and the listing's drag handle
+ * both solved by widening their own strip. One value for both, because they are the same
+ * object at opposite ends of the row and a reader aims at them the same way.
  * Consumed as s.$c-playlist-tracks via `@use "Abstracts/sizes" as s;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
@@ -37,8 +38,11 @@ $playlist-tracks: (
     "meta-gap": 0.5ch,
     "meta-padding": 0.1rem 0.6rem,
     "meta-radius": map.get(s.$radius, "base"),
-    // the two icon buttons at the trailing edge
-    "control-gap": 0.25rem,
+    // between a chip's icon and its value. The same rung the facts card puts between its own
+    // label icon and text (s.$c-facts "label-icon-gap"), re-picked rather than read across, so
+    // an icon sits the same distance from its value wherever one appears.
+    "fact-icon-gap": 0.4ch,
+    // the row's grip and its play button — see above for why one padding serves both
     "control-padding": 0.35rem,
     "control-radius": map.get(s.$radius, "base")
 ) !default;

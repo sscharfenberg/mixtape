@@ -219,8 +219,8 @@ export type UsePlayerQueueReturn = {
     isEmpty: ComputedRef<boolean>;
     /** Total playing time of the queue in seconds, ignoring tracks with no duration. */
     totalDuration: ComputedRef<number>;
-    /** Replace the queue with these tracks and load the first. */
-    playNow: (tracks: QueueTrack[]) => void;
+    /** Replace the queue with these tracks and load the one at `startIndex` (the first by default). */
+    playNow: (tracks: QueueTrack[], startIndex?: number) => void;
     /** Append to the end of the queue. Loads the first one if nothing was loaded. */
     enqueue: (tracks: QueueTrack | QueueTrack[]) => void;
     /** Insert directly after the loaded track, so it plays next without disturbing the rest. */
@@ -910,10 +910,21 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
         shuffle.value ? shuffleCursor.value > 0 : currentIndex.value > 0
     );
 
-    /** Replace the queue wholesale and load its first track — the "play this album now" operation. */
-    function playNow(next: QueueTrack[]): void {
+    /**
+     * Replace the queue wholesale and load one of its tracks — the "play this album now"
+     * operation.
+     *
+     * `startIndex` is what makes a PLAYLIST row work: pressing play on the fourth entry means
+     * "queue the whole list and start there", not "queue this one song". Defaulted to 0, so
+     * every caller that means "from the top" (the hero menus) reads exactly as before.
+     *
+     * Clamped rather than trusted, because the alternative is silent: an index past the end
+     * would leave the pointer at a row that does not exist, and the player would sit there
+     * with a full queue and nothing loaded.
+     */
+    function playNow(next: QueueTrack[], startIndex = 0): void {
         tracks.value = [...next];
-        currentIndex.value = next.length > 0 ? 0 : NOTHING;
+        currentIndex.value = next.length > 0 ? Math.min(Math.max(startIndex, 0), next.length - 1) : NOTHING;
         resetShuffleWalk();
         noteShuffleStep(currentIndex.value);
         commit("tracks", "position");

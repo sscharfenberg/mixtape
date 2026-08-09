@@ -39,6 +39,8 @@ import PlaylistTracks, { type PlaylistTrackRow } from "./PlaylistTracks.vue";
 interface PlaylistDetail {
     id: string;
     name: string;
+    /** The owner's blurb, or null when they left it empty (the server stores "" as null). */
+    description: string | null;
     /** How many entries it holds. 0 is the normal state right after creating one. */
     tracks: number;
     /** Total playing time in raw seconds, or null when it plays for no time at all. */
@@ -103,9 +105,12 @@ const dateOf = (iso: string | null): string => formatDateTime(iso, locale.value)
     <Head :title="playlist.name" />
     <container>
         <div class="playlist-page">
-            <hero-section>
-                <!-- Not artwork, but where artwork would be — see the banner. -->
-                <template #cover><cover-sleeves :covers="covers" :title="playlist.name" /></template>
+            <!-- `unframed-cover`: the fan is a fixed size, so the hero's 240px square would
+                 reserve height it cannot fill — see the prop. -->
+            <hero-section unframed-cover>
+                <!-- Not artwork, but where artwork would be — see the banner. `hero` scale:
+                     a card's 96px sleeves read as an afterthought in a panel this wide. -->
+                <template #cover><cover-sleeves :covers="covers" :title="playlist.name" scale="hero" /></template>
                 <!-- The page's heading lives here rather than in a <Headline>, as on the
                      detail pages: the hero sets the type, the level is ours. <h2> because the
                      document's <h1> is the wordmark in AppHeader, which every page carries. -->
@@ -116,6 +121,9 @@ const dateOf = (iso: string | null): string => formatDateTime(iso, locale.value)
                      costs a request. Pinned to the far end of the heading line by the hero,
                      not by anything here. -->
                 <template #menu><subject-menu subject="playlist" :tracks="tracks" /></template>
+                <!-- Only when the owner wrote one. Between the title and the facts, because it
+                     says what the playlist IS and the numbers only describe it. -->
+                <template v-if="playlist.description" #description>{{ playlist.description }}</template>
                 <!-- The same four facts the listing's row carries, so a playlist reads the
                      same in both places. Only the track count is unconditional: a count of 0
                      is an answer about the playlist, where the other three are facts that can
@@ -144,7 +152,9 @@ const dateOf = (iso: string | null): string => formatDateTime(iso, locale.value)
                 </template>
             </hero-section>
 
-            <playlist-tracks :tracks="tracks" />
+            <!-- The id goes down with the entries because the list owns its own reordering,
+                 and the PUT that persists it is nested under this playlist. -->
+            <playlist-tracks :playlist-id="playlist.id" :tracks="tracks" />
         </div>
     </container>
 </template>
