@@ -93,17 +93,55 @@ describe("Breadcrumb", () => {
         expect(parents[0].text()).toBe(translate("music.widgets.songs"));
     });
 
-    it("marks no parent on a top-level page, so the narrow view shows nothing", () => {
+    it("makes HOME the parent on a top-level page, so the narrow view still goes back", () => {
+        /*
+         * The owner's report: `/music` and `/now-playing` declare one crumb — themselves — so
+         * there was no second-to-last crumb to mark, and below `landscape` every chip is hidden
+         * except the parent. The result was an empty <nav> holding its own margin. Home IS one
+         * level up from those pages, so it takes the role.
+         */
         const wrapper = trail([{ label: "Musik" }]);
 
-        expect(wrapper.find(".breadcrumb__item--parent").exists()).toBe(false);
+        const parents = wrapper.findAll(".breadcrumb__item--parent");
+
+        expect(parents).toHaveLength(1);
+        expect(parents[0].attributes("href")).toBe("/");
+    });
+
+    it("leaves home alone once a real parent crumb exists", () => {
+        // Two crumbs or more and the back target is the trail's own, not the site root — marking
+        // both would show two chips at a width that has room for one.
+        const wrapper = trail([
+            { labelKey: "header.siteMenu.music", href: "/music" },
+            { label: "Songs" }
+        ]);
+
+        const parents = wrapper.findAll(".breadcrumb__item--parent");
+
+        expect(parents).toHaveLength(1);
+        expect(parents[0].attributes("href")).toBe("/music");
+    });
+
+    it("names home in the markup, for the width where it is the only chip", () => {
+        // Rendered always and hidden above `landscape` by CSS — a lone house glyph on a
+        // back-pointing arrow is a rebus at the width where it is the whole trail. The aria-label
+        // stays for the width where the text is not shown: hidden text is no accessible name.
+        const wrapper = trail([{ label: "Musik" }]);
+        const home = wrapper.findAll(".breadcrumb__item")[0];
+
+        expect(home.find(".breadcrumb__label--home").text()).toBe(translate("breadcrumb.home"));
+        expect(home.attributes("aria-label")).toBe(translate("breadcrumb.home"));
     });
 
     it("wraps each label in its own element so an over-long one can be ellipsised", () => {
         // text-overflow has nothing to act on when the text is an anonymous flex item.
         const wrapper = trail([{ label: "Ein sehr langer Songtitel der nicht umbrechen darf" }]);
 
-        expect(wrapper.find(".breadcrumb__label").text()).toBe("Ein sehr langer Songtitel der nicht umbrechen darf");
+        // NOT the first `__label` on the page: the home chip carries one of its own now (shown
+        // only where it is the narrow-screen back-link), and it comes first in the DOM.
+        const crumbLabel = wrapper.find(".breadcrumb__label:not(.breadcrumb__label--home)");
+
+        expect(crumbLabel.text()).toBe("Ein sehr langer Songtitel der nicht umbrechen darf");
     });
 
     it("swaps to the incoming page's trail without an intermediate empty state", async () => {

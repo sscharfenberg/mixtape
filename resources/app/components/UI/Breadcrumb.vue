@@ -17,8 +17,14 @@
  * one way, bottom half the other) rather than by a chevron glyph between the
  * items, so the trail reads as one continuous ribbon. On narrow screens all of
  * it collapses to the single *parent* crumb with its arrow flipped: at that
- * width the trail's only real job is "go back one level", so a top-level page
- * (one crumb, no parent) shows nothing there.
+ * width the trail's only real job is "go back one level".
+ *
+ * ON A PAGE DIRECTLY UNDER THE ROOT, home IS that parent. `/music` and
+ * `/now-playing` declare one crumb — themselves — so the second-to-last crumb
+ * does not exist, and marking nothing left every chip hidden below `landscape`:
+ * an empty <nav> holding its own margin, which is what the owner reported. The
+ * home chip takes the parent role in that case, so the trail always offers the
+ * one thing it is for at that width.
  *
  * The label sits in a `__label` span of its own so an over-long crumb — a song
  * title, and they get long — can be truncated with an ellipsis instead of
@@ -52,9 +58,20 @@ function resolveLabel(crumb: BreadcrumbItem): string {
 
 <template>
     <nav v-if="crumbs.length" class="breadcrumb" :aria-label="t('breadcrumb.nav')">
-        <Link href="/" class="breadcrumb__item" prefetch :aria-label="t('breadcrumb.home')"
-            ><span><icon name="home" /></span
-        ></Link>
+        <!-- HOME IS THE PARENT WHEN NOTHING ELSE IS. Below `landscape` only the parent chip is
+             shown, and on a page directly under the root there IS no parent crumb — so the whole
+             trail collapsed to nothing and left an empty nav holding its own margin. Home is that
+             page's one level up, so it takes the role and the flipped arrow with it. -->
+        <Link
+            href="/"
+            :class="['breadcrumb__item', { 'breadcrumb__item--parent': crumbs.length < 2 }]"
+            prefetch
+            :aria-label="t('breadcrumb.home')"
+            ><span
+                ><icon name="home" /><span class="breadcrumb__label breadcrumb__label--home">{{
+                    t("breadcrumb.home")
+                }}</span></span
+            ></Link>
         <template v-for="(crumb, index) in crumbs" :key="crumb.labelKey ?? crumb.label">
             <Link
                 v-if="crumb.href"
@@ -251,6 +268,37 @@ function resolveLabel(crumb: BreadcrumbItem): string {
             // there is no one else to take the deficit.
             flex-shrink: 1;
 
+            /* HOME STANDING IN AS THE BACK-CHIP (a page directly under the root, below
+               `landscape`) has to give up the squared-off left edge the block above gives it.
+               That treatment is for the ribbon's LEFT END — it paints the fill on the <span>
+               with an inset shadow, straight over the flipped arrowhead — so with it in place
+               the chip kept a square left edge and a forward point, which reads as "onwards"
+               on a control whose whole job is "back".
+
+               THE HOVER RULE HAS TO GO WITH IT, and missing that is what left a rectangular
+               highlight sitting over the arrow: `:first-child:hover > span` repaints the same
+               rectangle, at a higher specificity than the resting rule, so undoing only the
+               resting one fixed the chip until a finger touched it. Both are listed here, and
+               this block sits after them so the tie on `:hover` falls this way.
+
+               With the span unpainted, the skewed pseudo-halves carry the hover on their own —
+               they already do for every other chip (`&:not(:last-child, span):hover`).
+
+               Desktop-first on purpose, and the only max-width query in this file: above
+               `landscape` home is the ribbon's left end again and the rules above should apply
+               untouched, so this undoes them exactly where they are wrong and nowhere else. */
+            &:first-child > span,
+            &:first-child:hover > span {
+                @include m.mq("landscape", false) {
+                    width: 100%;
+
+                    margin-left: 0;
+
+                    background: none;
+                    box-shadow: none;
+                }
+            }
+
             &::before {
                 transform: skew(-30deg);
             }
@@ -289,6 +337,21 @@ function resolveLabel(crumb: BreadcrumbItem): string {
         white-space: nowrap;
 
         text-overflow: ellipsis;
+    }
+
+    /* HOME IS NAMED ONLY WHILE IT IS THE BACK-LINK. Below `landscape` it is the one chip on
+       screen and a lone house glyph on a back-pointing arrow is a rebus; above it, home is the
+       first chip of a full ribbon where the icon is unambiguous and a word would push the crumb
+       that carries real information — a song title — further towards the ellipsis.
+
+       The string is the same one the chip's `aria-label` already used, so the visible text and
+       the accessible name agree rather than drifting (WCAG's "label in name"). The aria-label
+       stays for the width where the text is not rendered: hidden text is no accessible name at
+       all, and the icon-only chip would otherwise have none. */
+    &__label--home {
+        @include m.mq("landscape") {
+            display: none;
+        }
     }
 }
 </style>

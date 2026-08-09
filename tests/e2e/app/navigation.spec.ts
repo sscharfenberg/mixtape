@@ -152,6 +152,79 @@ test.describe("navigating between pages", () => {
     });
 });
 
+test.describe("the breadcrumb on a narrow screen", () => {
+    /*
+     * Below `landscape` the whole trail collapses to ONE chip — the parent — because at that
+     * width its only job is "go back one level". Which chip that is, and whether any survives at
+     * all, is a `display: none` decided by a media query: only a real viewport can answer it, and
+     * the collapse had been wrong on every page directly under the root since it was written.
+     */
+    test.use({ viewport: { width: 390, height: 844 } });
+
+    test("offers home as the way back from a page directly under the root", async ({ page }) => {
+        // `/music` declares one crumb — itself — so there is no second-to-last crumb to mark, and
+        // the trail used to collapse to nothing: an empty <nav> holding its own margin.
+        await page.goto("/music");
+
+        const shown = page.locator(".breadcrumb__item:visible");
+        await expect(shown).toHaveCount(1);
+        await expect(shown).toHaveAttribute("href", "/");
+        await expect(shown).toHaveClass(/breadcrumb__item--parent/u);
+
+        // NAMED at this width. A lone house glyph on a back-pointing arrow is a rebus; the icon
+        // carries it on the desktop ribbon, where the word would cost the crumb that holds real
+        // information its room.
+        await expect(shown.locator(".breadcrumb__label--home")).toBeVisible();
+    });
+
+    test("wears the arrow rather than a rectangle when hovered", async ({ page }) => {
+        /*
+         * The chip is drawn as two skewed pseudo-halves; home ALSO paints a fill on its inner
+         * span, to square off the ribbon's left end. That fill is undone at this width or it
+         * covers the arrowhead — and the `:hover` rule repaints exactly the same rectangle at a
+         * higher specificity, which is how a fixed chip went back to being a box under a finger.
+         */
+        await page.goto("/music");
+        const home = page.locator(".breadcrumb__item:visible");
+        await home.hover();
+
+        const painted = await home.locator("> span").evaluate(span => {
+            const style = getComputedStyle(span);
+
+            return { background: style.backgroundColor, shadow: style.boxShadow };
+        });
+
+        // Transparent and unshadowed: whatever the hover shows is the skewed halves, not this box.
+        expect(painted.background).toBe("rgba(0, 0, 0, 0)");
+        expect(painted.shadow).toBe("none");
+    });
+
+    test("offers the parent crumb, not home, once the trail has one", async ({ page }) => {
+        await page.goto("/music/songs");
+
+        const shown = page.locator(".breadcrumb__item:visible");
+        await expect(shown).toHaveCount(1);
+        await expect(shown).toHaveAttribute("href", "/music");
+    });
+
+    test("leaves home an icon on the full ribbon", async ({ page }) => {
+        // The other half of the rule: above `landscape` the whole trail is on screen, the icon is
+        // unambiguous as its first chip, and a word there would push a song title into ellipsis.
+        await page.setViewportSize({ width: 1280, height: 900 });
+        await page.goto("/music/songs");
+
+        await expect(page.locator(".breadcrumb__label--home")).toBeHidden();
+        await expect(page.locator(".breadcrumb__item:visible")).toHaveCount(3);
+    });
+
+    test("really goes back when pressed", async ({ page }) => {
+        await page.goto("/music");
+        await page.locator(".breadcrumb__item:visible").click();
+
+        await page.waitForURL(/\/$/u);
+    });
+});
+
 test.describe("navigating with reduced motion", () => {
     test.use({ contextOptions: { reducedMotion: "reduce" } });
 
