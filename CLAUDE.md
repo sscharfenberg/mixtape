@@ -284,3 +284,16 @@ instance, written for someone else's server.
   `/dev/audio-probe` proved routed audio survives screen-off (away 215s, advanced 215s), so the
   analyser is wired directly with no toggle. Also records what no test can see (Playwright runs
   Chromium muted, so the bars never move in CI).
+- [`docs/sharing.md`](docs/sharing.md) — share links (**designed 2026-08-10, NOT built**): play one
+  song / album / audiobook / artist / playlist with **no account**. Why the plan moved off signed URLs
+  onto a `shares` row (a signature is an assertion, not a record, so nothing can revoke it), the
+  four-FK subject and its CHECK, and the `/s/{share}` space whose containment is **structural** — a
+  share cannot name a track outside its grant, so `/music` stays wholly behind `auth`. Records the two
+  seams the code already had: `PlaylistSubject::column()`, so a share grants the same tracks "play
+  this" does (the artist trap — `tracks.artist_id` is *not* `collections.album_artist_id`), and the
+  queue's per-track `streamUrl` override, which means the player needs no change at all.
+  **KNOWN-STALE COMMENT, left deliberately:** `app/Http/Requests/Music/SongDownloadRequest.php` still
+  claims "Share links will widen both together, not just one" — the *opposite* of the decision (a
+  share grants listening only; neither download route has a counterpart under `/s/`). It was not
+  edited because that tree was busy at the time. **Fix it the next time that file is touched**, and
+  delete this note with it.

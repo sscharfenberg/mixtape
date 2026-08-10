@@ -5,8 +5,8 @@
 
 ## 🚫 Hard precondition — authentication before exposure
 
-**Do not forward any port until real authentication is in force.** Invite-only registration and signed
-share-links must both work on the LAN first.
+**Do not forward any port until real authentication is in force.** Invite-only registration and share
+links must both work on the LAN first.
 
 This is not a formality. The moment port 443 is forwarded, the entire collection is one
 misconfiguration away from being world-readable, and scanners find new hosts within minutes. Verify
@@ -484,7 +484,8 @@ Then confirm the check on the dashboard went red, and green again after a real r
       its own `Last-Modified`, where the PHP path sends a content hash. `Content-Length` is a** real
       byte count on both paths, so it proves nothing here.
 - [ ] **SSH, Samba, and the database are unreachable from the WAN** — over IPv4 **and** IPv6.
-- [ ] The invite flow works end to end, and a signed share-link plays without login and then expires.
+- [ ] The invite flow works end to end, and a share link plays without login, **refuses both download
+      routes**, and stops working once revoked or expired.
 - [ ] A password reset arrives, and SPF/DKIM/DMARC pass.
 - [ ] `certbot renew --dry-run` is clean and the renewal timer is active.
 - [ ] A deliberately failed backup produces an actual notification.

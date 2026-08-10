@@ -196,8 +196,9 @@ Most of these are **user-scoped**, so they build directly on the new per-user au
 - **Listen history & stats** — record plays per user (new `plays` table: who / what / when) and surface
   **most-played** tracks, albums, and artists. Per-user, optionally aggregated globally.
 - **Downloads (built 2026-08-10)** — a song as its own mp3, an album as a .zip. The gate is
-  deliberately the page's own: whoever may look at a subject may keep a copy of it (share links will
-  widen both together). Four decisions worth keeping:
+  deliberately the page's own: whoever may look at a subject may keep a copy of it — with **share
+  links the deliberate exception**, since a share grants listening and nothing else (see
+  *Authentication & access model*). Four decisions worth keeping:
     - **The album zip is the shelf, not a track list.** The tracks come from the DATABASE and the
       non-audio files (`folder.jpg`, the 27 booklet PDFs, a stray `.m3u8`) from their directories —
       that split is what stops a folder shared with another album handing over its music. Multi-disc
@@ -234,19 +235,50 @@ an account. Two tiers:
   owner's other project. **Open registration is disabled**; accounts are created via **one-time,
   expiring invite tokens** — the owner generates an invite link, the recipient uses it once to set a
   password. All library and management routes sit behind `auth`.
-- **Share-link recipients (no account).** For casual "listen to this" sharing, use Laravel
-  **signed / temporary URLs** scoped to a single song / album / playlist. They play without login, are
-  tamper-proof, and expire. This is the headline use case and stays friction-free.
+- **Share-link recipients (no account).** For casual "listen to this" sharing, a **`shares` table**
+  whose row *is* the capability — an unguessable UUID in the URL, scoped to one song, album,
+  audiobook, artist or playlist. It plays without login, and it expires. This is the headline use
+  case and stays friction-free. Full design: [`sharing.md`](sharing.md).
+
+  This said **Laravel signed / temporary URLs** until 2026-08-10, and they cannot meet the revocation
+  rule below: a signature is an assertion, not a record, so there is nothing to revoke short of
+  rotating `APP_KEY` — which would void every session, every encrypted column, and every outstanding
+  verification and reset link. A row also makes the expiry *editable*, where a signed URL bakes it in
+  and "give them another week" means sending a different link; and once an unguessable id resolves to
+  a row that is read anyway, the HMAC guards nothing the row does not.
 
 Rules:
 
 - **2FA is optional — the user's choice, never forced** (not for friends, not for the owner). Fortify's
   TOTP 2FA is available to anyone who opts in.
 - **Drop the web-server HTTP Basic Auth.** It's redundant once Fortify handles auth, and it would block
-  the signed share-links (recipients would hit the Basic Auth wall first).
+  the share links (recipients would hit the Basic Auth wall first).
 - Store invite tokens **hashed**, single-use, **expiring after 7 days** (`used_at` marker).
-- Signed share-links default to a **30-day expiry** (with an optional "no expiry" per link) and are
-  **revocable** at any time.
+- **A share link is a `shares` row, not a signature.** Exactly one of `track_id` / `collection_id` /
+  `artist_id` / `playlist_id`, enforced by a CHECK — real FKs rather than a polymorphic pair, so a
+  rescan that drops a track or an album cascades its shares away instead of leaving them pointing at
+  nothing. The UUID primary key *is* the secret, stored **unhashed** unlike an invite: a share is
+  re-copied from the owner's list long after minting, and a digest cannot be re-displayed.
+- **Any signed-in user may mint one for any library subject; a playlist only its owner.** Sharing does
+  not chain — the `/s/` space holds no mint route at all, so a recipient cannot pass the grant on.
+  (Forwarding the *link* is always possible; a bearer capability travels. The expiry bounds that, not
+  a check.)
+- **`valid_until` is NOT NULL and defaults to +7 days.** Revoking DELETEs the row and bites at once;
+  expiring merely stops the link working, and expired rows linger a while before pruning so the owner
+  sees a dead link in the list and re-mints in one click. Managed from a **"My shares"** dashboard
+  subpage.
+- **A share grants listening and nothing else** — no mp3, no zip, no counterpart to either download
+  route under `/s/`. Guest listens are **not** recorded either, so `plays.user_id` stays NOT NULL and
+  most-played keeps meaning the household's own listening.
+- **Its own URL space** (`/s/{share}/…`), every sub-route resolving its subject *through* the share
+  row, so containment is structural rather than conditional — a share of one album cannot address a
+  track outside it, because the route has no way to name one — and `routes/web.php` keeps saying that
+  everything under `/music` sits behind `auth`, full stop. The guest page is built from the **same
+  query the stream guard enforces**: an *artist* share grants `tracks.artist_id`, which is
+  deliberately not the `collections.album_artist_id` that the artist page's albums grid reads, and
+  building the page from both would list an album holding a track that will not play. Audiobooks are
+  in the schema for free (one `collection_id` FK, since `collections` already discriminates album
+  from audiobook) but wait on the Audiobooks area having a detail page to share.
 - **Transactional mail** (Fortify password resets, email verification, invite links) is sent through a
   relay — **Mailtrap** (free tier, as on `cantrip.me`) — **never** from the server's dynamic residential IP.
   Deliverability relies on **SPF/DKIM/DMARC TXT records on the real domain**; the domain/DNS + mail
