@@ -1,9 +1,20 @@
 /******************************************************************************
- * contextual size tokens — component:frosted-glass
+ * contextual size tokens — component:title
  * @type {Sass}
+ * The app wordmark in the header (Components/Landmarks/Header/AppHeaderTitle): how big it is at
+ * each width, and every dimension of the chrome its letters are painted with.
+ *
+ * THE PAINTING NUMBERS CAME BACK HERE on 2026-08-10, from s.$c-text-chrome — see the colour
+ * partial's banner for the whole story. Short version: they were shared while three components
+ * wore one look, and both of the others have taken an outlined treatment of their own since,
+ * which left a shared group with one consumer.
+ *
+ * THE FONT SIZE IS IN `rem` AND EVERYTHING ELSE IN `em`, which is the seam that keeps one set of
+ * numbers working across the ladder: the glow, the outline and the leading are all proportions of
+ * whatever rung the name is currently set at, so the treatment scales with the lockup instead of
+ * being tuned four times.
+ * Consumed as s.$c-title via `@use "Abstracts/sizes" as s;`.
  *****************************************************************************/
-@use "sass:map"; // https://sass-lang.com/documentation/modules/map
-@use "../global-size-tokens" as s;
 
 $title: (
     "font-size": (
@@ -11,5 +22,30 @@ $title: (
         "portrait": 1.4rem,
         "landscape": 2.2rem,
         "desktop": 3rem
-    )
-);
+    ),
+    // Tight-leaded, and owned HERE rather than by the lockup, because the ramp is tiled at
+    // exactly this height (one tile per line box — see the component's `background-size`).
+    // Unitless on purpose: the component multiplies it by 1em, which resolves against the
+    // font-size above, so one number keeps the leading and the tile in step at every rung. Let
+    // the two drift and the chrome bands stop lining up with the line they belong to.
+    "line-height": 1.1,
+    // Light mode needs a real outline, and a pale one (c.$c-title "stroke") only registers at
+    // this width. Dark mode's is finer: white on a dark header is the higher-contrast pair, and
+    // light mode's width would start to dominate the chrome it frames. `light-dark()` is colours
+    // only, hence a second key and the theme-dark override in the component.
+    "stroke": 0.03em,
+    "stroke-dark": 0.022em,
+    // The dark rim that does the legibility work. Barely blurred on purpose: it has to read as an
+    // edge on the letters, not as a shadow near them. Applied TWICE in the filter chain, because
+    // one pass at this radius is too faint to hold an edge against the bloom further out.
+    "rim": 0.025em,
+    // Then the neon at the glyphs, and the bloom around them.
+    "glow": 0.1em,
+    // The bloom is KEPT SHORT, and it was 5em when this treatment was the wordmark's own: a
+    // filter blur reaches its full radius, so what that bought was a wide wash of blue over the
+    // header rather than a halo on the name. At 0.3em the letters keep their light and the header
+    // beside them stays clean. The number came from the shared class, where a hero's metadata
+    // tiles sat close under the title and a wider bloom lifted their top edges — the same
+    // measurement, and the header is the tighter space of the two.
+    "bloom": 0.3em
+) !default;

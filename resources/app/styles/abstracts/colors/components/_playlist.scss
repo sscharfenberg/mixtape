@@ -2,10 +2,11 @@
  * contextual color tokens — component:playlist
  * @type {Sass}
  * One entry in the playlists listing (pages/Playlists → `li.playlist`), built as a small
- * hero: the panel fill, the rotating gradient ring around it, and the synthwave treatment
- * on its title are all c.$c-hero-section's picks, COPIED. Per the token rules a contextual
- * partial consumes globals and never another partial's tokens, so the two files own the
- * same decision separately and have to be retuned together.
+ * hero: the panel fill and the rotating gradient ring around it are c.$c-hero-section's picks,
+ * COPIED. Per the token rules a contextual partial consumes globals and never another
+ * partial's tokens, so the two files own the same decision separately and have to be retuned
+ * together. Its title's lettering is NOT copied any more — both wear the shared
+ * `.text-outline` (c.$c-text-outline), which is what one group is for.
  *
  * Two things are this component's own, because a hero has neither: the body ink for the
  * description line, and the drag grip.
@@ -89,8 +90,8 @@ $playlist: (
             color.adjust(map.get(c.$grey, "mystic"), $alpha: -0.3),
             color.adjust(map.get(c.$grey, "bunker"), $alpha: -0.3)
         ),
-    // The title's synthwave lettering — the ramp, the stroke, the glow chain — used to be
-    // copied HERE and again in the playlist entry's partial. It is now one shared group,
-    // c.$c-text-chrome / s.$c-text-chrome, worn by both via the `.text-chrome` class; only the
-    // title's font-size and face stay with each consumer (2026-08-08).
+    // THE TITLE IS OUTLINED LETTERING as of 2026-08-10, the same as a hero's: filled with the
+    // card's own colour — `background`, and `background-hover` under the pointer, both above — and
+    // drawn round with a line. The line and the glow are the shared c.$c-text-outline, worn via the
+    // `.text-outline` class; the fill stays here because only this card knows what it is.
 ) !default;

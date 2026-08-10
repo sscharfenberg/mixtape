@@ -61,5 +61,8 @@ $hero-section: (
             "portrait": 1.9rem,
             "landscape": 2rem,
             "desktop": 2.6rem
-        )
+        ),
+    // How the title's letters are DRAWN — the outline's width, the glow's spread, the leading —
+    // belongs to s.$c-text-outline, the shared group behind the `.text-outline` class. Only the
+    // scale above is the hero's, per that group's seam: it owns the drawing, the caller the size.
 ) !default;

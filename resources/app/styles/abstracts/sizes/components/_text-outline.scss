@@ -1,0 +1,33 @@
+/******************************************************************************
+ * contextual size tokens — component:text-outline
+ * @type {Sass}
+ * The outlined lettering's dimensions (styles/components/_text-outline.scss).
+ *
+ * NOT FONT-SIZE. That stays with each consumer, which is the seam: this group owns how the
+ * lettering is DRAWN, the caller owns how big it is — a hero title runs to 2.6rem, a playlist
+ * entry's to the same scale, and a future caller at any size gets a proportional glow rather than
+ * one tuned for somebody else's type.
+ * Consumed as s.$c-text-outline via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+
+$text-outline: (
+    // THE WIDTH YOU SEE, which is half of what the component asks the browser for — and that is
+    // the whole trick, not an accident. `-webkit-text-stroke` draws its line CENTRED on the glyph
+    // outline, so half of it always falls inside the letter; the component paints the fill over
+    // the stroke (`paint-order: stroke fill`) to hide that inner half, and doubles this number so
+    // that what remains outside is the width named here.
+    //
+    // 2px, and in PIXELS rather than `em`, which is the owner's call and holds up: a stroke is a
+    // drawn line, so what matters is whether it reads as one on the screen. In `em` it would be
+    // 3.5px on a phone and 5px on a desktop — a marker pen either way. The trade is that it is
+    // proportionally heavier on the smaller rungs, which is the point: that is the width at which
+    // an outline is still an outline.
+    "stroke": 2px,
+    // How far the glow spreads. `em` here, because a halo is light around the letters rather than
+    // a line on them, and light should scale with the thing casting it.
+    "glow": 0.35em,
+    // Tight-leaded so a long title wraps into a block rather than a ladder — and owned HERE
+    // rather than by the caller, because at this weight and with a line drawn around every glyph,
+    // the default leading lets outlined lines drift far enough apart to read as separate things.
+    "line-height": 1.1
+) !default;

@@ -1,0 +1,21 @@
+/******************************************************************************
+ * contextual typography tokens — component:text-outline
+ * @type {Sass}
+ * The outlined lettering (styles/components/_text-outline.scss). One named decision: how heavy
+ * the glyphs are.
+ *
+ * THE WEIGHT BELONGS TO THE TREATMENT, not to the caller — which is the opposite of the family
+ * and the size, and for a reason the drawing makes plain: an outline is a line around the glyph,
+ * so at a light weight the two edges of a stem close in on each other and the letter reads as a
+ * seam rather than a shape. The outline needs something to go round (the owner asked for 700 on
+ * seeing it at the inherited weight).
+ * Consumed as t.$c-text-outline via `@use "Abstracts/typography" as t;`.
+ *****************************************************************************/
+
+$text-outline: (
+    "weight": 700,
+    // Opened up a little, and for the same reason as the weight: every glyph now carries a line
+    // on both sides of every stem, so two letters set tight put four edges within a couple of
+    // pixels of each other and the pair reads as one shape. The owner's number.
+    "letter-spacing": 0.05em
+) !default;

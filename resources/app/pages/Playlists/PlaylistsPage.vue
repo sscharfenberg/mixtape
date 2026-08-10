@@ -12,8 +12,9 @@
  *
  * AN ENTRY IS A SMALL HERO — the detail pages' panel, at list scale: the same inset,
  * corner and slowly rotating gradient ring (tokens copied into `*.$c-playlist`, see the
- * styles). Its title wears the shared `.text-chrome` treatment, which is chrome from
- * `landscape` up and a flat tint below — the machinery is too heavy for phone-sized type. Each ring starts at a different point in the same
+ * styles). Its title is painted the hero's way too, and has been since both stopped wearing the
+ * app's synthwave chrome (2026-08-10): filled with the card's own colour and defined by a stroke,
+ * so the name reads as cut out of the entry. Each ring starts at a different point in the same
  * turn, so a column of them drifts rather than pulsing in unison; the phase comes from
  * `--playlist-index`, published per row below.
  *
@@ -137,7 +138,7 @@ const playtimeOf = (seconds: number | null): string =>
                      somewhere to go, so the visit is client-side like every other
                      navigation; `prefetch` warms it on hover. -->
                 <Link class="playlist__link" :href="`/playlists/${playlist.id}`" prefetch>
-                    <span class="playlist__title text-chrome">{{ playlist.name }}</span>
+                    <span class="playlist__title text-outline">{{ playlist.name }}</span>
                 </Link>
 
                 <playlist-menu :playlist="playlist" class="playlist__menu" />
@@ -343,6 +344,15 @@ li.playlist {
     &:focus-within {
         background-color: map.get(c.$c-playlist, "background-hover");
         box-shadow: 0 0 0.6em 0.1em map.get(c.$c-playlist, "hover-halo");
+
+        /* AND THE TITLE'S FILL GOES WITH IT. Its letters are knocked out of the card — filled
+           with the card's own colour — so a fill left on the resting pick would stop matching
+           the moment the card lightened, and the outlined name would read as a filled one in
+           very slightly the wrong shade. Both picks are opaque (see the token), so this
+           follows exactly rather than approximately. */
+        .playlist__title {
+            color: map.get(c.$c-playlist, "background-hover");
+        }
     }
 }
 
@@ -507,13 +517,26 @@ li.playlist {
         }
     }
 
-    /* The entry's heading. Everything about how the lettering is PAINTED — the chrome ramp
-       from `landscape` up, the flat tint below it, the stroke, the glow, the leading — is the
-       shared `.text-chrome` class (styles/components/_text-chrome.scss), which this element
-       carries in the template. What is left here is what belongs to the heading rather than to
-       the treatment: how big it is, and in what face. */
+    /* The entry's heading, OUTLINED as of 2026-08-10: filled with the card's own colour and drawn
+       round with a line, so the name reads as cut out of the entry. How it is drawn — the line and
+       its paint order, the glow, the weight, the leading — is the shared `.text-outline` class
+       (styles/components/_text-outline.scss), which this element carries in the template and which
+       a detail page's hero title wears too. Both wore the synthwave `.text-chrome` until that day;
+       that went home to the app wordmark, now its only wearer.
+
+       WHAT IS LEFT HERE IS THE FILL, the one thing the class cannot supply — and here it is TWO
+       colours, which is why this consumer is the interesting one: `background` at rest and
+       `background-hover` while the pointer is on the entry (the rule is up with the hover, where
+       the card changes). An entry lightens a rung under the pointer, and letters left filled in the
+       resting colour would stop matching and read as filled rather than knocked out. Both picks are
+       opaque, so following is exact.
+
+       Plus what belongs to the heading rather than to the treatment: how big it is, and in what
+       face. */
     &__title {
         display: block;
+
+        color: map.get(c.$c-playlist, "background");
 
         font-family: map.get(t.$c-playlist, "title");
 
@@ -524,6 +547,12 @@ li.playlist {
             #{map.get(s.$c-playlist, "title-font-size", "landscape")},
             #{map.get(s.$c-playlist, "title-font-size", "desktop")}
         );
+
+        /* On the same clock as the card it is filled with, so the two move as one thing rather
+           than the letters snapping while the panel eases. */
+        @media (prefers-reduced-motion: no-preference) {
+            transition: color map.get(ti.$c-playlist, "hover");
+        }
     }
 
     /* Hidden on the narrowest screens, along with the facts below. At phone width the panel

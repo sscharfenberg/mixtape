@@ -96,11 +96,13 @@ defineProps<{
         >
             <!-- The heading row: the title, and whatever acts on the subject as a whole pinned
                  to the far end of it. The menu is a SIBLING of the title rather than something
-                 passed into it, and that is not tidiness — `__title` paints its letters by
-                 clipping a background to the glyphs with `-webkit-text-fill-color: transparent`,
-                 which any button slotted inside would inherit and render invisible. -->
+                 passed into it, and that is not tidiness — `__title` fills its letters with the
+                 panel's own colour and defines them with a stroke, and BOTH of those inherit:
+                 a button slotted inside would come out invisible, wearing an outline. (It was
+                 true for the same reason when the title was clipped chrome; only the property
+                 that would do the damage has changed.) -->
             <div v-if="$slots.title || $slots.menu" class="hero-section__heading">
-                <div v-if="$slots.title" class="hero-section__title text-chrome"><slot name="title" /></div>
+                <div v-if="$slots.title" class="hero-section__title text-outline"><slot name="title" /></div>
                 <div v-if="$slots.menu" class="hero-section__menu"><slot name="menu" /></div>
             </div>
             <!-- The subject in its own words, under the title and above the facts: it says
@@ -388,20 +390,30 @@ defineProps<{
         flex: 0 0 auto;
     }
 
-    /* The page's heading, at whatever level the caller passed (an <h2> here — see the
-       banner). Everything about how the lettering is PAINTED — the chrome ramp from
-       `landscape` up, the flat tint below it, the stroke, the glow chain, the leading — is the
-       shared `.text-chrome` class (styles/components/_text-chrome.scss), which this element
-       carries in the template alongside its own. It was a copy here and a second copy in the
-       playlist entry until 2026-08-08; the two had to be retuned together twice, and the
-       second time only because someone remembered the other existed.
+    /* The page's heading, at whatever level the caller passed (an <h2> here — see the banner).
+       The caller picks the ELEMENT (which level belongs in the document outline) and the hero
+       decides how it looks.
 
-       What is left is what belongs to the HEADING rather than to the treatment: how big it is,
-       in what face, and the flattening of the slotted element's own type so this wins. The
-       caller picks the ELEMENT (which level belongs in the document outline) and the hero
-       decides how it looks. */
+       OUTLINED LETTERING as of 2026-08-10, where this wore the synthwave `.text-chrome` ramp:
+       the glyphs are filled with the PANEL'S OWN colour and drawn round with a line, so they read
+       as cut out of the hero rather than printed on it, with one soft glow behind them. How that
+       is drawn — the line and its paint order, the glow, the weight, the leading — is the shared
+       `.text-outline` class (styles/components/_text-outline.scss), which this element carries in
+       the template alongside its own; a playlist entry's title wears the same one. The chrome went
+       home to the app wordmark, now its only wearer (AppHeaderTitle owns those styles outright).
+
+       WHAT IS LEFT HERE IS THE FILL, which is the one thing that class cannot supply: the effect is
+       letters knocked out of THIS panel, so the colour has to be the panel's own token. Reading
+       `background` rather than re-picking `white` / `black` is what keeps "the same colour as the
+       panel" true when the panel is retuned — a second pick would be one edit away from a title
+       that no longer knocks out.
+
+       Plus what belongs to the heading rather than to the treatment: how big it is, and in what
+       face. */
     &__title {
         min-width: 0; // flex item since the heading row arrived; see `__heading`
+
+        color: map.get(c.$c-hero-section, "background");
 
         font-family: map.get(t.$c-hero-section, "title");
 

@@ -1,0 +1,63 @@
+/******************************************************************************
+ * .text-outline — knocked-out lettering
+ * @type {Sass}
+ * A reusable heading treatment: add `text-outline` to any element whose TEXT should read as cut
+ * out of the surface behind it — drawn as a line around each glyph, with one soft coloured glow
+ * behind. Worn by a detail page's hero title (HeroSection) and by a playlist entry's
+ * (PlaylistsPage), which are the same look and were briefly two copies of it.
+ *
+ * THE CALLER MUST SET `color`, AND TO ITS OWN BACKGROUND. That is the whole effect: the glyphs are
+ * filled with the colour of the thing they sit on, so the line around them is all that remains.
+ * Only the caller knows what that is — the hero's panel, an entry's card, and an entry's card is a
+ * different colour again under the pointer, which its own hover rule follows. A class cannot guess
+ * it, so it does not try; without a `color` the letters simply inherit the page's ink and the
+ * effect reads as an emboldened heading rather than an outlined one.
+ *
+ * WHAT ELSE THE CALLER OWNS: font-size and font-family. This class decides how the lettering is
+ * drawn; how big it is and in what face belongs to the heading. The WEIGHT is the exception and
+ * belongs here — see the typography token for why a light glyph cannot carry an outline.
+ *
+ * `paint-order: stroke fill` IS THE LOAD-BEARING LINE, and the bug it fixes is worth knowing
+ * before anyone "simplifies" it away. `-webkit-text-stroke` strokes every CONTOUR of a glyph, and
+ * a stroke is drawn centred on the path and painted OVER the fill — so in a face that builds a
+ * letter from overlapping contours (this one draws a T as a stem meeting a bar) the internal seams
+ * come out as lines across the letter: the owner's words were that the T's "vertical line reaches
+ * into the horizontal line at the top", and every E, H and A had the same. Reversing the paint
+ * order puts the fill over the stroke, which hides the inner half of every line — including all of
+ * those internal ones — and leaves exactly the outer half as the outline. The size token doubles
+ * itself for that reason.
+ *
+ * IT REQUIRES AN OPAQUE FILL to work, which follows from the same mechanism: the fill is what
+ * hides the seams. A translucent `color` would let them show through.
+ *
+ * THE TEXT-SHADOW TRICK WAS THE OTHER CANDIDATE and was rendered side by side before this was
+ * chosen (2026-08-10): a ring of hard-offset shadows, 8 / 16 / 24 of them, cast from the glyph's
+ * composited alpha and therefore free of the seam problem too. It is NOT smoother — at 6rem the
+ * ring visibly rounds every sharp corner, which on a display face reads as a softer, blunter
+ * letter than the type designer drew, and it costs one shadow pass per offset on every title. A
+ * geometric stroke stays true at any size for one declaration.
+ *
+ * Every literal comes from the contextual tokens (c/s/t.$c-text-outline).
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/colors" as c;
+@use "Abstracts/sizes" as s;
+@use "Abstracts/typography" as t;
+
+.text-outline {
+    // Titles do contain single unbreakable monsters — a URL, a 40-character German compound.
+    overflow-wrap: anywhere;
+
+    font-weight: map.get(t.$c-text-outline, "weight");
+    line-height: map.get(s.$c-text-outline, "line-height");
+
+    text-shadow: 0 0 map.get(s.$c-text-outline, "glow") map.get(c.$c-text-outline, "glow");
+    letter-spacing: map.get(t.$c-text-outline, "letter-spacing");
+
+    /* Fill over stroke — see the banner. Everything else here depends on it. */
+    paint-order: stroke fill;
+
+    /* Doubled, because half of a centred stroke is hidden under the fill by the paint order above,
+       and the token names the width that survives. */
+    -webkit-text-stroke: (map.get(s.$c-text-outline, "stroke") * 2) map.get(c.$c-text-outline, "stroke");
+}

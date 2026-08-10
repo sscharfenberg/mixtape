@@ -9,10 +9,13 @@
  * each owns its own decision. If the hero's frame changes, this is the second place to
  * follow it.
  *
- * The one thing that is NOT copied any more is how the title is PAINTED: the ramp, the
- * stroke and the glow chain were duplicated here until 2026-08-08 and are now the shared
- * s.$c-text-chrome / c.$c-text-chrome group, worn via the `.text-chrome` class. Leading went
- * with them — the ramp is tiled at exactly that height, so it belongs to the treatment.
+ * HOW THE TITLE IS PAINTED is copied from the hero again, and deliberately: both took an
+ * outlined treatment on 2026-08-10 (fill from the card, stroke from its ink, one soft glow), so
+ * the three numbers below are the hero's three numbers. In between — from 2026-08-08 — the two
+ * shared a synthwave ramp as s.$c-text-chrome / c.$c-text-chrome, which is now the app
+ * wordmark's alone and lives with it. The rule has not changed: a contextual partial consumes
+ * globals, never another partial's tokens, so a copy is the honest shape and retuning one means
+ * retuning the other.
  *
  * What is NOT copied is the cover square (an entry has no artwork) and the hero's
  * `gap` (the hero's separates a text column from a picture; here it separates the
@@ -50,12 +53,13 @@ $playlist: (
     // sits one line-width clear of the panel it traces (the rule s.$c-facts "link-outline"
     // records: a ring drawn tight against what it surrounds reads as part of it).
     "focus-outline": map.get(s.$border, "base"),
-    // The per-breakpoint scale, the hero's, copied. How the letters are painted at each of
-    // these sizes is s.$c-text-chrome's business, not this file's — see the banner.
+    // The per-breakpoint scale, the hero's, copied.
     "title-font-size": (
             "base": 1.75rem,
             "portrait": 1.9rem,
             "landscape": 2rem,
             "desktop": 2.6rem
-        )
+        ),
+    // How the title's letters are DRAWN — the outline, the glow, the leading — is the shared
+    // s.$c-text-outline behind the `.text-outline` class, the same one the hero's title wears.
 ) !default;

@@ -1,10 +1,38 @@
 <script setup lang="ts">
 /******************************************************************************
  * AppHeaderTitle
- * The wordmark <h1> in the header (an Inertia <Link> home). The app name is
- * printed in two stacked <span>s on purpose: they are the layers the scoped
- * style paints into the neon / gradient title effect. Name comes from
+ * The wordmark <h1> in the header (an Inertia <Link> home). Name comes from
  * VITE_APP_NAME (mirrors the backend APP_NAME — see below).
+ *
+ * THE SYNTHWAVE CHROME LIVES HERE NOW (2026-08-10), and this component is the
+ * only thing in the app wearing it. It was a global `.text-chrome` class, shared
+ * with a detail page's hero title and a playlist entry's; both of those took an
+ * outlined treatment of their own that day, which left a shared class with one
+ * consumer — so it came home, tokens and all (c.$c-title / s.$c-title).
+ *
+ * ONE SPAN, WHERE THERE WERE TWO STACKED COPIES of the app name. The effect needs
+ * a gradient clipped to the glyphs AND a glow, and `text-shadow` paints above an
+ * element's own background — so on a single element it washed over the gradient
+ * it was meant to be lighting. This component's answer was two layers, one
+ * carrying the shadow and one absolutely positioned over it carrying the clip,
+ * which needs the name in the markup twice. `filter: drop-shadow()` filters the
+ * element as already rendered, so the glow follows the glyph shapes and sits
+ * BEHIND them with the gradient intact — the trick the shared class was written
+ * with, brought back to the component that inspired it.
+ *
+ * THE CHROME ONLY BEGINS AT `landscape`, and below that the name is a flat tint.
+ * Two reasons, both learned the hard way: the ramp splits at its own midline, and
+ * a 1.2rem lockup is not tall enough for that split to read as anything but
+ * noise; and the clip plus the stroke that carry it chew up type that small — a
+ * stroke is drawn centred on the glyph outline, so it eats into letters whose
+ * fill is already coming from a clipped background, and the edges break up.
+ * "Choppy" was the owner's word for it.
+ *
+ * THE WHOLE MACHINERY THEREFORE SITS INSIDE THE MEDIA QUERY rather than being
+ * undone by it. That is not tidiness: `-webkit-text-stroke-color` defaults to
+ * `currentColor`, so a stroke WIDTH leaking below the breakpoint would quietly
+ * embolden the flat-tint text — in dark mode only, that being where the theme
+ * override sets one. Which is why the override is nested in there too.
  *****************************************************************************/
 import { Link } from "@inertiajs/vue3";
 
@@ -15,7 +43,6 @@ const appName = import.meta.env.VITE_APP_NAME;
 <template>
     <h1>
         <Link href="/" prefetch>
-            <span>{{ appName }}</span>
             <span>{{ appName }}</span>
         </Link>
     </h1>
@@ -77,38 +104,55 @@ a {
         content: "";
     }
 
-    span:first-child {
+    /* THE LETTERING. A BLOCK, because the ramp is tiled at one line box and positioned against
+       this element's own box, and an inline box fragmented across lines gives it no reliable
+       one to sit in. `overflow-wrap` is deliberately absent, unlike in the shared class this
+       came from: that had to survive a caller's 40-character German compound, where this holds
+       one configured app name. */
+    span {
+        $line-height: map.get(s.$c-title, "line-height");
+
         display: block;
 
-        @include m.mq("landscape") {
-            text-shadow:
-                0 0 0.1em map.get(c.$c-title, "c7"),
-                0 0 0.2em #000,
-                0 0 5em map.get(c.$c-title, "c8");
-            -webkit-text-stroke: 0.06em rgb(black, 0.5);
-        }
-    }
+        color: map.get(c.$c-title, "flat");
 
-    span:last-child {
-        position: absolute;
-        top: 0;
-        left: 0;
-
-        background-color: light-dark(map.get(c.$c-title, "c5"), map.get(c.$c-title, "c6"));
-        background-clip: text;
-        -webkit-text-stroke: 0.01em map.get(c.$c-title, "stroke");
-        -webkit-text-fill-color: transparent;
+        line-height: $line-height;
 
         @include m.mq("landscape") {
-            background-color: transparent;
-            background-image: linear-gradient(
-                map.get(c.$c-title, "c1") 25%,
-                map.get(c.$c-title, "c2") 35%,
-                #fff 50%,
-                map.get(c.$c-title, "c4") 50%,
-                map.get(c.$c-title, "c5") 55%,
-                map.get(c.$c-title, "c6") 75%
-            );
+            $rim: 0 0 map.get(s.$c-title, "rim") map.get(c.$c-title, "contour");
+
+            background-image: map.get(c.$c-title, "gradient");
+
+            /* ONE ramp PER LINE. A background paints over the element's whole box, so left to
+               itself the ramp would stretch across every line at once: the first line in the
+               dark-blue 25% region, the last in the pink 75% one, and the white specular line
+               that should cross the letters landing in the gap between two of them. Sized to
+               exactly one line box and tiled down instead, every line gets the full run.
+
+               The height is `$line-height * 1em`, not `1lh`: `em` resolves against this
+               element's font-size and `line-height` above is the same unitless number against
+               the same font-size, so the tile matches the line box at every rung of the ladder
+               with no dependency on `lh` support. */
+            background-repeat: repeat-y;
+            background-clip: text;
+            background-size: 100% ($line-height * 1em);
+
+            /* The chain's ORDER is the legibility. Each filter takes the previous result, so
+               the near-black rim has to come first to hug the letters — put it after the neon
+               and it rings the glow instead of the glyphs. It runs TWICE, because one pass at
+               that radius cannot hold an edge against the bloom further out; the pair stands in
+               for a second `-webkit-text-stroke`, an element having exactly one. */
+            filter: drop-shadow($rim) drop-shadow($rim)
+                drop-shadow(0 0 map.get(s.$c-title, "glow") map.get(c.$c-title, "glow"))
+                drop-shadow(0 0 map.get(s.$c-title, "bloom") map.get(c.$c-title, "bloom"));
+            -webkit-text-stroke: map.get(s.$c-title, "stroke") map.get(c.$c-title, "stroke");
+            -webkit-text-fill-color: transparent;
+
+            // Dark mode keeps a finer stroke — see the width token for why — nested in here
+            // with the stroke it belongs to, per the note in the banner.
+            @include m.theme-dark("span") {
+                -webkit-text-stroke-width: map.get(s.$c-title, "stroke-dark");
+            }
         }
     }
 }
