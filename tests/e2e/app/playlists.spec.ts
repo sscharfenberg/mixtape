@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import type { Page } from "@playwright/test";
+import type { Page, Response } from "@playwright/test";
 
 /*
  * Making a playlist, in a real engine.
@@ -31,6 +31,20 @@ import type { Page } from "@playwright/test";
  * because `STAMP` is evaluated at module load and this file's tests turned out not to share
  * one module instance. `mode: "default"` is kept for readable ordering, but nothing here
  * relies on it: a test that builds its own fixture cannot be broken by where it runs.
+ *
+ * ONE OPEN FLAKE, and what is known about it (2026-08-10). "Edits a playlist's metadata" failed
+ * once in a three-worker run with the listing showing the PRE-EDIT blurb after the PUT and a full
+ * reload. Ruled out by measurement while chasing it: the browser cache (the listing answers
+ * `no-cache, private` and a reload really re-fetches — two fresh 200s), a `description` missing
+ * from `validated()` (the request merges the key unconditionally, and a null one survives
+ * validation), a precognitive request reaching the controller (the dispatchers are rebound so the
+ * action never runs), a background Inertia visit re-seeding the form (nothing on this page makes
+ * one — the queue syncs over `fetch`), and a name collision in the locator (every name in this file
+ * carries a distinct prefix). It did NOT reproduce in five consecutive full-suite runs, nor in
+ * thirty scripted repeats of the journey with and without three-worker load.
+ *
+ * What remains is a fork the listing alone cannot resolve, which is why the test now asserts the
+ * SAVE'S PAYLOAD as well: either the form sent the old text, or the server ignored the new one.
  */
 test.describe.configure({ mode: "default" });
 
@@ -66,6 +80,22 @@ const SORTED = `E2E Sortiert ${STAMP}`;
 const EDITED = `E2E Bearbeitet ${STAMP}`;
 
 /**
+ * A response to the WRITE, not to a live-validation request that happens to share its verb.
+ *
+ * BOTH FORMS ON THIS PAGE VALIDATE THROUGH PRECOGNITION, and a precognitive request goes to the
+ * same URL with the same method — measured 2026-08-10: `PUT /playlists/{id}` with
+ * `Precognition: true` and `Precognition-Validate-Only: description`, fired by the `change` event
+ * that `fill()` dispatches. So a matcher on url + method alone resolves on the VALIDATION and says
+ * the save landed when nothing has been saved at all. That is not hypothetical tidying: it is why
+ * "edits a playlist's metadata" could reach its final assertion with the write still in the air, or
+ * never sent, and then fail on a stale listing several steps away from the cause.
+ *
+ * The real write is the one Inertia sends: `X-Inertia`, and no Precognition header.
+ */
+const isWrite = (response: Response, method: "POST" | "PUT"): boolean =>
+    response.request().method() === method && response.request().headers().precognition === undefined;
+
+/**
  * Press "create" and wait for the POST itself to come back.
  *
  * Awaiting the RESPONSE rather than clicking and asserting on what renders: a write here can
@@ -75,7 +105,7 @@ const EDITED = `E2E Bearbeitet ${STAMP}`;
  */
 const submitPlaylistForm = async (page: Page): Promise<void> => {
     const posted = page.waitForResponse(
-        response => response.url().endsWith("/playlists") && response.request().method() === "POST"
+        response => response.url().endsWith("/playlists") && isWrite(response, "POST")
     );
 
     await page.getByRole("button", { name: /^Wiedergabeliste anlegen$/u }).click();
@@ -287,10 +317,24 @@ test.describe("the playlists area", () => {
 
         await page.locator("#description").fill("Zweite Fassung.");
         const saved = page.waitForResponse(
-            response => /\/playlists\/[0-9a-f-]+$/u.test(response.url()) && response.request().method() === "PUT"
+            response => /\/playlists\/[0-9a-f-]+$/u.test(response.url()) && isWrite(response, "PUT")
         );
         await page.getByRole("button", { name: /^Änderungen speichern$/u }).click();
-        await saved;
+        const save = await saved;
+
+        /*
+         * WHAT THE SAVE CARRIED, asserted here so that the day this goes wrong it says WHICH HALF
+         * went wrong. This test has failed once in a three-worker run with the listing showing the
+         * pre-edit blurb after the PUT and a reload — and the listing alone cannot tell "the form
+         * sent the old text" from "the server ignored the new text". One is a client bug in how the
+         * form holds what the reader typed, the other a server bug in what `validated()` hands the
+         * update; they are fixed in different files. See the file header for what was ruled out
+         * chasing it — this assertion is the trap left set for the next occurrence.
+         */
+        const sent = JSON.parse(save.request().postData() ?? "{}") as { description?: string };
+        expect(sent.description, "the form must send what the reader typed, not what it was given").toBe(
+            "Zweite Fassung."
+        );
 
         await page.waitForURL(/\/playlists$/u);
         /*

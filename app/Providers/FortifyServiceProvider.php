@@ -175,19 +175,26 @@ class FortifyServiceProvider extends ServiceProvider
 
         // For the routes that SEND mail (`forgot.store`, `verification.resend.store`).
         //
-        // Those forms validate-on-blur through Precognition, so live validation
-        // hits the same route as the real submit. Under a flat `throttle:6,1`
-        // the two share one budget: typing eats the allowance the send needs,
-        // and an honest user gets a 429 (exactly what bit `password.reset.store`).
+        // SIX SENDS A MINUTE PER IP, and that number is the anti-abuse gate that
+        // stops someone flooding a victim's inbox — it is not to be loosened.
         //
-        // Splitting on isPrecognitive() keeps the part that matters unchanged —
-        // still 6 actual sends per minute per IP, so this is NOT a loosening of
-        // the anti-abuse gate that stops someone flooding a victim's inbox —
-        // while giving the no-op validation requests room to breathe.
+        // It says nothing about Precognition any more, and used to: those forms
+        // validate-on-blur against this same route, so live validation shared the
+        // send budget and an honest reader's typing earned them a 429. The fix
+        // written here — `isPrecognitive() ? perMinute(30) : perMinute(6)` — did
+        // not work, twice over, and both reasons are worth knowing. A named
+        // limiter's counter is keyed `md5($name . $limit->key)`, so two arms
+        // passing the same `by($request->ip())` are ONE bucket with two ceilings:
+        // six validations still refused the send. And `isPrecognitive()` reads an
+        // attribute that `HandlePrecognitiveRequests` sets, while a limiter runs
+        // inside the throttle middleware — which deliberately comes FIRST — so the
+        // branch was never taken at all.
+        //
+        // App\Http\Middleware\ThrottleRequests now separates validate-only traffic
+        // for every throttle in the app, this one included: six sends here, thirty
+        // validations in a counter of their own.
         RateLimiter::for('auth-mail', function (Request $request) {
-            return $request->isPrecognitive()
-                ? Limit::perMinute(30)->by($request->ip())
-                : Limit::perMinute(6)->by($request->ip());
+            return Limit::perMinute(6)->by($request->ip());
         });
     }
 }

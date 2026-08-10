@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\ConfigureLocale;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\ThrottleRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -14,6 +15,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Every `throttle:` in the app — ours and Fortify's, numeric and named — resolves
+        // through the app's own subclass, which keeps a form's validate-on-blur traffic in a
+        // bucket of its own instead of spending the write's allowance. Aliased here rather
+        // than named per route, because a route that forgets it is a route where a reader's
+        // typing refuses their own save. See the class for the measurements.
+        $middleware->alias(['throttle' => ThrottleRequests::class]);
+
         $middleware->web(append: [
             // ConfigureLocale must precede HandleInertiaRequests so the resolved
             // locale is active when Inertia shares it (and <html lang> renders).

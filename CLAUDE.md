@@ -133,6 +133,20 @@ bucket after the route (`throttle:10,1,album-download`). Named limiters (`thrott
 `throttle:auth-mail`, `throttle:two-factor`) already have their own keys and need nothing.
 `tests/Feature/RateLimitBucketsTest.php` fails the suite if a numeric throttle turns up bare.
 
+**…and `throttle` is OUR middleware** (aliased in `bootstrap/app.php` to
+`App\Http\Middleware\ThrottleRequests`), which counts a form's **validate-only Precognition
+traffic in a bucket of its own** at five times the route's ceiling. Nothing to write per route —
+but know that it is happening, because it changes what a number on a route means: `throttle:30,1,…`
+in front of a Precognition form is 30 **saves**, not 30 requests. A ceiling that was inflated to
+leave room for live validation (`register`, `password-reset`) is now only covering writes and can
+be reconsidered on its own terms. Two traps it exists because of, both measured 2026-08-10: a
+Precognition form validates against **the route it submits to with the same verb**, so typing spends
+the save's allowance (a 2-field form costs three per save); and a *named* limiter cannot separate
+them by branching inside the callback, because its counter is keyed `md5($name . $limit->key)` — two
+arms passing the same `by()` are one bucket with two ceilings. `isPrecognitive()` is also the wrong
+question in a limiter: it reads an attribute set by `HandlePrecognitiveRequests`, which runs *after*
+the throttle. Pinned in `tests/Feature/PrecognitionThrottleTest.php`.
+
 **Linting the frontend** — use **`npm run lint`** (runs ESLint then Stylelint, both with `--fix`).
 Don't invoke `eslint` / `stylelint` directly. `npm run build` runs the same lint first, so a lint
 error fails the build before anything compiles. **Always run `npm run lint` after editing any

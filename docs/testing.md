@@ -255,6 +255,15 @@ this is the record of *why* that code exists.
   `<h1>` too. Use `pageHeading()`.
 - **`framenavigated` fires for `history.replaceState`**, so it cannot prove a tab change costs no
   round trip. Count `document` requests (`countDocumentRequests`).
+- **A `waitForResponse` on url + method matches a PRECOGNITION request, not your write.** Every
+  Precognition form validates against its OWN endpoint with its own verb — measured on the playlist
+  form: `PUT /playlists/{id}`, `Precognition: true`, `Precognition-Validate-Only: description`, fired
+  by the `change` event that `fill()` itself dispatches. So the matcher resolves on a request that
+  saves nothing, the test walks on believing the write landed, and it fails later on stale-looking
+  data with the cause several steps behind it. Match the write: `X-Inertia` present and no
+  `precognition` header (`isWrite()` in `playlists.spec.ts`). The same applies to counting requests
+  against a rate limit — a two-field form spends **three** of the route's budget per save, since
+  `throttle:` sits in front of the precognition middleware.
 - **Lazy, hidden images are legitimately "incomplete"** — covers are `loading="lazy"` and the
   discography renders row *and* card artwork with one `display:none`. Only a **visible** image that
   failed is broken, and check after `waitForLoadState("networkidle")`.

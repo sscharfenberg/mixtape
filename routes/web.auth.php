@@ -62,8 +62,13 @@ Route::middleware('guest')->group(function () {
 
         // HandleControllerPrecognitiveRequest drives the register form's live
         // field validation (Inertia Precognition). The throttle is generous
-        // because each field's validate-on-blur is its own request; the invite
-        // requirement is the real abuse gate.
+        // because the invite requirement is the real abuse gate here.
+        //
+        // It used to be generous for a second reason that no longer applies —
+        // each field's validate-on-blur being its own request against this
+        // budget. App\Http\Middleware\ThrottleRequests counts that traffic
+        // apart now (30 registrations, 150 validations), so this number is free
+        // to be tightened to what a registration is actually worth.
         Route::post('/register', [RegisteredUserController::class, 'store'])
             ->middleware(['throttle:30,1,register', HandleControllerPrecognitiveRequest::class])
             ->name('register.store');
@@ -78,9 +83,11 @@ Route::middleware('guest')->group(function () {
         Route::get('/forgot', [ForgotController::class, 'show'])
             ->name('forgot');
 
-        // `auth-mail`: 6 actual sends/min, but 30 for the Precognition
-        // validate-on-blur traffic that shares this route. See the limiter in
-        // FortifyServiceProvider — the send budget is deliberately unchanged.
+        // `auth-mail`: 6 sends a minute per IP, and that is the gate on somebody
+        // else's inbox — not to be loosened. The form's validate-on-blur traffic
+        // no longer touches it (App\Http\Middleware\ThrottleRequests keeps it in
+        // its own counter, 30 a minute); the limiter in FortifyServiceProvider
+        // records the hand-rolled attempt at that and why it did not work.
         Route::post('/forgot', [ForgotController::class, 'store'])
             ->middleware(['throttle:auth-mail', HandleControllerPrecognitiveRequest::class])
             ->name('forgot.store');
@@ -88,13 +95,16 @@ Route::middleware('guest')->group(function () {
         Route::get('/reset-password', [NewPasswordController::class, 'show'])
             ->name('password.reset');
 
-        // Generous throttle, for the same reason as `register.store`: three
-        // fields each validate-on-blur through Precognition, so one honest
-        // reset costs 4+ requests against this budget and a single correction
-        // (mismatched confirmation, rejected weak password) blew past the old
-        // `6,1` with a 429. Safe to loosen — unlike `forgot.store` below this
-        // route sends no mail; it consumes a single-use, expiring token, which
+        // Generous throttle, and safe to be: unlike `forgot.store` above, this
+        // route sends no mail — it consumes a single-use, expiring token, which
         // is the real gate.
+        //
+        // It was raised from `6,1` because three fields validating on blur meant
+        // one honest reset cost 4+ requests against this budget and a single
+        // correction (mismatched confirmation, rejected weak password) answered
+        // 429. That traffic has its own counter now
+        // (App\Http\Middleware\ThrottleRequests), so the 30 is no longer holding
+        // room for it.
         Route::post('/reset-password', [NewPasswordController::class, 'store'])
             ->middleware(['throttle:30,1,password-reset', HandleControllerPrecognitiveRequest::class])
             ->name('password.reset.store');
@@ -142,10 +152,14 @@ Route::post('/password/entropy', EntropyController::class)
  * Profile/password updates go through Fortify's own controllers, which defer
  * to App\Actions\Fortify\UpdateUserProfileInformation / UpdateUserPassword
  * (wired in FortifyServiceProvider); account deletion is app-owned since
- * Fortify has no built-in action for it. The generous throttle (matching
- * /register's) is because each form validates itself one field at a time
- * (Precognition-Validate-Only) as the user tabs through it, not just once on
- * submit.
+ * Fortify has no built-in action for it.
+ *
+ * The generous throttle (matching /register's) was for the field-at-a-time
+ * validation these forms do as the reader tabs through them
+ * (Precognition-Validate-Only). Since 2026-08-10 that traffic is counted in a
+ * bucket of its own — App\Http\Middleware\ThrottleRequests, which reads the
+ * precognition middleware off the GROUP below as well as off a route — so what
+ * these two numbers now cover is saves alone.
  *****************************************************************************/
 Route::middleware(['auth', HandleControllerPrecognitiveRequest::class])->group(function () {
     if (Features::enabled(Features::updateProfileInformation())) {

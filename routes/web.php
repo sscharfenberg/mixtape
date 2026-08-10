@@ -87,6 +87,9 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         //
         // HandleControllerPrecognitiveRequest drives the form's live validation on both
         // submits (the base middleware only handles closure routes — see its docblock).
+        // That validation does NOT spend these 30: App\Http\Middleware\ThrottleRequests
+        // counts validate-only traffic in a bucket of its own, which is what stops a reader
+        // tabbing through the form from being refused their own save.
         Route::get('/playlists/create', [PlaylistMetadataController::class, 'create'])
             ->name('playlists.create');
 
