@@ -31,9 +31,11 @@ import { Head } from "@inertiajs/vue3";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
+import DownloadButton from "Components/Music/DownloadButton.vue";
 import PlayCountFacts from "Components/Music/PlayCountFacts.vue";
 import SubjectMenu from "Components/Music/SubjectMenu.vue";
 import AddToPlaylist from "Components/Playlists/AddToPlaylist.vue";
+import ActionPanel from "Components/UI/ActionPanel.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Facts, { type Fact } from "Components/UI/Card/Facts.vue";
 import Container from "Components/UI/Container.vue";
@@ -347,11 +349,18 @@ const songFacts = computed<Fact[]>(() => {
                          PlayCountFacts, shared with the artist / genre / album heroes. -->
                     <play-count-facts :plays="plays" subject="song" />
                 </template>
-                <!-- Under the facts, because it acts on the thing they have just identified —
-                     and separate from the `#menu` above, which is for PLAYING the song. The
-                     server decides which playlists may be offered; this only draws them. -->
+                <!-- Under the facts, because they act on the thing those facts have just
+                     identified — and separate from the `#menu` above, which is for PLAYING the
+                     song. Both stand in one ActionPanel: the tinted box is the hero's action
+                     AREA, not the playlist control's own (see that component). The server
+                     decides which playlists may be offered; this only draws them, and the
+                     download sits at the trailing edge — the one action here that takes the
+                     song somewhere off this app entirely. -->
                 <template #actions>
-                    <add-to-playlist subject="song" :subject-id="song.id" :addable="addablePlaylists" />
+                    <action-panel>
+                        <add-to-playlist subject="song" :subject-id="song.id" :addable="addablePlaylists" />
+                        <download-button subject="song" :href="song.downloadUrl" />
+                    </action-panel>
                 </template>
             </hero-section>
             <facts :facts="songFacts" wide-groups />

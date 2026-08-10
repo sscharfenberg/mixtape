@@ -168,6 +168,13 @@ class SongController extends Controller
                 // (usePlayerQueue's note says why), so the URL has to travel with them.
                 'streamUrl' => route('music.songs.stream', $song, absolute: false),
 
+                // Where the hero's download button points — the same file as an
+                // attachment. Unconditional for the same reason `streamUrl` is: a track
+                // always has bytes, and stat-ing the file here to hide a button would
+                // cost every page view a filesystem call to guard against a case the
+                // route already answers with a 404.
+                'downloadUrl' => route('music.songs.download', $song, absolute: false),
+
                 // The file itself. `path` is area-relative (never the absolute
                 // server path — Track's docblock), which is also what a listener
                 // needs: it's the path on the Samba share.

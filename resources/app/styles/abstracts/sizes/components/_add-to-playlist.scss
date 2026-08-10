@@ -2,12 +2,13 @@
  * contextual size tokens — component:add-to-playlist
  * @type {Sass}
  * The "add this to a playlist" AREA in a detail page's hero
- * (Components/Playlists/AddToPlaylist): its own inset and shape, the space between its
- * sentence and its controls, between the select and the button, and how much room the select
- * asks for before it wraps.
+ * (Components/Playlists/AddToPlaylist): the space between its sentence and its controls,
+ * between the select and the button, and how much room the select asks for before it wraps.
  *
- * The inset and the gaps step off the shared `$padding` rungs so the area breathes like the
- * rest of the hero; the select's basis is a LITERAL in `ch`, because it is a text measure —
+ * Its inset and shape are NOT here any more — the box moved to `_action-panel.scss` on
+ * 2026-08-10, when it turned out to be the hero's action area rather than this component's
+ * own. The gaps step off the shared `$padding` rungs so the area breathes like the rest of
+ * the hero; the select's basis is a LITERAL in `ch`, because it is a text measure —
  * about the width of a long playlist name — and that is the one thing the `$scale` (a rem-based
  * spacing ladder) has no opinion about.
  * Consumed as s.$c-add-to-playlist via `@use "Abstracts/sizes" as s;`.
@@ -16,15 +17,6 @@
 @use "../global-size-tokens" as s;
 
 $add-to-playlist: (
-    // The area's own inset. The SAME rung the hero uses for its panel (s.$c-hero-section
-    // "padding"), re-picked here rather than read across, per the token rules: an area sitting
-    // inside that panel with a tighter inset reads as a box someone forgot to finish, and one
-    // with a wider inset reads as a second panel.
-    "padding": map.get(s.$padding, "portrait"),
-    // A step tighter than the hero's own corners (which are `featured`), because this sits
-    // INSIDE them: matching curves at two nesting levels make the inner box look like it is
-    // bulging out of the outer one.
-    "radius": map.get(s.$radius, "base"),
     // Between the sentence and the row of controls under it — a rung BELOW the area's own
     // inset, so the two lines read as one block held by the padding rather than as two things
     // spaced the same distance from each other as from the edge.

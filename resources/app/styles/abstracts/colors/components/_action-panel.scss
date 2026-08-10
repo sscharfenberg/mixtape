@@ -1,0 +1,35 @@
+/******************************************************************************
+ * contextual color tokens — component:action-panel
+ * @type {Sass}
+ * The tinted box that holds a detail page's hero controls (Components/UI/ActionPanel):
+ * the tint that marks it off from the hero panel it sits in, and nothing else. Everything
+ * inside it — the select, the buttons, the sentence — is a shared component with its own
+ * contextual tokens.
+ *
+ * It lived in `_add-to-playlist.scss` until 2026-08-10, when the song and album heroes
+ * grew a download button that belongs in the same box: the box is the ACTION AREA, and
+ * "add to playlist" is one of the things standing in it.
+ * Consumed as c.$c-action-panel via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-color-tokens" as c;
+
+$action-panel: (
+    // The area's fill: ONE STEP off the hero panel's own, and no more. The hero is pure white
+    // on light and pure black on dark (c.$c-hero-section "background"), so the neighbouring
+    // greys are what a subtle tint means here — `mystic` is the third rung down from white and
+    // `ebony` the second up from black, which is the closest the palette gets to "visible as a
+    // box, invisible as a colour".
+    //
+    // NOT SYMMETRIC RUNGS, deliberately, and the reason is the panel each sits on rather than
+    // the values: the same nominal step reads far louder on black than on white, because the
+    // eye has nothing else that dark to compare it against. `mystic` on white and `bunker` on
+    // black (the pair the hero's cover placeholder uses, at 60% alpha) put a visible grey
+    // rectangle in the middle of the dark hero; `ebony` is the rung that matches what `mystic`
+    // does on the light side.
+    //
+    // Opaque rather than an alpha over the panel: the hero's fill is flat and this area never
+    // overlaps anything, so an alpha would only make the value harder to reason about — and
+    // the token rules allow the opacity tweak, they do not ask for it.
+    "background": light-dark(map.get(c.$grey, "mystic"), map.get(c.$grey, "ebony"))
+) !default;

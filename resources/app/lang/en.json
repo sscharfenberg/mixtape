@@ -342,6 +342,10 @@
         "refresh": "Refresh",
         "reloadServerData": "Reload server data",
         "seeAll": "See all",
+        "download": {
+            "song": "Download MP3",
+            "album": "Download ZIP"
+        },
         "artist": {
             "tabs": {
                 "label": "This artist's albums and songs"

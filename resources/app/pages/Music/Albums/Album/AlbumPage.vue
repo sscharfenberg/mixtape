@@ -31,9 +31,11 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import DataTable from "Components/DataTable/DataTable.vue";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
+import DownloadButton from "Components/Music/DownloadButton.vue";
 import PlayCountFacts from "Components/Music/PlayCountFacts.vue";
 import SubjectMenu from "Components/Music/SubjectMenu.vue";
 import AddToPlaylist from "Components/Playlists/AddToPlaylist.vue";
+import ActionPanel from "Components/UI/ActionPanel.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Container from "Components/UI/Container.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
@@ -70,6 +72,13 @@ interface AlbumDetail {
     modifiedAt: string | null;
     /** Cover art URL, or null when the album has art from neither source. */
     coverUrl: string | null;
+    /**
+     * Where the hero's download button points: the record as a .zip — its tracks plus the
+     * non-audio files beside them on the share. Never null, unlike `coverUrl`: whether the
+     * files are still there is the route's question to answer, not something worth a
+     * directory of stat calls on every page view.
+     */
+    downloadUrl: string;
 }
 
 /** One of the album's tracks, as AlbumController's rowMapper shaped it — every value raw. */
@@ -242,11 +251,17 @@ const columns = computed<ColumnDef<TrackRow>[]>(() => [
                          listened to comes after what the record IS. See PlayCountFacts. -->
                     <play-count-facts :plays="plays" subject="album" />
                 </template>
-                <!-- Under the facts, because it acts on the thing they have just identified —
-                     and separate from the `#menu` above, which is for PLAYING it. The server
-                     decides which playlists may be offered; this only draws them. -->
+                <!-- Under the facts, because they act on the thing those facts have just
+                     identified — and separate from the `#menu` above, which is for PLAYING it.
+                     Both stand in one ActionPanel, as on the song page. The server decides
+                     which playlists may be offered; this only draws them. The download — the
+                     whole record as a .zip, artwork and booklets included — sits at the
+                     trailing edge. -->
                 <template #actions>
-                    <add-to-playlist subject="album" :subject-id="album.id" :addable="addablePlaylists" />
+                    <action-panel>
+                        <add-to-playlist subject="album" :subject-id="album.id" :addable="addablePlaylists" />
+                        <download-button subject="album" :href="album.downloadUrl" />
+                    </action-panel>
                 </template>
             </hero-section>
 

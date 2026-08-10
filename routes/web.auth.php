@@ -34,6 +34,13 @@ use Laravel\Fortify\Http\Controllers\TwoFactorSecretKeyController;
  * password reset uses app-owned controllers (ForgotController /
  * NewPasswordController) instead of Fortify's, so the single "forgot
  * password / username" page can dispatch either recovery.
+ *
+ * Every numeric `throttle:` below carries a third argument naming its bucket, for the
+ * reason spelled out at the top of web.php: without one the limiter keys on the CALLER
+ * alone, so all of these would share a single counter — per user where there is one, and
+ * per IP for the guest routes, which is most of this file. `throttle:login`,
+ * `throttle:auth-mail` and `throttle:two-factor` are named limiters
+ * (FortifyServiceProvider) and already have keys of their own.
  *****************************************************************************/
 
 // Guest-only: the login / register pages and their POST handlers.
@@ -58,7 +65,7 @@ Route::middleware('guest')->group(function () {
         // because each field's validate-on-blur is its own request; the invite
         // requirement is the real abuse gate.
         Route::post('/register', [RegisteredUserController::class, 'store'])
-            ->middleware(['throttle:30,1', HandleControllerPrecognitiveRequest::class])
+            ->middleware(['throttle:30,1,register', HandleControllerPrecognitiveRequest::class])
             ->name('register.store');
     }
 
@@ -89,7 +96,7 @@ Route::middleware('guest')->group(function () {
         // route sends no mail; it consumes a single-use, expiring token, which
         // is the real gate.
         Route::post('/reset-password', [NewPasswordController::class, 'store'])
-            ->middleware(['throttle:30,1', HandleControllerPrecognitiveRequest::class])
+            ->middleware(['throttle:30,1,password-reset', HandleControllerPrecognitiveRequest::class])
             ->name('password.reset.store');
     }
 
@@ -118,7 +125,7 @@ Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
 // out), and `signed` enforces integrity + expiry. Gated by the feature flag.
 if (Features::enabled(Features::emailVerification())) {
     Route::get('/verify-email/{id}/{hash}', VerifyEmailController::class)
-        ->middleware(['signed', 'throttle:6,1'])
+        ->middleware(['signed', 'throttle:6,1,verify-email'])
         ->name('verify-email');
 }
 
@@ -126,7 +133,7 @@ if (Features::enabled(Features::emailVerification())) {
 // utility (returns a 0–4 score; changes nothing), so it's a plain web route, not
 // a data API. Throttled to blunt abuse of the zxcvbn call.
 Route::post('/password/entropy', EntropyController::class)
-    ->middleware('throttle:60,1')
+    ->middleware('throttle:60,1,password-entropy')
     ->name('password.entropy');
 
 /******************************************************************************
@@ -143,19 +150,19 @@ Route::post('/password/entropy', EntropyController::class)
 Route::middleware(['auth', HandleControllerPrecognitiveRequest::class])->group(function () {
     if (Features::enabled(Features::updateProfileInformation())) {
         Route::put('/user/profile-information', [ProfileInformationController::class, 'update'])
-            ->middleware('throttle:30,1')
+            ->middleware('throttle:30,1,profile-update')
             ->name('user-profile-information.update');
     }
 
     if (Features::enabled(Features::updatePasswords())) {
         Route::put('/user/password', [PasswordController::class, 'update'])
-            ->middleware('throttle:30,1')
+            ->middleware('throttle:30,1,password-update')
             ->name('user-password.update');
     }
 });
 
 Route::delete('/user/delete', [DeleteAccountController::class, 'destroy'])
-    ->middleware(['auth', 'throttle:6,1'])
+    ->middleware(['auth', 'throttle:6,1,account-delete'])
     ->name('user.delete');
 
 /******************************************************************************
@@ -182,7 +189,7 @@ if (Features::enabled(Features::twoFactorAuthentication())) {
     // (the 2FA composable posts here via fetch); marks the session confirmed so
     // the `password.confirm` middleware passes on the request that follows.
     Route::post('/confirm-password', [ConfirmPasswordController::class, 'store'])
-        ->middleware(['auth', 'throttle:6,1'])
+        ->middleware(['auth', 'throttle:6,1,password-confirm'])
         ->name('password.confirm');
 
     // Management: enable / disable / confirm enrollment, the QR + secret-key

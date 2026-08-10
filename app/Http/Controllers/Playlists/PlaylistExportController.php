@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers\Playlists;
 
+use App\Http\Controllers\Concerns\SendsAttachments;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Playlists\ExportPlaylistRequest;
 use App\Models\Playlist;
 use App\Services\Playlists\PlaylistExport;
-use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -31,16 +31,17 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class PlaylistExportController extends Controller
 {
+    use SendsAttachments;
+
     /**
      * Render the playlist and answer with it as an attachment.
      *
      * `Content-Length` is set because the body is a string we already hold, and a length turns
      * a browser's download from an unknown quantity into a progress bar.
      *
-     * The filename goes through both parameters of `Content-Disposition`: `filename` for
-     * clients that read only ASCII, `filename*` (RFC 5987) for the rest, which is what carries
-     * an umlaut in a playlist's name intact. Symfony builds the pair, and PlaylistExport has
-     * already stripped what would break the header.
+     * The `Content-Disposition` — both filename spellings, so an umlaut survives — is built by
+     * SendsAttachments, shared with the song and album downloads; PlaylistExport has already
+     * stripped what would break the header.
      */
     public function __invoke(ExportPlaylistRequest $request, Playlist $playlist): Response
     {
@@ -54,22 +55,7 @@ class PlaylistExportController extends Controller
             // guess, which is the entire point of offering the choice.
             'Content-Type' => 'audio/x-mpegurl; charset='.$options['encoding'],
             'Content-Length' => (string) strlen($body),
-            'Content-Disposition' => $this->attachment($filename),
+            'Content-Disposition' => $this->attachment($filename, 'playlist.m3u'),
         ]);
-    }
-
-    /**
-     * The `Content-Disposition` value, with both filename spellings.
-     *
-     * Symfony's helper rather than a hand-built string: it escapes the ASCII fallback and
-     * percent-encodes the UTF-8 one, which is exactly the pair of mistakes a concatenated
-     * header makes. The fallback is derived by dropping anything non-ASCII, since that
-     * parameter may hold nothing else.
-     */
-    private function attachment(string $filename): string
-    {
-        $ascii = preg_replace('/[^\x20-\x7E]/', '_', $filename) ?? 'playlist.m3u';
-
-        return HeaderUtils::makeDisposition(HeaderUtils::DISPOSITION_ATTACHMENT, $filename, $ascii);
     }
 }

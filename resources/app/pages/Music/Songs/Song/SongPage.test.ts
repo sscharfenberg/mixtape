@@ -48,6 +48,7 @@ const song = (overrides: Partial<SongDetail> = {}): SongDetail => ({
     cover: true,
     coverUrl: "/music/songs/11111111/cover",
     streamUrl: "/music/songs/11111111/stream",
+    downloadUrl: "/music/songs/11111111/download",
     sizeBytes: 15_728_640,
     modifiedAt: "2026-07-28T14:23:05+00:00",
     addedAt: "2026-07-21T09:00:00+00:00",

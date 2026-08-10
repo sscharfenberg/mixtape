@@ -1,0 +1,31 @@
+/******************************************************************************
+ * contextual size tokens — component:action-panel
+ * @type {Sass}
+ * The tinted box holding a detail page's hero controls (Components/UI/ActionPanel): its
+ * own inset and shape, and the space between the blocks standing in it.
+ *
+ * The inset and the gap step off the shared `$padding` rungs so the box breathes like the
+ * rest of the hero. Split out of `_add-to-playlist.scss` on 2026-08-10 — see the colour
+ * partner for why the box stopped belonging to that one component.
+ * Consumed as s.$c-action-panel via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$action-panel: (
+    // The box's own inset. The SAME rung the hero uses for its panel (s.$c-hero-section
+    // "padding"), re-picked here rather than read across, per the token rules: a box sitting
+    // inside that panel with a tighter inset reads as something someone forgot to finish, and
+    // one with a wider inset reads as a second panel.
+    "padding": map.get(s.$padding, "portrait"),
+    // A step tighter than the hero's own corners (which are `featured`), because this sits
+    // INSIDE them: matching curves at two nesting levels make the inner box look like it is
+    // bulging out of the outer one.
+    "radius": map.get(s.$radius, "base"),
+    // Between the blocks standing in the box — the "add to playlist" area and the download
+    // button beside it — and between them once the row wraps on a phone. The same rung those
+    // controls use between themselves (s.$c-add-to-playlist "controls-gap"), re-picked here
+    // rather than read across, so a wrapped download button sits the same distance below the
+    // select as the select sits from its own button.
+    "gap": map.get(s.$padding, "base")
+) !default;

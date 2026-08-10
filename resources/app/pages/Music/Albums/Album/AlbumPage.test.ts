@@ -29,6 +29,7 @@ const album = (overrides: Record<string, unknown> = {}) => ({
     duration: 3235,
     modifiedAt: "2026-07-28T14:23:05+00:00",
     coverUrl: null,
+    downloadUrl: "/music/albums/album-1/download",
     ...overrides
 });
 

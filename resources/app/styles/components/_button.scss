@@ -145,6 +145,23 @@
     }
 }
 
+/* no halo: keep the button, drop the blurred reflection it pools below itself.
+
+   A MODIFIER, hence the BEM `--`, where the two looks above are `.btn-primary` /
+   `.btn-default`: those two are the block's variants and are mutually exclusive, this is
+   an adjustment that composes with either (`btn btn-default btn--no-halo`). It can,
+   because the halo is the ::before layer alone — the edge glow lives on the element's own
+   box-shadow and the lit fill on ::after, so both states still read exactly as they do
+   everywhere else.
+
+   It is switched on where a button sits ON another surface rather than on the page: in a
+   detail page's hero the pool spills across the panel and under whatever the action row
+   wrapped below, which looks like a smudge rather than like neon. `display: none` rather
+   than `opacity: 0`, so the state mixins have nothing to fade back in. */
+.btn--no-halo::before {
+    display: none;
+}
+
 // primary: lit at rest (the solid fill), dims to the outline on hover / focus.
 .btn-primary {
     @include neon-fill;

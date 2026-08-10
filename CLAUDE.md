@@ -125,6 +125,14 @@ password check (a `ValidationException` there would not reach its `fetch()` call
 docblock explains), and `app/Actions/Fortify/*` (Fortify resolves those itself and hands them
 arrays, so there is no request to inject).
 
+**Rate limiting — every `throttle:` gets a third argument** (ported from a real 429, 2026-08-10).
+`throttle:max,decay` keys its bucket on the **caller alone** — the user's id, or the IP for a guest
+— with the route playing no part, so unprefixed throttles all share **one counter per reader** and
+the route with the lowest ceiling is refused first, for traffic that never touched it. Name the
+bucket after the route (`throttle:10,1,album-download`). Named limiters (`throttle:login`,
+`throttle:auth-mail`, `throttle:two-factor`) already have their own keys and need nothing.
+`tests/Feature/RateLimitBucketsTest.php` fails the suite if a numeric throttle turns up bare.
+
 **Linting the frontend** — use **`npm run lint`** (runs ESLint then Stylelint, both with `--fix`).
 Don't invoke `eslint` / `stylelint` directly. `npm run build` runs the same lint first, so a lint
 error fails the build before anything compiles. **Always run `npm run lint` after editing any

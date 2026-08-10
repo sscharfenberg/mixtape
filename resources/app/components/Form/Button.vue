@@ -27,15 +27,27 @@ withDefaults(
     defineProps<{
         /** Which mirrored look to rest in: "primary" fill→outline, "default" outline→fill. */
         variant?: "primary" | "default";
+        /**
+         * Drop the halo — the blurred neon reflection the button pools BELOW itself.
+         *
+         * Off by default, so every button that already exists keeps the full lit-tube look.
+         * It is switched on where a button sits inside another surface rather than on the
+         * page: in a detail page's hero the glow spills onto the panel and onto whatever the
+         * action row wrapped underneath it, which reads as a smudge rather than as neon (the
+         * hero is already framed by its own rotating ring). The button itself is unchanged —
+         * this only removes the pool, not the edge glow or the fill.
+         */
+        noHalo?: boolean;
     }>(),
     {
-        variant: "default"
+        variant: "default",
+        noHalo: false
     }
 );
 </script>
 
 <template>
-    <button :class="`btn btn-${variant}`">
+    <button :class="['btn', `btn-${variant}`, { 'btn--no-halo': noHalo }]">
         <slot />
     </button>
 </template>

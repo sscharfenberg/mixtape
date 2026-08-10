@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers\Music;
 
-use App\Enums\TrackType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Music\SongStreamRequest;
 use App\Models\Track;
+use App\Services\Media\InternalRedirect;
 use Illuminate\Http\Response as LaravelResponse;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -52,18 +52,15 @@ class SongStreamController extends Controller
 
         abort_unless(is_file($path) && is_readable($path), Response::HTTP_NOT_FOUND);
 
-        // EMPTY counts as unset, exactly as an unconfigured library area does
-        // (LibraryScanService::scanArea) — and here it is not a nicety. `.env` ships
-        // this key blank, and a blank dotenv value arrives as an empty STRING, not
-        // null: a `=== null` check therefore turned the hand-off ON with no prefix,
-        // which pointed X-Accel-Redirect at a URI nothing serves, bounced it back
-        // through `try_files` into index.php, and cost every stream a 500 with an
-        // nginx "internal redirection cycle" and nothing at all in Laravel's log.
-        $prefix = trim((string) config('mixtape.stream.internal_prefix'));
+        // Null when no prefix is configured — including a BLANK one, which is not a
+        // nicety but the trap that once 500'd every stream on the dev site.
+        // InternalRedirect carries that reasoning, and the encoding rules with it; the
+        // download route beside this one asks the same question.
+        $uri = InternalRedirect::uriFor($song->path, $song->type);
 
-        return $prefix === ''
+        return $uri === null
             ? $this->sendDirectly($path)
-            : $this->handOffToNginx($song, $prefix);
+            : $this->handOffToNginx($uri);
     }
 
     /**
@@ -86,22 +83,12 @@ class SongStreamController extends Controller
      * Answer with an empty body and let nginx serve the file from its `internal;`
      * location.
      *
-     * The URI is built from the AREA KEY rather than by subtracting the media root
-     * from the absolute path, so there is no prefix arithmetic to get wrong: each
-     * area gets its own `internal;` location whose `alias` is that area's
-     * `MIXTAPE_*_PATH`, and the key naming them is the one
-     * `config('mixtape.library.paths.*')` already uses.
-     *
-     * Every segment is `rawurlencode`d because nginx URL-DECODES the redirect
-     * target: this collection is full of spaces, umlauts, `#` and `&` in file
-     * names, and an unencoded `#` would truncate the path at the fragment and 404
-     * a track that plays perfectly well over the direct route.
+     * How the URI is built — off the area key, with every segment `rawurlencode`d
+     * because nginx URL-DECODES the target — is InternalRedirect's, since the download
+     * route needs the identical string.
      */
-    private function handOffToNginx(Track $song, string $prefix): LaravelResponse
+    private function handOffToNginx(string $uri): LaravelResponse
     {
-        $encoded = implode('/', array_map('rawurlencode', explode('/', ltrim($song->path, '/'))));
-        $uri = rtrim($prefix, '/').'/'.$song->type->libraryPathKey().'/'.$encoded;
-
         return response('', Response::HTTP_OK, [
             'X-Accel-Redirect' => $uri,
             // nginx serves the bytes, but the Content-Type it would guess comes from

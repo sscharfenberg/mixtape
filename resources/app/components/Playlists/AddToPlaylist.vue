@@ -6,11 +6,13 @@
  * is chosen. Sits in HeroSection's `#actions` slot, under the facts, because it acts on the
  * thing those facts have just identified.
  *
- * AN AREA RATHER THAN THREE CONTROLS IN A ROW, and the tint is what makes it one: the hero is
- * already carrying a title, a cover and a row of fact tiles, and a sentence with a select
- * beside it reads as something left over from another page unless a box says the three belong
- * together. It is one step off the panel's own fill and has no border and no heading — enough
- * to group them, not enough to compete with the facts above (see the styles below).
+ * AN AREA RATHER THAN THREE CONTROLS IN A ROW: the sentence and the two controls are one
+ * offer, and on a hero panel they read as leftovers unless something holds them together.
+ * That something is the TINTED BOX, which this component drew itself until 2026-08-10 and
+ * which is now the shared ActionPanel the page wraps it in — because the song and album heroes
+ * put a download button in the same box, and it has to be there for a reader who has no
+ * playlists at all, i.e. exactly when this component renders nothing. What is left here is the
+ * block: a sentence over its controls.
  *
  * ONE COMPONENT FOR ALL FOUR SUBJECTS (song, album, artist, genre), which the server side
  * makes possible: the browser sends `{ subject, id }` and the tracks are worked out there, so
@@ -109,8 +111,10 @@ const choices = computed(() => options.value.map(playlist => ({ value: playlist.
             />
             <!-- Disabled until a playlist is chosen, which is the whole of its state: there is
                  nothing to be uncertain about until then. The glyph carries the in-flight
-                 state instead of a separate spinner, the same way SubjectMenu's items do. -->
-            <Button variant="default" type="button" :disabled="!canSave" @click="save()">
+                 state instead of a separate spinner, the same way SubjectMenu's items do.
+                 `no-halo` because this button sits inside a tinted area on a hero panel —
+                 the pooled reflection lands on that tint and reads as a smudge. -->
+            <Button variant="default" type="button" no-halo :disabled="!canSave" @click="save()">
                 <icon :name="saving ? 'refresh' : 'playlist_add'" :size="1" :rotate="saving" />
                 <span>{{ t(saving ? "playlists.add.saving" : "playlists.add.submit") }}</span>
             </Button>
@@ -126,25 +130,22 @@ const choices = computed(() => options.value.map(playlist => ({ value: playlist.
 @use "Abstracts/colors" as c;
 @use "Abstracts/sizes" as s;
 
-/* AN AREA, not a row of loose controls. The sentence and the two controls are one offer, and
-   on a hero panel that is already carrying a title, a cover and a row of fact tiles they read
-   as leftovers unless something holds them together. A tinted box is the quietest thing that
-   does: no border, no heading, one step off the panel's own fill (see the colour token).
+/* A sentence over its controls. What used to hold the two together — the tinted box — is the
+   ActionPanel this now sits inside (see the banner), so all that is left here is the column
+   and the gap down it.
 
-   Full width of the hero's action row rather than shrink-to-fit — a sentence wrapped to the
-   width of a select would read as two broken lines, and an area hugging its content would sit
-   in the middle of the panel with nothing explaining where it stops. */
+   `flex: 1 1 auto` because it is a flex item of that panel: it TAKES the row it is given, so a
+   download button beside it is pushed to the trailing edge and the sentence still gets the full
+   width to wrap in. `min-width: 0` is the usual flex guard — without it a long playlist name in
+   the select would refuse to shrink and push its neighbour off the edge. */
 .add-to-playlist {
     display: flex;
     flex-direction: column;
 
-    width: 100%;
-    padding: map.get(s.$c-add-to-playlist, "padding");
+    min-width: 0;
+    flex: 1 1 auto;
 
     gap: map.get(s.$c-add-to-playlist, "gap");
-
-    background-color: map.get(c.$c-add-to-playlist, "background");
-    border-radius: map.get(s.$c-add-to-playlist, "radius");
 }
 
 /* The sentence, matched to the hero's own blurb (size and ink) so the area reads as part of

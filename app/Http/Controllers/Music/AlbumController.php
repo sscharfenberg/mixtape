@@ -114,6 +114,12 @@ class AlbumController extends Controller
                 'coverUrl' => $covers->existsForAlbum($album)
                     ? route('music.albums.cover', $album->id, absolute: false)
                     : null,
+
+                // Where the hero's download button points: the record as a .zip. Sent
+                // unconditionally — working out whether the files are still there means
+                // stat-ing every one of them, which is a directory's worth of syscalls
+                // per page view to pre-empt a 404 the route itself gives.
+                'downloadUrl' => route('music.albums.download', $album->id, absolute: false),
             ],
         ]);
     }

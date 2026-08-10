@@ -39,6 +39,7 @@ import Discography, { type DiscographyAlbum } from "Components/Music/Discography
 import PlayCountFacts from "Components/Music/PlayCountFacts.vue";
 import SubjectMenu from "Components/Music/SubjectMenu.vue";
 import AddToPlaylist from "Components/Playlists/AddToPlaylist.vue";
+import ActionPanel from "Components/UI/ActionPanel.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Container from "Components/UI/Container.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
@@ -170,9 +171,14 @@ const tabs = computed<TabDefinition[]>(() => [
                 </template>
                 <!-- Under the facts, because it acts on the thing they have just identified —
                      and separate from the `#menu` above, which is for PLAYING it. The server
-                     decides which playlists may be offered; this only draws them. -->
+                     decides which playlists may be offered; this only draws them. The
+                     ActionPanel is the tinted box this control used to draw itself, and is
+                     here for the same look — a genre has no file to download, so it stands
+                     alone in it. -->
                 <template #actions>
-                    <add-to-playlist subject="genre" :subject-id="genre.id" :addable="addablePlaylists" />
+                    <action-panel>
+                        <add-to-playlist subject="genre" :subject-id="genre.id" :addable="addablePlaylists" />
+                    </action-panel>
                 </template>
             </hero-section>
 

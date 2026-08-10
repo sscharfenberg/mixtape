@@ -160,6 +160,13 @@ export interface SongDetail {
      * straight to the play queue, which stores whole tracks rather than ids.
      */
     streamUrl: string;
+    /**
+     * Where the hero's download button points (SongDownloadController) — the same bytes as
+     * `streamUrl`, sent as an attachment under the file's own name. Never null, and for the
+     * same reason: a track always has a file, and a row whose file has gone is the route's
+     * 404 rather than a stat call on every page view.
+     */
+    downloadUrl: string;
     /** File size in bytes. */
     sizeBytes: number | null;
     /**

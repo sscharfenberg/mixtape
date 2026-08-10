@@ -195,6 +195,34 @@ Most of these are **user-scoped**, so they build directly on the new per-user au
   the **Media Session API** for OS / lock-screen controls + now-playing metadata.
 - **Listen history & stats** — record plays per user (new `plays` table: who / what / when) and surface
   **most-played** tracks, albums, and artists. Per-user, optionally aggregated globally.
+- **Downloads (built 2026-08-10)** — a song as its own mp3, an album as a .zip. The gate is
+  deliberately the page's own: whoever may look at a subject may keep a copy of it (share links will
+  widen both together). Four decisions worth keeping:
+    - **The album zip is the shelf, not a track list.** The tracks come from the DATABASE and the
+      non-audio files (`folder.jpg`, the 27 booklet PDFs, a stray `.m3u8`) from their directories —
+      that split is what stops a folder shared with another album handing over its music. Multi-disc
+      sets keep their `[Disc 1]` / `[Disc 2]` structure, since flattening collapses two "01 - …"
+      into one name. Legacy rebuilt the files under invented names and shipped exactly one image.
+    - **It streams; nothing is written to disk.** PHP's `ZipArchive` can only write to a file, and
+      measured against this collection that is a bad trade: the largest album is 1.1 GB, so a temp
+      file costs a full read, a full write and a second full read, plus 20–30 s before the browser
+      shows anything — and `/tmp` on the live box is a **16 GB tmpfs**, i.e. RAM. It also has to be
+      swept, which is why legacy pruned its whole download disk before every export.
+      `App\Services\Media\ZipStream` writes the archive straight out.
+    - **Stored, not deflated** — mp3/JPEG/PDF are already compressed. The gain is not just CPU: with
+      no compression the archive's size is exact before a byte is written, so the response carries a
+      real `Content-Length` and the browser gets a progress bar. CRCs come from `hash_file` ahead of
+      each entry, so the headers are ordinary ones (no data descriptors, best reader compatibility).
+    - **No size limit**, unlike legacy's ~200 MiB threshold that hid the link. A gigabyte is a
+      download the browser can show progress for; the cost is one php-fpm worker for the transfer,
+      which a zip cannot hand to nginx the way the song routes do (`X-Accel-Redirect` needs a file
+      that exists). Acceptable for a deliberate, occasional act on a home server — and the reason
+      the album route is throttled far below the song routes.
+  Two things moved to make room for the button. The hero's tinted control box became its own
+  `ActionPanel` (it was `AddToPlaylist`'s, which renders **nothing** for a reader with no
+  playlists — and the download must not vanish with it); and every `throttle:` in the app grew a
+  bucket name, which is a bug fix rather than tidying — see *Rate limiting* in
+  [../CLAUDE.md](../CLAUDE.md).
 
 ## Authentication & access model
 

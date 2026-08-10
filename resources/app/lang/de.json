@@ -342,6 +342,10 @@
         "refresh": "Aktualisieren",
         "reloadServerData": "Server-Daten neu laden",
         "seeAll": "Alle anzeigen",
+        "download": {
+            "song": "MP3 herunterladen",
+            "album": "Album als ZIP laden"
+        },
         "artist": {
             "tabs": {
                 "label": "Alben und Songs des Künstlers"

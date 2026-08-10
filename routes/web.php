@@ -8,6 +8,7 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\Music\AlbumController;
 use App\Http\Controllers\Music\AlbumCoverController;
+use App\Http\Controllers\Music\AlbumDownloadController;
 use App\Http\Controllers\Music\AlbumsController;
 use App\Http\Controllers\Music\ArtistController;
 use App\Http\Controllers\Music\ArtistsController;
@@ -15,6 +16,7 @@ use App\Http\Controllers\Music\GenreController;
 use App\Http\Controllers\Music\GenresController;
 use App\Http\Controllers\Music\SongController;
 use App\Http\Controllers\Music\SongCoverController;
+use App\Http\Controllers\Music\SongDownloadController;
 use App\Http\Controllers\Music\SongsController;
 use App\Http\Controllers\Music\SongStreamController;
 use App\Http\Controllers\MusicController;
@@ -32,13 +34,34 @@ use App\Http\Middleware\HandleControllerPrecognitiveRequest;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
+/******************************************************************************
+ * EVERY `throttle:` HERE CARRIES A THIRD ARGUMENT, and it is load-bearing rather
+ * than decorative.
+ *
+ * `throttle:max,decay` keys its bucket on the CALLER ALONE — the authenticated user's
+ * id, or the IP for a guest (ThrottleRequests::resolveRequestSignature). The route
+ * plays no part in that key. So without a prefix every throttled route in the app
+ * shares ONE counter per reader and only the ceiling differs: whichever route has the
+ * lowest number is refused first, for traffic that never touched it.
+ *
+ * That is not hypothetical. It landed the day the album download went in at 10/min: a
+ * Playwright spec that only drags playlist rows started failing with a 429 on
+ * /playlists/create, because the shared counter was already full. The third argument
+ * prefixes the key, so each number below is about the route it sits on.
+ *
+ * The rule for anything added here: name the bucket after the route. Named limiters
+ * (`throttle:login`, `throttle:auth-mail` in web.auth.php) already have keys of their
+ * own and need nothing. RateLimitBucketsTest fails the suite if a numeric throttle
+ * turns up without a prefix.
+ *****************************************************************************/
+
 // Guest landing page.
 Route::get('/', HomeController::class)->name('home');
 
 // Language switch — works for guests (session) and authenticated users (DB).
 // The frontend posts here via fetch after flipping vue-i18n client-side.
 Route::post('/lang/{locale}', [LocaleController::class, 'update'])
-    ->middleware('throttle:30,1')
+    ->middleware('throttle:30,1,locale')
     ->name('locale');
 
 // Authenticated pages. `verified` is folded in only once email verification is
@@ -68,7 +91,7 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
             ->name('playlists.create');
 
         Route::post('/playlists', [PlaylistMetadataController::class, 'store'])
-            ->middleware(['throttle:30,1', HandleControllerPrecognitiveRequest::class])
+            ->middleware(['throttle:30,1,playlist-create', HandleControllerPrecognitiveRequest::class])
             ->name('playlists.store');
 
         // The reader's own ordering, written by the listing's drag handles. A collection-level
@@ -76,7 +99,7 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         // cannot be mistaken for one: the `{playlist}` routes below are UUID-constrained, so
         // "order" never matches them.
         Route::put('/playlists/order', PlaylistOrderController::class)
-            ->middleware('throttle:60,1')
+            ->middleware('throttle:60,1,playlist-order')
             ->name('playlists.order');
 
         // One playlist and everything in it — the row-click target of the listing above.
@@ -92,7 +115,7 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         // the encoding and the path prefix as query params on that read.
         Route::get('/playlists/{playlist}/export', PlaylistExportController::class)
             ->whereUuid('playlist')
-            ->middleware('throttle:30,1')
+            ->middleware('throttle:30,1,playlist-export')
             ->name('playlists.export');
 
         // Tracks INTO one playlist — what a detail page's "add to playlist" block writes, and
@@ -105,7 +128,7 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         // something a player fires per track.
         Route::post('/playlists/{playlist}/tracks', PlaylistTracksController::class)
             ->whereUuid('playlist')
-            ->middleware('throttle:30,1')
+            ->middleware('throttle:30,1,playlist-tracks')
             ->name('playlists.tracks.store');
 
         // The running order INSIDE one playlist, written by the detail page's drag handles.
@@ -113,7 +136,7 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         // the collection-level `/playlists/order` above orders the playlists themselves.
         Route::put('/playlists/{playlist}/tracks/order', PlaylistTrackOrderController::class)
             ->whereUuid('playlist')
-            ->middleware('throttle:60,1')
+            ->middleware('throttle:60,1,playlist-track-order')
             ->name('playlists.tracks.order');
 
         Route::get('/playlists/{playlist}/edit', [PlaylistMetadataController::class, 'edit'])
@@ -122,7 +145,7 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
 
         Route::put('/playlists/{playlist}', [PlaylistMetadataController::class, 'update'])
             ->whereUuid('playlist')
-            ->middleware(['throttle:30,1', HandleControllerPrecognitiveRequest::class])
+            ->middleware(['throttle:30,1,playlist-update', HandleControllerPrecognitiveRequest::class])
             ->name('playlists.update');
 
         // What is playing right now. Offered by the header only while the queue holds
@@ -150,6 +173,20 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         Route::get('/music/albums/{album}/cover', AlbumCoverController::class)
             ->whereUuid('album')
             ->name('music.albums.cover');
+
+        // The whole album as a .zip — its tracks and the non-audio files beside them on
+        // the share. A GET because the browser does the download itself, the same
+        // reasoning the playlist export carries; the archive is streamed rather than
+        // built on disk first (App\Services\Media\ZipStream says why, with numbers).
+        //
+        // Throttled well below the song route: this is a deliberate press that can cost a
+        // gigabyte, not something a page fires while being read. The lowest ceiling in the
+        // app, which is exactly why it needs its own bucket — see the note at the top of
+        // this file, where this route is the one that found the problem.
+        Route::get('/music/albums/{album}/download', AlbumDownloadController::class)
+            ->whereUuid('album')
+            ->middleware('throttle:10,1,album-download')
+            ->name('music.albums.download');
 
         // One artist's detail page — the row-click target of the Artists listing, and
         // where the artist tile on a song or album page leads. Same two reasons for the
@@ -191,6 +228,15 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
             ->whereUuid('song')
             ->name('music.songs.stream');
 
+        // The same bytes as an attachment — the file to KEEP rather than to play. Its own
+        // route rather than a query param on the stream, so the two cannot be confused by
+        // a cache or by a <audio> element following a redirect. Same gate as the page:
+        // whoever may look at a song may download it.
+        Route::get('/music/songs/{song}/download', SongDownloadController::class)
+            ->whereUuid('song')
+            ->middleware('throttle:30,1,song-download')
+            ->name('music.songs.download');
+
         // The play queue, synced up from the browser. A PUT rather than a POST because it
         // REPLACES one row that is read and written wholesale — the same request twice
         // leaves the same state, which matters when the last one is fired by a tab that is
@@ -200,7 +246,7 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         // stuck client cannot hammer the database, and 60/minute is far above one write
         // per song.
         Route::put('/player/state', PlayerStateController::class)
-            ->middleware('throttle:60,1')
+            ->middleware('throttle:60,1,player-state')
             ->name('player.state.update');
 
         // One listen, written when the browser has heard enough of a track to call it
@@ -209,7 +255,7 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         // listener at 3× on a short track can legitimately produce a play a few seconds
         // apart, and 60 a minute is far beyond that while still bounding a stuck client.
         Route::post('/player/plays', PlayController::class)
-            ->middleware('throttle:60,1')
+            ->middleware('throttle:60,1,player-plays')
             ->name('player.plays.store');
     });
 
