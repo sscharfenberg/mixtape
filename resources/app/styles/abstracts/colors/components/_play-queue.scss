@@ -20,8 +20,19 @@ $play-queue: (
     "background": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "black")),
     "surface": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral")),
     "border": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher")),
-    // the quieter second line (artist, the running total in the header)
-    "muted": light-dark(map.get(c.$grey, "slate"), map.get(c.$grey, "slate")),
+    // The quieter second line (artist, the running total in the header).
+    //
+    // THE SAME FAILURE THE PLAYER BAR WAS AUDITED FOR, and found by measuring the rest of the
+    // page rather than by being reported: `slate` on this surface is 3.09:1 in light mode
+    // against the 4.5:1 body text needs, and these rows are drawn twice over — in the panel and
+    // full-width on Now Playing, directly under the bar whose artist line was flagged. Dark mode
+    // passed on its own (6.75:1 over black) and moves anyway, because one muted pair for one
+    // component is the point. `asher` / `iron` = 6.52 / 5.83, the pair the neighbour cards and
+    // the queue heading already use.
+    //
+    // `control` below stays `slate` deliberately: glyphs are non-text (WCAG 1.4.11, 3:1) and
+    // pass at 3.09 — and they have their own hover state that this line does not.
+    "muted": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
     // rows ------------------------------------------------------------------
     "row-hover": light-dark(
             color.adjust(map.get(c.$grey, "iron"), $alpha: -0.5),

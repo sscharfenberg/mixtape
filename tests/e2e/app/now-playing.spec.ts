@@ -226,6 +226,83 @@ test.describe("the Now Playing page", () => {
         await expect(rows.nth(2)).toHaveClass(/play-queue__row--current/u);
     });
 
+    test("keeps its quiet text readable, in both themes", async ({ page }) => {
+        /*
+         * THE AUDIT THE OWNER RAN, 2026-08-10: the artist line in the player bar came out at
+         * 3.11:1, where body text needs 4.5:1 (WCAG 1.4.3 AA). The cause was one rung of the grey
+         * ramp — `slate` where the two components beside it already used `asher` / `iron` — and the
+         * reason it survived so long is that a wrong rung on an even ramp looks deliberate.
+         *
+         * ONLY A BROWSER CAN ANSWER THIS. The colours are `light-dark()` pairs resolved against the
+         * reader's own preference, over surfaces that are themselves alpha-adjusted greys; nothing
+         * below an engine knows what either side actually renders as. Both schemes are driven,
+         * because a pair can pass in one and fail in the other — `slate` did exactly that (3.09
+         * light, 4.00 dark).
+         *
+         * The ratio treats a translucent surface as its own colour rather than compositing it,
+         * which is the CONSERVATIVE direction here: the player bar's fill sits over a page that is
+         * darker in dark mode and lighter in light, so the real figure is never worse than this.
+         */
+        await queueAnArtist(page);
+        await page.goto("/now-playing");
+        await page.locator("body").click({ position: { x: 5, y: 5 } });
+        await page.keyboard.press("KeyK");
+        await expect(page.locator(".player-bar__artist")).toBeVisible();
+
+        for (const scheme of ["light", "dark"] as const) {
+            await page.emulateMedia({ colorScheme: scheme });
+
+            const measured = await page.evaluate(() => {
+                const channels = (value: string): number[] => (value.match(/[\d.]+/gu) ?? []).map(Number).slice(0, 3);
+                const luminance = (value: string): number => {
+                    const [r, g, b] = channels(value).map(part => {
+                        const unit = part / 255;
+
+                        return unit <= 0.03928 ? unit / 12.92 : ((unit + 0.055) / 1.055) ** 2.4;
+                    });
+
+                    return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+                };
+
+                // The first ancestor that actually paints something is what the text sits on.
+                const surface = (element: Element): string => {
+                    for (let node: Element | null = element; node; node = node.parentElement) {
+                        const background = getComputedStyle(node).backgroundColor;
+                        const parts = background.match(/[\d.]+/gu)?.map(Number) ?? [];
+
+                        if (parts.length >= 3 && (parts[3] ?? 1) > 0.5) return background;
+                    }
+
+                    return getComputedStyle(document.body).backgroundColor;
+                };
+
+                return ["/ artist in the player bar", "/ artist in a queue row", "/ a fact chip", "/ the queue's totals"]
+                    .map((what, index) => {
+                        const selector = [
+                            ".player-bar__artist",
+                            ".np-queue .play-queue__artist",
+                            ".neighbour__fact",
+                            ".np-queue__total"
+                        ][index]!;
+                        const element = document.querySelector(selector);
+
+                        if (element === null) return { what, ratio: 0 };
+
+                        const [lighter, darker] = [
+                            luminance(getComputedStyle(element).color),
+                            luminance(surface(element))
+                        ].sort((a, b) => b - a);
+
+                        return { what, ratio: (lighter! + 0.05) / (darker! + 0.05) };
+                    });
+            });
+
+            for (const { what, ratio } of measured) {
+                expect(ratio, `${scheme} mode ${what}`).toBeGreaterThanOrEqual(4.5);
+            }
+        }
+    });
+
     test("keeps both its grids equal when a title is far too long for one", async ({ page }) => {
         /*
          * THE BUG THE OWNER FOUND, on a real album (Burzum's *Filosofem*): a long title "reaches out

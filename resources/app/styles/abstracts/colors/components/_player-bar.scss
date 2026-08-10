@@ -37,8 +37,20 @@ $player-bar: (
         ),
     "surface": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral")),
     "border": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher")),
-    // the artist line under the title, and the not-yet-wired transport glyphs
-    "muted": light-dark(map.get(c.$grey, "slate"), map.get(c.$grey, "slate")),
+    // The artist line under the title, and the not-yet-wired transport glyphs.
+    //
+    // `slate` UNTIL 2026-08-10, WHEN IT FAILED AN AUDIT: the artist name came out at 3.11:1
+    // against this bar's frosted fill, where body text needs 4.5:1 (WCAG 1.4.3 AA). It reads
+    // as quiet-and-fine at a glance, which is exactly how a contrast failure hides — the ramp
+    // is even enough that the wrong rung looks deliberate.
+    //
+    // The pair it moves to is not a new decision: `asher` / `iron` is what the two components
+    // ALREADY beside it on Now Playing use for the same job (c.$c-neighbour-track "muted",
+    // c.$c-now-playing-queue "muted"), so this is the outlier being brought into line rather
+    // than a colour being invented. Measured against the composited bar — #fefefe light,
+    // #343434 dark: slate was 3.09 / 4.00, this is 6.52 / 5.83. Nothing between them on the
+    // grey ramp passes both (`charcoal` is 4.03 light, `iron` 2.12).
+    "muted": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
     "control": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral")),
     "control-hover": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
     // the quiet pill under prev / next / volume, and what it becomes on hover
