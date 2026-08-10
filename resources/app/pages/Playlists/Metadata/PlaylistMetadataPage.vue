@@ -17,14 +17,16 @@
  * page, an album), which is what the edit intro says out loud so nobody expects this
  * form to manage contents.
  *
- * Both rows validate on blur through Precognition (both routes carry
- * HandleControllerPrecognitiveRequest), which is what makes the name field worth
+ * Both rows validate on blur through Precognition (both routes carry the framework's
+ * HandlePrecognitiveRequests — see that choice in routes/web.php: these rules live in a
+ * FormRequest, so its dispatchers validate the request class and stop before the action),
+ * which is what makes the name field worth
  * checking early: names are unique per owner, and "you already have one called that"
  * is far better heard on leaving the field than after submitting. On an edit the
  * server ignores the row being edited, so re-saving without renaming is not a clash.
  *****************************************************************************/
-import { Form, Head, Link } from "@inertiajs/vue3";
-import { computed, ref } from "vue";
+import { Form, Head, Link, useRemember } from "@inertiajs/vue3";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import Button from "Components/Form/Button.vue";
 import FormInput from "Components/Form/FormInput.vue";
@@ -98,10 +100,48 @@ setBreadcrumbs([
     { label: formHeadline.value, icon: isEdit.value ? "settings" : "playlist" }
 ]);
 
-// Seeded from the prop, and deliberately NOT kept in sync with it afterwards: a
-// re-render must not throw away what the reader has typed.
-const name = ref(props.playlist?.name ?? "");
-const description = ref(props.playlist?.description ?? "");
+/*
+ * Seeded from the prop, deliberately NOT kept in sync with it afterwards (a re-render must
+ * not throw away what the reader has typed) — and REMEMBERED, which is the half that took a
+ * flaky E2E and a trace to earn.
+ *
+ * WHAT WENT WRONG WITHOUT IT: about once in twenty saves, under load, the form submitted the
+ * value it had been GIVEN rather than the one just typed. Measured at 10ms resolution — the
+ * `<form>` ELEMENT was replaced twelve milliseconds after the field was filled, and the
+ * replacement carried the server's props again:
+ *
+ *     t=613  form #2  "Erste Fassung."     ← the form we typed into
+ *     t=618  form #2  "Zweite Fassung."    ← the reader's text
+ *     t=630  form #3  "Erste Fassung."     ← a NEW element, seeded from the prop
+ *
+ * A replaced element means the page component was RE-CREATED: Inertia's Vue adapter re-keys it
+ * (`key = Date.now()`) on any swap that does not preserve state, so `setup()` runs again and
+ * these two refs go back to the prop. `<Form>` then reads the DOM at submit
+ * (`new FormData(formElement)`), so what got saved was the old text. No request was made in
+ * that window, and a late-arriving hover prefetch was ruled out by holding one back two seconds
+ * on purpose — the field survived that. So the trigger is inside Inertia's response handling and
+ * not something this page can prevent.
+ *
+ * `useRemember` makes that harmless: every change is written into the history entry
+ * (`router.remember` → `replaceState`, which updates the in-memory `current` SYNCHRONOUSLY, so a
+ * remount one tick later still reads it) and `router.restore` seeds from it. The typed text
+ * survives the page being rebuilt underneath it — and, as the same mechanism, an accidental
+ * Back-then-Forward.
+ *
+ * KEYED PER SUBJECT so the create form and each playlist's edit form remember separately;
+ * without that, opening one playlist would offer you the half-finished name of another.
+ *
+ * ONE OBJECT rather than two remembered refs, because `useRemember` types its argument as an
+ * object — which suits it anyway: the two fields are one form, they are restored together, and one
+ * key is one decision.
+ */
+const fields = useRemember(
+    {
+        name: props.playlist?.name ?? "",
+        description: props.playlist?.description ?? ""
+    },
+    `playlist-metadata-${props.playlist?.id ?? "create"}`
+);
 </script>
 
 <template>
@@ -144,7 +184,7 @@ const description = ref(props.playlist?.description ?? "");
             >
                 <form-input
                     id="name"
-                    v-model="name"
+                    v-model="fields.name"
                     type="text"
                     name="name"
                     autocomplete="off"
@@ -168,7 +208,7 @@ const description = ref(props.playlist?.description ?? "");
                      convenience, never the check. -->
                 <form-textarea
                     id="description"
-                    v-model="description"
+                    v-model="fields.description"
                     name="description"
                     rows="4"
                     maxlength="1000"

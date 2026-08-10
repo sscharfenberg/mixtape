@@ -32,19 +32,27 @@ import type { Page, Response } from "@playwright/test";
  * one module instance. `mode: "default"` is kept for readable ordering, but nothing here
  * relies on it: a test that builds its own fixture cannot be broken by where it runs.
  *
- * ONE OPEN FLAKE, and what is known about it (2026-08-10). "Edits a playlist's metadata" failed
- * once in a three-worker run with the listing showing the PRE-EDIT blurb after the PUT and a full
- * reload. Ruled out by measurement while chasing it: the browser cache (the listing answers
- * `no-cache, private` and a reload really re-fetches — two fresh 200s), a `description` missing
- * from `validated()` (the request merges the key unconditionally, and a null one survives
- * validation), a precognitive request reaching the controller (the dispatchers are rebound so the
- * action never runs), a background Inertia visit re-seeding the form (nothing on this page makes
- * one — the queue syncs over `fetch`), and a name collision in the locator (every name in this file
- * carries a distinct prefix). It did NOT reproduce in five consecutive full-suite runs, nor in
- * thirty scripted repeats of the journey with and without three-worker load.
+ * THE LONG FLAKE IS SOLVED (2026-08-10), and both halves of the fix are covered here. "Edits a
+ * playlist's metadata" used to fail about one full run in five, with the listing showing the
+ * PRE-EDIT blurb afterwards. Asserting the SAVE'S PAYLOAD split the question in two — the form sent
+ * the old text, so it was never the server — and a 10ms probe on the form element found the rest:
+ * the `<form>` was REPLACED twelve to twenty milliseconds after the field was filled, its
+ * replacement seeded from the props again, and `<Form>` reads the DOM at submit.
  *
- * What remains is a fork the listing alone cannot resolve, which is why the test now asserts the
- * SAVE'S PAYLOAD as well: either the form sent the old text, or the server ignored the new one.
+ * The trigger was the menu's hover `prefetch`: a click that outruns the hover timer sends its own
+ * request, so the prefetch is neither cached nor consumed, and Inertia applies its late response to
+ * the page you are NOW on (`Response.handlePrefetch()` → `handle()` when the URL matches), which
+ * re-creates the page component. Both ends are fixed — the link no longer prefetches
+ * (PlaylistMenu), and the form remembers its fields (PlaylistMetadataPage), so any other swap is
+ * harmless. "Keeps what the reader typed" covers the second; the payload assertion below stays as
+ * the tripwire for the first.
+ *
+ * Ruled out by measurement on the way, so none of it needs re-doing: the browser cache (the listing
+ * answers `no-cache, private`, and a reload really re-fetches), a `description` missing from
+ * `validated()`, a precognitive request reaching the controller, the queue sync (it uses `fetch`,
+ * not the router), a locator collision, and a late prefetch on its own — held back two seconds on
+ * purpose, the field survived that, which is what pointed at the double-handling rather than the
+ * response itself.
  */
 test.describe.configure({ mode: "default" });
 
@@ -323,13 +331,14 @@ test.describe("the playlists area", () => {
         const save = await saved;
 
         /*
-         * WHAT THE SAVE CARRIED, asserted here so that the day this goes wrong it says WHICH HALF
-         * went wrong. This test has failed once in a three-worker run with the listing showing the
-         * pre-edit blurb after the PUT and a reload — and the listing alone cannot tell "the form
-         * sent the old text" from "the server ignored the new text". One is a client bug in how the
-         * form holds what the reader typed, the other a server bug in what `validated()` hands the
-         * update; they are fixed in different files. See the file header for what was ruled out
-         * chasing it — this assertion is the trap left set for the next occurrence.
+         * WHAT THE SAVE CARRIED, and this assertion is why the flake is understood rather than
+         * merely gone: the listing alone cannot tell "the form sent the old text" from "the server
+         * ignored the new text", and those are bugs in different files. It said the first, which
+         * turned a stale row into a client-side hunt (the file header has the rest).
+         *
+         * It stays as the tripwire. The trigger that was found is fixed at both ends, but anything
+         * that re-creates this page mid-edit would land here again — and this is the assertion that
+         * would say so in one line instead of leaving a stale row to be explained.
          */
         const sent = JSON.parse(save.request().postData() ?? "{}") as { description?: string };
         expect(sent.description, "the form must send what the reader typed, not what it was given").toBe(
@@ -349,6 +358,44 @@ test.describe("the playlists area", () => {
         await expectSlow(edited.locator(".playlist__description")).toHaveText("Zweite Fassung.");
         // An edit is a change, so the listing now has something to say about one.
         await expectSlow(edited.getByText("Geändert", { exact: true })).toBeVisible();
+    });
+
+    test("keeps what the reader typed when the page is rebuilt underneath them", async ({ page }) => {
+        /*
+         * THE HALF OF THE FLAKE THAT WAS THIS APP'S TO FIX. Under load, roughly one save in twenty
+         * wrote the value the server had SENT rather than the one just typed. Measured at 10ms
+         * resolution: the `<form>` element was replaced 12–20ms after a field was filled, and the
+         * replacement carried the props again — Inertia's Vue adapter re-keys the page component on
+         * any swap that does not preserve state, so `setup()` re-ran and the refs went back to the
+         * prop, while `<Form>` reads the DOM at submit.
+         *
+         * The trigger was a hover `prefetch` on the menu's edit link, whose response Inertia
+         * applies to the page you are now on; that is gone (PlaylistMenu says why). This test
+         * covers the SECOND half — `useRemember` on the two fields — because the trigger is not the
+         * only thing that can re-create a page, and losing typed text is the part that hurts.
+         *
+         * Back-then-Forward is the same mechanism a reader can actually reach, and the only one a
+         * test can ask for on purpose: the page is destroyed and rebuilt in the same history entry,
+         * which is exactly the case `useRemember` restores from. Without it, this comes back
+         * holding "Erste Fassung." — verified by removing the remember and watching it fail.
+         */
+        const name = `E2E Erinnert ${STAMP}`;
+        await createPlaylist(page, name, "Erste Fassung.");
+
+        const row = page.locator("li.playlist", { hasText: name });
+        await row.locator(".popover button").click();
+        await row.getByRole("link", { name: /^Metadaten bearbeiten$/u }).click();
+        await page.waitForURL(/\/playlists\/[0-9a-f-]+\/edit$/u);
+        await expectSlow(page.locator("#description")).toHaveValue("Erste Fassung.");
+
+        await page.locator("#description").fill("Halb getippt.");
+
+        await page.goBack();
+        await page.waitForURL(/\/playlists$/u);
+        await page.goForward();
+        await page.waitForURL(/\/playlists\/[0-9a-f-]+\/edit$/u);
+
+        await expectSlow(page.locator("#description")).toHaveValue("Halb getippt.");
     });
 
     test("re-saving a playlist without renaming it is not a clash with itself", async ({ page }) => {

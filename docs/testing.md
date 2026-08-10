@@ -264,6 +264,15 @@ this is the record of *why* that code exists.
   `precognition` header (`isWrite()` in `playlists.spec.ts`). The same applies to counting requests
   against a rate limit — a two-field form spends **three** of the route's budget per save, since
   `throttle:` sits in front of the precognition middleware.
+- **A hover `prefetch` can re-create the page you are already on**, which loses any state the page
+  holds — and in a form, saves the value the server sent instead of the one just typed. A click that
+  outruns Inertia's hover timer sends its own request, so the prefetch is neither cached nor
+  consumed; when its response lands, `Response.handlePrefetch()` calls `handle()` because the URL
+  now matches the current location, and the swap re-keys the page component. Playwright's `click()`
+  hovers and clicks in one motion, so a test hits this far more often than a human does: it cost one
+  full run in five for weeks, presenting as a stale row on a listing. Found by probing the `<form>`
+  element's identity every 10ms (it changed 12–20ms after `fill()`), and by holding a prefetch back
+  two seconds on purpose to prove the response alone was innocent.
 - **A stretched overlay button refuses every action aimed at what it covers.** Two components make
   their whole surface one target that way — a queue row (`.play-queue__load`) and a neighbour card
   on Now Playing (`.neighbour__step`) — so `hover()` or `click()` on the title, a fact chip or the

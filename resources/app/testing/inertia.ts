@@ -19,8 +19,8 @@
  * undefined import rather than silently rendering nothing, which is the intent:
  * a new Inertia dependency should force a decision here.
  *****************************************************************************/
-import { defineComponent, h, reactive } from "vue";
-import type { PropType } from "vue";
+import { defineComponent, h, reactive, ref, watch } from "vue";
+import type { PropType, Ref } from "vue";
 
 /** One recorded router call, so a test can assert what a click actually asked for. */
 export type RouterCall = {
@@ -88,6 +88,32 @@ export const resetInertia = (): void => {
     page.component = "";
     routerCalls.length = 0;
     listeners.clear();
+    remembered.clear();
+};
+
+/**
+ * What `useRemember` has stored, so the mock can hand it back the way the real one does.
+ *
+ * The real thing keeps this on the history entry (`router.remember` → `replaceState`, read back
+ * by `router.restore`). A Map is faithful enough for a component test, and it is what lets a page
+ * that remembers its form state — PlaylistMetadataPage does, and the comment there says why —
+ * mount at all under this mock.
+ */
+const remembered = new Map<string, unknown>();
+
+/**
+ * `useRemember()` — a ref that survives being re-created, keyed as the real one is.
+ *
+ * Restores from the store when the key is known, seeds from `initial` otherwise, and writes every
+ * change back. So a test may unmount and remount a page and see what was typed, which is the whole
+ * behaviour the page is asking for.
+ */
+export const useRemember = <T>(initial: T, key: string): Ref<T> => {
+    const state = ref((remembered.has(key) ? remembered.get(key) : initial) as T) as Ref<T>;
+
+    watch(state, value => remembered.set(key, value), { deep: true });
+
+    return state;
 };
 
 /** `setLayoutProps()` — merges into the store, exactly as the real one does. */
