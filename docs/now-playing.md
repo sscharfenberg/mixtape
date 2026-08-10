@@ -75,6 +75,17 @@ Two things must hold or both transport buttons feel broken:
 
 **Always shown** (the owner's call), rather than behind a setting.
 
+**The card is not the button any more** (2026-08-10, from an audit). The whole card still steps the
+player — that is the point of it, especially under a thumb — but as a transparent button
+**stretched over** a plain container rather than as a `<button>` wrapping the content. The reason is
+the title: a track title is a heading, and inside a `<button>` no heading can exist, because ARIA
+prunes a button's descendants ("children presentational"). An `<h3>` in there satisfies an audit
+tool and reaches no screen reader — and is invalid HTML besides, `<button>` taking only phrasing
+content. So the title is a real `<h3>` (level three: the page's own sections are h2) and the control
+lies over it, which is the same inversion `QueueList` makes for its rows. It brings that pattern's
+one cost with it: a Playwright action aimed at text *inside* the card is refused, because the
+overlay intercepts the pointer — aim at `.neighbour__step`.
+
 ## 2. The track's own facts
 
 **The constraint is the stored queue.** `QueueTrack` holds `id`, `name`, `artist`, `album`,

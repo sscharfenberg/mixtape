@@ -64,12 +64,16 @@ test.describe("the Now Playing page", () => {
         // At the head of a fresh queue there is nothing behind, and that is drawn rather than
         // dropped — a card that vanished would move the queue below it as playback advances.
         await expect(neighbour(page, "previous")).toContainText("Nichts davor");
-        // The card IS the button, so it is the thing that is disabled.
-        await expect(neighbour(page, "previous")).toBeDisabled();
+        // The CONTROL is what is disabled: the card is a container with a button stretched over
+        // it, so that the title inside can be a real heading (2026-08-10 — see the component).
+        await expect(neighbour(page, "previous").locator(".neighbour__step")).toBeDisabled();
 
-        // And the next card names the track the queue will actually load.
-        const promised = await page.locator(".neighbour--next .neighbour__title").textContent();
+        // And the next card names the track the queue will actually load — as a level-3 heading,
+        // which is the half of that fix only an engine can confirm: it is the accessibility tree,
+        // not the markup, that decides whether a heading exists.
+        const promised = await page.getByRole("heading", { level: 3 }).last().textContent();
         expect(promised).toBeTruthy();
+        await expect(page.locator(".neighbour--next .neighbour__title")).toHaveText(promised!);
 
         await page.locator(".neighbour--next").click();
         await expect(page.locator(".hero-section h2")).toHaveText(promised!);

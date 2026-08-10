@@ -264,6 +264,13 @@ this is the record of *why* that code exists.
   `precognition` header (`isWrite()` in `playlists.spec.ts`). The same applies to counting requests
   against a rate limit — a two-field form spends **three** of the route's budget per save, since
   `throttle:` sits in front of the precognition middleware.
+- **A stretched overlay button refuses every action aimed at what it covers.** Two components make
+  their whole surface one target that way — a queue row (`.play-queue__load`) and a neighbour card
+  on Now Playing (`.neighbour__step`) — so `hover()` or `click()` on the title, a fact chip or the
+  artist line fails actionability with *"…intercepts pointer events"*, which reads as a broken
+  selector rather than as a deliberate design. Aim at the overlay, or at the card itself (a
+  descendant satisfies the hit-target check). The pattern exists because a `<button>` cannot hold a
+  heading — ARIA prunes its descendants — so expect more of it, not less.
 - **Lazy, hidden images are legitimately "incomplete"** — covers are `loading="lazy"` and the
   discography renders row *and* card artwork with one `display:none`. Only a **visible** image that
   failed is broken, and check after `waitForLoadState("networkidle")`.
