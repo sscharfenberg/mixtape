@@ -30,7 +30,7 @@ use App\Http\Controllers\Playlists\PlaylistOrderController;
 use App\Http\Controllers\Playlists\PlaylistTrackOrderController;
 use App\Http\Controllers\Playlists\PlaylistTracksController;
 use App\Http\Controllers\PlaylistsController;
-use App\Http\Middleware\HandleControllerPrecognitiveRequest;
+use Illuminate\Foundation\Http\Middleware\HandlePrecognitiveRequests;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -85,16 +85,21 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         // model binding. Ownership is checked in the controller, which answers 404 rather
         // than 403 for someone else's playlist — see its `mine()`.
         //
-        // HandleControllerPrecognitiveRequest drives the form's live validation on both
-        // submits (the base middleware only handles closure routes — see its docblock).
-        // That validation does NOT spend these 30: App\Http\Middleware\ThrottleRequests
-        // counts validate-only traffic in a bucket of its own, which is what stops a reader
-        // tabbing through the form from being refused their own save.
+        // HandlePrecognitiveRequests — the FRAMEWORK's — drives the form's live validation on
+        // both submits, and is the right one of the two because these rules live in a FormRequest
+        // (Store/UpdatePlaylistRequest): its dispatchers resolve the action's parameters, which is
+        // what validates a request class, and then abort 204 so the action never runs. This route
+        // wore the app's HandleControllerPrecognitiveRequest until 2026-08-10 and that let a
+        // request merely CLAIMING precognition perform the write — see that class's docblock.
+        //
+        // Neither kind of validation spends these 30: App\Http\Middleware\ThrottleRequests counts
+        // validate-only traffic in a bucket of its own, which is what stops a reader tabbing
+        // through the form from being refused their own save.
         Route::get('/playlists/create', [PlaylistMetadataController::class, 'create'])
             ->name('playlists.create');
 
         Route::post('/playlists', [PlaylistMetadataController::class, 'store'])
-            ->middleware(['throttle:30,1,playlist-create', HandleControllerPrecognitiveRequest::class])
+            ->middleware(['throttle:30,1,playlist-create', HandlePrecognitiveRequests::class])
             ->name('playlists.store');
 
         // The reader's own ordering, written by the listing's drag handles. A collection-level
@@ -148,7 +153,7 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
 
         Route::put('/playlists/{playlist}', [PlaylistMetadataController::class, 'update'])
             ->whereUuid('playlist')
-            ->middleware(['throttle:30,1,playlist-update', HandleControllerPrecognitiveRequest::class])
+            ->middleware(['throttle:30,1,playlist-update', HandlePrecognitiveRequests::class])
             ->name('playlists.update');
 
         // What is playing right now. Offered by the header only while the queue holds

@@ -9,6 +9,7 @@ use App\Http\Controllers\Auth\ResendVerificationController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\Dashboard\DeleteAccountController;
 use App\Http\Middleware\HandleControllerPrecognitiveRequest;
+use Illuminate\Foundation\Http\Middleware\HandlePrecognitiveRequests;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\Http\Controllers\AuthenticatedSessionController;
@@ -60,9 +61,14 @@ Route::middleware('guest')->group(function () {
         Route::get('/register', [AuthController::class, 'registerView'])
             ->name('register');
 
-        // HandleControllerPrecognitiveRequest drives the register form's live
-        // field validation (Inertia Precognition). The throttle is generous
-        // because the invite requirement is the real abuse gate here.
+        // HandleControllerPrecognitiveRequest — the APP's — drives the register form's
+        // live field validation, and has to be this one rather than the framework's:
+        // these rules live inside App\Actions\Fortify\CreateNewUser (Fortify hands its
+        // actions an array, so there is no FormRequest to resolve), and the framework's
+        // dispatchers abort 204 before the action runs. Measured: they answer "valid" to
+        // a value the rule cannot accept. See that middleware's docblock for both halves.
+        //
+        // The throttle is generous because the invite requirement is the real abuse gate.
         //
         // It used to be generous for a second reason that no longer applies —
         // each field's validate-on-blur being its own request against this
@@ -88,8 +94,12 @@ Route::middleware('guest')->group(function () {
         // no longer touches it (App\Http\Middleware\ThrottleRequests keeps it in
         // its own counter, 30 a minute); the limiter in FortifyServiceProvider
         // records the hand-rolled attempt at that and why it did not work.
+        // The FRAMEWORK's precognition middleware, because ForgotRequest is a FormRequest:
+        // resolving it validates, and the action — which SENDS MAIL — never runs. It wore the
+        // app's until 2026-08-10, and a request merely claiming precognition sent a real
+        // password-reset email.
         Route::post('/forgot', [ForgotController::class, 'store'])
-            ->middleware(['throttle:auth-mail', HandleControllerPrecognitiveRequest::class])
+            ->middleware(['throttle:auth-mail', HandlePrecognitiveRequests::class])
             ->name('forgot.store');
 
         Route::get('/reset-password', [NewPasswordController::class, 'show'])
@@ -105,8 +115,12 @@ Route::middleware('guest')->group(function () {
         // 429. That traffic has its own counter now
         // (App\Http\Middleware\ThrottleRequests), so the 30 is no longer holding
         // room for it.
+        // The FRAMEWORK's, as for `forgot.store` above — NewPasswordRequest is a FormRequest.
+        // This is the route where getting it wrong cost the most: until 2026-08-10 a request
+        // claiming precognition RESET THE PASSWORD, consumed the single-use token and logged the
+        // session in.
         Route::post('/reset-password', [NewPasswordController::class, 'store'])
-            ->middleware(['throttle:30,1,password-reset', HandleControllerPrecognitiveRequest::class])
+            ->middleware(['throttle:30,1,password-reset', HandlePrecognitiveRequests::class])
             ->name('password.reset.store');
     }
 
@@ -118,9 +132,11 @@ Route::middleware('guest')->group(function () {
         Route::get('/resend-verification', [ResendVerificationController::class, 'show'])
             ->name('verification.resend');
 
-        // Same split as `forgot.store` above — this route sends mail too.
+        // Same limiter and the same middleware choice as `forgot.store` above — a FormRequest,
+        // and an action that sends mail, so the framework's is the one that keeps a precognitive
+        // request from sending it.
         Route::post('/resend-verification', [ResendVerificationController::class, 'store'])
-            ->middleware(['throttle:auth-mail', HandleControllerPrecognitiveRequest::class])
+            ->middleware(['throttle:auth-mail', HandlePrecognitiveRequests::class])
             ->name('verification.resend.store');
     }
 });
@@ -153,6 +169,12 @@ Route::post('/password/entropy', EntropyController::class)
  * to App\Actions\Fortify\UpdateUserProfileInformation / UpdateUserPassword
  * (wired in FortifyServiceProvider); account deletion is app-owned since
  * Fortify has no built-in action for it.
+ *
+ * BOTH FORMS VALIDATE INSIDE THEIR ACTION (App\Actions\Fortify\UpdateUserPassword and
+ * UpdateUserProfileInformation, each wrapping `$this->request->validate()` in
+ * `precognitive()`), which is why the group carries the APP's precognition
+ * middleware and not the framework's: the framework's aborts before the action and
+ * would answer "valid" without checking anything.
  *
  * The generous throttle (matching /register's) was for the field-at-a-time
  * validation these forms do as the reader tabs through them
