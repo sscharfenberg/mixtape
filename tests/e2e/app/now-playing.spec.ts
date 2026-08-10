@@ -27,11 +27,11 @@ import { clearServerQueue, specStorageState } from "../support/environment";
  * ITS OWN ACCOUNT, because it leaves a queue behind — the rule every queue-touching spec follows
  * (docs/testing.md → End-to-end).
  */
-test.use({ storageState: specStorageState("player") });
+test.use({ storageState: specStorageState("nowPlaying") });
 test.describe.configure({ mode: "default" });
 
 test.beforeEach(async () => {
-    await clearServerQueue("player");
+    await clearServerQueue("nowPlaying");
 });
 
 test.afterEach(async ({ page }) => {
@@ -98,9 +98,9 @@ test.describe("the Now Playing page", () => {
         await queueAnArtist(page);
         await page.goto("/now-playing");
 
-        // The visualiser exists only while something is playing, so start it first — and put
-        // repeat on, because the fixture is one second long and would otherwise be over before
-        // the graph is up.
+        // The row is drawn whether or not anything plays, but an AudioContext will not RESUME
+        // without a gesture — so start playback anyway, and put repeat on, because the fixture is
+        // one second long and would otherwise be over before the graph is up.
         await page.locator("body").click({ position: { x: 5, y: 5 } });
         await page.keyboard.press("KeyR");
         await page.keyboard.press("KeyK");
@@ -109,7 +109,14 @@ test.describe("the Now Playing page", () => {
         // which is the one thing about this component that needs an engine. See the file note for
         // why the bars themselves cannot be asserted.
         await expect(page.locator(".visualizer--live")).toBeVisible({ timeout: 10_000 });
-        await expect(page.locator(".visualizer__bar")).toHaveCount(48);
+
+        // THE STAGGERED COUNT, at the one width this project runs at: `devices["Desktop Chrome"]`
+        // is 1280px, which is the `landscape` rung (768–1439) and therefore 32 of the 48 the widest
+        // row draws. Asserting it here rather than in Vitest is the only way round — happy-dom
+        // applies no scoped styles, so it can never see what a breakpoint decided. Change the
+        // project's viewport and this number changes with it; the three counts live in
+        // sizes/components/_visualizer.scss.
+        await expect(page.locator(".visualizer__bar")).toHaveCount(32);
 
         // And the audio is unharmed by being routed — the risk the whole design turns on.
         await expect
@@ -135,9 +142,17 @@ test.describe("the Now Playing page", () => {
         const rows = page.locator(".np-queue .play-queue__row");
         await rows.last().locator(".play-queue__load").click();
 
-        // The row click already STARTS playback, so one press of K pauses it. Done in the same
-        // breath because the fixture is one second long: let it run out and the badge would
-        // correctly read "end of queue", which is the other half of the distinction being tested.
+        /*
+         * The row click already STARTS playback, so one press of K pauses it — but only if playback
+         * has actually begun, because K is a TOGGLE. Fired blind it used to start what had not
+         * started yet, the track then ran to its end unpaused, and the badge correctly read "end of
+         * queue" — the other half of the very distinction under test, which is a confusing way to
+         * fail. So wait for the element, and only then press. It has to be quick either way: the
+         * fixture is one second long, which is the whole reason this was ever done in one breath.
+         */
+        await expect
+            .poll(() => page.evaluate(() => document.querySelector("audio")?.paused), { timeout: 5_000 })
+            .toBe(false);
         await page.keyboard.press("KeyK");
 
         // Repeat is off and this is the LAST row, so `hasNext` is false — which is exactly what
@@ -145,16 +160,26 @@ test.describe("the Now Playing page", () => {
         await expect(page.locator(".now-playing__status")).toHaveText("Pausiert");
     });
 
-    test("hides the visualiser while nothing is playing", async ({ page }) => {
-        // A paused EQ is a row of flat bars saying nothing, inside an empty box.
+    test("keeps the visualiser in place while nothing is playing", async ({ page }) => {
+        /*
+         * IT USED TO BE MOUNTED ONLY WHILE PLAYING, on the argument that a paused EQ is a row of
+         * flat bars in an empty box. What that produced was a page of four rows that became three
+         * on every press of pause, with the queue below jumping a row up and back down again — so
+         * the owner asked for it always (2026-08-10). A quiet baseline holding its place is both
+         * true and stationary.
+         */
         await queueAnArtist(page);
         await page.goto("/now-playing");
 
-        await expect(page.locator(".visualizer")).toHaveCount(0);
+        // Nothing has played yet: the row is there, on its baseline, and NOT live — which is also
+        // the proof that merely drawing it does not route the audio.
+        await expect(page.locator(".visualizer")).toBeVisible();
+        await expect(page.locator(".visualizer--live")).toHaveCount(0);
 
+        // And it is still exactly one row, in exactly one place, once playback starts.
         await page.locator("body").click({ position: { x: 5, y: 5 } });
         await page.keyboard.press("KeyK");
-        await expect(page.locator(".visualizer")).toBeVisible();
+        await expect(page.locator(".visualizer")).toHaveCount(1);
     });
 
     test("shows the whole queue, and jumps to a row", async ({ page }) => {
@@ -171,10 +196,99 @@ test.describe("the Now Playing page", () => {
         );
         expect(columns).toBe(2);
 
+        /*
+         * AND THEY ARE FILLED DOWNWARDS — first half left, second half right. Only an engine can
+         * answer this: the flow depends on `repeat(var(--queue-rows), auto)` resolving, which is a
+         * custom property substituted into a grid template, and on the row count the component
+         * publishes. Ten tracks means five a column, so row 6 (index 5) starts the right-hand one:
+         * level with the FIRST row, and to the right of it. A grid dealing items across instead
+         * would put row 6 on the third line down, and this comparison is what catches that.
+         */
+        const first = (await rows.nth(0).boundingBox())!;
+        const sixth = (await rows.nth(5).boundingBox())!;
+        expect(sixth.y).toBeCloseTo(first.y, 0);
+        expect(sixth.x).toBeGreaterThan(first.x + first.width);
+
+        // The divider between the columns, which exists only while there are two of them. A
+        // pseudo-element, so its computed style is the only way to see it at all.
+        const divider = await page.evaluate(() => {
+            const style = getComputedStyle(document.querySelector(".play-queue__list--page")!, "::after");
+
+            return { content: style.content, width: style.width };
+        });
+        expect(divider.content).toBe('""');
+        expect(Number.parseFloat(divider.width)).toBeGreaterThan(0);
+
         const third = await rows.nth(2).locator(".play-queue__name").textContent();
         await rows.nth(2).locator(".play-queue__load").click();
 
         await expect(page.locator(".hero-section h2")).toHaveText(third!);
         await expect(rows.nth(2)).toHaveClass(/play-queue__row--current/u);
+    });
+
+    test("keeps both its grids equal when a title is far too long for one", async ({ page }) => {
+        /*
+         * THE BUG THE OWNER FOUND, on a real album (Burzum's *Filosofem*): a long title "reaches out
+         * of the box, and messes alignment and parent width". Reported against a 54-character title
+         * whose longest WORD is 15 — it is not an unbreakable string at all, and that is the point.
+         * `white-space: nowrap` makes min-content equal max-content, so the whole title becomes the
+         * column's floor: `1fr` means `minmax(auto, 1fr)` and that `auto` is min-content.
+         *
+         * BOTH OF THE PAGE'S GRIDS HAD IT, which is why they are tested together — the queue was
+         * where it was spotted, and the neighbour pair was worse. Measured before the fix, at 1280px:
+         * the queue's columns went 1470.75/219.64 instead of 586.5 each (517px outside its box), and
+         * the two cards came out 452/765, with 247px of the row hanging off the page at 640px. Both
+         * are now `minmax(0, 1fr)`.
+         *
+         * ONLY A BROWSER CAN SEE THIS. It is track sizing against measured text, which is precisely
+         * what happy-dom does not do — a Vitest mount would report whatever the mock said.
+         *
+         * The title is written into the DOM rather than seeded, because the E2E library's titles are
+         * all short and the fixture exists to be predictable. What is under test is the CSS, and the
+         * CSS cannot tell where the text came from.
+         */
+        await queueAnArtist(page);
+        await page.goto("/now-playing");
+        await expect(page.locator(".np-queue .play-queue__row").first()).toBeVisible();
+
+        await page.evaluate(() => {
+            const title = "Rundgang Um Die Transzendentale Saule Der Singularitat";
+            document.querySelectorAll(".np-queue .play-queue__name, .neighbour__title").forEach(name => {
+                name.textContent = title;
+            });
+        });
+
+        // 900px: columns of ~400px, where this title genuinely does not fit — which is the case that
+        // used to blow both grids open, rather than the roomy 1280px default.
+        await page.setViewportSize({ width: 900, height: 1000 });
+
+        const layout = await page.evaluate(() => {
+            const read = (selector: string) => {
+                const grid = document.querySelector(selector)!;
+
+                return {
+                    columns: getComputedStyle(grid).gridTemplateColumns.split(" ").map(Number.parseFloat),
+                    overflow: grid.scrollWidth - grid.clientWidth
+                };
+            };
+            const name = document.querySelector(".np-queue .play-queue__name")!;
+
+            return {
+                queue: read(".play-queue__list--page"),
+                neighbours: read(".now-playing__neighbours"),
+                clipped: name.scrollWidth > name.clientWidth
+            };
+        });
+
+        // Two columns, equal, in both grids — the assertions the old behaviour failed by 1,251px and
+        // 313px respectively.
+        for (const grid of [layout.queue, layout.neighbours]) {
+            expect(grid.columns).toHaveLength(2);
+            expect(grid.columns[0]).toBeCloseTo(grid.columns[1]!, 1);
+            expect(grid.overflow).toBe(0);
+        }
+
+        // And the title is what gave way instead of the layout.
+        expect(layout.clipped).toBe(true);
     });
 });

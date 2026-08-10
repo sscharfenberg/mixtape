@@ -54,21 +54,36 @@ export type UseAudioAnalyserReturn = {
 };
 
 /**
- * How many bands the levels are reduced to — and therefore how many bars are drawn.
+ * How many bands the levels are reduced to until a consumer asks for a different count — and
+ * therefore how many bars are drawn where nothing has asked.
  *
- * EXPORTED so the component draws exactly what this produces: two constants that had to agree
- * would eventually not, and the symptom would be a row of dead bars at one end.
+ * THE TOP OF A LADDER, not a fixed number, since 2026-08-10: the widest row draws this many and a
+ * phone draws half, because the bars get thinner rather than fewer as the row narrows and 48 across
+ * a phone is a smear rather than a spectrum. {@link setAnalyserBands} is how the drawer says which
+ * rung it is on.
  *
- * The analyser's own resolution is `fftSize / 2` = 128 bins, which is more than a phone should
- * re-render sixty times a second and more shape than the eye reads. 48 is the compromise found by
- * looking: 24 gave 50px-wide blocks on a desktop, which reads as a bar chart rather than as an EQ.
+ * 48 itself is the compromise found by looking: the analyser's own resolution is `fftSize / 2` =
+ * 128 bins, which is more shape than the eye reads and more than a phone should re-render sixty
+ * times a second, while 24 gave 50px-wide blocks on a desktop — a bar chart rather than an EQ.
  *
- * It also drops the top of the spectrum, and that is a feature rather than a rounding error.
- * `floor(128 / 48)` is 2 bins per band, so the bands cover 96 of the 128 — and the missing top
- * quarter is the part of an FFT that is near-silent on almost all music, which as bars means a
- * stretch that never moves.
+ * EXPORTED so the component has a count to draw before any stylesheet has answered, and so the two
+ * cannot disagree by being written twice.
  */
-export const ANALYSER_BANDS = 48;
+export const ANALYSER_DEFAULT_BANDS = 48;
+
+/**
+ * How much of the spectrum the bands are spread over, as a fraction of the bins.
+ *
+ * THE TOP QUARTER IS DROPPED ON PURPOSE — it is the part of an FFT that is near-silent on almost
+ * all music, which as bars means a stretch that never moves. It is a constant rather than a
+ * consequence of the band count (it used to fall out of `floor(128 / 48)` = 2 bins a band) because
+ * the drawn spectrum must stay THE SAME at every count: 24 bars are a coarser reading of the same
+ * 96 bins, not a wider one, so a phone does not grow a dead tail by asking for fewer.
+ */
+const USED_SPECTRUM = 0.75;
+
+/** How many bands to produce. Set by whoever is drawing them — see {@link setAnalyserBands}. */
+let bands = ANALYSER_DEFAULT_BANDS;
 
 /**
  * The FFT window.
@@ -167,10 +182,14 @@ function retryOnPlay(): void {
 /**
  * Read one frame of the spectrum and schedule the next.
  *
- * Averaged into {@link ANALYSER_BANDS} rather than sampled, so a band that happens to straddle a quiet bin
- * does not flicker against its neighbours. `requestAnimationFrame` stops dead while the page is
- * hidden, which is exactly right: nobody is looking at the bars, and the audio does not depend on
- * them being read.
+ * AVERAGED rather than sampled, so a band that happens to straddle a quiet bin does not flicker
+ * against its neighbours. The group boundaries are computed per band from the current count rather
+ * than from a cached group size, which is what lets {@link setAnalyserBands} take effect on the next
+ * frame with nothing to restart — and what keeps the groups even when the count does not divide the
+ * used bins exactly.
+ *
+ * `requestAnimationFrame` stops dead while the page is hidden, which is exactly right: nobody is
+ * looking at the bars, and the audio does not depend on them being read.
  */
 function read(): void {
     if (analyser === null) return;
@@ -178,17 +197,37 @@ function read(): void {
     const bins = new Uint8Array(analyser.frequencyBinCount);
     analyser.getByteFrequencyData(bins);
 
-    const perBand = Math.max(1, Math.floor(bins.length / ANALYSER_BANDS));
+    const used = Math.floor(bins.length * USED_SPECTRUM);
     const next: number[] = [];
 
-    for (let band = 0; band < ANALYSER_BANDS; band++) {
+    for (let band = 0; band < bands; band++) {
+        const from = Math.floor((band * used) / bands);
+        // At least one bin, for the pathological case of more bands than there are bins to spread
+        // over — a band with an empty range would read as a permanently dead bar.
+        const to = Math.max(from + 1, Math.floor(((band + 1) * used) / bands));
+
         let total = 0;
-        for (let bin = 0; bin < perBand; bin++) total += bins[band * perBand + bin] ?? 0;
-        next.push(total / perBand / 255);
+        for (let bin = from; bin < to; bin++) total += bins[bin] ?? 0;
+        next.push(total / (to - from) / 255);
     }
 
     levels.value = next;
     frame = requestAnimationFrame(read);
+}
+
+/**
+ * Say how many bands to average the spectrum into — one per bar the consumer means to draw.
+ *
+ * THE DRAWER DECIDES, because the count is a question about WIDTH and only the component can see how
+ * much width it has: the visualiser reads it off a CSS custom property so the breakpoints it steps
+ * at stay in the stylesheet with every other one. Keeping the number here instead would mean two
+ * constants that had to agree, and the symptom of their drifting would be a row of dead bars at one
+ * end.
+ *
+ * Floored at one band, since zero would produce an empty reading and draw nothing at all.
+ */
+export function setAnalyserBands(count: number): void {
+    bands = Math.max(1, Math.floor(count));
 }
 
 /**
@@ -268,6 +307,7 @@ export function resetAudioAnalyserForTests(): void {
     unbindRetry?.();
     unbindRetry = null;
     consumers = 0;
+    bands = ANALYSER_DEFAULT_BANDS;
     element = null;
     routed = null;
     analyser = null;

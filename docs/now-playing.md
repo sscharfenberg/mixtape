@@ -19,7 +19,9 @@ Read alongside:
 | Prev / next, with the next track NAMED         | ✅ 2026-08-09 — the shuffle pre-draw, _below_                     |
 | The track's facts (cover, title, artist, album, genre, runtime) | ✅ 2026-08-09 — genre fetched, the rest from the queue |
 | EQ visualiser                                  | ✅ 2026-08-09 — wired directly, the probe having cleared it       |
+| … always shown, no glow, 48/32/24 bars per width | ✅ 2026-08-10 — the owner's three calls, _below_                |
 | The queue, on the page                         | ✅ 2026-08-09 — a second presentation, not a second queue         |
+| … in two columns, read down, with a divider    | ✅ 2026-08-10                                                     |
 
 **The four rows**, in the order the owner asked for and each answering a different question: what is
 playing (the hero), what it sounds like (the visualiser), what is either side (two cards that step
@@ -204,13 +206,45 @@ fixture now rather than a thing to delete.
 
 ### As built
 
-`Components/Player/Visualizer` over `Composables/useAudioAnalyser`. **48 bands**, one definition
-shared by both (`ANALYSER_BANDS`) so the bar count and the reading count cannot drift; 24 was the
-first try and gave 50px-wide blocks on a desktop, which reads as a bar chart rather than an EQ.
-Each bar carries its **own** bottom-up ramp — magenta, violet, blue — so the colour says what the
-height says: a quiet bar shows only the warm end, a loud one reaches the cool top. One
-`drop-shadow` over the finished row rather than 48 box-shadows, which would overlap into a hard
-band where the bars are close.
+`Components/Player/Visualizer` over `Composables/useAudioAnalyser`. Each bar carries its **own**
+bottom-up ramp — magenta, violet, blue — so the colour says what the height says: a quiet bar shows
+only the warm end, a loud one reaches the cool top.
+
+**The bar count is staggered — 48 / 32 / 24 (2026-08-10).** It started as one number for every width
+and that was the wrong shape: bars get *thinner*, not fewer, as the row narrows, so 48 across a phone
+was a smear a couple of pixels wide rather than a spectrum. The owner asked for 100 / 65 / 50 per cent
+of 48, and the middle rung is **32 rather than 31** because the counts have to divide the 96 bins the
+analyser spreads over — 2, 3 and 4 bins a band exactly — or bands come out unequal widths and a
+four-bin bar visibly moves less than the three-bin one beside it. Measured after: 11.9px a bar at
+390px, 23.8px at 900px, 26.6px at 1500px.
+
+**CSS decides the count and JavaScript obeys**, which is the interesting half. The bars are DOM
+elements, so only the component can create them — but what the count steps at are the SCSS
+breakpoints, and a `matchMedia("(min-width: 768px)")` in TypeScript would be a second copy of
+`$breakpoints` to keep in step. So the three counts live in `sizes/components/_visualizer.scss`, the
+component's stylesheet publishes the one for this width as `--visualizer-bars`, and `readBarCount`
+reads it back on mount and on resize. `useAudioAnalyser` takes the count from the drawer
+(`setAnalyserBands`) instead of exporting a constant; the top quarter of the spectrum is dropped by a
+fraction rather than as a by-product of the division, so **every count is a coarser reading of the
+same 96 bins** and a phone does not grow a dead tail by asking for fewer.
+
+**The row is always shown, and the analyser still is not.** Mounting it only while playing meant the
+page's four rows became three on every press of pause, with everything below jumping a row and back
+— so it stays (2026-08-10) and a paused player sees the flat grey baseline, which is what "no signal"
+already looked like. But `live` reads the PLAYER as well as the graph, and activation follows
+playback rather than the mount, for two separate reasons found by doing it: the analyser returns
+decaying zeros for a moment after a pause, so a paused row was otherwise a line of magenta hairlines
+— exactly the "very quiet music" the grey exists to be told apart from — and activating on mount
+moved the first `createMediaElementSource` into the press that starts the music, since with no
+gesture yet the resume is refused and the routing defers onto the element's next `play`. That cost was
+measurable: the "says PAUSED at the last track" spec went from 6/6 to 5/6. Following playback puts the
+routing back where it was and restores the safety claim in full — **open this page and never press
+play, and your audio is never routed.**
+
+**There is no glow (removed 2026-08-10, the owner's call).** There was one, drawn the right way — a
+single `drop-shadow` over the finished row rather than 48 box-shadows, which overlap into a hard band
+where bars are close — and it still read as a haze the bars sat in rather than as light coming off
+them. The ramp says everything about level the row needs to.
 
 **Reduced motion is honoured by not asking at all.** The animation is JavaScript writing a height
 per frame, so no media query can stop it — the component declines to activate, renders its idle
@@ -244,11 +278,47 @@ A **second presentation, not a second queue**: `pages/NowPlaying/NowPlayingQueue
 `usePlayerQueue` and drives `useQueueReorder` exactly as the panel does, and only the drawing
 differs. The same split `SiteMenuLinks` and `SiteMenuPopover` already make over one `useSiteAreas`.
 
-Sharing the row markup was considered and rejected for a concrete reason: **the panel is 280px
-wide**, and its row is tuned for that to the point of deliberately having no room for a per-track
-runtime. One component with a width mode would be two layouts wearing one name, and the panel's
-constraints would go on deciding what a full-width page may show. So this row shows the runtime and
-the album the panel cannot.
+**Not a second ROW, either — and that was the correction.** A page-specific row was written on the
+argument that the panel is 280px wide and its row tuned to the point of having no room for a per-track
+runtime. It lasted about an hour: two copies of a row drift, and the first thing to drift was the
+remove glyph (a plain close on the page, `playlist_remove` in the panel), which the owner spotted
+immediately. `Components/PlayQueue/QueueList` is now the one definition, with a `layout` prop for the
+only real difference — the panel is a scroll box, the page is a grid. The class names stay
+`play-queue__*` on the page, because a dozen E2E specs already name them.
+
+**Two columns, read DOWN (2026-08-10).** A grid deals its items across by default, so tracks 1 and 2
+were neighbours and the running order zig-zagged — "reads weird", which for a numbered list is exactly
+right. `grid-auto-flow: column` over an explicit row count now puts the first half in the left column
+and the second in the right; the row count is `ceil(n / 2)`, published by the component as
+`--queue-rows`, because CSS cannot count children. A **divider** runs down the middle, as an
+absolutely-positioned `::after` (a `column-rule` is multi-column's, not grid's, and no row knows which
+column it landed in) — and only inside the two-column media query, since a rule down the middle of one
+column would cut a single list in half. `50%` is exactly the gap's centre whenever the columns are
+equal: half of `2col + gap` is `col + gap/2`. The channel is its own token (24px) rather than the row
+gap, because at 8px the rule reads as a border stuck to the left column.
+
+The threshold for two columns is unchanged and computed rather than written: **two panels' worth of
+width**, from the panel's own token. Below it there is one column, which is the fallback on a phone.
+
+**Every track on this page is `minmax(0, 1fr)`, never a bare `1fr`** — the trap the owner found on a
+real album (Burzum's *Filosofem*), where a long title "reaches out of the box, and messes alignment
+and parent width". `1fr` means `minmax(auto, 1fr)`, and that `auto` floor is the track's **min-content**
+width; `white-space: nowrap` makes min-content equal max-content, so the whole title becomes a width
+the column must accommodate rather than something that ellipsises. The reported title is 54 characters
+with no word longer than 15 — it is not an unbreakable string, which is the part worth remembering:
+**`nowrap` is enough to make any length unbreakable.**
+
+Measured at a 1280px window before the fix, with both grids on this page affected:
+
+| grid | before | after |
+| --- | --- | --- |
+| the queue's two columns | 1470.75px / 219.64px, list 517px outside its box | 586.5px / 586.5px, no overflow |
+| the neighbour pair | 452px / 765px, and 247px off the page at 640px | equal at every width, no overflow |
+
+The neighbour rule had *claimed* equal columns "whatever their titles are" since the page was built;
+`minmax(0, …)` is what finally made that true. `now-playing.spec.ts` writes the real title into both
+grids and pins equal columns, zero overflow, and a clipped title — a browser fact, since it is track
+sizing against measured text.
 
 `useQueueReorder` takes the list element as an argument rather than being a singleton, so two
 mounted instances each get their own Sortable over their own `<ol>` — and both go through the one

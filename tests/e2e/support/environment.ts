@@ -285,6 +285,13 @@ export const SEED_USER = { name: "Ashaltiriak", password: "passwort" } as const;
 export const SPEC_USERS = {
     queue: "spec-queue",
     player: "spec-player",
+    /*
+     * Now Playing SHARED `player` until 2026-08-10, which was a straight violation of the rule
+     * above and failed exactly as advertised: `player.spec.ts` in another worker left a track
+     * behind, and the queue spec here counted eleven rows where it had queued ten. The rule is
+     * per FILE, not per feature — two files about the player are still two files.
+     */
+    nowPlaying: "spec-now-playing",
     shortcuts: "spec-shortcuts",
     widgets: "spec-widgets",
     // Playlists are PRIVATE PER OWNER, so this account also owns the fixture the spec

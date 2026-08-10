@@ -1,8 +1,13 @@
 /******************************************************************************
  * contextual color tokens — component:visualizer
  * @type {Sass}
- * The Now Playing page's EQ (Components/Player/Visualizer): the ramp each bar is painted with,
- * the glow under them, and the flat colour of a bar with nothing to show.
+ * The Now Playing page's EQ (Components/Player/Visualizer): the ramp each bar is painted with, and
+ * the flat colour of a bar with nothing to show.
+ *
+ * THERE IS NO GLOW HERE ANY MORE (removed 2026-08-10, the owner's call). The row had a wash under it
+ * — an opacity-only adjust of the ramp's warm end, drawn as one `drop-shadow` over the finished row
+ * — and it read as a haze the bars sat in rather than as light coming off them. The ramp says
+ * everything about level the row needs to say.
  *
  * THE RAMP IS PER BAR, NOT ACROSS THE ROW, which is what makes it read as a level meter rather
  * than as a decorative stripe: a short bar shows only the bottom of the ramp and a loud one
@@ -14,7 +19,6 @@
  * it never mints them. Consumed as c.$c-visualizer via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
-@use "sass:color"; // https://sass-lang.com/documentation/modules/color
 @use "../global-color-tokens" as c;
 
 $visualizer: (
@@ -30,18 +34,6 @@ $visualizer: (
     // decoration, and borrowing the colour every interactive control glows with would make a
     // passing kick drum look like something you could press.
     "ramp-high": light-dark(map.get(c.$retro, "c2", "light"), map.get(c.$retro, "c2", "dark")),
-    // The wash under the bars. An opacity-only adjust of the ramp's warm end — the one colour
-    // operation the token rules allow outside the palette — so the glow is the bars' own light
-    // spilling rather than a fourth hue nobody chose.
-    //
-    // HEAVIER ON LIGHT than on dark, which is upside-down from "keep them in step" and is what
-    // actually looks even: a glow is blurred over many pixels, so what reaches the eye is a
-    // fraction of the stated alpha, and on a white page that fraction has to fight a background
-    // already at maximum lightness. The hero's metadata halo records the same lesson.
-    "glow": light-dark(
-            color.adjust(map.get(c.$retro, "c6", "light"), $alpha: -0.55),
-            color.adjust(map.get(c.$retro, "c6", "dark"), $alpha: -0.75)
-        ),
     // A bar with no reading: nothing is playing, the graph has not been wired, or the reader asked
     // for reduced motion. Deliberately NOT a dimmed ramp — a grey baseline says "no signal", where
     // a faint magenta says "very quiet music", and those are different facts.

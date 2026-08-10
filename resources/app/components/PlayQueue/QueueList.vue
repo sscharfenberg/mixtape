@@ -17,7 +17,9 @@
  *     padding/negative-margin pair with it — see the styles.
  *   - `page` does NOT scroll; the page does. Instead it lays the rows out in a GRID that becomes
  *     two columns when there is room for two of at least the panel's own width, and never more
- *     than two: a queue is read down, and four columns of it is a table nobody asked for.
+ *     than two: a queue is read down, and four columns of it is a table nobody asked for. Those
+ *     two columns are filled DOWNWARDS — first half left, second half right — which is what
+ *     `rowsPerColumn` is for.
  *
  * Everything else — the row, its three controls, the drag, the keyboard move, the scroll-to-
  * current — is identical in both, and now identical by construction rather than by matching two
@@ -31,7 +33,7 @@
  * name, and renaming them to something layout-neutral would be a large diff whose only effect is
  * to make those specs wrong.
  *****************************************************************************/
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import Icon from "Components/UI/Icon.vue";
@@ -58,6 +60,21 @@ const { play } = usePlayerAudio();
 const list = ref<HTMLOListElement | null>(null);
 
 const { onRowKeydown, onGripPointerdown, shortcutLabel } = useQueueReorder(list);
+
+/**
+ * How many rows a column holds where the page draws two of them — half the queue, rounded up.
+ *
+ * IT IS WHAT MAKES THE COLUMNS READ DOWNWARDS. A two-column grid deals its items ACROSS by default,
+ * so tracks 1 and 2 sat side by side and the running order zig-zagged — which is exactly how the
+ * owner described it reading wrong. `grid-auto-flow: column` fills the first column before starting
+ * the second, but it needs to be told where a column ENDS, and CSS cannot count the children: hence
+ * this number, published as a custom property and consumed inside the two-column media query only.
+ * At one column it is simply unused.
+ *
+ * Never below one, because `repeat(0, auto)` is invalid CSS — and an invalid `grid-template-rows`
+ * would be dropped altogether, leaving `auto-flow: column` to lay the whole queue out as one row.
+ */
+const rowsPerColumn = computed(() => Math.max(1, Math.ceil(tracks.value.length / 2)));
 
 /**
  * Load the clicked row into the player AND start it.
@@ -116,7 +133,12 @@ defineExpose({ scrollCurrentIntoView });
 </script>
 
 <template>
-    <ol ref="list" class="play-queue__list" :class="`play-queue__list--${layout}`">
+    <ol
+        ref="list"
+        class="play-queue__list"
+        :class="`play-queue__list--${layout}`"
+        :style="{ '--queue-rows': rowsPerColumn }"
+    >
         <li
             v-for="(track, index) in tracks"
             :key="`${track.id}-${index}`"
@@ -256,20 +278,67 @@ $two-columns: map.get(s.$c-play-queue, "width") * 2;
    ONE COLUMN, THEN TWO, AND NEVER MORE. `auto-fit` was the obvious way to say it and is wrong
    here: on a desktop it would give four columns of 280px, and a queue read four abreast is a
    table rather than a running order. Two is the owner's brief, and the breakpoint is exactly
-   "there is room for two at the panel's own width".
+   "there is room for two at the panel's own width" — which is also the fallback to one column on
+   anything narrower, since below that threshold this rule is all there is.
+
+   THE TWO COLUMNS ARE READ DOWN, NOT ACROSS (2026-08-10). A grid deals items across its columns by
+   default, so tracks 1 and 2 were neighbours and the running order zig-zagged — the owner's words
+   were that it "reads weird", and a numbered list you have to zig-zag to follow is exactly that.
+   `grid-auto-flow: column` over an explicit row count fills the left column with the first half and
+   the right with the second; the count comes from the component (`rowsPerColumn`), because CSS
+   cannot count children. `repeat(var(…))` is substituted before the value is parsed, so this is a
+   real row template rather than a trick.
+
+   EVERY TRACK IS `minmax(0, 1fr)`, NEVER A BARE `1fr`, and this is the one line here that a long
+   title will punish you for getting wrong. `1fr` means `minmax(auto, 1fr)`, and that `auto` floor is
+   the track's MIN-CONTENT width — so one unbreakable 180-character title stops being a thing that
+   ellipsises and becomes a thing the column has to fit. Measured before the fix, at a 1280px window:
+   the two columns went from 586.5px each to **1470.75px and 219.64px**, and the list's scrollWidth
+   (1714px) burst out of its box (1197px), taking the alignment of every other row with it. `minmax(0,
+   …)` gives the track permission to be narrower than its content, which is what lets the ellipsis in
+   `.play-queue__name` do its job. The one-column rule needs it for the same reason — a phone has even
+   less room to be pushed out of.
 
    `align-content: start` so a short queue's rows sit at the top of the grid rather than being
    spread down it. */
 .play-queue__list--page {
     display: grid;
+    position: relative;
     align-content: start;
 
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
 
     gap: map.get(s.$c-play-queue, "row", "gap");
 
     @media (min-width: $two-columns) {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-rows: repeat(var(--queue-rows, 1), auto);
+        grid-auto-flow: column;
+
+        column-gap: map.get(s.$c-play-queue, "page", "column-gap");
+
+        /* THE DIVIDER, and ONLY here — at one column there is nothing to divide, and a rule down
+           the middle of a single list would cut it in half.
+
+           A pseudo-element rather than a `column-rule` (that is multi-column's, not grid's) and
+           rather than a border on the rows (no row knows which column it landed in). Absolutely
+           positioned, which also keeps it OUT of the grid: an in-flow `::after` would take a cell
+           and push the last track into a column of its own. `50%` is exactly the middle of the gap
+           whenever the two columns are equal — the maths cancels: half of `2col + gap` is
+           `col + gap/2`. */
+        &::after {
+            position: absolute;
+            inset-inline-start: 50%;
+            inset-block: 0;
+
+            width: map.get(s.$c-play-queue, "page", "divider");
+
+            transform: translateX(-50%);
+
+            background-color: map.get(c.$c-play-queue, "border");
+
+            content: "";
+        }
     }
 }
 
