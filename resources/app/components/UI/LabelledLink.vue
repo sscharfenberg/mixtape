@@ -5,6 +5,10 @@
  * <Link> for internal paths, a plain <a> (new tab) for http(s) URLs, and a
  * plain <a> for mailto: links — each auto-picking a sensible leading icon
  * (external-link / mail) unless overridden.
+ *
+ * It does NOT warm its target on hover unless asked to — see the `prefetch`
+ * prop, which used to be decided here and is now the caller's, because the
+ * question is what the link LEADS TO rather than what the link is.
  *****************************************************************************/
 import type { RequestPayload } from "@inertiajs/core";
 import { Link } from "@inertiajs/vue3";
@@ -21,9 +25,26 @@ const props = withDefaults(
         data?: RequestPayload;
         /** Icon name. Defaults to "external-link" for https links, "mail" for mailto. Pass "" to suppress. */
         icon?: string;
+        /**
+         * Warm the target on hover (internal GET links only).
+         *
+         * OFF BY DEFAULT, AND THAT WAS INVERTED ON PURPOSE (2026-08-11). It used to be
+         * `:prefetch="method === 'get'"` — every GET link warmed — which decides from the LINK's
+         * shape and never from what is at the other end. That is the wrong question: a prefetch
+         * whose response lands after you have navigated to the same URL is applied to the page you
+         * are now on, re-creating its component, and on a form that silently discards what the
+         * reader has typed and saves the value the server sent (CLAUDE.md → the prefetch rule; it
+         * cost one E2E run in five for weeks). Every internal link this component renders today
+         * points at a form — `/forgot`, `/resend-verification` — so the safe default is also the
+         * one nothing has to opt out of.
+         *
+         * Turn it on where the target is a page a reader only reads: a listing, a detail page.
+         */
+        prefetch?: boolean;
     }>(),
     {
-        method: "get"
+        method: "get",
+        prefetch: false
     }
 );
 
@@ -49,7 +70,7 @@ const resolvedIcon = computed(() => {
         :href="href"
         :method="method"
         :data="data"
-        :prefetch="method === 'get'"
+        :prefetch="method === 'get' && prefetch"
     >
         <icon v-if="resolvedIcon" :name="resolvedIcon" :size="1" />
         <slot />

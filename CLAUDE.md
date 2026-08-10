@@ -162,6 +162,30 @@ Controllers render the explicit path — `Inertia::render('Home/HomePage', …)`
 (`__invoke`) controller for single-action pages. Full rationale:
 [`docs/app-rewrite.md`](docs/app-rewrite.md) → *Frontend conventions*.
 
+**Never `prefetch` a link that leads to a FORM** (learned from a real bug, 2026-08-10). A hover
+prefetch whose response lands *after* you have navigated to that same URL is applied to the page you
+are now on — `Response.handlePrefetch()` calls `handle()` whenever the URL matches the current
+location — and that swap does not preserve state, so Inertia's Vue adapter **re-keys the page
+component**: `setup()` runs again and every `ref` on the page goes back to its prop. In a form that is
+silent data loss, because Inertia's `<Form>` serialises the DOM at submit, so **the value the server
+sent is what gets saved.** It cost one full E2E run in five for weeks and presented as a stale row on
+a listing, nowhere near the cause; the `<form>` element was measured being replaced 12–20ms after a
+field was typed into. A click that outruns Inertia's hover timer is what does it — the click sends its
+own request, so the prefetch is never consumed — which Playwright does on every `click()` and a fast
+human does often enough. Warming a form buys ~150ms on a page a reader then sits on for seconds.
+
+- **`useRemember` is the complement, not the alternative** — it makes a page's own state survive
+  being re-created from any cause (`router.remember` → `replaceState` updates the in-memory state
+  synchronously, so a remount a tick later still restores it). `PlaylistMetadataPage` uses it.
+  **Never remember a secret**: it is written into the history entry, so a password or a 2FA code must
+  stay out of it — for those forms, not prefetching is the whole fix.
+- **Where this is still live:** `LabelledLink` prefetches every GET link it renders
+  (`:prefetch="method === 'get'"` — the decision is made from the link's *own* shape, never from what
+  is at the other end), which today warms `/forgot` and `/resend-verification`; `UserMenu` prefetches
+  `/login` and `/forgot` with its own `<Link prefetch>`. All of those are forms, and the login one
+  holds a password. `/playlists/create` is a plain `<Link>` and is fine. `docs/testing.md` → the traps
+  index has how the mechanism was pinned down.
+
 **Design tokens (SCSS)** — three layers, two hard rules. **Every** token group is identical:
 **global tokens → contextual partial (per component) → consumed by SCSS/Vue.** Applies today to
 `colors/`, `sizes/`, `z-indexes/`, `typography/`, `timings/`; future groups (`shadows/`, …) are created

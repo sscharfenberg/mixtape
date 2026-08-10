@@ -42,14 +42,21 @@ function closePopover(): void {
             width="20ch"
         >
             <ul class="popover-list">
+                <!-- NO `prefetch` ON THE TWO FORMS below, per CLAUDE.md's prefetch rule: a
+                     prefetch that lands after you have navigated to the same URL is applied to the
+                     page you are on and re-creates it, which on a form discards what has been typed
+                     and saves what the server sent. `/login` is the worst case in the app — it holds
+                     a password, so `useRemember` is not an option there either (remembered state
+                     goes into the history entry). The dashboard link below keeps its warming: that
+                     page is one a reader only reads. -->
                 <li v-if="!user">
-                    <Link class="popover-list-item" href="/login" prefetch @click="closePopover">
+                    <Link class="popover-list-item" href="/login" @click="closePopover">
                         <icon name="login" :size="1" />
                         {{ t("header.userMenu.login") }}
                     </Link>
                 </li>
                 <li v-if="!user && features.resetPasswords">
-                    <Link class="popover-list-item" href="/forgot" prefetch @click="closePopover">
+                    <Link class="popover-list-item" href="/forgot" @click="closePopover">
                         <icon name="support" :size="1" />
                         {{ t("header.userMenu.loginHelp") }}
                     </Link>
