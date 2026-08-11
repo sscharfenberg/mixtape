@@ -549,8 +549,108 @@ Two different fixes, depending on what the route does:
   `$request->isPrecognitive()` instead: a high limit for the no-op validation requests, the original
   low limit for real submissions. See `auth-mail` in `app/Providers/FortifyServiceProvider.php`.
 
-There is also an nginx-level `limit_req` on dynamic requests (30r/s, burst 60) — that one targets
-scanners walking paths at machine speed, and a real page load never approaches it.
+### The nginx limits, and why there are three of them
+
+nginx applies **two entirely different limits** here, and the first thing to know is how to tell them
+apart — because they fail identically from the browser's side, as a 429.
+
+#### `limit_conn` counts HTTP/2 streams — read this one first
+
+This is the one that caused a real outage on 2026-08-11. The vhost runs `http2 on`, and under HTTP/2
+a browser opens **one** TCP connection and multiplexes every request over it — but nginx's
+`limit_conn` counts each **stream** as a connection. So a page that asks for thirty cover thumbnails
+has thirty "connections" as far as the directive is concerned.
+
+The limit was 20, justified by a comment reasoning that "a browser opens ~6 per host". That is true
+under HTTP/1.1 and has been false since the day http2 was switched on: the ceiling sat *below what a
+single page load needs*. The Now Playing page asked for a cover per queue row and nginx refused 105
+of them, the audio stream, and `/favicon.ico`.
+
+**That last one is the diagnostic.** A static file cannot be refused by `limit_req` — those live only
+in `location ~ \.php$`. If something outside PHP is 429ing, it is `limit_conn`. Definitively, the
+error log names the zone and the kind:
+
+```bash
+grep -o 'limiting \(requests\|connections\).* by zone "[a-z_]*"' /var/log/nginx/mixtape.prod.error.log \
+  | sort | uniq -c
+```
+
+The fix is to bound streams explicitly and keep the connection limit above that ceiling:
+
+```nginx
+http2_max_concurrent_streams 64;   # excess streams are QUEUED by the client, not refused
+limit_conn mx_conn 256;            # now genuinely about parallel connections
+```
+
+`http2_max_concurrent_streams` is the half that does the real work, and it is polite: a client that
+wants a hundred thumbnails simply sends the next request as each finishes. Nothing errors.
+
+#### Before you believe any of this took effect
+
+**A shared-memory zone's key cannot be changed by a reload.** Rename `mx_pages`'s key and the master
+refuses the entire config:
+
+```
+[emerg] limit_req "mx_pages" uses the "$mx_pages_key" key while previously it used the "$binary_remote_addr" key
+```
+
+It then keeps the **old workers running the old config** — and it fails silently in both the places
+you would check. `nginx -t` *passes*, because it tests in a fresh process with no prior zone to
+disagree with. `systemctl reload nginx` *exits 0 and logs "Reloaded"*, because systemd only sees the
+signal being delivered, not the master's rejection of it. Two edits and two reloads can go by with
+nothing whatsoever changing.
+
+So after any nginx change here, check the **workers**, not the file:
+
+```bash
+ps -o pid,lstart -C nginx     # every worker must be newer than your reload
+grep -i emerg /var/log/nginx/error.log | tail
+```
+
+If a zone's key really must change, rename the zone (a new name has no previous key to contradict)
+or `systemctl restart nginx`, which drops in-flight requests but clears the shared memory outright.
+
+#### `limit_req`, and why it is three zones
+
+The rate limit targets scanners walking paths at machine speed rather than anything a reader does.
+It is **three zones**, not one, and the reason is structural rather than incidental:
+
+**Everything this app answers is a PHP request.** A page, a cover thumbnail and the audio stream all
+arrive at `location ~ \.php$` after `try_files`, so a single zone puts them in one bucket per
+visitor. That looks fine until someone presses play on a large artist: the queue fills, the panel
+renders a row per track, every visible row fetches its cover — and the burst is gone before the
+**stream** is even requested.
+
+(This split was made in response to the outage above, and did not fix it — the refusals were
+`limit_conn`'s. It stays because the shared bucket is a real latent problem: it costs nothing, and
+it is what stops thumbnails from starving audio once the connection ceiling stops hiding it.)
+
+So [`files/mixtape-limits.conf`](files/mixtape-limits.conf) sorts requests into three zones with a
+`map` on `$request_uri`, and the vhost applies all three:
+
+| Zone | What it holds | Limit |
+| --- | --- | --- |
+| `mx_dynamic` | pages, forms, everything else | 30r/s, burst 60, `nodelay` |
+| `mx_cover` | song and album cover art | 30r/s, burst 200, `delay=60` |
+| `mx_stream` | the audio stream | 10r/s, burst 20, `nodelay` |
+
+Four things about that which are easy to get wrong:
+
+- **`$request_uri`, not `$uri`.** The limits are applied *after* `try_files` has internally rewritten
+  the request, so `$uri` is `/index.php` for every one of them. `$request_uri` keeps the original.
+- **An empty key is not accounted.** That is nginx's documented way to exempt a request from a zone,
+  and it is what keeps the three from counting against each other. The `mx_dynamic` map is written as
+  the *inverse* of the other two, so nothing is ever counted twice.
+- **Covers get `delay=`, not `nodelay`.** Past the first 60, requests are queued and released at
+  30r/s rather than refused. A thumbnail that arrives 200ms late is invisible; a 429 is a permanently
+  broken image, because `<img>` does not retry. (Covers are cached 30 days with an ETag, so this only
+  bites on a first visit.)
+- **A `map` regex containing `{36}` must be quoted.** nginx requires quoting for any value containing
+  `{` or `}`; unquoted, it is a parse error rather than a rule that quietly never matches.
+
+The stream's rate looks low and is not: one request starts a track, and a few more arrive per *seek*,
+since a Range request past what the browser has buffered re-enters PHP before nginx takes over the
+bytes.
 
 ## Scheduled library scan
 
