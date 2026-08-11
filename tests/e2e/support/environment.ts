@@ -371,6 +371,12 @@ export const clearServerQueue = async (spec: keyof typeof SPEC_USERS): Promise<v
          * So: overwrite, then confirm it STAYS overwritten. Two clean reads 40ms apart is
          * enough for anything fired at the previous context's death, and costs the suite
          * under three seconds in total.
+         *
+         * IT REALLY IS TWO READS as of 2026-08-11 — until then this returned on the FIRST
+         * clean one, which is a single 40ms window and not what the paragraph above claims.
+         * The leak that exposed the gap is closed at its source in `stopQueueSync` (the
+         * dying tab no longer flushes at all); this is the belt to that pair of braces,
+         * because the one write the server cannot refuse is one stamped after this reset.
          */
         for (let attempt = 0; attempt < 6; attempt += 1) {
             write.run(SPEC_USERS[spec], JSON.stringify({
@@ -383,6 +389,9 @@ export const clearServerQueue = async (spec: keyof typeof SPEC_USERS): Promise<v
                 updatedAt: Date.now(),
                 positionMs: 0
             }));
+
+            await setTimeout(40);
+            if (queued() !== 0) continue; // something landed — overwrite it and look again
 
             await setTimeout(40);
             if (queued() === 0) return;

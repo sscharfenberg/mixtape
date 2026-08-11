@@ -109,8 +109,17 @@ describe("ArtistPage", () => {
         resetInertia();
     });
 
-    it("titles the hero with the artist's name", () => {
+    it("heads the page with the artist's name", () => {
+        // In the <Headline> above the hero since 2026-08-11, not inside it — the level is
+        // what stayed put, since the wordmark in the app header is the document's only h1.
         expect(page().find("h2").text()).toBe("Radiohead");
+    });
+
+    it("offers a share button, since an artist is a thing somebody can be sent", () => {
+        // The positive half of the rule GenrePage.test.ts pins the negative half of. An
+        // artist has no download beside it — MixTape offers none — so this is the only
+        // control on the row under the panel.
+        expect(page().find(".share-button").exists()).toBe(true);
     });
 
     it("puts the artist's own name in the trail as a label, since it is data and not a key", () => {

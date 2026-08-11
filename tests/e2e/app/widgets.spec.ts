@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { stopQueueSync } from "../support/actions";
+import { pageHeading, stopQueueSync } from "../support/actions";
 import { clearServerQueue, specStorageState } from "../support/environment";
 
 /*
@@ -63,7 +63,7 @@ test.describe("the music widgets", () => {
         await entry.click();
 
         await page.waitForURL(new RegExp(`${href}$`, "u"));
-        await expect(page.locator(".hero-section__title").first()).toHaveText(name);
+        await expect(pageHeading(page)).toHaveText(name);
     });
 
     test("explains a pip through its tooltip, since the icon carries no words", async ({ page }) => {

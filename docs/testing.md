@@ -346,6 +346,26 @@ this is the record of *why* that code exists.
   thing to wait for. The player's geometry assertions were a coin flip until `openPopover`
   (`player.spec.ts`) started waiting for two identical boxes in a row: the same assertion failed by
   1.3px on one run and 2.9px on the next, against positioning code that had not changed.
+- **`page.close({ runBeforeUnload: true })` does NOT wait for the page to close** — Playwright's own
+  docs say so, and the default (`false`) is the one that "does not run any unload handlers and waits
+  for the page to be closed". `stopQueueSync` passed `true` in order to make the queue's flush happen
+  *inside the test that owned it*; what actually happened is that the flush fired at an unknowable
+  moment afterwards, often during the NEXT test's `beforeEach`. **And the server's stale-stamp guard
+  cannot refuse that one**, which is the half worth remembering: `flushQueueWrites` stamps
+  `updatedAt` with `Date.now()` at FLUSH time, not when the queue changed, so a flush that lands
+  after a reset carries a newer stamp than the reset did and wins. It surfaced on CI as the
+  reordering spec queueing three and the next test in the file counting five where it had queued two
+  — one failure in a 204-test run, in a test that touches none of it. Fixed by closing without unload
+  handlers, so the last breath never happens; `clearServerQueue` now also genuinely takes the two
+  clean reads its comment always claimed.
+- **A selector that exists on BOTH pages resolves before the navigation finishes.** `waitForURL`
+  returns when Inertia updates the address, which is *before* the component has swapped — so a
+  locator matching something the old page also has answers with the old page's copy. `pageHeading`
+  moved from `.hero-section__title` to `main h2` when four detail pages moved their titles into a
+  `<Headline>`, and every listing has an `<h2>` too: eleven specs failed at once, all of them looking
+  like the player had loaded the wrong track. Scope such a helper to something only the destination
+  can have (`main:has(.hero-section) h2`), which restores the wait the narrower selector gave for
+  free.
 
 ---
 

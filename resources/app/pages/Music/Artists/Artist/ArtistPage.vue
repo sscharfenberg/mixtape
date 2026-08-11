@@ -7,9 +7,13 @@
  * AlbumPage are: the detail view lives *inside* the listing it came from, mirroring
  * the URL.
  *
- * TWO blocks: the hero, holding the artist's name and the facts that describe their
- * catalogue — albums, songs, and what those files add up to in time and on disk — and
- * below it their catalogue itself, split across an ALBUMS and a SONGS tab.
+ * THREE blocks: the <Headline> naming the artist, the hero holding the facts that describe
+ * their catalogue — albums, songs, and what those files add up to in time and on disk — and
+ * below them the catalogue itself, split across an ALBUMS and a SONGS tab.
+ *
+ * THE NAME MOVED OUT OF THE HERO on 2026-08-11, with the other three Music detail pages, and
+ * the SubjectMenu popover in its heading became the visible SubjectActions row (play,
+ * enqueue, share) in #actions. SongPage's banner carries the reasoning for both.
  *
  * Each tab is its own component — the shared Discography and the page-local ArtistSongs — so this file
  * stays the page: the hero, the two tabs, and nothing about how either panel renders. The
@@ -44,12 +48,15 @@ import { useI18n } from "vue-i18n";
 import CoverSleeves from "Components/Music/CoverSleeves.vue";
 import Discography, { type DiscographyAlbum } from "Components/Music/Discography/Discography.vue";
 import PlayCountFacts from "Components/Music/PlayCountFacts.vue";
-import SubjectMenu from "Components/Music/SubjectMenu.vue";
+import ShareButton from "Components/Music/ShareButton.vue";
+import SubjectActions from "Components/Music/SubjectActions.vue";
 import AddToPlaylist from "Components/Playlists/AddToPlaylist.vue";
 import ActionPanel from "Components/UI/ActionPanel.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Container from "Components/UI/Container.vue";
+import Headline from "Components/UI/Headline.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
+import Icon from "Components/UI/Icon.vue";
 import TabbedNavigation, { type TabDefinition } from "Components/UI/TabbedNavigation/TabbedNavigation.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import { useTabParam } from "Composables/useTabParam";
@@ -158,6 +165,12 @@ const tabs = computed<TabDefinition[]>(() => [
 
 <template>
     <Head :title="artist.name" />
+    <!-- Outside the Container like every other page heading — its glowing border has to
+         reach the window edge so the seam hides off-screen (see Container). -->
+    <headline glow>
+        <icon name="artist" :size="3" />
+        {{ artist.name }}
+    </headline>
     <container>
         <div class="artist">
             <!-- `unframed-cover`: the fan is a fixed size, so the hero's cover square would
@@ -165,14 +178,9 @@ const tabs = computed<TabDefinition[]>(() => [
             <hero-section unframed-cover>
                 <!-- Not a photograph, but where one would be — see the banner. -->
                 <template #cover><cover-sleeves :covers="covers" :title="artist.name" scale="hero" /></template>
-                <!-- The page's heading lives here rather than in a <Headline>, as on the song
-                     and album pages: the hero sets the type, the level is ours. -->
-                <template #title
-                    ><h2>{{ artist.name }}</h2></template
-                >
-                <!-- Play or enqueue the whole subject. Pinned to the far end of the
-                     heading line by the hero, not by anything here. -->
-                <template #menu><subject-menu subject="artist" /></template>
+                <!-- No #title and no #menu: the name heads the page in the <Headline> above,
+                     and the two verbs that were behind the menu are visible buttons in
+                     #actions now (2026-08-11 — see the banner). -->
                 <!-- The facts about the catalogue rather than about any one file. Only the
                      genre can be absent, and then its tile is skipped rather than reading
                      "unknown" — the counts always exist, 0 included, because 0 is an
@@ -198,16 +206,18 @@ const tabs = computed<TabDefinition[]>(() => [
                          listened to comes after what the artist IS. See PlayCountFacts. -->
                     <play-count-facts :plays="plays" subject="artist" />
                 </template>
-                <!-- Under the facts, because it acts on the thing they have just identified —
-                     and separate from the `#menu` above, which is for PLAYING it. The server
-                     decides which playlists may be offered; this only draws them. -->
+                <!-- Under the facts, because everything here acts on the thing they have just
+                     identified. Two rows, as on the song and album pages: what a reader came
+                     for, then what takes the artist somewhere else — which here is sharing
+                     alone, since MixTape offers no artist download. -->
                 <template #actions>
-                    <!-- The ActionPanel is the tinted box this control used to draw itself,
-                         and is here for the same look — an artist has no file to download, so
-                         it stands alone in it. -->
+                    <!-- The ActionPanel is the tinted box the playlist control used to draw
+                         itself, and is here for the same look. -->
                     <action-panel>
                         <add-to-playlist subject="artist" :subject-id="artist.id" :addable="addablePlaylists" />
+                        <subject-actions />
                     </action-panel>
+                    <share-button subject="artist" :subject-id="artist.id" />
                 </template>
             </hero-section>
 

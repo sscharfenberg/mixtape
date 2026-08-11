@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { pageHeading } from "../support/actions";
 
 /*
  * Downloading a song and a whole album, from the hero of their own pages.
@@ -54,7 +55,7 @@ test.describe("downloading", () => {
     test("an album arrives as a zip named after the record", async ({ page }) => {
         await openFirstRow(page, "/music/albums");
 
-        const heading = await page.locator(".hero-section__title").first().innerText();
+        const heading = await pageHeading(page).innerText();
         const download = page.waitForEvent("download");
 
         await page.locator(".download-button").click();

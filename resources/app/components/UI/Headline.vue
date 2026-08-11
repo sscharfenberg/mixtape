@@ -10,6 +10,17 @@
  * underline; `align` ("left" default / "right") picks which edge the tab hugs
  * via the base vs `--right` glowing-border variant. All styling comes from the
  * contextual tokens (c.$c-headline / s.$c-headline / t.$c-headline).
+ *
+ * THE DEFAULT SLOT IS WRAPPED IN ONE ELEMENT (`.headline__content`), which is
+ * not tidiness — it is the fix for a long title dropping BELOW its own icon
+ * (2026-08-11, found on a song whose name runs to four slash-separated clauses).
+ * The heading is a WRAPPING flex row, and flex collects items into lines by
+ * their max-content size: an unwrapped title is an anonymous flex item, so a
+ * name wider than the row was pushed onto a line of its own before it ever got
+ * the chance to shrink and wrap inside one. The wrapper takes `flex-basis: 0`,
+ * so it always fits on the first line, and wraps its own text internally — the
+ * icon stays beside it. The `#right` slot keeps the heading's own wrap, which
+ * is what lets a badge drop below on a phone.
  *****************************************************************************/
 withDefaults(
     defineProps<{
@@ -36,7 +47,7 @@ withDefaults(
         :id="anchorId"
         :class="{ 'glowing-border': glow, 'glowing-border--right': glow && align === 'right' }"
     >
-        <slot />
+        <span class="headline__content"><slot /></span>
         <span v-if="$slots.right" class="right"><slot name="right" /></span>
     </h2>
     <h3
@@ -44,7 +55,7 @@ withDefaults(
         :id="anchorId"
         :class="{ 'glowing-border': glow, 'glowing-border--right': glow && align === 'right' }"
     >
-        <slot />
+        <span class="headline__content"><slot /></span>
         <span v-if="$slots.right" class="right"><slot name="right" /></span>
     </h3>
     <h4
@@ -52,7 +63,7 @@ withDefaults(
         :id="anchorId"
         :class="{ 'glowing-border': glow, 'glowing-border--right': glow && align === 'right' }"
     >
-        <slot />
+        <span class="headline__content"><slot /></span>
         <span v-if="$slots.right" class="right"><slot name="right" /></span>
     </h4>
 </template>
@@ -75,6 +86,41 @@ h4 {
 
     font-family: t.$c-headline;
     font-weight: 200;
+}
+
+/* The heading's own content — an icon and a title, or just a title — held as ONE flex item so
+   a long title cannot be pushed onto a line of its own. See the component banner for the
+   mechanism. What each declaration is actually doing:
+
+   EXISTING AT ALL is the fix. The icon and the title are flex items of THIS box, which does
+   not wrap, so the title shrinks and wraps its own text rather than being moved off the line.
+   Unwrapped they were items of the heading, which wraps on purpose — and flex collects items
+   into lines by their max-content size, so a title wider than the row went below the icon
+   before it was ever given the chance to shrink. Verified by taking the wrapper back out and
+   watching browse.spec's heading test fail.
+
+   `flex: 1 1 0` — a flex-basis of ZERO, so this item's hypothetical main size is 0. That
+   changes nothing when it is alone (the first item on a line is collected whether it fits or
+   not) and everything when a `#right` badge is present: at `auto` the title's max-content
+   would push that badge onto a second line at every width a long title happens to have.
+
+   `min-width: 0` — a flex item's automatic minimum is its min-content size, so without this a
+   single unbreakable word longer than the row would push the box wider than the heading. */
+.headline__content {
+    display: flex;
+    align-items: center;
+
+    min-width: 0;
+    flex: 1 1 0;
+
+    gap: 0.5ch;
+
+    /* The icon keeps its declared square. It is a flex item now — it was one of the heading's
+       own before, but never had to survive sharing a line with a title that wanted the whole
+       row — and the default `flex-shrink: 1` would let a long title squash it. */
+    > :slotted(.icon) {
+        flex: none;
+    }
 }
 
 // The underline is the default decoration; when `glow` dresses the heading as a

@@ -81,15 +81,26 @@ export const clockToSeconds = (clock: string): number =>
         .reduce((total, part) => total * 60 + part, 0);
 
 /**
- * The page's own heading — the title in its hero, not the wordmark the app header carries.
+ * A DETAIL page's own heading — what the page is about, not the wordmark in the app header.
  *
- * Matched by the hero's own wrapper rather than by heading LEVEL, which is what this used to
- * do (`main h1, .song h1, .genre h1`) and which broke the day the level changed: the wordmark
- * is the document's `<h1>`, so hero titles became `<h2>` (2026-08-06). The wrapper is the
- * stable fact — whatever level a page passes, the hero puts it here — and it keeps the helper
- * out of the business of knowing the outline.
+ * The first `<h2>` inside `<main>`, which is the page title because the wordmark is the
+ * document's only `<h1>` (browse.spec pins exactly that). It covers all three shapes a detail
+ * page comes in: the <Headline> the four Music pages moved their titles into on 2026-08-11,
+ * and the hero title the playlist and Now Playing pages still carry.
+ *
+ * `:has(.hero-section)` IS THE PART THAT MAKES IT USABLE, and it is not decoration. Every
+ * caller navigates from a LISTING and then reads this — and a listing has an `<h2>` of its
+ * own, the "Songs" / "Alben" headline. Matching `main h2` alone therefore resolved against
+ * the page being left behind: `waitForURL` returns when Inertia updates the address, which is
+ * before the component has swapped, so the helper answered "Songs" where a song's title was
+ * expected. Requiring the hero — which only the destination has — is what restores the wait
+ * that the old `.hero-section__title` selector used to provide for free. It cost eleven
+ * failing specs to find, all of them looking like the player had loaded the wrong track.
+ *
+ * The corollary: this is for detail pages only. A listing's own headline is not reachable
+ * through it, and nothing needs it to be.
  */
-export const pageHeading = (page: Page) => page.locator(".hero-section__title").first();
+export const pageHeading = (page: Page) => page.locator("main:has(.hero-section) h2").first();
 
 /** Wait until the DataTable has settled on the given page number. */
 export const expectOnTablePage = async (page: Page, pageNumber: number): Promise<void> => {
@@ -198,18 +209,18 @@ const dismissQueuePeek = async (page: Page): Promise<void> => {
 };
 
 /**
- * Enqueue the subject of the page currently open, through the hero menu.
+ * Enqueue the subject of the Music detail page currently open, from its hero.
  *
- * SHARED BY THREE SPECS, and copied into each of them until the peek arrived: the queue, the
+ * SHARED BY FIVE SPECS, and copied into each of them until the peek arrived: the queue, the
  * player and the shortcuts all begin by putting a song in the queue, and all three then had to
  * learn the same thing about what an enqueue leaves on screen. One copy now, so the next change
  * to that starting state is made once.
  *
- * The lone "enqueue" Button in the hero's #actions is gone (2026-08-06): the SubjectMenu in
- * the heading offers both verbs, so a button offering one was redundant. Every spec that used
- * to press it now opens the menu and picks the second item — which is also the path a reader
- * takes. Scoped to `.hero-section__menu`, because the site menu, the user menu, the queue menu
- * and the player settings all use `.popover-list-item` too.
+ * TWO REWRITES, WHICH IS THE POINT OF IT LIVING HERE. It pressed a lone "enqueue" Button in the
+ * hero's #actions until 2026-08-06, then opened the SubjectMenu popover and picked its second
+ * item, and since 2026-08-11 presses a visible button again — the four Music heroes gave the
+ * popover up for a row of them (SubjectActions). The playlist page still wears the menu, which
+ * is why this helper is about the MUSIC heroes and says so.
  *
  * IT LEAVES THE PANEL SHUT — see `dismissQueuePeek` for what that saves. Pass `keepPeek` only
  * to watch the peek itself.
@@ -218,14 +229,13 @@ const dismissQueuePeek = async (page: Page): Promise<void> => {
  * @param options  `keepPeek` leaves the peek on screen, for the one test that asserts it
  */
 export const enqueueFromHero = async (page: Page, options: { keepPeek?: boolean } = {}): Promise<void> => {
-    // WAITED FOR, because enqueuing from the hero is asynchronous where the old button was
-    // not: the menu asks the server for the subject's tracks (an optional Inertia prop), so
-    // the queue grows a round trip after the click. Without this a caller reads the queue —
-    // or the transport's disabled states — before the tracks have landed.
+    // WAITED FOR, because enqueuing from the hero is asynchronous where the very first version
+    // of this button was not: it asks the server for the subject's tracks (an optional Inertia
+    // prop), so the queue grows a round trip after the click. Without this a caller reads the
+    // queue — or the transport's disabled states — before the tracks have landed.
     const before = await page.locator(".play-queue__row").count();
 
-    await page.locator(".hero-section__menu .popover-button").click();
-    await page.locator(".hero-section__menu .popover-list-item").nth(1).click();
+    await page.locator(".subject-actions__enqueue").click();
     await expect(page.locator(".play-queue__row")).toHaveCount(before + 1);
 
     if (!options.keepPeek) await dismissQueuePeek(page);
@@ -241,14 +251,28 @@ export const enqueueFromHero = async (page: Page, options: { keepPeek?: boolean 
  * exactly as confusing as it sounds. Worse, it is a race: it fails on some runs and not
  * others, and never in the file it belongs to.
  *
- * Two steps, and the ORDER is the whole trick. The route is installed first, so the browser
- * has somewhere to drop the request; then the page is closed with `runBeforeUnload`, which
- * makes the flush happen HERE — awaited, inside the test that owns it — rather than at some
- * unknowable moment during teardown. What the context teardown then unloads is nothing.
+ * THE PAGE IS CLOSED WITHOUT RUNNING UNLOAD HANDLERS, so the flush never happens at all.
+ * That is the opposite of what this did until 2026-08-11, when it passed `runBeforeUnload:
+ * true` in order to make the flush happen "here, awaited, inside the test that owns it" —
+ * which Playwright does not do: `runBeforeUnload: true` runs the handlers but, per its own
+ * docs, "will NOT wait for the page to close", where the default "does not run any unload
+ * handlers and waits for the page to be closed". So the flush fired at some unknowable
+ * moment after this returned.
+ *
+ * THAT IS ALSO WHY THE SERVER'S STALE-STAMP GUARD DID NOT CATCH IT, which is the part worth
+ * remembering: `flushQueueWrites` stamps `updatedAt` with `Date.now()` AT FLUSH TIME, not
+ * when the queue changed. A flush that fires after the next test's reset therefore carries a
+ * NEWER stamp than the reset did, so PlayerStatePayload::store accepts it — the one write
+ * the whole "last write wins" rule cannot refuse. It cost a red CI run on 2026-08-11: the
+ * reordering spec queued three, and the next test in the file counted five where it had
+ * queued two.
+ *
+ * The route abort stays, and is now only about a request already in flight when this runs —
+ * one of those carries a stamp from BEFORE the reset, so the server would refuse it anyway.
  */
 export const stopQueueSync = async (page: Page): Promise<void> => {
     await page.route("**/player/state", route => route.abort());
-    await page.close({ runBeforeUnload: true });
+    await page.close();
 };
 
 /**

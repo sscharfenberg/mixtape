@@ -1,0 +1,15 @@
+/******************************************************************************
+ * contextual typography tokens — component:share-modal
+ * @type {Sass}
+ * the share link field (Components/Music/ShareModal). monospaced, for the same
+ * named reason a `mono` facts row is: the value is data to be read character by
+ * character — a reader checks the domain and the id before sending it on — and a
+ * proportional face makes an l and a 1 the same shape.
+ * consumed as t.$c-share-modal via `@use "Abstracts/typography" as t;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-typography-tokens" as t;
+
+$share-modal: (
+    "link": map.get(t.$font, "mono")
+) !default;

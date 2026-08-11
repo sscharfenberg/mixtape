@@ -4,9 +4,15 @@ Play one song, album, audiobook, artist or playlist **without an account** — "
 sent to family and friends. This is the headline use case of an internet-facing instance
 ([`app-rewrite.md`](app-rewrite.md) → _Authentication & access model_).
 
-**Designed 2026-08-10, not yet built.** This file is the plan, written before the code the way
-[`now-playing.md`](now-playing.md) was, and meant to be kept afterwards as the record of why the
-shape is what it is.
+**Designed 2026-08-10; MINTING built 2026-08-11.** This file is the plan, written before the code the
+way [`now-playing.md`](now-playing.md) was, and kept afterwards as the record of why the shape is
+what it is.
+
+What exists today is the row and the button that creates it: a signed-in reader presses **share** in
+a song / album / artist hero, the server mints (or re-hands) a link, and a modal explains what
+handing it out means and copies it on click. **Nothing serves `/s/{share}` yet**, so a minted link is
+a real, revocable capability with no page behind it — and "revoke it from your dashboard", which the
+modal promises, is likewise still to come. Both are the next two rows of the table below.
 
 Read alongside:
 
@@ -16,15 +22,17 @@ Read alongside:
 
 ## Status
 
-| Piece                                    | State                                                     |
-| ---------------------------------------- | --------------------------------------------------------- |
-| `shares` table + model                   | ⬜ planned                                                 |
-| The `/s/{share}` route space             | ⬜ planned                                                 |
-| Guest page (`Share/SharePage.vue`)       | ⬜ planned                                                 |
-| Minting from a detail page's ActionPanel | ⬜ planned                                                 |
-| "My shares" dashboard subpage            | ⬜ planned                                                 |
+| Piece                                    | State                                                      |
+| ---------------------------------------- | ---------------------------------------------------------- |
+| `shares` table + model                   | ✅ built 2026-08-11                                        |
+| Minting (`POST /shares`) + the modal     | ✅ built 2026-08-11                                        |
+| The `/s/{share}` route space             | ⬜ planned — **next**                                      |
+| Guest page (`Share/SharePage.vue`)       | ⬜ planned — **next**                                      |
+| "My shares" dashboard subpage            | ⬜ planned — the modal already promises it                 |
 | Pruning expired rows                     | ⬜ planned                                                 |
-| Audiobook shares                         | ⬜ blocked — the Audiobooks area is still a placeholder    |
+| Playlist shares                          | ⬜ deferred by the owner — the FK exists, the enum case does not |
+| Audiobook shares                         | ⬜ blocked — the Audiobooks area is still a placeholder     |
+| Genre shares                             | ❌ never — see *Known edges*                               |
 
 ## What a share is
 
@@ -197,11 +205,39 @@ Two consequences of that reuse to get right:
 
 ## Minting, and "My shares"
 
-**Minting** is a button on the existing detail pages, in the `ActionPanel` that was factored out for
-the download button ([`app-rewrite.md`](app-rewrite.md) → _Downloads_). Any signed-in user may mint
-one for any library subject — everyone can see the whole library, so there is nothing to protect —
-**except a playlist, which only its owner may share.** That check belongs in the mint request's
-`authorize()`, answering 404.
+**Minting** is a button on the existing detail pages. Any signed-in user may mint one for any
+library subject — everyone can see the whole library, so there is nothing to protect — **except a
+playlist, which only its owner may share.** That check belongs in the mint request's `authorize()`,
+answering 404; it is unwritten because playlist shares are deferred, and `ShareSubject` having no
+`Playlist` case is what makes its absence safe rather than an omission.
+
+### What minting turned out to be (built 2026-08-11)
+
+Three departures from the sketch above, each decided while building:
+
+- **It is a row of BUTTONS, not a control in the `ActionPanel`.** The plan assumed the tinted panel
+  the download button lives in. In the event the four Music heroes also gave up their popover menu
+  (`SubjectMenu`) and their title, so play / enqueue / share became one row of primary buttons under
+  that panel — `SubjectActions`. The split is what each row is about: the panel is what a reader does
+  with their own library (file it in a playlist, keep a copy), the row is what they do with the music.
+- **`POST /shares` answers JSON, not a redirect.** The reader is not navigating; they want a string
+  to look at. An Inertia visit would re-render a page carrying a hero, a table and a queue to deliver
+  one URL — and on a page with an open form that swap is the documented way to lose what was typed
+  ([`../CLAUDE.md`](../CLAUDE.md) → prefetch). So it is a plain `fetch` with the CSRF token sent by
+  hand, exactly like `useDeleteAccount` and the queue's own sync.
+- **A second press hands back the first link.** Not in the plan, and it matters more than it looks:
+  if re-sharing minted a new row, "My shares" would become a list of presses rather than of things
+  shared — and if it instead *extended* the existing one, a link re-sent every few days would never
+  expire and the seven-day rule would be a rule about nothing. So the reader's own live link for that
+  subject is returned unchanged, expiry included. Scoped to the reader, so two users sharing one
+  album get a link each and neither can revoke the other's.
+
+The modal says three things, in this order: **when the link dies** (formatted from the raw instant in
+the reader's locale), **that it can be revoked early from the dashboard**, and **that whoever holds it
+can listen without an account**. The last one is the honest note — forwarding is not preventable, so
+a reader should read it once, before pasting the link into a chat window, which is the whole reason
+this is a dialog rather than a line of text beside the button. The link sits in a readonly field that
+**copies on click** (and on focus, so a keyboard reaches it).
 
 **Sharing does not chain** — not because a check forbids it, but because there is no mint route inside
 `/s/`. Worth stating plainly, though: **the link itself can always be forwarded.** A bearer capability
@@ -242,11 +278,20 @@ The usual three ([`testing.md`](testing.md)), and the split here is unusually cl
   share stops working, that a revoked one is gone, that a non-owner cannot share a playlist, that
   **neither download route has a counterpart under `/s/`**, that no play row is written for a guest,
   and — the artist trap — that the page's props and the stream guard describe the same set.
-- **Vitest** has little to do, which is the sign the design is right: the share page's queue entries
-  are ordinary `PersistedTrack`s with overrides, and the override behaviour is already covered.
-- **Playwright** takes the journey no other layer can see: a **signed-out** browser opens a share
-  link and plays audio under the shipped CSP. That is the whole feature in one spec, and the guest
-  case makes it one of the few E2E tests that belongs in `tests/e2e/guest/`.
+- **Vitest** has little to do on the guest side, which is the sign the design is right: the share
+  page's queue entries are ordinary `PersistedTrack`s with overrides, and the override behaviour is
+  already covered. It does own the two things about MINTING that PHP cannot see — the modal
+  formatting the expiry in the reader's locale, and the failure branches of `useShareLink` (a mint
+  that fails must leave `link` null, or the modal opens on an empty field somebody then copies).
+- **Playwright** takes the journeys no other layer can see. Two of them, and only the first exists:
+  minting from a hero and **copying out of the field** (happy-dom has no clipboard, so nothing below
+  this layer can prove a click really copies — `tests/e2e/app/share.spec.ts`); and, once `/s/` is
+  built, a **signed-out** browser opening a share link and playing audio under the shipped CSP. The
+  guest case makes that second one of the few E2E tests that belongs in `tests/e2e/guest/`.
+
+What shipped: `tests/Feature/Shares/CreateShareTest.php`, `resources/app/composables/useShareLink.test.ts`,
+`resources/app/components/Music/ShareModal.test.ts`, `resources/app/components/Music/SubjectActions.test.ts`,
+and `tests/e2e/app/share.spec.ts`.
 
 ## Known edges, and what is deliberately absent
 
@@ -254,8 +299,16 @@ The usual three ([`testing.md`](testing.md)), and the split here is unusually cl
   placeholder. The schema covers them for free — one `collection_id` FK, since `collections` already
   discriminates album from audiobook — so this switches on with the Audiobooks area and needs no
   migration.
-- **No genre shares.** `PlaylistSubject` has a `Genre` case and the mapping would be free, but it was
-  not asked for, and "listen to this genre" is a different kind of act from "listen to this".
+- **No genre shares**, confirmed by the owner on 2026-08-11. `PlaylistSubject` has a `Genre` case and
+  the mapping would be free, but "listen to this genre" is a different kind of act from "listen to
+  this" — a share hands over one thing somebody chose to send, and a genre is a shelf. `ShareSubject`
+  therefore has no genre case, and the genre hero renders no share button: the absence is stated in
+  both halves rather than left to a rule that would 422 a button nobody should have seen.
+- **No playlist shares yet**, deferred the same day. `shares.playlist_id` exists — the column was
+  created with the others so the four-way CHECK was written once, rather than dropping and re-adding
+  it on a live table later — but there is no enum case and so no way to mint one. It is the one
+  subject that would need an ownership check, since a playlist belongs to one user where the library
+  belongs to everybody.
 - **No per-link expiry, and no never-expiring link.** `app-rewrite.md` offered both until 2026-08-10.
   One rule is easier to reason about, and a link that never dies is the one that eventually leaks.
 - **No view counts, no "who opened it".** Guest listens are not recorded at all (`plays.user_id`

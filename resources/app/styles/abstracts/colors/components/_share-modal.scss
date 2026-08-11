@@ -1,0 +1,32 @@
+/******************************************************************************
+ * contextual color tokens — component:share-modal
+ * @type {Sass}
+ * two decisions, both about the modal that hands out a share link
+ * (Components/Music/ShareModal).
+ *
+ * "copied" is the acknowledgement under the link field. it takes the SUCCESS ink rather
+ * than a colour of its own, because it is the same answer the row's check indicator gives
+ * one line above it — two colours saying "that worked" would read as two different
+ * outcomes.
+ *
+ * "expires-background" sits behind the DATE inside the legend's expiry sentence. subtle on
+ * purpose: it is a highlight, not a badge — the sentence has to keep reading as a sentence,
+ * and the one word a reader will come back for is when the link dies. an opacity-only tweak
+ * on a palette grey, which is the only maths CLAUDE.md allows on a global colour; the ink
+ * stays the legend's own, so nothing here has to keep a contrast pair in step.
+ *
+ * consumed as c.$c-share-modal via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$share-modal: (
+    "copied": light-dark(map.get(c.$state, "light", "success", "color"), map.get(c.$state, "dark", "success", "color")),
+    // Darker on light, lighter on dark — the tint is the same idea both ways round, and each
+    // side has to move AWAY from the legend's own fill to be seen at all.
+    "expires-background": light-dark(
+            color.adjust(map.get(c.$grey, "slate"), $alpha: -0.78),
+            color.adjust(map.get(c.$grey, "fog"), $alpha: -0.85)
+        )
+) !default;

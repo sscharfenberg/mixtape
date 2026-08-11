@@ -1,0 +1,19 @@
+/******************************************************************************
+ * contextual size tokens — component:share-modal
+ * @type {Sass}
+ * The tinted date inside the expiry sentence (Components/Music/ShareModal): how far its
+ * ground is rounded.
+ *
+ * The smallest rung on the shared scale, which is what keeps it a HIGHLIGHT rather than a
+ * badge — the sentence around it has to keep reading as a sentence, and a pill in the middle
+ * of a line breaks it. There is no padding token beside it: the inline inset is expressed in
+ * `ch` at the call site, because it is measured against the text it hugs rather than against
+ * the app's spacing scale.
+ * Consumed as s.$c-share-modal via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$share-modal: (
+    "expires-radius": map.get(s.$radius, "base")
+) !default;

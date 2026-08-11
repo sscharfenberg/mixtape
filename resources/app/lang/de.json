@@ -346,6 +346,22 @@
             "song": "MP3 herunterladen",
             "album": "Album als ZIP laden"
         },
+        "subjectActions": {
+            "play": "Abspielen",
+            "enqueue": "Warteschlange"
+        },
+        "share": {
+            "button": "Teilen",
+            "header": "Link zum Mithören",
+            "linkLabel": "Link",
+            "expires": "Der Link funktioniert bis {date}.",
+            "revoke": "Du kannst ihn jederzeit im Dashboard vorzeitig widerrufen.",
+            "bearer": "Wer den Link hat, kann mithören – ganz ohne Konto. Gib ihn nur an Leute weiter, denen du vertraust.",
+            "copyHint": "Klick ins Feld, um den Link zu kopieren.",
+            "copied": "Kopiert.",
+            "failed": "Der Link konnte nicht erstellt werden.",
+            "tooMany": "Zu viele Links in kurzer Zeit. Versuch es gleich noch einmal."
+        },
         "artist": {
             "tabs": {
                 "label": "Alben und Songs des Künstlers"

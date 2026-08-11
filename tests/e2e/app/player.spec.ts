@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { enqueueFromHero, openQueuePanel, stopQueueSync } from "../support/actions";
+import { enqueueFromHero, openQueuePanel, pageHeading, stopQueueSync } from "../support/actions";
 import { clearServerQueue, specStorageState } from "../support/environment";
 
 /*
@@ -91,7 +91,7 @@ const enqueueSongs = async (page: Page, count: number): Promise<string[]> => {
         await page.goto("/music/songs");
         await page.locator("tbody tr").nth(row).click();
         await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
-        titles.push(await page.locator(".hero-section__title").first().innerText());
+        titles.push(await pageHeading(page).innerText());
         await enqueueFromHero(page);
     }
 

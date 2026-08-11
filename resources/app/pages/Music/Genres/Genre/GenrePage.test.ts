@@ -131,6 +131,19 @@ describe("GenrePage", () => {
         expect(page().find("h2").text()).toBe("Alternative Rock");
     });
 
+    it("offers no share button, unlike the other three detail pages", () => {
+        // The owner's call (2026-08-11): "listen to this genre" is a different kind of act
+        // from "listen to this" — a share hands over one thing somebody chose to send, and a
+        // genre is a shelf. App\Enums\ShareSubject has no genre case either, so the server
+        // would refuse one; a button that always 422s would be the worse half of that
+        // agreement. The two verbs beside it stay, so this is an absence, not a broken row.
+        const wrapper = page();
+
+        expect(wrapper.find(".share-button").exists()).toBe(false);
+        expect(wrapper.find(".subject-actions__play").exists()).toBe(true);
+        expect(wrapper.find(".subject-actions__enqueue").exists()).toBe(true);
+    });
+
     it("declares a trail whose parent is the listing this row came from", () => {
         page();
 

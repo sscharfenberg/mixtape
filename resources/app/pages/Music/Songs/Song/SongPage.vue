@@ -10,22 +10,24 @@
  * the URL: the detail view lives *inside* the listing it came from, the same way
  * `music.songs.show` sits under `music.songs`.
  *
- * Two blocks, both shared components this page only fills in: the HeroSection (its
- * cover, title and metadata line handed over as slots), then every stored fact about
- * the file, grouped into cards by what kind of fact it is — the tags, its place in the
- * album, how it was encoded, the file on disk. The controller sends raw values and the
- * formatting happens here, with the active locale — sizes, rates and dates all read
+ * Three blocks, all shared components this page only fills in: the <Headline> that names
+ * the song, the HeroSection (its cover and metadata line handed over as slots), then every
+ * stored fact about the file, grouped into cards by what kind of fact it is — the tags, its
+ * place in the album, how it was encoded, the file on disk. The controller sends raw values
+ * and the formatting happens here, with the active locale — sizes, rates and dates all read
  * differently per language; Facts groups the finished pairs and lays them out.
  *
- * The page has no <Headline>: its title lives in the hero next to the cover, which
- * is what makes that first row read as one unit instead of a caption under a
- * banner.
+ * THE TITLE MOVED OUT OF THE HERO on 2026-08-11 (the owner's call, made for all four Music
+ * detail pages at once). It used to sit beside the cover, on the grounds that the pair read
+ * as one unit; it now heads the page in the same glowing <Headline> every listing wears, so
+ * arriving at a song looks like arriving anywhere else in the app — and the hero is left to
+ * do the one thing only it can, which is show the artwork and the facts.
  *
- * The hero's own controls are the SubjectMenu in its heading (play this song, or
- * queue it) — which replaced a lone "enqueue" Button in #actions on 2026-08-06, since
- * the menu offers both verbs and the button only ever offered one. Play history and the
- * clone list ("also appears in N other places") are still to come — see
- * docs/app-rewrite.md.
+ * The hero's controls are SubjectActions in its #actions row: play, enqueue, share. That
+ * replaced the SubjectMenu popover in the heading on the same day, and for the same reason
+ * the title moved — a page's two most likely actions should not be hidden behind a "…".
+ * Play history and the clone list ("also appears in N other places") are still to come —
+ * see docs/app-rewrite.md.
  *****************************************************************************/
 import { Head } from "@inertiajs/vue3";
 import { computed } from "vue";
@@ -33,13 +35,16 @@ import { useI18n } from "vue-i18n";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import DownloadButton from "Components/Music/DownloadButton.vue";
 import PlayCountFacts from "Components/Music/PlayCountFacts.vue";
-import SubjectMenu from "Components/Music/SubjectMenu.vue";
+import ShareButton from "Components/Music/ShareButton.vue";
+import SubjectActions from "Components/Music/SubjectActions.vue";
 import AddToPlaylist from "Components/Playlists/AddToPlaylist.vue";
 import ActionPanel from "Components/UI/ActionPanel.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Facts, { type Fact } from "Components/UI/Card/Facts.vue";
 import Container from "Components/UI/Container.vue";
+import Headline from "Components/UI/Headline.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
+import Icon from "Components/UI/Icon.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import type { SongDetail } from "Types/music";
 import { formatClock, formatDateTime, formatDecimals, formatFileSize, formatPosition } from "Utils/formatting";
@@ -65,9 +70,9 @@ const props = defineProps<{
 
 const { t, locale } = useI18n();
 const { setBreadcrumbs } = useBreadcrumbs();
-// The song's own crumb is a raw label, not a key — its title is data, and it is
-// the page's only heading in the trail (the hero carries it visually instead of
-// a Headline, see the note above).
+// The song's own crumb is a raw label, not a key — its title is data. It repeats
+// the <Headline> below rather than standing in for it: the trail says where you
+// are in the app, the heading says what you are looking at.
 setBreadcrumbs([
     { labelKey: "header.siteMenu.music", href: "/music", icon: "music" },
     { labelKey: "music.widgets.songs", href: "/music/songs", icon: "song" },
@@ -291,6 +296,14 @@ const songFacts = computed<Fact[]>(() => {
 
 <template>
     <Head :title="song.name" />
+    <!-- The page's heading, in the same glowing frame every listing wears — and OUTSIDE the
+         Container on purpose, like theirs: the glowing border has to reach the window edge
+         so its seam hides off-screen (see Container). The song's own name rather than a
+         translated word, because it is data. -->
+    <headline glow>
+        <icon name="song" :size="3" />
+        {{ song.name }}
+    </headline>
     <container>
         <div class="song">
             <hero-section>
@@ -302,15 +315,9 @@ const songFacts = computed<Fact[]>(() => {
                 <template #cover>
                     <cover-image :src="song.coverUrl" :title="coverAlt" size="xlarge" />
                 </template>
-                <!-- The page's heading lives here rather than in a <Headline>: beside the cover
-                     it reads as one unit with the artwork instead of a caption under a
-                     banner. HeroSection sets the type; the level is ours to choose. -->
-                <template #title
-                    ><h2>{{ song.name }}</h2></template
-                >
-                <!-- Play or enqueue the whole subject. Pinned to the far end of the
-                     heading line by the hero, not by anything here. -->
-                <template #menu><subject-menu subject="song" /></template>
+                <!-- No #title and no #menu: the name heads the page in the <Headline> above,
+                     and the two verbs that were behind the menu are visible buttons in
+                     #actions now (2026-08-11 — see the banner). -->
                 <!-- The same three facts the cards below repeat, as the hero's own tiles:
                      up here they are what identifies the song, down there they are part of
                      its full tag set. FactPair is the facts' own tile, so the two agree by
@@ -349,18 +356,22 @@ const songFacts = computed<Fact[]>(() => {
                          PlayCountFacts, shared with the artist / genre / album heroes. -->
                     <play-count-facts :plays="plays" subject="song" />
                 </template>
-                <!-- Under the facts, because they act on the thing those facts have just
-                     identified — and separate from the `#menu` above, which is for PLAYING the
-                     song. Both stand in one ActionPanel: the tinted box is the hero's action
-                     AREA, not the playlist control's own (see that component). The server
-                     decides which playlists may be offered; this only draws them, and the
-                     download sits at the trailing edge — the one action here that takes the
-                     song somewhere off this app entirely. -->
+                <!-- Under the facts, because everything here acts on the thing those facts
+                     have just identified. TWO ROWS, split by how likely a reader is to press
+                     them: the tinted ActionPanel holds what they came for — play it, queue
+                     it, file it in a playlist — and under it stand the two actions that take
+                     the song somewhere ELSE, off this app entirely. The server decides which
+                     playlists may be offered; this only draws them.
+
+                     The panel is full-width, so the second row wraps below it on the hero's
+                     own action flow rather than needing a wrapper of its own. -->
                 <template #actions>
                     <action-panel>
                         <add-to-playlist subject="song" :subject-id="song.id" :addable="addablePlaylists" />
-                        <download-button subject="song" :href="song.downloadUrl" />
+                        <subject-actions />
                     </action-panel>
+                    <download-button subject="song" :href="song.downloadUrl" />
+                    <share-button subject="song" :subject-id="song.id" />
                 </template>
             </hero-section>
             <facts :facts="songFacts" wide-groups />

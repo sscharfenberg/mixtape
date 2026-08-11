@@ -6,11 +6,14 @@
  * the same reason SongPage is: the detail view lives *inside* the listing it came
  * from, mirroring the URL.
  *
- * Two blocks: the HeroSection identifies the album — its art, its title, and the
- * handful of facts that describe the container rather than any one file — and below it
- * the album's TRACK LISTING in the server-driven DataTable, which is what the page is
- * for. Only the play/queue controls are still missing, and they wait for the player
- * (docs/app-rewrite.md).
+ * Three blocks: the <Headline> naming the record, the HeroSection that identifies it — its
+ * art and the handful of facts that describe the container rather than any one file — and
+ * below them the album's TRACK LISTING in the server-driven DataTable, which is what the
+ * page is for.
+ *
+ * THE TITLE MOVED OUT OF THE HERO on 2026-08-11, with the other three Music detail pages,
+ * and the SubjectMenu popover in its heading became the visible SubjectActions row (play,
+ * enqueue, share) in #actions. SongPage's banner carries the reasoning for both.
  *
  * The track rows are clickable: each carries the song's detail URL as `href`, so a row
  * click / card tap goes to the song, and the title cell renders that same URL as a real
@@ -33,12 +36,15 @@ import DataTable from "Components/DataTable/DataTable.vue";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import DownloadButton from "Components/Music/DownloadButton.vue";
 import PlayCountFacts from "Components/Music/PlayCountFacts.vue";
-import SubjectMenu from "Components/Music/SubjectMenu.vue";
+import ShareButton from "Components/Music/ShareButton.vue";
+import SubjectActions from "Components/Music/SubjectActions.vue";
 import AddToPlaylist from "Components/Playlists/AddToPlaylist.vue";
 import ActionPanel from "Components/UI/ActionPanel.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Container from "Components/UI/Container.vue";
+import Headline from "Components/UI/Headline.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
+import Icon from "Components/UI/Icon.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import type { ColumnDef, TableResponse } from "Types/dataTable";
 import { formatClock, formatDateTime, formatFileSize, formatPosition } from "Utils/formatting";
@@ -184,6 +190,12 @@ const columns = computed<ColumnDef<TrackRow>[]>(() => [
 
 <template>
     <Head :title="album.name" />
+    <!-- Outside the Container like every other page heading — its glowing border has to
+         reach the window edge so the seam hides off-screen (see Container). -->
+    <headline glow>
+        <icon name="album" :size="3" />
+        {{ album.name }}
+    </headline>
     <container>
         <div class="album">
             <hero-section>
@@ -195,12 +207,9 @@ const columns = computed<ColumnDef<TrackRow>[]>(() => [
                 <template #cover>
                     <cover-image :src="album.coverUrl" :title="album.name" size="xlarge" />
                 </template>
-                <template #title
-                    ><h2>{{ album.name }}</h2></template
-                >
-                <!-- Play or enqueue the whole subject. Pinned to the far end of the
-                     heading line by the hero, not by anything here. -->
-                <template #menu><subject-menu subject="album" /></template>
+                <!-- No #title and no #menu: the name heads the page in the <Headline> above,
+                     and the two verbs that were behind the menu are visible buttons in
+                     #actions now (2026-08-11 — see the banner). -->
                 <!-- The facts that belong to the album as a whole. Each is skipped
                      when there is nothing to say: a compilation has no album-artist,
                      an untagged rip no year. The counts always exist.
@@ -251,17 +260,18 @@ const columns = computed<ColumnDef<TrackRow>[]>(() => [
                          listened to comes after what the record IS. See PlayCountFacts. -->
                     <play-count-facts :plays="plays" subject="album" />
                 </template>
-                <!-- Under the facts, because they act on the thing those facts have just
-                     identified — and separate from the `#menu` above, which is for PLAYING it.
-                     Both stand in one ActionPanel, as on the song page. The server decides
-                     which playlists may be offered; this only draws them. The download — the
-                     whole record as a .zip, artwork and booklets included — sits at the
-                     trailing edge. -->
+                <!-- Two rows, as on the song page: the tinted ActionPanel for what a reader
+                     came for — play it, queue it, file it in a playlist — and under it the two
+                     actions that take the record somewhere else. The server decides which
+                     playlists may be offered; this only draws them. The download is the whole
+                     record as a .zip, artwork and booklets included. -->
                 <template #actions>
                     <action-panel>
                         <add-to-playlist subject="album" :subject-id="album.id" :addable="addablePlaylists" />
-                        <download-button subject="album" :href="album.downloadUrl" />
+                        <subject-actions />
                     </action-panel>
+                    <download-button subject="album" :href="album.downloadUrl" />
+                    <share-button subject="album" :subject-id="album.id" />
                 </template>
             </hero-section>
 

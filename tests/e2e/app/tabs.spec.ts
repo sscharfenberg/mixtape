@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { columnValues, countDocumentRequests } from "../support/actions";
+import { columnValues, countDocumentRequests, pageHeading } from "../support/actions";
 
 /*
  * The tabbed detail pages, and the promise useTabParam makes about them.
@@ -117,7 +117,7 @@ test.describe("a genre's tabs", () => {
         await page.locator(".genre-artists__link").first().click();
 
         await page.waitForURL(/\/music\/artists\/[0-9a-f-]{36}/u);
-        await expect(page.locator(".hero-section__title").first()).toHaveText(name);
+        await expect(pageHeading(page)).toHaveText(name);
     });
 
     test("reopens the same tab after a reload", async ({ page }) => {

@@ -6,9 +6,20 @@
  * Nested under the listing's folder like the other three detail pages: the detail view
  * lives *inside* the listing it came from, mirroring the URL.
  *
- * TWO blocks, the same shape the artist page has: the hero — the genre's name and the four
- * numbers its listing row shows — and below it the genre's contents across an ALBUMS, an
- * ARTISTS and a SONGS tab.
+ * THREE blocks, the same shape the artist page has: the <Headline> naming the genre, the
+ * hero holding the four numbers its listing row shows, and below them the genre's contents
+ * across an ALBUMS, an ARTISTS and a SONGS tab.
+ *
+ * THE NAME MOVED OUT OF THE HERO on 2026-08-11, with the other three Music detail pages, and
+ * the SubjectMenu popover in its heading became the visible SubjectActions row in #actions.
+ * SongPage's banner carries the reasoning for both.
+ *
+ * THIS PAGE'S ROW HAS TWO BUTTONS WHERE THE OTHERS HAVE THREE: a genre cannot be shared
+ * (the owner's call, same day). "Listen to this genre" is a different kind of act from
+ * "listen to this" — a share hands over one thing somebody chose to send, and a genre is a
+ * shelf. SubjectActions decides that from the subject rather than from a flag here, and
+ * App\Enums\ShareSubject has no genre case at all, so nothing on the server could accept
+ * one either.
  *
  * The three panels are shaped by their sizes, and only SONGS is a server-driven DataTable:
  * DataTableService reads its params unprefixed and every tab renders at once, so a second
@@ -37,12 +48,14 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import Discography, { type DiscographyAlbum } from "Components/Music/Discography/Discography.vue";
 import PlayCountFacts from "Components/Music/PlayCountFacts.vue";
-import SubjectMenu from "Components/Music/SubjectMenu.vue";
+import SubjectActions from "Components/Music/SubjectActions.vue";
 import AddToPlaylist from "Components/Playlists/AddToPlaylist.vue";
 import ActionPanel from "Components/UI/ActionPanel.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Container from "Components/UI/Container.vue";
+import Headline from "Components/UI/Headline.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
+import Icon from "Components/UI/Icon.vue";
 import TabbedNavigation, { type TabDefinition } from "Components/UI/TabbedNavigation/TabbedNavigation.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import { useTabParam } from "Composables/useTabParam";
@@ -145,17 +158,18 @@ const tabs = computed<TabDefinition[]>(() => [
 
 <template>
     <Head :title="genre.name" />
+    <!-- Outside the Container like every other page heading — its glowing border has to
+         reach the window edge so the seam hides off-screen (see Container). -->
+    <headline glow>
+        <icon name="genre" :size="3" />
+        {{ genre.name }}
+    </headline>
     <container>
         <div class="genre">
             <hero-section>
-                <!-- The page's heading lives here rather than in a <Headline>, as on the other
-                     detail pages: the hero sets the type, the level is ours. -->
-                <template #title
-                    ><h2>{{ genre.name }}</h2></template
-                >
-                <!-- Play or enqueue the whole subject. Pinned to the far end of the
-                     heading line by the hero, not by anything here. -->
-                <template #menu><subject-menu subject="genre" /></template>
+                <!-- No #title and no #menu: the name heads the page in the <Headline> above,
+                     and the two verbs that were behind the menu are visible buttons in
+                     #actions now (2026-08-11 — see the banner). -->
                 <!-- The facts about the genre as a whole. None can be absent — the server
                      sends 0 rather than null for all four — so every tile always renders,
                      and 0 is an answer here rather than missing data. -->
@@ -169,15 +183,15 @@ const tabs = computed<TabDefinition[]>(() => [
                          listened to comes after what the genre IS. See PlayCountFacts. -->
                     <play-count-facts :plays="plays" subject="genre" />
                 </template>
-                <!-- Under the facts, because it acts on the thing they have just identified —
-                     and separate from the `#menu` above, which is for PLAYING it. The server
-                     decides which playlists may be offered; this only draws them. The
-                     ActionPanel is the tinted box this control used to draw itself, and is
-                     here for the same look — a genre has no file to download, so it stands
-                     alone in it. -->
+                <!-- Under the facts, because everything here acts on the thing they have just
+                     identified. ONE ROW, where the other three detail pages have two: the
+                     second row is for what takes the subject somewhere else, and a genre can
+                     be neither downloaded nor shared (see the banner). The ActionPanel is the
+                     tinted box the playlist control used to draw itself. -->
                 <template #actions>
                     <action-panel>
                         <add-to-playlist subject="genre" :subject-id="genre.id" :addable="addablePlaylists" />
+                        <subject-actions />
                     </action-panel>
                 </template>
             </hero-section>

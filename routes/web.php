@@ -30,6 +30,7 @@ use App\Http\Controllers\Playlists\PlaylistOrderController;
 use App\Http\Controllers\Playlists\PlaylistTrackOrderController;
 use App\Http\Controllers\Playlists\PlaylistTracksController;
 use App\Http\Controllers\PlaylistsController;
+use App\Http\Controllers\Shares\ShareController;
 use Illuminate\Foundation\Http\Middleware\HandlePrecognitiveRequests;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
@@ -244,6 +245,23 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
             ->whereUuid('song')
             ->middleware('throttle:30,1,song-download')
             ->name('music.songs.download');
+
+        // Mint a link that lets someone WITHOUT an account listen to one subject
+        // (docs/sharing.md) — pressed by the "share" button in a song / album / artist
+        // hero. Answers JSON rather than a redirect, because the caller wants a string to
+        // show, not a page; see the controller.
+        //
+        // A POST even though it is idempotent in practice (the reader's own live link for a
+        // subject is handed back rather than duplicated): the FIRST press creates a row, and
+        // a verb chosen from what usually happens would be lying about what can happen.
+        //
+        // A LOW CEILING ON PURPOSE. This is a deliberate press — one per thing a reader
+        // decides to send — and it is the only route in the app that mints a capability
+        // reachable without a session, so the bucket bounds how fast a compromised account
+        // can manufacture them. Its own bucket, per the note at the top of this file.
+        Route::post('/shares', [ShareController::class, 'store'])
+            ->middleware('throttle:20,1,share-create')
+            ->name('shares.store');
 
         // The play queue, synced up from the browser. A PUT rather than a POST because it
         // REPLACES one row that is read and written wholesale — the same request twice

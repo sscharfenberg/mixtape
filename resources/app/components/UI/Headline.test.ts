@@ -32,6 +32,37 @@ describe("Headline", () => {
         }
     });
 
+    it("holds the whole default slot in ONE element, so a long title cannot be moved off its line", () => {
+        /*
+         * The structural half of the fix made on 2026-08-11, when a song whose name runs to
+         * four slash-separated clauses rendered BELOW its own icon rather than beside it. A
+         * wrapping flex row collects items into lines by their max-content size, so an
+         * unwrapped title — an anonymous flex item — was pushed onto a line of its own before
+         * it could shrink and wrap inside one.
+         *
+         * Only the structure is assertable here: happy-dom has no layout, so a test that
+         * claimed to check where the icon SITS would be asserting nothing. What this holds is
+         * the precondition the CSS rests on — that the icon and the title are one flex item —
+         * which is exactly what an innocent-looking template edit would undo.
+         */
+        const wrapper = mount(Headline, { slots: { default: "<svg class=\"icon\" /> A very long title" } });
+        const content = wrapper.findAll(".headline__content");
+
+        expect(content).toHaveLength(1);
+        expect(content[0].find("svg.icon").exists()).toBe(true);
+        expect(content[0].text()).toContain("A very long title");
+    });
+
+    it("keeps the #right slot OUTSIDE that element, so it can still wrap below on a phone", () => {
+        // The heading's own `flex-wrap` is what lets a badge drop under the title; folding it
+        // in with the content would take that away.
+        const wrapper = mount(Headline, { slots: { default: "Titel", right: "12" } });
+
+        expect(wrapper.find(".headline__content").text()).toBe("Titel");
+        expect(wrapper.find(".right").text()).toBe("12");
+        expect(wrapper.find(".headline__content .right").exists()).toBe(false);
+    });
+
     it("takes an anchor id, so a heading can be a scroll target", () => {
         // The discography's `scroll-margin-top` trick relies on landing on a real element id.
         const wrapper = mount(Headline, { props: { anchorId: "discography" } });

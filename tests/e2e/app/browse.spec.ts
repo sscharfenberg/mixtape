@@ -181,9 +181,12 @@ test.describe("the document outline", () => {
      *
      * Added 2026-08-06, when the owner noticed the artist page carried two: the hero passed an
      * `<h1>` for the artist's name while the header's wordmark — which every page renders — was
-     * already one. Every hero now passes an `<h2>`, and this is what keeps it that way: nothing
-     * else in the suite reads heading LEVELS any more (`pageHeading` matches the hero's wrapper
-     * instead), so without this spec the next hero could quietly claim h1 again.
+     * already one. Every page title is an `<h2>` now, and this is what keeps it that way.
+     *
+     * IT IS ALSO WHAT `pageHeading` STANDS ON as of 2026-08-11: that helper matches the first
+     * `<h2>` inside <main>, which is only "the page's own title" for as long as the wordmark
+     * remains the document's sole `<h1>`. It used to key off the hero's title wrapper — until
+     * the four Music detail pages moved their titles out of the hero into a <Headline>.
      *
      * Detail pages are reached by clicking a row rather than by hardcoding a seeded id, so the
      * fixture stays free to change ids.
@@ -223,8 +226,9 @@ test.describe("the document outline", () => {
             const detail = await headings(page);
             expect(detail.count).toBe(1);
             expect(detail.inHeader).toBe(true);
-            // The page's own title is still a heading, one level down.
-            await expect(page.locator(".hero-section__title h2")).toBeVisible();
+            // The page's own title is still a heading, one level down — in the <Headline>
+            // above the hero since 2026-08-11, which is what `pageHeading` finds.
+            await expect(pageHeading(page)).toHaveJSProperty("tagName", "H2");
         });
     }
 
@@ -304,5 +308,69 @@ test.describe("the detail hero", () => {
             .evaluate(node => parseFloat(getComputedStyle(node).paddingRight));
 
         expect(hero.x + hero.width - (fan.x + fan.width)).toBeCloseTo(padding, 0);
+    });
+});
+
+test.describe("a page heading too long for its line", () => {
+    /*
+     * THE ICON STAYS BESIDE THE TITLE, however many lines the title takes.
+     *
+     * Only a browser can answer this, and only at a width where the title genuinely does not
+     * fit: the heading is a WRAPPING flex row, and flex collects items into lines by their
+     * max-content size — so an unwrapped title is an anonymous flex item that gets pushed onto
+     * a line of its own BEFORE it is ever given the chance to shrink and wrap inside one. The
+     * icon was then left sitting alone above it. Reported on a song whose name runs to four
+     * slash-separated clauses (2026-08-11); fixed by holding the whole default slot in one
+     * flex item with a zero basis (Headline).
+     *
+     * happy-dom cannot see any of it — there is no layout there, so a unit test asserting
+     * where the icon SITS would assert nothing. What Vitest holds instead is the structure the
+     * CSS rests on (Headline.test.ts); this holds the consequence.
+     *
+     * NARROWED AFTER ARRIVING, not before: the fixture's longest name is a 59-character
+     * collaboration credit, which fits on one line at desktop width and would prove nothing
+     * there — but the DataTable that leads to the page swaps its rows for CARDS below
+     * `landscape`, so a spec that starts narrow has no `tbody tr` to click.
+     */
+    test("keeps the icon beside a title that wraps, not above it", async ({ page }) => {
+        await page.goto("/music/artists");
+        await page.getByRole("searchbox").fill("Jóhann");
+        await page.waitForURL(/search=/u);
+        await page.locator("tbody tr").first().click();
+        await page.waitForURL(/\/music\/artists\/[0-9a-f-]{36}/u);
+        await expect(page.locator(".hero-section")).toBeVisible();
+
+        await page.setViewportSize({ width: 600, height: 900 });
+
+        const geometry = await page.evaluate(() => {
+            const content = document.querySelector("main h2 .headline__content")!;
+            const icon = content.querySelector("svg.icon")!.getBoundingClientRect();
+
+            // The title is a bare text node, so it has no box of its own — a Range does, and
+            // one client rect PER LINE, which is also how we know it really wrapped.
+            const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
+            let node = walker.nextNode();
+            while (node && !node.textContent?.trim()) node = walker.nextNode();
+
+            const range = document.createRange();
+            range.selectNodeContents(node!);
+            const lines = [...range.getClientRects()];
+
+            return {
+                lineCount: lines.length,
+                // BESIDE, not above: the icon's vertical span has to meet the block of text
+                // somewhere. Not "meets the FIRST line", which is a different claim and not
+                // the one being made — the icon is centred against however many lines there
+                // are, so on a three-line title it sits level with the second.
+                beside: icon.bottom > lines[0].top && icon.top < lines[lines.length - 1].bottom,
+                // …and it leads the text rather than sitting anywhere among it.
+                leading: lines.every(line => icon.right <= line.left + 1)
+            };
+        });
+
+        // The precondition: without a title that actually wraps, the rest asserts nothing.
+        expect(geometry.lineCount).toBeGreaterThan(1);
+        expect(geometry.beside).toBe(true);
+        expect(geometry.leading).toBe(true);
     });
 });

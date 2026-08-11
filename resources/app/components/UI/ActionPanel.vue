@@ -12,20 +12,26 @@
  * facts above.
  *
  * IT USED TO BE AddToPlaylist's OWN BOX, and moving it out is the whole point of this
- * component (2026-08-10). The song and album heroes grew a download button, which belongs
- * in the same box as the playlist controls rather than floating under it — and it must
- * appear whether or not the reader has any playlists, which a box owned by AddToPlaylist
- * could not manage (that component renders NOTHING for a reader with none).
+ * component (2026-08-10). Whatever stands beside those controls must appear whether or not
+ * the reader has any playlists, which a box owned by AddToPlaylist could not manage — that
+ * component renders NOTHING for a reader with none.
+ *
+ * WHAT IT HOLDS is "what a reader is most likely to press": play, queue, and add to a
+ * playlist. It held the DOWNLOAD button instead until 2026-08-11, when the four Music heroes
+ * gave up their popover menu and the two verbs came in here — download went to the row below,
+ * beside share, since those two are the pair that take the subject somewhere else entirely.
  *
  * NOT the hero's `__actions` row itself, deliberately: the playlist page and Now Playing
  * both slot plain buttons and a link in there, untinted, and a box drawn by HeroSection
- * would give them one they never asked for. A page opts in by wrapping.
+ * would give them one they never asked for. A page opts in by wrapping. That is also what
+ * makes the row below it free: the panel is full-width, so anything a page slots in after it
+ * wraps onto its own line with no wrapper of its own.
  *
  * ONE ROW, bottom-aligned. The blocks in it are different heights — "add to playlist" is
- * a sentence over a control row, a download button is a single control — and aligning
- * their MIDDLES would float the button in the middle of the taller block. On their
- * baselines it sits level with the controls it stands beside. It wraps, because at hero
- * width on a phone that row is the first thing to run out of room.
+ * a sentence over a control row, the two verbs are single controls — and aligning their
+ * MIDDLES would float the buttons in the middle of the taller block. On their baselines they
+ * sit level with the controls they stand beside. It wraps, because at hero width on a phone
+ * that row is the first thing to run out of room.
  *****************************************************************************/
 </script>
 

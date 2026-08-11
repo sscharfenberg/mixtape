@@ -25,17 +25,27 @@
  *              headline face and size win, which lets the caller choose the level
  *              without anything here having to know.
  *
- *              IN THIS APP THAT LEVEL IS <h2>, and every hero page passes one: the
- *              document's <h1> is the wordmark in AppHeader, which every page
- *              carries, so a hero that also claimed h1 gave each detail page two of
- *              them and no outline (fixed 2026-08-06 — the artist page is where the
- *              owner spotted it). The styling is level-agnostic (`> :slotted(*)`), so
- *              this is a document-outline decision only, with nothing visual riding
- *              on it.
+ *              IN THIS APP THAT LEVEL IS <h2>: the document's <h1> is the wordmark in
+ *              AppHeader, which every page carries, so a hero that also claimed h1 gave
+ *              each detail page two of them and no outline (fixed 2026-08-06 — the artist
+ *              page is where the owner spotted it). The styling is level-agnostic
+ *              (`> :slotted(*)`), so this is a document-outline decision only, with
+ *              nothing visual riding on it.
+ *
+ *              ONLY THE PLAYLIST AND NOW PLAYING PAGES FILL IT as of 2026-08-11. The four
+ *              Music detail pages moved their titles up into the same glowing <Headline>
+ *              every listing wears, so arriving at an album looks like arriving anywhere
+ *              else in the app — and their heroes now open with the facts. The slot stays
+ *              because those two still read better with the title beside the art.
  *   #menu      what acts on the subject AS A WHOLE — the play / enqueue menu. Sits on the
  *              far end of the heading's line, level with its first line, and is a
  *              sibling of #title rather than part of it (the styles say why: a button
  *              inside the title inherits its transparent text fill and disappears).
+ *
+ *              LIKEWISE THE PLAYLIST PAGE'S ALONE now. The Music heroes swapped this
+ *              popover for a visible row of buttons in #actions (SubjectActions) on the
+ *              same day: a page's two most likely actions should not be behind a "…". A
+ *              playlist keeps the menu because its hero already carries a row of its own.
  *   #description  the subject's own words about itself, between the title and the facts —
  *              a playlist's blurb today. Prose rather than a tile, which is why it is not
  *              part of #metadata: that slot is a <ul> of chips, and a sentence in one

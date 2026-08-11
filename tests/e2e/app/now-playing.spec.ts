@@ -43,9 +43,9 @@ const queueAnArtist = async (page: Page): Promise<void> => {
     await page.goto("/music/artists");
     await page.locator("tbody tr").first().click();
     await page.waitForURL(/\/music\/artists\/[0-9a-f-]{36}/u);
-    await page.locator(".hero-section__menu .popover-button").click();
-    // The second item is "enqueue"; the first replaces the queue and starts playing.
-    await page.locator(".hero-section__menu .popover-list-item").nth(1).click();
+    // The hero's own enqueue button — which appends, where its neighbour replaces the queue
+    // and starts playing. Both were items in a popover until 2026-08-11 (SubjectActions).
+    await page.locator(".subject-actions__enqueue").click();
     await expect(page.locator(".play-queue__row").first()).toBeVisible();
 };
 

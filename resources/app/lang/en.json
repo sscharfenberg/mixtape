@@ -346,6 +346,22 @@
             "song": "Download MP3",
             "album": "Download ZIP"
         },
+        "subjectActions": {
+            "play": "Play",
+            "enqueue": "Queue"
+        },
+        "share": {
+            "button": "Share",
+            "header": "A link to listen along",
+            "linkLabel": "Link",
+            "expires": "The link works until {date}.",
+            "revoke": "You can revoke it early at any time from your dashboard.",
+            "bearer": "Anyone holding the link can listen — no account needed. Only pass it on to people you trust.",
+            "copyHint": "Click the field to copy the link.",
+            "copied": "Copied.",
+            "failed": "The link could not be created.",
+            "tooMany": "That is a lot of links in a short time. Try again in a moment."
+        },
         "artist": {
             "tabs": {
                 "label": "This artist's albums and songs"
