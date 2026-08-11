@@ -475,6 +475,21 @@
             "duplicatesHint": "Titel, die schon drin sind, werden übersprungen."
         }
     },
+    "share": {
+        "expires": {
+            "label": "Link gültig bis",
+            "description": "Danach funktioniert dieser Link nicht mehr. Frag dann einfach nach einem neuen."
+        },
+        "expired": {
+            "title": "Dieser Link ist abgelaufen",
+            "body": "Ein Link zum Mithören funktioniert sieben Tage lang. Frag die Person, die ihn dir geschickt hat, nach einem neuen – das ist bei ihr ein Klick."
+        },
+        "tracks": {
+            "label": "Titel dieses Links",
+            "play": "Ab „{name}“ abspielen",
+            "playHint": "Ab hier abspielen"
+        }
+    },
     "components": {
         "datatable": {
             "search": "Suche",

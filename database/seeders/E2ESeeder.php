@@ -10,6 +10,7 @@ use App\Models\Collection;
 use App\Models\Genre;
 use App\Models\Playlist;
 use App\Models\PlaylistTrack;
+use App\Models\Share;
 use App\Models\Track;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -53,6 +54,18 @@ use Illuminate\Support\Facades\Hash;
  */
 class E2ESeeder extends Seeder
 {
+    /**
+     * The share link the guest spec opens — an album, still live.
+     *
+     * A CONSTANT RATHER THAN A GENERATED ID, and spelled out in full rather than built by
+     * {@see id()}, because it is read from a Playwright spec that cannot call PHP: the URL
+     * has to be a literal on both sides (tests/e2e/guest/share.spec.ts).
+     */
+    public const LIVE_SHARE = '019e0007-0000-7000-8000-000000000001';
+
+    /** …and one whose week is up, so the page that says so is reachable too. */
+    public const EXPIRED_SHARE = '019e0007-0000-7000-8000-000000000002';
+
     /**
      * Album title, year, artist key, genre key, bit rate, and the real track listing.
      *
@@ -219,8 +232,54 @@ class E2ESeeder extends Seeder
             }
         }
 
-        // Last, because it picks tracks out of the library above by name.
+        // Last, because both pick rows out of the library above by name.
         $this->seedPlaylists();
+        $this->seedShares();
+    }
+
+    /**
+     * Two share links with FIXED ids, so a signed-out browser has something to open.
+     *
+     * THE GUEST SPEC CANNOT MINT ITS OWN. Minting is behind `auth`, and the guest project
+     * runs with no stored session at all (by directory, so a stray storageState cannot make
+     * an auth test pass by accident) — so the only way a spec with no account can visit
+     * `/s/{share}` is for the fixture to have handed it a link, exactly as a friend would.
+     *
+     * A LIVE ONE AND A DEAD ONE, because the two answer differently and both branches are
+     * reachable only through a real link: the live one plays, the expired one renders the
+     * page that says so. A REVOKED link needs no fixture — it is a row that does not exist,
+     * which any unused UUID already is.
+     *
+     * An ALBUM for the live one, deliberately: it is the only subject kind whose page draws
+     * the track list, so it exercises the whole page rather than just the hero. The expired
+     * one is a song, which keeps the two rows describing different code.
+     *
+     * Owned by the canonical account rather than a spec user of its own: nothing about a
+     * share is user-scoped from the guest's side, and the reader never sees who minted it
+     * (SharePageController says why that is deliberate rather than an omission).
+     */
+    private function seedShares(): void
+    {
+        $userId = User::query()->where('name', 'Ashaltiriak')->value('id');
+
+        Share::query()->create([
+            'id' => self::LIVE_SHARE,
+            'user_id' => $userId,
+            'collection_id' => Collection::query()->where('name', 'OK Computer')->value('id'),
+            // A fixed instant would be in the past the moment it arrives, and `now()` is
+            // exactly the non-determinism this seeder avoids everywhere else — but an expiry
+            // is a fact about the clock, and the only stable thing to say is "well ahead of
+            // it". Far enough out that the date it renders never depends on when the run
+            // happened to start.
+            'valid_until' => now()->addYears(5),
+        ]);
+
+        Share::query()->create([
+            'id' => self::EXPIRED_SHARE,
+            'user_id' => $userId,
+            'track_id' => Track::query()->where('name', 'Paranoid Android')->value('id'),
+            'valid_until' => now()->subDays(3),
+        ]);
     }
 
     /**

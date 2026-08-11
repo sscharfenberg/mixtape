@@ -1,0 +1,13 @@
+/******************************************************************************
+ * contextual timing token — component:ShareTracks.vue
+ * @type {Sass}
+ * How fast a row of the guest page's track list — and the play button inside it — answers
+ * the pointer. `fast`, matching the playlist row it shares its look with, and the DataTable
+ * row and Discography tile behind that: a pointer affordance has to land immediately or it
+ * reads as lag rather than as feedback.
+ * Consumed as ti.$c-share-tracks via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$share-tracks: map.get(ti.$timings, "fast") !default;

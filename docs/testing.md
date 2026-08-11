@@ -235,6 +235,15 @@ this is the record of *why* that code exists.
   names and ignores the manifest — and every selector times out. Global setup parks a stale marker
   at `public/hot.e2e-backup` and restores it in teardown *and* at the next run's start, so a killed
   run self-heals. A **live** dev server is left alone.
+- **…and a LIVE one means the run is not testing the built code at all** — it is testing whatever
+  that dev server transforms, which is usually the same thing and sometimes is not. Measured
+  2026-08-11: a dev server started before a new page existed served a *stale transform* of it, so a
+  freshly-added guard was simply absent from the browser while `public/build` had it, and the page
+  on screen disagreed with the source, the unit tests and the manifest all at once. Nothing about
+  that failure points at the dev server. **When a browser check contradicts a Vitest assertion, look
+  at where the module came from first** — `page.on("response", …)` and check the origin. To verify
+  against the built assets, move `public/hot` aside for the run and put it straight back:
+  `mv public/hot public/hot.mine && npx playwright test …; mv public/hot.mine public/hot`.
 - **A cached config beats real environment variables**, silently pointing the run at the remote
   Postgres. Hence `config:clear` before migrating.
 - **Seed with `E2ESeeder`, never the default `--seed`.** `DatabaseSeeder` runs `LibrarySeeder`,

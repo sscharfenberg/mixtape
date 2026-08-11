@@ -31,6 +31,10 @@ use App\Http\Controllers\Playlists\PlaylistTrackOrderController;
 use App\Http\Controllers\Playlists\PlaylistTracksController;
 use App\Http\Controllers\PlaylistsController;
 use App\Http\Controllers\Shares\ShareController;
+use App\Http\Controllers\Shares\ShareCoverController;
+use App\Http\Controllers\Shares\SharePageController;
+use App\Http\Controllers\Shares\ShareStreamController;
+use App\Http\Controllers\Shares\ShareTrackCoverController;
 use Illuminate\Foundation\Http\Middleware\HandlePrecognitiveRequests;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
@@ -284,6 +288,71 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
             ->middleware('throttle:60,1,player-plays')
             ->name('player.plays.store');
     });
+
+/******************************************************************************
+ * SHARE LINKS — `/s/{share}`, the one part of this app a person WITHOUT AN ACCOUNT
+ * may reach the library through (docs/sharing.md).
+ *
+ * A SPACE OF ITS OWN, rather than teaching the routes above to accept "authenticated
+ * OR entitled". Every sub-route resolves its subject THROUGH the share row, so
+ * containment is structural: a share of one album cannot address a track outside it,
+ * because the route has no way to name one. The alternative reuses more code and turns
+ * the auth boundary from a line you read into logic you reason about, on a box that is
+ * deliberately reachable from the internet. With the split, the group above goes on
+ * saying that everything under /music sits behind `auth`, full stop.
+ *
+ * EVERY ONE OF THEM IS RATE-LIMITED, and unlike the routes above these key on IP alone
+ * — a guest has no user id. This is the app's only unauthenticated surface that reaches
+ * the disk, which makes it the most abuse-exposed thing on the box; the ceilings are set
+ * by what one household's listening actually costs, not by what feels tidy.
+ *
+ * The `{share}` id IS the capability (a UUIDv7 — 74 bits of randomness), so there is
+ * nothing else to present. All four are UUID-constrained, so a stray segment 404s at the
+ * router rather than reaching model binding.
+ *****************************************************************************/
+Route::prefix('s')->name('shares.')->group(function () {
+    // The guest page. An EXPIRED link still renders — it says so, and names the thing, so
+    // the reader can ask for a new one; a REVOKED one 404s here at binding, because
+    // revoking deletes the row. See SharePageController for why that difference is right.
+    //
+    // 60 a minute is a page a reader opens once and then sits on; it is high enough that a
+    // family behind one NAT cannot refuse each other by opening links.
+    Route::get('/{share}', SharePageController::class)
+        ->whereUuid('share')
+        ->middleware('throttle:60,1,share-page')
+        ->name('show');
+
+    // The subject's own artwork — the hero image. Registered before `/{share}/tracks/…`
+    // for readability only; "cover" cannot be mistaken for anything, since the segment
+    // after a share id is a literal in both cases.
+    Route::get('/{share}/cover', ShareCoverController::class)
+        ->whereUuid('share')
+        ->middleware('throttle:60,1,share-cover')
+        ->name('cover');
+
+    // One granted track's audio. THE CEILING HAS TO SURVIVE ORDINARY LISTENING: a Range
+    // request re-enters this route, so a listener dragging the timeline spends several per
+    // track, and an album played through spends one per song on top. 120 a minute is far
+    // above both while still bounding a script that has guessed nothing but is pulling what
+    // it was given.
+    Route::get('/{share}/tracks/{track}/stream', ShareStreamController::class)
+        ->whereUuid('share')
+        ->whereUuid('track')
+        ->middleware('throttle:120,1,share-stream')
+        ->name('tracks.stream');
+
+    // One granted track's cover — the thumbnail beside a row, and in the queue panel.
+    // THE HIGHEST CEILING IN THE APP, because this is the one route a single page load can
+    // fire dozens of: an artist share lists every track it grants, one thumbnail each. The
+    // images are lazy-loaded (CoverImage), so a long list only pays for what is scrolled
+    // into view, but a reader who scrolls a 200-track artist share should not find the
+    // artwork stops loading half way down.
+    Route::get('/{share}/tracks/{track}/cover', ShareTrackCoverController::class)
+        ->whereUuid('share')
+        ->whereUuid('track')
+        ->middleware('throttle:240,1,share-track-cover')
+        ->name('tracks.cover');
+});
 
 // Authentication (login / logout). Kept in a dedicated file as the auth surface
 // grows (password reset, two-factor, …); see the note in web.auth.php.

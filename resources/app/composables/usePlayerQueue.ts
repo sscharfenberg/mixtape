@@ -336,6 +336,59 @@ const shufflePick = ref<number>(NOTHING);
 let hydrated = false;
 
 /**
+ * Whether the queue is running WITHOUT persistence — the share page's mode, and the only
+ * place it is turned on (ShareLayout).
+ *
+ * IT EXISTS FOR THE OWNER OPENING THEIR OWN LINK, not for the guest. A guest has no user id,
+ * so nothing they queue is ever synced and their localStorage copy is their own business.
+ * The awkward reader is the signed-in one who clicks a link they minted: the stored queue is
+ * keyed to THEM, so a share's tracks would be written over the queue they were listening to
+ * — and written as `/s/…` URLs that stop working in seven days, leaving dead rows behind a
+ * queue they never touched.
+ *
+ * A FLAG ON THE ONE CHOKE POINT rather than a second queue module: everything that persists
+ * goes through {@link commit}, so suppressing it there covers the localStorage write and the
+ * server sync together, and the queue a guest operates is otherwise the same queue with the
+ * same behaviour — which is the point of the share page needing no player changes at all.
+ */
+let ephemeral = false;
+
+/**
+ * Run the queue without persisting anything, until {@link endEphemeralQueue}.
+ *
+ * FLUSHES FIRST, and that ordering is the whole of the function: a reader arriving from a
+ * page where they had just dragged a row has a write still pending on the timer, and letting
+ * it fire after the flag is up would silently drop their last change. Flushed here, it lands
+ * as the queue they left.
+ *
+ * It deliberately does NOT clear the queue. A reader who was listening keeps listening while
+ * they look at the share, and pressing play on the page replaces it as it would anywhere
+ * else — the difference being only that nothing about it is written down.
+ */
+export function beginEphemeralQueue(): void {
+    flushQueueWrites();
+    ephemeral = true;
+}
+
+/**
+ * Persist again, and forget whatever the share page left in memory.
+ *
+ * `hydrated` is cleared as well as the flag, which is the half that matters: the queue in
+ * memory may now hold `/s/…` tracks, so the next layout to mount must read the stored copy
+ * again rather than keep them. That is exactly what `hydrate()` does, and clearing its
+ * one-shot guard is how it is asked to.
+ *
+ * Safe in either mounting order — a Vue layout swap may mount the incoming layout before
+ * unmounting the outgoing one — because this only ever RE-ARMS a restore. The alternative,
+ * clearing the queue here, would empty a queue FullLayout had already restored a tick
+ * earlier, and `clear()` persists.
+ */
+export function endEphemeralQueue(): void {
+    ephemeral = false;
+    hydrated = false;
+}
+
+/**
  * The signed-in user's id, or null for a guest arriving on a share link.
  *
  * Read from Inertia's shared props on every call rather than captured once: this
@@ -832,6 +885,11 @@ function bindFlushOnHide(): void {
  * and reordering both carry it — also passes "position".
  */
 function commit(...changed: Persistable[]): void {
+    // The share page's queue is not written down at all — see {@link ephemeral}. Here rather
+    // than at the two writers because this is the choke point both of them are behind, and a
+    // mutation that slipped past would be the one that overwrites a reader's real queue.
+    if (ephemeral) return;
+
     changed.forEach(entry => dirty.add(entry));
 
     if (writeTimer !== null) return;
@@ -1453,4 +1511,8 @@ export function resetPlayerQueueForTests(): void {
     shufflePick.value = NOTHING;
     resetShuffleWalk();
     hydrated = false;
+    // Left on by a share-page spec, this would silently stop the NEXT spec's queue from
+    // persisting — and a persistence test that finds nothing in storage reads as a broken
+    // queue rather than as a leaked flag.
+    ephemeral = false;
 }

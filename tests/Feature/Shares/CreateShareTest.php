@@ -35,9 +35,9 @@ use Tests\TestCase;
  *     so what is asserted here is that the app writes exactly one FK — which is the half a
  *     constraint cannot fix in production anyway.
  *
- * The `/s/{share}` space that serves these links is designed and NOT BUILT (docs/sharing.md
- * → Status), so nothing here follows the URL: what a guest gets is a different feature's
- * test file, and it will be the one Playwright spec that belongs in `tests/e2e/guest/`.
+ * Nothing here FOLLOWS the URL it mints. What a guest gets from `/s/{share}` is its own pair of
+ * files — ShowShareTest and ShareMediaTest beside this one — plus the one Playwright spec that
+ * belongs in `tests/e2e/guest/`, since it is the only journey in the app with no session at all.
  */
 class CreateShareTest extends TestCase
 {

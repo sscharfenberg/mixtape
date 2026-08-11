@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use App\Enums\ShareSubject;
+use Database\Factories\ShareFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -19,18 +21,18 @@ use Illuminate\Support\Carbon;
  * is stored unhashed — a share is re-copied from the owner's list weeks after minting, and
  * a digest cannot be re-displayed.
  *
- * WHAT EXISTS TODAY IS MINTING ONLY (2026-08-11). The `/s/` guest space, the "My shares"
- * dashboard list and the pruning schedule are designed in docs/sharing.md and not built, so
- * a minted link is a real, revocable row that nothing yet serves. `url()` names the address
- * that space will answer at, in one place, so building it moves one string rather than
- * hunting for concatenations.
+ * MINTING AND THE `/s/` GUEST SPACE ARE BOTH BUILT (2026-08-11). What is still designed and
+ * not written is the "My shares" dashboard list — so a link can be handed out and played,
+ * but revoking one means deleting the row by hand — and the pruning schedule that eventually
+ * sweeps dead rows. Both are in docs/sharing.md.
  *
  * @property-read Carbon $valid_until
  */
 #[Fillable(['user_id', 'track_id', 'collection_id', 'artist_id', 'playlist_id', 'note', 'valid_until'])]
 class Share extends Model
 {
-    use HasUuids;
+    /** @use HasFactory<ShareFactory> */
+    use HasFactory, HasUuids;
 
     /**
      * How long a link lives, in days.
@@ -42,10 +44,15 @@ class Share extends Model
      */
     public const LIFETIME_DAYS = 7;
 
-    /** The share's public address — the URL handed to whoever it was minted for. */
+    /**
+     * The share's public address — the URL handed to whoever it was minted for.
+     *
+     * Absolute, because it is going into a chat window rather than into an <a href>: the
+     * one caller is the mint response, whose whole output is a string a reader copies.
+     */
     public function url(): string
     {
-        return url('/s/'.$this->getKey());
+        return route('shares.show', $this);
     }
 
     /** Whether this link still works, which is only ever a question about the clock. */

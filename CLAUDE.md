@@ -308,17 +308,28 @@ instance, written for someone else's server.
   `/dev/audio-probe` proved routed audio survives screen-off (away 215s, advanced 215s), so the
   analyser is wired directly with no toggle. Also records what no test can see (Playwright runs
   Chromium muted, so the bars never move in CI).
-- [`docs/sharing.md`](docs/sharing.md) — share links (designed 2026-08-10; **minting built
-  2026-08-11**): play one song / album / audiobook / artist with **no account**. Why the plan moved
-  off signed URLs onto a `shares` row (a signature is an assertion, not a record, so nothing can
-  revoke it), the four-FK subject and its CHECK, and the `/s/{share}` space whose containment is
-  **structural** — a share cannot name a track outside its grant, so `/music` stays wholly behind
-  `auth`. Records the two seams the code already had: `PlaylistSubject::column()`, so a share grants
-  the same tracks "play this" does (the artist trap — `tracks.artist_id` is *not*
-  `collections.album_artist_id`), and the queue's per-track `streamUrl` override, which means the
-  player needs no change at all.
-  **What is built: the row, `POST /shares`, and the hero's share button + modal.** `/s/{share}`
-  itself, the guest page, and the "My shares" dashboard subpage the modal already promises are
-  **next**. **No genre shares, ever** (a genre is a shelf, not a thing somebody chose to send) and
-  **no playlist shares yet** — both stated in `App\Enums\ShareSubject`, which simply has no case for
-  either, so neither can be minted by a hand-written request.
+- [`docs/sharing.md`](docs/sharing.md) — share links (designed 2026-08-10; **minting and the `/s/`
+  guest space both built 2026-08-11**): play one song / album / artist with **no account**, which
+  now works end to end. Why the plan moved off signed URLs onto a `shares` row (a signature is an
+  assertion, not a record, so nothing can revoke it), the four-FK subject and its CHECK, and the
+  `/s/{share}` space whose containment is **structural** — a share cannot name a track outside its
+  grant, so `/music` stays wholly behind `auth`. Records the two seams the code already had:
+  `PlaylistSubject::column()`, so a share grants the same tracks "play this" does (the artist trap —
+  `tracks.artist_id` is *not* `collections.album_artist_id`), and the queue's per-track `streamUrl`
+  override, which means the player needs no change at all.
+
+  **One class owns the grant** — `App\Services\Shares\ShareGrant`. The guest page is drawn from
+  `tracks()` and both media routes admit a track through `contains()`, over the same `query()`;
+  written twice they drift, and the drift reads as a player stopping silently on one song out of
+  ninety. **Anything new under `/s/` asks it rather than re-deriving the set.**
+
+  **What is still missing: the "My shares" dashboard subpage the modal already promises** (so
+  revoking means deleting the row by hand) and pruning. **No genre shares, ever** (a genre is a
+  shelf, not a thing somebody chose to send) and **no playlist shares yet** — both stated in
+  `App\Enums\ShareSubject`, which simply has no case for either, so neither can be minted by a
+  hand-written request.
+
+  Two things about the guest page worth knowing before touching the player: it renders in
+  **`ShareLayout`** (FullLayout minus the breadcrumb, minus persistence), and that second half is why
+  `usePlayerQueue` has an **ephemeral mode** — a signed-in owner opening their own link must not have
+  their real queue overwritten with `/s/…` URLs that die in seven days.

@@ -33,9 +33,9 @@ use Illuminate\Http\JsonResponse;
  * Scoped to the reader's OWN shares, not to anybody's: two users sharing the same album get
  * a link each, so one revoking theirs cannot break the other's.
  *
- * WHAT IT DOES NOT DO YET: `/s/{share}` does not exist (docs/sharing.md → Status), so the
- * URL this hands back is a real, revocable capability that nothing serves. The modal tells
- * the reader the link can be revoked from the dashboard, which is likewise still to come.
+ * WHAT IT DOES NOT DO YET: the URL this hands back is served (SharePageController and the two
+ * media routes beside it, built the same day), but "revoke it from your dashboard" — which the
+ * modal promises the reader — has no page yet, so revoking means deleting the row by hand.
  */
 class ShareController extends Controller
 {

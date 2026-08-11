@@ -18,10 +18,10 @@ import { pageHeading } from "../support/actions";
  *     the page trying to read a page response out of JSON.
  *   - THAT NOTHING MOVES UNDERNEATH IT. The reader is still on the song when the modal opens.
  *
- * WHAT IS NOT HERE: following the link. The `/s/{share}` space is designed and not built
- * (docs/sharing.md → Status), so what a signed-OUT visitor gets is a spec that will live in
- * `tests/e2e/guest/` when there is something to visit. Everything the server decides about
- * minting — the seven days, the reuse of a live link, what may be shared at all — is in
+ * WHAT IS NOT HERE: following the link. That is the other half of the journey and it belongs to
+ * a browser with NO session, so it lives in `tests/e2e/guest/share.spec.ts` — separated by
+ * directory, so a stored login can never make it pass by accident. Everything the server decides
+ * about minting — the seven days, the reuse of a live link, what may be shared at all — is in
  * tests/Feature/Shares/CreateShareTest.php, where it is cheap.
  *
  * Minting writes a row, but shares belong to whoever made them and nothing else in the suite

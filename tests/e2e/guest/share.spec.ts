@@ -1,0 +1,129 @@
+import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { openQueuePanel, pageHeading } from "../support/actions";
+
+/*
+ * A SHARE LINK OPENED BY SOMEBODY WITH NO ACCOUNT — the feature the whole app is
+ * internet-facing for (docs/sharing.md).
+ *
+ * ONE OF THE FEW SPECS THAT BELONGS IN `guest/`, and the reason is the whole point of the
+ * feature: everything else here is either behind `auth` or is the login form in front of it,
+ * while this is a page a stranger is meant to reach. The project runs with no stored session
+ * at all, so a session leaking in could not make these pass by accident.
+ *
+ * WHAT ONLY A BROWSER CAN ANSWER, and what the other two layers therefore leave here:
+ *
+ *   - THAT A GUEST REALLY HEARS SOMETHING. The stream route under `/s/` is new, it is
+ *     unauthenticated, and it feeds a real <audio> element under the app's own CSP —
+ *     `media-src 'self'`. happy-dom has no decoder and no network behind an `<audio src>`,
+ *     and the PHP suite proves the bytes leave the server, not that the element takes them.
+ *   - THAT NOTHING ON THE PAGE BOUNCES TO THE LOGIN FORM. Every URL the page hands out is
+ *     rewritten into the share's own space by ShareGrant; one that was missed plays fine for
+ *     the owner testing the link and redirects everybody else. Only a browser follows them.
+ *   - THAT THE PAGE BOOTS AT ALL for a signed-out reader. It renders in a layout of its own
+ *     (ShareLayout) whose header draws no site menu without a user — a component that assumed
+ *     one would throw during setup and leave a blank page, which no unit mount would show.
+ *
+ * The link ids are the fixture's (E2ESeeder → LIVE_SHARE / EXPIRED_SHARE), because minting is
+ * behind `auth` and this project has no account to mint with. What the server decides —
+ * the grant, the seven days, the 404s — is pinned in tests/Feature/Shares/, where it is cheap.
+ */
+
+/** The seeded links. Literals on both sides: a spec cannot call PHP for a constant. */
+const LIVE = "019e0007-0000-7000-8000-000000000001";
+const EXPIRED = "019e0007-0000-7000-8000-000000000002";
+
+/** The <audio> element's own state, read out of the page rather than from what the UI claims. */
+const audioState = (page: Page): Promise<{ paused: boolean; currentTime: number; src: string }> =>
+    page.evaluate(() => {
+        const audio = document.querySelector("audio") as HTMLAudioElement;
+
+        return { paused: audio.paused, currentTime: audio.currentTime, src: audio.getAttribute("src") ?? "" };
+    });
+
+test.describe("a share link, with no account", () => {
+    test("opens the page and says what it is", async ({ page }) => {
+        await page.goto(`/s/${LIVE}`);
+
+        // Not the login form — the whole feature in one assertion.
+        await expect(page).toHaveURL(new RegExp(`/s/${LIVE}$`, "u"));
+        // `pageHeading`, not the first heading on the page: the document's <h1> is the
+        // wordmark in AppHeader, which this layout keeps.
+        await expect(page.locator(".hero-section")).toBeVisible();
+        await expect(pageHeading(page)).toContainText("OK Computer");
+        // An album share lists what it plays; the rows are the page's content.
+        await expect(page.locator(".share-tracks__item")).toHaveCount(12);
+    });
+
+    test("plays, from a stream route that needs no session", async ({ page }) => {
+        await page.goto(`/s/${LIVE}`);
+
+        // Repeat is not available to a guest and the fixture's audio is one second long, so
+        // the assertion is made while the FIRST track is still running: play, then read the
+        // element immediately rather than waiting on a position.
+        await page.locator(".share-tracks__play").first().click();
+
+        await expect.poll(async () => (await audioState(page)).src).toContain(`/s/${LIVE}/tracks/`);
+        await expect.poll(async () => (await audioState(page)).paused, { timeout: 5000 }).toBe(false);
+
+        // The bar replaces the footer once a track is loaded — the same player the app uses,
+        // which is the point: a guest gets the real thing, not a second implementation.
+        await expect(page.locator(".player-bar")).toBeVisible();
+    });
+
+    test("queues the whole share when a row is pressed, not just that row", async ({ page }) => {
+        await page.goto(`/s/${LIVE}`);
+
+        await page.locator(".share-tracks__play").nth(3).click();
+
+        // What a guest was SENT is the album, so pressing a row starts there and keeps the
+        // rest — the queue panel is where that is visible.
+        await openQueuePanel(page);
+        await expect(page.locator(".play-queue__row")).toHaveCount(12);
+        await expect(page.locator(".play-queue__row--current")).toHaveCount(1);
+    });
+
+    test("hands out no URL that leads back into the app", async ({ page }) => {
+        const redirects: string[] = [];
+        page.on("response", response => {
+            if (response.status() >= 300 && response.status() < 400) redirects.push(response.url());
+        });
+
+        await page.goto(`/s/${LIVE}`);
+        await page.locator(".share-tracks__play").first().click();
+        await expect.poll(async () => (await audioState(page)).src).toContain("/s/");
+
+        // A `/music/…` URL on a queue entry is the failure this guards: it plays for the owner
+        // testing their own link and redirects a guest to the login form, which is precisely
+        // the case no unit test and no PHP test sees.
+        expect(redirects.filter(url => url.includes("/login"))).toStrictEqual([]);
+    });
+
+    test("says so, kindly, when the link has expired", async ({ page }) => {
+        await page.goto(`/s/${EXPIRED}`);
+
+        await expect(page.locator(".card")).toContainText("abgelaufen");
+        // Nothing to press: a play button over an empty queue reads as the page being broken
+        // rather than as the link being over.
+        await expect(page.locator(".subject-actions")).toHaveCount(0);
+        await expect(page.locator(".share-tracks")).toHaveCount(0);
+    });
+
+    test("is an ordinary 404 for a link that was revoked", async ({ page }) => {
+        // Revoking DELETES the row, so an unused id is exactly what a revoked link looks
+        // like — indistinguishable from a typo, which is the intent.
+        const response = await page.goto("/s/019e0007-0000-7000-8000-000000009999");
+
+        expect(response?.status()).toBe(404);
+    });
+
+    test("keeps the library itself behind the gate", async ({ page }) => {
+        // The share space is an addition, not a widening: holding a link must not make
+        // /music reachable. Cheap to assert, and the assertion this whole URL design exists
+        // to keep true.
+        await page.goto(`/s/${LIVE}`);
+        await page.goto("/music/albums");
+
+        await expect(page).toHaveURL(/\/login/u);
+    });
+});

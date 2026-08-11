@@ -3,7 +3,9 @@ import { setupI18n } from "@/i18n";
 import de from "@/lang/de.json";
 import type { QueueTrack } from "Composables/usePlayerQueue";
 import {
+    beginEphemeralQueue,
     bindPositionSource,
+    endEphemeralQueue,
     flushQueueWrites,
     notePlaybackProgress,
     resetPlayerQueueForTests,
@@ -1325,6 +1327,98 @@ describe("usePlayerQueue", () => {
 
             expect(typeof takeRestoredPosition()).toBe("number");
             expect(takeRestoredPosition()).toBe(0);
+        });
+    });
+
+    describe("on a share page, where nothing is written down", () => {
+        /*
+         * ShareLayout puts the queue in this mode for the length of a guest page's stay
+         * (/s/{share}). The reader it protects is NOT the guest — a guest has no user id, so
+         * nothing they queue is ever synced — but the OWNER opening a link they minted: the
+         * stored queue is keyed to them, so a share's tracks would be written over the music
+         * they were listening to, as `/s/…` URLs that stop working in seven days.
+         *
+         * Both halves are invisible when broken. A queue that persists when it should not
+         * looks perfectly correct until the reader goes back to the app and finds somebody
+         * else's album in their queue.
+         */
+
+        it("writes nothing to storage while the mode is on", () => {
+            beginEphemeralQueue();
+
+            usePlayerQueue().playNow([track("shared-1"), track("shared-2")]);
+            flushQueueWrites();
+
+            expect(stored()).toBeNull();
+            expect(storedPosition()).toBeNull();
+        });
+
+        it("tells the server nothing either, even for a signed-in reader", () => {
+            // The sync is behind the same choke point, so one flag covers both writers —
+            // which is the point of putting it in `commit` rather than at the two ends.
+            beginEphemeralQueue();
+
+            usePlayerQueue().playNow([track("shared-1")]);
+            flushQueueWrites();
+
+            expect(fetchMock).not.toHaveBeenCalled();
+        });
+
+        it("flushes what was already pending before it stops writing", () => {
+            // A reader arriving from a page where they had just dragged a row has a write
+            // still on the timer; letting it fire after the flag is up would drop it.
+            usePlayerQueue().enqueue(track("mine"));
+
+            beginEphemeralQueue();
+
+            expect(stored().tracks.map((entry: { id: string }) => entry.id)).toStrictEqual(["mine"]);
+        });
+
+        it("leaves the queue that was playing alone", () => {
+            // Arriving at a share does not stop the music. Pressing play on the page replaces
+            // the queue exactly as it would anywhere else — the difference is only that
+            // nothing about it is written down.
+            usePlayerQueue().enqueue(track("mine"));
+
+            beginEphemeralQueue();
+
+            expect(ids()).toStrictEqual(["mine"]);
+        });
+
+        it("persists again once the reader leaves the share space", () => {
+            beginEphemeralQueue();
+            usePlayerQueue().playNow([track("shared-1")]);
+            flushQueueWrites();
+
+            endEphemeralQueue();
+            usePlayerQueue().enqueue(track("mine"));
+            flushQueueWrites();
+
+            expect(stored().tracks.map((entry: { id: string }) => entry.id)).toContain("mine");
+        });
+
+        it("re-arms the restore, so the reader's own queue comes back", () => {
+            // The queue in memory may hold `/s/…` tracks when the share page unmounts, so the
+            // next layout to mount has to READ storage again rather than keep them. Clearing
+            // hydrate's one-shot guard is how that is asked for — and it is a re-arm rather
+            // than a clear because a layout swap may mount the incoming layout first, and
+            // `clear()` persists.
+            window.localStorage.setItem(
+                "mixtape.queue",
+                JSON.stringify({
+                    version: 3,
+                    userId: "user-1",
+                    tracks: [{ id: "mine", name: "Mine", artist: null, album: null, duration: 100 }]
+                })
+            );
+
+            beginEphemeralQueue();
+            usePlayerQueue().playNow([track("shared-1")]);
+            endEphemeralQueue();
+
+            usePlayerQueue().hydrate();
+
+            expect(ids()).toStrictEqual(["mine"]);
         });
     });
 

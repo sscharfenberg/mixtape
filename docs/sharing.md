@@ -4,15 +4,16 @@ Play one song, album, audiobook, artist or playlist **without an account** — "
 sent to family and friends. This is the headline use case of an internet-facing instance
 ([`app-rewrite.md`](app-rewrite.md) → _Authentication & access model_).
 
-**Designed 2026-08-10; MINTING built 2026-08-11.** This file is the plan, written before the code the
-way [`now-playing.md`](now-playing.md) was, and kept afterwards as the record of why the shape is
-what it is.
+**Designed 2026-08-10; MINTING built 2026-08-11; the `/s/` GUEST SPACE built the same day.** This
+file is the plan, written before the code the way [`now-playing.md`](now-playing.md) was, and kept
+afterwards as the record of why the shape is what it is.
 
-What exists today is the row and the button that creates it: a signed-in reader presses **share** in
-a song / album / artist hero, the server mints (or re-hands) a link, and a modal explains what
-handing it out means and copies it on click. **Nothing serves `/s/{share}` yet**, so a minted link is
-a real, revocable capability with no page behind it — and "revoke it from your dashboard", which the
-modal promises, is likewise still to come. Both are the next two rows of the table below.
+**A share link now works end to end.** A signed-in reader presses **share** in a song / album /
+artist hero, the server mints (or re-hands) a link, and whoever it is sent to opens it with no
+account and plays what it names — verified in a signed-out browser
+(`tests/e2e/guest/share.spec.ts`). What is still missing is the OWNER's half: "revoke it from your
+dashboard", which the modal already promises, has no page yet, so revoking today means deleting the
+row by hand.
 
 Read alongside:
 
@@ -26,9 +27,9 @@ Read alongside:
 | ---------------------------------------- | ---------------------------------------------------------- |
 | `shares` table + model                   | ✅ built 2026-08-11                                        |
 | Minting (`POST /shares`) + the modal     | ✅ built 2026-08-11                                        |
-| The `/s/{share}` route space             | ⬜ planned — **next**                                      |
-| Guest page (`Share/SharePage.vue`)       | ⬜ planned — **next**                                      |
-| "My shares" dashboard subpage            | ⬜ planned — the modal already promises it                 |
+| The `/s/{share}` route space             | ✅ built 2026-08-11 — four routes, not three (below)       |
+| Guest page (`Share/SharePage.vue`)       | ✅ built 2026-08-11                                        |
+| "My shares" dashboard subpage            | ⬜ planned — **next**; the modal already promises it       |
 | Pruning expired rows                     | ⬜ planned                                                 |
 | Playlist shares                          | ⬜ deferred by the owner — the FK exists, the enum case does not |
 | Audiobook shares                         | ⬜ blocked — the Audiobooks area is still a placeholder     |
@@ -144,9 +145,21 @@ Its own space, `/s/{share}/…`, rather than widening the gate on `/music/*`:
 
 ```
 GET  /s/{share}                          the guest page
+GET  /s/{share}/cover                    the SUBJECT's artwork      (added while building)
 GET  /s/{share}/tracks/{track}/stream    audio bytes
-GET  /s/{share}/tracks/{track}/cover     cover art
+GET  /s/{share}/tracks/{track}/cover     cover art, per track
 ```
+
+**The fourth route was not in the sketch.** The hero of an album share is not its first track's
+picture: `CoverService` keeps two orders on purpose — a track prefers its own embedded image, an
+album prefers the directory's `folder.jpg` — because rips exist where every file carries a different
+inline picture, and there "the embedded cover" makes a record's artwork depend on which track happens
+to sort first. Drawing the hero through a per-track route would have imported exactly that bug into
+the one page a listener sees before deciding whether to press play. It 404s for an artist share,
+which nothing points an `<img>` at: MixTape stores no artist images, so that hero fans a few of the
+artist's own sleeves instead (`CoverSleeves`, the same object the playlist hero wears), drawn from
+**the grant** rather than from their discography — a sleeve off an album the link cannot play would
+be a picture of something the page has no rows for.
 
 **Every sub-route resolves its subject through the share row**, so containment is structural rather
 than conditional: a share of one album cannot address a track outside it, because the route has no
@@ -167,6 +180,21 @@ get right in a separate controller than in a shared one.
 **Validation and authorization live in FormRequests** under `app/Http/Requests/Shares/`, per
 [`../CLAUDE.md`](../CLAUDE.md). `authorize()` is where "this share is live" and "this track is in its
 grant" belong; the routed models are already resolved, so it reads `$this->route('share')`.
+
+**The page route has no request class, and that is the rule being followed rather than broken**: it
+validates no input and guards no subject. Expiry — the one thing that could be mistaken for a
+permission there — is *content* on that route, since the page's job when a link has died is to say
+so. The three routes that answer with bytes treat it as a permission and each have one
+(`AuthorizesShareTrack` for the two that name a track, `ShareCoverRequest` for the one that does
+not).
+
+**One class owns the grant**: [`App\Services\Shares\ShareGrant`](../app/Services/Shares/ShareGrant.php).
+The guest page is drawn from `tracks()` and the media routes admit a track through `contains()`, and
+both resolve through the same `query()` — including the track-type filter, so a caller cannot widen
+the set by forgetting a second call. Written twice they would drift, and the drift has a shape: a
+guest gets a row for a track the stream then refuses, which appears as a player that stops silently
+on one song out of ninety. `tests/Feature/Shares/ShowShareTest.php` asserts the page's rows and the
+guard's answers against each other for exactly the artist case above.
 
 ### What an expired link answers, and what a revoked one does
 
@@ -202,6 +230,34 @@ Two consequences of that reuse to get right:
   keyed to them, so the share's tracks — carrying `/s/…` URLs that die in seven days — would overwrite
   their real queue and leave dead entries behind it. Worth deciding before building; not persisting
   the queue at all on a share page is the cheap answer.
+
+### What the guest page turned out to be (built 2026-08-11)
+
+The cheap answer was taken, and three more things were settled by building it:
+
+- **The "trimmed layout" is `ShareLayout`, and it is FullLayout minus exactly two things.** No
+  breadcrumb — a trail says where you are in the app, and a share link is not *in* the app, so the
+  trail would render as a lone home chip pointing at a login form. And **no persistence**: it calls
+  `beginEphemeralQueue()` instead of `hydrate()`, so nothing a guest queues is written to
+  `localStorage` or synced. The flag sits on `commit()`, the one choke point both writers are behind.
+  Leaving the space (`endEphemeralQueue`) re-arms the restore rather than clearing the queue, because
+  a Vue layout swap may mount the incoming layout *first* and `clear()` persists.
+  The **header is kept unchanged**, because it trims itself: `SiteMenu` renders nothing without a
+  user, so a guest gets the wordmark, the language and theme switches, and a login link — while the
+  owner arriving at their own link keeps their way back into the app.
+- **A song share draws no track list.** The hero has just named the track, its artist, its album and
+  its playing time; a one-row list under that reads as a rendering fault. Albums and artists get the
+  list, which is the whole content of the page.
+- **A fact that is true of every row is a fact about the subject, so the row chips are conditional.**
+  Twelve rows reading "Radiohead · OK Computer" under a hero saying exactly that is noise — the same
+  reason the artist page's songs table has no artist column. `ShareTracks` works it out from the data
+  rather than from the subject kind (`varies()`), so a **compilation** shared as an album still shows
+  its performers, and an artist share still shows which record each track is from.
+
+**What the page deliberately does NOT show: who minted it.** It reads as a friendly touch — "Anna
+sent you this" — and it would publish a login identifier on a page reachable by anyone holding a
+forwarded link, since this app logs in by `users.name`. Half a credential pair is too much to pay for
+a nicety, and the recipient already knows who sent it.
 
 ## Minting, and "My shares"
 
@@ -255,11 +311,18 @@ is the point of pruning them lazily (below).
 The `/s/` space is the only unauthenticated surface in the app that reaches the disk, which makes it
 the most abuse-exposed thing on the box. Guests have no user id, so every bucket keys on **IP**.
 
-Per [`../CLAUDE.md`](../CLAUDE.md) → _Rate limiting_, each route needs its **own** named bucket
-(`throttle:60,1,share-stream` and so on) or they share one counter per caller and the tightest
-ceiling refuses traffic that never touched it — `tests/Feature/RateLimitBucketsTest.php` fails the
-suite for a bare numeric throttle. The stream route needs a ceiling that survives ordinary listening:
-one request per track, plus more when a listener seeks, since Range requests re-enter it.
+Per [`../CLAUDE.md`](../CLAUDE.md) → _Rate limiting_, each route needs its **own** named bucket or
+they share one counter per caller and the tightest ceiling refuses traffic that never touched it —
+`tests/Feature/RateLimitBucketsTest.php` fails the suite for a bare numeric throttle.
+
+As built, per minute per IP:
+
+| route                    | bucket              | ceiling | why that number                                                  |
+| ------------------------ | ------------------- | ------- | ---------------------------------------------------------------- |
+| the guest page           | `share-page`        | 60      | a page opened once and then sat on; high enough for a household behind one NAT |
+| the subject's cover      | `share-cover`       | 60      | one request per page load                                        |
+| a track's audio          | `share-stream`      | 120     | one per track *plus* every seek, since a Range request re-enters the route |
+| a track's cover          | `share-track-cover` | 240     | **the highest ceiling in the app**: one page load fires one per row — an artist share lists everything it grants. Lazy-loaded (`CoverImage`), so a long list only pays for what is scrolled into view, but a reader scrolling a 200-track share must not find the artwork stops half way down |
 
 ## Pruning
 
@@ -283,22 +346,33 @@ The usual three ([`testing.md`](testing.md)), and the split here is unusually cl
   already covered. It does own the two things about MINTING that PHP cannot see — the modal
   formatting the expiry in the reader's locale, and the failure branches of `useShareLink` (a mint
   that fails must leave `link` null, or the modal opens on an empty field somebody then copies).
-- **Playwright** takes the journeys no other layer can see. Two of them, and only the first exists:
-  minting from a hero and **copying out of the field** (happy-dom has no clipboard, so nothing below
-  this layer can prove a click really copies — `tests/e2e/app/share.spec.ts`); and, once `/s/` is
-  built, a **signed-out** browser opening a share link and playing audio under the shipped CSP. The
-  guest case makes that second one of the few E2E tests that belongs in `tests/e2e/guest/`.
+- **Playwright** takes the journeys no other layer can see, and there are two: minting from a hero
+  and **copying out of the field** (happy-dom has no clipboard, so nothing below this layer can prove
+  a click really copies), and a **signed-out** browser opening a link, playing audio, and never being
+  redirected to the login form. The second is one of the few specs that belongs in
+  `tests/e2e/guest/` — the project runs with no stored session, so a leaked login could not make it
+  pass by accident.
 
-What shipped: `tests/Feature/Shares/CreateShareTest.php`, `resources/app/composables/useShareLink.test.ts`,
+  It needs a link it cannot mint (minting is behind `auth`), so **`E2ESeeder` seeds two with fixed
+  ids** — `LIVE_SHARE`, an album, and `EXPIRED_SHARE`, a song — spelled out as constants because a
+  spec cannot call PHP for one.
+
+What shipped: `tests/Feature/Shares/CreateShareTest.php`, `tests/Feature/Shares/ShowShareTest.php`,
+`tests/Feature/Shares/ShareMediaTest.php`, `resources/app/composables/useShareLink.test.ts`,
 `resources/app/components/Music/ShareModal.test.ts`, `resources/app/components/Music/SubjectActions.test.ts`,
-and `tests/e2e/app/share.spec.ts`.
+`resources/app/pages/Share/SharePage.test.ts`, `resources/app/pages/Share/ShareTracks.test.ts`, the
+ephemeral-queue block in `resources/app/composables/usePlayerQueue.test.ts`, and the two specs
+`tests/e2e/app/share.spec.ts` + `tests/e2e/guest/share.spec.ts`.
 
 ## Known edges, and what is deliberately absent
 
 - **Audiobook shares are blocked on a page to share.** `AudiobooksController` still renders a
   placeholder. The schema covers them for free — one `collection_id` FK, since `collections` already
   discriminates album from audiobook — so this switches on with the Audiobooks area and needs no
-  migration.
+  migration. **The serving half is already built for them**: the share stream carries no music-only
+  guard, and `ShareGrant` filters by track type only for an *artist* subject (where it matches what
+  "play this artist" means). `ShareMediaTest` streams an audiobook chapter through a collection share
+  to keep that true.
 - **No genre shares**, confirmed by the owner on 2026-08-11. `PlaylistSubject` has a `Genre` case and
   the mapping would be free, but "listen to this genre" is a different kind of act from "listen to
   this" — a share hands over one thing somebody chose to send, and a genre is a shelf. `ShareSubject`

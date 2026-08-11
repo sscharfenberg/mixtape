@@ -32,14 +32,31 @@
  * PLAY MEANS REPLACE, and both verbs — including the round trip that fetches a paginated
  * subject's tracks, and the toast an empty one earns — are `useSubjectTracks`'s. Nothing
  * about what these do is decided here; this file is the pair, the labels and the icons.
+ *
+ * The `tracks` prop is the page saying it already holds them, and it is SubjectMenu's prop
+ * of the same name for the same reason: a page that is not paginated has its whole subject
+ * on screen already, so a round trip to fetch it would ask the server for what the props
+ * carried. The guest share page is that page (/s/{share}); the four Music heroes omit it and
+ * the composable fetches `queueTracks` on the first press, exactly as before.
  *****************************************************************************/
 import { useI18n } from "vue-i18n";
 import Button from "Components/Form/Button.vue";
 import Icon from "Components/UI/Icon.vue";
+import type { QueueTrack } from "Composables/usePlayerQueue";
 import { useSubjectTracks } from "Composables/useSubjectTracks";
 
+const props = defineProps<{
+    /**
+     * The subject's tracks, when the page already holds all of them. Omit it and the pair
+     * fetches `queueTracks` on the first press instead. An empty array is a real answer, not
+     * "unset" — the composable checks `!== undefined`, so a subject with nothing in it says
+     * so through the toast rather than triggering a fetch.
+     */
+    tracks?: QueueTrack[];
+}>();
+
 const { t } = useI18n();
-const { busy, playSubject, enqueueSubject } = useSubjectTracks();
+const { busy, playSubject, enqueueSubject } = useSubjectTracks(() => props.tracks);
 </script>
 
 <template>
