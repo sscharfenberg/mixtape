@@ -21,6 +21,7 @@
  * SUBJECT, which is what the link is — so what it wants from Now Playing is these three rows
  * and not the fourth.
  *****************************************************************************/
+import { computed } from "vue";
 import Visualizer from "Components/Player/Visualizer.vue";
 import NowPlayingQueue from "Components/PlayQueue/NowPlayingQueue.vue";
 import { usePlayerQueue } from "Composables/usePlayerQueue";
@@ -39,11 +40,39 @@ const props = withDefaults(
          * asked" and "this rip carried no genre frame" need no distinguishing here.
          */
         genres?: Record<string, string | null | undefined>;
+        /**
+         * Whether to keep the neighbour pair on screen when there is nothing on EITHER side.
+         *
+         * TRUE ON NOW PLAYING, because a queue there grows: two cards that vanished at the
+         * ends would make everything below them jump up and back down as playback advanced,
+         * and as tracks were queued — a layout moving for reasons a reader cannot see, which
+         * is the whole argument NeighbourTrack renders with no track at all.
+         *
+         * FALSE ON THE SHARE PAGE (the owner's call), where that argument does not apply: a
+         * guest has no library to queue from, so a one-track link is a one-track link for as
+         * long as they are on the page. Nothing can arrive either side of it, and two cards
+         * saying "nothing before / nothing after" are then just two dead boxes under the hero.
+         *
+         * It only ever hides the pair TOGETHER, never one of them: at the head of a long queue
+         * "nothing before this" is real information about where you are, and it is exactly the
+         * card a reader would otherwise think had failed to render.
+         */
+        keepEmptyNeighbours?: boolean;
     }>(),
-    { genres: () => ({}) }
+    { genres: () => ({}), keepEmptyNeighbours: true }
 );
 
 const { nextTrack, previousTrack, next, previous } = usePlayerQueue();
+
+/**
+ * Whether to draw the previous / next row at all.
+ *
+ * Only ever false where a caller has said the queue cannot grow under it AND there is nothing
+ * on either side — see `keepEmptyNeighbours` for why those are two conditions rather than one.
+ */
+const showNeighbours = computed<boolean>(
+    () => props.keepEmptyNeighbours || previousTrack.value !== null || nextTrack.value !== null
+);
 
 /** One track's genre, or null when it has none, is unknown, or there is no track at all. */
 const genreOf = (id: string | undefined): string | null => (id === undefined ? null : (props.genres[id] ?? null));
@@ -62,8 +91,9 @@ const genreOf = (id: string | undefined): string | null => (id === undefined ? n
         <div class="now-playing-section__box"><visualizer /></div>
 
         <!-- WHAT IS EITHER SIDE. Both cards keep their place at the ends of the queue, so the
-             queue below does not move as playback advances. -->
-        <div class="now-playing-section__neighbours">
+             queue below does not move as playback advances — except where a caller has said
+             the queue cannot grow and there is nothing on either side (see the prop). -->
+        <div v-if="showNeighbours" class="now-playing-section__neighbours">
             <neighbour-track
                 direction="previous"
                 :track="previousTrack"

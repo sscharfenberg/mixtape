@@ -224,6 +224,18 @@ this is the record of *why* that code exists.
   file that mounts one.
 - The project targets `lib: ES2020`, so **`Array.prototype.at()` is unavailable** in tests.
 
+**Server**
+
+- **The test client sends `Accept-Language: en-us,en;q=0.5` whether you asked for it or not.**
+  Symfony supplies it as a default server variable, and `ConfigureLocale` quite correctly honours
+  the browser's stated preference — so **any assertion against rendered copy is silently English**,
+  including one written for this app's German default, and it fails looking like a missing
+  translation. Setting `config('app.locale')` does not help: the middleware's browser arm never
+  reaches the fallback, and `app()->setLocale()` writes the config key back, so a value read after
+  the request is the one the middleware chose rather than the one you set. Pin the header on the
+  request (`SocialCardTest::visit()` is the pattern). It only bites tests that read the response
+  BODY — `assertInertia` compares props, which are raw.
+
 **End-to-end**
 
 - **Fortify throttles login at five attempts a minute per `username|ip`, counted in the CACHE** — so

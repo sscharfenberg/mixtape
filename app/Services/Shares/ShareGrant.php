@@ -143,6 +143,56 @@ final class ShareGrant
     }
 
     /**
+     * What the link is called — the name of the row {@see subject} identified.
+     *
+     * Here rather than in the page controller because two readers now want it and they must
+     * agree: the hero prints it, and the social card puts it in a title that appears in a chat
+     * window before anybody has opened the link. Read off the share's own relations, so which
+     * row is described can never disagree with which row was granted.
+     *
+     * Null for a subject this app cannot resolve, which the callers already handle: the page
+     * 404s on it before rendering.
+     */
+    public function subjectName(): ?string
+    {
+        return match ($this->subject()) {
+            ShareSubject::Song => $this->share->track->name,
+            ShareSubject::Album => $this->share->collection->name,
+            ShareSubject::Artist => $this->share->artist->name,
+            default => null,
+        };
+    }
+
+    /**
+     * One track of this grant that carries artwork, from the artist's most recent record.
+     *
+     * IT EXISTS FOR THE SOCIAL CARD, which needs a single picture where the page fans three
+     * (ShareArtwork). An artist has no image of their own in this app, so the card borrows a
+     * sleeve — and "the latest" is the owner's rule: a band's newest record is the one a
+     * recipient is most likely to recognise, and it is stable, where the page's fan is
+     * deliberately re-shuffled on every visit. A preview that changed each time it was pasted
+     * would look like a bug in whatever chat window is showing it.
+     *
+     * DRAWN FROM THE GRANT, like the fan, which is the artist trap in miniature: a sleeve off
+     * an album this link cannot play would be a picture of something the page has no rows for.
+     *
+     * Undated records sort last rather than first — `collections.year` is null for plenty of
+     * rips, and "no year" is not "the newest". Null when nothing granted carries a cover at all.
+     */
+    public function latestCoveredTrackId(): ?string
+    {
+        $row = $this->query()
+            ->where('tracks.cover', true)
+            ->leftJoin('collections', 'collections.id', '=', 'tracks.collection_id')
+            ->orderByRaw('coalesce(collections.year, 0) desc')
+            ->orderBy('collections.name')
+            ->select(['tracks.id'])
+            ->first();
+
+        return $row?->id;
+    }
+
+    /**
      * The granted tracks as play-queue entries, with every URL pointing back into this
      * share's own space.
      *

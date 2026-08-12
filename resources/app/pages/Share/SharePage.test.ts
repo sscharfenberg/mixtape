@@ -155,6 +155,29 @@ describe("SharePage", () => {
         it("shows the player's own rows below the hero", () => {
             expect(page().find(".now-playing-section").exists()).toBe(true);
         });
+
+        it("leaves out the previous / next pair for a one-track link", async () => {
+            // Every song share is one track, and a guest has no library to queue from — so
+            // nothing can ever arrive either side of it, and the pair would be two dead boxes.
+            // Now Playing keeps them for the opposite reason: its queue grows.
+            const wrapper = page();
+            await wrapper.vm.$nextTick();
+
+            expect(wrapper.find(".now-playing-section__neighbours").exists()).toBe(false);
+        });
+
+        it("keeps the pair as soon as there is something on one side", async () => {
+            const wrapper = page({
+                share: { kind: "album" as ShareKind, validUntil: "2026-08-18T09:30:00+00:00", expired: false },
+                tracks: [...props().tracks, { ...props().tracks[0], id: "track-2", name: "Sleep" }]
+            });
+            // A TICK IS REQUIRED, and it is the queue-on-arrival that makes it so: the first
+            // render happens before `onMounted` fills the queue, so the pair is decided against
+            // an empty one. The same tick every reader gets, and never sees.
+            await wrapper.vm.$nextTick();
+
+            expect(wrapper.find(".now-playing-section__neighbours").exists()).toBe(true);
+        });
     });
 
     describe("when the link has expired", () => {

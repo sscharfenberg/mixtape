@@ -6,6 +6,11 @@
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="csrf-token" content="{{ csrf_token() }}" />
         <meta name="color-scheme" content="light dark" />
+
+        {{-- What a link to this page looks like pasted into a chat window. `$card` is supplied
+             by the view composer in AppServiceProvider, so every render has one and no
+             controller has to remember. --}}
+        @include('partials.social-card')
         {{-- Apply the persisted theme before first paint so light-dark() resolves
              correctly with no flash. Runs synchronously in <head>, ahead of the
              deferred module bundle. Mirrors ThemeSwitch.vue's "theme" localStorage key. --}}

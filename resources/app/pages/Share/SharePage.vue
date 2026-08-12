@@ -307,8 +307,12 @@ const playable = computed<boolean>(() => props.tracks.length > 0);
 
                 <!-- What the app's own Now Playing page shows below its hero, and for the same
                      reasons — except that here the hero above is about the LINK's subject, which
-                     is why only these three rows come across and not a second hero. -->
-                <now-playing-section v-if="playable" />
+                     is why only these three rows come across and not a second hero.
+
+                     `keep-empty-neighbours` is false because a guest's queue cannot grow: a
+                     one-track link (which every song share is) would otherwise open on two dead
+                     cards saying there is nothing before and nothing after. -->
+                <now-playing-section v-if="playable" :keep-empty-neighbours="false" />
             </template>
         </div>
     </container>

@@ -7,8 +7,7 @@ namespace App\Http\Controllers\Shares;
 use App\Enums\ShareSubject;
 use App\Http\Controllers\Controller;
 use App\Models\Share;
-use App\Services\Media\CoverService;
-use App\Services\Music\FannedCovers;
+use App\Services\Shares\ShareArtwork;
 use App\Services\Shares\ShareGrant;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -43,8 +42,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  */
 class SharePageController extends Controller
 {
-    /** Injected so the "has this any artwork at all?" policy stays the one CoverService owns. */
-    public function __construct(private readonly CoverService $covers) {}
+    /** Injected so "which picture stands for this share" stays the one class that owns it. */
+    public function __construct(private readonly ShareArtwork $artwork) {}
 
     /**
      * Render one share. `{share}` resolves through implicit binding on the UUID, so a
@@ -78,7 +77,7 @@ class SharePageController extends Controller
                 'validUntil' => $share->valid_until->toIso8601String(),
                 'expired' => ! $live,
             ],
-            'subject' => $this->subject($share, $subject, $grant, $live),
+            'subject' => $this->subject($share, $subject, $grant),
             // Nothing to play once the week is up, and the emptiness is what the page draws
             // its "this link has expired" state from having no rows for. Also an economy
             // that matters: an artist share can be a few hundred entries.
@@ -102,7 +101,7 @@ class SharePageController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function subject(Share $share, ShareSubject $subject, ShareGrant $grant, bool $live): array
+    private function subject(Share $share, ShareSubject $subject, ShareGrant $grant): array
     {
         $totals = $grant->totals();
 
@@ -111,19 +110,13 @@ class SharePageController extends Controller
             'songs' => $totals['songs'],
             'duration' => $totals['duration'],
 
-            // The hero's <img>, decided here so the page can draw its placeholder rather
-            // than point an <img> at a 404 — the same call every detail page makes. Null
-            // for an expired share as well as an artless one, because the cover route
-            // refuses a dead link (ShareCoverRequest) and a broken image is a poor way to
-            // learn that.
-            'coverUrl' => $live && $this->hasCover($share, $subject)
-                ? route('shares.cover', $share, absolute: false)
-                : null,
-
-            // An artist has no artwork in this app — MixTape stores no artist images — so
-            // their hero fans a few of their own sleeves instead, exactly as the artist page
-            // does. Empty for the other two kinds, which have a cover of their own.
-            'sleeves' => $live && $subject === ShareSubject::Artist ? $this->sleeves($share, $grant) : [],
+            // Both halves of the hero's artwork are ShareArtwork's, and the expiry check is
+            // inside them: a dead link gets no picture, because both cover routes refuse one
+            // and a broken image is a poor way to learn that. An ARTIST gets no single cover
+            // at all — MixTape stores no artist images — and fans a few of their own sleeves
+            // instead, exactly as the artist page does.
+            'coverUrl' => $this->artwork->hero($share),
+            'sleeves' => $this->artwork->sleeves($share),
         ];
     }
 
@@ -161,49 +154,5 @@ class SharePageController extends Controller
                 'year' => null,
             ],
         };
-    }
-
-    /**
-     * Whether this subject can show artwork at all — asked of CoverService so the answer is
-     * the one the app gives everywhere else, including its inversion: an ALBUM prefers the
-     * directory's folder image over any embedded picture, a SONG prefers its own. Getting
-     * that backwards would make a compilation's hero depend on which track sorts first.
-     */
-    private function hasCover(Share $share, ShareSubject $subject): bool
-    {
-        return match ($subject) {
-            ShareSubject::Song => $this->covers->exists($share->track),
-            ShareSubject::Album => $this->covers->existsForAlbum($share->collection),
-            ShareSubject::Artist => false,
-        };
-    }
-
-    /**
-     * Up to three of the artist's covers for the hero's fanned sleeves, drawn from THE
-     * GRANT rather than from their discography.
-     *
-     * That difference is deliberate and is the artist trap in miniature: the artist page
-     * fans covers off `collections.album_artist_id`, which is not the set
-     * `tracks.artist_id` grants. A sleeve from an album this link cannot play would be a
-     * picture of something the page then has no rows for.
-     *
-     * Keyed by album so the fan is three different records, falling back to the track's own
-     * id for a loose file belonging to none — the same key rule the playlist hero uses. The
-     * URLs are per-track cover routes inside this share's space, which is what the sleeves
-     * on a playlist are too.
-     *
-     * @return array<int, string>
-     */
-    private function sleeves(Share $share, ShareGrant $grant): array
-    {
-        $rows = $grant->query()
-            ->where('tracks.cover', true)
-            ->select(['tracks.id', 'tracks.collection_id'])
-            ->get();
-
-        return FannedCovers::pick($rows->map(fn (object $row): array => [
-            $row->collection_id ?? $row->id,
-            route('shares.tracks.cover', [$share, $row->id], absolute: false),
-        ]));
     }
 }

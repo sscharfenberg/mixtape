@@ -1,6 +1,6 @@
 # MixTape is a private music collection shared with family and friends.
 # Nothing here is meant to be indexed: every useful URL sits behind auth or is
-# an unguessable signed share-link. Crawling it only costs a home uplink its
+# an unguessable share link. Crawling it only costs a home uplink its
 # bandwidth, so: please don't.
 #
 # This covers compliant crawlers, including the major LLM ones (GPTBot,
@@ -8,4 +8,56 @@
 # robots.txt are handled by nginx rate limiting and fail2ban instead.
 
 User-agent: *
+Disallow: /
+
+# ---------------------------------------------------------------------------
+# LINK PREVIEWS, and nothing else (2026-08-12).
+#
+# The two links this app exists to hand out — a share and an invite — are
+# pasted into chat windows, and a bare URL there says nothing about what is on
+# the other end. The Open Graph tags that fix that (App\Services\Meta\SocialCards)
+# are only read if the crawler fetches the page at all, and the agents below
+# honour the blanket rule above: Slack, X, Discord, Facebook and WhatsApp
+# simply would not look. Telegram, Signal and iMessage ignore robots.txt and
+# unfurl either way, which is what made the difference visible.
+#
+# EACH GROUP IS STILL `Disallow: /` — the two `Allow` lines are the whole of
+# what they may fetch, and the longest-match rule is what makes that work. No
+# indexer is affected: Google, Bing and the LLM crawlers match `*` above and
+# remain shut out of everything, this section included.
+#
+# `/s/` covers the share page and the two media routes under it, which is
+# deliberate — the preview image is a cover served from that space.
+# `/register` is the invite link; its card names nobody and says nothing about
+# the invitation (see SocialCards::invite).
+# ---------------------------------------------------------------------------
+
+User-agent: Twitterbot
+Allow: /s/
+Allow: /register
+Disallow: /
+
+User-agent: facebookexternalhit
+Allow: /s/
+Allow: /register
+Disallow: /
+
+User-agent: Slackbot-LinkExpanding
+Allow: /s/
+Allow: /register
+Disallow: /
+
+User-agent: Discordbot
+Allow: /s/
+Allow: /register
+Disallow: /
+
+User-agent: LinkedInBot
+Allow: /s/
+Allow: /register
+Disallow: /
+
+User-agent: WhatsApp
+Allow: /s/
+Allow: /register
 Disallow: /

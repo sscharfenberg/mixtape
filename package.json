@@ -24,6 +24,7 @@
         "test:e2e:ui": "playwright test --ui",
         "lint": "eslint 'resources/**/*.{js,ts,vue}' --fix && stylelint 'resources/**/*.{vue,scss}' --fix --quiet-deprecation-warnings",
         "icons": "node ./resources/build/icons.ts -v -i",
+        "og": "node ./resources/build/ogImage.ts",
         "format": "prettier --write 'resources/{app,build,types}/**/*.{ts,vue,scss,json,md}'",
         "preinstall": "node ./resources/build/checkNodeVersion.ts"
     },

@@ -30,6 +30,7 @@ Read alongside:
 | The `/s/{share}` route space             | ✅ built 2026-08-11 — four routes, not three (below)       |
 | Guest page (`Share/SharePage.vue`)       | ✅ built 2026-08-11                                        |
 | … as a PLAYER: queue pre-loaded, Now Playing block, own listing dropped | ✅ 2026-08-12 — below |
+| Link previews (Open Graph) for `/s/` and invites | ✅ 2026-08-12 — below, and it needed a robots.txt change |
 | "My shares" dashboard subpage            | ⬜ planned — **next**; the modal already promises it       |
 | Pruning expired rows                     | ⬜ planned                                                 |
 | Playlist shares                          | ⬜ deferred by the owner — the FK exists, the enum case does not |
@@ -313,6 +314,78 @@ A plain boolean survives a layout swap in both directions — Vue mounts the inc
 unmounting the outgoing one, but only one side ever writes each value — and
 `tests/e2e/app/share.spec.ts` walks the owner's round trip (app → link → app) to keep that true,
 which is a journey the guest project cannot make.
+
+## What a pasted link looks like (2026-08-12)
+
+A share link is *sent* — into WhatsApp, Signal, a Slack channel — and a bare URL there said
+nothing about what was on the other end. `App\Services\Meta\SocialCards` fills that in: the card
+names the subject, says what kind of thing it is, how many tracks and how long they run, and
+carries the artwork.
+
+**THE TAGS ARE ONLY HALF OF IT, and the other half is `public/robots.txt`.** That file said
+`Disallow: /` for everybody, on the entirely reasonable argument that nothing here is meant to be
+indexed — and the crawlers that draw link previews honour it. Slack, X, Discord, Facebook and
+WhatsApp simply would not have looked; Telegram, Signal and iMessage ignore robots.txt and were
+the only places a preview appeared. So the file now names those agents and allows them `/s/` and
+`/register`, each group still carrying `Disallow: /` so that is the whole of what they may fetch.
+Every indexer — Google, Bing, GPTBot, ClaudeBot — matches the `*` group above and stays shut out
+of everything. **If a preview ever stops appearing on one platform, this is the first file to
+read**, not the tags.
+
+**Three areas, and there can only be three.** A crawler has no session, so every URL under `auth`
+answers it with a redirect to the login form — a per-album card would be written for a fetch that
+never happens. What is left is the share space, the invite link, and one default that every other
+URL collapses into. The default is the correct answer for a page nobody outside can see, not a
+placeholder for work not yet done.
+
+**Decisions worth keeping:**
+
+- **The card is server-rendered, so it lives in Blade.** Unfurl crawlers do not run JavaScript;
+  nothing an Inertia page knows can reach them. A view composer on `app` supplies it, rather than
+  each controller passing one — a per-controller card is something every new public page has to
+  remember, and forgetting is silent.
+- **`SocialCards` reads the route rather than being told**, so the areas are a list in one place
+  and adding one is a `match` arm.
+- **An artist share borrows the sleeve of their most recent granted record** (`ShareGrant::latestCoveredTrackId`).
+  The page fans three at random on purpose; a card cannot, because a preview that changed on each
+  paste looks like a fault in the chat window showing it. Drawn from the *grant*, like the fan —
+  the artist trap in miniature.
+- **`og:image` must be absolute and publicly fetchable**, which means it can only ever be a `/s/`
+  cover route: `/music/…` covers sit behind `auth` and would unfurl as a broken frame.
+- **An expired link says so and offers no picture.** Both cover routes refuse a dead share, so an
+  image would 404 on fetch. It keeps the name, as the page does, so asking for a new one is
+  possible.
+- **The invite card names nobody.** Not the inviter (this app logs in by `users.name`, so that is
+  half a credential pair), not the note (the owner's private reminder of who it was for). Its
+  `og:url` is the bare `/register`, without the one-time code — the platform already holds the
+  full link, but a canonical URL is a string that gets copied onward. A `GET` does not consume an
+  invite, so an unfurl cannot burn one.
+- **`twitter:card` is `summary`, not `summary_large_image`.** The image is almost always a record
+  sleeve, and the large card crops to roughly 2:1 — the top and bottom of the artwork simply gone.
+- **The server formats the runtime here**, which is the one place it may: the rule is that
+  controllers send raw seconds and `Utils/formatting.ts` renders them, and it holds because there
+  is always a client on the other end. A crawler is not one. Minutes, rounded — a preview is a
+  glance.
+
+**`ShareArtwork` now owns "which picture stands for a share"** — the hero, the fan and the
+preview — because there were two readers wanting different answers to the same question, and the
+shared half (does this subject have artwork, and at which route) would otherwise have been copied
+into the new one. `SharePageController` lost its two private methods to it.
+
+**The generic image is generated, not drawn** (`npm run og` → `resources/build/ogImage.ts` →
+`public/og/mixtape.png`). It is a Playwright screenshot of a page built from the app's own
+`logo.svg`, its Google Sans woff2 and the retro palette — because the alternative, rasterising an
+SVG through a library, cannot use a woff2 at all and would silently render the wordmark in
+whatever fallback the machine had. Not part of `npm run build`: the output is committed, and a
+build should not need a browser. `SocialCards` checks the file exists before pointing at it, so a
+checkout that never ran the script gets a text-only card rather than a broken image.
+
+**One trap, found the hard way and worth knowing beyond this feature**: Symfony's test client
+sends `Accept-Language: en-us,en;q=0.5` of its own accord when a request names none, and
+`ConfigureLocale` correctly honours it. **Every response-level assertion about copy is silently
+English unless the header is pinned** — including one written against this app's German default,
+which then fails looking like a translation bug. Setting `config('app.locale')` does not help: the
+middleware's browser arm never reaches the fallback. `SocialCardTest::visit()` pins it.
 
 ## Minting, and "My shares"
 
