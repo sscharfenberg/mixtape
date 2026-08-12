@@ -145,6 +145,23 @@ is no rule of ours to put behind a media query.
 > real visit. Anything that paints loading chrome on those events has to check `visit.prefetch` first
 > — the progress bar in `main.ts` and DataTable's overlay both did not, and merely running the pointer
 > across a table flashed a spinner over rows nobody was going to.
+>
+> **And the trap has a second half, which cost the progress bar most of its working life**
+> (found 2026-08-12, from the owner noticing they had not seen the bar in a long time). Prefetching
+> does not merely add events — it **removes** them, and which ones depends on timing:
+>
+> | the click… | events for that visit |
+> | --- | --- |
+> | outran the hover timer, so nothing was prefetched | `before` → **`start`** → `finish` → `navigate` |
+> | landed while the prefetch was **in flight** | `before` → `finish` → `navigate` |
+> | landed after the prefetch **completed** (cache hit) | `before` → `navigate` |
+>
+> So `start` fires only in the case where nothing was warmed, and `finish` does not fire for a cache
+> hit at all. A bar armed on `start` is therefore missing in **exactly** the case it exists for — the
+> middle row, a real wait (measured at 1.2s) on a request nobody told the reader about, which is what
+> "nothing happens, then the page switches" is. **Arm on `before`, disarm on `finish` AND `navigate`**:
+> `before` is the only event all three share, and `navigate` is the only stop the cache hit sends.
+> Pinned by "raises the bar for a click that has to WAIT on the prefetch it started".
 
 **The layout is where anything that outlives a page goes.** Inertia swaps the *page* component on
 navigation and keeps `FullLayout`, so the play queue, the player bar and (later) the audio element

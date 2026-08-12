@@ -150,6 +150,49 @@ test.describe("navigating between pages", () => {
         expect(peak("overlay")).toBe(0);
         expect(peak("bar")).toBe(0);
     });
+
+    test("raises the bar for a click that has to WAIT on the prefetch it started", async ({ page }) => {
+        /*
+         * THE OTHER HALF OF THE TEST ABOVE, and the case that was broken for as long as
+         * prefetching has been on (found 2026-08-12, from the owner noticing they had not seen
+         * the bar in a long time).
+         *
+         * A hover starts a prefetch; a click a moment later lands while that request is still in
+         * flight, and Inertia parks the visit on it. `start` NEVER FIRES for that visit — the bar
+         * was armed on `start`, so the one case it exists for was the one case it missed, and it
+         * presents exactly as the owner described: nothing happens, then the page switches. The
+         * three sequences are recorded in main.ts (armProgress); the bar is armed on `before` now.
+         *
+         * THE TIMING IS THE TEST, so both numbers are deliberate: the response is held for 1500ms
+         * (the bar waits 250ms before drawing, so a local server answering in 20ms would pass this
+         * whether the fix existed or not), and the pointer rests for 400ms — long enough for
+         * Inertia's own hover delay to fire the prefetch, so the click has something in flight to
+         * wait on. Click immediately and you get the case above it, which always worked.
+         */
+        await page.route("**/playlists**", async route => {
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            return route.continue();
+        });
+        await instrument(page);
+        await page.goto("/music");
+
+        const link = page.getByRole("link", { name: /Wiedergabelisten/u }).first();
+        await expect(link).toBeVisible();
+
+        await samples(page);
+        await link.hover();
+        await page.waitForTimeout(400);
+        await link.click();
+
+        // Drawn while the reader waits…
+        await expect(page.locator(".progressbar")).toBeVisible();
+        // …and gone once they have the page. `navigate` is what takes it down, which matters:
+        // a visit served from a COMPLETED prefetch fires no `finish` at all, so arming on
+        // `before` without that backstop would leave a bar up for good.
+        await page.waitForURL(/\/playlists$/u);
+        await expect(page.locator(".progressbar")).toHaveCount(0);
+    });
 });
 
 test.describe("the breadcrumb on a narrow screen", () => {
