@@ -7,9 +7,11 @@
  * itself; it belongs here now that they travel together.
  *
  * The toggle is last on purpose and hides itself twice over: it renders nothing
- * with an empty queue, and nothing at all from `landscape` up, where the queue is
- * a permanent column with nothing to toggle. So on a desktop this row is exactly
- * what it was.
+ * with an empty queue, and nothing where the layout mounts no panel for it to open
+ * (the guest share space, which puts the queue on the page instead). It has no
+ * width rule any more — the second clause here used to say "nothing from `landscape`
+ * up, where the queue is a permanent column", and that arrangement ended in
+ * 2026-08-08; the panel is now opened the same way at every width.
  *****************************************************************************/
 import SiteMenu from "Components/Landmarks/Header/SiteMenu/SiteMenu.vue";
 import UserMenu from "Components/Landmarks/Header/UserMenu/UserMenu.vue";

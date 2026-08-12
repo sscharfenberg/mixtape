@@ -29,6 +29,7 @@ Read alongside:
 | Minting (`POST /shares`) + the modal     | ✅ built 2026-08-11                                        |
 | The `/s/{share}` route space             | ✅ built 2026-08-11 — four routes, not three (below)       |
 | Guest page (`Share/SharePage.vue`)       | ✅ built 2026-08-11                                        |
+| … as a PLAYER: queue pre-loaded, Now Playing block, own listing dropped | ✅ 2026-08-12 — below |
 | "My shares" dashboard subpage            | ⬜ planned — **next**; the modal already promises it       |
 | Pruning expired rows                     | ⬜ planned                                                 |
 | Playlist shares                          | ⬜ deferred by the owner — the FK exists, the enum case does not |
@@ -235,7 +236,8 @@ Two consequences of that reuse to get right:
 
 The cheap answer was taken, and three more things were settled by building it:
 
-- **The "trimmed layout" is `ShareLayout`, and it is FullLayout minus exactly two things.** No
+- **The "trimmed layout" is `ShareLayout`, and it is FullLayout minus two things** (three since
+  2026-08-12 — the queue panel joined them, see the next section). No
   breadcrumb — a trail says where you are in the app, and a share link is not *in* the app, so the
   trail would render as a lone home chip pointing at a login form. And **no persistence**: it calls
   `beginEphemeralQueue()` instead of `hydrate()`, so nothing a guest queues is written to
@@ -254,10 +256,63 @@ The cheap answer was taken, and three more things were settled by building it:
   rather than from the subject kind (`varies()`), so a **compilation** shared as an album still shows
   its performers, and an artist share still shows which record each track is from.
 
+*(Both of those bullets describe `ShareTracks`, which no longer exists — see the next section. They
+are kept because the second one's rule is still true and still worth having if a listing ever comes
+back.)*
+
 **What the page deliberately does NOT show: who minted it.** It reads as a friendly touch — "Anna
 sent you this" — and it would publish a login identifier on a page reachable by anyone holding a
 forwarded link, since this app logs in by `users.name`. Half a credential pair is too much to pay for
 a nicety, and the recipient already knows who sent it.
+
+### The page became a player (2026-08-12)
+
+The owner's call, and it removed more than it added: **the link's tracks go into the queue as the
+page opens**, and everything below the hero is `Components/Player/NowPlayingSection` — the
+visualiser, the previous / next cards, and the queue itself. `ShareTracks` is gone, and so is its
+whole token group.
+
+**The listing only ever existed because the queue was empty.** Its rows were the way to get tracks
+into the player, one press at a time. Fill the queue on arrival and the same twelve tracks are drawn
+twice on one page, in the same order, one copy live and one inert — so the inert copy went. What a
+guest sees instead is what the app's own `/now-playing` shows, under a hero about the *link's
+subject* rather than about the loaded track. Only the block's three rows come across; the Now Playing
+hero does not, because this page already has one.
+
+Four things worth knowing:
+
+- **Loading is not playing.** Nothing starts on its own — a browser would refuse it, and a page that
+  made noise on arrival would be the wrong thing even if it could. The reader gets a queue, a player
+  bar, and three rows describing what pressing play would do.
+- **It stands down for a player that is already running**, which is the guard the whole thing turns
+  on. `beginEphemeralQueue()` deliberately leaves the queue alone so that a reader who was listening
+  keeps listening — and that reader is usually the **owner**, opening a link they minted. Replacing
+  their queue unasked would cut their music off mid-track. A *paused* queue is fair game: nothing
+  under `/s/` is written down, so theirs is restored from storage the moment they leave the space.
+- **`enqueue` had to go with it.** `SubjectActions`' second verb would append a second copy of a
+  queue that already holds exactly those tracks. What is left is one page-local button, "play it
+  all", which restates the queue from the top — the same thing a hero's play means everywhere else,
+  where the bar below is what means *resume*.
+- **A guest can now remove and reorder rows**, which the old listing would not let them do. The
+  owner's call, and the cost is small: nothing is persisted, so the link is one reload away from
+  whole.
+
+The mount guard asks **`tracks.length`, not `share.expired`**, because a live link whose grant
+resolves to nothing sends none either — and `playNow([])` would *empty* a queue rather than fill it.
+
+**And the sliding panel is gone from this space entirely** — `ShareLayout` mounts no `PlayQueue`.
+With the queue on the page there is nothing for a second, sliding copy of it to add, and the panel
+stays what it is: a signed-in reader's affordance for a library they can build a queue out of.
+
+The way its absence propagates is the part worth keeping. The header's toggle and the `Q` shortcut
+both have to disappear with it, and **neither of them asks whether it is in the share space** —
+`PlayQueue` registers itself when it mounts (`notePlayQueuePanel`) and both read that flag. Any
+rule they applied themselves ("am I in ShareLayout?", "is there a user?") would be a second copy of
+the layout's decision, and the drift has a shape: a round button in the header that opens nothing.
+A plain boolean survives a layout swap in both directions — Vue mounts the incoming layout before
+unmounting the outgoing one, but only one side ever writes each value — and
+`tests/e2e/app/share.spec.ts` walks the owner's round trip (app → link → app) to keep that true,
+which is a journey the guest project cannot make.
 
 ## Minting, and "My shares"
 
@@ -346,6 +401,10 @@ The usual three ([`testing.md`](testing.md)), and the split here is unusually cl
   already covered. It does own the two things about MINTING that PHP cannot see — the modal
   formatting the expiry in the reader's locale, and the failure branches of `useShareLink` (a mint
   that fails must leave `link` null, or the modal opens on an empty field somebody then copies).
+  **Since 2026-08-12 it also owns what the page does to the QUEUE on arrival** — filling an empty
+  one, standing down for a player already running, and not emptying anything for a dead link. All
+  three are decisions about module state made in `onMounted`, cheap to stage here and awkward to
+  stage in a browser.
 - **Playwright** takes the journeys no other layer can see, and there are two: minting from a hero
   and **copying out of the field** (happy-dom has no clipboard, so nothing below this layer can prove
   a click really copies), and a **signed-out** browser opening a link, playing audio, and never being
@@ -360,9 +419,9 @@ The usual three ([`testing.md`](testing.md)), and the split here is unusually cl
 What shipped: `tests/Feature/Shares/CreateShareTest.php`, `tests/Feature/Shares/ShowShareTest.php`,
 `tests/Feature/Shares/ShareMediaTest.php`, `resources/app/composables/useShareLink.test.ts`,
 `resources/app/components/Music/ShareModal.test.ts`, `resources/app/components/Music/SubjectActions.test.ts`,
-`resources/app/pages/Share/SharePage.test.ts`, `resources/app/pages/Share/ShareTracks.test.ts`, the
-ephemeral-queue block in `resources/app/composables/usePlayerQueue.test.ts`, and the two specs
-`tests/e2e/app/share.spec.ts` + `tests/e2e/guest/share.spec.ts`.
+`resources/app/pages/Share/SharePage.test.ts`, the ephemeral-queue block in
+`resources/app/composables/usePlayerQueue.test.ts`, and the two specs `tests/e2e/app/share.spec.ts` +
+`tests/e2e/guest/share.spec.ts`. (`ShareTracks.test.ts` went with its component on 2026-08-12.)
 
 ## Known edges, and what is deliberately absent
 

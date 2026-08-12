@@ -1,9 +1,14 @@
 <script setup lang="ts">
 /******************************************************************************
  * NeighbourTrack
- * One of the two tracks either side of what is playing, as it appears in the Now Playing page's
- * third row: the artwork, the title, and the same facts the hero above carries — artist, album,
+ * One of the two tracks either side of what is playing, as the pair appears in the middle row of
+ * NowPlayingSection: the artwork, the title, and the same facts a hero carries — artist, album,
  * genre, runtime.
+ *
+ * IT KNOWS NOTHING ABOUT WHICH PAGE IT IS ON, which is what let it move out of `pages/NowPlaying/`
+ * (2026-08-12) with not a line changed: everything it draws comes from the `track` prop, and the
+ * one fact the queue does not carry is handed in as `genre` — null being a perfectly good answer,
+ * and the only one the guest share page has.
  *
  * THE WHOLE CARD STEPS THE PLAYER, because a card labelled "next" beside a separate arrow is two
  * controls for one intention — and on a phone the card is the thing under your thumb. That is

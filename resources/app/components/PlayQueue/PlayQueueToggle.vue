@@ -15,6 +15,12 @@
  * no panel at all, so the button would open nothing; worse, it would be a control
  * that appears to do something and does not.
  *
+ * AND IT DISAPPEARS WHERE NO PANEL IS RENDERED AT ALL (2026-08-12), which is the same rule
+ * applied one level up: the guest share space has its queue on the page and deliberately mounts
+ * no panel, so there is nothing here to open. The condition is not "am I on a share page" or
+ * "is anybody signed in" — it is the panel itself saying it exists (`notePlayQueuePanel`),
+ * because a layout's decision restated in the header is a copy that eventually disagrees.
+ *
  * The glyph doubles as the state: `play_queue` to open, `close` to shut again. It
  * borrows the global `.popover-button` classes rather than a look of its own, so
  * it sits beside the site and user menus as a peer — it is not a popover trigger,
@@ -39,12 +45,12 @@ import { withKey } from "Utils/platform";
 
 const { t } = useI18n();
 const { isEmpty } = usePlayerQueue();
-const { isOpen, toggle } = usePlayQueuePanel();
+const { exists, isOpen, toggle } = usePlayQueuePanel();
 </script>
 
 <template>
     <button
-        v-if="!isEmpty"
+        v-if="exists && !isEmpty"
         type="button"
         class="play-queue-toggle popover-button popover-button--rounded popover-button--subtle"
         :class="{ 'popover-button--open': isOpen }"

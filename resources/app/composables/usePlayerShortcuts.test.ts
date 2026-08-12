@@ -4,7 +4,11 @@ import { usePlayerQueue } from "Composables/usePlayerQueue";
 import { usePlayerShortcuts } from "Composables/usePlayerShortcuts";
 import { resetPlayerSpeedForTests, usePlayerSpeed } from "Composables/usePlayerSpeed";
 import { usePlayerVolume } from "Composables/usePlayerVolume";
-import { resetPlayQueuePanelForTests, usePlayQueuePanel } from "Composables/usePlayQueuePanel";
+import {
+    notePlayQueuePanel,
+    resetPlayQueuePanelForTests,
+    usePlayQueuePanel
+} from "Composables/usePlayQueuePanel";
 import { resetInertia } from "Testing/inertia";
 
 vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
@@ -304,12 +308,23 @@ describe("usePlayerShortcuts", () => {
         });
 
         it("shows and hides the queue panel from Q — the one key here that moves no audio", () => {
+            // A panel has to be on the page for the key to have anything to flip; PlayQueue
+            // registers itself when it mounts, and here that is stated rather than mounted.
+            notePlayQueuePanel(true);
             expect(usePlayQueuePanel().isOpen.value).toBe(false);
 
             press("q");
             expect(usePlayQueuePanel().isOpen.value).toBe(true);
 
             press("Q", { shiftKey: true });
+            expect(usePlayQueuePanel().isOpen.value).toBe(false);
+        });
+
+        it("leaves Q inert where no panel is rendered, which is the guest share space", () => {
+            // The bar and these listeners live there too — it is only the PANEL that is absent
+            // — so without the guard this would flip a flag nothing reads, invisibly.
+            press("q");
+
             expect(usePlayQueuePanel().isOpen.value).toBe(false);
         });
 

@@ -356,7 +356,7 @@ test.describe("the Now Playing page", () => {
 
             return {
                 queue: read(".play-queue__list--page"),
-                neighbours: read(".now-playing__neighbours"),
+                neighbours: read(".now-playing-section__neighbours"),
                 clipped: name.scrollWidth > name.clientWidth
             };
         });

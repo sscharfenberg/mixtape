@@ -5,11 +5,19 @@
  * (`defineOptions({ layout: ShareLayout })`), which is what Inertia reads in preference to
  * the app-wide default set in main.ts.
  *
- * IT IS FullLayout MINUS TWO THINGS, and both absences are the point.
+ * IT IS FullLayout MINUS THREE THINGS, and all three absences are the point.
  *
  * NO BREADCRUMB. A trail says where you are in the app, and a share link is not IN the app:
  * there is no listing this page came from and nowhere above it a guest may go. FullLayout's
  * trail would render as a lone home chip pointing at a page that offers a login form.
+ *
+ * NO QUEUE PANEL (2026-08-12, the owner's call). The share page puts the queue ON the page —
+ * it fills it on arrival and draws NowPlayingSection over it — so a second, sliding copy of the
+ * same list would be one list too many, in a space where a reader has no library to build a
+ * queue out of anyway. The panel is a signed-in reader's affordance and stays one. Its absence
+ * takes the header's toggle and the `Q` shortcut with it, and takes them by the honest route:
+ * PlayQueue registers itself when it mounts (`notePlayQueuePanel`), and both of those read that
+ * rather than re-deriving "am I in the share space" for themselves.
  *
  * NO PERSISTENCE — the whole reason this is a separate layout rather than a prop on the
  * other one. FullLayout hydrates the stored queue on mount; this deliberately does not, and
@@ -19,11 +27,10 @@
  * they minted, whose real queue is keyed to them and would otherwise be overwritten with
  * `/s/…` URLs that stop working in seven days.
  *
- * WHAT IT KEEPS, and why keeping it is right: the whole player. The PlayerBar, the queue
- * panel and the audio element are the same components the app uses, fed by the same
- * composable — a share's tracks are ordinary queue entries whose URLs happen to point into
- * the share's own space (App\Services\Shares\ShareGrant). A second player for guests would
- * be a second set of bugs.
+ * WHAT IT KEEPS, and why keeping it is right: the whole player. The PlayerBar and the audio
+ * element are the same components the app uses, fed by the same composable — a share's tracks
+ * are ordinary queue entries whose URLs happen to point into the share's own space
+ * (App\Services\Shares\ShareGrant). A second player for guests would be a second set of bugs.
  *
  * The HEADER is kept too, unchanged, because it trims ITSELF: SiteMenu renders nothing
  * without a signed-in user, so a guest gets the wordmark, the language and theme switches
@@ -35,7 +42,6 @@ import AppFooter from "Components/Landmarks/Footer/AppFooter.vue";
 import AppHeader from "Components/Landmarks/Header/AppHeader.vue";
 import AppMain from "Components/Landmarks/Main/AppMain.vue";
 import PlayerBar from "Components/Player/PlayerBar.vue";
-import PlayQueue from "Components/PlayQueue/PlayQueue.vue";
 import ToastContainer from "Components/UI/ToastContainer.vue";
 import TooltipLayer from "Components/UI/Tooltip/TooltipLayer.vue";
 import { beginEphemeralQueue, endEphemeralQueue, usePlayerQueue } from "Composables/usePlayerQueue";
@@ -60,7 +66,6 @@ onBeforeUnmount(endEphemeralQueue);
         <app-main>
             <slot />
         </app-main>
-        <play-queue />
     </div>
     <player-bar v-if="current" />
     <app-footer v-else />

@@ -1,8 +1,8 @@
 /******************************************************************************
  * contextual size tokens — component:neighbour-track
  * @type {Sass}
- * The Now Playing page's previous / next cards (pages/NowPlaying/NeighbourTrack): the gap between
- * its parts and the size of its label.
+ * The previous / next cards of the Now Playing block (Components/Player/NeighbourTrack): the gap
+ * between its parts and the size of its label.
  *
  * Its padding, border and radius come from s.$c-card — it is a Card, and one panel should not be
  * described twice. Only what the card decides for itself lives here.

@@ -38,6 +38,12 @@ const openFirstRow = async (page: Page, listing: string): Promise<void> => {
 /** The link field inside the modal. */
 const linkField = (page: Page) => page.locator(".share-modal__link");
 
+/**
+ * A seeded link (E2ESeeder → LIVE_SHARE), for the one test here that FOLLOWS one rather than
+ * mints it. A literal, like the guest spec's: a spec cannot call PHP for a constant.
+ */
+const LIVE_SHARE = "019e0007-0000-7000-8000-000000000001";
+
 test.describe("sharing", () => {
     test("mints a link from the song's hero and copies it out of the field", async ({ page, context }) => {
         // Granted on the CONTEXT, because a clipboard read is a permission and Chromium
@@ -92,5 +98,31 @@ test.describe("sharing", () => {
         await expect(page.locator(".subject-actions__play")).toBeVisible();
         await expect(page.locator(".subject-actions__enqueue")).toBeVisible();
         await expect(page.locator(".share-button")).toHaveCount(0);
+    });
+
+    test("gives the owner their queue panel back when they leave their own link", async ({ page }) => {
+        /*
+         * THE OWNER'S ROUND TRIP, which is the one journey neither guest/share.spec.ts nor any
+         * unit test can make: the guest project has no session to come back into the app with,
+         * and the panel's presence is a Vue lifecycle fact rather than a flag anything renders.
+         *
+         * It is a LAYOUT SWAP in both directions, and Vue mounts the incoming layout before
+         * unmounting the outgoing one — so a naive registration would land the wrong way up
+         * exactly once, on the way back. That is what this asserts (notePlayQueuePanel).
+         */
+        await openFirstRow(page, "/music/albums");
+        await page.locator(".subject-actions__play").click();
+        await expect(page.locator(".play-queue-toggle")).toBeVisible();
+
+        await page.goto(`/s/${LIVE_SHARE}`);
+
+        // The share space keeps the player and drops the panel: the queue is on the page there.
+        await expect(page.locator(".play-queue-toggle")).toHaveCount(0);
+        await expect(page.locator(".play-queue")).toHaveCount(0);
+        await expect(page.locator(".np-queue")).toBeVisible();
+
+        await page.goto("/music/albums");
+
+        await expect(page.locator(".play-queue-toggle")).toBeVisible();
     });
 });

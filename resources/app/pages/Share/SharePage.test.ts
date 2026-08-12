@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { resetPlayerQueueForTests } from "Composables/usePlayerQueue";
+import { resetPlayerAudioForTests, usePlayerAudio } from "Composables/usePlayerAudio";
+import { resetPlayerQueueForTests, usePlayerQueue } from "Composables/usePlayerQueue";
+import type { QueueTrack } from "Composables/usePlayerQueue";
 import { resetInertia, setPage } from "Testing/inertia";
 import { mountApp, translate } from "Testing/mount";
 import SharePage, { type ShareKind } from "./SharePage.vue";
@@ -14,8 +16,14 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
  * repeating them here would only be a second copy of the same contract. What is this page's
  * own is: the expiry rendered in the READER's locale (the server sends a raw instant and
  * knows neither their language nor their timezone), the expired branch replacing the whole
- * page, the missing tiles for a subject that has no such fact, and the decision not to list
- * one track under a hero that has just described it.
+ * page, the missing tiles for a subject that has no such fact — and, since 2026-08-12, WHAT
+ * THE PAGE DOES TO THE QUEUE ON ARRIVAL.
+ *
+ * That last one earns a unit test rather than a browser one because it is a decision about
+ * module state made in `onMounted`, and both of its branches are cheap to set up here and
+ * awkward to stage in a browser: filling an empty queue, and standing down for a player that
+ * is already running. Whether a guest then HEARS anything is Playwright's (guest/share.spec.ts)
+ * — happy-dom has no decoder.
  */
 
 /** A live song share, fully tagged; tests override only what they are about. */
@@ -54,10 +62,23 @@ const page = (overrides: Record<string, unknown> = {}, locale: "de" | "en" = "de
 const tile = (wrapper: ReturnType<typeof page>, label: string) =>
     wrapper.findAll(".fact-pair").find(node => node.text().startsWith(label));
 
+/** A queue entry from somewhere else entirely — what a reader might already be listening to. */
+const elsewhere: QueueTrack = {
+    id: "other-1",
+    name: "Sleep Walk",
+    artist: "Santo & Johnny",
+    album: null,
+    coverUrl: null,
+    duration: 140,
+    href: "/music/songs/other-1",
+    streamUrl: "/music/songs/other-1/stream"
+};
+
 describe("SharePage", () => {
     beforeEach(() => {
         resetInertia();
         resetPlayerQueueForTests();
+        resetPlayerAudioForTests();
         // The page renders inside ShareLayout only in the real app; mounted directly it
         // still reads the shared props its components ask for (the queue's user scope).
         setPage({ props: { auth: { user: null }, csrfToken: "test-token" } });
@@ -96,24 +117,43 @@ describe("SharePage", () => {
             expect(tile(wrapper, translate("music.columns.duration"))).toBeUndefined();
         });
 
-        it("offers the two verbs that play it", () => {
-            expect(page().find(".subject-actions").exists()).toBe(true);
+        it("offers one verb, not the pair a Music hero wears", () => {
+            // `enqueue` is gone because the link's tracks are already queued — appending them
+            // would be a way to hear everything twice.
+            expect(page().find(".share__play").exists()).toBe(true);
+            expect(page().find(".subject-actions").exists()).toBe(false);
         });
     });
 
-    describe("the track list", () => {
-        it("is left out for a song share, which the hero has already described", () => {
-            // A one-row list under a hero naming that same track, its artist, its album and
-            // its playing time repeats all of it and reads as a rendering fault.
-            expect(page().find(".share-tracks").exists()).toBe(false);
+    describe("the queue it arrives with", () => {
+        it("holds the link's tracks, pointing at the share's own stream", () => {
+            page();
+
+            const { tracks, current } = usePlayerQueue();
+
+            expect(tracks.value).toHaveLength(1);
+            expect(current.value?.streamUrl).toBe("/s/share-1/tracks/track-1/stream");
         });
 
-        it("is drawn for an album share, which is the content of the page", () => {
-            const wrapper = page({
-                share: { kind: "album" as ShareKind, validUntil: "2026-08-18T09:30:00+00:00", expired: false }
-            });
+        it("is loaded but not started, because a browser would refuse anyway", () => {
+            page();
 
-            expect(wrapper.find(".share-tracks").exists()).toBe(true);
+            expect(usePlayerAudio().isPlaying.value).toBe(false);
+        });
+
+        it("leaves a player that is already running alone", () => {
+            // The reader this protects is the OWNER opening a link they minted: replacing the
+            // queue unasked would cut their own music off mid-track.
+            usePlayerQueue().playNow([elsewhere]);
+            usePlayerAudio().isPlaying.value = true;
+
+            page();
+
+            expect(usePlayerQueue().current.value?.id).toBe("other-1");
+        });
+
+        it("shows the player's own rows below the hero", () => {
+            expect(page().find(".now-playing-section").exists()).toBe(true);
         });
     });
 
@@ -134,14 +174,24 @@ describe("SharePage", () => {
         });
 
         it("offers nothing to press", () => {
-            // Not merely empty: the hero and its buttons are GONE. A play button over an
-            // empty queue is a button that does nothing, which reads as the page being broken
-            // rather than the link being over.
+            // Not merely empty: the hero, its button and the player's rows are all GONE. A
+            // play button over an empty queue is a button that does nothing, which reads as
+            // the page being broken rather than the link being over.
             const wrapper = dead();
 
             expect(wrapper.find(".hero-section").exists()).toBe(false);
-            expect(wrapper.find(".subject-actions").exists()).toBe(false);
-            expect(wrapper.find(".share-tracks").exists()).toBe(false);
+            expect(wrapper.find(".share__play").exists()).toBe(false);
+            expect(wrapper.find(".now-playing-section").exists()).toBe(false);
+        });
+
+        it("does not empty a queue on its way past", () => {
+            // `playNow([])` would, which is why the mount guard asks the TRACKS rather than
+            // the expiry flag: a dead link is not a reason to stop somebody's music.
+            usePlayerQueue().playNow([elsewhere]);
+
+            dead();
+
+            expect(usePlayerQueue().tracks.value).toHaveLength(1);
         });
     });
 

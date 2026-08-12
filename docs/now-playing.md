@@ -22,10 +22,23 @@ Read alongside:
 | … always shown, no glow, 48/32/24 bars per width | ✅ 2026-08-10 — the owner's three calls, _below_                |
 | The queue, on the page                         | ✅ 2026-08-09 — a second presentation, not a second queue         |
 | … in two columns, read down, with a divider    | ✅ 2026-08-10                                                     |
+| Rows 2–4 lifted into a shared block            | ✅ 2026-08-12 — `Components/Player/NowPlayingSection`, _below_    |
 
 **The four rows**, in the order the owner asked for and each answering a different question: what is
 playing (the hero), what it sounds like (the visualiser), what is either side (two cards that step
 there when pressed), and what is lined up (the queue).
+
+**Only the first row is the PAGE's** (2026-08-12). Rows 2–4 are `Components/Player/NowPlayingSection`
+— the visualiser, the neighbour pair and the queue, with the box surface and the gaps that hold them
+apart — because all three describe *playback* rather than this page, and the guest share page at
+`/s/{share}` shows the same three under a hero of its own (`sharing.md`). The move changed nothing
+about how this page renders; `now-playing.spec.ts` is what says so, the grid-equality test included.
+
+The block takes one prop, `genres`, and that is the seam: it is the only thing on those three rows
+that the queue does not carry, and it is the only thing a guest cannot be told (the facts endpoint
+below is behind `auth`). An absent id reads as a null genre, so the card simply drops the chip. What
+stays behind on this page is the hero, the status pill and the fetch — the hero because a page that
+already has one of its own has no room for a second, which is exactly the share page's situation.
 
 **The page takes no props and probably never will take many.** What it is about — the queue and the
 loaded track — lives in the browser, because playback has to survive Inertia swapping pages
@@ -285,7 +298,7 @@ the path.
 
 ## 4. The queue on the page
 
-A **second presentation, not a second queue**: `pages/NowPlaying/NowPlayingQueue` reads
+A **second presentation, not a second queue**: `Components/PlayQueue/NowPlayingQueue` reads
 `usePlayerQueue` and drives `useQueueReorder` exactly as the panel does, and only the drawing
 differs. The same split `SiteMenuLinks` and `SiteMenuPopover` already make over one `useSiteAreas`.
 

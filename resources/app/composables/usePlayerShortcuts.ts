@@ -284,11 +284,16 @@ export function usePlayerShortcuts(): UsePlayerShortcutsReturn {
                 break;
             // The only key here that moves no audio: it shows and hides the QUEUE PANEL, which
             // is the one player surface a listener otherwise has to reach the header for. It
-            // belongs in this keymap all the same — the panel exists exactly when the bar that
-            // binds these listeners does, and `N`/`P` are far more useful once you can see what
-            // they are stepping through.
+            // belongs in this keymap all the same — `N`/`P` are far more useful once you can see
+            // what they are stepping through.
+            //
+            // GUARDED SINCE 2026-08-12, because the sentence that used to sit here — "the panel
+            // exists exactly when the bar that binds these listeners does" — stopped being true
+            // the day the guest share space kept the bar and dropped the panel. Unguarded, `Q`
+            // there flips a flag nothing reads, which is invisible until something else starts
+            // reading it.
             case "q":
-                panel.toggle();
+                if (panel.exists.value) panel.toggle();
                 break;
             default:
                 break;

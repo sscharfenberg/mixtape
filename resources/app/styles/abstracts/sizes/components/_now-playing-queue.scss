@@ -1,8 +1,8 @@
 /******************************************************************************
  * contextual size tokens — component:now-playing-queue
  * @type {Sass}
- * The queue as the Now Playing page draws it (pages/NowPlaying/NowPlayingQueue): the row's inset,
- * the gap between its parts, the size of its secondary type, and the stripe marking the loaded row.
+ * The queue as a PAGE draws it (Components/PlayQueue/NowPlayingQueue): the row's inset, the gap
+ * between its parts, the size of its secondary type, and the stripe marking the loaded row.
  * Consumed as s.$c-now-playing-queue via `@use "Abstracts/sizes" as s;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map

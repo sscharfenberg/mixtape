@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { QueueTrack } from "Composables/usePlayerQueue";
 import { resetPlayerQueueForTests, usePlayerQueue } from "Composables/usePlayerQueue";
-import { resetPlayQueuePanelForTests, usePlayQueuePanel } from "Composables/usePlayQueuePanel";
+import {
+    notePlayQueuePanel,
+    resetPlayQueuePanelForTests,
+    usePlayQueuePanel
+} from "Composables/usePlayQueuePanel";
 import { resetInertia } from "Testing/inertia";
 import { iconNames, mountApp, translate } from "Testing/mount";
 import PlayQueueToggle from "./PlayQueueToggle.vue";
@@ -11,8 +15,13 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
 /*
  * The header's narrow-screen control for the queue panel. Which WIDTH it appears at is a
  * media query and belongs to Playwright; what is left here is the part CSS cannot express
- * — that the button is absent entirely when there is no queue to show, and that its glyph
- * and its announced state stay in step with the panel.
+ * — that the button is absent entirely when there is nothing for it to open, and that its
+ * glyph and its announced state stay in step with the panel.
+ *
+ * TWO CONDITIONS HAVE TO HOLD, and the second one is why most of these tests declare a panel
+ * before mounting: there must be a queue, AND there must be a panel on the page to show it in
+ * (`notePlayQueuePanel`, registered by PlayQueue when it mounts). The share space has the first
+ * without the second, and no panel there means no button.
  */
 
 /** A queue track, shaped just enough to be enqueued. */
@@ -43,12 +52,37 @@ describe("PlayQueueToggle", () => {
     });
 
     it("appears once there is a queue to show", () => {
+        notePlayQueuePanel(true);
         usePlayerQueue().enqueue(track("a"));
 
         expect(mountApp(PlayQueueToggle).find("button").exists()).toBe(true);
     });
 
+    it("renders nothing where the layout mounts no panel, however full the queue is", () => {
+        // The guest share space: the queue is on the PAGE there, and the panel is a signed-in
+        // reader's affordance. A button offering to open what is not rendered is worse than no
+        // button, and this is the condition that keeps it away without the header having to
+        // know which layout it is in.
+        usePlayerQueue().enqueue(track("a"));
+
+        expect(mountApp(PlayQueueToggle).find("button").exists()).toBe(false);
+    });
+
+    it("goes away again when the panel unmounts under it", async () => {
+        notePlayQueuePanel(true);
+        usePlayerQueue().enqueue(track("a"));
+        const wrapper = mountApp(PlayQueueToggle);
+
+        // Navigating out of the app and into a share link, which is a layout swap: the old
+        // panel unmounts and says so, and the header follows without being told separately.
+        notePlayQueuePanel(false);
+        await wrapper.vm.$nextTick();
+
+        expect(wrapper.find("button").exists()).toBe(false);
+    });
+
     it("offers the queue glyph while the panel is shut", () => {
+        notePlayQueuePanel(true);
         usePlayerQueue().enqueue(track("a"));
         const wrapper = mountApp(PlayQueueToggle);
 
@@ -58,6 +92,7 @@ describe("PlayQueueToggle", () => {
     });
 
     it("becomes a close button once the panel is open", async () => {
+        notePlayQueuePanel(true);
         usePlayerQueue().enqueue(track("a"));
         const wrapper = mountApp(PlayQueueToggle);
 
@@ -70,6 +105,7 @@ describe("PlayQueueToggle", () => {
     });
 
     it("shuts the panel again on a second press", async () => {
+        notePlayQueuePanel(true);
         usePlayerQueue().enqueue(track("a"));
         const wrapper = mountApp(PlayQueueToggle);
 

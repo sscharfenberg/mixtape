@@ -68,18 +68,25 @@
  * so this is a settled trade, not an oversight. If the route is ever wanted back it
  * belongs in a per-row menu, never on the title.
  *****************************************************************************/
-import { computed, ref, useTemplateRef, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, useTemplateRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import PlayQueueMenu from "Components/PlayQueue/PlayQueueMenu.vue";
 import QueueList from "Components/PlayQueue/QueueList.vue";
 import Icon from "Components/UI/Icon.vue";
 import { usePlayerQueue } from "Composables/usePlayerQueue";
-import { usePlayQueuePanel } from "Composables/usePlayQueuePanel";
+import { notePlayQueuePanel, usePlayQueuePanel } from "Composables/usePlayQueuePanel";
 import { formatClock } from "Utils/formatting";
 
 const { t } = useI18n();
 const { tracks, isEmpty, totalDuration } = usePlayerQueue();
 const { isOpen, open, close, setOpen } = usePlayQueuePanel();
+
+// TELL THE HEADER THERE IS SOMETHING TO OPEN. The toggle and the `Q` shortcut are both hidden
+// where no panel is rendered — the guest share space — and this is what they read. Registered
+// on MOUNT rather than in setup, and dropped on unmount, so a layout swap lands right way up
+// (notePlayQueuePanel explains both orderings).
+onMounted(() => notePlayQueuePanel(true));
+onUnmounted(() => notePlayQueuePanel(false));
 
 /**
  * How long a peek lasts.

@@ -476,6 +476,7 @@
         }
     },
     "share": {
+        "play": "Play",
         "expires": {
             "label": "Link works until",
             "description": "After that this link stops working. Just ask for a new one."
@@ -483,11 +484,6 @@
         "expired": {
             "title": "This link has expired",
             "body": "A listening link works for seven days. Ask whoever sent it to you for a new one – it is one click at their end."
-        },
-        "tracks": {
-            "label": "Tracks on this link",
-            "play": "Play from “{name}”",
-            "playHint": "Play from here"
         }
     },
     "components": {

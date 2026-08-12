@@ -37,6 +37,15 @@ import { computed, ref } from "vue";
 
 /** Return type of {@link usePlayQueuePanel}. */
 export type UsePlayQueuePanelReturn = {
+    /**
+     * Whether there is a panel on this page AT ALL — false wherever the layout does not
+     * render one, which today means the guest share space (ShareLayout).
+     *
+     * Read by everything that would otherwise offer a way to open one that is not there: the
+     * header's toggle, and the `Q` shortcut. See {@link notePlayQueuePanel} for why the panel
+     * itself is what answers this.
+     */
+    exists: ComputedRef<boolean>;
     /** Whether the panel is showing. Consulted at every width. */
     isOpen: ComputedRef<boolean>;
     /** Flip it — what the header's toggle button does. */
@@ -59,6 +68,30 @@ export type UsePlayQueuePanelReturn = {
 
 // Module-level state — the header's toggle and the panel share this one flag.
 const open = ref(false);
+
+/** Whether a PlayQueue is mounted right now. See {@link notePlayQueuePanel}. */
+const present = ref(false);
+
+/**
+ * Say whether a panel is on the page — called by PlayQueue itself, on mount and on unmount.
+ *
+ * THE PANEL IS THE ONE THING THAT KNOWS, which is the whole reason this is a registration
+ * rather than a condition the header evaluates. The toggle and the `Q` shortcut both need to
+ * disappear wherever no panel is rendered — the guest share space, since 2026-08-12, where the
+ * queue is on the page instead and the panel is deliberately a signed-in reader's affordance —
+ * and any rule they applied themselves ("am I in ShareLayout?", "is there a user?") is a second
+ * copy of the layout's decision, kept in step by hand. Two copies drift, and the drift here has
+ * a shape: a round button in the header that opens nothing at all.
+ *
+ * A PLAIN SETTER RATHER THAN A COUNTER, and it survives a layout swap despite Vue mounting the
+ * incoming layout before unmounting the outgoing one — because only one side ever writes each
+ * value. Into the share space: ShareLayout mounts and registers nothing, then the old panel
+ * unmounts and writes false. Out of it: the new panel mounts and writes true, then ShareLayout
+ * unmounts and writes nothing. Both land right way up.
+ */
+export function notePlayQueuePanel(mounted: boolean): void {
+    present.value = mounted;
+}
 
 /**
  * Read / write whether the narrow-screen play queue panel is showing.
@@ -88,10 +121,18 @@ export function usePlayQueuePanel(): UsePlayQueuePanelReturn {
         open.value = next;
     }
 
-    return { isOpen: computed(() => open.value), toggle, open: show, close, setOpen };
+    return { exists: computed(() => present.value), isOpen: computed(() => open.value), toggle, open: show, close, setOpen };
 }
 
-/** Reset the singleton — tests only, since module state outlives a test file. */
+/**
+ * Reset the singleton — tests only, since module state outlives a test file.
+ *
+ * `present` resets to FALSE, which is the honest starting point: no panel is mounted until one
+ * says so. A spec that mounts the toggle on its own therefore has to state the precondition
+ * (`notePlayQueuePanel(true)`), which is the point — that is exactly the condition the button
+ * now depends on.
+ */
 export function resetPlayQueuePanelForTests(): void {
     open.value = false;
+    present.value = false;
 }

@@ -11,6 +11,11 @@
  *   3. WHAT IS EITHER SIDE — the previous and next tracks, each card a button that steps there.
  *   4. WHAT IS LINED UP — the whole queue.
  *
+ * ROWS 2–4 ARE NowPlayingSection, AND ONLY ROW 1 IS THIS PAGE'S OWN (2026-08-12). The three
+ * describe playback rather than this page, and the guest share page wants exactly them under a
+ * hero of its own; the hero here stays, because it is about the LOADED TRACK, which is the one
+ * thing a share page has no room to say twice.
+ *
  * IT READS THE PLAYER, IT IS NOT HANDED ONE. The queue and the loaded track live in the browser
  * so playback survives Inertia swapping pages (usePlayerQueue), so this page takes almost no
  * props: a server payload would only be a second, staler copy of what the composables already
@@ -37,7 +42,7 @@ import { computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import PlayCountFacts from "Components/Music/PlayCountFacts.vue";
-import Visualizer from "Components/Player/Visualizer.vue";
+import NowPlayingSection from "Components/Player/NowPlayingSection.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Container from "Components/UI/Container.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
@@ -46,8 +51,6 @@ import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import { usePlayerAudio } from "Composables/usePlayerAudio";
 import { usePlayerQueue } from "Composables/usePlayerQueue";
 import { formatClock } from "Utils/formatting";
-import NeighbourTrack from "./NeighbourTrack.vue";
-import NowPlayingQueue from "./NowPlayingQueue.vue";
 
 const props = defineProps<{
     /**
@@ -83,7 +86,7 @@ const { t } = useI18n();
 const { setBreadcrumbs } = useBreadcrumbs();
 setBreadcrumbs([{ labelKey: "header.siteMenu.nowPlaying", icon: "now_playing" }]);
 
-const { current, nextTrack, previousTrack, next, previous } = usePlayerQueue();
+const { current, nextTrack, previousTrack } = usePlayerQueue();
 const { isPlaying, queueFinished } = usePlayerAudio();
 
 /** The three tracks the page draws, in reading order. Nulls at the ends of the queue. */
@@ -103,6 +106,18 @@ const factsOf = (id: string | undefined): TrackFacts | null => (id === undefined
 
 /** The loaded track's facts, which the hero reads five things off. */
 const playing = computed<TrackFacts | null>(() => factsOf(current.value?.id));
+
+/**
+ * The genres alone, keyed by track id — the whole of what NowPlayingSection needs from `facts`.
+ *
+ * Narrowed here rather than handing the block the whole map, because that map carries play
+ * counts and three URLs that only a signed-in reader has any use for: the block is rendered on
+ * the guest share page too, and a prop it can only ever half-fill is one that invites a card
+ * down there to start reading the other half.
+ */
+const genres = computed<Record<string, string | null>>(() =>
+    Object.fromEntries(Object.entries(props.facts).map(([id, fact]) => [id, fact?.genre ?? null]))
+);
 
 /**
  * What the player is doing, as one word.
@@ -241,30 +256,10 @@ watch(
                 </template>
             </hero-section>
 
-            <!-- ROW 2 — what it sounds like, ALWAYS (the owner's call, 2026-08-10). It used to be
-                 mounted only while something was playing, on the argument that a paused EQ is a row
-                 of flat bars in an empty box; what that actually produced was a page whose four rows
-                 became three every time you pressed pause, with everything below jumping up a row
-                 and back down again. A quiet baseline holding its place says "nothing to hear right
-                 now", which is both true and stationary. The reading itself costs nothing while
-                 paused — the analyser reads zeros, and `requestAnimationFrame` stops dead as soon as
-                 the page is hidden. -->
-            <div class="now-playing__box"><visualizer /></div>
-
-            <!-- ROW 3 — what is either side. Both cards keep their place at the ends of the
-                 queue, so the queue below does not move as playback advances. -->
-            <div class="now-playing__neighbours">
-                <neighbour-track
-                    direction="previous"
-                    :track="previousTrack"
-                    :genre="factsOf(previousTrack?.id)?.genre ?? null"
-                    @step="previous"
-                />
-                <neighbour-track direction="next" :track="nextTrack" :genre="factsOf(nextTrack?.id)?.genre ?? null" @step="next" />
-            </div>
-
-            <!-- ROW 4 — what is lined up, in the same box the visualiser above sits in. -->
-            <div class="now-playing__box"><now-playing-queue /></div>
+            <!-- ROWS 2–4 — what it sounds like, what is either side, and what is lined up. One
+                 block, because all three are about PLAYBACK rather than about this page, and the
+                 guest share page renders the same three under a hero of its own. -->
+            <now-playing-section :genres="genres" />
 
             <p v-if="!current" class="now-playing__empty">{{ t("nowPlaying.empty") }}</p>
         </div>
@@ -274,40 +269,18 @@ watch(
 <style scoped lang="scss">
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "Abstracts/colors" as c;
-@use "Abstracts/mixins" as m;
 @use "Abstracts/sizes" as s;
 @use "Abstracts/timings" as ti;
 
-/* Stacks the four rows and spaces them, taking the CardGroup's own gutter (s.$c-card "gap") so
+/* Stacks the hero and the block below it, taking the CardGroup's own gutter (s.$c-card "gap") so
    the rhythm down the page matches the rhythm between two cards — the same rule, for the same
-   reason, as the four Music detail pages. */
+   reason, as the four Music detail pages. NowPlayingSection is a flex column with the same gutter,
+   so its three rows land exactly where they did when this file held them. */
 .now-playing {
     display: flex;
     flex-direction: column;
 
     gap: map.get(s.$c-card, "gap");
-}
-
-/* Stacked on a phone, side by side from `portrait` up. Equal columns rather than auto, so the two
-   cards stay the same width whatever their titles are — a "next" card that grew because its track
-   has a long name would make the pair read as a hierarchy.
-
-   AND `minmax(0, …)` IS WHAT MAKES THAT TRUE, rather than the `1fr` this said until 2026-08-10, which
-   promised equal columns and did not deliver them. `1fr` is `minmax(auto, 1fr)`, and the `auto` floor
-   is min-content — which for `.neighbour__title` (`white-space: nowrap`) is the WHOLE title, however
-   long. Measured with a 78-character title: 452px beside 765px at a 1280px window, and 247px of the
-   row hanging outside the page at 640px. The queue's own grid carries the same note; the owner found
-   it there first, on Burzum's *Filosofem*. */
-.now-playing__neighbours {
-    display: grid;
-
-    grid-template-columns: minmax(0, 1fr);
-
-    gap: map.get(s.$c-card, "gap");
-
-    @include m.mq("portrait") {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    }
 }
 
 /* The status pill, sized to the link beside it rather than to its own text: the two share the
@@ -365,23 +338,6 @@ watch(
     &:focus-visible {
         border-color: map.get(c.$c-neighbour-track, "edge-active");
     }
-}
-
-/* THE BOX the visualiser and the queue sit in: the card's own inset, border, corner and fill,
-   without the Card component.
-
-   NOT `Card`, and the reason is measurable rather than stylistic. A Card is built to sit in a
-   CardGroup's ROW and carries `flex: 1 1 <basis>` to share that row's width — dropped into this
-   page's column, that basis becomes a HEIGHT, and the visualiser's panel came out exactly 300px
-   tall around a 72px strip. Reading the tokens instead gives the same surface with no opinion
-   about how tall it should be. */
-.now-playing__box {
-    padding: map.get(s.$c-card, "padding");
-    border: map.get(s.$c-card, "border") solid map.get(c.$c-card, "border");
-
-    background-color: map.get(c.$c-card, "background");
-    color: map.get(c.$c-card, "surface");
-    border-radius: map.get(s.$c-card, "radius");
 }
 
 .now-playing__empty {

@@ -22,6 +22,19 @@
  * with the play queue in the mode that never writes itself down. That second half is the load
  * bearing one: see ShareLayout.
  *
+ * THE LINK IS IN THE QUEUE BEFORE ANYTHING IS PRESSED (2026-08-12), which is what turned the
+ * page from a listing into a player. It used to draw its own list of the granted tracks
+ * (ShareTracks) with a play button per row, and that list existed only because the queue was
+ * empty until somebody pressed one of them. Filling the queue on arrival makes the list a
+ * duplicate of the queue below it — same tracks, same order, one of them live — so the list is
+ * gone and NowPlayingSection stands in its place: the visualiser, what is either side, and the
+ * queue itself. `enqueue` went with it, and had to: appending a link's tracks to a queue that
+ * already holds exactly them is a way to hear everything twice.
+ *
+ * WHAT THAT COSTS, and why it is worth it: a listener may now remove and reorder rows in a
+ * share's queue, which the old list would not let them do. Nothing about it is written down
+ * (ShareLayout's ephemeral mode), so the link is one reload away from whole again.
+ *
  * AN EXPIRED LINK STILL RENDERS. It keeps its heading — so a reader can say WHAT they are
  * asking to be sent again — and replaces everything else with one card saying the link has
  * expired. The tracks prop is empty in that state, decided by the server, so there is nothing
@@ -33,21 +46,23 @@
  * nobody meets both of these.
  *****************************************************************************/
 import { Head } from "@inertiajs/vue3";
-import { computed } from "vue";
+import { computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
+import Button from "Components/Form/Button.vue";
 import ShareLayout from "Components/Layout/ShareLayout.vue";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import CoverSleeves from "Components/Music/CoverSleeves.vue";
-import SubjectActions from "Components/Music/SubjectActions.vue";
+import NowPlayingSection from "Components/Player/NowPlayingSection.vue";
 import Card from "Components/UI/Card/Card.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Container from "Components/UI/Container.vue";
 import Headline from "Components/UI/Headline.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
 import Icon from "Components/UI/Icon.vue";
+import { usePlayerAudio } from "Composables/usePlayerAudio";
 import type { QueueTrack } from "Composables/usePlayerQueue";
+import { usePlayerQueue } from "Composables/usePlayerQueue";
 import { formatDateTime, formatDuration } from "Utils/formatting";
-import ShareTracks from "./ShareTracks.vue";
 
 /**
  * Which kinds of thing a link can be about — App\Enums\ShareSubject, and nothing else.
@@ -99,6 +114,49 @@ const props = defineProps<{
 defineOptions({ layout: ShareLayout });
 
 const { t, locale } = useI18n();
+const { playNow } = usePlayerQueue();
+const { isPlaying, play } = usePlayerAudio();
+
+/**
+ * Put the link's tracks in the queue as the page opens — the change that lets everything below
+ * the hero be the player rather than a listing.
+ *
+ * LOADING IS NOT PLAYING, and nothing here starts anything: a browser only allows playback from
+ * a user gesture, and a page that began making noise on arrival would be the wrong thing even
+ * if it could. What the reader gets is a queue with the link in it, a player bar, and the three
+ * rows below already describing what pressing play would do.
+ *
+ * IT STANDS DOWN FOR A PLAYER THAT IS ALREADY RUNNING, which is the guard the whole feature
+ * turns on. `beginEphemeralQueue` deliberately leaves the queue alone precisely so that a reader
+ * who was listening keeps listening while they look at a share, and that reader is usually the
+ * OWNER, opening a link they minted — replacing their queue unasked would cut their music off
+ * mid-track. A paused queue is fair game: nothing under `/s/` is written down, so theirs is
+ * restored from storage the moment they leave the space (see endEphemeralQueue).
+ *
+ * An EXPIRED link sends no tracks, and an empty `playNow` would empty the queue rather than
+ * fill it — so it returns instead, leaving whatever was there.
+ */
+onMounted(() => {
+    if (props.tracks.length === 0 || isPlaying.value) return;
+
+    playNow(props.tracks);
+});
+
+/**
+ * Play the link from its first track.
+ *
+ * It restates the queue rather than resuming, because that is what a hero's play button means
+ * everywhere else in this app — "play this thing", from the top — and the transport in the bar
+ * below is the control that means resume. It also covers the one case `onMounted` stood down
+ * for: a reader who arrived here with something else playing presses this, and gets the share.
+ *
+ * `play()` is called explicitly, and inside the handler: loading a track does not start it, and
+ * this click is the gesture the browser will allow playback from.
+ */
+function playShare(): void {
+    playNow(props.tracks);
+    play();
+}
 
 /**
  * The heading's glyph — the same one the app uses for that kind of thing everywhere else.
@@ -143,14 +201,15 @@ const playtime = computed<string>(() =>
 const expires = computed<string>(() => formatDateTime(props.share.validUntil, locale.value) ?? "");
 
 /**
- * Whether the track list is worth drawing.
+ * Whether there is anything to play, and so whether the page has a player half at all.
  *
- * A SONG SHARE HAS NO LIST: the hero has just named the one track, printed its artist, its
- * album and its playing time, and offers the button that plays it — a one-row list under
- * that repeats all of it and reads as a rendering fault. An album or an artist gets the list,
- * which is the whole content of the page.
+ * It asks the TRACKS rather than `share.expired`, because the two can differ in one direction
+ * that matters: an expired link sends none, but so does a live link whose grant resolves to
+ * nothing (a collection with no rows). Three empty boxes and a play button that does nothing
+ * read as a page that failed to load, where a hero on its own reads as a link with nothing in
+ * it — which is the truth.
  */
-const listed = computed<boolean>(() => !props.share.expired && props.share.kind !== "song");
+const playable = computed<boolean>(() => props.tracks.length > 0);
 </script>
 
 <template>
@@ -231,15 +290,25 @@ const listed = computed<boolean>(() => !props.share.expired && props.share.kind 
                             :description="t('share.expires.description')"
                         />
                     </template>
-                    <!-- The two verbs, handed the tracks the page already holds — so neither
-                         costs a round trip, and a guest never waits on a partial reload of a
-                         page they have no account for. -->
+                    <!-- ONE VERB, not the pair the Music heroes wear. The link's tracks are
+                         already in the queue (see onMounted), so "enqueue" would append a
+                         second copy of everything below — and there is no library here to
+                         build a queue out of anyway, which is what that verb is for. -->
                     <template #actions>
-                        <subject-actions :tracks="tracks" />
+                        <Button v-if="playable" variant="primary" no-halo class="share__play" @click="playShare">
+                            <!-- `playlist`, not `play`: this fills the queue and starts it,
+                                 which is a list operation — a bare play triangle reads as
+                                 "play this one thing" (SubjectActions makes the same call). -->
+                            <icon name="playlist" :size="1" />
+                            <span>{{ t("share.play") }}</span>
+                        </Button>
                     </template>
                 </hero-section>
 
-                <share-tracks v-if="listed" :tracks="tracks" />
+                <!-- What the app's own Now Playing page shows below its hero, and for the same
+                     reasons — except that here the hero above is about the LINK's subject, which
+                     is why only these three rows come across and not a second hero. -->
+                <now-playing-section v-if="playable" />
             </template>
         </div>
     </container>

@@ -1,8 +1,8 @@
 /******************************************************************************
  * contextual color tokens — component:now-playing-queue
  * @type {Sass}
- * The queue as the Now Playing page draws it (pages/NowPlaying/NowPlayingQueue): the quiet ink of
- * its secondary lines, and the mark on the row that is loaded.
+ * The queue as a PAGE draws it (Components/PlayQueue/NowPlayingQueue): the quiet ink of its
+ * secondary lines, and the mark on the row that is loaded.
  *
  * The row's SURFACE comes from c.$c-card — the list sits on the page's own card fill rather than
  * inventing a second one. Only what this list decides for itself is here.

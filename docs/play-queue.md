@@ -462,6 +462,13 @@ server half in `data-model.md`, not for anything this file can fix.
 over the content instead of taking a column. Covers are `loading="lazy"`, and the panel scrolls the
 loaded track into view a row clear of the edge it approached.
 
+**It is a signed-in reader's affordance, and since 2026-08-12 it says so structurally.** The guest
+share space mounts no panel at all — `/s/{share}` puts the queue on the page instead — so the panel
+publishes its own presence on mount (`notePlayQueuePanel`), and the header's toggle and the `Q`
+shortcut render and fire only when it is there. Neither of them evaluates a rule of its own about
+which layout it is in: one condition, owned by the thing the condition is about. See
+`sharing.md` → *The page became a player*.
+
 **Rows are plain text, deliberately.** The title used to be a real `Link` to the song's page, and in
 a panel whose every other pixel plays the track that is a trap. The row's hit area is an **empty
 button positioned across it**, which is also what gives the play overlay a real bounding box: its

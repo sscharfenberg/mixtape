@@ -1,8 +1,8 @@
 /******************************************************************************
  * contextual color tokens — component:neighbour-track
  * @type {Sass}
- * The Now Playing page's previous / next cards (pages/NowPlaying/NeighbourTrack): the quiet ink
- * its label and facts are set in, and the edge it lights on hover.
+ * The previous / next cards of the Now Playing block (Components/Player/NeighbourTrack): the quiet
+ * ink its label and facts are set in, and the edge it lights on hover.
  *
  * The card's SURFACE is not here on purpose — it is a Card, and it reads c.$c-card for the fill,
  * border and radius rather than minting a second definition of the same panel. What this file

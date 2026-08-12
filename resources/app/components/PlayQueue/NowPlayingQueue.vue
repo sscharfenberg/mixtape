@@ -1,7 +1,12 @@
 <script setup lang="ts">
 /******************************************************************************
  * NowPlayingQueue
- * The Now Playing page's fourth row: a heading with the queue's totals, over the queue itself.
+ * The last row of NowPlayingSection: a heading with the queue's totals, over the queue itself.
+ *
+ * IT LIVES BESIDE THE PANEL rather than in `pages/NowPlaying/`, because it is the queue's SECOND
+ * container and this folder is where the queue's containers are (2026-08-12): `PlayQueue` is the
+ * sliding panel, this is the one that sits on a page, and `QueueList` is the rows both of them
+ * draw. It takes no props and asks `usePlayerQueue` itself, so any page may render it.
  *
  * THE ROWS ARE THE PANEL'S ROWS — `QueueList`, the one definition of them, asked for its `page`
  * layout. This file used to draw its own, which lasted about an hour: two copies of a row drift,
