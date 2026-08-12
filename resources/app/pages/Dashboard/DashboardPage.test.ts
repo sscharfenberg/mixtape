@@ -26,12 +26,20 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
  * their anchors exist to be found.
  */
 
-/** Mount the whole dashboard with the props its four sections read. */
-const dashboard = () => {
+/**
+ * Mount the whole dashboard with the props its sections read.
+ *
+ * `shares` decides whether there are four sections or five: "your shared content" is drawn
+ * only for a reader who has shared something, which makes this page the one place both shapes
+ * can be compared side by side. Defaulted to the commoner one — most accounts have never
+ * pressed "share".
+ */
+const dashboard = (shares = false) => {
     setPage({
         props: {
             auth: { user: { name: "Ashaltiriak", email: "ash@example.test" } },
             csrfToken: "token",
+            shares,
             twoFactorEnabled: false,
             requiresConfirmation: true,
             requiresPasswordConfirmation: false
@@ -69,11 +77,42 @@ describe("DashboardPage", () => {
     it("lists the sections in the order the page renders them", () => {
         const wrapper = dashboard();
         const linked = wrapper.findAll(".sticky-nav a").map(link => link.attributes("href")!.slice(1));
-        const rendered = ["passwordSection", "profileSection", "twoFactorSection", "deleteSection"].filter(
-            id => wrapper.find(`#${id}`).exists()
-        );
+        const rendered = ["sharesSection", "passwordSection", "profileSection", "twoFactorSection", "deleteSection"]
+            .filter(id => wrapper.find(`#${id}`).exists());
 
         expect(linked).toStrictEqual(rendered);
+    });
+
+    describe("the shared-content section", () => {
+        it("is absent for a reader who has never shared anything", () => {
+            // Which is most of them: a section explaining a feature nobody has used is a
+            // section everybody scrolls past.
+            const wrapper = dashboard(false);
+
+            expect(wrapper.find("#sharesSection").exists()).toBe(false);
+            expect(wrapper.findAll(".sticky-nav a")).toHaveLength(4);
+        });
+
+        it("is drawn FIRST for a reader who has, with a jump-link to match", () => {
+            // Above the settings sections, because it is not a setting — it is a thing they
+            // made that somebody else is holding.
+            const wrapper = dashboard(true);
+            const targets = wrapper.findAll(".sticky-nav a").map(link => link.attributes("href")!);
+
+            expect(wrapper.find("#sharesSection").exists()).toBe(true);
+            expect(targets[0]).toBe("#sharesSection");
+            for (const target of targets) expect(wrapper.find(target).exists()).toBe(true);
+        });
+
+        it("offers the way to the list rather than the list itself", () => {
+            // The dashboard is a signpost here: a section of unknown length in the middle of a
+            // settings page would push everything below it out of reach.
+            const wrapper = dashboard(true);
+
+            expect(wrapper.find('.form a[href="/dashboard/shared"]').exists()).toBe(true);
+            // …and no rows of its own: the list lives at the other end of that link.
+            expect(wrapper.find(".shares__row").exists()).toBe(false);
+        });
     });
 
     it("labels each link with its section's own name", () => {

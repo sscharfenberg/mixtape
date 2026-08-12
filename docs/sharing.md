@@ -11,9 +11,9 @@ afterwards as the record of why the shape is what it is.
 **A share link now works end to end.** A signed-in reader presses **share** in a song / album /
 artist hero, the server mints (or re-hands) a link, and whoever it is sent to opens it with no
 account and plays what it names — verified in a signed-out browser
-(`tests/e2e/guest/share.spec.ts`). What is still missing is the OWNER's half: "revoke it from your
-dashboard", which the modal already promises, has no page yet, so revoking today means deleting the
-row by hand.
+(`tests/e2e/guest/share.spec.ts`). **The owner's half landed on 2026-08-12**: `/dashboard/shared`
+lists what they have sent and revokes any of it, which is what the mint modal had been promising
+since the feature shipped.
 
 Read alongside:
 
@@ -31,7 +31,7 @@ Read alongside:
 | Guest page (`Share/SharePage.vue`)       | ✅ built 2026-08-11                                        |
 | … as a PLAYER: queue pre-loaded, Now Playing block, own listing dropped | ✅ 2026-08-12 — below |
 | Link previews (Open Graph) for `/s/` and invites | ✅ 2026-08-12 — below, and it needed a robots.txt change |
-| "My shares" dashboard subpage            | ⬜ planned — **next**; the modal already promises it       |
+| "My shares" dashboard subpage + revoking | ✅ built 2026-08-12 — `/dashboard/shared`, below           |
 | Pruning expired rows                     | ⬜ planned                                                 |
 | Playlist shares                          | ⬜ deferred by the owner — the FK exists, the enum case does not |
 | Audiobook shares                         | ⬜ blocked — the Audiobooks area is still a placeholder     |
@@ -428,11 +428,42 @@ this is a dialog rather than a line of text beside the button. The link sits in 
 travels, and no design short of per-recipient accounts changes that. The seven-day expiry is what
 bounds the spread, not a permission.
 
-**"My shares"** is a Dashboard subpage (`/dashboard/shares`) rather than a block on the dashboard
-itself: it is a list that grows and will want paging, and `DashboardPage.vue`'s existing sections are
-fixed-size forms. Per the page conventions it lives at `pages/Dashboard/Shares/`. It lists what was
-shared, the note, when the link dies, and a revoke button — and it shows **expired** rows too, which
-is the point of pruning them lazily (below).
+**"My shares"** is a Dashboard subpage rather than a block on the dashboard itself: it is a list of
+unknown length, and `DashboardPage.vue`'s existing sections are fixed-size forms. Per the page
+conventions it lives at `pages/Dashboard/Shares/`.
+
+### What revoking turned out to be (built 2026-08-12)
+
+The URL is **`/dashboard/shared`**, not `/dashboard/shares` as sketched above — the page is about
+what the reader has *shared*, and the noun reads better in a path a person may type.
+
+**Revoking is `DELETE /shares/{share}`, and deleting the row is the whole mechanism.** Every route
+under `/s/{share}` resolves it by implicit binding, so one statement closes the page, both cover
+routes and the stream — for the holder and for anybody they forwarded it to — and closes them with
+the same 404 a typo gets. That is the payoff of *Why a row and not a signed URL* above, collected:
+there was no cache to purge and no revocation list to append to.
+
+- **Only the minter may**, which is the first place in the whole feature where ownership means
+  anything: minting needs no ownership check (every account sees the whole library) and the `/s/`
+  space needs none (holding the id *is* the permission). A stranger's id answers **404 rather than
+  403** — on an instance shared between family and friends, "you may not revoke that" confirms the
+  link is real and somebody else's.
+- **Expired rows are listed and revocable.** They are still things the reader made, and a list that
+  quietly shrank would read as links going missing. It is also how a reader tidies up until pruning
+  exists (below).
+- **The row shows the kind as a pip, not as "(Album)" in running text** (the owner's call). A
+  parenthesis is punctuation to parse; a chip is a label to skip past on the way to the name. The
+  validity wears the same pip at the other end of the row, and the revoke button carries a fill at
+  rest — unlike every other per-row control in the app, which stay transparent until aimed at. This
+  is the only control on its row, and the only one in the app whose consequence lands in somebody
+  else's hands.
+- **Both ways in are gated on a `shares` boolean shared prop** — the dashboard's own section and the
+  user-menu entry below "dashboard". An account that has never pressed share never meets the feature.
+  A boolean rather than the list, because the list would otherwise ride on every page load in the app
+  to decide the visibility of one menu item.
+- **What it deliberately does not show is the note.** That is the owner's private reminder of who a
+  link was for, and the list is read at a glance — the subject and the clock are what a revoke
+  decision turns on.
 
 ## Rate limiting
 

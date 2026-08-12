@@ -60,4 +60,10 @@ return [
         'tracks_already' => '":playlist" enthält bereits alle diese Titel.',
     ],
 
+    'share' => [
+        // Benennt den Link nicht: die Zeile, auf die er sich bezieht, ist mit dem Klick
+        // verschwunden, und "welchen" hat der Dialog davor schon beantwortet.
+        'revoked' => 'Der Link wurde zurückgezogen und funktioniert ab sofort nicht mehr.',
+    ],
+
 ];

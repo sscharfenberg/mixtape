@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AudiobooksController;
 use App\Http\Controllers\Dashboard\DashboardController;
+use App\Http\Controllers\Dashboard\SharesController;
 use App\Http\Controllers\Dev\AudioProbeController;
 use App\Http\Controllers\Dev\IconsController;
 use App\Http\Controllers\HomeController;
@@ -74,6 +75,15 @@ Route::post('/lang/{locale}', [LocaleController::class, 'update'])
 Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerification()) ? 'verified' : null]))
     ->group(function () {
         Route::get('/dashboard', DashboardController::class)->name('dashboard');
+
+        // The reader's own share links, and the only place they can be revoked
+        // (docs/sharing.md). A dashboard SUBPAGE rather than a section on it: what the
+        // dashboard carries is a heading and a link, because a list of unknown length has no
+        // business in the middle of a settings page. Both entry points — that section and the
+        // header's user menu — are drawn only for a reader who has shared something, off the
+        // `shares` shared prop, so an account that has never shared anything never meets the
+        // feature at all.
+        Route::get('/dashboard/shared', SharesController::class)->name('dashboard.shares');
 
         // Top-level browse areas — linked from the header site menu (useSiteAreas).
         // Scaffolds for now: each renders a placeholder page.
@@ -266,6 +276,21 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         Route::post('/shares', [ShareController::class, 'store'])
             ->middleware('throttle:20,1,share-create')
             ->name('shares.store');
+
+        // Revoke one — which is to say DELETE the row, the row being the capability. Every
+        // route under `/s/{share}` binds it, so this one statement makes the page, both cover
+        // routes and the stream 404 at the router, for the holder and for anybody they
+        // forwarded it to. Only the minter may press it, and a stranger's id answers 404
+        // rather than 403 (DestroyShareRequest).
+        //
+        // A HIGHER CEILING THAN MINTING, which looks backwards and is not: minting manufactures
+        // capabilities and is worth rationing, while revoking only ever destroys them — the
+        // dangerous direction is a reader who cannot tidy up fast enough. Its own bucket, per
+        // the note at the top of this file.
+        Route::delete('/shares/{share}', [ShareController::class, 'destroy'])
+            ->whereUuid('share')
+            ->middleware('throttle:30,1,share-revoke')
+            ->name('shares.destroy');
 
         // The play queue, synced up from the browser. A PUT rather than a POST because it
         // REPLACES one row that is read and written wholesale — the same request twice

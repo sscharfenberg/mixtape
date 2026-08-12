@@ -6,9 +6,11 @@ namespace App\Http\Controllers\Shares;
 
 use App\Enums\ShareSubject;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Shares\DestroyShareRequest;
 use App\Http\Requests\Shares\StoreShareRequest;
 use App\Models\Share;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 
 /**
  * Mint a share link (`POST /shares`, route `shares.store`, behind auth) — what the "share"
@@ -33,9 +35,9 @@ use Illuminate\Http\JsonResponse;
  * Scoped to the reader's OWN shares, not to anybody's: two users sharing the same album get
  * a link each, so one revoking theirs cannot break the other's.
  *
- * WHAT IT DOES NOT DO YET: the URL this hands back is served (SharePageController and the two
- * media routes beside it, built the same day), but "revoke it from your dashboard" — which the
- * modal promises the reader — has no page yet, so revoking means deleting the row by hand.
+ * THE FEATURE IS WHOLE SINCE 2026-08-12: the URL this hands back is served (SharePageController
+ * and the two media routes beside it), and `destroy` below is the revoke the modal has been
+ * promising the reader, reachable from `/dashboard/shared`.
  */
 class ShareController extends Controller
 {
@@ -68,6 +70,34 @@ class ShareController extends Controller
         return response()->json([
             'url' => $share->url(),
             'validUntil' => $share->valid_until->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * Revoke a link — which is to say, delete the row that IS the link.
+     *
+     * NOTHING ELSE HAS TO HAPPEN, and that is the payoff of the row-not-a-signature decision
+     * this feature was built on (docs/sharing.md → "Why a row and not a signed URL"). Every
+     * route under `/s/{share}` resolves the share by implicit binding, so the moment this
+     * returns, the page, both cover routes and the stream all 404 at the router — for the
+     * holder of the link and for anybody they forwarded it to. There is no cache to purge and
+     * no token list to append to; a signature would have needed both.
+     *
+     * WHO MAY DO IT IS THE REQUEST'S, and a stranger's id gets a 404 rather than a 403 — see
+     * DestroyShareRequest.
+     *
+     * A REDIRECT BACK RATHER THAN JSON, unlike `store` above, because the caller here IS
+     * navigating: the reader is on their list of links and expects to see one row fewer. The
+     * flash rides back with it, which is the only announcement the act gets — a revoked link
+     * leaves nothing on screen to point at.
+     */
+    public function destroy(DestroyShareRequest $request, Share $share): RedirectResponse
+    {
+        $share->delete();
+
+        return back()->with([
+            'message' => __('flash.share.revoked'),
+            'type' => 'success',
         ]);
     }
 }

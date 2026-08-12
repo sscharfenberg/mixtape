@@ -60,4 +60,10 @@ return [
         'tracks_already' => '":playlist" already holds all of those tracks.',
     ],
 
+    'share' => [
+        // Deliberately does not name the link: the row it refers to went away with the click,
+        // and "which one" was answered by the dialog just before it.
+        'revoked' => 'The link has been revoked and no longer works.',
+    ],
+
 ];

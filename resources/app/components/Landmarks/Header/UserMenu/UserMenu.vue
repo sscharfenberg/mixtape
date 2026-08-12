@@ -21,6 +21,8 @@ const page = usePage();
 const user = computed(() => page.props.auth.user);
 /** Backend feature flags (e.g. `resetPasswords`) gating guest-only links. Placeholder until Fortify. */
 const features = computed(() => page.props.features);
+/** Whether this reader has share links to manage — gates the entry to /dashboard/shared. */
+const hasShares = computed(() => page.props.shares === true);
 
 /** Trigger modifiers: always rounded, plus a lit-up highlight while a user is signed in. */
 const triggerClass = computed(() => `popover-button--rounded${user.value ? " popover-button--highlighted" : ""}`);
@@ -65,6 +67,17 @@ function closePopover(): void {
                     <Link class="popover-list-item" href="/dashboard" prefetch @click="closePopover">
                         <icon name="user-settings" :size="1" />
                         {{ t("header.userMenu.dashboard") }}
+                    </Link>
+                </li>
+                <!-- Below the dashboard, and only for a reader who has actually shared
+                     something (the `shares` shared prop): a menu entry leading to a list of
+                     nothing is a promise the page cannot keep. Warmed on hover for the same
+                     reason the dashboard link above it is — a page one only reads, never a
+                     form (CLAUDE.md → the prefetch rule). -->
+                <li v-if="user && hasShares">
+                    <Link class="popover-list-item" href="/dashboard/shared" prefetch @click="closePopover">
+                        <icon name="share" :size="1" />
+                        {{ t("header.userMenu.shares") }}
                     </Link>
                 </li>
                 <li v-if="user">

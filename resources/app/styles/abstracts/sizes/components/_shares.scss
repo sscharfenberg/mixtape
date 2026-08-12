@@ -1,0 +1,41 @@
+/******************************************************************************
+ * contextual size tokens — component:SharesPage.vue
+ * @type {Sass}
+ * The list of the reader's own share links, at every width.
+ *
+ * The row's frame — border, radius, padding, gap — is the playlist entry's, and behind that
+ * the genre page's artist card, re-picked from the globals rather than read across (a
+ * contextual partial consumes globals, never another partial's tokens).
+ *
+ * `control-padding` belongs to the row's single icon button, and is what makes it findable:
+ * a bare 19px glyph is a 19px target otherwise — the finding the play queue's grip and the
+ * listing's drag handle both acted on. It matters more here than on either of those, because
+ * this is the one control in the app whose consequence lands in somebody else's hands: a
+ * target big enough to hit on purpose is also a target big enough not to hit by accident.
+ * Consumed as s.$c-shares via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$shares: (
+    "border": map.get(s.$border, "base"),
+    "radius": map.get(s.$radius, "featured"),
+    "row-padding": map.get(s.$padding, "base"),
+    // between rows
+    "gap": map.get(s.$padding, "base"),
+    // inside a row: subject to validity to the button
+    "row-gap": map.get(s.$padding, "base"),
+    // the two pips — the kind, and how long the link lives. The neighbour card's chip
+    // measurements, re-picked from the globals: a pip is the same object wherever it appears,
+    // and these two hold two or three words each exactly as those do.
+    "chip-padding": 0.25ex 1ch,
+    "chip-gap": 0.5ch,
+    "chip-radius": map.get(s.$radius, "base"),
+    // the pips' type, one rung down from the name they sit beside. A literal, like the queue
+    // row's and the neighbour card's: there is no global type scale, and what this needs is
+    // "quieter than its neighbour" rather than a step of the page's rhythm.
+    "font-size": 0.9rem,
+    // the row's revoke button
+    "control-padding": 0.35rem,
+    "control-radius": map.get(s.$radius, "base")
+) !default;

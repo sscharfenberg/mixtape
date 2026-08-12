@@ -46,6 +46,12 @@ declare module "@inertiajs/core" {
             // TrackType's own values — what the header's areas are built from
             // (useSiteAreas). False for a kind with no rows, never absent.
             library: Record<string, boolean>;
+            // Whether this reader has any share links at all — expired ones included,
+            // since those are still revocable. One boolean rather than the list,
+            // because its two consumers (the dashboard's section and the user menu's
+            // entry) only ask whether to draw a way in; the list belongs to the page
+            // at the other end. False for a guest.
+            shares: boolean;
             // Player settings the client honours but the server owns
             // (config/mixtape.php → the player). `positionHeartbeat` is in seconds of
             // PLAYBACK, and 0 turns the heartbeat off.

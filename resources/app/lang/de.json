@@ -32,7 +32,8 @@
             "login": "Anmelden",
             "loginHelp": "Probleme beim Anmelden?",
             "dashboard": "Dashboard",
-            "logout": "Abmelden"
+            "logout": "Abmelden",
+            "shares": "Geteilte Inhalte"
         },
         "siteMenu": {
             "nav": "Hauptnavigation",
@@ -138,7 +139,8 @@
                 "password": "Passwort",
                 "profile": "Profil",
                 "twoFactor": "Zwei-Faktor",
-                "delete": "Benutzerkonto löschen"
+                "delete": "Benutzerkonto löschen",
+                "shares": "Geteiltes"
             }
         },
         "profile": {
@@ -218,6 +220,32 @@
                 "setupKey": "Setup-Code konnte nicht geladen werden.",
                 "recoveryCodesLoad": "Wiederherstellungscodes konnten nicht geladen werden.",
                 "recoveryCodesRegenerate": "Wiederherstellungscodes konnten nicht neu erzeugt werden."
+            }
+        },
+        "shares": {
+            "headline": "Deine geteilten Inhalte",
+            "summary": "Du hast Inhalte über einen Link zum Mithören geteilt. Hier kannst du sehen, was gerade geteilt ist – und einzelne Links zurückziehen.",
+            "link": "Deine Links zum Mithören",
+            "title": "Deine Links zum Mithören",
+            "intro": "Jeder Link funktioniert sieben Tage lang. Wer ihn hat, kann mithören – ohne Konto. Ziehst du einen Link zurück, funktioniert er sofort nicht mehr.",
+            "kind": {
+                "song": "Song",
+                "album": "Album",
+                "artist": "Künstler"
+            },
+            "validUntil": "gültig bis {date}",
+            "expired": "abgelaufen",
+            "empty": "Du hast gerade nichts geteilt.",
+            "copy": {
+                "open": "Link kopieren",
+                "label": "Link zu „{name}“ kopieren"
+            },
+            "revoke": {
+                "open": "Link zurückziehen",
+                "label": "Link zu „{name}“ zurückziehen",
+                "header": "Link zurückziehen?",
+                "body": "Willst du den Link zu „{name}“ wirklich zurückziehen? Wer den Link hat, kann ihn danach nicht mehr benutzen.",
+                "confirm": "Zurückziehen"
             }
         }
     },

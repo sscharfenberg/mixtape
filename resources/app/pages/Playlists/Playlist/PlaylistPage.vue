@@ -20,8 +20,15 @@
  * THE WHOLE PLAYLIST IS ALREADY HERE, unlike the Music detail pages, whose songs tables are
  * paginated and whose hero menus therefore fetch `queueTracks` on the first press. Every
  * entry of a playlist is on screen, so its queue payload IS the page's content — which is
- * why SubjectMenu is handed the tracks rather than left to go back for them, and why each
+ * why SubjectActions is handed the tracks rather than left to go back for them, and why each
  * row can carry its own play button (PlaylistController says the same from its end).
+ *
+ * IT WEARS THE MUSIC DETAIL PAGES' SHAPE SINCE 2026-08-12, which it had been the last page to
+ * be left out of: the name heads the page in the glowing <Headline> every listing and detail
+ * page wears, the hero is left doing the one thing only it can — the sleeves and the facts —
+ * and the two verbs that were behind a "…" popover are visible buttons in an ActionPanel. A
+ * page's two most likely actions should not need discovering, which is the same argument the
+ * four Music heroes were rebuilt on the day before.
  *****************************************************************************/
 import { Head } from "@inertiajs/vue3";
 import { computed, ref, useTemplateRef } from "vue";
@@ -29,9 +36,11 @@ import { useI18n } from "vue-i18n";
 import Button from "Components/Form/Button.vue";
 import CoverSleeves from "Components/Music/CoverSleeves.vue";
 import PlayCountFacts from "Components/Music/PlayCountFacts.vue";
-import SubjectMenu from "Components/Music/SubjectMenu.vue";
+import SubjectActions from "Components/Music/SubjectActions.vue";
+import ActionPanel from "Components/UI/ActionPanel.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Container from "Components/UI/Container.vue";
+import Headline from "Components/UI/Headline.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
 import Icon from "Components/UI/Icon.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
@@ -151,6 +160,12 @@ function sort(): void {
 
 <template>
     <Head :title="playlist.name" />
+    <!-- Outside the Container like every other page heading — its glowing border has to reach
+         the window edge so the seam hides off-screen (see Container). -->
+    <headline glow>
+        <icon name="playlist" :size="3" />
+        {{ playlist.name }}
+    </headline>
     <container>
         <div class="playlist-page">
             <!-- `unframed-cover`: the fan is a fixed size, so the hero's 240px square would
@@ -159,16 +174,9 @@ function sort(): void {
                 <!-- Not artwork, but where artwork would be — see the banner. `hero` scale:
                      a card's 96px sleeves read as an afterthought in a panel this wide. -->
                 <template #cover><cover-sleeves :covers="covers" :title="playlist.name" scale="hero" /></template>
-                <!-- The page's heading lives here rather than in a <Headline>, as on the
-                     detail pages: the hero sets the type, the level is ours. <h2> because the
-                     document's <h1> is the wordmark in AppHeader, which every page carries. -->
-                <template #title
-                    ><h2>{{ playlist.name }}</h2></template
-                >
-                <!-- Play or enqueue the whole playlist. Handed the tracks, so neither verb
-                     costs a request. Pinned to the far end of the heading line by the hero,
-                     not by anything here. -->
-                <template #menu><subject-menu subject="playlist" :tracks="tracks" /></template>
+                <!-- No #title and no #menu: the name heads the page in the <Headline> above,
+                     and the two verbs that were behind the menu are visible buttons in #actions
+                     now — the same move the four Music heroes made (see the banner). -->
                 <!-- Only when the owner wrote one. Between the title and the facts, because it
                      says what the playlist IS and the numbers only describe it. -->
                 <template v-if="playlist.description" #description>{{ playlist.description }}</template>
@@ -202,19 +210,27 @@ function sort(): void {
                          the same position the four Music detail pages use. -->
                     <play-count-facts :plays="plays" subject="playlist" />
                 </template>
-                <!-- What the reader can DO with the playlist as a file or as an order, under
-                     the facts because both act on the thing those facts have just identified.
-                     The hero's `#menu` above is for PLAYING it; these two change or export it,
-                     which is a different kind of verb and belongs where it can carry a label. -->
+                <!-- TWO ROWS, as on the Music detail pages: the tinted ActionPanel for what a
+                     reader came for — play it, queue it — and under it the actions that change
+                     or export the thing those facts have just identified. Handed the tracks, so
+                     neither verb costs a request (see the banner).
+
+                     `no-halo` on both of the lower pair, added with the rest of this treatment:
+                     they stand on the hero's own surface rather than on the page, and a neon
+                     pool spilling across it reads as a smudge (Button.vue). The panel's buttons
+                     are already drawn that way. -->
                 <template #actions>
-                    <Button variant="default" type="button" @click="exporting = true">
+                    <action-panel>
+                        <subject-actions :tracks="tracks" />
+                    </action-panel>
+                    <Button variant="default" no-halo type="button" @click="exporting = true">
                         <icon name="file_export" :size="1" />
                         <span>{{ t("playlists.export.open") }}</span>
                     </Button>
                     <!-- No spinner and no disabled state: the sort happens in this click — see
                          `sort()`. A button that cannot be pressed twice would be describing a
                          wait that does not exist. -->
-                    <Button variant="default" type="button" @click="sort">
+                    <Button variant="default" no-halo type="button" @click="sort">
                         <icon name="sort" :size="1" />
                         <span>{{ t("playlists.sort.open") }}</span>
                     </Button>

@@ -100,6 +100,48 @@ test.describe("sharing", () => {
         await expect(page.locator(".share-button")).toHaveCount(0);
     });
 
+    test("revokes a link, and the link stops working", async ({ page, context }) => {
+        /*
+         * THE WHOLE POINT OF REVOKING, end to end, and the one assertion no other layer can
+         * make: DestroyShareTest proves the row goes and that `/s/{id}` then 404s, but only a
+         * browser walks the journey a reader actually takes — mint from a hero, find the link
+         * in a list that had to be reachable, confirm a dialog, and find it gone.
+         *
+         * IT MINTS ITS OWN, deliberately: the two seeded links are what `guest/share.spec.ts`
+         * follows, and revoking one here would break that spec from a file it never touches —
+         * the exact failure an account per spec exists to prevent, arriving by another road.
+         * A genre has no share button, so an ALBUM is minted; the same press the first test
+         * in this file makes.
+         */
+        await openFirstRow(page, "/music/albums");
+        const album = (await pageHeading(page).textContent())!.trim();
+
+        await page.locator(".share-button").click();
+        await expect(linkField(page)).toBeVisible();
+        const id = (await linkField(page).inputValue()).split("/s/")[1]!;
+
+        // The row is found by the ALBUM's name, not by position: this account holds the two
+        // seeded links as well, and the point of a per-row button is revoking the right one.
+        await page.goto("/dashboard/shared");
+        const row = page.locator(".shares__row", { hasText: album });
+        await expect(row).toHaveCount(1);
+
+        await row.locator(".shares__revoke").click();
+        await expect(page.locator("dialog.modal-dialog")).toBeVisible();
+        await page.getByRole("button", { name: /^Zurückziehen$/u }).click();
+
+        // Gone from the list…
+        await expect(row).toHaveCount(0);
+
+        // …and gone for EVERYBODY, which is the assertion worth the browser. A fresh context
+        // with no session is the only honest way to ask it — the same 404 a typo gets, because
+        // revoking deletes the row and every `/s/` route binds it.
+        const guest = await context.browser()!.newContext({ storageState: undefined });
+        const response = await (await guest.newPage()).goto(`/s/${id}`);
+        expect(response?.status()).toBe(404);
+        await guest.close();
+    });
+
     test("gives the owner their queue panel back when they leave their own link", async ({ page }) => {
         /*
          * THE OWNER'S ROUND TRIP, which is the one journey neither guest/share.spec.ts nor any

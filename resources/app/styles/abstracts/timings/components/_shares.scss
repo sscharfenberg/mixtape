@@ -1,0 +1,12 @@
+/******************************************************************************
+ * contextual timing token — component:SharesPage.vue
+ * @type {Sass}
+ * How fast the revoke button on a share-link row answers the pointer. `fast`, matching the
+ * playlist row's controls and the DataTable row behind them: a pointer affordance has to
+ * land immediately or it reads as lag rather than as feedback.
+ * Consumed as ti.$c-shares via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$shares: map.get(ti.$timings, "fast") !default;

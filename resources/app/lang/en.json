@@ -32,7 +32,8 @@
             "login": "Sign in",
             "loginHelp": "Trouble signing in?",
             "dashboard": "Dashboard",
-            "logout": "Sign out"
+            "logout": "Sign out",
+            "shares": "Shared content"
         },
         "siteMenu": {
             "nav": "Main navigation",
@@ -138,7 +139,8 @@
                 "password": "Password",
                 "profile": "Profile",
                 "twoFactor": "Two-factor",
-                "delete": "Delete account"
+                "delete": "Delete account",
+                "shares": "Shared"
             }
         },
         "profile": {
@@ -218,6 +220,32 @@
                 "setupKey": "The setup code could not be loaded.",
                 "recoveryCodesLoad": "The recovery codes could not be loaded.",
                 "recoveryCodesRegenerate": "The recovery codes could not be regenerated."
+            }
+        },
+        "shares": {
+            "headline": "Your shared content",
+            "summary": "You have shared something as a listening link. Here you can see what is shared right now — and withdraw individual links.",
+            "link": "Your listening links",
+            "title": "Your listening links",
+            "intro": "Each link works for seven days. Whoever has one can listen — with no account. Revoke a link and it stops working immediately.",
+            "kind": {
+                "song": "Song",
+                "album": "Album",
+                "artist": "Artist"
+            },
+            "validUntil": "works until {date}",
+            "expired": "expired",
+            "empty": "You are not sharing anything right now.",
+            "copy": {
+                "open": "Copy this link",
+                "label": "Copy the link to “{name}”"
+            },
+            "revoke": {
+                "open": "Revoke this link",
+                "label": "Revoke the link to “{name}”",
+                "header": "Revoke this link?",
+                "body": "Do you really want to revoke the link to “{name}”? Whoever has the link will not be able to use it any more.",
+                "confirm": "Revoke"
             }
         }
     },

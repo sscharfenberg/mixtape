@@ -38,9 +38,21 @@ test.describe("the settings dashboard", () => {
         await page.goto("/dashboard");
     });
 
-    test("carries all four settings sections behind one jump-nav", async ({ page }) => {
+    test("gives every jump-link a section to land on", async ({ page }) => {
+        /*
+         * IT COUNTS FIVE, NOT FOUR, since 2026-08-12: the four settings sections plus "your
+         * shared content", which is drawn only for a reader who has shared something. The
+         * seeded account has (E2ESeeder mints the two links the guest spec follows), so this
+         * is the with-shares shape — and that the OTHER shape exists is asserted in
+         * DashboardPage.test.ts, where an account with no shares is one prop away.
+         *
+         * The resolve loop is the half that matters and is why the count is worth having at
+         * all: a jump-link whose anchor is not on the page scrolls nowhere and reads as a
+         * broken control, which is exactly what a conditional section invites.
+         */
         const links = page.locator(".sticky-nav a");
-        await expect(links).toHaveCount(4);
+        await expect(links).toHaveCount(5);
+        await expect(page.locator("#sharesSection")).toHaveCount(1);
 
         for (const href of await links.evaluateAll(nodes => nodes.map(node => node.getAttribute("href")!))) {
             await expect(page.locator(href)).toHaveCount(1);
@@ -169,5 +181,59 @@ test.describe("the settings dashboard", () => {
 
         await expect(page).toHaveURL(/\/dashboard/u);
         await expect(page.locator("#profileSection")).toBeVisible();
+    });
+});
+
+test.describe("the reader's share links", () => {
+    /*
+     * `/dashboard/shared` — the list, and the only place a link can be revoked. What the server
+     * decides is pinned in tests/Feature/Shares/RevokeShareTest.php and the revoke JOURNEY in
+     * tests/e2e/app/share.spec.ts; what is left here is the one thing neither can see, and it
+     * is CSS.
+     */
+    test("keeps both row controls against the trailing edge, wrapped or not", async ({ page }) => {
+        /*
+         * THE BUG THIS GUARDS is the arrangement it replaced: the two buttons were loose flex
+         * items laid out by whatever space the facts left them, and the auto margin that pushed
+         * them right sat on the VALIDITY beside them, behind a breakpoint. A long enough name
+         * wrapped the row onto two lines and the pair went with it — landing wherever the
+         * second line happened to end, which is nowhere a reader's hand looks. They are one
+         * flex item with an auto margin of their own now.
+         *
+         * MEASURED AT BOTH WIDTHS AND COMPARED TO EACH OTHER rather than to the row's padding:
+         * the row carries a border, so the gap is padding + border + whatever subpixel rounding
+         * a fractional layout leaves. What matters is that it does not CHANGE.
+         */
+        await page.goto("/dashboard/shared");
+        await expect(page.locator(".shares__row").first()).toBeVisible();
+
+        const gap = () =>
+            page.evaluate(() => {
+                const row = document.querySelector(".shares__row")!;
+                const controls = row.querySelector(".shares__controls")!;
+
+                return {
+                    toEdge: Math.round(row.getBoundingClientRect().right - controls.getBoundingClientRect().right),
+                    height: Math.round(row.getBoundingClientRect().height)
+                };
+            });
+
+        const wide = await gap();
+
+        // FORCE THE WRAP. The seeded shares are called "OK Computer" — short enough to sit on
+        // one line at any width this app is used at, so measuring without this proves nothing
+        // about the case the change was made for.
+        await page.evaluate(() => {
+            document.querySelector(".shares__name")!.textContent =
+                "The Powers That B / Niggas On The Moon / Jenny Death — Deluxe Anniversary Edition";
+        });
+        await page.setViewportSize({ width: 420, height: 900 });
+        const wrapped = await expect
+            .poll(async () => (await gap()).height)
+            .toBeGreaterThan(wide.height)
+            .then(gap);
+
+        // Same distance from the edge on two lines as on one, which is the whole assertion.
+        expect(wrapped.toEdge).toBe(wide.toEdge);
     });
 });

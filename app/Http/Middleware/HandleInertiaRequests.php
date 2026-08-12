@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Enums\Locale;
 use App\Enums\TrackType;
 use App\Models\Playlist;
+use App\Models\Share;
 use App\Models\Track;
 use App\Services\Player\PlayerStatePayload;
 use Illuminate\Http\Request;
@@ -147,6 +148,24 @@ class HandleInertiaRequests extends Middleware
                         'name' => $playlist->name,
                     ])
                     ->all(),
+            // WHETHER THIS READER HAS SHARED ANYTHING — one boolean, and the only thing two
+            // separate entry points need to know: the dashboard's "your shared content"
+            // section and the user menu's link to it are both drawn only when it is true, so
+            // an account that has never pressed "share" never meets the feature at all.
+            //
+            // A boolean rather than the list, deliberately. The list belongs to the page that
+            // draws it (Dashboard\SharesController) and would otherwise ride on EVERY page
+            // load in the app to decide the visibility of one menu item. `exists()` stops at
+            // the first row and reads one indexed foreign key.
+            //
+            // EXPIRED LINKS COUNT. They are still rows the reader made and can still be
+            // revoked, so a list holding only dead ones must still be reachable — hiding the
+            // way in would leave them with no way to tidy up. Same rule as the page itself.
+            //
+            // Empty for a guest WITHOUT ASKING THE DATABASE, like `playlists` above and for
+            // the same reason.
+            'shares' => fn (): bool => $request->user() !== null
+                && Share::query()->where('user_id', $request->user()->id)->exists(),
             // Player settings the CLIENT has to honour but the server owns. Only the
             // position heartbeat so far: the browser runs the clock (it is the only thing
             // that knows whether audio is playing), and this is the operator's say in how
