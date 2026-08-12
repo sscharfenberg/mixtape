@@ -1,0 +1,42 @@
+# /etc/systemd/system/mixtape-share-prune.service
+#
+# Weekly sweep of dead share links (php artisan model:prune). Paired with
+# mixtape-share-prune.timer.
+#
+# WHAT IT DELETES: `shares` rows whose valid_until passed more than
+# App\Models\Share::PRUNE_AFTER_DAYS ago (30 at the time of writing). Expired
+# links linger on purpose before that — the owner's list at /dashboard/shared
+# shows them, so a link a friend opens on day nine is a row its minter can see
+# and re-send rather than one that vanished. This only sweeps what nobody is
+# plausibly still asking about.
+#
+# IT CANNOT DELETE A LIVE LINK. The window is a column comparison against a
+# fixed grace period, and `--model` pins it to this one model — so the blast
+# radius is one table and one WHERE clause. `--pretend` prints the count without
+# deleting, which is the way to check it before enabling the timer.
+#
+# Runs as www-data — the same user as php-fpm — so it reads the app's .env and
+# reaches the DB exactly as a web request would.
+#
+# NO OnFailure= REPORTER, matching the library scan: a failure here is a few
+# stale rows left in a table, not a broken instance or a lost backup. It lands
+# in the journal (systemctl status / journalctl -u mixtape-share-prune) and the
+# next week's run picks up whatever this one missed, since the window is
+# absolute rather than incremental.
+
+[Unit]
+Description=MixTape share-link prune (model:prune — dead links past the grace period)
+After=postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/mixtape.prod
+ExecStart=/usr/bin/php /var/www/mixtape.prod/artisan model:prune --model="App\\Models\\Share"
+
+# One indexed DELETE over a table that holds a household's worth of links. The
+# default oneshot timeout is ample; it is stated so a hung database surfaces as
+# a failed unit rather than a job that sits there.
+TimeoutStartSec=120

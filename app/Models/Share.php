@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\MassPrunable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -32,7 +33,7 @@ use Illuminate\Support\Carbon;
 class Share extends Model
 {
     /** @use HasFactory<ShareFactory> */
-    use HasFactory, HasUuids;
+    use HasFactory, HasUuids, MassPrunable;
 
     /**
      * How long a link lives, in days.
@@ -45,6 +46,22 @@ class Share extends Model
     public const LIFETIME_DAYS = 7;
 
     /**
+     * How long a DEAD link is kept before it is swept, in days past `valid_until`.
+     *
+     * EXPIRED ROWS LINGER ON PURPOSE, which is the whole reason this number is not zero. The
+     * owner's list shows them (`/dashboard/shared`), so a link somebody opens on day nine is
+     * a row its minter can see and re-send in one press rather than a thing that vanished —
+     * and a week is short for "listen to this". Sweeping them the moment they expired would
+     * delete exactly the rows most likely to be asked about.
+     *
+     * THIRTY DAYS is where the two costs cross. Long enough that "where did the link I sent
+     * Oma go?" has an answer on screen; short enough that the list stays a list of what a
+     * reader is doing rather than an archive of everything they have ever sent. Revoking
+     * skips all of this — that is a decision, and it is honoured immediately.
+     */
+    public const PRUNE_AFTER_DAYS = 30;
+
+    /**
      * The share's public address — the URL handed to whoever it was minted for.
      *
      * Absolute, because it is going into a chat window rather than into an <a href>: the
@@ -53,6 +70,25 @@ class Share extends Model
     public function url(): string
     {
         return route('shares.show', $this);
+    }
+
+    /**
+     * The rows a prune sweeps: dead, and dead for longer than the grace period.
+     *
+     * MASS-PRUNABLE rather than `Prunable`, so the delete is one statement and no model is
+     * ever hydrated. The difference is that per-row `deleting` events do not fire — which is
+     * correct here rather than a shortcut, because a share owns nothing outside its row.
+     * There is no file to unlink and no cache to clear; the URL stops working because the row
+     * it resolved through is gone, which is the same mechanism revoking uses.
+     *
+     * Driven by `php artisan model:prune --model="App\Models\Share"` on a systemd timer
+     * rather than by Laravel's scheduler — see docs/self-hosting/03-production-deploy.md for
+     * why this box schedules that way (a home server that sleeps through 04:00 needs
+     * `Persistent=true`, and a missed `dailyAt()` is simply lost).
+     */
+    public function prunable(): Builder
+    {
+        return static::query()->where('valid_until', '<', now()->subDays(self::PRUNE_AFTER_DAYS));
     }
 
     /** Whether this link still works, which is only ever a question about the clock. */

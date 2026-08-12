@@ -59,6 +59,7 @@ this is a jump table for when something is already broken.
 | Editing `.env` changes nothing | Prod runs from cached config — `config:cache` is mandatory after every `.env` edit | [04](04-going-public.md#step-5--app-production-config) |
 | Mail "sends" successfully but never arrives | Stale config cache still on `MAIL_MAILER=log`, and the log mailer's debug write is discarded if `LOG_LEVEL` is above debug — silent on both ends | [04](04-going-public.md#step-6--transactional-mail) |
 | First scheduled library scan is killed mid-run (~90s) | A `Type=oneshot` unit uses the default start timeout; the full-hash first scan needs `TimeoutStartSec` raised | [03](03-production-deploy.md#scheduled-library-scan) |
+| A scheduled timer never fires on a server that sleeps | `Persistent=true` is what catches up a missed run; without it a nightly scan or weekly prune waits a full period. Why this box uses systemd timers rather than Laravel's scheduler | [03](03-production-deploy.md#scheduled-share-link-prune) |
 | `UnsupportedSchemeException` on send | `MAIL_SCHEME` set to something other than `smtp`/`smtps` — leave it unset | [04](04-going-public.md#step-6--transactional-mail) |
 | SPF suddenly fails after adding a record | Two SPF TXT records on one domain = permerror. There must be exactly one, with merged includes | [04](04-going-public.md#dns-records) |
 | 429 on a form that validates as you type | Precognition posts to the same route as the submit, so live validation eats the throttle budget | [03](03-production-deploy.md#rate-limiting-and-precognition) |

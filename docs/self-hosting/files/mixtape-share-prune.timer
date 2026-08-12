@@ -1,0 +1,26 @@
+# /etc/systemd/system/mixtape-share-prune.timer
+#
+# Enable with: sudo systemctl enable --now mixtape-share-prune.timer
+
+[Unit]
+Description=Weekly MixTape share-link prune
+
+[Timer]
+# WEEKLY, NOT DAILY, and the grace period is why: rows are swept 30 days after
+# they expire, so running this seven times a week would delete the same set the
+# first run already took, six times over for nothing. Monday morning, clear of
+# both the Sunday 03:00 backup and the nightly 04:00 scan.
+OnCalendar=Mon *-*-* 05:30:00
+
+# Persistent: a home server is often asleep at 05:30. Without this a missed
+# sweep waits a whole week. It matters less here than for the scan or the backup
+# — the window is absolute, so a late run deletes exactly what an on-time one
+# would have — but a timer that silently never fires is worth catching either
+# way. Same reasoning, same setting, everywhere on this box.
+Persistent=true
+
+# Don't fire exactly on the half-hour alongside everything else.
+RandomizedDelaySec=15m
+
+[Install]
+WantedBy=timers.target

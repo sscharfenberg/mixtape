@@ -32,7 +32,7 @@ Read alongside:
 | … as a PLAYER: queue pre-loaded, Now Playing block, own listing dropped | ✅ 2026-08-12 — below |
 | Link previews (Open Graph) for `/s/` and invites | ✅ 2026-08-12 — below, and it needed a robots.txt change |
 | "My shares" dashboard subpage + revoking | ✅ built 2026-08-12 — `/dashboard/shared`, below           |
-| Pruning expired rows                     | ⬜ planned                                                 |
+| Pruning expired rows                     | ✅ built 2026-08-12 — weekly systemd timer, below          |
 | Playlist shares                          | ⬜ deferred by the owner — the FK exists, the enum case does not |
 | Audiobook shares                         | ⬜ blocked — the Audiobooks area is still a placeholder     |
 | Genre shares                             | ❌ never — see *Known edges*                               |
@@ -487,9 +487,30 @@ As built, per minute per IP:
 
 Expired rows linger deliberately, so the owner sees a dead link in the list and re-mints in one click
 rather than wondering where it went — a week is short for "listen to this", and a friend who opens it
-on day nine is best served by that. Something has to sweep them eventually: Laravel's `Prunable` on a
-schedule, keeping rows some way past `valid_until`. A share that is revoked skips all of this and is
-deleted outright.
+on day nine is best served by that. A share that is revoked skips all of this and is deleted outright.
+
+**Built 2026-08-12.** `Share` is `MassPrunable`, swept by
+`php artisan model:prune --model="App\Models\Share"` on a **weekly systemd timer**
+(`files/mixtape-share-prune.{service,timer}`, installed per
+[`self-hosting/03-production-deploy.md`](self-hosting/03-production-deploy.md)).
+
+- **The grace period is `Share::PRUNE_AFTER_DAYS` = 30**, measured past `valid_until` rather than
+  past minting. Long enough that "where did the link I sent Oma go?" has an answer on screen; short
+  enough that `/dashboard/shared` stays a list of what a reader is doing rather than an archive of
+  everything they have ever sent. Sweeping at expiry would delete exactly the rows most likely to be
+  asked about.
+- **A systemd timer rather than Laravel's scheduler**, which is this box's rule and not a preference
+  about pruning: a home server sleeps through its scheduled hour, and `Persistent=true` runs the
+  missed job after the next boot where a skipped `dailyAt()` is simply lost. The nightly library scan
+  is scheduled the same way and argues it at length.
+- **Weekly, not daily**, because the window is 30 days wide: running it seven times a week deletes
+  the same set the first run already took, six times over for nothing.
+- **`MassPrunable`, not `Prunable`** — one statement, no model hydrated, no per-row `deleting` event.
+  Correct rather than a shortcut: a share owns nothing outside its row. There is no file to unlink
+  and no cache to clear, which is the same reason revoking is a bare `delete()`.
+- **The list keeps showing expired links until they are swept.** That is the point of the grace
+  period, and it is why the row keeps its revoke button (and loses only its copy button) once dead:
+  a reader who wants a dead link gone now does not have to wait a month for the timer.
 
 ## Tests, and which layer answers what
 

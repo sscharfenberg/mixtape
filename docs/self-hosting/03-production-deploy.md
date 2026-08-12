@@ -706,6 +706,58 @@ what happened. `app:update` alerts on its own (fatal / empty-area / skipped-file
 > suits a collection that changes occasionally; steady-state re-scans are
 > near-instant, so a tighter cadence is cheap if you add media often.
 
+## Scheduled share-link prune
+
+Share links expire after seven days, and a dead row is kept for a while after that
+on purpose — the owner's list at `/dashboard/shared` shows it, so a link a friend
+opens on day nine can be re-sent in one press rather than having vanished. What
+sweeps them eventually is a **weekly** timer running Laravel's own prune command
+against one model:
+
+```
+php artisan model:prune --model="App\Models\Share"
+```
+
+The window is `App\Models\Share::PRUNE_AFTER_DAYS` (30) past `valid_until`, so the
+command is idempotent and a missed week costs nothing — the next run deletes
+exactly what this one would have. **Weekly rather than daily for that reason**: a
+30-day window swept daily deletes the same set six more times for nothing.
+
+A dedicated timer rather than Laravel's scheduler, for the reason spelled out
+above the library scan: a home server asleep at the scheduled hour needs
+`Persistent=true`, and a skipped `dailyAt()` is never caught up.
+
+**Check it before enabling.** `--pretend` counts without deleting, which is the
+honest way to find out that a fresh instance has nothing to sweep — or that a
+long-running one has more than expected:
+
+```bash
+sudo -u www-data /usr/bin/php /var/www/mixtape.prod/artisan \
+  model:prune --model="App\Models\Share" --pretend
+```
+
+| File | Destination | Purpose |
+| --- | --- | --- |
+| [`files/mixtape-share-prune.service`](files/mixtape-share-prune.service) | `/etc/systemd/system/…` | the oneshot unit (www-data) |
+| [`files/mixtape-share-prune.timer`](files/mixtape-share-prune.timer) | `/etc/systemd/system/…` | Mondays `05:30`, `Persistent=true` |
+
+```bash
+sudo install -m 0644 -o root -g root \
+  mixtape-share-prune.service mixtape-share-prune.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now mixtape-share-prune.timer
+```
+
+Verify with `systemctl list-timers mixtape-share-prune.timer` and
+`journalctl -u mixtape-share-prune.service`. There is no `OnFailure=` reporter: a
+failure here leaves a few stale rows in one table, not a broken instance or a lost
+backup, and the next week's run picks them up.
+
+> **It cannot delete a live link.** The window is a column comparison against a
+> fixed grace period and `--model` pins the command to one model, so the blast
+> radius is one table and one `WHERE` clause. `PruneSharesTest` asserts both edges
+> of that window and that a live link survives.
+
 ## Not needed yet
 
 - **Queue worker** — nothing implements `ShouldQueue`; mail is sent synchronously. Add a systemd unit
