@@ -691,8 +691,7 @@ Then install the units (as root):
 | [`files/mixtape-library-scan.timer`](files/mixtape-library-scan.timer) | `/etc/systemd/system/…` | daily `04:00`, `Persistent=true` |
 
 ```bash
-sudo install -m 0644 -o root -g root \
-  mixtape-library-scan.service mixtape-library-scan.timer /etc/systemd/system/
+sudo install -m 0644 -o root -g root mixtape-library-scan.service mixtape-library-scan.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now mixtape-library-scan.timer
 ```
@@ -732,8 +731,7 @@ honest way to find out that a fresh instance has nothing to sweep — or that a
 long-running one has more than expected:
 
 ```bash
-sudo -u www-data /usr/bin/php /var/www/mixtape.prod/artisan \
-  model:prune --model="App\Models\Share" --pretend
+sudo -u www-data /usr/bin/php /var/www/mixtape.prod/artisan model:prune --model="App\Models\Share" --pretend
 ```
 
 | File | Destination | Purpose |
@@ -742,11 +740,48 @@ sudo -u www-data /usr/bin/php /var/www/mixtape.prod/artisan \
 | [`files/mixtape-share-prune.timer`](files/mixtape-share-prune.timer) | `/etc/systemd/system/…` | Mondays `05:30`, `Persistent=true` |
 
 ```bash
-sudo install -m 0644 -o root -g root \
-  mixtape-share-prune.service mixtape-share-prune.timer /etc/systemd/system/
+sudo install -m 0644 -o root -g root mixtape-share-prune.service mixtape-share-prune.timer /etc/systemd/system/
 sudo systemctl daemon-reload
+```
+
+**Check what systemd parsed, before running anything.** This unit's `ExecStart` carries a
+class name full of backslashes (`--model="App\\Models\\Share"`), and systemd does its own
+unescaping — so what the *file* says and what PHP actually receives are two different
+questions. `systemctl cat` answers the first. Only this answers the second:
+
+```bash
+systemctl show mixtape-share-prune.service -p ExecStart
+```
+
+```
+ExecStart={ path=/usr/bin/php ; argv[]=/usr/bin/php /var/www/mixtape.prod/artisan model:prune --model=App\Models\Share ; … }
+```
+
+Single backslashes in `argv[]` is the answer you want. It is read-only and needs no run, which
+makes it the cheapest way to settle any unit whose command line contains escaping, quoting or
+`%` specifiers — not just this one.
+
+**Then run it once by hand** and read the journal, before arming the timer:
+
+```bash
+sudo systemctl start mixtape-share-prune.service
+systemctl status mixtape-share-prune.service --no-pager
+```
+
+`Type=oneshot`, so `start` blocks until it finishes. What proves the install is
+`status=0/SUCCESS` together with artisan's own line — `No prunable [App\Models\Share] records
+found.` is a *success*: it means the class resolved and the database answered. A fresh instance
+has nothing old enough to sweep for weeks, so zero is the expected count, and the run is still
+worth making: it is the only check that the unit executes as **www-data under systemd**, whose
+environment is not the one `sudo -u www-data` from your shell gives it.
+
+```bash
 sudo systemctl enable --now mixtape-share-prune.timer
 ```
+
+> `enable --now` starts the **timer**, not the service — `LAST` stays `-` in `list-timers` until
+> the first scheduled run. That is why the hand-run above is a separate step rather than
+> something to leave to Monday.
 
 Verify with `systemctl list-timers mixtape-share-prune.timer` and
 `journalctl -u mixtape-share-prune.service`. There is no `OnFailure=` reporter: a
