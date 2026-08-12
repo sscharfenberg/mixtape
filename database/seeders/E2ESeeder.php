@@ -184,12 +184,18 @@ class E2ESeeder extends Seeder
      * its own rows — a failure in a file the new one never touches. Anything user-scoped and
      * written by a spec belongs to an account of its own, queue or not.
      *
+     * AND `spec-playlists` IS HERE FOR THE SESSION RATHER THAN THE ROWS (2026-08-12) — a third
+     * reason, and the least obvious of them: Inertia carries validation errors and flash
+     * messages in the session, Laravel writes the session whole, and two workers sharing one
+     * cookie lose one of the two writes. See SPEC_USERS in tests/e2e/support/environment.ts,
+     * where the measurements are.
+     *
      * The names are the spec files they serve, so a stray row in the database says which
      * spec left it. Everything else keeps signing in as the canonical seeded account.
      */
     private function seedSpecUsers(): void
     {
-        $names = ['spec-queue', 'spec-player', 'spec-now-playing', 'spec-shortcuts', 'spec-widgets', 'spec-playlist-detail', 'spec-add-to-playlist'];
+        $names = ['spec-queue', 'spec-player', 'spec-now-playing', 'spec-shortcuts', 'spec-widgets', 'spec-playlist-detail', 'spec-add-to-playlist', 'spec-playlists'];
 
         foreach ($names as $name) {
             User::factory()->create([

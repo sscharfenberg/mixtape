@@ -308,7 +308,29 @@ export const SPEC_USERS = {
      * in a file this one never touches, which is the exact shape of problem an account per
      * spec exists to prevent.
      */
-    addToPlaylist: "spec-add-to-playlist"
+    addToPlaylist: "spec-add-to-playlist",
+    /*
+     * The account that made the rule above necessary, and did not get one until 2026-08-12.
+     *
+     * IT IS HERE FOR THE SESSION, not for the rows — which is a different reason from every
+     * entry above it, and the reason took a while to find. Inertia carries validation errors
+     * and flash messages in the SESSION, and Laravel does not lock sessions: it reads the
+     * whole payload at the start of a request and writes the whole payload at the end. Two
+     * concurrent requests sharing one cookie therefore lose one of the two writes, and what
+     * gets lost is whichever flash was written first.
+     *
+     * This is the only spec on the shared account that writes through the app and then
+     * asserts what the flash said, so it is the only one that could see it — as "will not
+     * submit a nameless playlist" finding no error message, and "edits a playlist's metadata"
+     * finding no toast, roughly one full run in five between them, each pointing at the
+     * feature rather than at the harness. Measured 2026-08-12: 10/10 green on one worker,
+     * 2-in-14 red on three, 42/42 green on three once each worker had a session of its own.
+     *
+     * AN ACCOUNT ALONE IS NOT ENOUGH, which is why the spec is also `mode: "serial"` — with
+     * `fullyParallel`, its own tests would race each other on this one session just as
+     * happily. The two together are the fix.
+     */
+    playlists: "spec-playlists"
 } as const;
 
 /** Where a spec account's signed-in session is parked by the setup project. */

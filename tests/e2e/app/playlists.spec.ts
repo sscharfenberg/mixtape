@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page, Response } from "@playwright/test";
+import { specStorageState } from "../support/environment";
 
 /*
  * Making a playlist, in a real engine.
@@ -29,8 +30,9 @@ import type { Page, Response } from "@playwright/test";
  * Second, and sharper: no test may use a row another test made. One did — the menu test
  * opened the row the create test had left — and it failed on a stamp from a PREVIOUS run,
  * because `STAMP` is evaluated at module load and this file's tests turned out not to share
- * one module instance. `mode: "default"` is kept for readable ordering, but nothing here
- * relies on it: a test that builds its own fixture cannot be broken by where it runs.
+ * one module instance. That rule still holds and is still worth keeping — a test that builds
+ * its own fixture cannot be broken by where it runs — and it is what made the move to
+ * `mode: "serial"` below free of consequences.
  *
  * THE LONG FLAKE IS SOLVED (2026-08-10), and both halves of the fix are covered here. "Edits a
  * playlist's metadata" used to fail about one full run in five, with the listing showing the
@@ -54,7 +56,33 @@ import type { Page, Response } from "@playwright/test";
  * purpose, the field survived that, which is what pointed at the double-handling rather than the
  * response itself.
  */
-test.describe.configure({ mode: "default" });
+/*
+ * AN ACCOUNT OF ITS OWN, AND ONE WORKER — the fix for a flake that pointed at playlists and
+ * was neither about playlists nor about this spec's assertions (2026-08-12).
+ *
+ * "Will not submit a nameless playlist" found no error message, and "edits a playlist's
+ * metadata" found no toast, together about one full run in five. Both of those travel in the
+ * SESSION: Inertia flashes validation errors and flash messages, and Laravel does not lock
+ * sessions — it reads the whole payload at the start of a request and writes the whole payload
+ * at the end. Two concurrent requests on one cookie therefore lose one of the two writes, and
+ * this is the only spec on the shared account that writes through the app and then asserts what
+ * the flash said. Measured: 10/10 green on one worker, 2-in-14 red on three, 42/42 green on
+ * three once each worker had a session of its own.
+ *
+ * `serial` IS THE SECOND HALF AND IS NOT OPTIONAL. An account of its own only removes the
+ * OTHER specs; under `fullyParallel: true` this file's own tests would go on racing each other
+ * on that one session. It costs nothing measurable — 36.3s on one worker against 36.5s on
+ * three, this file's tests being short and its per-worker setup not being — and it hands the
+ * other two workers back to the rest of the run.
+ *
+ * It also finally makes the ordering real. This said `mode: "default"` and a comment claiming
+ * that kept the tests in order, which `fullyParallel: true` had quietly overridden: "default"
+ * restores the PROJECT default, and the project default is parallel. Nothing here relied on
+ * the ordering — every test builds its own fixture — so the note was harmless, but it was
+ * wrong.
+ */
+test.use({ storageState: specStorageState("playlists") });
+test.describe.configure({ mode: "serial" });
 
 /**
  * Assertions in this file, with a window wide enough for a contended write.

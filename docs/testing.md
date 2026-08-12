@@ -238,6 +238,20 @@ this is the record of *why* that code exists.
 
 **End-to-end**
 
+- **Two workers on one session lose each other's flash messages.** Inertia carries validation
+  errors *and* flash messages in the session, and Laravel does not lock it: every request reads the
+  whole payload at the start and writes the whole payload at the end, so of two concurrent requests
+  on one cookie, the later write silently discards whatever the earlier one flashed. A spec that
+  submits an invalid form then asserts the error message therefore fails **on the assertion**,
+  with the right URL and a clean form — which reads as a broken feature, not as a harness problem.
+  Measured on `playlists.spec.ts` (2026-08-12): 10/10 green on one worker, 2-in-14 red on three,
+  42/42 green on three once each worker had a session of its own.
+
+  **A spec that writes through the app and then reads the flash needs an account of its own AND
+  `mode: "serial"`.** The account removes the other specs; `serial` removes its own tests, which
+  under `fullyParallel: true` race each other just as happily. Note that `mode: "default"` does
+  *not* give you ordering here — it restores the project default, and the project default is
+  parallel.
 - **Fortify throttles login at five attempts a minute per `username|ip`, counted in the CACHE** — so
   `migrate:fresh` does *not* reset it. A run signs in several times, so two runs inside a minute
   start getting 429s, which present as the login form silently doing nothing. Global setup clears
@@ -336,6 +350,11 @@ this is the record of *why* that code exists.
   fixture nothing else can reach cannot be disturbed by what your spec leaves behind. Add the
   account to `SPEC_USERS` and to `E2ESeeder::seedSpecUsers` — the setup project mints a session for
   every entry automatically.
+- **…and a third kind of user-scoped state is the SESSION ITSELF** (2026-08-12), which is what
+  finally gave `playlists.spec.ts` an account. Nothing it *stores* was the problem — every test
+  there builds its own fixture — but Inertia's validation errors and flash messages live in the
+  session, and two workers sharing one cookie lose one of the two writes. See the flash trap under
+  *Traps → End-to-end*, including why an account alone is not enough.
 - **`PRAGMA busy_timeout` must be set before `prepare()`, not after.** The app holds the same
   sqlite file open and `prepare` takes a lock of its own, so a timeout set after the prepares is
   not in force for the statement most likely to collide — it surfaces as a bare "database is
