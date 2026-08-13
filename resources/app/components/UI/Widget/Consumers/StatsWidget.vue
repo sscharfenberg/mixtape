@@ -49,7 +49,7 @@ import Tooltip from "Components/UI/Tooltip/Tooltip.vue";
 import Widget from "Components/UI/Widget/Widget.vue";
 import { useLibrarySearch } from "Composables/useLibrarySearch";
 import type { CollectionStats } from "Types/music";
-import { formatDecimals, formatDuration, formatFileSize } from "Utils/formatting";
+import { formatDecimals, formatDurationParts, formatFileSize } from "Utils/formatting";
 
 const props = defineProps<CollectionStats>();
 
@@ -72,7 +72,14 @@ const anchorName = "--all-music-search";
 type StatTile = {
     key: string;
     icon: string;
-    value: string;
+    /**
+     * The value as the PIECES IT MAY BREAK BETWEEN, drawn one unbreakable span each (the owner's
+     * call, 2026-08-13). Almost every tile holds exactly one — a number and its unit are one word
+     * to a reader, and "96,00" with "GB" alone on the line below reads as two facts rather than
+     * one. Playtime is the whole reason it is a list: its phrase is long enough to need a break and
+     * the honest place for one is between its units, never inside "21 Stunden".
+     */
+    value: string[];
     label: string;
     hint: string;
     /**
@@ -99,35 +106,35 @@ const tiles = computed<StatTile[]>(() => [
     {
         key: "songs",
         icon: "song",
-        value: formatDecimals(props.songs, locale.value),
+        value: [formatDecimals(props.songs, locale.value)],
         label: t("music.stats.label.songs"),
         hint: t("music.stats.hint.songs")
     },
     {
         key: "size",
         icon: "file",
-        value: formatFileSize(props.sizeBytes, locale.value),
+        value: [formatFileSize(props.sizeBytes, locale.value)],
         label: t("music.stats.label.size"),
         hint: t("music.stats.hint.size")
     },
     {
         key: "albums",
         icon: "album",
-        value: formatDecimals(props.albums, locale.value),
+        value: [formatDecimals(props.albums, locale.value)],
         label: t("music.stats.label.albums"),
         hint: t("music.stats.hint.albums")
     },
     {
         key: "artists",
         icon: "artist",
-        value: formatDecimals(props.artists, locale.value),
+        value: [formatDecimals(props.artists, locale.value)],
         label: t("music.stats.label.artists"),
         hint: t("music.stats.hint.artists")
     },
     {
         key: "genres",
         icon: "genre",
-        value: formatDecimals(props.genres, locale.value),
+        value: [formatDecimals(props.genres, locale.value)],
         label: t("music.stats.label.genres"),
         hint: t("music.stats.hint.genres")
     },
@@ -138,22 +145,38 @@ const tiles = computed<StatTile[]>(() => [
         : [{
             key: "years",
             icon: "calendar",
-            value: yearRange.value,
+            value: [yearRange.value],
             label: t("music.stats.label.years"),
             hint: t("music.stats.hint.years")
         }]),
     {
         key: "playtime",
         icon: "duration",
-        // i18n injected into the formatter: each unit resolves to a pluralised label from the shared
-        // `common.duration.*` keys. Months are a flat 30 days (a duration has no calendar), so the
-        // parts always sum back to the exact total.
-        value: formatDuration(props.playtimeSeconds, (key, count) => t(`common.duration.${key}`, count)),
+        value: playtimeParts.value,
         label: t("music.stats.label.playtime"),
         hint: t("music.stats.hint.playtime"),
         wide: true
     }
 ]);
+
+/**
+ * The playtime's units as the pieces a line may break between — "2 Tage,", "3 Stunden,", "4 Minuten".
+ *
+ * i18n is injected into the formatter: each unit resolves to a pluralised label from the shared
+ * `common.duration.*` keys. Months are a flat 30 days (a duration has no calendar), so the parts
+ * always sum back to the exact total.
+ *
+ * THE COMMA RIDES AT THE END OF THE PIECE IT FOLLOWS rather than travelling as a separator of its
+ * own, because that is where it belongs when the line does break: "2 Tage," stays whole and the
+ * break lands in the space after it, never before a comma that then opens a line. The spaces
+ * between pieces are the template's, deliberately outside the unbreakable spans — they are the only
+ * break opportunities the value has left.
+ */
+const playtimeParts = computed<string[]>(() => {
+    const parts = formatDurationParts(props.playtimeSeconds, (key, count) => t(`common.duration.${key}`, count));
+
+    return parts.map((part, index) => (index === parts.length - 1 ? part : `${part},`));
+});
 
 /**
  * The album years as one range — "1965–2024", or a single year for a collection that spans none.
@@ -229,7 +252,18 @@ watch(
                         <icon :name="tile.icon" :size="1" />
                         <span class="widget-stats__label">{{ tile.label }}</span>
                     </span>
-                    <span class="widget-stats__value">{{ tile.value }}</span>
+                    <!-- One span per unbreakable piece, with the separating SPACE as a text node
+                         outside them: that space is the only place the value may break, which is
+                         what keeps "96,00 GB" and "21 Stunden" whole.
+
+                         ALL ON ONE LINE, and the space written as an interpolation rather than as
+                         markup, because both halves of that are load-bearing. A newline between the
+                         pieces would put a whitespace text node INSIDE the run and Vue's `condense`
+                         would drop it; a `<span> </span>` separator loses its space the same way
+                         (measured — the tests caught it). An interpolation is a real expression
+                         node, so nothing may collapse it. Lose the space and the value still looks
+                         right at a glance while reading and copying as "2 Tage,3 Stunden". -->
+                    <span class="widget-stats__value"><template v-for="(part, index) in tile.value" :key="part">{{ index > 0 ? " " : "" }}<span class="widget-stats__part">{{ part }}</span></template></span>
                 </tooltip>
             </div>
         </div>
@@ -309,18 +343,36 @@ watch(
 /* Each tile is the Tooltip's root span (class merged onto it); as a grid/flex item its inline-flex
    is blockified, so we only set the direction and the alignment.
 
-   LEADING-ALIGNED, not centred (the owner's call): a card of centred numbers reads as a dashboard
-   ornament, and the labels no longer line up with anything else on the page. The content still sits
-   in the middle of its own tile VERTICALLY, which is what keeps a tall tile from looking top-heavy. */
+   CENTRED BOTH WAYS (the owner's call, 2026-08-13), reversing the leading alignment this carried
+   until today. It takes three properties, not one, because a column flex box centres along each axis
+   by a different name: `justify-content` centres the head-and-value PAIR in the tile's height,
+   `align-items` centres each of those two boxes across its width, and `text-align` centres the lines
+   INSIDE a box that wrapped — which is the playtime phrase on a narrow card, and the one case where
+   the first two leave a ragged block sitting dead centre.
+
+   The height half is the one doing the most work now that the tiles stretch: `align-content` on the
+   grid above hands them the card's spare height, so a tile is routinely taller than the two lines it
+   holds, and without this they would all hang from their top edges. */
 .widget-stats__cell {
-    align-items: flex-start;
+    align-items: center;
     justify-content: center;
     flex-direction: column;
 
-    min-width: 0;
+    min-width: min-content;
 
-    /* Grow to fill the line, wrap at about 7rem, and `min-width: 0` so a long value ("724,22 MB")
-       shrinks rather than widening its basis and pushing a sibling onto the next line. */
+    /* Grow to fill the line and wrap at about 7rem — but NEVER shrink past the widest thing in the
+       tile that cannot break.
+
+       `min-width: 0` was right while the values wrapped: a long one could reflow onto two lines
+       instead of widening its own basis and pushing a sibling onto the next line. Making each value
+       one unbreakable run turned that floor into a hole — the tile shrank under its own text, which
+       then ran straight out through the padding, so the size tile read "83,27 GB" hard against both
+       edges at 1600px (the owner's catch).
+
+       `min-content` here is that unbreakable run PLUS the padding, because box-sizing is border-box
+       (layout/_base.scss), so the padding is inside what the tile asks for rather than something it
+       gives up first. A line that can no longer hold five tiles now wraps to four rather than
+       squeezing all five past their own content. */
     flex: 1 1 7rem;
 
     padding: map.get(s.$c-widget, "cell-padding");
@@ -329,7 +381,7 @@ watch(
     background-color: map.get(c.$c-widget, "cell-background");
     border-radius: map.get(s.$c-widget, "cell-radius");
 
-    text-align: start;
+    text-align: center;
 
     /* THE WHOLE REMAINING ROW FOR A PHRASE, at the same size as every other tile (the owner: "same
        styling and all", then "make it grow so there is no whitespace").
@@ -364,6 +416,22 @@ watch(
     font-size: 1.8rem;
     font-weight: 700;
     line-height: 1.1;
+}
+
+/* ONE PIECE THAT MAY NOT BREAK INSIDE ITSELF (the owner's call, 2026-08-13) — the `<nobr>` job,
+   done with the property rather than the element: Vue does not know `nobr` as a native tag, so a
+   literal one resolves as a component and warns on every render in dev.
+
+   A number and its unit are one word to a reader. "96,00" with "GB" alone underneath reads as two
+   facts, and the year range is a live case rather than a theoretical one — a dash IS a break
+   opportunity, so "1965–" could sit at the end of a line with "2024" below it.
+
+   The playtime is the only value made of several of these, and it may break BETWEEN them: those
+   spaces are text nodes in the template, outside these spans, so they survive as the value's only
+   break points. A trailing space inside the span would not — `nowrap` suppresses the break at a
+   space it contains, which would make the whole phrase one unbreakable run and overflow the tile. */
+.widget-stats__part {
+    white-space: nowrap;
 }
 
 /* Bigger than it was (0.8rem), because the tiles now have the room and a label nobody can read is

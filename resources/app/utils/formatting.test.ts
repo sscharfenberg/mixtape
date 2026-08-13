@@ -5,6 +5,7 @@ import {
     formatDateTime,
     formatDecimals,
     formatDuration,
+    formatDurationParts,
     formatFileSize,
     formatPosition,
     formatTimesPlayed
@@ -189,6 +190,27 @@ describe("formatDuration", () => {
             ["minutes", 1],
             ["seconds", 1]
         ]);
+    });
+});
+
+/*
+ * The same breakdown with its seams left in, for the one caller that draws each unit as its own
+ * unbreakable run (StatsWidget's playtime tile). The breakdown rules themselves are covered above —
+ * what matters here is only that the split and the joined form cannot drift apart.
+ */
+describe("formatDurationParts", () => {
+    it("returns the units separately rather than as one string", () => {
+        expect(formatDurationParts(3661, unit)).toStrictEqual(["1h", "1m", "1s"]);
+    });
+
+    it("is what formatDuration joins, so neither can gain a unit the other lacks", () => {
+        const total = 30 * 86400 + 4 * 86400 + 7 * 3600 + 12 * 60 + 30;
+
+        expect(formatDurationParts(total, unit).join(", ")).toBe(formatDuration(total, unit));
+    });
+
+    it("carries the single-unit case as a one-element list, not an empty one", () => {
+        expect(formatDurationParts(0, unit)).toStrictEqual(["0s"]);
     });
 });
 

@@ -96,20 +96,26 @@ export const formatDateTime = (iso: string | null, locale: string): string | nul
 };
 
 /**
- * A total-seconds duration as a human breakdown, e.g. "1 month, 4 days, 7 hours,
- * 12 minutes, 30 seconds". Uses flat 30-day months (a duration has no calendar),
- * so the parts always sum back to the exact total; leading zero units are dropped
- * (everything from the first non-zero unit down to seconds is kept, so at least
- * "0 seconds" always shows).
+ * A total-seconds duration as its separate human parts — ["1 month", "4 days", "7 hours",
+ * "12 minutes", "30 seconds"]. Uses flat 30-day months (a duration has no calendar), so the parts
+ * always sum back to the exact total; leading zero units are dropped (everything from the first
+ * non-zero unit down to seconds is kept, so at least "0 seconds" always shows).
  *
- * i18n is left to the caller: `unit(key, count)` must return one already-localised,
- * pluralised part like "7 hours" / "7 Stunden", so this helper needs no translation
- * dependency of its own.
+ * i18n is left to the caller: `unit(key, count)` must return one already-localised, pluralised part
+ * like "7 hours" / "7 Stunden", so this helper needs no translation dependency of its own.
+ *
+ * SPLIT OUT OF {@link formatDuration} rather than replacing it, because a caller that draws the
+ * breakdown needs the SEAMS: StatsWidget makes each part unbreakable so a line can only break
+ * between them, and a joined string has nothing to hang that on. Everywhere the breakdown is one
+ * run of text (the playlist and share heroes) still asks for the string.
  *
  * @param totalSeconds total duration in seconds
  * @param unit         resolves a unit key + count to a localised, pluralised label
  */
-export const formatDuration = (totalSeconds: number, unit: (key: DurationUnit, count: number) => string): string => {
+export const formatDurationParts = (
+    totalSeconds: number,
+    unit: (key: DurationUnit, count: number) => string
+): string[] => {
     const MIN = 60;
     const HOUR = 60 * MIN;
     const DAY = 24 * HOUR;
@@ -127,8 +133,21 @@ export const formatDuration = (totalSeconds: number, unit: (key: DurationUnit, c
     const firstNonZero = parts.findIndex(([, value]) => value > 0);
     const shown = firstNonZero === -1 ? parts.slice(-1) : parts.slice(firstNonZero);
 
-    return shown.map(([key, value]) => unit(key, value)).join(", ");
+    return shown.map(([key, value]) => unit(key, value));
 };
+
+/**
+ * The same breakdown as one string, e.g. "1 month, 4 days, 7 hours, 12 minutes, 30 seconds".
+ *
+ * The comma-space join is the only thing this adds over {@link formatDurationParts}, and it is kept
+ * as its own function because three of the four callers want exactly that and should not each
+ * re-decide the separator.
+ *
+ * @param totalSeconds total duration in seconds
+ * @param unit         resolves a unit key + count to a localised, pluralised label
+ */
+export const formatDuration = (totalSeconds: number, unit: (key: DurationUnit, count: number) => string): string =>
+    formatDurationParts(totalSeconds, unit).join(", ");
 
 /**
  * A position within its set, as "2/8" — or the bare number when there is no

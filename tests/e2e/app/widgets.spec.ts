@@ -4,11 +4,14 @@ import { clearServerQueue, specStorageState } from "../support/environment";
 
 /*
  * The Music page's browse widgets: four cards of entries, each a link to the thing it
- * names with its facts as icon pips.
+ * names with its facts as icon pips — plus, since 2026-08-13, the stats card's tiles,
+ * which are here for the reason the whole file is rather than because they are a list.
  *
- * The layout guard below is the one that needs a browser. Everything about it —
- * `min-width: 0` on a grid item, `text-overflow` firing, a card containing its own
- * content — is geometry, invisible to a DOM assertion and to happy-dom alike.
+ * The layout guards below are what needs a browser. Everything about them — `min-width`
+ * on a grid or flex item, `text-overflow` firing, a box containing its own content — is
+ * geometry, invisible to a DOM assertion and to happy-dom alike. All three so far have
+ * been the same bug wearing different clothes: a run of text that cannot break, in a box
+ * that was allowed to shrink below it.
  */
 
 /*
@@ -206,5 +209,52 @@ test.describe("the music widgets", () => {
         expect(measured.itemOverflow).toBe(0);
         // ...and the card is exactly the width it was.
         expect(measured.widthAfter).toBe(measured.widthBefore);
+    });
+
+    test("keeps a stat tile's padding under a value that cannot wrap", async ({ page }) => {
+        /*
+         * The third layout guard, and the same shape as the two above: a run of text that cannot
+         * break, inside a box that was allowed to shrink below it.
+         *
+         * Reported from the field at 1600px — "Dateigröße / 83,27 GB" with no padding visible on
+         * either side. The tiles are `flex: 1 1 7rem` and each value became ONE unbreakable span on
+         * 2026-08-13 (a number and its unit are one word to a reader), so `min-width: 0` — correct
+         * while the values could reflow onto two lines — let a tile shrink under its own text.
+         * Measured before the fix: a 122px tile whose value needed 123px, insets 0 and 0, its own
+         * `scrollWidth` past its `clientWidth`. After: 139px, insets 8 and 8, nothing overflowing.
+         *
+         * RELATIONAL, like its neighbours: the inset is compared against the tile's OWN computed
+         * padding rather than against 8px, so the assertion survives a change to the token. The
+         * value is injected for the same reason the credit above is — the E2E library is small
+         * enough to print a short size, and this must measure the case that was reported.
+         */
+        await page.setViewportSize({ width: 1600, height: 900 });
+        await page.goto("/music");
+        await expect(page.locator(".widget-stats__cell").first()).toBeVisible();
+
+        const measured = await page.evaluate(() => {
+            const cells = [...document.querySelectorAll<HTMLElement>(".widget-stats__cell")];
+            const size = cells.find(cell => cell.querySelector(".widget-stats__label")?.textContent === "Dateigröße")!;
+            size.querySelector<HTMLElement>(".widget-stats__part")!.textContent = "83,27 GB";
+
+            return cells.map(cell => {
+                const box = cell.getBoundingClientRect();
+                const value = cell.querySelector<HTMLElement>(".widget-stats__value")!.getBoundingClientRect();
+
+                return {
+                    label: cell.querySelector(".widget-stats__label")?.textContent ?? "?",
+                    padding: Number.parseFloat(getComputedStyle(cell).paddingLeft),
+                    insetLeft: Math.round(value.left - box.left),
+                    insetRight: Math.round(box.right - value.right),
+                    overflow: cell.scrollWidth - cell.clientWidth
+                };
+            });
+        });
+
+        for (const tile of measured) {
+            expect(tile.insetLeft, `${tile.label} keeps its leading padding`).toBeGreaterThanOrEqual(tile.padding);
+            expect(tile.insetRight, `${tile.label} keeps its trailing padding`).toBeGreaterThanOrEqual(tile.padding);
+            expect(tile.overflow, `${tile.label} contains its value`).toBe(0);
+        }
     });
 });
