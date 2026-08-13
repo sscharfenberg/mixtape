@@ -24,13 +24,23 @@ return new class extends Migration
      *    MySQL `utf8mb4_unicode_ci`. Pinning it at the column level also makes the
      *    scanner's `firstOrCreate` case-insensitive transparently ("Rock" == "rock").
      *
-     * The sqlite connection used by the test suite doesn't understand the ICU DDL,
-     * so the columns keep their default (already case-folding) collation there.
+     * The sqlite connection used by the test suite doesn't understand the ICU DDL, so it gets
+     * `nocase` — sqlite's own case-insensitive collation, which folds ASCII only.
+     *
+     * THAT USED TO BE `null`, AND THE COMMENT HERE CLAIMED SQLITE'S DEFAULT WAS "already
+     * case-folding". It is not: the default is `BINARY`, which is case-SENSITIVE — so for two
+     * names differing only in case the suite did the exact OPPOSITE of production, and neither
+     * behaviour was wrong-looking on its own. Postgres found the existing row (and the scanner
+     * then never rewrote its spelling, which is the bug the owner reported on 2026-08-13);
+     * sqlite created a second row and pruned the first, so the name looked right and the ID
+     * silently changed. A test could not have caught either, because it was asserting the wrong
+     * engine's answer. Both now dedupe case-insensitively; Postgres additionally does it for
+     * every script rather than for ASCII, which is a difference the fixtures never reach.
      */
     public function up(): void
     {
         $pgsql = DB::connection()->getDriverName() === 'pgsql';
-        $collation = $pgsql ? 'case_insensitive' : null;
+        $collation = $pgsql ? 'case_insensitive' : 'nocase';
 
         // Music performer + album-artist tree, and audiobook author/narrator tree.
         // 255 chars is generous headroom for long, multi-byte (CJK) names.

@@ -17,11 +17,16 @@ return new class extends Migration
      * for a music album, `author_id` for an audiobook. That fixes the legacy bug
      * where audiobooks had no owner FK and two same-titled books collapsed into
      * one row (data-model.md → (b) #3).
+     *
+     * `name` dedupes case-insensitively on both drivers — the ICU collation on Postgres, sqlite's
+     * own `nocase` in the suite. The taxonomy migration carries why the sqlite half is spelled
+     * out rather than left to the default (it is `BINARY`, i.e. case-SENSITIVE, so the two
+     * engines used to disagree about what "the same album" means).
      */
     public function up(): void
     {
         $pgsql = DB::connection()->getDriverName() === 'pgsql';
-        $collation = $pgsql ? 'case_insensitive' : null;
+        $collation = $pgsql ? 'case_insensitive' : 'nocase';
 
         Schema::create('collections', function (Blueprint $table) use ($collation, $pgsql) {
             $table->uuid('id')->primary();

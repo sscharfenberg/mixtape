@@ -362,8 +362,8 @@ final class LibraryScanService
     }
 
     /**
-     * firstOrCreate a taxonomy row by name (case-insensitive on Postgres via the
-     * column collation). Blank/absent tag → no row.
+     * firstOrCreate a taxonomy row by name — case-insensitively, via the column's own
+     * collation. Blank/absent tag → no row.
      *
      * @param  class-string<Model>  $model
      */
@@ -374,7 +374,41 @@ final class LibraryScanService
             return null;
         }
 
-        return $model::firstOrCreate(['name' => $name]);
+        $row = $model::firstOrCreate(['name' => $name]);
+        $this->adoptSpelling($row, $name);
+
+        return $row;
+    }
+
+    /**
+     * Rewrite a found row's name when the tag spells it differently — which, the lookup
+     * being case-insensitive, means A CHANGE OF CASE.
+     *
+     * WITHOUT THIS, RENAMING AN ARTIST DOES NOTHING (reported by the owner, 2026-08-13:
+     * "NARGAROTH" re-tagged to "Nargaroth", `app:update` run, and the app went on saying
+     * NARGAROTH). The dedup that makes "Rock" and "rock" one genre is a column collation, so
+     * `firstOrCreate(['name' => 'Nargaroth'])` FINDS the all-caps row and hands it back
+     * unchanged — no insert, no update, nothing to notice. Every other kind of rename works,
+     * because a genuinely different name misses the lookup, mints a row and leaves the old one
+     * to be pruned; only the case-only edit falls through the gap between those two paths.
+     *
+     * THE TAGS ARE THE SOURCE OF TRUTH, so the incoming spelling wins. The cost is
+     * last-writer-wins where two files disagree — "NARGAROTH" on one and "Nargaroth" on
+     * another leaves the row on whichever was read last. That is a tagging inconsistency
+     * rather than a rule to invent around, and it stays narrow in practice because this only
+     * runs for files the scan actually re-read: an untouched all-caps file elsewhere in the
+     * library does not fight the rename on the next scan.
+     *
+     * Through Eloquent rather than the query builder, so the HasFoldedName mutator refreshes
+     * `name_fold` with it — a stale fold is a silent search miss.
+     */
+    private function adoptSpelling(Model $row, string $name): void
+    {
+        if ($row->name === $name) {
+            return;
+        }
+
+        $row->update(['name' => $name]);
     }
 
     /**
@@ -391,7 +425,7 @@ final class LibraryScanService
             return null;
         }
 
-        return MediaCollection::firstOrCreate(
+        $collection = MediaCollection::firstOrCreate(
             [
                 'type' => $type,
                 'name' => $name,
@@ -400,6 +434,14 @@ final class LibraryScanService
             ],
             ['year' => $year],
         );
+
+        // An album's name is deduped case-insensitively too, so a re-cased album title is
+        // invisible here for exactly the reason it was invisible for an artist — see
+        // adoptSpelling. Renaming in place cannot collide: any row the new spelling could clash
+        // with is the row the lookup just returned.
+        $this->adoptSpelling($collection, $name);
+
+        return $collection;
     }
 
     /**

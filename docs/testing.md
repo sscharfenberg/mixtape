@@ -235,6 +235,17 @@ this is the record of *why* that code exists.
   the request is the one the middleware chose rather than the one you set. Pin the header on the
   request (`SocialCardTest::visit()` is the pattern). It only bites tests that read the response
   BODY — `assertInertia` compares props, which are raw.
+- **sqlite's default collation is `BINARY` — case-SENSITIVE — where production is not.** The
+  taxonomy and collection `name` columns carry a case-insensitive ICU collation on Postgres, and
+  the migrations used to leave the sqlite side at its default while claiming it was "already
+  case-folding". It is not, so for two names differing only in case the suite did the **opposite**
+  of production: Postgres reused the existing row (and kept its old spelling — the artist-rename
+  bug reported 2026-08-13), sqlite minted a second row and pruned the first, so the name looked
+  right and the id silently changed. Neither is wrong-looking on its own, which is why no test
+  caught it: it was asserting the wrong engine's answer. Both migrations now pin `nocase` on
+  sqlite, and `LibraryScanServiceTest` asserts that precondition out loud so it cannot rot. **When
+  a behaviour turns on string EQUALITY rather than on a `like`, check which driver's rules the test
+  is really exercising.**
 - **`?param=` reaches a FormRequest as `null`, not as `''`.** `ConvertEmptyStringsToNull` is a
   global middleware, so an empty query parameter is already null by the time `prepareForValidation`
   runs — and a `sometimes|array` rule on it then answers *"kinds must be an array"* for a URL that

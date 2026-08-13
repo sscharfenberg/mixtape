@@ -316,6 +316,16 @@ Findings and recommended changes:
    `authors`, `narrators`, `genres`, and the per-type composite on `collections` (see #3). Dedup then
    becomes case-insensitive *and* DB-enforced.
 
+   > **What that costs, found 2026-08-13:** a case-insensitive lookup cannot see a case-only
+   > RENAME. Re-tagging `NARGAROTH` to `Nargaroth` made `firstOrCreate` find the old row and hand
+   > it back unchanged — no insert, no update, nothing to notice — while every other rename works
+   > by minting a row and letting the old one be pruned. The scanner therefore adopts the tag's
+   > spelling explicitly (`LibraryScanService::adoptSpelling`), renaming in place so the id, and
+   > every URL and share pointing at it, survive. The sqlite side of these columns had to be
+   > pinned to `nocase` at the same time: its default is `BINARY`, so the suite had been doing the
+   > opposite of production and could not see any of this (see
+   > [`testing.md`](testing.md) → *Traps*).
+
 3. **`audiobooks` has no `author_id` / `narrator_id`,** and `getAudiobook()` dedups on **name only** — so
    two different books whose `album` tag collides **collapse into one row.** A latent data-integrity bug.
    Under **B + collections** this is fixed by construction: the `collections` row carries the owner FK

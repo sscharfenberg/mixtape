@@ -141,6 +141,18 @@ whenever files are added, removed, re-tagged, or moved.
 id — playlists, most-played, and share links stay anchored. Two files with
 identical audio are two rows (clones) sharing a hash.
 
+**Re-tagging an artist, genre or album title renames the row in place**, id intact — so the
+URLs to it, and any share pointing at it, keep working. That includes a **change of case
+only** (`NARGAROTH` → `Nargaroth`), which is worth stating because it silently did nothing
+until 2026-08-13: name dedup is a case-insensitive column collation, so the scanner's
+`firstOrCreate` *found* the old row and handed it back unchanged. The tags are the source of
+truth for the spelling too, and the scan now adopts it (`LibraryScanService::adoptSpelling`).
+
+> **A scan only re-reads files whose `(size, mtime)` moved**, so this fixes future re-tags and
+> does not retroactively repair a name that a previous scan already recorded. If a row is
+> stuck on an old spelling, `touch` the files (or re-save the tags) and scan again — there is
+> deliberately no "re-read everything" flag.
+
 ### Arguments & options
 
 | Name | Kind | Default | Meaning |

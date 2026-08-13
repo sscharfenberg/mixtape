@@ -347,6 +347,95 @@ class LibraryScanServiceTest extends TestCase
     }
 
     /**
+     * A CASE-ONLY RENAME IS STILL A RENAME — the owner's report, 2026-08-13: an artist tagged
+     * "NARGAROTH" was re-tagged "Nargaroth", `app:update` ran, and the app went on saying
+     * NARGAROTH.
+     *
+     * It fell exactly between the scanner's two working paths. A genuinely different name misses
+     * the case-insensitive lookup, so it mints a row and the old one is pruned; an identical name
+     * finds its row and needs nothing. A re-cased name FINDS the row — dedup is a column
+     * collation — and `firstOrCreate` then hands it back untouched: no insert, no update, nothing
+     * to notice.
+     *
+     * The id is asserted as hard as the name. Renaming in place is the whole point: minting a new
+     * artist would break every URL to them, and any share pointing at the old id with it.
+     */
+    public function test_a_case_only_retag_renames_the_artist_in_place(): void
+    {
+        $this->media('metal/01.mp3', ['hash' => 'n1', 'title' => 'Black Metal ist Krieg', 'artist' => 'NARGAROTH', 'album' => 'Dedication']);
+        $this->scan();
+
+        $id = Artist::sole()->id;
+
+        $this->media('metal/01.mp3', ['hash' => 'n1', 'title' => 'Black Metal ist Krieg', 'artist' => 'Nargaroth', 'album' => 'Dedication'], time() + 5);
+        $this->scan();
+
+        $artist = Artist::sole();
+        $this->assertSame('Nargaroth', $artist->name, 'the tags are the source of truth for the spelling too');
+        $this->assertSame($id, $artist->id, 'the artist must be renamed, not replaced');
+        // Through Eloquent, so the fold follows — it happens to be identical for a case change,
+        // and asserting it keeps the write on the mutator's path rather than the builder's.
+        $this->assertSame('nargaroth', $artist->name_fold);
+    }
+
+    /** The album-artist link is resolved through the same lookup, so it renames with it. */
+    public function test_a_case_only_retag_renames_the_album_artist_too(): void
+    {
+        $this->media('metal/01.mp3', ['hash' => 'n1', 'title' => 'One', 'artist' => 'NARGAROTH', 'albumArtist' => 'NARGAROTH', 'album' => 'Dedication']);
+        $this->scan();
+
+        $albumId = Collection::sole()->id;
+
+        $this->media('metal/01.mp3', ['hash' => 'n1', 'title' => 'One', 'artist' => 'Nargaroth', 'albumArtist' => 'Nargaroth', 'album' => 'Dedication'], time() + 5);
+        $this->scan();
+
+        // One artist, not two: the album-artist and the performer are the same row, and both
+        // resolutions adopted the same new spelling.
+        $this->assertSame(1, Artist::count());
+        $this->assertSame('Nargaroth', Artist::sole()->name);
+        // And the album stayed put rather than being re-created under a new owner.
+        $this->assertSame($albumId, Collection::sole()->id);
+        $this->assertSame(Artist::sole()->id, Collection::sole()->album_artist_id);
+    }
+
+    /** The same gap, one table over: an album's own title is deduped case-insensitively too. */
+    public function test_a_case_only_retag_renames_the_album_in_place(): void
+    {
+        $this->media('metal/01.mp3', ['hash' => 'n1', 'title' => 'One', 'artist' => 'Nargaroth', 'album' => 'BLACK METAL IST KRIEG']);
+        $this->scan();
+
+        $id = Collection::sole()->id;
+
+        $this->media('metal/01.mp3', ['hash' => 'n1', 'title' => 'One', 'artist' => 'Nargaroth', 'album' => 'Black Metal ist Krieg'], time() + 5);
+        $this->scan();
+
+        $album = Collection::sole();
+        $this->assertSame('Black Metal ist Krieg', $album->name);
+        $this->assertSame($id, $album->id, 'the album must be renamed, not replaced');
+    }
+
+    /**
+     * THE PRECONDITION THE THREE TESTS ABOVE REST ON, asserted so it cannot rot silently.
+     *
+     * The suite runs on sqlite, whose DEFAULT collation is `BINARY` — case-sensitive — while
+     * production is Postgres with a case-insensitive ICU collation. Left at the default, the two
+     * engines did the opposite thing with a re-cased tag (Postgres reused the row and kept the
+     * old spelling; sqlite minted a second row and pruned the first), so the bug above was
+     * structurally invisible here and a test written against sqlite would have been asserting
+     * the wrong engine's answer. The taxonomy migration now pins `nocase`; this is the assertion
+     * that says so out loud.
+     */
+    public function test_the_test_database_dedupes_names_case_insensitively_like_production(): void
+    {
+        Artist::query()->create(['name' => 'NARGAROTH']);
+
+        $this->assertNotNull(
+            Artist::query()->where('name', 'Nargaroth')->first(),
+            'the taxonomy name columns must be case-insensitive on this driver too, or the scanner tests above test nothing',
+        );
+    }
+
+    /**
      * Plant a cached cover for a track id, as if someone had viewed it. Returns the
      * cache path so a test can assert on its fate.
      */
