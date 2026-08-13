@@ -31,7 +31,7 @@ Read alongside:
 | Header trigger + overlay, `/` and ⌘K               | ✅ built 2026-08-13 — surface (b)                   |
 | Music page: "Deine Musik" + scope chips            | ✅ built 2026-08-13 — surface (c)                   |
 | "See all in …" hand-off                            | ✅ built 2026-08-13 — surface (a)                   |
-| The `meta` line's cost, measured on the box        | ⬜ open — the last figure this file still owes      |
+| The row facts' cost, measured on the box           | ✅ measured 2026-08-13 — see _Performance_          |
 | Audiobooks as a kind                               | ⬜ blocked — the Audiobooks area is a placeholder    |
 | Most-played first inside the Songs group           | ⬜ later — `plays` has no volume yet                |
 | Per-widget search boxes                            | ❌ never — see _Why the widgets get no boxes_       |
@@ -243,20 +243,58 @@ and one code path. Anything added here asks that class rather than re-deriving i
 
 ## Performance, measured
 
-Against the live dev database over the SSH tunnel from the Mac (so these include a round trip the
-server does not pay):
+**Measured ON THE BOX** (2026-08-13), against the live dev database — 12,074 tracks, 955 albums, 639
+artists, 139 genres — through the app's own `LibrarySearch`, median of seven runs at steady state,
+which is the state a typeahead actually runs in:
 
-| query                                        | measured |
-| -------------------------------------------- | -------- |
-| four narrow kinds, `LIMIT 5` each            | **48.5 ms total** |
-| a two-character query (`%bl%`)               | 5.0 ms   |
+| query    | whole request, all five kinds |
+| -------- | ----------------------------- |
+| `black`  | **9.1 ms** in 8 statements    |
+| `the`    | **11.1 ms**                   |
+| `roc`    | **8.6 ms**                    |
 
-Two honest readings of that. The four-kind cost is dominated by the tunnel, so the figure to quote is
-one measured **on the box** — that measurement is a step of building this, not an assumption to carry
-into it. And the two-character query being fast means **the three-character minimum is about result
-quality, not speed**: at 12k rows a `%bl%` scan is cheap, but it matches half the library, and a
-trigram index cannot help a pattern shorter than a trigram. Both facts are worth keeping written down
-because the obvious guess is the other way round.
+Eight statements rather than ten because a group that did not fill its `LIMIT 5` **is** its own total
+and skips the `COUNT` (`DatabaseKind`). Against the 48.5 ms first measured over the SSH tunnel from
+the Mac, which is the tunnel and not the query: the figure this file said it owed was a fifth of the
+one it had.
+
+### What the row facts cost
+
+The other half of the same question, since each kind's two facts are extra selects on its query — per
+kind, the real `group()` against a bare equivalent that filters and ranks identically but selects only
+id and name:
+
+| kind     | with facts | names only | the facts |
+| -------- | ---------- | ---------- | --------- |
+| artist   | 1.0 ms     | 0.5 ms     | +0.5 ms   |
+| album    | 1.7 ms     | 0.8 ms     | +0.9 ms   |
+| playlist | 0.9 ms     | 0.4 ms     | +0.5 ms   |
+| song     | 1.4 ms     | 0.5 ms     | +0.9 ms   |
+| genre    | 4.3 ms     | 0.4 ms     | **+3.8 ms** |
+
+**So the facts stay.** A request under 11 ms behind a 200 ms debounce has nothing to save, and the
+answer to "is it material" is no.
+
+**But ONE fact is a third of the request, and it is worth knowing which.** Splitting the genre's two:
+its song count is +0.2 ms, and its **dominant-artist count is +2.7 ms** — flat across every query
+tried, because `DominantGenre::artistCountsPerGenre()` aggregates over the WHOLE library (every
+artist's genre winner) before the join, so it costs the same whether five genres matched or none.
+That is the one figure here that **scales with the collection rather than with the answer**: at 639
+artists it is 2.7 ms, and a library ten times the size would pay roughly ten times that for one pip
+on five rows.
+
+Two things follow. It is the first thing to drop if this ever needs to be cheaper — which is what
+this file guessed before it had numbers, and the guess was right for the wrong reason (the cost is
+one kind's aggregate, not "a query per kind"). And the cheaper fix, if the row is ever worth keeping
+at a lower price, is the one `PlayCounts::ownCountForArtist` already documents: with `LIMIT 5` and
+nothing sorting by it, five correlated probes beat one whole-library aggregate.
+
+### And why the three-character floor is not about speed
+
+A two-character query (`%bl%`) measured **5.0 ms** even over the tunnel. So the floor is about RESULT
+QUALITY: at 12k rows the scan is cheap, but it matches half the library, and a trigram index cannot
+help a pattern shorter than a trigram. Worth keeping written down because the obvious guess is the
+other way round.
 
 ## Playlists are the awkward one
 
@@ -338,11 +376,11 @@ The usual three ([`testing.md`](testing.md)):
   columns, and a path fragment is not what somebody types into a header field.
 - **No results for what a reader cannot reach.** Genres and albums are everybody's, playlists are
   their own; there is no admin scope and no cross-user visibility to get wrong.
-- **The `meta` line costs a query per kind** (an album count, a track count). Measured on the box
-  before it ships: if it is material, it is the first thing to drop — a row can live without its
-  second line, and cannot live with a slow field. *(Built as a correlated sub-select on the kind's
-  own query rather than a second query — so the cost is one `SELECT` per kind either way. Still the
-  first thing to drop if the box says so.)*
+- **The row facts cost extra selects on each kind's query** — an album count, a runtime, a track
+  count. **Measured on the box, and they stay**: the whole request is under 11 ms. The one to watch is
+  the genre's dominant-artist count at +2.7 ms, the only figure here that grows with the LIBRARY
+  rather than with the answer. See _Performance_ for the numbers and the cheaper shape if it ever
+  needs one.
 
 ## What building it settled
 
