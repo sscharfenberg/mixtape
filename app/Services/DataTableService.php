@@ -49,6 +49,7 @@ class DataTableService
      *
      * @param  Builder|HasMany  $query  Base query, with any joins/selects already applied.
      * @param  Request  $request  Current request (reads sort, dir, page, pageSize, search).
+     * @param  int|null  $defaultPage  page to open on when the request names none — see below
      * @param  string[]  $sortable  Whitelist of allowed sort keys.
      * @param  array<string, string>  $sortColumnMap  Maps a sort key to its actual DB column.
      * @param  string  $defaultSort  Fallback sort key when none/invalid is given.
@@ -66,6 +67,22 @@ class DataTableService
      *                                 is on its default sort — see there.
      * @return array{rows: array<int, array<string, mixed>>, total: int, totalUnfiltered: int, page: int, pageSize: int, sort: array{key: string, direction: string}, tiebreakers: string[], search: string|null, searchIn: string|null, filters: null}
      */
+    /**
+     * The page size this request is in force with — its own, coerced to one the frontend
+     * offers, or the default.
+     *
+     * Public because a caller sometimes has to reason about WHICH page a particular row falls
+     * on: the audiobook page opens on the reader's bookmarked chapter, and working that out
+     * means dividing by exactly the size the response will use. Asking here is what stops the
+     * two drifting the moment somebody picks 25 rows in the Select.
+     */
+    public static function pageSizeFor(Request $request): int
+    {
+        $pageSize = (int) $request->input('pageSize', self::DEFAULT_PAGE_SIZE);
+
+        return in_array($pageSize, self::ALLOWED_PAGE_SIZES) ? $pageSize : self::DEFAULT_PAGE_SIZE;
+    }
+
     public static function buildResponse(
         Builder|HasMany $query,
         Request $request,
@@ -77,6 +94,7 @@ class DataTableService
         string $defaultDirection = self::DEFAULT_SORT_DIR,
         array $tiebreakers = [],
         ?callable $nameSearchCallback = null,
+        ?int $defaultPage = null,
     ): array {
         $sortKey = $request->input('sort', $defaultSort);
         $sortDir = $request->input('dir', $defaultDirection);
@@ -88,10 +106,7 @@ class DataTableService
             $sortDir = self::DEFAULT_SORT_DIR;
         }
 
-        $pageSize = (int) $request->input('pageSize', self::DEFAULT_PAGE_SIZE);
-        if (! in_array($pageSize, self::ALLOWED_PAGE_SIZES)) {
-            $pageSize = self::DEFAULT_PAGE_SIZE;
-        }
+        $pageSize = self::pageSizeFor($request);
 
         $search = $request->input('search');
 
@@ -149,7 +164,21 @@ class DataTableService
             $applied[] = $tiebreakKey;
         }
 
-        $paginator = $query->paginate($pageSize);
+        /*
+         * WHICH PAGE TO OPEN ON when the reader has not asked for one.
+         *
+         * Normally the first, and `paginate()` reads `?page=` for itself. `$defaultPage` is
+         * for a caller that knows something better: the audiobook page opens on the chapter
+         * the reader left off at, which on a 673-chapter book is page 12 and not somewhere a
+         * reader would ever find by paging.
+         *
+         * It applies ONLY when the request carries no page of its own — asking for page 1
+         * explicitly has to mean page 1, or the pager's first button would bounce back to the
+         * bookmark and the table would be unusable.
+         */
+        $page = $request->has('page') ? null : $defaultPage;
+
+        $paginator = $query->paginate($pageSize, ['*'], 'page', $page);
 
         return [
             'rows' => $paginator->map($rowMapper)->values()->all(),

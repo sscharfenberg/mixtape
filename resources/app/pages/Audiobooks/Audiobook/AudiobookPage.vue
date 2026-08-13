@@ -45,6 +45,8 @@ import Container from "Components/UI/Container.vue";
 import Headline from "Components/UI/Headline.vue";
 import HeroSection from "Components/UI/HeroSection.vue";
 import Icon from "Components/UI/Icon.vue";
+import type { AudiobookBookmark } from "Composables/useAudiobookBookmark";
+import { useAudiobookBookmark } from "Composables/useAudiobookBookmark";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import { useSubjectTracks } from "Composables/useSubjectTracks";
 import type { ColumnDef, TableResponse } from "Types/dataTable";
@@ -105,6 +107,8 @@ const props = defineProps<{
     table: TableResponse<ChapterRow>;
     /** Listening events on this book: the reader's own, and everybody else's. */
     plays: { own: number; others: number };
+    /** Where this reader left off, or null for a book they have not started. */
+    bookmark: AudiobookBookmark | null;
 }>();
 
 const { t, locale } = useI18n();
@@ -120,6 +124,21 @@ setBreadcrumbs([
 // The hero's play/enqueue and every row's play button share one fetch of the book: the first
 // press pays for the round trip and the rest are instant.
 const { busy, playSubjectFrom } = useSubjectTracks();
+
+/*
+ * Resume, and the write that keeps it current. The chapter ids come from the TABLE, which is
+ * one page of the book — enough to recognise "is what is playing one of ours", since the
+ * player only ever loads a chapter this page put in the queue.
+ */
+const { bookmark, resume, restart } = useAudiobookBookmark(
+    props.audiobook.id,
+    props.bookmark,
+    () => props.table.rows.map(row => row.id),
+    playSubjectFrom
+);
+
+/** Whether a row is the one the reader left off at — what the bookmark glyph marks. */
+const isBookmarked = (row: ChapterRow): boolean => bookmark.value?.trackId === row.id;
 
 /** The book's total playing time as a clock, or empty when nothing carried a duration. */
 const playingTime = computed(() => formatClock(props.audiobook.duration) ?? "");
@@ -228,6 +247,18 @@ const columns = computed<ColumnDef<ChapterRow>[]>(() => [
                      that is not there. -->
                 <template #actions>
                     <action-panel>
+                        <!-- Play RESUMES (the owner's call), with a separate way back to the
+                             start beside it — on a book part-way through, resuming is what the
+                             obvious big button should do, and restarting is the rarer verb
+                             that still has to be reachable. -->
+                        <Button variant="primary" no-halo :disabled="busy" @click="resume">
+                            <icon :name="busy ? 'refresh' : 'playlist'" :size="1" :rotate="busy" />
+                            <span>{{ t(bookmark ? "audiobooks.actions.resume" : "audiobooks.actions.play") }}</span>
+                        </Button>
+                        <Button v-if="bookmark" no-halo :disabled="busy" @click="restart">
+                            <icon name="first-page" :size="1" />
+                            <span>{{ t("audiobooks.actions.restart") }}</span>
+                        </Button>
                         <subject-actions />
                     </action-panel>
                     <download-button :href="audiobook.downloadUrl" subject="audiobook" />
@@ -242,6 +273,21 @@ const columns = computed<ColumnDef<ChapterRow>[]>(() => [
                 :base-url="`/audiobooks/${audiobook.id}`"
                 has-actions
             >
+                <!-- The chapter the reader left off at, marked where the eye already is: in
+                     the title cell rather than a column of its own, which would be empty on
+                     every other row of a 673-chapter book. -->
+                <template #cell-name="{ row }">
+                    <span class="chapter-name">
+                        <icon
+                            v-if="isBookmarked(row)"
+                            name="bookmark"
+                            :size="1"
+                            class="chapter-name__mark"
+                            :aria-label="t('audiobooks.chapter.bookmarked')"
+                        />
+                        {{ row.name }}
+                    </span>
+                </template>
                 <template #cell-disc="{ row }">
                     {{ formatPosition(row.disc, row.discTotal) ?? "" }}
                 </template>
@@ -285,5 +331,21 @@ const columns = computed<ColumnDef<ChapterRow>[]>(() => [
     flex-direction: column;
 
     gap: map.get(s.$c-card, "gap");
+}
+
+/* One flex item around the glyph and the title, so a long chapter name wraps as ONE block
+   under its own first line rather than the mark being pushed onto a line of its own — the
+   trap a bare text node beside an icon falls into in a wrapping row. */
+.chapter-name {
+    display: flex;
+    align-items: center;
+
+    min-width: 0;
+
+    gap: 0.4ch;
+}
+
+.chapter-name__mark {
+    flex: none;
 }
 </style>

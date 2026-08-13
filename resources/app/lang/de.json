@@ -453,7 +453,8 @@
             "playtime": "Spielzeit"
         },
         "chapter": {
-            "play": "Kapitel abspielen"
+            "play": "Kapitel abspielen",
+            "bookmarked": "Zuletzt gehört"
         },
         "empty": "Keine Hörbücher gefunden.",
         "widgets": {
@@ -478,7 +479,12 @@
         "credit": {
             "books": "{n} Buch | {n} Bücher"
         },
-        "noCredits": "Keine Einträge gefunden."
+        "noCredits": "Keine Einträge gefunden.",
+        "actions": {
+            "resume": "Weiterhören",
+            "play": "Hörbuch abspielen",
+            "restart": "Von vorn"
+        }
     },
     "playlists": {
         "createLink": "Neue Wiedergabeliste anlegen",

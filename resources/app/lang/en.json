@@ -453,7 +453,8 @@
             "playtime": "Playtime"
         },
         "chapter": {
-            "play": "Play chapter"
+            "play": "Play chapter",
+            "bookmarked": "Where you left off"
         },
         "empty": "No audiobooks found.",
         "widgets": {
@@ -478,7 +479,12 @@
         "credit": {
             "books": "{n} book | {n} books"
         },
-        "noCredits": "Nothing found."
+        "noCredits": "Nothing found.",
+        "actions": {
+            "resume": "Resume",
+            "play": "Play audiobook",
+            "restart": "From the start"
+        }
     },
     "playlists": {
         "createLink": "Create new playlist",

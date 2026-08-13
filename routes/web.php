@@ -3,6 +3,7 @@
 use App\Http\Controllers\Audiobooks\AudiobookController;
 use App\Http\Controllers\Audiobooks\AudiobookCoverController;
 use App\Http\Controllers\Audiobooks\AudiobookDownloadController;
+use App\Http\Controllers\Audiobooks\BookmarkController;
 use App\Http\Controllers\Audiobooks\ChapterCoverController;
 use App\Http\Controllers\Audiobooks\ChapterStreamController;
 use App\Http\Controllers\AudiobooksController;
@@ -298,6 +299,16 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         Route::get('/audiobooks/{audiobook}', AudiobookController::class)
             ->whereUuid('audiobook')
             ->name('audiobooks.show');
+
+        // Where the reader has got to in this book. A PUT because it is idempotent — one row
+        // per (reader, book), written over and over as a chapter plays — and throttled
+        // generously because the browser beats a heartbeat here: config
+        // `mixtape.player.position_heartbeat` is 30 SECONDS OF PLAYBACK, so a reader with
+        // three books open cannot approach this in an honest hour.
+        Route::put('/audiobooks/{audiobook}/bookmark', BookmarkController::class)
+            ->whereUuid('audiobook')
+            ->middleware('throttle:120,1,audiobook-bookmark')
+            ->name('audiobooks.bookmark');
 
         Route::get('/audiobooks/chapters/{chapter}/stream', ChapterStreamController::class)
             ->whereUuid('chapter')

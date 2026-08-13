@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Audiobooks;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Audiobooks\ShowAudiobookRequest;
+use App\Models\AudiobookBookmark;
 use App\Models\Collection;
 use App\Models\Track;
 use App\Services\DataTableService;
@@ -43,6 +44,10 @@ class AudiobookController extends Controller
     public function __invoke(ShowAudiobookRequest $request, Collection $audiobook, CoverService $covers): Response
     {
         $totals = $this->chapterTotals($audiobook);
+        $bookmark = AudiobookBookmark::query()
+            ->where('user_id', $request->user()->id)
+            ->where('collection_id', $audiobook->id)
+            ->first();
 
         return Inertia::render('Audiobooks/Audiobook/AudiobookPage', [
             // The whole book as queue entries, for the hero's Play / Enqueue. OPTIONAL:
@@ -56,7 +61,21 @@ class AudiobookController extends Controller
                     only: null,
                 )
             ),
-            'table' => $this->chapterTable($request, $audiobook),
+            'table' => $this->chapterTable($request, $audiobook, $bookmark),
+            /*
+             * WHERE THE READER LEFT OFF, or null for a book they have not started.
+             *
+             * Its own prop rather than a member of `audiobook`, for the reason the album
+             * page's play counts are: it changes while the page is open — the player writes
+             * it on a heartbeat — and it must be refreshable on its own rather than dragging
+             * the whole hero back with it.
+             */
+            'bookmark' => $bookmark === null ? null : [
+                'trackId' => $bookmark->track_id,
+                // Milliseconds into that chapter, raw: the page seeks with it and never
+                // prints it, so there is nothing to format.
+                'positionMs' => $bookmark->position_ms,
+            ],
             // Listening events on this book — the reader's own and everybody else's. The
             // album-grain call, which passes `musicOnly: false`, so it counts chapters:
             // PlayCounts has never been music-only and says so.
@@ -104,7 +123,7 @@ class AudiobookController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function chapterTable(Request $request, Collection $audiobook): array
+    private function chapterTable(Request $request, Collection $audiobook, ?AudiobookBookmark $bookmark): array
     {
         // An explicit query rather than `$audiobook->tracks()`: a HasMany is not a Builder,
         // and FoldedSearch takes one — a TypeError that would only surface when somebody
@@ -176,7 +195,63 @@ class AudiobookController extends Controller
             // survivors back, so the header can mark CD *and* Track as sorted rather than
             // pretending only the first one is.
             tiebreakers: ['disc', 'track', 'name'],
+            // OPEN ON THE BOOKMARKED CHAPTER'S PAGE. The owner's question, and the answer is
+            // yes: on a 673-chapter book the chapter you left off at is on page 12, which is
+            // not somewhere anybody would find by paging.
+            defaultPage: $this->pageOfBookmark($audiobook, $bookmark, DataTableService::pageSizeFor($request)),
         );
+    }
+
+    /**
+     * Which page of the chapter table the bookmarked chapter falls on, or null when there is
+     * no bookmark to open at.
+     *
+     * COUNTS THE ROWS ORDERED BEFORE IT rather than searching for it — one aggregate against
+     * the `(collection_id, disc, track)` index, where finding its index by hand would mean
+     * hydrating up to 673 rows to look at them.
+     *
+     * The page size comes from the SERVICE rather than a constant here, so the arithmetic
+     * cannot disagree with the response it is aimed at when a reader picks 25 rows.
+     *
+     * Only meaningful under the DEFAULT ordering, which is why it is not attempted otherwise:
+     * a reader who has sorted by narrator is asking a different question, and jumping them to
+     * page 12 of that answer would read as the table being broken. The NULL-safe comparisons
+     * are the same shape the row totals use, because an untagged chapter has to sort with the
+     * other untagged ones rather than dropping out of the count.
+     */
+    private function pageOfBookmark(Collection $audiobook, ?AudiobookBookmark $bookmark, int $pageSize): ?int
+    {
+        if ($bookmark === null) {
+            return null;
+        }
+
+        $chapter = Track::query()
+            ->where('collection_id', $audiobook->id)
+            ->whereKey($bookmark->track_id)
+            ->first(['disc', 'track', 'name']);
+
+        if ($chapter === null) {
+            return null;
+        }
+
+        $before = Track::query()
+            ->where('collection_id', $audiobook->id)
+            ->where(fn (Builder $query) => $query
+                ->whereRaw('coalesce(tracks.disc, 0) < ?', [$chapter->disc ?? 0])
+                ->orWhere(fn (Builder $tie) => $tie
+                    ->whereRaw('coalesce(tracks.disc, 0) = ?', [$chapter->disc ?? 0])
+                    ->where(fn (Builder $inner) => $inner
+                        ->whereRaw('coalesce(tracks.track, 0) < ?', [$chapter->track ?? 0])
+                        ->orWhere(fn (Builder $byName) => $byName
+                            ->whereRaw('coalesce(tracks.track, 0) = ?', [$chapter->track ?? 0])
+                            ->where('tracks.name', '<', $chapter->name)
+                        )
+                    )
+                )
+            )
+            ->count();
+
+        return intdiv($before, $pageSize) + 1;
     }
 
     /**
