@@ -116,6 +116,9 @@ final class QueuePayload
             ->select([
                 'tracks.id',
                 'tracks.name',
+                // The track's own kind, because {@see entry} routes its three URLs by it —
+                // a chapter's bytes are not at /music/songs/….
+                'tracks.type',
                 'tracks.duration',
                 'tracks.cover',
                 'artists.name as artist_name',
@@ -138,6 +141,8 @@ final class QueuePayload
      */
     public static function entry(object $track): array
     {
+        $audiobook = TrackType::tryFrom((string) $track->type) === TrackType::Audiobook;
+
         return [
             'id' => $track->id,
             'name' => $track->name,
@@ -146,10 +151,18 @@ final class QueuePayload
             // Raw seconds; the panel formats them (the project's server-sends-raw rule).
             'duration' => $track->duration === null ? null : (float) $track->duration,
             'coverUrl' => $track->cover
-                ? route('music.songs.cover', $track->id, absolute: false)
+                ? route($audiobook ? 'audiobooks.chapters.cover' : 'music.songs.cover', $track->id, absolute: false)
                 : null,
-            'href' => route('music.songs.show', $track->id, absolute: false),
-            'streamUrl' => route('music.songs.stream', $track->id, absolute: false),
+            // A chapter has no page of its own, so it points at the AUDIOBOOKS AREA for now.
+            // It will point at its BOOK once that page exists (M4 of docs/plan.audiobooks.md)
+            // — where a reader clicking a queue row wants to end up anyway, and the only
+            // place the chapter is listed. Not null in the meantime: `QueueTrack.href` is a
+            // non-nullable string the client derives and compresses for storage, so the area
+            // page is both a real destination and the change that costs nothing to make.
+            'href' => $audiobook
+                ? route('audiobooks', absolute: false)
+                : route('music.songs.show', $track->id, absolute: false),
+            'streamUrl' => route($audiobook ? 'audiobooks.chapters.stream' : 'music.songs.stream', $track->id, absolute: false),
         ];
     }
 

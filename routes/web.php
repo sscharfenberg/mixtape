@@ -1,5 +1,9 @@
 <?php
 
+use App\Http\Controllers\Audiobooks\AudiobookCoverController;
+use App\Http\Controllers\Audiobooks\AudiobookDownloadController;
+use App\Http\Controllers\Audiobooks\ChapterCoverController;
+use App\Http\Controllers\Audiobooks\ChapterStreamController;
 use App\Http\Controllers\AudiobooksController;
 use App\Http\Controllers\Dashboard\DashboardController;
 use App\Http\Controllers\Dashboard\SharesController;
@@ -272,6 +276,40 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
             ->whereUuid('song')
             ->middleware('throttle:30,1,song-download')
             ->name('music.songs.download');
+
+        /*
+         * ---------------------------------------------------------------------
+         * Audiobook media — the same five shapes as music, one area over.
+         *
+         * THE CHAPTER ROUTES ARE FLAT rather than nested under their book, mirroring
+         * `/music/songs/{song}/…` exactly: everything here is behind `auth` and any reader
+         * may play any chapter, so nesting would buy no authorization — only a longer URL
+         * and a trap for a chapter whose file carries no album tag, which then has no book
+         * to be nested under. AuthorizesAudiobookChapter records the same reasoning.
+         *
+         * Registered AFTER `/audiobooks` and before nothing, so the literal `chapters`
+         * segment cannot be read as a book's UUID; every id is `whereUuid`-constrained, so
+         * a stray segment 404s at the router rather than at model binding.
+         */
+        Route::get('/audiobooks/chapters/{chapter}/stream', ChapterStreamController::class)
+            ->whereUuid('chapter')
+            ->name('audiobooks.chapters.stream');
+
+        Route::get('/audiobooks/chapters/{chapter}/cover', ChapterCoverController::class)
+            ->whereUuid('chapter')
+            ->name('audiobooks.chapters.cover');
+
+        Route::get('/audiobooks/{audiobook}/cover', AudiobookCoverController::class)
+            ->whereUuid('audiobook')
+            ->name('audiobooks.cover');
+
+        // The whole book as a .zip. The ceiling matches the album's for the reason that one
+        // records — it is the most expensive thing a reader can ask for — and it is the
+        // route that discovered throttles share a bucket, hence the third argument.
+        Route::get('/audiobooks/{audiobook}/download', AudiobookDownloadController::class)
+            ->whereUuid('audiobook')
+            ->middleware('throttle:10,1,audiobook-download')
+            ->name('audiobooks.download');
 
         // Mint a link that lets someone WITHOUT an account listen to one subject
         // (docs/sharing.md) — pressed by the "share" button in a song / album / artist

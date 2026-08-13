@@ -194,6 +194,52 @@ class PlayerStateSyncTest extends TestCase
             );
     }
 
+    public function test_a_restored_audiobook_chapter_carries_audiobook_urls(): void
+    {
+        /*
+         * THE OTHER HALF OF MAKING A BOOK PLAYABLE (2026-08-13). `PlayerStatePayload` has
+         * always restored a queue with `only: null`, so a chapter came back — but
+         * `QueuePayload::entry()` addressed every row as a song, so the restored chapter
+         * pointed at `/music/songs/{id}/stream` and was refused by the music guard. A book
+         * resumed as silence, with nothing in the console to say why.
+         *
+         * The stream URL is the one that must be right; the cover follows the same rule, and
+         * the href points at the audiobooks area until the book page exists (M4).
+         */
+        $user = User::factory()->create();
+        $chapter = Track::factory()->audiobook()->create(['cover' => true]);
+
+        $this->actingAs($user)->putJson('/player/state', $this->payload([$chapter->id]));
+
+        $this->actingAs($user)
+            ->get('/music')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('playerState.tracks.0.id', $chapter->id)
+                ->where('playerState.tracks.0.streamUrl', "/audiobooks/chapters/{$chapter->id}/stream")
+                ->where('playerState.tracks.0.coverUrl', "/audiobooks/chapters/{$chapter->id}/cover")
+                ->where('playerState.tracks.0.href', '/audiobooks')
+                ->etc()
+            );
+    }
+
+    public function test_a_restored_song_still_carries_music_urls(): void
+    {
+        // The control for the case above: routing by type must not have moved music.
+        $user = User::factory()->create();
+        $song = Track::factory()->create(['cover' => true]);
+
+        $this->actingAs($user)->putJson('/player/state', $this->payload([$song->id]));
+
+        $this->actingAs($user)
+            ->get('/music')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('playerState.tracks.0.streamUrl', "/music/songs/{$song->id}/stream")
+                ->where('playerState.tracks.0.coverUrl', "/music/songs/{$song->id}/cover")
+                ->where('playerState.tracks.0.href', "/music/songs/{$song->id}")
+                ->etc()
+            );
+    }
+
     public function test_a_track_the_library_no_longer_has_is_skipped_and_the_pointer_follows(): void
     {
         $user = User::factory()->create();
