@@ -82,14 +82,16 @@ onMounted(() => {
     backdrop-filter: blur(12px);
     color: map.get(c.$c-frosted-glass, "surface");
 
-    // only the block (vertical) padding lives here; the inline padding comes
-    // from the inner Container, so the header content lines up with page content.
+    // Only the block (vertical) padding lives here; the inline padding comes from the inner
+    // Container, so the header content lines up with page content. From the header's OWN scale
+    // since 2026-08-13, rather than `$c-app`'s page gutter halved — see the token, which carries
+    // why one number could not serve both jobs.
     @include m.mqset(
         "padding-block",
-        #{map.get(s.$c-app, "padding", "base") * 0.5},
-        #{map.get(s.$c-app, "padding", "portrait") * 0.5},
-        #{map.get(s.$c-app, "padding", "landscape") * 0.5},
-        #{map.get(s.$c-app, "padding", "desktop") * 0.5}
+        #{map.get(s.$c-header, "padding", "base")},
+        #{map.get(s.$c-header, "padding", "portrait")},
+        #{map.get(s.$c-header, "padding", "landscape")},
+        #{map.get(s.$c-header, "padding", "desktop")}
     );
 
     &::before {

@@ -8,5 +8,48 @@ $header: (
         "portrait": 1.2ch,
         "landscape": 1.6ch,
         "desktop": 2.2ch
-    )
+    ),
+    /*
+     * The bar's BLOCK padding — the air above and below the control row, and so half of what
+     * decides how tall the header is.
+     *
+     * ITS OWN SCALE SINCE 2026-08-13, and that is the point of it. It used to be
+     * `$c-app` → `padding` HALVED at every rung (2 / 4 / 6 / 8), which made "how much air does
+     * the header have" a function of "how far is page content held off the window edge" — two
+     * unrelated decisions sharing one number, so neither could be tuned without moving the
+     * other. It was also simply too tight (the owner, same day). The INLINE padding still comes
+     * from the app scale, via the inner Container, and should: that one really is the page
+     * gutter, and the header's content has to line up with the content below it.
+     *
+     * Literals rather than steps off `$base`, because these are four chosen amounts of air
+     * rather than a ratio — and a size token is allowed to be a literal (only colours are
+     * confined to the palette).
+     */
+    "padding": (
+        "base": 6px,
+        "portrait": 8px,
+        "landscape": 10px,
+        "desktop": 12px
+    ),
+    /*
+     * ONE HEIGHT FOR EVERY CONTROL IN THE HEADER ROW (2026-08-13, the owner's call). The row
+     * held three: the area links at 38.4px, the user menu at 36, and every other round popover
+     * button at 32 — three near-identical heights, which reads as things being slightly out of
+     * true rather than as a deliberate hierarchy.
+     *
+     * 36 IS THE USER MENU'S OWN GEOMETRY, kept as the reference because it was already the
+     * middle of the three and the only one whose number falls out of the parts rather than out
+     * of a font metric: a `medium` icon (24) + the button's padding (4 a side) + the
+     * `--highlighted` border (2 a side) = 36. That derivation is why this is a literal rather
+     * than a sum — the padding and the border live in `$c-popover`, and a token partial reading
+     * another partial's map would put a load order between two files that have none today.
+     *
+     * WHO READS IT, AND WHO DOES NOT. SiteMenuLinks reads it, because its height comes from a
+     * 22.4px line box that no padding can turn into exactly 36 (4.8px a side lands on 35.99, and
+     * it would drift the moment the font scale moved). The round popover buttons deliberately do
+     * NOT: HeaderNavigation gives them the same 2px border the user menu already has, in their
+     * own background colour, which grows BOTH axes and keeps them circular — a `min-height`
+     * would have made a 32×36 ellipse of every one of them.
+     */
+    "control-height": 36px
 );

@@ -47,15 +47,16 @@ const isActive = (href: string): boolean => {
 @use "Abstracts/sizes" as s;
 @use "Abstracts/timings" as ti;
 
-// Per-breakpoint link padding — a quarter of the token block-wise, half inline.
+// Per-breakpoint link padding, INLINE ONLY — the block axis is settled by the row's shared
+// control height instead (see `&__link`).
 // Pulled into locals so each mqset argument is a short single token: the inline
-// `map.get(...) * 0.25 map.get(...) * 0.5` form overruns 120 cols and reflows
-// mid-`*`, tripping stylelint's operator-no-newline-after (which --fix can't repair).
+// `map.get(...) * 0.5` form overruns 120 cols and reflows mid-`*`, tripping stylelint's
+// operator-no-newline-after (which --fix can't repair).
 $link-pad: map.get(s.$c-site-menu-links, "padding");
-$link-pad-base: map.get($link-pad, "base") * 0.25 map.get($link-pad, "base") * 0.5;
-$link-pad-portrait: map.get($link-pad, "portrait") * 0.25 map.get($link-pad, "portrait") * 0.5;
-$link-pad-landscape: map.get($link-pad, "landscape") * 0.25 map.get($link-pad, "landscape") * 0.5;
-$link-pad-desktop: map.get($link-pad, "desktop") * 0.25 map.get($link-pad, "desktop") * 0.5;
+$link-pad-base: map.get($link-pad, "base") * 0.5;
+$link-pad-portrait: map.get($link-pad, "portrait") * 0.5;
+$link-pad-landscape: map.get($link-pad, "landscape") * 0.5;
+$link-pad-desktop: map.get($link-pad, "desktop") * 0.5;
 
 .site-menu-links {
     display: none;
@@ -78,10 +79,19 @@ $link-pad-desktop: map.get($link-pad, "desktop") * 0.25 map.get($link-pad, "desk
         list-style: none;
     }
 
+    /* THE ROW'S SHARED HEIGHT, stated rather than derived (2026-08-13). These links were the
+       tallest of the header's three control heights at 38.4px, and the extra came from the
+       block padding stacking on top of a 22.4px text line box — so no padding value turns
+       them into exactly 36: 4.8px a side lands on 35.99, and it would drift again the moment
+       the font scale moved. The height is therefore the number, `align-items: center` places
+       the content in it, and the padding keeps only the inline axis it was really for.
+
+       `min-height`, not `height`, so a link whose label ever wraps grows instead of spilling. */
     &__link {
         display: inline-flex;
         align-items: center;
 
+        min-height: map.get(s.$c-header, "control-height");
         border: map.get(s.$c-site-menu-links, "border") solid map.get(c.$c-site-menu-links, "border");
         gap: 0.5ch;
 
@@ -118,7 +128,8 @@ $link-pad-desktop: map.get($link-pad, "desktop") * 0.25 map.get($link-pad, "desk
             }
         }
 
-        @include m.mqset("padding", $link-pad-base, $link-pad-portrait, $link-pad-landscape, $link-pad-desktop);
+        // Inline only — the block axis belongs to `min-height` above.
+        @include m.mqset("padding-inline", $link-pad-base, $link-pad-portrait, $link-pad-landscape, $link-pad-desktop);
     }
 }
 </style>
