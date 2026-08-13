@@ -90,7 +90,8 @@ const KIND_ICONS: Record<SearchKind, string> = {
     album: "album",
     playlist: "playlist",
     song: "song",
-    genre: "genre"
+    genre: "genre",
+    audiobook: "audiobook"
 };
 
 /**
@@ -98,7 +99,7 @@ const KIND_ICONS: Record<SearchKind, string> = {
  *
  *   artist → albums, total runtime      album → artist, tracks
  *   song   → artist, runtime            genre → artists, songs
- *   playlist → tracks, total runtime
+ *   playlist → tracks, total runtime     audiobook → chapters
  *
  * The order lives here rather than in the server's payload because it is a layout decision, and
  * because a JSON object's key order is a poor thing to depend on. A key the server did not send —
@@ -109,7 +110,10 @@ const KIND_FACTS: Record<SearchKind, SearchFactKey[]> = {
     album: ["artist", "songs"],
     playlist: ["tracks", "duration"],
     song: ["artist", "duration"],
-    genre: ["artists", "songs"]
+    genre: ["artists", "songs"],
+    // A book says most about itself with its chapter count — a 33-chapter anthology against a
+    // 673-chapter novel.
+    audiobook: ["tracks"]
 };
 
 /**

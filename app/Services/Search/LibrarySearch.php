@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\Search\Contracts\SearchableKind;
 use App\Services\Search\Kinds\AlbumKind;
 use App\Services\Search\Kinds\ArtistKind;
+use App\Services\Search\Kinds\AudiobookKind;
 use App\Services\Search\Kinds\GenreKind;
 use App\Services\Search\Kinds\PlaylistKind;
 use App\Services\Search\Kinds\SongKind;
@@ -101,6 +102,7 @@ class LibrarySearch
             SearchKind::Playlist->value => new PlaylistKind,
             SearchKind::Song->value => new SongKind,
             SearchKind::Genre->value => new GenreKind,
+            SearchKind::Audiobook->value => new AudiobookKind,
         ];
     }
 }

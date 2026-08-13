@@ -14,7 +14,7 @@
  *****************************************************************************/
 
 /** The kinds the engine can answer with, in the fixed group order (App\Enums\SearchKind). */
-export type SearchKind = "artist" | "album" | "playlist" | "song" | "genre";
+export type SearchKind = "artist" | "album" | "playlist" | "song" | "genre" | "audiobook";
 
 /**
  * What the Music page's chips choose between: one kind, or all of them.

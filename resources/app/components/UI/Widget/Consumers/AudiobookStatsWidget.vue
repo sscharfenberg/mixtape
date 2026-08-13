@@ -9,10 +9,9 @@
  * share the thing that is actually worth sharing — StatTiles, which owns the layout and the
  * unbreakable values, and carries the measurements behind both.
  *
- * NO SEARCH FIELD YET. The Music card is also this area's search hub; here that waits on the
- * audiobook search KIND existing (M6 of docs/plan.audiobooks.md), after which this card gains
- * the same field scoped to audiobooks alone. A box that searched music from the audiobooks
- * page would be worse than no box.
+ * ITS SEARCH IS SCOPED TO THIS AREA. The field is the shared SearchHub, told to answer with
+ * audiobooks alone — a box on the Audiobooks page returning songs would send a reader
+ * somewhere they were not browsing. The header's overlay is the one that searches both.
  *
  * Values arrive raw from AudiobooksController and are formatted here: counts locale-aware,
  * size bytes → GB/MB, and playtime seconds → a "months, days, hours, minutes, seconds"
@@ -21,16 +20,24 @@
  *****************************************************************************/
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import SearchHub from "Components/Search/SearchHub.vue";
 import Icon from "Components/UI/Icon.vue";
 import type { StatTile } from "Components/UI/Widget/StatTiles.vue";
 import StatTiles from "Components/UI/Widget/StatTiles.vue";
 import Widget from "Components/UI/Widget/Widget.vue";
 import type { AudiobookStats } from "Types/audiobooks";
+import type { SearchKind } from "Types/search";
 import { formatDecimals, formatDurationParts, formatFileSize } from "Utils/formatting";
 
 const props = defineProps<AudiobookStats>();
 
 const { t, locale } = useI18n();
+
+/**
+ * The one kind this card's field may answer with (the owner's call): audiobooks, never music.
+ * It sits on the Audiobooks page, and the header's overlay is the box that searches both.
+ */
+const AUDIOBOOK_KINDS: SearchKind[] = ["audiobook"];
 
 /**
  * The playtime's units as the pieces a line may break between — "2 Tage,", "3 Stunden,".
@@ -106,6 +113,8 @@ const tiles = computed<StatTile[]>(() => [
             {{ t("audiobooks.widgets.allAudiobooks") }}
         </template>
         <div class="widget-stats">
+            <search-hub name="audiobooks" :only="AUDIOBOOK_KINDS" />
+
             <stat-tiles :tiles="tiles" />
         </div>
     </widget>

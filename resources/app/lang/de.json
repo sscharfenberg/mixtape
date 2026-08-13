@@ -609,7 +609,8 @@
             "album": "Alben",
             "playlist": "Wiedergabelisten",
             "song": "Songs",
-            "genre": "Genres"
+            "genre": "Genres",
+            "audiobook": "Hörbücher"
         },
         "meta": {
             "artist": "{count} Album | {count} Alben",

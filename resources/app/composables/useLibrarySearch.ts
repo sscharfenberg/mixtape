@@ -110,7 +110,9 @@ export type UseLibrarySearchReturn = {
  * @param options.onNavigate called after a result has been opened, so a host that is an overlay
  *                           can close itself. Nothing to do for the Music page, which stays put.
  */
-export const useLibrarySearch = (options: { onNavigate?: () => void } = {}): UseLibrarySearchReturn => {
+export const useLibrarySearch = (
+    options: { onNavigate?: () => void; only?: SearchKind[] } = {}
+): UseLibrarySearchReturn => {
     const listboxId = `search-results-${++instances}`;
 
     const query = ref("");
@@ -149,11 +151,24 @@ export const useLibrarySearch = (options: { onNavigate?: () => void } = {}): Use
     /**
      * Where to ask.
      *
-     * `kinds` is omitted entirely for "all" rather than sent empty, because that is the
-     * endpoint's own way of saying it and one shape fewer for the request to validate.
+     * `kinds` is omitted entirely for an unconstrained "all" rather than sent empty, because
+     * that is the endpoint's own way of saying it and one shape fewer for the request to
+     * validate.
+     *
+     * `only` NARROWS WHAT "ALL" MEANS for this box, which is what keeps the areas apart (the
+     * owner's call): the header searches the whole library, the Music page's field must not
+     * answer with audiobooks, and the audiobook card must not answer with music. A chip
+     * still narrows further within that — it is a subset of the box's own reading, never a
+     * way out of it.
      */
-    const urlFor = (asked: string, asScope: SearchScope): string =>
-        `/search?q=${encodeURIComponent(asked)}${asScope === "all" ? "" : `&kinds=${asScope}`}`;
+    const urlFor = (asked: string, asScope: SearchScope): string => {
+        const kinds = asScope === "all" ? (options.only ?? []) : [asScope];
+        // Comma-separated, which is the form SearchRequest documents as the one a human might
+        // type; it accepts `kinds[]=` too, but there is no reason for two shapes on the wire.
+        const filter = kinds.length === 0 ? "" : `&kinds=${kinds.join(",")}`;
+
+        return `/search?q=${encodeURIComponent(asked)}${filter}`;
+    };
 
     /** Whether an answer is still the answer to the question on screen — the banner's point 1. */
     const stillCurrent = (asked: string, asScope: SearchScope): boolean =>

@@ -24,8 +24,9 @@
  * NARROWING IS ONE QUESTION, NOT SIX. The chips send `?kinds=` to the same endpoint rather than
  * hitting a route of their own — two endpoints would be two ranking rules to keep in step.
  *****************************************************************************/
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import type { SearchScope } from "Types/search";
+import type { SearchKind, SearchScope } from "Types/search";
 
 const props = defineProps<{
     /** The chosen scope — `v-model` from the host. */
@@ -36,6 +37,11 @@ const props = defineProps<{
      * clear the first — the same trap OptionBubbles documents.
      */
     name: string;
+    /**
+     * Which kinds this picker may offer, or omitted for all of them. An area's box passes its
+     * own — a chip that could only ever come back empty reads as the search being broken.
+     */
+    kinds?: SearchKind[];
 }>();
 
 const emit = defineEmits<{
@@ -46,13 +52,26 @@ const emit = defineEmits<{
 const { t } = useI18n();
 
 /**
- * The chips, left to right.
- *
- * "alles" first because it is the state the page opens in, then the kinds in the same order the
- * RESULTS use (artists → albums → playlists → songs → genres, App\Enums\SearchKind) — a picker
- * whose order disagreed with the list it filters would make the reader look twice for both.
+ * Every kind, left to right, in the order the RESULTS use (artists → albums → playlists →
+ * songs → genres → audiobooks, App\Enums\SearchKind) — a picker whose order disagreed with the
+ * list it filters would make the reader look twice for both.
  */
-const scopes: SearchScope[] = ["all", "artist", "album", "playlist", "song", "genre"];
+const ALL_KINDS: SearchKind[] = ["artist", "album", "playlist", "song", "genre", "audiobook"];
+
+/**
+ * The chips this picker offers: "alles" first, because it is the state the box opens in, then
+ * the kinds its OWN box can answer with.
+ *
+ * Narrowing matters as much as the order: the Music card cannot return audiobooks, so offering
+ * a chip that would come back empty every time reads as the search being broken. The caller's
+ * list is intersected with the canonical order rather than trusted for it, so a caller cannot
+ * accidentally reorder the picker away from the results.
+ */
+const scopes = computed<SearchScope[]>(() => {
+    const wanted = props.kinds ?? ALL_KINDS;
+
+    return ["all", ...ALL_KINDS.filter(kind => wanted.includes(kind))];
+});
 
 /** A chip's label: the kinds reuse the group headings, so a chip and its group read the same. */
 function labelFor(scope: SearchScope): string {

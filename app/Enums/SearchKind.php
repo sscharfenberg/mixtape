@@ -20,9 +20,10 @@ namespace App\Enums;
  * empty groups already floats the answer for a specific query, which is the useful half of
  * what a global ranking would buy.
  *
- * NO AUDIOBOOK CASE YET. It is one entry here plus one registry line plus a route, the day
- * the Audiobooks area stops being a placeholder — which is the whole reason the kinds are a
- * registry rather than a hard-coded union. And no `Genre` share-style omission either: unlike
+ * THE AUDIOBOOK CASE ARRIVED 2026-08-13, and cost exactly what this file predicted: one entry
+ * here, one registry line, and a class beside the others — no edit to how matching, counting
+ * or ordering work, which is the whole reason the kinds are a registry rather than a
+ * hard-coded union. And no `Genre` share-style omission either: unlike
  * {@see ShareSubject}, a genre IS searchable — it is a fine thing to look for and a poor
  * thing to send.
  */
@@ -33,4 +34,8 @@ enum SearchKind: string
     case Playlist = 'playlist';
     case Song = 'song';
     case Genre = 'genre';
+    // Last, so adding it left every existing group where it was — the declaration order IS
+    // the group order, and a book is the thing a reader is least often looking for in a
+    // library that is mostly music.
+    case Audiobook = 'audiobook';
 }

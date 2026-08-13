@@ -3,6 +3,7 @@
 namespace Tests\Feature\Search;
 
 use App\Models\Artist;
+use App\Models\Author;
 use App\Models\Collection;
 use App\Models\Genre;
 use App\Models\Playlist;
@@ -443,5 +444,77 @@ class SearchTest extends TestCase
             ->assertJsonPath('groups.0.rows.0.facts.duration', null);
         $response->assertJsonPath('groups.1.kind', 'song')
             ->assertJsonPath('groups.1.rows.0.facts.duration', null);
+    }
+
+    public function test_an_audiobook_is_found_by_its_own_title(): void
+    {
+        $book = Collection::factory()->audiobook()->create(['name' => 'Berge des Wahnsinns']);
+        Track::factory()->audiobook()->count(2)->create(['collection_id' => $book->id]);
+
+        $this->actingAs(User::factory()->create())
+            ->getJson('/search?q=wahnsinns&kinds=audiobook')
+            ->assertOk()
+            ->assertJsonPath('groups.0.kind', 'audiobook')
+            ->assertJsonPath('groups.0.total', 1)
+            ->assertJsonPath('groups.0.rows.0.id', $book->id)
+            ->assertJsonPath('groups.0.rows.0.href', "/audiobooks/{$book->id}")
+            // A NUMBER, never a phrase — "2 Kapitel" composed here would be German on a page
+            // read in English.
+            ->assertJsonPath('groups.0.rows.0.facts.tracks', 2)
+            // No listing at `?search=` to hand off to: the area page's tabs are a browse, not
+            // a search result, and pointing "show all" at a page that ignores the query is
+            // worse than not offering it.
+            ->assertJsonPath('groups.0.seeAll', null);
+    }
+
+    public function test_an_audiobook_is_not_found_by_its_author(): void
+    {
+        /*
+         * The own-name rule, one area over. Searching a book by its author would make
+         * "Lovecraft" return six books, when what a reader typing a person's name wants is the
+         * person — and an author has no page here to be an answer, so the honest result for a
+         * name is the BOOK, found by its title.
+         */
+        $book = Collection::factory()->audiobook()->create(['name' => 'Berge des Wahnsinns']);
+        Track::factory()->audiobook()->create([
+            'collection_id' => $book->id,
+            'author_id' => Author::factory()->create(['name' => 'H.P. Lovecraft'])->id,
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->getJson('/search?q=lovecraft&kinds=audiobook')
+            ->assertOk()
+            ->assertJsonCount(0, 'groups');
+    }
+
+    public function test_an_album_and_an_audiobook_of_the_same_name_answer_as_themselves(): void
+    {
+        // `collections` is one table with a `type` discriminator, so the two kinds are the same
+        // query with opposite filters — which is exactly why they are two registry entries
+        // rather than one kind with a branch inside it.
+        Collection::factory()->create(['name' => 'Solarstation']);
+        Collection::factory()->audiobook()->create(['name' => 'Solarstation']);
+
+        $response = $this->actingAs(User::factory()->create())
+            ->getJson('/search?q=solarstation')
+            ->assertOk();
+
+        $kinds = array_column($response->json('groups'), 'kind');
+        $this->assertContains('album', $kinds);
+        $this->assertContains('audiobook', $kinds);
+    }
+
+    public function test_narrowing_to_the_music_kinds_leaves_audiobooks_out(): void
+    {
+        // What the Music page's field sends (`only`), and the whole of keeping the areas apart:
+        // a book turning up there would send a reader somewhere they were not browsing.
+        Collection::factory()->create(['name' => 'Solarstation']);
+        Collection::factory()->audiobook()->create(['name' => 'Solarstation']);
+
+        $response = $this->actingAs(User::factory()->create())
+            ->getJson('/search?q=solarstation&kinds=artist,album,playlist,song,genre')
+            ->assertOk();
+
+        $this->assertNotContains('audiobook', array_column($response->json('groups'), 'kind'));
     }
 }
