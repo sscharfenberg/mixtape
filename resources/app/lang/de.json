@@ -265,7 +265,7 @@
             "artists": "Künstler",
             "genres": "Genres",
             "songs": "Songs",
-            "stats": "Statistik"
+            "yourMusic": "Deine Musik"
         },
         "mode": {
             "label": "Anzeige-Modus",
@@ -540,6 +540,37 @@
         "expired": {
             "title": "Dieser Link ist abgelaufen",
             "body": "Ein Link zum Mithören funktioniert sieben Tage lang. Frag die Person, die ihn dir geschickt hat, nach einem neuen – das ist bei ihr ein Klick."
+        }
+    },
+    "search": {
+        "toggleHint": "Sammlung durchsuchen",
+        "open": "Suche öffnen",
+        "close": "Suche schließen",
+        "label": "Sammlung durchsuchen",
+        "placeholder": "Songs, Alben, Künstler …",
+        "clear": "Suche leeren",
+        "results": "Suchergebnisse",
+        "searching": "Wird gesucht …",
+        "minLength": "Bitte mindestens {count} Zeichen eingeben.",
+        "empty": "Dazu ist nichts in der Sammlung.",
+        "failed": "Die Suche hat nicht geantwortet. Bitte noch einmal versuchen.",
+        "found": "Eine Ergebnisgruppe, mit den Pfeiltasten erreichbar. | {count} Ergebnisgruppen, mit den Pfeiltasten erreichbar.",
+        "seeAll": "Alle {count} in {kind} anzeigen",
+        "kind": {
+            "artist": "Künstler",
+            "album": "Alben",
+            "playlist": "Wiedergabelisten",
+            "song": "Songs",
+            "genre": "Genres"
+        },
+        "meta": {
+            "artist": "{count} Album | {count} Alben",
+            "playlist": "{count} Titel | {count} Titel",
+            "genre": "{count} Song | {count} Songs"
+        },
+        "scope": {
+            "label": "Suchbereich",
+            "all": "alles"
         }
     },
     "components": {

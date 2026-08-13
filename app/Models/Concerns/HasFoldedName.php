@@ -15,6 +15,11 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
  * stops being findable, with nothing failing. Setting `name` is the only way to get
  * a name into any of these tables, so hanging the fold off it covers every path.
  *
+ * A COLUMN AT A TIME, which is why {@see HasFoldedDescription} exists beside this rather
+ * than this trait folding both: a mutator is found by method name, so a second folded column
+ * means a second named mutator, and declaring it here would hang a `description()` mutator on
+ * four models that have no `description_fold` to write to.
+ *
  * `name_fold` is deliberately NOT fillable anywhere: it is derived, and the only
  * writer is this mutator. Mass updates through the query builder
  * (`Model::query()->update(['name' => …])`) bypass Eloquent mutators entirely and

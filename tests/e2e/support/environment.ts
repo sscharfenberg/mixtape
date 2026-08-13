@@ -330,7 +330,18 @@ export const SPEC_USERS = {
      * `fullyParallel`, its own tests would race each other on this one session just as
      * happily. The two together are the fix.
      */
-    playlists: "spec-playlists"
+    playlists: "spec-playlists",
+    /*
+     * The search spec's account, and it is here for the FIRST reason on this list rather than the
+     * later ones: its central assertion is that typing a song title does not drive the player, so
+     * it has to have something playing — which means it leaves a queue behind.
+     *
+     * Nothing it searches for is user-scoped, so the fixture it reads is the shared library and
+     * this account owns no rows of its own. The playlist half of the feature — the one kind that
+     * IS per-owner — is pinned in tests/Feature/Search, where a stranger's playlist can be created
+     * and asserted absent in three lines.
+     */
+    search: "spec-search"
 } as const;
 
 /** Where a spec account's signed-in session is parked by the setup project. */

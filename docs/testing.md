@@ -235,6 +235,11 @@ this is the record of *why* that code exists.
   the request is the one the middleware chose rather than the one you set. Pin the header on the
   request (`SocialCardTest::visit()` is the pattern). It only bites tests that read the response
   BODY — `assertInertia` compares props, which are raw.
+- **`?param=` reaches a FormRequest as `null`, not as `''`.** `ConvertEmptyStringsToNull` is a
+  global middleware, so an empty query parameter is already null by the time `prepareForValidation`
+  runs — and a `sometimes|array` rule on it then answers *"kinds must be an array"* for a URL that
+  was plainly not filtering at all. Found on `GET /search?q=black&kinds=` (2026-08-13). Normalise
+  through `(string)` before splitting, so absent, `''` and null are one case rather than three.
 
 **End-to-end**
 
@@ -380,6 +385,20 @@ this is the record of *why* that code exists.
   presenting as broken *features* rather than as mis-timed input. Prefer a locator action with
   `{ position }` over raw coordinates where one will do; it waits *and* verifies the element is
   what receives the press.
+- **A zero-height `[popover]` layer CLIPS its own panel, and the failure reads as a broken
+  selector.** The overlay pattern this app uses twice — a full-bleed fixed "layer" with
+  `pointer-events: none`, holding an absolutely-positioned panel — depends on the layer having a
+  real height. Give it `bottom: auto` and its height is 0 (its only child is out of flow), and the
+  UA stylesheet's `[popover] { overflow: auto }` then clips the panel away. Playwright still sees
+  the panel as **visible** (it has a bounding box), so `toBeVisible()` passes and every `click()`
+  inside it fails with *"…intercepts pointer events"* naming the header or `.app-body` — which
+  reads as a wrong selector rather than as a clipped element. Cost three specs on the search
+  overlay, 2026-08-13. Both halves are the fix: span the layer to the window (it passes clicks
+  through anyway) **and** set `overflow: visible`.
+- **`allInnerTexts()` reports `text-transform`, `allTextContents()` does not.** A heading styled
+  `text-transform: uppercase` comes back as `"KÜNSTLER"`, so an assertion against the word as the
+  catalog spells it fails looking like a missing translation. Use `allTextContents()` whenever the
+  expectation comes from an i18n key.
 - **A popover must be STILL before it is measured.** Panels open with a `rotateY`, and a transform is
   included in `getBoundingClientRect` — so a box read on the click is a couple of pixels from where
   it lands. `:popover-open` and visibility are both true from the first frame, so neither is the

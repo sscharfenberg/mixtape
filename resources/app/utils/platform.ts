@@ -39,6 +39,17 @@ export const isApplePlatform = (): boolean => {
 export const altKeyLabel = (): string => (isApplePlatform() ? "⌥" : "Alt");
 
 /**
+ * The "command" modifier as this keyboard prints it: ⌘ on an Apple one, "Ctrl" elsewhere.
+ *
+ * NOT quite the same shape as its Alt sibling above, and the difference is the point: those are
+ * two names for ONE bit, while this is two names for two different keys — the handler that reads
+ * it accepts `metaKey || ctrlKey`, because a PC keyboard has no Cmd and a Mac's Ctrl is not where
+ * a chord like this belongs. So this names whichever of the two the reader actually has, and the
+ * behaviour stays platform-blind exactly as this file's banner insists.
+ */
+export const commandKeyLabel = (): string => (isApplePlatform() ? "⌘" : "Ctrl");
+
+/**
  * Write "hold this, press that" the way the platform writes it.
  *
  * Apple's own convention runs the symbols together (⌥↑) because ⌥ *is* a symbol;

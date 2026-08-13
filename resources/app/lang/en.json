@@ -265,7 +265,7 @@
             "artists": "Artists",
             "genres": "Genres",
             "songs": "Songs",
-            "stats": "Statistics"
+            "yourMusic": "Your music"
         },
         "mode": {
             "label": "Display mode",
@@ -540,6 +540,37 @@
         "expired": {
             "title": "This link has expired",
             "body": "A listening link works for seven days. Ask whoever sent it to you for a new one – it is one click at their end."
+        }
+    },
+    "search": {
+        "toggleHint": "Search the collection",
+        "open": "Open search",
+        "close": "Close search",
+        "label": "Search the collection",
+        "placeholder": "Songs, albums, artists …",
+        "clear": "Clear the search",
+        "results": "Search results",
+        "searching": "Searching …",
+        "minLength": "Please type at least {count} characters.",
+        "empty": "Nothing in the collection matches that.",
+        "failed": "The search did not answer. Please try again.",
+        "found": "One group of results, reachable with the arrow keys. | {count} groups of results, reachable with the arrow keys.",
+        "seeAll": "Show all {count} in {kind}",
+        "kind": {
+            "artist": "Artists",
+            "album": "Albums",
+            "playlist": "Playlists",
+            "song": "Songs",
+            "genre": "Genres"
+        },
+        "meta": {
+            "artist": "{count} album | {count} albums",
+            "playlist": "{count} track | {count} tracks",
+            "genre": "{count} song | {count} songs"
+        },
+        "scope": {
+            "label": "Search scope",
+            "all": "everything"
         }
     },
     "components": {

@@ -12,15 +12,26 @@
  * width rule any more — the second clause here used to say "nothing from `landscape`
  * up, where the queue is a permanent column", and that arrangement ended in
  * 2026-08-08; the panel is now opened the same way at every width.
+ *
+ * SEARCH SITS BETWEEN THE TWO MENUS (2026-08-13, the owner's placement), and hides
+ * itself the same way the queue toggle does — off the overlay having registered itself,
+ * so it is absent in the guest share space and for guests, who have nothing behind
+ * `auth` to search. Between them rather than at either end because that is where the
+ * row changes subject: SiteMenu is the library ("where can I go"), search is the
+ * library too ("where is this one thing"), and UserMenu and the queue toggle are both
+ * about this reader and this session. It also keeps the two round glyphs — search and
+ * the queue — from bracketing the row and reading as a pair.
  *****************************************************************************/
 import SiteMenu from "Components/Landmarks/Header/SiteMenu/SiteMenu.vue";
 import UserMenu from "Components/Landmarks/Header/UserMenu/UserMenu.vue";
 import PlayQueueToggle from "Components/PlayQueue/PlayQueueToggle.vue";
+import SearchToggle from "Components/Search/SearchToggle.vue";
 </script>
 
 <template>
     <div class="header-navigation">
         <site-menu />
+        <search-toggle />
         <user-menu />
         <play-queue-toggle />
     </div>

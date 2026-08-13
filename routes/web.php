@@ -31,6 +31,7 @@ use App\Http\Controllers\Playlists\PlaylistOrderController;
 use App\Http\Controllers\Playlists\PlaylistTrackOrderController;
 use App\Http\Controllers\Playlists\PlaylistTracksController;
 use App\Http\Controllers\PlaylistsController;
+use App\Http\Controllers\SearchController;
 use App\Http\Controllers\Shares\ShareController;
 use App\Http\Controllers\Shares\ShareCoverController;
 use App\Http\Controllers\Shares\SharePageController;
@@ -84,6 +85,18 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         // `shares` shared prop, so an account that has never shared anything never meets the
         // feature at all.
         Route::get('/dashboard/shared', SharesController::class)->name('dashboard.shares');
+
+        // The cross-kind search (docs/search.md) — one engine behind the header overlay and
+        // the Music page's field. JSON rather than an Inertia visit, which the controller
+        // argues at length: a typeahead that re-rendered the page on every debounce would be
+        // the documented way to lose what a reader has typed.
+        //
+        // Sixty a minute against a 200ms client debounce, in a bucket of its own like every
+        // numeric throttle here. It is a READ with nothing to precognise, so the app's
+        // validate-only bucket never comes into it: all sixty are real questions.
+        Route::get('/search', SearchController::class)
+            ->middleware('throttle:60,1,search')
+            ->name('search');
 
         // Top-level browse areas — linked from the header site menu (useSiteAreas).
         // Scaffolds for now: each renders a placeholder page.

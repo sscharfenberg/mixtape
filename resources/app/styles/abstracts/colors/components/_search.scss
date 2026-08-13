@@ -1,0 +1,80 @@
+/******************************************************************************
+ * contextual color tokens — component:search
+ * @type {Sass}
+ * The cross-kind search (Components/Search/*): the header overlay's panel, the group headings
+ * and rows both mountings draw, the field itself, and the Music page's scope chips.
+ *
+ * ONE PALETTE FOR BOTH MOUNTINGS, which is the point of it being one partial: the overlay and
+ * the Music page's block are one feature in two places, and two token sets would be two things
+ * to keep in step — the way `$c-theme-switch` was before OptionBubbles absorbed it.
+ *
+ * The active row reuses `$retro c3`, the WCAG-tuned control neon, exactly as the DataTable's
+ * hovered row, the play queue's loaded row and an open popover do, because it says the same
+ * thing: this is the live one.
+ *
+ * Rule 2-compliant throughout — every value is picked from the global palette and only ever
+ * alpha-adjusted, never re-scaled into a new hue. `muted` deliberately takes the `asher`/`iron`
+ * pair rather than `slate`, which the play queue's own audit settled: `slate` is 3.09:1 in light
+ * mode against the 4.5:1 body text needs, and a row's second line is body text.
+ * consumed as c.$c-search via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$search: (
+    // The overlay panel. The same surface the queue panel uses, since the two are peers: both
+    // are chrome that arrives over the page from the header.
+    "background": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "black")),
+    "surface": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral")),
+    "border": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher")),
+    // A row's second line, a group's count, the "nothing found" note — body text, so it takes
+    // the accessible muted pair rather than the quieter grey glyphs are allowed.
+    "muted": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
+    // rows ------------------------------------------------------------------
+    "row-hover": light-dark(
+            color.adjust(map.get(c.$grey, "iron"), $alpha: -0.5),
+            color.adjust(map.get(c.$grey, "abbey"), $alpha: -0.25)
+        ),
+    // Where the arrow keys have landed: the neon as a low-alpha fill plus the full-strength
+    // glow, the same two-layer treatment every "this is the live one" state in the app uses.
+    "row-active-background": light-dark(
+            color.adjust(map.get(c.$retro, "c3", "light"), $alpha: -0.85),
+            color.adjust(map.get(c.$retro, "c3", "dark"), $alpha: -0.85)
+        ),
+    "row-active-glow": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
+    // field -----------------------------------------------------------------
+    // Its own entry rather than a reuse of `c.$c-input`: that palette belongs to a FORM field,
+    // which this is not — nothing here validates, submits or reports an error, and inheriting a
+    // set with `valid`/`invalid`/`validating` in it would invite exactly that confusion.
+    "field": (
+        "background": light-dark(
+                color.adjust(map.get(c.$grey, "mystic"), $alpha: -0.5),
+                color.adjust(map.get(c.$grey, "bunker"), $alpha: -0.5)
+            ),
+        "border": light-dark(
+                color.adjust(map.get(c.$grey, "slate"), $alpha: -0.25),
+                color.adjust(map.get(c.$grey, "charcoal"), $alpha: -0.25)
+            ),
+        "surface": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral")),
+        "placeholder": light-dark(
+                color.adjust(map.get(c.$grey, "abbey"), $alpha: -0.5),
+                color.adjust(map.get(c.$grey, "fog"), $alpha: -0.5)
+            ),
+        // The focus ring, the same neon the row's active state uses — one glow means one thing.
+        "glow": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark"))
+    ),
+    // chips -----------------------------------------------------------------
+    // The Music page's scope picker. Only the CHOSEN chip carries brand colour, the same
+    // decision OptionBubbles records: with six of them, colouring the rest would leave nothing
+    // for the selection to say.
+    "chip": (
+        "background": light-dark(
+                color.adjust(map.get(c.$grey, "mystic"), $alpha: -0.35),
+                color.adjust(map.get(c.$grey, "bunker"), $alpha: -0.35)
+            ),
+        "surface": light-dark(map.get(c.$grey, "abbey"), map.get(c.$grey, "fog")),
+        "background-selected": light-dark(map.get(c.$brand, "light1", "color"), map.get(c.$brand, "dark1", "color")),
+        "surface-selected": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$brand, "dark1", "contrast"))
+    )
+) !default;

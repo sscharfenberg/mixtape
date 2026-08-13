@@ -1,0 +1,61 @@
+/******************************************************************************
+ * contextual size tokens — component:search
+ * @type {Sass}
+ * The cross-kind search's geometry (Components/Search/*) — the overlay panel, the rows both
+ * mountings draw, the field, and the Music page's scope chips.
+ *
+ * `results-height` IS THE LOAD-BEARING ONE. The overlay hangs from the header, so its panel has
+ * to end somewhere a phone can still show the whole of: five rows per group across up to five
+ * groups is more than any screen holds, and a panel that simply grew would run off the bottom
+ * with the last group unreachable. A max-height plus scrolling is the answer, and `60dvh` rather
+ * than `vh` because a mobile browser's toolbars come and go — `vh` there measures a viewport the
+ * reader cannot see all of.
+ *
+ * `panel-max` is the one plain literal here, and a size token is allowed to be one (only COLOURS
+ * are confined to the palette). It caps the overlay rather than sizing it: the layer it hangs in
+ * spans the app's own content cage, which is 1440px, and a search dropdown that wide is a page
+ * with five words on it. 576px is about as wide as a two-line row wants to be before the eye has
+ * to travel back for the next name. Below that the panel is simply the cage's width, which on a
+ * phone is the screen.
+ * consumed as s.$c-search via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:math"; // https://sass-lang.com/documentation/modules/math/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$search: (
+    "border": map.get(s.$border, "base"),
+    "radius": map.get(s.$radius, "featured"),
+    "padding": map.get(s.$padding, "portrait"),
+    "gap": math.round(s.$base * 0.5),
+    // The overlay panel's ceiling — see the note above for why it is a cap rather than a width.
+    "panel-max": math.round(s.$base * 36),
+    // How tall the scrolling result area may get before it scrolls — see the note above.
+    "results-height": 60dvh,
+    // …and the Music page's ceiling, which is lower and is a fixed length rather than a share of
+    // the screen. That block lives in a widget inside a grid, where the tiles it replaces are
+    // roughly 190px: 320px lets a group and a half show while keeping the four browse widgets on
+    // the fold, which is the whole reason the results REPLACE the tiles rather than push them
+    // down. Read through `--search-results-height` (see SearchResults).
+    "results-height-inline": math.round(s.$base * 20),
+    "group": (
+        // Between a group's heading and its rows; smaller than the gap BETWEEN groups, so a
+        // heading reads as belonging to the rows under it rather than floating between two sets.
+        "gap": math.round(s.$base * 0.25),
+        "heading-size": 0.8rem
+    ),
+    "row": (
+        "padding": math.round(s.$base * 0.375),
+        "gap": math.round(s.$base * 0.5),
+        "radius": map.get(s.$radius, "base"),
+        // The second line — an artist, a count. Quieter than the name it sits under, which is
+        // what stops a two-line row reading as two rows.
+        "meta-size": 0.8rem
+    ),
+    "chip": (
+        "padding": math.round(s.$base * 0.15) math.round(s.$base * 0.5),
+        "radius": map.get(s.$radius, "featured"),
+        "gap": math.round(s.$base * 0.25),
+        "size": 0.8rem
+    )
+) !default;

@@ -40,6 +40,7 @@ import AppHeader from "Components/Landmarks/Header/AppHeader.vue";
 import AppMain from "Components/Landmarks/Main/AppMain.vue";
 import PlayerBar from "Components/Player/PlayerBar.vue";
 import PlayQueue from "Components/PlayQueue/PlayQueue.vue";
+import SearchOverlay from "Components/Search/SearchOverlay.vue";
 import Breadcrumb from "Components/UI/Breadcrumb.vue";
 import Container from "Components/UI/Container.vue";
 import ToastContainer from "Components/UI/ToastContainer.vue";
@@ -62,6 +63,11 @@ hydrate();
 
 <template>
     <app-header />
+    <!-- The search overlay hangs from the header and is mounted HERE rather than inside it, which
+         is what keeps it out of the guest share space: ShareLayout renders the same AppHeader and
+         deliberately mounts no search. It registers itself, and the header's trigger and the two
+         shortcuts read that registration — the same arrangement the queue panel uses. -->
+    <search-overlay />
     <div class="app-body">
         <app-main>
             <container><breadcrumb :crumbs="breadcrumbs ?? []" /></container>

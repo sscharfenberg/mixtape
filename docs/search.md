@@ -5,10 +5,12 @@ of your playlists — without first working out which listing it lives in. One o
 features ([`app-rewrite.md`](app-rewrite.md) → _New and improved features_, "improved search /
 filtering").
 
-**Designed 2026-08-13, nothing built yet.** This file is the plan, written before the code the way
-[`sharing.md`](sharing.md) and [`now-playing.md`](now-playing.md) were, and kept afterwards as the
-record of why the shape is what it is. Every number in it was measured against the live dev database
-(12,074 tracks) rather than estimated; where a figure still needs measuring on the box, it says so.
+**Designed 2026-08-13 and BUILT the same day.** This file was the plan, written before the code the
+way [`sharing.md`](sharing.md) and [`now-playing.md`](now-playing.md) were, and is kept as the record
+of why the shape is what it is. Every number in it was measured against the live dev database (12,074
+tracks) rather than estimated; where a figure still needs measuring on the box, it says so. What the
+build itself settled — and the two traps it walked into — is at the bottom, under
+*[What building it settled](#what-building-it-settled)*.
 
 Read alongside:
 
@@ -22,12 +24,16 @@ Read alongside:
 | -------------------------------------------------- | ------------------------------------------------- |
 | `name_fold` columns + `pg_trgm` GIN indexes        | ✅ built 2026-07-28 — the whole engine rests on it |
 | Per-listing search (`?search=` through the URL)    | ✅ built with the DataTable                        |
-| `GET /search` — the cross-kind endpoint            | ⬜ planned, below                                  |
-| The result surface (one component, mounted twice)  | ⬜ planned                                         |
-| Header trigger + overlay                           | ⬜ planned — surface (b)                            |
-| Music page: "Deine Musik" + scope chips            | ⬜ planned — surface (c)                            |
-| `playlists` fold columns                           | ⬜ planned — the one migration this needs           |
+| `playlists` fold columns                           | ✅ built 2026-08-13 — the one migration this needed |
+| `GET /search` — the cross-kind endpoint            | ✅ built 2026-08-13 — `SearchController`            |
+| The kind registry + ranking                        | ✅ built 2026-08-13 — `app/Services/Search/`        |
+| The result surface (one component, mounted twice)  | ✅ built 2026-08-13 — `Components/Search/`          |
+| Header trigger + overlay, `/` and ⌘K               | ✅ built 2026-08-13 — surface (b)                   |
+| Music page: "Deine Musik" + scope chips            | ✅ built 2026-08-13 — surface (c)                   |
+| "See all in …" hand-off                            | ✅ built 2026-08-13 — surface (a)                   |
+| The `meta` line's cost, measured on the box        | ⬜ open — the last figure this file still owes      |
 | Audiobooks as a kind                               | ⬜ blocked — the Audiobooks area is a placeholder    |
+| Most-played first inside the Songs group           | ⬜ later — `plays` has no volume yet                |
 | Per-widget search boxes                            | ❌ never — see _Why the widgets get no boxes_       |
 | An "advanced search" page with filters             | ❌ never — the listings already are that            |
 
@@ -300,4 +306,45 @@ The usual three ([`testing.md`](testing.md)):
   their own; there is no admin scope and no cross-user visibility to get wrong.
 - **The `meta` line costs a query per kind** (an album count, a track count). Measured on the box
   before it ships: if it is material, it is the first thing to drop — a row can live without its
-  second line, and cannot live with a slow field.
+  second line, and cannot live with a slow field. *(Built as a correlated sub-select on the kind's
+  own query rather than a second query — so the cost is one `SELECT` per kind either way. Still the
+  first thing to drop if the box says so.)*
+
+## What building it settled
+
+Everything above is as designed. Five things the code decided, and two traps that cost real time:
+
+- **Where each kind lives.** `App\Enums\SearchKind` holds the cases *in group order* — the enum's
+  `cases()` **is** the order, so `?kinds=` can narrow the answer and cannot reorder it — and one
+  class per kind in `app/Services/Search/Kinds/` carries its table, scope, matched columns, ranking
+  column and link. `DatabaseKind` (the shared base) is where the feature's central rule physically
+  lives: whatever a kind names in `matched()` is all it can be found by. Adding audiobooks is a
+  class, an enum case and one registry line.
+- **The total is skipped where the rows already answer it.** A group that did not fill its `LIMIT 5`
+  *is* its own total, so only a full page costs a second `COUNT`. On a typeahead firing per
+  keystroke that is the difference between ten queries a request and six.
+- **The ranking sorts on the FOLD column, not the raw name** — which happens to fix two things at
+  once: the A→Z order is identical on Postgres and on the sqlite test database (the raw taxonomy
+  names wear a nondeterministic ICU collation), and the tiers and the alphabetical order cannot
+  disagree about what the string is. The total tie-break is the id.
+- **`count` and `text`, not a phrase.** The second line travels raw — an artist's `12`, a song's
+  `"Led Zeppelin"` — and is pluralised in the reader's own catalog. `"12 Alben"` composed in PHP
+  would be German on a page being read in English, which is the app's raw-values rule doing exactly
+  what it is for.
+- **`HasFoldedName` did NOT generalise; it grew a sibling.** A mutator is discovered by *method
+  name*, so "fold a second column" can only mean "declare a second named mutator" — and folding
+  `description` from inside `HasFoldedName` would hang that mutator on Artist, Genre, Track and
+  Collection too, none of which has the column. `HasFoldedDescription` is opt-in per column, and
+  `Playlist` is the only model that takes both.
+- **The overlay is one class of bug away from being invisible.** The fixed "layer" holding the panel
+  must span the window: with `bottom: auto` it is zero high (its only child is out of flow) and the
+  UA's `[popover] { overflow: auto }` clips the panel — which still reports a bounding box, so it
+  looks present and is unreachable. Three E2E specs failed with *"…intercepts pointer events"*
+  naming the header. `overflow: visible` and a real height, both.
+- **`?kinds=` arrives as `null`, not `''`.** `ConvertEmptyStringsToNull` is global, so an empty
+  filter reached `prepareForValidation` as null and a `sometimes|array` rule answered "kinds must be
+  an array" for a URL that was plainly not filtering. Every way of saying "no filter" now collapses
+  through `(string)` into the empty list.
+
+Both traps are in [`testing.md`](testing.md)'s traps index as well, since that is where they will be
+looked for.

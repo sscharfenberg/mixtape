@@ -1,0 +1,17 @@
+/******************************************************************************
+ * contextual timing tokens — component:search
+ * @type {Sass}
+ * How the search overlay arrives, and how its rows respond to a pointer
+ * (Components/Search/*).
+ *
+ * Both are `fast`, and the reason is the same one the play queue's panel records: THE OVERLAY
+ * OPENS OFTEN. It is two keystrokes away from anywhere in the app, so this plays many times in a
+ * session — a quarter of a second would be pleasant once and tiring by the tenth. A row's hover
+ * has the stronger version of the argument: the list repaints per keystroke, and a slow wash
+ * would still be catching up with rows that have already been replaced.
+ * consumed as ti.$c-search via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$search: map.get(ti.$timings, "fast") !default;

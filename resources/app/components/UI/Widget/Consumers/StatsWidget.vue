@@ -1,31 +1,49 @@
 <script setup lang="ts">
 /******************************************************************************
  * StatsWidget
- * The Music page's collection-stats card — a WIDE Widget (spans two grid
- * columns for room) whose body is a grid of stat tiles (big number + label),
- * each wrapped in a Tooltip that explains how the number is derived. Music-only,
- * matching the browse widgets; no mode toggle or footer — stats are singular.
+ * The Music page's "Deine Musik" card — a WIDE Widget (spans two grid columns for room) holding
+ * the page's SEARCH HUB over a grid of collection stat tiles (big number + label), each wrapped in
+ * a Tooltip that explains how the number is derived. Music-only, matching the browse widgets; no
+ * mode toggle or footer.
  *
- * Layout: the five compact tiles sit in their own `auto-fit` grid so they fill
- * the full width (a full-row-spanning tile in the same grid would stop `auto-fit`
- * collapsing the spare track, leaving a gap); the long playtime breakdown is a
- * separate full-width row below.
+ * THE FILE NAME IS NARROWER THAN THE JOB, since 2026-08-13 (docs/search.md → "The Music page"):
+ * this was the stats card, and the heading said _Statistik_. It is kept as the search's home
+ * rather than a new widget beside it because the tiles are the right neighbours for a search
+ * field — they describe what there is to search — and because a reader who came to browse still
+ * gets them first.
  *
- * Values arrive raw from MusicController (CollectionStats) and are formatted
- * here: counts locale-aware, size bytes → GB/MB, and playtime seconds → a human
- * "months, days, hours, minutes, seconds" breakdown. Months are a flat 30 days
- * (a duration has no calendar), so the parts always sum back to the exact total.
+ * THE RESULTS REPLACE THE TILES, they do not push them down. The widget is a fixed thing in a
+ * subgrid, and a block that grows by 300px shoves the four browse widgets off the fold; clearing
+ * the field puts the tiles back. The result area is additionally capped lower here than in the
+ * header overlay, through `--search-results-height` — see the token's note.
+ *
+ * ITS SEARCH IS ITS OWN. useLibrarySearch is per-instance, not a singleton, so the query here and
+ * the query in the header overlay are two questions — which is what stops opening the overlay
+ * re-running whatever was left in this field.
+ *
+ * Values arrive raw from MusicController (CollectionStats) and are formatted here: counts
+ * locale-aware, size bytes → GB/MB, and playtime seconds → a human "months, days, hours, minutes,
+ * seconds" breakdown. Months are a flat 30 days (a duration has no calendar), so the parts always
+ * sum back to the exact total.
  *****************************************************************************/
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import SearchField from "Components/Search/SearchField.vue";
+import SearchResults from "Components/Search/SearchResults.vue";
+import SearchScopeChips from "Components/Search/SearchScopeChips.vue";
 import Tooltip from "Components/UI/Tooltip/Tooltip.vue";
 import Widget from "Components/UI/Widget/Widget.vue";
+import { useLibrarySearch } from "Composables/useLibrarySearch";
 import type { CollectionStats } from "Types/music";
 import { formatDecimals, formatDuration, formatFileSize } from "Utils/formatting";
 
 const props = defineProps<CollectionStats>();
 
 const { t, locale } = useI18n();
+
+// No `onNavigate`: opening a result leaves this page anyway, and there is no panel to put away.
+const { query, scope, groups, loading, failed, active, tooShort, listboxId, activeOptionId, onKeydown } =
+    useLibrarySearch();
 
 /** One stat tile — a formatted value, its label, and a tooltip explaining the calculation. */
 type StatTile = { key: string; value: string; label: string; hint: string };
@@ -79,18 +97,45 @@ const playtimeTile = computed<StatTile>(() => ({
 
 <template>
     <widget wide centered>
-        <template #title>{{ t("music.widgets.stats") }}</template>
+        <template #title>{{ t("music.widgets.yourMusic") }}</template>
         <div class="widget-stats">
-            <div class="widget-stats__grid">
-                <tooltip v-for="tile in compactTiles" :key="tile.key" :text="tile.hint" class="widget-stats__cell">
-                    <span class="widget-stats__value">{{ tile.value }}</span>
-                    <span class="widget-stats__label">{{ tile.label }}</span>
+            <search-field
+                v-model="query"
+                :listbox-id="listboxId"
+                :active-option-id="activeOptionId"
+                :expanded="groups.length > 0"
+                :loading="loading"
+                @keydown="onKeydown"
+            />
+
+            <!-- The chips appear WITH the results rather than living above an empty field: six of
+                 them are a row of noise on a page nobody has searched yet, and narrowing is only a
+                 question once there is something to narrow. -->
+            <search-scope-chips v-if="active" v-model="scope" name="music-search-scope" />
+
+            <search-results
+                v-if="active"
+                :groups="groups"
+                :listbox-id="listboxId"
+                :active-option-id="activeOptionId"
+                :loading="loading"
+                :failed="failed"
+                :too-short="tooShort"
+            />
+
+            <!-- The tiles are the search's alternative, not its neighbour — see the banner. -->
+            <template v-else>
+                <div class="widget-stats__grid">
+                    <tooltip v-for="tile in compactTiles" :key="tile.key" :text="tile.hint" class="widget-stats__cell">
+                        <span class="widget-stats__value">{{ tile.value }}</span>
+                        <span class="widget-stats__label">{{ tile.label }}</span>
+                    </tooltip>
+                </div>
+                <tooltip :text="playtimeTile.hint" class="widget-stats__cell widget-stats__cell--wide">
+                    <span class="widget-stats__value">{{ playtimeTile.value }}</span>
+                    <span class="widget-stats__label">{{ playtimeTile.label }}</span>
                 </tooltip>
-            </div>
-            <tooltip :text="playtimeTile.hint" class="widget-stats__cell widget-stats__cell--wide">
-                <span class="widget-stats__value">{{ playtimeTile.value }}</span>
-                <span class="widget-stats__label">{{ playtimeTile.label }}</span>
-            </tooltip>
+            </template>
         </div>
     </widget>
 </template>
@@ -100,12 +145,17 @@ const playtimeTile = computed<StatTile>(() => ({
 @use "Abstracts/colors" as c;
 @use "Abstracts/sizes" as s;
 
-// Full-width column: the compact-tile grid, then the full-width playtime row.
+// Full-width column: the search field, then either the results or the tiles.
 .widget-stats {
     display: flex;
     flex-direction: column;
 
     gap: 0.75rem;
+
+    // What the results may grow to HERE, which is lower than the header overlay's ceiling and a
+    // fixed length rather than a share of the screen — the widget sits in a grid whose other four
+    // cards must stay on the fold. SearchResults reads this through `--search-results-height`.
+    --search-results-height: #{map.get(s.$c-search, "results-height-inline")};
 }
 
 // As many ~7rem tiles as fit, stretched to fill. No full-row-spanning item lives

@@ -201,12 +201,17 @@ class E2ESeeder extends Seeder
      * cookie lose one of the two writes. See SPEC_USERS in tests/e2e/support/environment.ts,
      * where the measurements are.
      *
+     * AND `spec-search` IS BACK TO THE FIRST REASON (2026-08-13): its spec proves that typing in
+     * the search overlay does not drive the player, so it needs something playing, so it leaves a
+     * queue behind. It owns no rows of its own — the only user-scoped thing search can find is a
+     * playlist, and that half is pinned in tests/Feature/Search rather than in a browser.
+     *
      * The names are the spec files they serve, so a stray row in the database says which
      * spec left it. Everything else keeps signing in as the canonical seeded account.
      */
     private function seedSpecUsers(): void
     {
-        $names = ['spec-queue', 'spec-player', 'spec-now-playing', 'spec-shortcuts', 'spec-widgets', 'spec-playlist-detail', 'spec-add-to-playlist', 'spec-playlists'];
+        $names = ['spec-queue', 'spec-player', 'spec-now-playing', 'spec-shortcuts', 'spec-widgets', 'spec-playlist-detail', 'spec-add-to-playlist', 'spec-playlists', 'spec-search'];
 
         foreach ($names as $name) {
             User::factory()->create([

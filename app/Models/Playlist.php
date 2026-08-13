@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasFoldedDescription;
+use App\Models\Concerns\HasFoldedName;
 use Database\Factories\PlaylistFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -16,12 +18,17 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * concept"). Distinct from the ephemeral play queue, which lives client-side +
  * in `player_states`. Because `tracks` is unified, a playlist can freely mix
  * music and audiobook chapters — its rows are just `track_id`s.
+ *
+ * THE ONLY MODEL THAT FOLDS TWO COLUMNS (2026-08-13, docs/search.md): the cross-kind search
+ * matches a playlist on its blurb as well as its name, so both carry a `_fold` companion and
+ * both mutators are mixed in. It is also the only searchable kind that is USER-SCOPED, which
+ * is what makes the search response reader-specific and therefore uncacheable.
  */
 #[Fillable(['name', 'description', 'position'])]
 class Playlist extends Model
 {
     /** @use HasFactory<PlaylistFactory> */
-    use HasFactory, HasUuids;
+    use HasFactory, HasFoldedDescription, HasFoldedName, HasUuids;
 
     /** @return array<string, string> */
     protected function casts(): array

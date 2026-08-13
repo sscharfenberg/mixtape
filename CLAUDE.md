@@ -308,14 +308,30 @@ instance, written for someone else's server.
   `/dev/audio-probe` proved routed audio survives screen-off (away 215s, advanced 215s), so the
   analyser is wired directly with no toggle. Also records what no test can see (Playwright runs
   Chromium muted, so the bars never move in CI).
-- [`docs/search.md`](docs/search.md) — search (**designed 2026-08-13, not built**): one engine, a
+- [`docs/search.md`](docs/search.md) — search (designed **and built** 2026-08-13): one engine, a
   header overlay and a field on the Music page, and no per-widget boxes. The rule everything turns on
   is that **a row matches its OWN name** — measured: "black" is 77 songs by title against 1,238 once
   artist/album/genre count, a tenth of the library — so the wide search stays where it already lives,
   in the listings, reached by "see all in Songs" (`?search=`). Also: fixed groups rather than
   cross-kind scoring, four ranking tiers with a **total** tie-break (`LIMIT 5` over a partial order
   flickers), a JSON endpoint because a typeahead must not re-render the page (the prefetch rule), and
-  the one migration it needs — `playlists` was left out of the `name_fold` set.
+  the one migration it needed — `playlists` was left out of the `name_fold` set.
+
+  **The kinds are a REGISTRY, not a union** — `App\Enums\SearchKind` (whose `cases()` **is** the group
+  order, so `?kinds=` narrows without reordering) plus one class per kind in
+  `app/Services/Search/Kinds/`, over a shared `DatabaseKind` where the own-name rule physically
+  lives: whatever a kind names in `matched()` is all it can be found by. Audiobooks are a class, an
+  enum case and one registry line, the day that area exists. **Anything new here adds an entry rather
+  than a branch.**
+
+  Three things worth knowing before touching it. `useLibrarySearch` is **per-instance, not a module
+  singleton** like every other composable here — the overlay and the Music page are two boxes that
+  may legitimately hold different questions — and its abort plus an identity check on the way back in
+  are what stop a slow answer for "bla" painting over "black". The overlay **registers itself**
+  (`noteSearchOverlay`), which is how the header's trigger and the `/` / ⌘K keys stay absent in the
+  guest share space, exactly as the play queue's panel and toggle do. And the second line of a row
+  travels as a **number or a name, never a phrase** — `"12 Alben"` composed in PHP would be German on
+  a page read in English.
 - [`docs/sharing.md`](docs/sharing.md) — share links (designed 2026-08-10; **minting and the `/s/`
   guest space both built 2026-08-11**, the owner's list and revoking 2026-08-12, pruning and
   **playlist shares** 2026-08-13): play one song / album / artist / playlist with **no account**,
