@@ -31,10 +31,10 @@
  * formatting happens here against the active locale — the split every page here uses.
  *****************************************************************************/
 import { Head } from "@inertiajs/vue3";
-import Button from "Components/UI/Button.vue";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import DataTable from "Components/DataTable/DataTable.vue";
+import Button from "Components/Form/Button.vue";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import DownloadButton from "Components/Music/DownloadButton.vue";
 import PlayCountFacts from "Components/Music/PlayCountFacts.vue";
@@ -254,8 +254,12 @@ const columns = computed<ColumnDef<ChapterRow>[]>(() => [
                 <!-- One button per row: queue the whole book and start here. Disabled while
                      the book is being fetched, so a second press cannot start a race. -->
                 <template #actions="{ row }">
+                    <!-- `default` (the neon outline) and no halo: it sits inside a table row
+                         rather than on the page, where the pooled glow reads as a smudge —
+                         the same call the hero's buttons make. -->
                     <Button
-                        variant="ghost"
+                        variant="default"
+                        no-halo
                         :aria-label="t('audiobooks.chapter.play')"
                         :title="t('audiobooks.chapter.play')"
                         :disabled="busy"

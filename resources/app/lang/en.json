@@ -455,7 +455,30 @@
         "chapter": {
             "play": "Play chapter"
         },
-        "empty": "No audiobooks found."
+        "empty": "No audiobooks found.",
+        "widgets": {
+            "allAudiobooks": "All audiobooks"
+        },
+        "tabs": {
+            "label": "Browse audiobooks",
+            "books": "Books",
+            "authors": "Authors",
+            "narrators": "Narrators"
+        },
+        "stats": {
+            "hint": {
+                "books": "Number of audiobooks in the collection",
+                "chapters": "Number of chapters across every audiobook",
+                "size": "Combined size of all chapter files on disk",
+                "authors": "Number of authors with at least one chapter",
+                "narrators": "Number of narrators with at least one chapter",
+                "playtime": "Combined duration of all chapters"
+            }
+        },
+        "credit": {
+            "books": "{n} book | {n} books"
+        },
+        "noCredits": "Nothing found."
     },
     "playlists": {
         "createLink": "Create new playlist",

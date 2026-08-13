@@ -455,7 +455,30 @@
         "chapter": {
             "play": "Kapitel abspielen"
         },
-        "empty": "Keine Hörbücher gefunden."
+        "empty": "Keine Hörbücher gefunden.",
+        "widgets": {
+            "allAudiobooks": "Alle Hörbücher"
+        },
+        "tabs": {
+            "label": "Hörbücher durchsuchen",
+            "books": "Bücher",
+            "authors": "Autoren",
+            "narrators": "Erzähler"
+        },
+        "stats": {
+            "hint": {
+                "books": "Anzahl der Hörbücher in der Sammlung",
+                "chapters": "Anzahl aller Kapitel über alle Hörbücher",
+                "size": "Gesamtgröße aller Kapiteldateien auf der Festplatte",
+                "authors": "Anzahl der Autoren mit mindestens einem Kapitel",
+                "narrators": "Anzahl der Erzähler mit mindestens einem Kapitel",
+                "playtime": "Gesamtdauer aller Kapitel"
+            }
+        },
+        "credit": {
+            "books": "{n} Buch | {n} Bücher"
+        },
+        "noCredits": "Keine Einträge gefunden."
     },
     "playlists": {
         "createLink": "Neue Wiedergabeliste anlegen",
