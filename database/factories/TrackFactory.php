@@ -5,6 +5,7 @@ namespace Database\Factories;
 use App\Enums\Channel;
 use App\Enums\TrackType;
 use App\Models\Artist;
+use App\Models\Author;
 use App\Models\Collection;
 use App\Models\Genre;
 use App\Models\Narrator;
@@ -56,6 +57,13 @@ class TrackFactory extends Factory
         ];
     }
 
+    /**
+     * A chapter of an audiobook.
+     *
+     * Author AND narrator are per-chapter, which is what lets a test build an anthology:
+     * pass a shared `collection_id` and different `author_id`s and you have the real
+     * library's awkward case ("Necrophobia 1", four authors across 33 chapters).
+     */
     public function audiobook(): static
     {
         return $this->state(fn () => [
@@ -64,6 +72,7 @@ class TrackFactory extends Factory
             'artist_id' => null,
             'genre_id' => null,
             'narrator_id' => Narrator::factory(),
+            'author_id' => Author::factory(),
             'composer' => null,
             'publisher' => null,
             'path' => '/audiobooks/'.fake()->unique()->uuid().'.mp3',

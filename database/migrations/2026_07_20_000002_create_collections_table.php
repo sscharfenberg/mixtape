@@ -37,15 +37,16 @@ return new class extends Migration
             $table->year('year')->nullable();
             $table->boolean('cover')->default(false); // has a Folder.jpg alongside it
 
-            // Container owners. Taxonomy FKs are `restrict`, not `cascade`/`null`:
+            // Container owner. Taxonomy FKs are `restrict`, not `cascade`/`null`:
             // the scanner only ever prunes ORPHAN taxonomy (data-model.md → (b) #5),
             // so restrict never blocks a real delete, and it turns an accidental
-            // delete of a still-referenced artist/author into a loud error rather
-            // than a silent cascade or a stray null (data-model.md → (b) #1).
+            // delete of a still-referenced artist into a loud error rather than a
+            // silent cascade or a stray null (data-model.md → (b) #1).
+            //
+            // ONLY THE ALBUM OWNER LIVES HERE. An audiobook's author is a property of
+            // the CHAPTER, not of the book (2026-08-13) — see the tracks migration.
             $table->foreignUuid('album_artist_id')->nullable()
                 ->constrained('artists')->restrictOnDelete();
-            $table->foreignUuid('author_id')->nullable()
-                ->constrained('authors')->restrictOnDelete();
 
             $table->timestamps(); // created_at = "date added" at the album/book grain
 
@@ -54,32 +55,36 @@ return new class extends Migration
             // (data-model.md → (c)). `type`-leading composite also serves
             // "recently added <type>" and alphabetical browse.
             $table->index('album_artist_id');
-            $table->index('author_id');
             $table->index(['type', 'created_at']);
 
             if (! $pgsql) {
                 // sqlite has no NULLS NOT DISTINCT; a plain composite unique is
                 // close enough for the test suite (it treats NULL owners as
                 // distinct, which the real Postgres index below does not).
-                $table->unique(['type', 'name', 'album_artist_id', 'author_id']);
+                $table->unique(['type', 'name', 'album_artist_id']);
             }
         });
 
         if ($pgsql) {
-            // Owner is set only for its own type.
+            // Owner is set only for its own type. An audiobook has no owner column at
+            // all now, so this reads one-sided (2026-08-13).
             DB::statement(
                 'ALTER TABLE collections ADD CONSTRAINT collections_owner_type_ck CHECK ('
-                ."(type = 'album' OR album_artist_id IS NULL) AND "
-                ."(type = 'audiobook' OR author_id IS NULL))"
+                ."type = 'album' OR album_artist_id IS NULL)"
             );
 
             // Dedup key (data-model.md → (b) #3). NULLS NOT DISTINCT (PG15+) so two
             // untagged-owner rows of the same title collide instead of slipping
             // past as separate. `name` carries the case_insensitive collation, so
             // the whole index dedupes case-insensitively and Unicode-correctly.
+            //
+            // AN AUDIOBOOK THEREFORE DEDUPES ON ITS TITLE ALONE, which is the point:
+            // an anthology whose chapters name four different authors is ONE book, and
+            // keying on the author split it into four (measured on the real library,
+            // 2026-08-13 — "Necrophobia 1" became four rows sharing a name).
             DB::statement(
                 'CREATE UNIQUE INDEX collections_dedup_uq ON collections '
-                .'(type, name, album_artist_id, author_id) NULLS NOT DISTINCT'
+                .'(type, name, album_artist_id) NULLS NOT DISTINCT'
             );
         }
     }

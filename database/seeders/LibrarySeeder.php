@@ -36,7 +36,6 @@ class LibrarySeeder extends Seeder
             foreach (range(1, random_int(1, 2)) as $ignored) {
                 $album = Collection::factory()->create([
                     'album_artist_id' => $artist->id,
-                    'author_id' => null,
                 ]);
 
                 foreach (range(1, random_int(6, 12)) as $n) {
@@ -51,18 +50,38 @@ class LibrarySeeder extends Seeder
             }
         }
 
-        // Audiobooks: two books, each an author + narrator + chapters.
+        // Audiobooks: two ordinary books, each one author read by one narrator.
         foreach (Author::factory()->count(2)->create() as $author) {
-            $book = Collection::factory()->audiobook()->create(['author_id' => $author->id]);
+            $book = Collection::factory()->audiobook()->create();
             $narrator = Narrator::factory()->create();
 
             foreach (range(1, random_int(8, 15)) as $chapter) {
                 Track::factory()->audiobook()->create([
                     'collection_id' => $book->id,
+                    'author_id' => $author->id,
                     'narrator_id' => $narrator->id,
                     'track' => $chapter,
                 ]);
             }
+        }
+
+        // ...and an ANTHOLOGY, which is the shape the area has to get right: several
+        // authors and several narrators inside ONE book, plus a chapter that names no
+        // author at all. Taken from the real library, where "Necrophobia 1" runs four
+        // authors across 33 chapters and some chapters carry no TCOM tag — the case that
+        // moved both credits onto the chapter (2026-08-13).
+        $anthology = Collection::factory()->audiobook()->create(['name' => 'Anthology of the Weird']);
+        $contributors = Author::factory()->count(3)->create();
+        $voices = Narrator::factory()->count(2)->create();
+
+        foreach (range(1, 9) as $chapter) {
+            Track::factory()->audiobook()->create([
+                'collection_id' => $anthology->id,
+                // The last chapter is an afterword nobody is credited with.
+                'author_id' => $chapter === 9 ? null : $contributors[$chapter % 3]->id,
+                'narrator_id' => $voices[$chapter % 2]->id,
+                'track' => $chapter,
+            ]);
         }
 
         // "Greatest Hits" reusing some existing audio → clones (same content_hash
@@ -71,7 +90,6 @@ class LibrarySeeder extends Seeder
         $bestOf = Collection::factory()->create([
             'name' => 'Greatest Hits',
             'album_artist_id' => $artists->first()->id,
-            'author_id' => null,
         ]);
         foreach ($sources->values() as $i => $source) {
             Track::factory()->cloneOf($source)->create([

@@ -26,7 +26,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * path)` — one file per area.
  */
 #[Fillable([
-    'type', 'collection_id', 'artist_id', 'genre_id', 'narrator_id',
+    'type', 'collection_id', 'artist_id', 'genre_id', 'narrator_id', 'author_id',
     'composer', 'publisher', 'name', 'path', 'content_hash', 'size',
     'modified_at', 'codec', 'channel', 'duration', 'sample_rate', 'bit_rate',
     'vbr', 'cover', 'track', 'disc',
@@ -111,6 +111,13 @@ class Track extends Model
     public function narrator(): BelongsTo
     {
         return $this->belongsTo(Narrator::class);
+    }
+
+    /** Who WROTE this chapter — per-track like the narrator, since an anthology has both. */
+    /** @return BelongsTo<Author, $this> */
+    public function author(): BelongsTo
+    {
+        return $this->belongsTo(Author::class);
     }
 
     /** @return HasMany<PlaylistTrack, $this> */

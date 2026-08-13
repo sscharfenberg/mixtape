@@ -242,7 +242,6 @@ class E2ESeeder extends Seeder
                 'name' => $title,
                 'year' => $album['year'],
                 'album_artist_id' => $artists[$album['artist']],
-                'author_id' => null,
                 // Null on purpose: no cover file exists, so the album page must draw its
                 // placeholder rather than request an image that 404s.
                 'cover_path' => null,

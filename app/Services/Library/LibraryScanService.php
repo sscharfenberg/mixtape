@@ -329,6 +329,7 @@ final class LibraryScanService
             'artist_id' => null,
             'genre_id' => null,
             'narrator_id' => null,
+            'author_id' => null,
             'composer' => null,
             'publisher' => null,
         ];
@@ -349,10 +350,18 @@ final class LibraryScanService
 
             case TrackType::Audiobook:
                 // Legacy remapping: composer (TCOM) → author, artist (TPE1) → narrator.
+                //
+                // BOTH LAND ON THE CHAPTER, and the book is keyed on its title alone. TCOM is
+                // a per-file tag and an anthology uses it per story: "Necrophobia 1" names
+                // four authors across its 33 chapters. While the author was part of the
+                // collection key, that book became four rows sharing a name (measured
+                // 2026-08-13) — so the author is a fact about the chapter, exactly as the
+                // narrator always was.
                 $author = $this->taxonomy(Author::class, $meta->composer);
                 $narrator = $this->taxonomy(Narrator::class, $meta->artist);
-                $collection = $this->collection(CollectionType::Audiobook, $meta->album, ['author_id' => $author?->id], $meta->year);
+                $collection = $this->collection(CollectionType::Audiobook, $meta->album, [], $meta->year);
 
+                $attributes['author_id'] = $author?->id;
                 $attributes['narrator_id'] = $narrator?->id;
                 $attributes['collection_id'] = $collection?->id;
                 break;
@@ -416,7 +425,8 @@ final class LibraryScanService
      * the DB dedup index enforces. `year` is written only on creation (legacy
      * behaviour); a later track never overwrites it.
      *
-     * @param  array{album_artist_id?: ?string, author_id?: ?string}  $owner
+     * @param  array{album_artist_id?: ?string}  $owner  empty for an audiobook, which has no
+     *                                                   owner column — its author is per chapter
      */
     private function collection(CollectionType $type, ?string $name, array $owner, ?int $year): ?MediaCollection
     {
@@ -430,7 +440,6 @@ final class LibraryScanService
                 'type' => $type,
                 'name' => $name,
                 'album_artist_id' => $owner['album_artist_id'] ?? null,
-                'author_id' => $owner['author_id'] ?? null,
             ],
             ['year' => $year],
         );
@@ -520,8 +529,11 @@ final class LibraryScanService
                 break;
 
             case TrackType::Audiobook:
+                // Both are reachable only through tracks now that the author sits on the
+                // chapter, so the two read identically — an author with no chapter left
+                // anywhere is an orphan, even if a book they contributed to survives.
                 Narrator::query()->whereDoesntHave('tracks')->delete();
-                Author::query()->whereDoesntHave('audiobooks')->delete();
+                Author::query()->whereDoesntHave('tracks')->delete();
                 break;
         }
     }

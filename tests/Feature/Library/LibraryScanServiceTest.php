@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Library;
 
+use App\Enums\CollectionType;
 use App\Enums\TrackType;
 use App\Models\Artist;
+use App\Models\Author;
 use App\Models\Collection;
 use App\Models\Genre;
 use App\Models\Play;
@@ -310,6 +312,74 @@ class LibraryScanServiceTest extends TestCase
         $this->assertSame(2, Track::count());
         $this->assertSame(1, Track::where('type', TrackType::Music)->where('path', 'Foo/01.mp3')->count());
         $this->assertSame(1, Track::where('type', TrackType::Audiobook)->where('path', 'Foo/01.mp3')->count());
+    }
+
+    public function test_an_anthology_is_one_book_however_many_authors_its_chapters_name(): void
+    {
+        /*
+         * THE CASE THE REAL LIBRARY FOUND (2026-08-13). TCOM is a per-FILE tag and an
+         * anthology uses it per story: on the owner's share, "Necrophobia 1" names four
+         * authors across its 33 chapters and "Necrophobia 2" names five, and some chapters
+         * carry no author tag at all.
+         *
+         * While `author_id` was part of the collection's dedup key, each of those authors
+         * opened a book of its own — eleven collection rows sharing two names, which is what
+         * a reader would have seen in the listing. The author belongs on the chapter.
+         */
+        $ab = $this->makeAudiobookRoot();
+        @mkdir($ab.'/Necrophobia', 0777, true);
+
+        $chapters = [
+            ['01.mp3', 'Lovecraft'],
+            ['02.mp3', 'Lumley'],
+            ['03.mp3', 'Meyrink'],
+            ['04.mp3', 'Lovecraft'],   // an author may write more than one story
+            ['05.mp3', null],          // and a chapter may name nobody at all
+        ];
+
+        foreach ($chapters as [$file, $author]) {
+            file_put_contents($ab.'/Necrophobia/'.$file, json_encode(array_filter([
+                'hash' => 'n'.$file,
+                'title' => 'Story '.$file,
+                'composer' => $author,
+                'artist' => 'Lutz Riedel',
+                'album' => 'Necrophobia 1',
+            ], fn ($value) => $value !== null)));
+        }
+
+        $this->scanner->scan([TrackType::Audiobook]);
+
+        // ONE book, not one per author.
+        $book = Collection::query()->where('type', CollectionType::Audiobook)->sole();
+        $this->assertSame('Necrophobia 1', $book->name);
+        $this->assertSame(5, $book->tracks()->count());
+
+        // Three authors exist, each pinned to the chapters they wrote, and the untagged
+        // chapter is null rather than borrowing a neighbour's name.
+        $this->assertSame(3, Author::count());
+        $this->assertSame(3, $book->authors()->count('authors.id'));
+        $this->assertSame(2, Track::query()->whereRelation('author', 'name', 'Lovecraft')->count());
+        $this->assertSame(1, Track::query()->where('type', TrackType::Audiobook)->whereNull('author_id')->count());
+
+        // The narrator is unchanged in shape — one name across the book here.
+        $this->assertSame(1, $book->narrators()->count('narrators.id'));
+    }
+
+    public function test_a_music_track_never_takes_an_author(): void
+    {
+        // The other half of the moved column: `author_id` is audiobook-only, and the tracks
+        // CHECK says so on Postgres. The scanner must not hand a music track its composer
+        // tag as an author — TCOM stays free text in `composer` for music.
+        $this->media('metal/01.mp3', [
+            'hash' => 'm1', 'title' => 'Song', 'artist' => 'A', 'album' => 'Alb', 'composer' => 'Some Composer',
+        ]);
+
+        $this->scan();
+
+        $track = Track::sole();
+        $this->assertNull($track->author_id);
+        $this->assertSame('Some Composer', $track->composer);
+        $this->assertSame(0, Author::count());
     }
 
     public function test_a_scan_populates_the_folded_search_columns(): void

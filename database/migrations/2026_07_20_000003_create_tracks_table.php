@@ -42,6 +42,13 @@ return new class extends Migration
                 ->constrained('genres')->restrictOnDelete();    // music
             $table->foreignUuid('narrator_id')->nullable()
                 ->constrained('narrators')->restrictOnDelete(); // audiobook
+            // Author is per CHAPTER, not per book (2026-08-13), for the same reason
+            // narrator always was: an anthology's TCOM is a per-file fact. Measured on
+            // the real library — "Necrophobia 1" names four authors across 33 chapters
+            // and "Necrophobia 2" names five — and a book-level column could neither
+            // hold that nor fill the detail page's per-chapter Author column.
+            $table->foreignUuid('author_id')->nullable()
+                ->constrained('authors')->restrictOnDelete();   // audiobook
 
             // Music-only free-text tags (not guarded by the CHECK — harmless if set).
             $table->string('composer', 255)->nullable();
@@ -75,16 +82,17 @@ return new class extends Migration
             $table->index('artist_id');                    // restrict/prune + joins
             $table->index('genre_id');
             $table->index('narrator_id');
+            $table->index('author_id');
             $table->index(['collection_id', 'disc', 'track']); // ordered playback (also covers collection_id)
             $table->index(['type', 'created_at']);             // "recently added" per media type
         });
 
         if ($pgsql) {
-            // Type-guard: music tracks carry no narrator; audiobook tracks carry no
-            // artist/genre (data-model.md → (a)).
+            // Type-guard: music tracks carry neither narrator nor author; audiobook
+            // tracks carry no artist/genre (data-model.md → (a)).
             DB::statement(
                 'ALTER TABLE tracks ADD CONSTRAINT tracks_type_taxonomy_ck CHECK ('
-                ."(type <> 'music' OR narrator_id IS NULL) AND "
+                ."(type <> 'music' OR (narrator_id IS NULL AND author_id IS NULL)) AND "
                 ."(type <> 'audiobook' OR (artist_id IS NULL AND genre_id IS NULL)))"
             );
         }

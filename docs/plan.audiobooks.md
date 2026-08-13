@@ -175,5 +175,5 @@ Then browse `/audiobooks` and check against the measured library: **20 books, 22
   part of this work.
 - `docs/audiobooks.md` gets written as the area's design record, and the two blocked status rows in
   `docs/search.md` and `docs/sharing.md` get flipped.
-- Anything skipped gets an explicit commented placeholder, in the shape of the genre page's Artists
-  tab — a comment saying what is missing and why — and a line in the final report.
+- Anything skipped gets an explicit commented placeholder saying what is missing and why, plus a
+  line in the final report — never a silently narrowed feature.

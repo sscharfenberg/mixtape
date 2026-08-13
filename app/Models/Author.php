@@ -8,13 +8,17 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * An audiobook author. The owner of an audiobook collection
- * (`collections.author_id`), which is what fixes the legacy "no owner FK" dedup
- * bug (data-model.md → (b) #3). Scanner-managed; no timestamps; name unique +
- * case-insensitive.
+ * An audiobook author, reached through the CHAPTERS they wrote (`tracks.author_id`).
+ * Scanner-managed; no timestamps; name unique + case-insensitive.
+ *
+ * IT HANGS OFF THE TRACK, NOT THE BOOK, since 2026-08-13 — the same grain as
+ * `Narrator`. TCOM is a per-file tag and an anthology uses it per story, so a book-level
+ * column both split those books in two and could not say who wrote one chapter. The
+ * tracks CHECK pins `author_id` to `type = 'audiobook'`, so everything here is audiobooks.
  */
 #[Fillable(['name'])]
 class Author extends Model
@@ -25,13 +29,33 @@ class Author extends Model
     public $timestamps = false;
 
     /**
-     * Audiobooks by this author. The collections CHECK pins `author_id` to
-     * `type = 'audiobook'`, so these are always audiobooks.
+     * The chapters this author wrote. The grain the column actually has, and what the
+     * orphan prune and the author's total playing time both read.
      *
-     * @return HasMany<Collection, $this>
+     * @return HasMany<Track, $this>
      */
-    public function audiobooks(): HasMany
+    public function tracks(): HasMany
     {
-        return $this->hasMany(Collection::class, 'author_id');
+        return $this->hasMany(Track::class);
+    }
+
+    /**
+     * The books this author contributed to, DISTINCT — an author with nine chapters in one
+     * anthology is one book, and an anthology is a book of several authors, so this is a
+     * many-to-many in everything but its storage.
+     *
+     * `belongsToMany` over `tracks`: the chapter carries both FKs, which makes it the pivot.
+     *
+     * QUALIFY EVERY COLUMN YOU NAME — `->count('collections.id')`, `->pluck('collections.name')`
+     * — since `tracks` is a table in the join with columns of its own. A bare `->count()`
+     * rewrites the select to `count(*)`, leaving the `distinct()` nothing to apply to, so an
+     * author's six books come back as their sixty chapters, and a bare `->pluck('name')` is an
+     * "ambiguous column name" error. Both measured 2026-08-13.
+     *
+     * @return BelongsToMany<Collection, $this>
+     */
+    public function audiobooks(): BelongsToMany
+    {
+        return $this->belongsToMany(Collection::class, 'tracks', 'author_id', 'collection_id')->distinct();
     }
 }
