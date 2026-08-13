@@ -232,7 +232,8 @@
                 "song": "Song",
                 "album": "Album",
                 "artist": "Künstler",
-                "playlist": "Wiedergabeliste"
+                "playlist": "Wiedergabeliste",
+                "audiobook": "Hörbuch"
             },
             "validUntil": "gültig bis {date}",
             "expired": "abgelaufen",
@@ -573,13 +574,15 @@
             "song": "Song",
             "album": "Album",
             "artist": "Künstler",
-            "playlist": "Wiedergabeliste"
+            "playlist": "Wiedergabeliste",
+            "audiobook": "Hörbuch"
         },
         "intro": {
             "song": "Diesen {kind} hat dir jemand über einen Link zum Mithören geschickt. Du kannst ihn hier direkt anhören – ohne Konto und ohne Anmeldung.",
             "album": "Dieses {kind} hat dir jemand über einen Link zum Mithören geschickt. Du kannst es hier direkt anhören – ohne Konto und ohne Anmeldung.",
             "artist": "Diesen {kind} hat dir jemand über einen Link zum Mithören geschickt. Du kannst hier direkt mithören – ohne Konto und ohne Anmeldung.",
-            "playlist": "Diese {kind} hat dir jemand über einen Link zum Mithören geschickt. Du kannst sie hier direkt anhören – ohne Konto und ohne Anmeldung."
+            "playlist": "Diese {kind} hat dir jemand über einen Link zum Mithören geschickt. Du kannst sie hier direkt anhören – ohne Konto und ohne Anmeldung.",
+            "audiobook": "Jemand hat das Hörbuch <strong>{name}</strong> mit dir geteilt."
         },
         "expires": {
             "label": "Link gültig bis",

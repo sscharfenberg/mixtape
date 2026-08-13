@@ -16,7 +16,7 @@ export type ShareRow = {
     /** The share's UUID — its identity, and the id the DELETE names. */
     id: string;
     /** Which kind of thing it grants: `App\Enums\ShareSubject`, and nothing else. */
-    kind: "song" | "album" | "artist" | "playlist";
+    kind: "song" | "album" | "artist" | "playlist" | "audiobook";
     /** The subject's name, as data — printed, never translated. */
     name: string;
     /** The link itself, ABSOLUTE — it is copied into a chat window, not into an <a href>. */

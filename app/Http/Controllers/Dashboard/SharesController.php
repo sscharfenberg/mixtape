@@ -53,7 +53,11 @@ class SharesController extends Controller
     {
         [$live, $dead] = Share::query()
             ->where('user_id', $request->user()->id)
-            ->with(['track:id,name', 'collection:id,name', 'artist:id,name', 'playlist:id,name'])
+            // `collection:id,name,TYPE` — the type is not decoration here: `collection_id` is
+            // the one FK that does not name its own kind, so ShareGrant::subject() reads the
+            // row to tell an audiobook share from an album one. Select only id and name and
+            // every book in this list calls itself an album (2026-08-13).
+            ->with(['track:id,name', 'collection:id,name,type', 'artist:id,name', 'playlist:id,name'])
             ->orderBy('valid_until')
             ->get()
             ->partition(fn (Share $share): bool => $share->isLive());

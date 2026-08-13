@@ -80,6 +80,10 @@ class StoreShareRequest extends FormRequest
         return match ($subject) {
             ShareSubject::Song => $rule->where('type', TrackType::Music->value),
             ShareSubject::Album => $rule->where('type', CollectionType::Album->value),
+            // The narrowing cuts BOTH ways now that both kinds are shareable: an album id
+            // passed as `subject: "audiobook"` has to fail exactly as the reverse always did,
+            // or a share would claim to be something the page that minted it never showed.
+            ShareSubject::Audiobook => $rule->where('type', CollectionType::Audiobook->value),
             ShareSubject::Artist => $rule,
             // `user()` cannot be null here — the route group is behind `auth` — and a guest
             // never reaches validation at all, so this is the signed-in reader's own id.

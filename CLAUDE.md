@@ -308,6 +308,20 @@ instance, written for someone else's server.
   `/dev/audio-probe` proved routed audio survives screen-off (away 215s, advanced 215s), so the
   analyser is wired directly with no toggle. Also records what no test can see (Playwright runs
   Chromium muted, so the bars never move in CI).
+- [`docs/audiobooks.md`](docs/audiobooks.md) — the Audiobooks area (**built 2026-08-13**): three
+  pages, and the one thing music does not need — **per-book resume**, so a 673-chapter book picks
+  up where you left it while three others stay in flight. Records the schema change it turned on:
+  **an audiobook's author lives on the CHAPTER**, beside the narrator, because TCOM is a per-file
+  tag and an anthology uses it per story — measured, "Necrophobia 1" names six authors across 32
+  chapters and was scanning as six separate books. So a book has no owner column and dedupes on
+  its title alone.
+
+  **The relations are `belongsToMany` over `tracks`** (the chapter is a pivot, not an intermediate
+  owner — `hasManyThrough` returns zero), and **every column they name must be qualified**:
+  `->count()` counts pivot rows, `->pluck('name')` is ambiguous. Also why the entry page is a
+  cover grid rather than a DataTable, why a chapter row plays the WHOLE BOOK from that point, and
+  why the chapter routes are flat.
+
 - [`docs/search.md`](docs/search.md) — search (designed **and built** 2026-08-13): one engine, a
   header overlay and a field on the Music page, and no per-widget boxes. The rule everything turns on
   is that **a row matches its OWN name** — measured: "black" is 77 songs by title against 1,238 once

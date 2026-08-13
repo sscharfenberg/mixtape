@@ -38,6 +38,13 @@ enum ShareSubject: string
     case Album = 'album';
     case Artist = 'artist';
     case Playlist = 'playlist';
+    /**
+     * A whole audiobook. Added 2026-08-13, when the area got a page to share FROM — which is
+     * all it was ever waiting on. It cost one case and three arms and NO migration: `shares`
+     * already stores it in `collection_id`, and the table's CHECK counts non-null FKs without
+     * caring which kind of collection this one is.
+     */
+    case Audiobook = 'audiobook';
 
     /**
      * The `shares` column this subject's id is stored in — which of the four FKs the
@@ -47,7 +54,7 @@ enum ShareSubject: string
     {
         return match ($this) {
             self::Song => 'track_id',
-            self::Album => 'collection_id',
+            self::Album, self::Audiobook => 'collection_id',
             self::Artist => 'artist_id',
             self::Playlist => 'playlist_id',
         };
@@ -70,7 +77,9 @@ enum ShareSubject: string
     {
         return match ($this) {
             self::Song => PlaylistSubject::Song,
-            self::Album => PlaylistSubject::Album,
+            // An audiobook grants its collection's tracks, exactly as an album does — the
+            // column is the same one, and `collections` is what tells the two apart.
+            self::Album, self::Audiobook => PlaylistSubject::Album,
             self::Artist => PlaylistSubject::Artist,
             self::Playlist => null,
         };
@@ -88,7 +97,7 @@ enum ShareSubject: string
     {
         return match ($this) {
             self::Song => 'tracks',
-            self::Album => 'collections',
+            self::Album, self::Audiobook => 'collections',
             self::Artist => 'artists',
             self::Playlist => 'playlists',
         };

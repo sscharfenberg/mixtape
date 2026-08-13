@@ -67,7 +67,7 @@ const { copied, copy } = useClipboard();
 
 /** The glyph for the subject — the one the app uses for that kind of thing everywhere else. */
 const iconOf = (kind: ShareRow["kind"]): string =>
-    ({ song: "song", album: "album", artist: "artist", playlist: "playlist" })[kind];
+    ({ song: "song", album: "album", artist: "artist", playlist: "playlist", audiobook: "audiobook" })[kind];
 </script>
 
 <template>

@@ -36,7 +36,7 @@ Read alongside:
 | Pruning expired rows                     | ✅ built 2026-08-12 — weekly systemd timer, below          |
 | Two lists, and RE-ACTIVATING a dead link | ✅ built 2026-08-13 — what the grace period is for, below   |
 | Playlist shares                          | ✅ built 2026-08-13 — the pivot grant, and the only owned subject |
-| Audiobook shares                         | ⬜ blocked — the Audiobooks area is still a placeholder     |
+| Audiobook shares                         | ✅ built 2026-08-13 — one case, three arms, no migration    |
 | Genre shares                             | ❌ never — see *Known edges*                               |
 
 ## What a share is
@@ -632,13 +632,18 @@ What shipped: `tests/Feature/Shares/CreateShareTest.php`, `tests/Feature/Shares/
 
 ## Known edges, and what is deliberately absent
 
-- **Audiobook shares are blocked on a page to share.** `AudiobooksController` still renders a
-  placeholder. The schema covers them for free — one `collection_id` FK, since `collections` already
-  discriminates album from audiobook — so this switches on with the Audiobooks area and needs no
-  migration. **The serving half is already built for them**: the share stream carries no music-only
-  guard, and `ShareGrant` filters by track type only for an *artist* subject (where it matches what
-  "play this artist" means). `ShareMediaTest` streams an audiobook chapter through a collection share
-  to keep that true.
+- **Audiobook shares landed 2026-08-13**, when the area got a page to share FROM — which is all they
+  were ever waiting on. The schema covered them for free exactly as promised: one `collection_id` FK,
+  no new column, no CHECK change, and the serving half already type-blind (`ShareMediaTest` had been
+  streaming an audiobook chapter through a collection share for weeks).
+
+  What it did cost is the one thing that FK cannot say. **`ShareGrant::subject()` has to read
+  `collections.type`**, because `collection_id` is the only one of the four that does not name its
+  own kind — and a share that cannot tell an album from a book calls every shared book an album to
+  every guest who opens it, in German with the wrong article. The owner's list had the same bug from
+  the other end and it is the more instructive half: it eager-loads `collection:id,name`, so the type
+  was not there to read at all and every book in the list said "Album". The eager load now names
+  `type` explicitly, with a comment saying why.
 - **No genre shares**, confirmed by the owner on 2026-08-11. `PlaylistSubject` has a `Genre` case and
   the mapping would be free, but "listen to this genre" is a different kind of act from "listen to
   this" — a share hands over one thing somebody chose to send, and a genre is a shelf. `ShareSubject`

@@ -154,6 +154,25 @@ class SharePageController extends Controller
                 'year' => $share->collection->year,
                 'genre' => $this->dominantGenre(DominantGenre::albumWinners($share->collection_id)),
             ],
+            /*
+             * AN AUDIOBOOK IS NOT AN ALBUM WEARING A DIFFERENT WORD, which is why it gets an
+             * arm of its own rather than joining the one above. Its credit is its AUTHORS —
+             * plural, read through the chapters, since an anthology names six — where an
+             * album's is one album-artist off the collection. And it has no genre at all: the
+             * tracks CHECK forbids an audiobook one, so asking DominantGenre would be asking
+             * a question the schema has already answered with null.
+             */
+            ShareSubject::Audiobook => [
+                'name' => $share->collection->name,
+                // Joined here rather than sent as a list, because this shape is four nullable
+                // strings the guest page prints as they are; a list would be a fifth shape for
+                // one kind. Names separated by commas read the same in both catalogues.
+                'artist' => $share->collection->authors()->orderBy('authors.name')
+                    ->pluck('authors.name')->implode(', ') ?: null,
+                'album' => null,
+                'year' => $share->collection->year,
+                'genre' => null,
+            ],
             ShareSubject::Artist => [
                 'name' => $share->artist->name,
                 'artist' => null,

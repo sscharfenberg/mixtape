@@ -38,6 +38,7 @@ import Button from "Components/Form/Button.vue";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import DownloadButton from "Components/Music/DownloadButton.vue";
 import PlayCountFacts from "Components/Music/PlayCountFacts.vue";
+import ShareButton from "Components/Music/ShareButton.vue";
 import SubjectActions from "Components/Music/SubjectActions.vue";
 import ActionPanel from "Components/UI/ActionPanel.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
@@ -240,11 +241,9 @@ const columns = computed<ColumnDef<ChapterRow>[]>(() => [
                          listened to comes after what the book IS. -->
                     <play-count-facts :plays="plays" subject="album" />
                 </template>
-                <!-- The tinted ActionPanel for what a reader came for, and under it the action
-                     that takes the book somewhere else. NO SHARE BUTTON YET: `ShareSubject`
-                     has no audiobook case, so minting one would 422 — it arrives with M7 of
-                     docs/plan.audiobooks.md, and a button that cannot work is worse than one
-                     that is not there. -->
+                <!-- The tinted ActionPanel for what a reader came for, and under it the two
+                     actions that take the book somewhere else: onto a disk, or to somebody
+                     without an account. -->
                 <template #actions>
                     <action-panel>
                         <!-- Play RESUMES (the owner's call), with a separate way back to the
@@ -262,6 +261,7 @@ const columns = computed<ColumnDef<ChapterRow>[]>(() => [
                         <subject-actions />
                     </action-panel>
                     <download-button :href="audiobook.downloadUrl" subject="audiobook" />
+                    <share-button subject="audiobook" :subject-id="audiobook.id" />
                 </template>
             </hero-section>
 

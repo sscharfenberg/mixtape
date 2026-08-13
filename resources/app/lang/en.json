@@ -232,7 +232,8 @@
                 "song": "Song",
                 "album": "Album",
                 "artist": "Artist",
-                "playlist": "Playlist"
+                "playlist": "Playlist",
+                "audiobook": "Audiobook"
             },
             "validUntil": "works until {date}",
             "expired": "expired",
@@ -573,13 +574,15 @@
             "song": "Song",
             "album": "Album",
             "artist": "Artist",
-            "playlist": "Playlist"
+            "playlist": "Playlist",
+            "audiobook": "Audiobook"
         },
         "intro": {
             "song": "Somebody sent you this {kind} as a listening link. You can play it right here — no account, no signing in.",
             "album": "Somebody sent you this {kind} as a listening link. You can play it right here — no account, no signing in.",
             "artist": "Somebody sent you this {kind} as a listening link. You can listen right here — no account, no signing in.",
-            "playlist": "Somebody sent you this {kind} as a listening link. You can play it right here — no account, no signing in."
+            "playlist": "Somebody sent you this {kind} as a listening link. You can play it right here — no account, no signing in.",
+            "audiobook": "Someone shared the audiobook <strong>{name}</strong> with you."
         },
         "expires": {
             "label": "Link works until",

@@ -32,7 +32,7 @@ Read alongside:
 | Music page: "Deine Musik" + scope chips            | ✅ built 2026-08-13 — surface (c)                   |
 | "See all in …" hand-off                            | ✅ built 2026-08-13 — surface (a)                   |
 | The row facts' cost, measured on the box           | ✅ measured 2026-08-13 — see _Performance_          |
-| Audiobooks as a kind                               | ⬜ blocked — the Audiobooks area is a placeholder    |
+| Audiobooks as a kind                               | ✅ built 2026-08-13 — a class, a case and one line   |
 | Most-played first inside the Songs group           | ⬜ later — `plays` has no volume yet                |
 | Per-widget search boxes                            | ❌ never — see _Why the widgets get no boxes_       |
 | An "advanced search" page with filters             | ❌ never — the listings already are that            |

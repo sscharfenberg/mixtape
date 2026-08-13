@@ -70,7 +70,7 @@ import { formatDateTime, formatDuration } from "Utils/formatting";
  * Exported so this page's tests name the same union rather than a widened `string`, which
  * would let a spec assert a kind the server can never send.
  */
-export type ShareKind = "song" | "album" | "artist" | "playlist";
+export type ShareKind = "song" | "album" | "artist" | "playlist" | "audiobook";
 
 const props = defineProps<{
     /** The link itself: what it is about, when it dies, and whether it already has. */
@@ -171,7 +171,10 @@ function playShare(): void {
  * the ref first. The same trap SongPage's `songFacts` is named around.
  */
 const subjectIcon = computed<string>(
-    () => ({ song: "song", album: "album", artist: "artist", playlist: "playlist" })[props.share.kind]
+    () =>
+        ({ song: "song", album: "album", artist: "artist", playlist: "playlist", audiobook: "audiobook" })[
+            props.share.kind
+        ]
 );
 
 /**

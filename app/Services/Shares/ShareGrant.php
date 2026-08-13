@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Shares;
 
+use App\Enums\CollectionType;
 use App\Enums\ShareSubject;
 use App\Enums\TrackType;
 use App\Models\Share;
@@ -74,7 +75,14 @@ final class ShareGrant
     {
         return match (true) {
             $this->share->track_id !== null => ShareSubject::Song,
-            $this->share->collection_id !== null => ShareSubject::Album,
+            // THE ONE FK THAT DOES NOT NAME ITS KIND. `collections` holds albums and
+            // audiobooks, and both store their id in this column — by design, since a share of
+            // either grants the same thing (that collection's tracks). So the kind has to be
+            // read off the ROW, and it decides the words the guest page uses about it, not
+            // what it grants.
+            $this->share->collection_id !== null => $this->share->collection?->type === CollectionType::Audiobook
+                ? ShareSubject::Audiobook
+                : ShareSubject::Album,
             $this->share->artist_id !== null => ShareSubject::Artist,
             $this->share->playlist_id !== null => ShareSubject::Playlist,
             default => null,
@@ -208,7 +216,7 @@ final class ShareGrant
     {
         return match ($this->subject()) {
             ShareSubject::Song => $this->share->track->name,
-            ShareSubject::Album => $this->share->collection->name,
+            ShareSubject::Album, ShareSubject::Audiobook => $this->share->collection->name,
             ShareSubject::Artist => $this->share->artist->name,
             ShareSubject::Playlist => $this->share->playlist->name,
             default => null,
