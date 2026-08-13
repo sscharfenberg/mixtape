@@ -1,6 +1,6 @@
 import { default as vitePluginVue } from "@vitejs/plugin-vue";
 import { defineConfig } from "vitest/config";
-import { aliases } from "./resources/build/aliases";
+import { aliases } from "./resources/build/aliases.ts";
 
 /*
  * Vitest — the frontend unit layer (https://vitest.dev/config/).

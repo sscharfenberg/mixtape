@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { BASE_URL, PORT, serverEnv } from "./tests/e2e/support/environment";
+import { BASE_URL, PORT, serverEnv } from "./tests/e2e/support/environment.ts";
 
 /*
  * Playwright — the end-to-end layer (https://playwright.dev/docs/test-configuration).
