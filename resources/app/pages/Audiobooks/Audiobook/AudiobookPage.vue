@@ -175,7 +175,21 @@ const columns = computed<ColumnDef<ChapterRow>[]>(() => [
     { key: "name", label: t("music.columns.title"), sortable: true, cardPrimary: true },
     { key: "author", label: t("audiobooks.columns.author"), sortable: true },
     { key: "narrator", label: t("audiobooks.columns.narrator"), sortable: true },
-    { key: "duration", label: t("audiobooks.columns.playtime"), sortable: true, align: "right" }
+    { key: "duration", label: t("audiobooks.columns.playtime"), sortable: true, align: "right" },
+    /*
+     * The play button as a COLUMN OF ITS OWN, not the DataTable's `hasActions` popover.
+     *
+     * That popover is the right home for a row's secondary verbs — it is where the music
+     * listings put "add to playlist" and the rest — but hearing a chapter is the PRIMARY act
+     * on this page, and one behind a ⋯ menu is two clicks for the only thing a reader came to
+     * do. Trailing, where an action belongs, and its header is empty because a column of
+     * buttons needs no name.
+     *
+     * Keyed on `streamUrl` because a ColumnDef's key must name a real field — and this column
+     * IS that field, rendered as a button rather than printed as a URL, which is the pattern
+     * ColumnDef documents for a URL column with a `#cell-` slot.
+     */
+    { key: "streamUrl", label: "", sortable: false, align: "right" }
 ]);
 </script>
 
@@ -271,18 +285,20 @@ const columns = computed<ColumnDef<ChapterRow>[]>(() => [
                 :columns="columns"
                 :response="table"
                 :base-url="`/audiobooks/${audiobook.id}`"
-                has-actions
+                :has-actions="false"
             >
                 <!-- The chapter the reader left off at, marked where the eye already is: in
                      the title cell rather than a column of its own, which would be empty on
                      every other row of a 673-chapter book. -->
                 <template #cell-name="{ row }">
                     <span class="chapter-name">
+                        <!-- `additional-classes`, which is Icon's own API: it builds its class
+                             list from its props, so a raw `class` is not the way to reach it. -->
                         <icon
                             v-if="isBookmarked(row)"
                             name="bookmark"
                             :size="1"
-                            class="chapter-name__mark"
+                            :additional-classes="['chapter-name__mark']"
                             :aria-label="t('audiobooks.chapter.bookmarked')"
                         />
                         {{ row.name }}
@@ -299,7 +315,7 @@ const columns = computed<ColumnDef<ChapterRow>[]>(() => [
                 </template>
                 <!-- One button per row: queue the whole book and start here. Disabled while
                      the book is being fetched, so a second press cannot start a race. -->
-                <template #actions="{ row }">
+                <template #cell-streamUrl="{ row }">
                     <!-- `default` (the neon outline) and no halo: it sits inside a table row
                          rather than on the page, where the pooled glow reads as a smudge —
                          the same call the hero's buttons make. -->

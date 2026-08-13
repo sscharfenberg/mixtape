@@ -6,8 +6,10 @@ use App\Enums\Channel;
 use App\Enums\CollectionType;
 use App\Enums\TrackType;
 use App\Models\Artist;
+use App\Models\Author;
 use App\Models\Collection;
 use App\Models\Genre;
+use App\Models\Narrator;
 use App\Models\Playlist;
 use App\Models\PlaylistTrack;
 use App\Models\Share;
@@ -211,7 +213,7 @@ class E2ESeeder extends Seeder
      */
     private function seedSpecUsers(): void
     {
-        $names = ['spec-queue', 'spec-player', 'spec-now-playing', 'spec-shortcuts', 'spec-widgets', 'spec-playlist-detail', 'spec-add-to-playlist', 'spec-playlists', 'spec-search'];
+        $names = ['spec-queue', 'spec-player', 'spec-now-playing', 'spec-shortcuts', 'spec-widgets', 'spec-playlist-detail', 'spec-add-to-playlist', 'spec-playlists', 'spec-search', 'spec-audiobooks'];
 
         foreach ($names as $name) {
             User::factory()->create([
@@ -252,6 +254,8 @@ class E2ESeeder extends Seeder
                 $this->seedTrack($collection, $artists[$album['artist']], $genres[$album['genre']], $name, $index + 1, $trackNumber, $album['bitRate']);
             }
         }
+
+        $this->seedAudiobooks();
 
         // Last, because both pick rows out of the library above by name.
         $this->seedPlaylists();
@@ -539,6 +543,110 @@ class E2ESeeder extends Seeder
             'track' => $trackNo,
             'disc' => 1,
         ]);
+    }
+
+    /**
+     * Two audiobooks, ADDED to the fixture rather than reshaping it (2026-08-13): every
+     * existing spec names music rows by hand, so nothing above may move.
+     *
+     * TWO BOOKS BECAUSE THE AREA HAS TWO SHAPES, and only one of them is interesting:
+     *
+     * - **"Berge des Wahnsinns"** is the ordinary case — one author, one narrator, five
+     *   chapters — and it is what the resume spec uses, because a bookmark is easier to
+     *   assert against a book whose chapters are all alike.
+     * - **"Necrophobia 1"** is the ANTHOLOGY, and it is the whole reason the schema changed:
+     *   six chapters naming three authors and two narrators, one of them crediting nobody.
+     *   It is what proves a book appears under every contributor in the Authors tab, and that
+     *   a per-chapter Author column has something to show. Its shape is taken from the real
+     *   library, where the book of that name runs 32 chapters over six authors.
+     *
+     * Chapter counts are deliberately SMALL. The bookmark page-jump is a server concern with
+     * its own feature test at 120 chapters; a browser spec only needs enough rows to see the
+     * table, and 673 fixed rows would slow every run for nothing.
+     */
+    private function seedAudiobooks(): void
+    {
+        $authors = [];
+        foreach (['H.P. Lovecraft', 'Brian Lumley', 'Gustav Meyrink'] as $row => $name) {
+            $authors[$name] = Author::query()->create([
+                'id' => $this->id(7, $row + 1),
+                'name' => $name,
+            ])->id;
+        }
+
+        $narrators = [];
+        foreach (['David Nathan', 'Lutz Riedel'] as $row => $name) {
+            $narrators[$name] = Narrator::query()->create([
+                'id' => $this->id(8, $row + 1),
+                'name' => $name,
+            ])->id;
+        }
+
+        // [title, year, [[chapter name, author or null, narrator], …]]
+        $books = [
+            ['Berge des Wahnsinns', 2010, [
+                ['Erstes Kapitel', 'H.P. Lovecraft', 'David Nathan'],
+                ['Zweites Kapitel', 'H.P. Lovecraft', 'David Nathan'],
+                ['Drittes Kapitel', 'H.P. Lovecraft', 'David Nathan'],
+                ['Viertes Kapitel', 'H.P. Lovecraft', 'David Nathan'],
+                ['Fünftes Kapitel', 'H.P. Lovecraft', 'David Nathan'],
+            ]],
+            ['Necrophobia 1', 2008, [
+                ['Die Ratten im Gemäuer', 'H.P. Lovecraft', 'Lutz Riedel'],
+                ['Der Erforscher', 'Brian Lumley', 'David Nathan'],
+                ['Der Golem', 'Gustav Meyrink', 'Lutz Riedel'],
+                ['Das Ding auf der Schwelle', 'H.P. Lovecraft', 'Lutz Riedel'],
+                ['Cement Surroundings', 'Brian Lumley', 'David Nathan'],
+                // Credited to nobody, like the real anthology's two untagged chapters.
+                ['Nachwort', null, 'Lutz Riedel'],
+            ]],
+        ];
+
+        $chapterNumber = 0;
+        foreach ($books as $bookNumber => [$title, $year, $chapters]) {
+            $book = Collection::query()->create([
+                'id' => $this->id(9, $bookNumber + 1),
+                'type' => CollectionType::Audiobook,
+                'name' => $title,
+                'year' => $year,
+                'album_artist_id' => null,
+                // Null for the same reason the albums are: no cover file exists, so the page
+                // must draw its placeholder rather than request an image that 404s.
+                'cover_path' => null,
+            ]);
+
+            foreach ($chapters as $index => [$name, $author, $narrator]) {
+                $chapterNumber++;
+
+                Track::query()->create([
+                    'id' => $this->id(10, $chapterNumber),
+                    'type' => TrackType::Audiobook,
+                    'collection_id' => $book->id,
+                    'artist_id' => null,
+                    'genre_id' => null,
+                    'author_id' => $author === null ? null : $authors[$author],
+                    'narrator_id' => $narrators[$narrator],
+                    'composer' => null,
+                    'publisher' => null,
+                    'name' => $name,
+                    'path' => sprintf('/audiobooks/%03d.mp3', $chapterNumber),
+                    'content_hash' => hash('sha256', 'mixtape-e2e-chapter-'.$chapterNumber),
+                    // Unique and never tied, so "ordered by duration" has one correct answer.
+                    'duration' => 600.0 + ($chapterNumber * 13),
+                    'size' => 8_000_000 + ($chapterNumber * 1_000),
+                    'modified_at' => '2026-07-28 14:23:05',
+                    'created_at' => '2026-07-21 09:00:00',
+                    'codec' => 'mp3',
+                    'channel' => Channel::Stereo,
+                    'sample_rate' => 44100,
+                    'bit_rate' => 128000,
+                    'vbr' => false,
+                    'cover' => false,
+                    'track' => $index + 1,
+                    'disc' => 1,
+                ]);
+            }
+        }
     }
 
     /**

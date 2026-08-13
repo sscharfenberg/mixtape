@@ -110,7 +110,12 @@ export const serverEnv: Record<string, string> = {
      * the honest value, because there is no nginx in front of `artisan serve`.
      */
     MIXTAPE_MUSIC_PATH: MEDIA_ROOT,
-    MIXTAPE_AUDIOBOOKS_PATH: "",
+    // The SAME root as music, which is right rather than lazy: a stored path is
+    // area-relative and E2ESeeder writes `/audiobooks/NNN.mp3`, so the two areas resolve
+    // into sibling directories under one throwaway tree. It was empty until the audiobooks
+    // area existed, and empty means "no such area" — a chapter's stream would 404 and the
+    // resume spec would look like the bookmark was never written.
+    MIXTAPE_AUDIOBOOKS_PATH: MEDIA_ROOT,
     MIXTAPE_STREAM_INTERNAL_PREFIX: ""
 };
 
@@ -239,11 +244,19 @@ export const resetDatabase = (): void => {
 export const seedMediaFiles = (): void => {
     rmSync(MEDIA_ROOT, { recursive: true, force: true });
     mkdirSync(path.join(MEDIA_ROOT, "music"), { recursive: true });
+    mkdirSync(path.join(MEDIA_ROOT, "audiobooks"), { recursive: true });
 
     // 67 music tracks, per E2ESeeder's docblock — the count that puts a listing past its
     // 50-row page size. One spare file costs nothing; one missing file is a silent 404.
     for (let position = 1; position <= 70; position += 1) {
         copyFileSync(AUDIO_FIXTURE, path.join(MEDIA_ROOT, "music", `${String(position).padStart(3, "0")}.mp3`));
+    }
+
+    // 11 audiobook chapters across the fixture's two books. Real audio matters more here
+    // than for a song: the resume spec asserts a bookmark, and a bookmark is only written
+    // once playback actually reports a position.
+    for (let chapter = 1; chapter <= 15; chapter += 1) {
+        copyFileSync(AUDIO_FIXTURE, path.join(MEDIA_ROOT, "audiobooks", `${String(chapter).padStart(3, "0")}.mp3`));
     }
 };
 
@@ -341,7 +354,13 @@ export const SPEC_USERS = {
      * IS per-owner — is pinned in tests/Feature/Search, where a stranger's playlist can be created
      * and asserted absent in three lines.
      */
-    search: "spec-search"
+    search: "spec-search",
+    /*
+     * Audiobooks own their spec account for the queue reason above AND one of their own: the
+     * area's resume feature is per (reader, book), so a bookmark left by another spec would be
+     * a chapter this one never played.
+     */
+    audiobooks: "spec-audiobooks"
 } as const;
 
 /** Where a spec account's signed-in session is parked by the setup project. */
@@ -368,6 +387,31 @@ export const specStorageState = (spec: keyof typeof SPEC_USERS): string =>
  * with a request mid-flight would otherwise throw SQLITE_BUSY rather than wait the
  * millisecond out.
  */
+/**
+ * Forget a spec account's audiobook bookmarks, straight in the database.
+ *
+ * WHY A RESET IS NEEDED AT ALL, and it is not the queue's reason: a bookmark is per (reader,
+ * book) and OUTLIVES the queue by design, so it survives `clearServerQueue` and every page
+ * load after it. Two tests that both play the same chapter then look wrong in a way that reads
+ * as the feature failing — the second one writes nothing, because the bookmark is already
+ * exactly where it would put it, and a test waiting for that write waits forever.
+ *
+ * No settle loop, unlike the queue's: nothing flushes a bookmark from a closing tab, so there
+ * is no in-flight write to outrace.
+ */
+export const clearBookmarks = (spec: keyof typeof SPEC_USERS): void => {
+    const database = new DatabaseSync(path.join(repoRoot, "storage/e2e.sqlite"));
+    database.exec("PRAGMA busy_timeout = 2000");
+
+    try {
+        database
+            .prepare("DELETE FROM audiobook_bookmarks WHERE user_id IN (SELECT id FROM users WHERE name = ?)")
+            .run(SPEC_USERS[spec]);
+    } finally {
+        database.close();
+    }
+};
+
 export const clearServerQueue = async (spec: keyof typeof SPEC_USERS): Promise<void> => {
     const database = new DatabaseSync(path.join(repoRoot, "storage/e2e.sqlite"));
     // BEFORE ANYTHING ELSE, including the prepares: the app holds the same file open, and

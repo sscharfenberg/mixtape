@@ -1,4 +1,4 @@
-import { router } from "@inertiajs/vue3";
+import { usePage } from "@inertiajs/vue3";
 import type { Ref } from "vue";
 import { onScopeDispose, ref, watch } from "vue";
 import { usePlayerAudio } from "Composables/usePlayerAudio";
@@ -65,19 +65,38 @@ export const useAudiobookBookmark = (
     /**
      * Store where the reader has got to.
      *
-     * `preserveState` and `preserveScroll` because this is a background write on a page the
-     * reader is looking at: without them a heartbeat would re-key the page component mid-play
-     * — the same class of bug the prefetch rule exists for (CLAUDE.md → prefetch). `only: []`
-     * asks the server for no props back at all; the response is a 204 anyway.
+     * A PLAIN fetch, NOT AN INERTIA VISIT, and it is the same decision `usePlayerQueue` made
+     * for `/player/state` one endpoint over — for the same two reasons, the second of which
+     * this learned the hard way. A visit would re-render a page nobody asked for, on a
+     * heartbeat, while the reader is looking at it. And the endpoint answers **204**, which
+     * carries no Inertia payload at all: `router.put` had nothing to swap in and the write
+     * simply never landed, which surfaced as a bookmark that was never written rather than as
+     * an error anywhere.
+     *
+     * Inertia's own visits carry the CSRF token themselves, so a hand-rolled fetch has to send
+     * it — off the shared prop, like the queue's.
+     *
+     * Failure is swallowed for the reason the queue swallows its own: offline, logged out in
+     * another tab, a 419 after a session rotation. A player that broke because a bookmark
+     * failed to save would be a worse bug than a bookmark one chapter behind.
      */
     const store = (trackId: string, positionMs: number): void => {
         bookmark.value = { trackId, positionMs };
 
-        router.put(
-            `/audiobooks/${audiobookId}/bookmark`,
-            { trackId, positionMs },
-            { preserveState: true, preserveScroll: true, only: [] }
-        );
+        try {
+            void fetch(`/audiobooks/${audiobookId}/bookmark`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                    "X-CSRF-TOKEN": usePage().props.csrfToken ?? ""
+                },
+                body: JSON.stringify({ trackId, positionMs })
+            }).catch(() => undefined);
+        } catch {
+            // Nothing to do: the in-memory bookmark is already updated, and the next
+            // heartbeat will try again.
+        }
     };
 
     /**
