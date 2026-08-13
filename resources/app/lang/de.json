@@ -373,6 +373,10 @@
             "album": {
                 "ownTip": "So oft hast du Titel dieses Albums gehört. Gezählt wird jeder Titel einzeln, sobald die Hälfte gelaufen ist – bei langen Titeln nach vier Minuten. Gemeint sind die Titel dieser Platte: dieselbe Aufnahme auf einem anderen Album zählt dort.",
                 "othersTip": "So oft haben alle anderen zusammen Titel dieses Albums gehört – auf dieselbe Art gezählt wie bei dir."
+            },
+            "playlist": {
+                "ownTip": "So oft hast du Titel aus dieser Wiedergabeliste gehört. Gezählt wird jeder Titel einzeln, sobald die Hälfte gelaufen ist – bei langen Titeln nach vier Minuten. Gemeint sind die Titel, die jetzt in der Liste stehen: nimmst du einen heraus, zählen seine Wiedergaben hier nicht mehr mit.",
+                "othersTip": "So oft haben alle anderen zusammen Titel aus dieser Wiedergabeliste gehört – auf dieselbe Art gezählt wie bei dir."
             }
         },
         "empty": "Noch keine Einträge",

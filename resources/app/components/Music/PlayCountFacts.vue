@@ -31,10 +31,15 @@ import { computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import { usePlayEvents } from "Composables/usePlayEvents";
+import type { PlayCountSubject } from "Types/plays";
 import { formatTimesPlayed } from "Utils/formatting";
 
-/** What kind of thing the counts describe — decides only which sentences are shown. */
-export type PlayCountSubject = "song" | "artist" | "genre" | "album" | "playlist";
+// Re-exported so `import PlayCountFacts, { type PlayCountSubject }` keeps working for the pages
+// that pass the prop. The list itself moved to `Types/plays` on 2026-08-13, and had to:
+// `<script setup>` may export types but not values, and it has to be a VALUE for the spec to loop
+// over — which is what keeps a new subject from shipping without its two sentences. That file
+// carries the story.
+export type { PlayCountSubject };
 
 const props = defineProps<{
     /** The reader's own listens and everybody else's, raw (App\Services\Player\PlayCounts). */

@@ -373,6 +373,10 @@
             "album": {
                 "ownTip": "How often you have played this album's songs. Each song counts once half of it has been heard — after four minutes for a long one. It means this record's own tracks: the same recording on another album counts there.",
                 "othersTip": "How often everybody else has played this album's songs, put together — counted the same way as yours."
+            },
+            "playlist": {
+                "ownTip": "How often you have played songs from this playlist. Each song counts once half of it has been heard — after four minutes for a long one. It means the songs that are in the list now: take one out and its plays stop counting here.",
+                "othersTip": "How often everybody else has played songs from this playlist, put together — counted the same way as yours."
             }
         },
         "empty": "Nothing here yet",

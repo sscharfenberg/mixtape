@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { notifyPlayRecorded, resetPlayEventsForTests } from "Composables/usePlayEvents";
 import { resetInertia, routerCalls } from "Testing/inertia";
 import { mountApp, translate } from "Testing/mount";
+import { PLAY_COUNT_SUBJECTS } from "Types/plays";
+import type { PlayCountSubject } from "Types/plays";
 import PlayCountFacts from "./PlayCountFacts.vue";
 
 vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
@@ -23,7 +25,7 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
 /** Mount the tiles. */
 const facts = (
     plays: { own: number; others: number },
-    subject: "song" | "artist" | "genre" | "album" = "song",
+    subject: PlayCountSubject = "song",
     locale: "de" | "en" = "de"
 ) => mountApp(PlayCountFacts, { props: { plays, subject }, locale });
 
@@ -98,15 +100,32 @@ describe("PlayCountFacts", () => {
             expect(wrapper.find(".sr-only").text()).toBe(translate("music.plays.song.othersTip"));
         });
 
-        it("names the subject, so an artist is not explained as a song", () => {
-            // The whole reason `subject` exists. Four pages, one component, four sentences.
-            const forSubject = (subject: "song" | "artist" | "genre" | "album") =>
-                facts({ own: 1, others: 0 }, subject).find(".sr-only").text();
+        it("has a sentence for every subject it accepts, in both languages", () => {
+            /*
+             * The whole reason `subject` exists — one component, one sentence per kind of page.
+             *
+             * IT LOOPS OVER THE COMPONENT'S OWN LIST rather than a union written out here, and that
+             * is the fix for how this broke: `playlist` was added to the subjects when the playlist
+             * page started using this component, this test went on naming four of them, and the two
+             * German and English sentences for it were never written. Nothing failed — a missing
+             * key is a console warning and the raw key on screen — until the owner opened a
+             * playlist (2026-08-13). Driven off `PLAY_COUNT_SUBJECTS`, a new subject with no copy
+             * now fails here instead, because `translate()` throws on a key the catalog lacks.
+             *
+             * BOTH LOCALES, because only de.json is the schema the build type-checks: a key present
+             * in German and missing in English is invisible to `vue-tsc` and shows up as a warning
+             * in one language.
+             */
+            for (const locale of ["de", "en"] as const) {
+                for (const subject of PLAY_COUNT_SUBJECTS) {
+                    const wrapper = facts({ own: 1, others: 0 }, subject, locale);
 
-            expect(forSubject("song")).toBe(translate("music.plays.song.ownTip"));
-            expect(forSubject("artist")).toBe(translate("music.plays.artist.ownTip"));
-            expect(forSubject("genre")).toBe(translate("music.plays.genre.ownTip"));
-            expect(forSubject("album")).toBe(translate("music.plays.album.ownTip"));
+                    expect(wrapper.find(".sr-only").text()).toBe(
+                        translate(`music.plays.${subject}.ownTip`, locale)
+                    );
+                    wrapper.unmount();
+                }
+            }
         });
     });
 
