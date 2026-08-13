@@ -33,27 +33,29 @@ $search: (
     "muted": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
     // group heading strip ---------------------------------------------------
     /*
-     * A full-bleed strip per group, borrowing the WIDGET TITLE's look (the owner's suggestion,
-     * 2026-08-13) so a group of results reads like the header of a card rather than like grey text
-     * floating between rows.
+     * A full-bleed strip per group, and it is the WIDGET TITLE's strip — the same gradient and the
+     * same ink, re-picked from the globals here because a contextual partial consumes globals and
+     * never another partial's tokens (the same arrangement, and the same reason, that
+     * `$c-widget-list` records about the Discography tile). A group of results reads like the header
+     * of a card because it IS one.
      *
-     * THE LIGHT GRADIENT IS THE WIDGET'S OWN; THE DARK ONE IS NOT, AND THAT IS DELIBERATE.
-     * `$c-widget` → `title-background` runs c5→c6 in dark mode — a dark purple into a LIGHT pink —
-     * and no single ink is legible across that span: measured, the widget title's own
-     * `title-surface` (#ffe64d) sits at 5.19:1 over the purple end and **2.20:1** over the pink
-     * one, which fails WCAG AA for text. Since AA was the requirement, dark mode takes a strip
-     * whose two ends are both dark (c4-dark → c5-light) and carries white: measured across the
-     * whole gradient in eleven steps, worst case **9.25:1**. Light mode keeps the widget's own
-     * pair, worst case **5.15:1** at the blend's darkest point against `ebony`.
+     * The two were briefly different: this strip took a dark-mode gradient of its own on the day it
+     * shipped, because the widget's failed WCAG AA and only this one had been audited. That is fixed
+     * at the source now (see `$c-widget` → `title-background` for the measurements), so both carry
+     * the pair that passes: worst case **5.08:1** in light and **9.25:1** in dark, measured across
+     * the whole gradient rather than at its ends.
      *
-     * (The widget title strip itself is left alone. Its dark-mode ink is the same 2.20:1 problem
-     * and worth fixing, but that is every widget on every page, not a search dropdown.)
+     * `light-dark()` PER COLOUR STOP. It was written as `light-dark(<gradient>, <gradient>)` at
+     * first, which Chromium accepts and the spec does not — that function takes `<color>` values, so
+     * a stricter browser would drop the declaration and leave the strip with no fill, turning every
+     * divider in the panel into bare text on the panel's own background.
      */
-    "heading-background": light-dark(
-            linear-gradient(to bottom right, map.get(c.$retro, "c3", "dark"), map.get(c.$retro, "c6", "dark")),
-            linear-gradient(to bottom right, map.get(c.$retro, "c4", "dark"), map.get(c.$retro, "c5", "light"))
+    "heading-background": linear-gradient(
+            to bottom right,
+            light-dark(map.get(c.$retro, "c3", "dark"), map.get(c.$retro, "c4", "dark")),
+            light-dark(map.get(c.$retro, "c6", "dark"), map.get(c.$retro, "c5", "light"))
         ),
-    "heading-surface": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "white")),
+    "heading-surface": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$grey, "white")),
     /*
      * The count pill on that strip — the panel's own fill and ink, so it reads as a hole punched
      * through the strip. Which also makes its contrast the panel's own, already the highest pair

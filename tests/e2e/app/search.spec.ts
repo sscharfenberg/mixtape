@@ -217,6 +217,38 @@ test.describe("the header search overlay", () => {
         await expect(page).toHaveURL(/\/music\/(albums|songs)\/[0-9a-f-]{36}/u);
     });
 
+    /**
+     * THE CHIPS ARE IN BOTH MOUNTINGS (the owner's call, 2026-08-13). They started on the Music page
+     * alone, where they replaced a search box in each of the four browse widgets — but the two
+     * surfaces are one feature and had no business behaving differently, and a reader who learns the
+     * chips on /music looks for them here.
+     *
+     * They appear WITH the results rather than above an empty field, so this asserts both halves.
+     */
+    test("narrows to one kind with a chip, and shows none until there is a query", async ({ page }) => {
+        await page.goto("/dashboard");
+        await openOverlay(page);
+
+        const chips = page.locator(".search-panel [role=radiogroup]");
+        await expect(chips).toHaveCount(0);
+
+        await search(page, "queen");
+        await expect(chips).toBeVisible();
+        // "queen" is both an album and a song in the fixture, so it starts as more than one group.
+        expect((await groupKinds(page)).length).toBeGreaterThan(1);
+
+        const narrowed = page.waitForResponse(r => r.url().includes("kinds=album") && r.status() === 200);
+        await chips.getByText("Alben", { exact: true }).click();
+        await narrowed;
+
+        await expect(page.locator(".search-results__kind")).toHaveCount(1);
+        await expect(page.locator(".search-results__kind")).toHaveText("Alben");
+
+        // The two mountings hold their own question: the widget's chips are untouched by this one.
+        await page.goto("/music");
+        await expect(page.locator(".widget-stats__results")).toHaveCount(0);
+    });
+
     test("says nothing was found rather than sitting blank", async ({ page }) => {
         await page.goto("/dashboard");
         await openOverlay(page);
@@ -354,7 +386,23 @@ test.describe("typing in the overlay does not drive the player", () => {
 });
 
 test.describe("the Music page's own field", () => {
-    test("replaces the stat tiles with results and puts them back", async ({ page }) => {
+    /**
+     * THE ANSWER FLOATS OVER THE CARD, and every clause of that is asserted here because each was a
+     * separate failure on the way (the owner's report, 2026-08-13). It replaced the stat tiles at
+     * first, which left the card looking empty mid-search; then it had to escape a card that sets
+     * `overflow: hidden` for its rounded title strip AND `isolation: isolate` for its loader, so it
+     * became a `[popover]` in the top layer; and a panel free of its container is free to run off
+     * the bottom of the window, so its height is capped.
+     */
+    test("floats the results over the card without disturbing it", async ({ page }) => {
+        /*
+         * ITS OWN VIEWPORT HEIGHT, and the reason is the point of the test. The project runs at
+         * 1280×720, where the CARD ITSELF already ends below the fold — so "extends past the card"
+         * and "stays inside the window" cannot both be true there, whatever the panel does. A taller
+         * window is the only place the mechanism is observable: the card fits, and a long answer then
+         * has room to hang over its bottom border without leaving the screen.
+         */
+        await page.setViewportSize({ width: 1280, height: 1000 });
         await page.goto("/music");
 
         const tiles = page.locator(".widget-stats__grid");
@@ -364,18 +412,33 @@ test.describe("the Music page's own field", () => {
         const answered = page.waitForResponse(
             response => response.url().includes("/search?q=") && response.status() === 200
         );
-        await inline.fill("queen");
+        // "the" rather than a query with two answers: the point is that a LONG answer is not cut
+        // off by the card, and a panel short enough to fit inside it would pass the geometry
+        // assertions below without proving anything.
+        await inline.fill("the");
         await answered;
+        await expect(page.locator(".widget-stats__results .search-results__row").first()).toContainText("The");
 
-        // The results take the tiles' place rather than pushing them down — the widget sits in a
-        // grid whose other four cards must stay on the fold.
-        await expect(tiles).toBeHidden();
-        await expect(page.locator(".widget-stats .search-results__row").first()).toContainText("Queen");
-
-        await inline.fill("");
-
+        // The card is untouched: the tiles a reader may only have come to read are still there.
         await expect(tiles).toBeVisible();
-        await expect(page.locator(".widget-stats .search-results__row")).toHaveCount(0);
+
+        const geometry = await page.evaluate(() => {
+            const panel = document.querySelector(".widget-stats__results")!.getBoundingClientRect();
+            const card = document.querySelector(".widget")!.getBoundingClientRect();
+            const field = document.querySelector(".widget-stats__field")!.getBoundingClientRect();
+
+            return {
+                overlapsPastTheCard: panel.bottom > card.bottom,
+                insideTheViewport: panel.bottom <= window.innerHeight,
+                spansTheField: Math.abs(panel.width - field.width) < 1
+            };
+        });
+        expect(geometry).toEqual({ overlapsPastTheCard: true, insideTheViewport: true, spansTheField: true });
+
+        // Emptying the field is what puts it away — it is `manual`, so nothing else does.
+        await inline.fill("");
+        await expect(page.locator(".widget-stats__results")).toHaveCount(0);
+        await expect(tiles).toBeVisible();
     });
 
     test("narrows to one kind with a chip", async ({ page }) => {
@@ -390,7 +453,9 @@ test.describe("the Music page's own field", () => {
         expect((await groupKinds(page)).length).toBeGreaterThan(1);
 
         const narrowed = page.waitForResponse(response => response.url().includes("kinds=album") && response.status() === 200);
-        await page.getByLabel("Suchbereich").getByText("Alben", { exact: true }).click();
+        // Scoped to the WIDGET's group. The overlay mounts the same control, so an unscoped
+        // `getByLabel("Suchbereich")` is one open panel away from a strict-mode violation.
+        await page.locator(".widget-stats__results [role=radiogroup]").getByText("Alben", { exact: true }).click();
         await narrowed;
 
         await expect(page.locator(".search-results__heading")).toHaveCount(1);

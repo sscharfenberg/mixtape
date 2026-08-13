@@ -86,6 +86,20 @@ const refreshing = ref(false);
     color: map.get(c.$c-widget, "surface");
     border-radius: map.get(s.$c-widget, "radius");
 
+    /* A CARD WITH NO FOOTER GIVES ITS BODY THE FOOTER'S BAND (2026-08-13). The three bands are
+       shared across a row so that every footer lines up, which means a footerless card was
+       reserving an empty strip as tall as its neighbours' footers — visible as a band of blank
+       card under its content, and the reason the stats card looked half-used however much its
+       tiles grew. Spanning the body over both bands hands that height to the content instead.
+
+       `:has()` rather than a prop, because the footer already decides its own existence
+       (`v-if="$slots.footer || refresh"` in the template) and a prop would be the same fact
+       stated twice. WidgetFooter's root carries this component's scope id — a child component's
+       root gets its parent's — so the selector reaches it. */
+    &:not(:has(.widget__footer)) .widget__body {
+        grid-row: 2 / span 2;
+    }
+
     // opt-in `wide`: span two grid columns in a WidgetGroup. Gated to the
     // "landscape" breakpoint and up, where the group reliably fits two of its
     // 220px tracks — below that the group is a single column, so spanning two

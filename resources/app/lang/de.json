@@ -265,7 +265,7 @@
             "artists": "Künstler",
             "genres": "Genres",
             "songs": "Songs",
-            "yourMusic": "Deine Musik"
+            "allMusic": "Alle Musik"
         },
         "mode": {
             "label": "Anzeige-Modus",

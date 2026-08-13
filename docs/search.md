@@ -52,9 +52,17 @@ three features:
 
 | surface                    | trigger                             | searches                        | results appear                     |
 | -------------------------- | ----------------------------------- | ------------------------------- | ---------------------------------- |
-| **(b)** header             | the `search` icon, or `/` / `⌘K`    | every kind                      | an overlay under the header        |
+| **(b)** header             | the `search` icon, or `/` / `⌘K`    | every kind, narrowed by chips   | an overlay under the header        |
 | **(c)** Music page         | an input in the wide widget         | every kind, narrowed by chips   | inline, in place of the stat tiles |
-| **(a)** per-type, deep-linked | the group's "see all" link       | that listing's own wide search   | the listing, at `?search=…`        |
+| **(a)** per-type, deep-linked | the group's "see all" link       | that listing, narrowed to names  | the listing, at `?search=…&searchIn=name` |
+
+**The chips are in BOTH boxes** (the owner's call, 2026-08-13 — they were the Music page's alone for
+an afternoon). The two mountings are one feature and had no business behaving differently: a reader
+who learns the chips on the Music page looks for them in the overlay, and the composable already
+carried the `scope` the overlay was not showing a control for. They appear WITH the results rather
+than above an empty field, in both — six chips over a box nobody has typed into are a row of noise,
+and narrowing is only a question once there is something to narrow. On a phone they wrap to two
+lines, which is the cost and was accepted.
 
 So (a) is not a search box at all in the end — it is the hand-off that (b) and (c) both need anyway.
 That is the whole of the owner's option (a), spent once instead of four times.

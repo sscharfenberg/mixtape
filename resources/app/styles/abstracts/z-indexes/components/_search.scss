@@ -1,0 +1,20 @@
+/******************************************************************************
+ * contextual z-index token — component:search
+ * @type {Sass}
+ * The rung for the Music page's floating result panel (StatsWidget).
+ *
+ * ONLY THAT ONE PANEL NEEDS A RUNG. The header's overlay is a `[popover]` whose whole job is to sit
+ * above the page, and a showing popover is in the browser's TOP LAYER — above every rung in the
+ * scale by definition, so giving it one would say nothing. The Music page's panel is a popover too,
+ * and for the same reason does not strictly need this either; it carries the rung because it is
+ * ALSO a box inside a card that isolates its own stacking context, and a reader who finds it
+ * painting under something should be able to see a number here rather than infer the top layer.
+ *
+ * "popout" is the rung the app's other anchored panels use (menus and selects that escape local
+ * overflow), which is exactly what this is.
+ * consumed as z.$c-search via `@use "Abstracts/z-indexes" as z;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-z-index-tokens" as z;
+
+$search: map.get(z.$scale, "popout") !default;

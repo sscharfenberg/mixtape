@@ -1,10 +1,10 @@
 <script setup lang="ts">
 /******************************************************************************
  * StatsWidget
- * The Music page's "Deine Musik" card — a WIDE Widget (spans two grid columns for room) holding
- * the page's SEARCH HUB over a grid of collection stat tiles (big number + label), each wrapped in
- * a Tooltip that explains how the number is derived. Music-only, matching the browse widgets; no
- * mode toggle or footer.
+ * The Music page's "Alle Musik" card — a WIDE Widget (spans two grid columns for room) holding the
+ * page's SEARCH HUB over a grid of collection stat tiles, each an icon, a label and a big number,
+ * wrapped in a Tooltip that explains how the number is derived. Music-only, matching the browse
+ * widgets; no mode toggle or footer.
  *
  * THE FILE NAME IS NARROWER THAN THE JOB, since 2026-08-13 (docs/search.md → "The Music page"):
  * this was the stats card, and the heading said _Statistik_. It is kept as the search's home
@@ -12,10 +12,23 @@
  * field — they describe what there is to search — and because a reader who came to browse still
  * gets them first.
  *
- * THE RESULTS REPLACE THE TILES, they do not push them down. The widget is a fixed thing in a
- * subgrid, and a block that grows by 300px shoves the four browse widgets off the fold; clearing
- * the field puts the tiles back. The result area is additionally capped lower here than in the
- * header overlay, through `--search-results-height` — see the token's note.
+ * THE RESULTS FLOAT OVER THE CARD; they neither push the tiles down nor replace them (the owner's
+ * call, 2026-08-13 — the first version swapped the tiles out, which left the card looking empty
+ * mid-search and told a reader who was only checking a number that their page had gone). So the
+ * card is never disturbed, and the answer arrives on top of it.
+ *
+ * WHICH IS WHY THE PANEL IS A `[popover]` RATHER THAN AN ABSOLUTE BOX. Two properties on the card
+ * make an ordinary overlay impossible, and both are there for good reasons of their own: Widget
+ * sets `overflow: hidden` to clip its title strip to the card's rounded corners, which would cut
+ * the panel off at the bottom border it is meant to hang over — and `isolation: isolate` to keep
+ * the loader overlay's z-index inside the card, which would paint the panel UNDER the four browse
+ * widgets that follow it in the DOM. A showing popover is in the browser's TOP LAYER: no ancestor
+ * clips it and no ancestor stacking context contains it. It is anchored to the field with CSS
+ * anchor positioning, the same mechanism PopOver and the tooltips use here.
+ *
+ * `manual`, NOT `auto`, so it does not light-dismiss: the panel is showing exactly while there is a
+ * query, and a click on a stat tile should not leave the field full and the answer gone. Escape and
+ * the clear button both empty the field, which closes it.
  *
  * ITS SEARCH IS ITS OWN. useLibrarySearch is per-instance, not a singleton, so the query here and
  * the query in the header overlay are two questions — which is what stops opening the overlay
@@ -26,11 +39,12 @@
  * seconds" breakdown. Months are a flat 30 days (a duration has no calendar), so the parts always
  * sum back to the exact total.
  *****************************************************************************/
-import { computed } from "vue";
+import { computed, useTemplateRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import SearchField from "Components/Search/SearchField.vue";
 import SearchResults from "Components/Search/SearchResults.vue";
 import SearchScopeChips from "Components/Search/SearchScopeChips.vue";
+import Icon from "Components/UI/Icon.vue";
 import Tooltip from "Components/UI/Tooltip/Tooltip.vue";
 import Widget from "Components/UI/Widget/Widget.vue";
 import { useLibrarySearch } from "Composables/useLibrarySearch";
@@ -45,37 +59,57 @@ const { t, locale } = useI18n();
 const { query, scope, groups, loading, failed, active, tooShort, listboxId, activeOptionId, onKeydown } =
     useLibrarySearch();
 
-/** One stat tile — a formatted value, its label, and a tooltip explaining the calculation. */
-type StatTile = { key: string; value: string; label: string; hint: string };
+/**
+ * The anchor tying the results panel to the field.
+ *
+ * A dashed-ident, because that is what `anchor-name` takes, and bound into the scoped style with
+ * `v-bind` — the same arrangement PopOver uses, and for the same reason: `v-bind` in CSS only
+ * resolves inside an SFC.
+ */
+const anchorName = "--all-music-search";
 
-/** The five compact count/size tiles that fill the auto-fit grid (formatted via Utils/formatting). */
+/** One stat tile — a glyph, a label, the formatted value, and a tooltip explaining the calculation. */
+type StatTile = { key: string; icon: string; value: string; label: string; hint: string };
+
+/**
+ * The five compact count/size tiles that fill the auto-fit grid (formatted via Utils/formatting).
+ *
+ * The glyphs are the ones the music widgets' pips already use for the same facts, so a reader meets
+ * one meaning per icon across the page: `song`, `album`, `artist`, `genre`, and `file` for the one
+ * fact that is about bytes rather than about music.
+ */
 const compactTiles = computed<StatTile[]>(() => [
     {
         key: "songs",
+        icon: "song",
         value: formatDecimals(props.songs, locale.value),
         label: t("music.stats.label.songs"),
         hint: t("music.stats.hint.songs")
     },
     {
         key: "size",
+        icon: "file",
         value: formatFileSize(props.sizeBytes, locale.value),
         label: t("music.stats.label.size"),
         hint: t("music.stats.hint.size")
     },
     {
         key: "albums",
+        icon: "album",
         value: formatDecimals(props.albums, locale.value),
         label: t("music.stats.label.albums"),
         hint: t("music.stats.hint.albums")
     },
     {
         key: "artists",
+        icon: "artist",
         value: formatDecimals(props.artists, locale.value),
         label: t("music.stats.label.artists"),
         hint: t("music.stats.hint.artists")
     },
     {
         key: "genres",
+        icon: "genre",
         value: formatDecimals(props.genres, locale.value),
         label: t("music.stats.label.genres"),
         hint: t("music.stats.hint.genres")
@@ -83,38 +117,85 @@ const compactTiles = computed<StatTile[]>(() => [
 ]);
 
 /**
- * The playtime tile — its own full-width row, since the breakdown is a long
- * phrase. i18n is injected into formatDuration: each unit resolves to a
- * pluralised label from the shared `common.duration.*` keys.
+ * The playtime tile — its own full-width row, since the breakdown is a long phrase. i18n is
+ * injected into formatDuration: each unit resolves to a pluralised label from the shared
+ * `common.duration.*` keys.
  */
 const playtimeTile = computed<StatTile>(() => ({
     key: "playtime",
+    icon: "duration",
     value: formatDuration(props.playtimeSeconds, (key, count) => t(`common.duration.${key}`, count)),
     label: t("music.stats.label.playtime"),
     hint: t("music.stats.hint.playtime")
 }));
+
+/** The results panel, so its popover state can be driven from the query. */
+const panel = useTemplateRef<HTMLElement>("panel");
+
+/**
+ * Show the panel exactly while there is a question, and put it away when there is not.
+ *
+ * Guarded on the element's own `:popover-open`, because `showPopover()` on one that is already
+ * showing — and `hidePopover()` on one that is not — both THROW. `flush: "post"` because the element
+ * is `v-if`'d on the same flag: it does not exist yet when the watcher would otherwise run.
+ */
+watch(
+    active,
+    hasQuery => {
+        const element = panel.value;
+        if (!element) return;
+
+        const showing = element.matches(":popover-open");
+        if (hasQuery && !showing) element.showPopover();
+        if (!hasQuery && showing) element.hidePopover();
+    },
+    { flush: "post" }
+);
 </script>
 
 <template>
-    <widget wide centered>
-        <template #title>{{ t("music.widgets.yourMusic") }}</template>
+    <widget wide>
+        <template #title>
+            <icon name="music" />
+            {{ t("music.widgets.allMusic") }}
+        </template>
         <div class="widget-stats">
-            <search-field
-                v-model="query"
-                :listbox-id="listboxId"
-                :active-option-id="activeOptionId"
-                :expanded="groups.length > 0"
-                :loading="loading"
-                @keydown="onKeydown"
-            />
+            <!-- The anchor the floating panel is positioned against — see the banner for why it
+                 floats at all. -->
+            <div class="widget-stats__field">
+                <search-field
+                    v-model="query"
+                    :listbox-id="listboxId"
+                    :active-option-id="activeOptionId"
+                    :expanded="groups.length > 0"
+                    :loading="loading"
+                    @keydown="onKeydown"
+                />
+            </div>
 
-            <!-- The chips appear WITH the results rather than living above an empty field: six of
-                 them are a row of noise on a page nobody has searched yet, and narrowing is only a
-                 question once there is something to narrow. -->
-            <search-scope-chips v-if="active" v-model="scope" name="music-search-scope" />
+            <div class="widget-stats__grid">
+                <tooltip v-for="tile in compactTiles" :key="tile.key" :text="tile.hint" class="widget-stats__cell">
+                    <span class="widget-stats__head">
+                        <icon :name="tile.icon" :size="1" />
+                        <span class="widget-stats__label">{{ tile.label }}</span>
+                    </span>
+                    <span class="widget-stats__value">{{ tile.value }}</span>
+                </tooltip>
+            </div>
+            <tooltip :text="playtimeTile.hint" class="widget-stats__cell widget-stats__cell--wide">
+                <span class="widget-stats__head">
+                    <icon :name="playtimeTile.icon" :size="1" />
+                    <span class="widget-stats__label">{{ playtimeTile.label }}</span>
+                </span>
+                <span class="widget-stats__value">{{ playtimeTile.value }}</span>
+            </tooltip>
+        </div>
 
+        <!-- `v-if` as well as the popover state, so an unsearched page carries no panel at all;
+             the watcher above shows and hides it. -->
+        <div v-if="active" ref="panel" class="widget-stats__results" popover="manual">
+            <search-scope-chips v-model="scope" name="music-search-scope" class="widget-stats__chips" />
             <search-results
-                v-if="active"
                 :groups="groups"
                 :listbox-id="listboxId"
                 :active-option-id="activeOptionId"
@@ -122,20 +203,6 @@ const playtimeTile = computed<StatTile>(() => ({
                 :failed="failed"
                 :too-short="tooShort"
             />
-
-            <!-- The tiles are the search's alternative, not its neighbour — see the banner. -->
-            <template v-else>
-                <div class="widget-stats__grid">
-                    <tooltip v-for="tile in compactTiles" :key="tile.key" :text="tile.hint" class="widget-stats__cell">
-                        <span class="widget-stats__value">{{ tile.value }}</span>
-                        <span class="widget-stats__label">{{ tile.label }}</span>
-                    </tooltip>
-                </div>
-                <tooltip :text="playtimeTile.hint" class="widget-stats__cell widget-stats__cell--wide">
-                    <span class="widget-stats__value">{{ playtimeTile.value }}</span>
-                    <span class="widget-stats__label">{{ playtimeTile.label }}</span>
-                </tooltip>
-            </template>
         </div>
     </widget>
 </template>
@@ -144,34 +211,55 @@ const playtimeTile = computed<StatTile>(() => ({
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "Abstracts/colors" as c;
 @use "Abstracts/sizes" as s;
+@use "Abstracts/z-indexes" as z;
 
-// Full-width column: the search field, then either the results or the tiles.
+/* A full-height column: the field, then the tiles, which take everything left over. The card is a
+   subgrid whose body band is as tall as the tallest card in its row, and the tiles used to leave
+   that spare height as a blank strip at the bottom (before this, `centered` floated the whole
+   column in the middle of it instead).
+
+   `height: 100%`, NOT `flex: 1` — which was the first attempt and did nothing at all, because
+   WidgetBody is a plain block (a stretched grid item) rather than a flex container, so this column
+   is not a flex ITEM and had no line to grow along. The body does stretch to its band, so a
+   percentage resolves here and the `flex: 1` on the grid below finally has something to divide. */
 .widget-stats {
     display: flex;
     flex-direction: column;
 
-    gap: 0.75rem;
+    height: 100%;
 
-    // What the results may grow to HERE, which is lower than the header overlay's ceiling and a
-    // fixed length rather than a share of the screen — the widget sits in a grid whose other four
-    // cards must stay on the fold. SearchResults reads this through `--search-results-height`.
-    --search-results-height: #{map.get(s.$c-search, "results-height-inline")};
+    gap: map.get(s.$c-widget, "cell-gap");
 }
 
-// As many ~7rem tiles as fit, stretched to fill. No full-row-spanning item lives
-// in this grid, so auto-fit collapses spare tracks instead of leaving a gap.
+/* The anchor. It draws nothing and exists so the floating panel has something to be positioned
+   against — `anchor-name` has to sit on an element the panel can name, and the field is a child
+   component whose root this cannot reach. */
+.widget-stats__field {
+    anchor-name: v-bind(anchorName);
+}
+
+/* As many ~7rem tiles as fit, stretched to fill — and `flex: 1` so the row of them grows into the
+   card's spare height rather than leaving it blank. `grid-auto-rows: 1fr` shares that height
+   evenly when the tiles wrap onto two rows on a narrow card. */
 .widget-stats__grid {
     display: grid;
 
     grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+    grid-auto-rows: 1fr;
 
-    gap: 0.75rem;
+    flex: 1;
+
+    gap: map.get(s.$c-widget, "cell-gap");
 }
 
-// Each tile is the Tooltip's root span (class merged onto it); as a grid/flex item
-// its inline-flex is blockified, so we only set the column direction + centring.
+/* Each tile is the Tooltip's root span (class merged onto it); as a grid/flex item its inline-flex
+   is blockified, so we only set the direction and the alignment.
+
+   LEADING-ALIGNED, not centred (the owner's call): a card of centred numbers reads as a dashboard
+   ornament, and the labels no longer line up with anything else on the page. The content still sits
+   in the middle of its own tile VERTICALLY, which is what keeps a tall tile from looking top-heavy. */
 .widget-stats__cell {
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     flex-direction: column;
 
@@ -181,7 +269,19 @@ const playtimeTile = computed<StatTile>(() => ({
     background-color: map.get(c.$c-widget, "cell-background");
     border-radius: map.get(s.$c-widget, "cell-radius");
 
-    text-align: center;
+    text-align: start;
+}
+
+/* The glyph and the label on one line above the number, which is what the icons bought: the label
+   no longer has to carry the tile alone, so it can be read at a glance and the number below it
+   stays the thing that stands out. */
+.widget-stats__head {
+    display: flex;
+    align-items: center;
+
+    gap: 0.4ch;
+
+    color: map.get(c.$c-widget, "footer-surface");
 }
 
 .widget-stats__value {
@@ -197,9 +297,76 @@ const playtimeTile = computed<StatTile>(() => ({
     }
 }
 
+/* Bigger than it was (0.8rem), because the tiles now have the room and a label nobody can read is
+   a label doing none of its work — the same correction the search pips needed. */
 .widget-stats__label {
-    color: map.get(c.$c-widget, "footer-surface");
+    font-size: 1rem;
+}
 
-    font-size: 0.8rem;
+/* THE FLOATING PANEL, positioned entirely by the anchor rather than by numbers of its own.
+   `position-area: block-end span-inline-end` puts it below the field starting at the field's leading
+   edge, and `width: anchor-size(width)` makes it exactly as wide as the box it answers for. Same
+   family as this app's other anchored panels (styles/components/popover/_content.scss).
+
+   `height: fit-content` WITH `max-height: stretch` IS THE PAIR THAT MATTERS, and it took three
+   attempts. A fixed cap cannot know where the field sits: `min(26rem, 50dvh)` looked right on a
+   900px window and ran 66px past the bottom of a 720px one — which is the height the E2E project
+   runs at, so the test caught it. `stretch` resolves against the space the position-area actually
+   has, so the ceiling is "as far as the window allows" wherever the field is, while `fit-content`
+   keeps a two-row answer two rows tall. Measured at 1280×720: content 278px, bottom 704 against a
+   720 viewport — the 16px is the block-end margin below, which `stretch` subtracts for us.
+
+   `overflow: hidden` here with the scrolling on the LIST inside (SearchResults flexes and scrolls
+   within it) is what keeps the rounded bottom corners while a long answer scrolls. */
+.widget-stats__results {
+    display: flex;
+    position: fixed;
+    z-index: z.$c-search;
+    flex-direction: column;
+
+    box-sizing: border-box;
+
+    overflow: hidden;
+    width: anchor-size(width);
+    max-width: none;
+    height: fit-content;
+    max-height: stretch;
+    padding: map.get(s.$c-search, "padding") 0;
+    border: map.get(s.$c-search, "border") solid map.get(c.$c-search, "border");
+
+    // Block-end only, and load-bearing rather than decorative: `max-height: stretch` subtracts the
+    // margins, so this is what keeps the panel off the bottom edge of the window.
+    margin: 0 0 map.get(s.$c-search, "padding");
+    gap: map.get(s.$c-search, "gap");
+
+    background-color: map.get(c.$c-search, "background");
+    color: map.get(c.$c-search, "surface");
+
+    border-radius: map.get(s.$c-search, "radius");
+
+    position-anchor: v-bind(anchorName);
+
+    // Below the field, starting at its leading edge — see the block comment above.
+    position-area: block-end span-inline-end;
+
+    /* The list inside must scroll rather than the panel growing past its cap, which needs the
+       flex-child floor removed — a flex item's default `min-height: auto` is its content. Its own
+       `max-height` token is switched off here for the same reason: the panel is the cap now. */
+    --search-results-height: none;
+
+    :deep(.search-results) {
+        min-height: 0;
+        flex: 1 1 auto;
+    }
+
+    :deep(.search-results__list) {
+        min-height: 0;
+        flex: 1 1 auto;
+    }
+}
+
+/* The chips keep the inset the panel gives up so the rows and strips can run edge to edge. */
+.widget-stats__chips {
+    padding-inline: map.get(s.$c-search, "padding");
 }
 </style>

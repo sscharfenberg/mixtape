@@ -44,6 +44,7 @@ import { computed, onMounted, onUnmounted, useTemplateRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import SearchField from "Components/Search/SearchField.vue";
 import SearchResults from "Components/Search/SearchResults.vue";
+import SearchScopeChips from "Components/Search/SearchScopeChips.vue";
 import { useLibrarySearch } from "Composables/useLibrarySearch";
 import { bindSearchShortcuts, noteSearchOverlay, unbindSearchShortcuts, useSearchOverlay } from "Composables/useSearchOverlay";
 
@@ -55,7 +56,7 @@ const { isOpen, close, setOpen, focusNonce } = useSearchOverlay();
 //
 // Destructured so the template sees unwrapped refs — `search.query.value` in a template works and
 // reads like plumbing.
-const { query, groups, loading, failed, active, tooShort, listboxId, activeOptionId, onKeydown, clear } =
+const { query, scope, groups, loading, failed, active, tooShort, listboxId, activeOptionId, onKeydown, clear } =
     useLibrarySearch({ onNavigate: close });
 
 const page = usePage();
@@ -162,6 +163,22 @@ watch(focusNonce, focusField, { flush: "post" });
                 :loading="loading"
                 @keydown="onKeydown"
             />
+            <!-- The scope chips, WITH the results rather than above an empty field: six of them
+                 are a row of noise in a panel nobody has typed into yet, and narrowing is only a
+                 question once there is something to narrow.
+
+                 The same control the Music page mounts (the owner's call, 2026-08-13 — the two
+                 surfaces are one feature and had no business behaving differently), with a `name`
+                 of its own: two radiogroups sharing one would form a single group, and choosing in
+                 the second would silently clear the first. Both can be on the page at once, since
+                 the overlay is mounted on /music too. -->
+            <search-scope-chips
+                v-if="active"
+                v-model="scope"
+                name="overlay-search-scope"
+                class="search-panel__chips"
+            />
+
             <!-- Nothing at all until there is a question: an empty overlay showing "type
                  something" is a panel explaining itself to somebody who has just opened it. -->
             <search-results
@@ -300,8 +317,10 @@ watch(focusNonce, focusField, { flush: "post" });
 
     pointer-events: auto;
 
-    /* The field keeps the inset the panel gave up — the results deliberately do not. */
-    &__field {
+    /* The field and the chips keep the inset the panel gave up — the results deliberately do not,
+       because their strips and stripes are meant to run edge to edge. */
+    &__field,
+    &__chips {
         margin-inline: map.get(s.$c-search, "padding");
     }
 

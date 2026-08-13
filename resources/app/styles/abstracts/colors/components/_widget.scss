@@ -15,13 +15,35 @@ $widget: (
     "background": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "black")),
     "surface": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral")),
     "border": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher")),
-    // title strip -----------------------------------------------------------
+    /*
+     * title strip -----------------------------------------------------------
+     *
+     * DARK MODE'S GRADIENT AND INK BOTH CHANGED ON 2026-08-13, because the pair that shipped
+     * FAILED WCAG AA and no choice of ink could have saved it. It ran `c5-dark` → `c6-dark`: a dark
+     * purple into a LIGHT pink, and the ends want opposite inks — measured, white is 6.54:1 over
+     * the purple and 2.77:1 over the pink, black is 3.21 and 7.58 the other way about. Whatever ink
+     * you pick, one end of every title in the app is illegible; the shipped `#ffe64d` bottomed out
+     * at **2.20:1**, against the 4.5:1 text needs.
+     *
+     * So the END moved rather than the ink: `c4-dark` → `c5-light` is dark at both ends, which lets
+     * one ink carry the whole span. White, worst case **9.25:1** measured across the gradient in
+     * twenty-one steps.
+     *
+     * LIGHT MODE IS UNTOUCHED, and worth stating so nobody "fixes" it too: its own worst case is
+     * already **5.08:1** (`#161a31` over `c3-dark` → `c6-dark`). Only dark mode was broken.
+     *
+     * `light-dark()` PER COLOUR STOP, not around the whole gradient. That function is specified for
+     * `<color>` values, so `light-dark(<gradient>, <gradient>)` is invalid CSS — Chromium happens to
+     * accept it, and a browser that reads the spec would drop the declaration and leave every title
+     * strip with no fill at all. (The search heading was written the wrong way round and was
+     * corrected to match this.)
+     */
     "title-background": linear-gradient(
             to bottom right,
-            light-dark(map.get(c.$retro, "c3", "dark"), map.get(c.$retro, "c5", "dark")),
-            light-dark(map.get(c.$retro, "c6", "dark"), map.get(c.$retro, "c6", "dark"))
+            light-dark(map.get(c.$retro, "c3", "dark"), map.get(c.$retro, "c4", "dark")),
+            light-dark(map.get(c.$retro, "c6", "dark"), map.get(c.$retro, "c5", "light"))
         ),
-    "title-surface": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$brand, "dark2", "contrast")),
+    "title-surface": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$grey, "white")),
     // footer ----------------------------------------------------------------
     "footer-border": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher")),
     "footer-surface": light-dark(map.get(c.$grey, "slate"), map.get(c.$grey, "slate")),

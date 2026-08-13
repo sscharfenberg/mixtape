@@ -22,5 +22,10 @@ $widget: (
     "title-font-size": 1.3rem,
     // cells within a widget
     "cell-radius": map.get(s.$radius, "base"),
-    "cell-padding": 0.5rem
+    "cell-padding": 0.5rem,
+    // Between the stat cells, and between them and the field above (StatsWidget). It lived as a
+    // literal `0.75rem` twice in that component; it is here because the two tokens above already
+    // describe these same cells, so the set that says how a cell is drawn should say how far apart
+    // they sit as well.
+    "cell-gap": 0.75rem
 ) !default;
