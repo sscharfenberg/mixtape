@@ -205,7 +205,10 @@ Most of these are **user-scoped**, so they build directly on the new per-user au
 - **User-specific playlists** — playlists belong to a user, not the whole instance. Extends the legacy
   `Playlist` / `PlaylistEntry` model with an owner (`user_id`); each account manages its own.
 - **Improved search / filtering** — richer search across music and audiobooks (beyond the legacy
-  fixed-limit lookups), with filters by artist / genre / etc.
+  fixed-limit lookups), with filters by artist / genre / etc. **Designed 2026-08-13 in
+  [`search.md`](search.md)**: one engine behind a header overlay and a Music-page field, matching
+  each row on its OWN name (a song is not a result because its artist matched — the artist is),
+  and handing the wide, cross-column search off to the listings that already do it.
 - **Background playback** — keep playing and **auto-advance to the next track when the tab isn't
   focused** (today it stalls unless the tab is focused). Drive the advance off the audio element's
   `ended` event (not focus-dependent timers, which browsers throttle in background tabs), and wire up

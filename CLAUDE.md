@@ -308,6 +308,14 @@ instance, written for someone else's server.
   `/dev/audio-probe` proved routed audio survives screen-off (away 215s, advanced 215s), so the
   analyser is wired directly with no toggle. Also records what no test can see (Playwright runs
   Chromium muted, so the bars never move in CI).
+- [`docs/search.md`](docs/search.md) — search (**designed 2026-08-13, not built**): one engine, a
+  header overlay and a field on the Music page, and no per-widget boxes. The rule everything turns on
+  is that **a row matches its OWN name** — measured: "black" is 77 songs by title against 1,238 once
+  artist/album/genre count, a tenth of the library — so the wide search stays where it already lives,
+  in the listings, reached by "see all in Songs" (`?search=`). Also: fixed groups rather than
+  cross-kind scoring, four ranking tiers with a **total** tie-break (`LIMIT 5` over a partial order
+  flickers), a JSON endpoint because a typeahead must not re-render the page (the prefetch rule), and
+  the one migration it needs — `playlists` was left out of the `name_fold` set.
 - [`docs/sharing.md`](docs/sharing.md) — share links (designed 2026-08-10; **minting and the `/s/`
   guest space both built 2026-08-11**, the owner's list and revoking 2026-08-12, pruning and
   **playlist shares** 2026-08-13): play one song / album / artist / playlist with **no account**,
