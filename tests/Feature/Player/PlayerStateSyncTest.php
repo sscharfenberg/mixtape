@@ -204,7 +204,7 @@ class PlayerStateSyncTest extends TestCase
          * resumed as silence, with nothing in the console to say why.
          *
          * The stream URL is the one that must be right; the cover follows the same rule, and
-         * the href points at the audiobooks area until the book page exists (M4).
+         * the href points at the chapter's BOOK, which is the only page it is listed on.
          */
         $user = User::factory()->create();
         $chapter = Track::factory()->audiobook()->create(['cover' => true]);
@@ -217,7 +217,7 @@ class PlayerStateSyncTest extends TestCase
                 ->where('playerState.tracks.0.id', $chapter->id)
                 ->where('playerState.tracks.0.streamUrl', "/audiobooks/chapters/{$chapter->id}/stream")
                 ->where('playerState.tracks.0.coverUrl', "/audiobooks/chapters/{$chapter->id}/cover")
-                ->where('playerState.tracks.0.href', '/audiobooks')
+                ->where('playerState.tracks.0.href', "/audiobooks/{$chapter->collection_id}")
                 ->etc()
             );
     }

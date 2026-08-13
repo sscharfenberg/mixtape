@@ -13,6 +13,11 @@ export type UseSubjectTracksReturn = {
     busy: Ref<boolean>;
     /** Replace the queue with this subject and start it. Resolves false when it holds nothing. */
     playSubject: () => Promise<boolean>;
+    /**
+     * The same, but starting on one particular track of it — a chapter's own play button.
+     * Resolves false when the subject holds nothing or does not contain that track.
+     */
+    playSubjectFrom: (trackId: string) => Promise<boolean>;
     /** Append this subject to the queue. Resolves false when it holds nothing. */
     enqueueSubject: () => Promise<boolean>;
 };
@@ -120,6 +125,34 @@ export const useSubjectTracks = (provided?: () => QueueTrack[] | undefined): Use
         return true;
     };
 
+    /**
+     * Replace the queue with this subject and start on ONE OF ITS TRACKS.
+     *
+     * What a chapter's play button means, and it is deliberately not "play this one track":
+     * pressing chapter 40 of a book queues the whole book and starts there, so the reader
+     * goes on to 41 without touching anything. Starting a single chapter would strand them at
+     * the end of it — which for a book is the one thing the player must not do.
+     *
+     * A track that is not in the subject resolves false rather than starting at 0: it can
+     * only mean the page and the payload have gone out of step, and silently playing chapter
+     * 1 when 40 was pressed is worse than doing nothing and saying so.
+     */
+    const playSubjectFrom = async (trackId: string): Promise<boolean> => {
+        const tracks = await loadTracks();
+        const index = tracks.findIndex(track => track.id === trackId);
+
+        if (tracks.length === 0 || index === -1) {
+            addToast(t("music.subjectMenu.nothingToPlay"), "warning", 3000);
+
+            return false;
+        }
+
+        playNow(tracks, index);
+        play();
+
+        return true;
+    };
+
     /** Append this subject to the queue, leaving whatever is playing alone. */
     const enqueueSubject = async (): Promise<boolean> => {
         const tracks = await loadTracks();
@@ -137,5 +170,5 @@ export const useSubjectTracks = (provided?: () => QueueTrack[] | undefined): Use
         return true;
     };
 
-    return { busy, playSubject, enqueueSubject };
+    return { busy, playSubject, playSubjectFrom, enqueueSubject };
 };

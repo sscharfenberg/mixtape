@@ -39,8 +39,15 @@ import Icon from "Components/UI/Icon.vue";
 defineProps<{
     /** Where the file comes from — a server-decided URL (`song.downloadUrl` / `album.downloadUrl`). */
     href: string;
-    /** Which kind of subject this is: decides the label, and so what the reader is promised. */
-    subject: "song" | "album";
+    /**
+     * Which kind of subject this is: decides the label, and so what the reader is promised.
+     *
+     * `audiobook` sends the same ZIP an album does, and still gets a key of its own — the
+     * German label names the subject ("Album als ZIP laden"), so sharing the album's key
+     * would print the wrong noun on a book page. Which is the reason there are separate keys
+     * at all, one area over.
+     */
+    subject: "song" | "album" | "audiobook";
 }>();
 
 const { t } = useI18n();

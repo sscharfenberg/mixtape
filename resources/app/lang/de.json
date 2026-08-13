@@ -388,7 +388,8 @@
         "seeAll": "Alle anzeigen",
         "download": {
             "song": "MP3 herunterladen",
-            "album": "Album als ZIP laden"
+            "album": "Album als ZIP laden",
+            "audiobook": "Hörbuch als ZIP laden"
         },
         "subjectActions": {
             "play": "Abspielen",
@@ -439,6 +440,22 @@
                 "playlist": "Wiedergabeliste"
             }
         }
+    },
+    "audiobooks": {
+        "columns": {
+            "chapter": "Kapitel",
+            "chapters": "Kapitel",
+            "author": "Autor",
+            "authors": "Autoren",
+            "narrator": "Erzähler",
+            "narrators": "Erzähler",
+            "books": "Hörbücher",
+            "playtime": "Spielzeit"
+        },
+        "chapter": {
+            "play": "Kapitel abspielen"
+        },
+        "empty": "Keine Hörbücher gefunden."
     },
     "playlists": {
         "createLink": "Neue Wiedergabeliste anlegen",

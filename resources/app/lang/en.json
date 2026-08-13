@@ -388,7 +388,8 @@
         "seeAll": "See all",
         "download": {
             "song": "Download MP3",
-            "album": "Download ZIP"
+            "album": "Download ZIP",
+            "audiobook": "Download ZIP"
         },
         "subjectActions": {
             "play": "Play",
@@ -439,6 +440,22 @@
                 "playlist": "playlist"
             }
         }
+    },
+    "audiobooks": {
+        "columns": {
+            "chapter": "Chapter",
+            "chapters": "Chapters",
+            "author": "Author",
+            "authors": "Authors",
+            "narrator": "Narrator",
+            "narrators": "Narrators",
+            "books": "Audiobooks",
+            "playtime": "Playtime"
+        },
+        "chapter": {
+            "play": "Play chapter"
+        },
+        "empty": "No audiobooks found."
     },
     "playlists": {
         "createLink": "Create new playlist",

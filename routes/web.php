@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Audiobooks\AudiobookController;
 use App\Http\Controllers\Audiobooks\AudiobookCoverController;
 use App\Http\Controllers\Audiobooks\AudiobookDownloadController;
 use App\Http\Controllers\Audiobooks\ChapterCoverController;
@@ -291,6 +292,13 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
          * segment cannot be read as a book's UUID; every id is `whereUuid`-constrained, so
          * a stray segment 404s at the router rather than at model binding.
          */
+        // One book's page — the row-click target of the books listing, and where a queued
+        // chapter points. Registered before the chapter routes below only for readability;
+        // they cannot collide, since `chapters` is not a UUID.
+        Route::get('/audiobooks/{audiobook}', AudiobookController::class)
+            ->whereUuid('audiobook')
+            ->name('audiobooks.show');
+
         Route::get('/audiobooks/chapters/{chapter}/stream', ChapterStreamController::class)
             ->whereUuid('chapter')
             ->name('audiobooks.chapters.stream');
