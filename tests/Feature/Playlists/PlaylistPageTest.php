@@ -135,11 +135,20 @@ class PlaylistPageTest extends TestCase
             );
     }
 
-    public function test_a_track_listed_twice_counts_its_plays_twice(): void
+    public function test_a_track_listed_twice_counts_one_listen_once(): void
     {
-        // The honest reading of "how much of this playlist has been listened to" — somebody who
-        // put a song in twice hears it twice — and it keeps the figure consistent with the track
-        // count beside it, which also counts entries rather than distinct tracks.
+        /*
+         * REVERSED ON 2026-08-13 (the owner). This asserted 2: `forPlaylist` joined the pivot, and
+         * a join yields a row per ENTRY, so a song sitting in the playlist twice doubled every one
+         * of its plays. The argument written down for it was "somebody who put a song in twice
+         * hears it twice" — true of playing the list THROUGH, which writes two rows in `plays` and
+         * counts two under either rule. It was never true of THIS fixture, which is a single
+         * listen: one row in `plays`, and a tile that answered "2" to one press of play.
+         *
+         * These figures are counts of listening EVENTS everywhere else in PlayCounts, and the
+         * pivot is read as a set of track ids now, so the shape cannot double count rather than
+         * having to remember not to.
+         */
         $playlist = $this->ownedPlaylist($reader);
         $track = Track::factory()->create();
         PlaylistTrack::factory()->create(['playlist_id' => $playlist->id, 'track_id' => $track->id, 'position' => 0]);
@@ -148,7 +157,13 @@ class PlaylistPageTest extends TestCase
 
         $this->actingAs($reader)
             ->get("/playlists/{$playlist->id}")
-            ->assertInertia(fn (Assert $page) => $page->where('plays.own', 2));
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('plays.own', 1)
+                // …and the ENTRY count is untouched: the list still holds two of them. The two
+                // tiles measure different things now, which is the point — one is about the list,
+                // the other about listening.
+                ->where('playlist.tracks', 2)
+            );
     }
 
     public function test_a_row_carries_the_file_path_the_client_sorts_on(): void
