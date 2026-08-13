@@ -157,6 +157,28 @@ const createPlaylist = async (page: Page, name: string, description?: string): P
     await page.waitForURL(/\/playlists$/u);
 };
 
+/**
+ * Wait until the wall clock ticks into the next second.
+ *
+ * IT IS A REAL SLEEP AND IT HAS TO BE ONE, because the thing being waited for is the clock
+ * itself. `playlists.created_at` / `updated_at` are stored at SECOND precision — Laravel's
+ * `timestamps()` and Eloquent's default date format both stop there — and the listing decides
+ * "has this been changed?" by comparing the two (PlaylistsController). A create and an edit
+ * inside one second are therefore indistinguishable from no edit at all, and this journey is
+ * fast enough on a warm machine to fit in one: measured 2026-08-13 on the metadata test, where
+ * the row came back `created_at == updated_at == 04:31:02` and the "Geändert" chip was correctly
+ * absent. Nothing in the app was wrong; the test was asserting a difference it had not left room
+ * for.
+ *
+ * It waits only the REMAINDER of the current second (plus a small margin), so it costs under a
+ * second and never a whole one — and it is called from the one test that needs an edit to be
+ * *later* than its create, not from `createPlaylist` itself, where every other test would pay
+ * for it.
+ */
+const intoNextSecond = async (page: Page): Promise<void> => {
+    await page.waitForTimeout(1000 - (Date.now() % 1000) + 50);
+};
+
 test.describe("the playlists area", () => {
     test("offers the create form from the listing", async ({ page }) => {
         await page.goto("/playlists");
@@ -342,6 +364,9 @@ test.describe("the playlists area", () => {
          * had written the moment they pressed Save.
          */
         await createPlaylist(page, EDITED, "Erste Fassung.");
+        // The edit has to land in a LATER second than the create, or the listing is right to say
+        // nothing has changed — see `intoNextSecond`.
+        await intoNextSecond(page);
 
         const row = page.locator("li.playlist", { hasText: EDITED });
         await row.locator(".popover button").click();

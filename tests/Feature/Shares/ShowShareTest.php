@@ -6,7 +6,9 @@ use App\Enums\CollectionType;
 use App\Enums\TrackType;
 use App\Models\Artist;
 use App\Models\Collection;
+use App\Models\Genre;
 use App\Models\Playlist;
+use App\Models\PlaylistTrack;
 use App\Models\Share;
 use App\Models\Track;
 use App\Models\User;
@@ -68,6 +70,45 @@ class ShowShareTest extends TestCase
                 ->has('tracks', 1)
                 ->where('tracks.0.id', $song->id)
             );
+    }
+
+    public function test_the_hero_says_what_kind_of_music_a_link_holds(): void
+    {
+        // ADDED 2026-08-13 (the owner): the fact that means most to a recipient who does not
+        // know the band, and the one the album page carried while the share hero did not.
+        //
+        // IT IS THE SAME DERIVED ANSWER the library's own pages give — genre is tagged per
+        // TRACK, so an album has none of its own and "mostly this" is DominantGenre's, tie-break
+        // included. A guest being told a different genre than the owner sees on the album page
+        // is the failure this asserts against, which is why the fixture is the dominant-genre
+        // shape (a majority and an incidental) rather than one tagged track.
+        $album = Collection::factory()->create();
+        $mostly = Genre::factory()->create(['name' => 'Doom']);
+        $incidental = Genre::factory()->create(['name' => 'Polka']);
+        Track::factory()->count(3)->create(['collection_id' => $album->id, 'genre_id' => $mostly->id]);
+        Track::factory()->create(['collection_id' => $album->id, 'genre_id' => $incidental->id]);
+
+        $share = Share::factory()->ofAlbum($album)->create();
+
+        $this->get("/s/{$share->id}")
+            ->assertOk()
+            // No `genreUrl` beside it, unlike every other page that draws this tile: a genre's
+            // page is under `/music`, and a guest following it would land on the login form.
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('subject.genre', 'Doom')
+                ->missing('subject.genreUrl')
+            );
+    }
+
+    public function test_a_link_whose_music_is_untagged_gets_no_genre_at_all(): void
+    {
+        // Null in, null out — the page drops the tile rather than drawing an empty chip.
+        $song = Track::factory()->create(['genre_id' => null]);
+        $share = Share::factory()->ofSong($song)->create();
+
+        $this->get("/s/{$share->id}")
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page->where('subject.genre', null));
     }
 
     public function test_an_album_share_lists_that_album_and_no_other(): void
@@ -218,18 +259,121 @@ class ShowShareTest extends TestCase
     }
 
     /**
-     * A playlist share cannot be MINTED — `ShareSubject` has no case for one — so this row is
-     * written by hand, which is the only way it can exist. The page has no subject to build
-     * from and answers 404 rather than 500: the link names something this instance does not
-     * serve.
+     * A PLAYLIST SHARE PLAYS THE PLAYLIST'S OWN ORDER — the one thing about this subject that
+     * no other share has to get right, and the reason ShareGrant has a branch for it.
+     *
+     * Every other kind is served in playing order (album, then disc, then track), which is what
+     * `QueuePayload::fromQuery` imposes and what a listener pressing "play this artist" expects.
+     * A playlist is a hand-made sequence, so that sort would rewrite it — and nothing would look
+     * broken: the guest would simply hear somebody's mix in an order they never chose. The
+     * fixture is arranged so the two orders DISAGREE (positions run against the album's own
+     * track numbers), because an order test whose two candidate answers coincide proves nothing.
      */
-    public function test_a_hand_written_playlist_share_is_a_404_rather_than_an_error(): void
+    public function test_a_playlist_share_plays_the_owners_own_order(): void
     {
         $playlist = Playlist::factory()->create();
+        $album = Collection::factory()->create(['year' => 2001]);
+        $first = Track::factory()->create(['collection_id' => $album->id, 'track' => 1, 'name' => 'Opener']);
+        $last = Track::factory()->create(['collection_id' => $album->id, 'track' => 9, 'name' => 'Closer']);
+
+        // Backwards on purpose: track 9 first, track 1 second.
+        PlaylistTrack::factory()->create(['playlist_id' => $playlist->id, 'track_id' => $last->id, 'position' => 1]);
+        PlaylistTrack::factory()->create(['playlist_id' => $playlist->id, 'track_id' => $first->id, 'position' => 2]);
 
         $share = Share::factory()->create(['playlist_id' => $playlist->id]);
 
-        $this->get("/s/{$share->id}")->assertNotFound();
+        $this->get("/s/{$share->id}")
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('share.kind', 'playlist')
+                ->where('subject.name', $playlist->name)
+                // No artist, album, year or genre: a playlist is a list of other people's
+                // records, so none of the four describes it (SharePageController says so too).
+                ->where('subject.artist', null)
+                ->where('subject.genre', null)
+                ->has('tracks', 2)
+                ->where('tracks.0.id', $last->id)
+                ->where('tracks.1.id', $first->id)
+            );
+    }
+
+    public function test_a_shared_playlist_follows_its_owners_edits(): void
+    {
+        // THE OWNER'S REQUIREMENT (2026-08-13): a guest who reloads gets the playlist as it is
+        // now. Nothing is copied at mint time — the row holds a `playlist_id` and the grant
+        // resolves the pivot on every request — so this is a test that no snapshot crept in.
+        $playlist = Playlist::factory()->create();
+        $original = Track::factory()->create();
+        $entry = PlaylistTrack::factory()->create([
+            'playlist_id' => $playlist->id, 'track_id' => $original->id, 'position' => 1,
+        ]);
+
+        $share = Share::factory()->create(['playlist_id' => $playlist->id]);
+
+        $this->get("/s/{$share->id}")
+            ->assertInertia(fn (AssertableInertia $page) => $page->has('tracks', 1)->where('subject.songs', 1));
+
+        // The owner adds one and removes the other, exactly as the playlist page would.
+        $added = Track::factory()->create();
+        PlaylistTrack::factory()->create(['playlist_id' => $playlist->id, 'track_id' => $added->id, 'position' => 2]);
+        $entry->delete();
+
+        $this->get("/s/{$share->id}")
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->has('tracks', 1)
+                ->where('tracks.0.id', $added->id)
+                ->where('subject.songs', 1)
+            );
+
+        // …and the track that left the playlist stops playing, which is the half a page test
+        // cannot see: the media routes ask the same grant.
+        $this->get("/s/{$share->id}/tracks/{$original->id}/stream")->assertNotFound();
+    }
+
+    public function test_a_playlist_share_keeps_the_audiobook_chapters_its_owner_put_in_it(): void
+    {
+        // NO TYPE FILTER, unlike an artist share: a reader may deliberately mix music with
+        // audiobook chapters in one playlist — that is what the unified `tracks` table is for —
+        // and filtering here would silently drop entries they added themselves. The playlist's
+        // own page makes the same choice, and the two have to agree.
+        $playlist = Playlist::factory()->create();
+        $song = Track::factory()->create();
+        $chapter = Track::factory()->audiobook()->create();
+
+        PlaylistTrack::factory()->create(['playlist_id' => $playlist->id, 'track_id' => $song->id, 'position' => 1]);
+        PlaylistTrack::factory()->create(['playlist_id' => $playlist->id, 'track_id' => $chapter->id, 'position' => 2]);
+
+        $share = Share::factory()->create(['playlist_id' => $playlist->id]);
+
+        $this->get("/s/{$share->id}")
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->has('tracks', 2)
+                ->where('tracks.1.id', $chapter->id)
+            );
+
+        $this->assertSame(TrackType::Audiobook, $chapter->type);
+    }
+
+    public function test_a_playlist_share_fans_sleeves_rather_than_claiming_one_cover(): void
+    {
+        // A playlist is not a record, so there is no single picture to point an <img> at — it
+        // borrows a few of its own, exactly as its page does for its owner (ShareArtwork).
+        $playlist = Playlist::factory()->create();
+        $withArt = Track::factory()->create(['cover' => true, 'collection_id' => Collection::factory()]);
+
+        PlaylistTrack::factory()->create(['playlist_id' => $playlist->id, 'track_id' => $withArt->id, 'position' => 1]);
+
+        $share = Share::factory()->create(['playlist_id' => $playlist->id]);
+
+        $this->get("/s/{$share->id}")
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('subject.coverUrl', null)
+                ->has('subject.sleeves', 1)
+                ->where('subject.sleeves.0', route('shares.tracks.cover', [$share, $withArt], absolute: false))
+            );
     }
 
     /**

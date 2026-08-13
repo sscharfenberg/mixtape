@@ -22,6 +22,7 @@ return [
             'song' => 'Song',
             'album' => 'Album',
             'artist' => 'Artist',
+            'playlist' => 'Playlist',
         ],
         'songs' => ':count track|:count tracks',
         'minutes' => ':count minute|:count minutes',

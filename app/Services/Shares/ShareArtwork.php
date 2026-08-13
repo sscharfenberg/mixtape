@@ -37,9 +37,9 @@ final class ShareArtwork
     /**
      * The page hero's image, or null when there is none to point an `<img>` at.
      *
-     * Null for an ARTIST by design — they get {@see sleeves} instead — and null for a subject
-     * whose files carry no artwork, which is what lets the page draw its placeholder rather
-     * than a broken image.
+     * Null for an ARTIST and for a PLAYLIST by design — both get {@see sleeves} instead — and
+     * null for a subject whose files carry no artwork, which is what lets the page draw its
+     * placeholder rather than a broken image.
      *
      * The two kinds are asked DIFFERENTLY on purpose, and getting it backwards is a real bug:
      * an album prefers the directory's folder image while a song prefers its own embedded
@@ -62,11 +62,18 @@ final class ShareArtwork
     }
 
     /**
-     * Up to three of an artist's own covers for the hero's fan; empty for every other kind.
+     * Up to three of the subject's own covers for the hero's fan; empty for the kinds that
+     * have a picture of their own.
+     *
+     * TWO KINDS FAN, for reasons that are not the same fact twice: an ARTIST has no image in
+     * this app at all (MixTape stores none), while a PLAYLIST is a list of other people's
+     * records rather than a record — so neither has one cover, and both borrow a few. Each is
+     * drawn the way its own page draws it, so a shared subject looks like the page it came
+     * from.
      *
      * Keyed by album so the fan is three different records, falling back to the track's own id
-     * for a loose file belonging to none — the same key rule the playlist hero uses. Drawn from
-     * THE GRANT rather than the artist's discography: the artist page fans covers off
+     * for a loose file belonging to none — the same key rule both of those pages use. Drawn
+     * from THE GRANT rather than from the subject at large: the artist page fans covers off
      * `collections.album_artist_id`, which is not the set `tracks.artist_id` grants, and a
      * sleeve from an album this link cannot play would be a picture of something the page has
      * no rows for.
@@ -77,7 +84,7 @@ final class ShareArtwork
     {
         $grant = ShareGrant::for($share);
 
-        if (! $share->isLive() || $grant->subject() !== ShareSubject::Artist) {
+        if (! $share->isLive() || ! in_array($grant->subject(), [ShareSubject::Artist, ShareSubject::Playlist], true)) {
             return [];
         }
 
@@ -99,14 +106,17 @@ final class ShareArtwork
      * an `<img src>` on a page that resolves them against its own document, while this goes
      * into an `og:image` read by a crawler that has only the string.
      *
-     * A song or an album is its own cover. An ARTIST borrows the sleeve of their most recent
-     * granted record ({@see ShareGrant::latestCoveredTrackId}) — stable, where the page's fan
-     * is deliberately random, because this string is what a chat window caches against the URL.
+     * A song or an album is its own cover. The two kinds that FAN on the page borrow a single
+     * sleeve here instead ({@see ShareGrant::cardTrackId}, which picks per kind) — stable,
+     * where the page's fan is deliberately random, because this string is what a chat window
+     * caches against the URL.
      */
     public function preview(Share $share): ?string
     {
-        $track = ShareGrant::for($share)->subject() === ShareSubject::Artist
-            ? ShareGrant::for($share)->latestCoveredTrackId()
+        $grant = ShareGrant::for($share);
+
+        $track = in_array($grant->subject(), [ShareSubject::Artist, ShareSubject::Playlist], true)
+            ? $grant->cardTrackId()
             : null;
 
         if ($track !== null) {

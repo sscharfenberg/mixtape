@@ -9,11 +9,12 @@ file is the plan, written before the code the way [`now-playing.md`](now-playing
 afterwards as the record of why the shape is what it is.
 
 **A share link now works end to end.** A signed-in reader presses **share** in a song / album /
-artist hero, the server mints (or re-hands) a link, and whoever it is sent to opens it with no
-account and plays what it names — verified in a signed-out browser
+artist / playlist hero, the server mints (or re-hands) a link, and whoever it is sent to opens it
+with no account and plays what it names — verified in a signed-out browser
 (`tests/e2e/guest/share.spec.ts`). **The owner's half landed on 2026-08-12**: `/dashboard/shared`
 lists what they have sent and revokes any of it, which is what the mint modal had been promising
-since the feature shipped.
+since the feature shipped. **Playlists joined on 2026-08-13** — the one subject with an owner, and
+the one whose grant is a join rather than a column (see *Known edges*).
 
 Read alongside:
 
@@ -33,7 +34,8 @@ Read alongside:
 | Link previews (Open Graph) for `/s/` and invites | ✅ 2026-08-12 — below, and it needed a robots.txt change |
 | "My shares" dashboard subpage + revoking | ✅ built 2026-08-12 — `/dashboard/shared`, below           |
 | Pruning expired rows                     | ✅ built 2026-08-12 — weekly systemd timer, below          |
-| Playlist shares                          | ⬜ deferred by the owner — the FK exists, the enum case does not |
+| Two lists, and RE-ACTIVATING a dead link | ✅ built 2026-08-13 — what the grace period is for, below   |
+| Playlist shares                          | ✅ built 2026-08-13 — the pivot grant, and the only owned subject |
 | Audiobook shares                         | ⬜ blocked — the Audiobooks area is still a placeholder     |
 | Genre shares                             | ❌ never — see *Known edges*                               |
 
@@ -315,6 +317,32 @@ unmounting the outgoing one, but only one side ever writes each value — and
 `tests/e2e/app/share.spec.ts` walks the owner's round trip (app → link → app) to keep that true,
 which is a journey the guest project cannot make.
 
+### The hero learned to explain itself (2026-08-13)
+
+The hero was **measured empty** at desktop width: 5 chips and one button, so the text column ran out
+~123px before the 240px cover square did (an album detail hero has none of that gap — its action
+block is 156px tall). Three changes, all the owner's, and only one of them is really about the space:
+
+- **A sentence in the `#description` slot** — the one HeroSection carries for a playlist's blurb.
+  "Somebody sent you this ⟨Album⟩ as a listening link. You can play it right here — no account, no
+  signing in." It was missing regardless of layout: this is the only page in the app a stranger
+  reaches, and the header above it looks like an app they have never signed into.
+  - **One sentence per KIND, in the catalog** (`share.intro.{song,album,artist,playlist}`), because
+    German agrees both the determiner and the pronoun with the noun — *diesen* Song … ihn, *dieses*
+    Album … es, *diese* Wiedergabeliste … sie. A single template with the noun swapped in is wrong in
+    three of four cases.
+  - **The noun is an element, so `<i18n-t>` assembles it** (the call ShareModal already makes for its
+    date): it wears a chip and the app's own glyph for that kind of thing, which a `t()`
+    interpolation cannot carry. The chip reads the FACT TILE's fill and corners (`c./s.$c-facts`)
+    rather than minting a colour — it stands among those tiles on the same panel.
+- **A genre tile**, after the year, which the album page had and this hero did not — the fact that
+  means most to a recipient who does not know the band. Derived by `DominantGenre`, the same answer
+  the library's own pages give, and **unlinked**: a genre page lives under `/music`, so a guest
+  following it would land on the login form. A playlist gets none (see *Known edges*).
+- **`growMetadata` on HeroSection**, letting the chips fill their row. The default stays `flex-grow:
+  0` — a few chips stretched across a Music hero read as a table nobody asked for — and this hero is
+  the case where the argument runs the other way.
+
 ## What a pasted link looks like (2026-08-12)
 
 A share link is *sent* — into WhatsApp, Signal, a Slack channel — and a bare URL there said
@@ -346,10 +374,12 @@ placeholder for work not yet done.
   remember, and forgetting is silent.
 - **`SocialCards` reads the route rather than being told**, so the areas are a list in one place
   and adding one is a `match` arm.
-- **An artist share borrows the sleeve of their most recent granted record** (`ShareGrant::latestCoveredTrackId`).
-  The page fans three at random on purpose; a card cannot, because a preview that changed on each
-  paste looks like a fault in the chat window showing it. Drawn from the *grant*, like the fan —
-  the artist trap in miniature.
+- **The two kinds that fan sleeves lend the card ONE of them** (`ShareGrant::cardTrackId`, per kind):
+  an artist lends their most recent granted record, a playlist lends its **first entry** — a playlist
+  has an order, and its opening track is the one thing about it its maker actually chose. The page
+  fans three at random on purpose; a card cannot, because a preview that changed on each paste looks
+  like a fault in the chat window showing it. Drawn from the *grant*, like the fan — the artist trap
+  in miniature.
 - **`og:image` must be absolute and publicly fetchable**, which means it can only ever be a `/s/`
   cover route: `/music/…` covers sit behind `auth` and would unfurl as a broken frame.
 - **An expired link says so and offers no picture.** Both cover routes refuse a dead share, so an
@@ -391,9 +421,15 @@ middleware's browser arm never reaches the fallback. `SocialCardTest::visit()` p
 
 **Minting** is a button on the existing detail pages. Any signed-in user may mint one for any
 library subject — everyone can see the whole library, so there is nothing to protect — **except a
-playlist, which only its owner may share.** That check belongs in the mint request's `authorize()`,
-answering 404; it is unwritten because playlist shares are deferred, and `ShareSubject` having no
-`Playlist` case is what makes its absence safe rather than an omission.
+playlist, which only its owner may share.**
+
+**That check turned out to be a RULE rather than an `authorize()`** (built 2026-08-13). The sketch
+above put it in the mint request's `authorize()` answering 404, and the shipped version narrows the
+`exists` rule instead: `Rule::exists('playlists', 'id')->where('user_id', $this->user()->id)`. It is
+the same *kind* of question the two type narrowings beside it already answer — "could the page that
+sent this have shown it to you?" — and it lands in the same place, because a stranger's playlist id
+then fails validation exactly as a made-up UUID does. A 403 would have confirmed that the id names
+somebody's real playlist; a 422 on `id` says nothing at all. `CreateShareTest` pins both directions.
 
 ### What minting turned out to be (built 2026-08-11)
 
@@ -465,6 +501,49 @@ there was no cache to purge and no revocation list to append to.
   link was for, and the list is read at a glance — the subject and the clock are what a revoke
   decision turns on.
 
+### Two lists, and re-activating (2026-08-13)
+
+**The one list became two**, live links under the page's heading and dead ones under a right-aligned
+`Deine abgelaufenen Links` (`share_off` — the app's share glyph, crossed out). The mixed list marked
+its dead rows and that marking was carrying too much: what a reader wants at a glance is *what am I
+sharing right now*, and that answer was a count they had to make themselves by discounting rows.
+Splitting it also puts every copy button in the half where copying makes sense.
+
+- **Two props, not one plus a flag** (`shares`, `expiredShares`), and `ShareRow` carries no
+  `expired` at all: the list a row arrives in *is* that answer, and a second one beside it could
+  only ever disagree — a dead row in the live half is a copy button that pastes a 404.
+- **Opposite sort orders, one query.** Live runs soonest-to-die first ("which of these runs out
+  next"); dead runs most-recently-dead first ("where has the link I sent on Monday gone?"). One
+  query ordered ascending, partitioned in PHP, the dead half reversed.
+- **The row became `ShareLinkRow.vue`** rather than the same fifty lines of markup twice, and took
+  `useClipboard` with it — a flag per row is what a per-row "copied" tick actually needs, which
+  retired the page's "which id was copied last" bookkeeping.
+
+**And the word "abgelaufen" became a button**, which is what makes the thirty-day grace period worth
+having. `PATCH /shares/{share}/renew` puts a dead row back to `now() + LIFETIME_DAYS`, so for the
+three weeks after a link dies its minter can simply switch it back on — *the same URL*, already
+sitting in somebody's chat window, working again. Before this, a dead row could only be revoked or
+replaced by a second link, which meant the recipient had to be sent a new address.
+
+- **The remedy hangs off the word, not off a fourth control.** The pip a reader is already looking
+  at becomes a `<button>` — same chip, same place — rather than the row growing another icon whose
+  meaning has to be worked out. It opens a dialog rather than acting: reviving a link is not a
+  stray-click act, and "the URL you already sent starts working again" does not fit on a chip.
+- **A LIVE link cannot be renewed, and that refusal is the load-bearing half.** Minting deliberately
+  re-hands an existing link rather than granting a fresh week, precisely so the seven-day rule cannot
+  be reset on demand; a renew that accepted a live row would be that extension by another name.
+  A dead row is different in kind — reviving one is a decision taken *after* the link stopped
+  working, and it is bounded by the sweep. So the guard is "mine, and finished", and both refusals
+  answer **404**: a stranger's link must not be confirmed, and for a live row there genuinely is no
+  such action (`RenewShareRequest`).
+- **Seven days from now, not seven added to a remainder** — there is no remainder; the row was
+  finished.
+- **It moves the sweep with it.** Pruning measures thirty days past `valid_until`, so a renewed row's
+  window starts over from its new expiry. `RenewShareTest` runs the real `model:prune` to say so.
+- **A reader who already minted a replacement now holds two live links to the same subject.** Not a
+  bug to guard: both were deliberate acts, `store` hands back whichever it finds first, and revoking
+  one leaves the other working.
+
 ## Rate limiting
 
 The `/s/` space is the only unauthenticated surface in the app that reaches the disk, which makes it
@@ -511,6 +590,9 @@ on day nine is best served by that. A share that is revoked skips all of this an
 - **The list keeps showing expired links until they are swept.** That is the point of the grace
   period, and it is why the row keeps its revoke button (and loses only its copy button) once dead:
   a reader who wants a dead link gone now does not have to wait a month for the timer.
+- **Since 2026-08-13 the window is also for RE-ACTIVATING one** (above), which is what turned the
+  grace period from "rows linger so they can be seen" into a feature: thirty days is how long the
+  reader has to change their mind about a link they already sent.
 
 ## Tests, and which layer answers what
 
@@ -562,11 +644,32 @@ What shipped: `tests/Feature/Shares/CreateShareTest.php`, `tests/Feature/Shares/
   this" — a share hands over one thing somebody chose to send, and a genre is a shelf. `ShareSubject`
   therefore has no genre case, and the genre hero renders no share button: the absence is stated in
   both halves rather than left to a rule that would 422 a button nobody should have seen.
-- **No playlist shares yet**, deferred the same day. `shares.playlist_id` exists — the column was
-  created with the others so the four-way CHECK was written once, rather than dropping and re-adding
-  it on a live table later — but there is no enum case and so no way to mint one. It is the one
-  subject that would need an ownership check, since a playlist belongs to one user where the library
-  belongs to everybody.
+- **Playlist shares were deferred on 2026-08-11 and BUILT on 2026-08-13** (the owner). `shares.playlist_id`
+  had been created with the others so the four-way CHECK was written once, so switching it on cost no
+  migration — an enum case, a grant branch, and a rule. What it turned out to need:
+  - **A JOIN where every other subject is a `where`.** `ShareSubject::grant()` returns `null` for a
+    playlist, which is the same statement `PlaylistSubject` makes by having no case for one: a
+    playlist's order is part of its content, so no column over `tracks` names it. `ShareGrant::narrow()`
+    joins `playlist_tracks` instead. Two shapes of grant resolution, as this file predicted.
+  - **Its own ORDER, which is the bug worth naming.** `QueuePayload::fromQuery` imposes
+    album-then-disc-then-track — right for "play this artist", and for a hand-made list it is a silent
+    rewrite: nothing looks broken, the guest simply hears somebody's mix in an order they never chose.
+    So `ShareGrant::entries()` takes the `selectFrom` road for a playlist and sorts on
+    `playlist_tracks.position` then the pivot's own id (position is non-unique). Pinned twice — a
+    PHPUnit fixture whose two candidate orders disagree, and an E2E that reads the owner's list and
+    the guest's queue and compares them.
+  - **No type filter**, unlike an artist share: a reader may deliberately mix audiobook chapters into
+    a playlist, and filtering would drop entries they added themselves. The playlist's own page says
+    the same thing about itself, and the two have to agree.
+  - **Sleeves, not a cover.** A playlist is not a record, so `ShareArtwork` fans it exactly as it fans
+    an artist, and the hero draws `unframedCover` for both.
+  - **It follows the owner's edits, with no snapshot** (the owner's requirement). Nothing is copied at
+    mint time: the row holds a `playlist_id`, and the grant resolves the pivot on every request — so a
+    guest who reloads gets the playlist as it is now, and a track the owner removed stops streaming at
+    once because the media routes ask the same grant. No live push, and none wanted.
+  - **No genre tile for one.** `DominantGenre` ranks by artist and by album; "mostly Doom" is not
+    something a hand-made mix is, and the hero drops the tile rather than deriving a number nobody
+    asked for.
 - **No per-link expiry, and no never-expiring link.** `app-rewrite.md` offered both until 2026-08-10.
   One rule is easier to reason about, and a link that never dies is the one that eventually leaks.
 - **No view counts, no "who opened it".** Guest listens are not recorded at all (`plays.user_id`

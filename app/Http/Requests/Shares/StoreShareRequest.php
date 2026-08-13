@@ -17,15 +17,19 @@ use Illuminate\Validation\Rules\Exists;
  *
  * ONE SHAPE: `{ subject: "album", id: "<uuid>" }`, the same pair a detail page already
  * sends to add its subject to a playlist (AddTracksToPlaylistRequest's first shape). What
- * may be named is {@see ShareSubject} and nothing else, which is where "no genre share" and
- * "no playlist share yet" are actually enforced — a body naming either fails the enum rule
- * rather than reaching a controller that would have to know about them.
+ * may be named is {@see ShareSubject} and nothing else, which is where "no genre share" is
+ * actually enforced — a body naming one fails the enum rule rather than reaching a controller
+ * that would have to know about it.
  *
- * NOTHING TO AUTHORIZE BEYOND BEING SIGNED IN, and that is a decision rather than an
- * omission: every account can see the whole library, so there is no subject one user may
- * share and another may not. The rule that WOULD need an owner check — a playlist belongs to
- * one person where the library belongs to everybody — is the one subject deliberately absent
- * from the enum, so it cannot arrive here unchecked. The route group supplies `auth`.
+ * WHAT MAY BE SHARED IS DECIDED BY THE RULES, NOT BY `authorize()`, and that stays true now
+ * that a PLAYLIST can be shared (2026-08-13) — the one subject with an owner, where the
+ * library belongs to every account alike. Its ownership is a `where` on the `exists` rule
+ * rather than a check of its own, because it is the same KIND of question the two type
+ * narrowings below already answer: "could the page that sent this have shown it to you?" A
+ * stranger's playlist id then fails validation exactly as a made-up one does, which is also
+ * the disclosure posture the rest of the feature keeps (DestroyShareRequest's 404) — a
+ * dedicated 403 would confirm that the id names somebody's real playlist. The route group
+ * supplies `auth`.
  *
  * THE ID IS CHECKED FOR EXISTENCE, unlike the track ids the play queue sends, because there
  * is exactly one of it and it is about to be written as a foreign key. The `exists` rule also
@@ -59,8 +63,10 @@ class StoreShareRequest extends FormRequest
     /**
      * Where the id must be found, narrowed to the kind the page that sent it shows.
      *
-     * An artist needs no narrowing — `artists` holds nothing else. The other two do, and the
-     * class note says why that matters.
+     * An artist needs no narrowing — `artists` holds nothing else. The other three do: two on
+     * `type`, because those tables are shared with audiobooks, and a PLAYLIST on `user_id`,
+     * because it is the one subject that belongs to somebody. The class note says why that is
+     * a rule rather than an `authorize()`.
      *
      * NOT called `exists()`: `Illuminate\Http\Request` already has a public method of that
      * name (does the input hold this key?), and a private override of it is a fatal error at
@@ -75,6 +81,9 @@ class StoreShareRequest extends FormRequest
             ShareSubject::Song => $rule->where('type', TrackType::Music->value),
             ShareSubject::Album => $rule->where('type', CollectionType::Album->value),
             ShareSubject::Artist => $rule,
+            // `user()` cannot be null here — the route group is behind `auth` — and a guest
+            // never reaches validation at all, so this is the signed-in reader's own id.
+            ShareSubject::Playlist => $rule->where('user_id', $this->user()->id),
         };
     }
 }

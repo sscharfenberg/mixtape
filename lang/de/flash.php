@@ -64,6 +64,10 @@ return [
         // Benennt den Link nicht: die Zeile, auf die er sich bezieht, ist mit dem Klick
         // verschwunden, und "welchen" hat der Dialog davor schon beantwortet.
         'revoked' => 'Der Link wurde zurückgezogen und funktioniert ab sofort nicht mehr.',
+        // Nennt den Link ebenfalls nicht — der Dialog davor hat gesagt, um welchen es geht, und
+        // die Zeile ist nach dem Klick in der oberen Liste zu sehen. Die Tage kommen aus
+        // Share::LIFETIME_DAYS, damit hier keine Zahl steht, die die Regel überleben könnte.
+        'renewed' => 'Der Link funktioniert wieder — für :days Tage ab jetzt.',
     ],
 
 ];

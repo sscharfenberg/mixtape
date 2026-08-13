@@ -29,12 +29,12 @@ return new class extends Migration
      * cannot be built. `user_id` cascades too — delete the account and the links it
      * handed out stop working.
      *
-     * `playlist_id` is in the schema but has NO MINT PATH YET (the owner deferred
-     * playlist sharing, 2026-08-11). It is created here rather than in a later
-     * migration so the CHECK below is written once: adding the column afterwards would
-     * mean dropping and re-adding the constraint on a live table. There is deliberately
-     * no `genre_id` at all — "listen to this genre" is a different kind of act from
-     * "listen to this", and was not asked for.
+     * `playlist_id` had no mint path when this ran (the owner deferred playlist sharing
+     * on 2026-08-11, and switched it on 2026-08-13). It was created here rather than in
+     * a later migration precisely so the CHECK below was written once: adding the column
+     * afterwards would have meant dropping and re-adding the constraint on a live table.
+     * There is deliberately no `genre_id` at all — "listen to this genre" is a different
+     * kind of act from "listen to this", and was not asked for.
      */
     public function up(): void
     {

@@ -48,6 +48,12 @@ $hero-section: (
     // thing. A literal, like the title scale above: a type size chosen by eye against the
     // heading beside it, which is exactly the case the shared scale does not decide.
     "description-font-size": 0.9rem,
+    // …and a little air under it, ON TOP of the meta column's own gap (the owner's call,
+    // 2026-08-13). The blurb is prose where everything under it is chips, so the same gap that
+    // separates two chip rows reads as too tight between a sentence and the row of tiles
+    // describing it. Small on purpose: it is still a caption to what follows, not a paragraph
+    // standing apart from it.
+    "description-margin": 0.5rem,
     // A per-breakpoint set, tracking the app title's scale (s.$c-title "font-size":
     // 1.2 / 1.4 / 2.2 / 3rem) a step below it at the widths where that title is the
     // bigger of the two. The page's h1 should be the loudest thing on the page without

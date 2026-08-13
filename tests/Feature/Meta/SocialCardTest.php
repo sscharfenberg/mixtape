@@ -5,6 +5,8 @@ namespace Tests\Feature\Meta;
 use App\Models\Artist;
 use App\Models\Collection;
 use App\Models\Invite;
+use App\Models\Playlist;
+use App\Models\PlaylistTrack;
 use App\Models\Share;
 use App\Models\Track;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -133,6 +135,41 @@ class SocialCardTest extends TestCase
         // changed every time the link was pasted looks like a fault in the chat window showing
         // it, so it picks one and picks the same one — the most recent record.
         $this->assertTag($response, 'og:image', route('shares.tracks.cover', [$share, $newest->id]));
+    }
+
+    public function test_a_shared_playlist_names_itself_and_borrows_its_opening_sleeve(): void
+    {
+        /*
+         * PLAYLIST SHARES (2026-08-13), and the card is where they were nearly missed: the
+         * description is built from `social.share.kind.<subject>`, so a subject without a label
+         * would have unfurled the raw KEY into somebody's chat window — a failure no page test
+         * can see, because the page never reads that catalog.
+         *
+         * The sleeve is the FIRST ENTRY, not the newest record: a playlist has an order, and its
+         * opening track is the one thing about it its maker actually chose. The fixture puts the
+         * newer album second so the two rules disagree.
+         */
+        $playlist = Playlist::factory()->create(['name' => 'Freitagabend']);
+        $opener = Track::factory()->create([
+            'cover' => true,
+            'duration' => 300,
+            'collection_id' => Collection::factory()->create(['year' => 1994]),
+        ]);
+        $newer = Track::factory()->create([
+            'cover' => true,
+            'duration' => 300,
+            'collection_id' => Collection::factory()->create(['year' => 2019]),
+        ]);
+
+        PlaylistTrack::factory()->create(['playlist_id' => $playlist->id, 'track_id' => $opener->id, 'position' => 1]);
+        PlaylistTrack::factory()->create(['playlist_id' => $playlist->id, 'track_id' => $newer->id, 'position' => 2]);
+
+        $share = Share::factory()->create(['playlist_id' => $playlist->id]);
+        $response = $this->visit("/s/{$share->id}");
+
+        $this->assertTag($response, 'og:title', 'MixTape-Link: Freitagabend');
+        $this->assertTag($response, 'og:description', 'Wiedergabeliste · 2 Titel · 10 Minuten');
+        $this->assertTag($response, 'og:image', route('shares.tracks.cover', [$share, $opener->id]));
     }
 
     public function test_an_expired_link_advertises_no_music_and_no_picture(): void

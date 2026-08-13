@@ -34,6 +34,7 @@ const props = (overrides: Record<string, unknown> = {}) => ({
         artist: "Godspeed You! Black Emperor",
         album: "Lift Your Skinny Fists",
         year: 2000,
+        genre: "Post-Rock",
         songs: 1,
         duration: 1342,
         coverUrl: "/s/share-1/cover",
@@ -57,6 +58,16 @@ const props = (overrides: Record<string, unknown> = {}) => ({
 /** Mount the page, optionally in English. */
 const page = (overrides: Record<string, unknown> = {}, locale: "de" | "en" = "de") =>
     mountApp(SharePage, { props: props(overrides), locale });
+
+/**
+ * A node's text with runs of whitespace squeezed to one space.
+ *
+ * The intro is assembled around an ELEMENT (the kind chip, which carries an icon), so its
+ * markup leaves newlines and indentation between the parts. A browser collapses those when it
+ * lays the sentence out; happy-dom's `text()` hands them over as they are, so an assertion on
+ * the sentence has to do the collapsing itself or it is testing the template's indentation.
+ */
+const sentence = (text: string): string => text.replace(/\s+/gu, " ").trim();
 
 /** The hero tile whose label matches, or undefined when it is not rendered. */
 const tile = (wrapper: ReturnType<typeof page>, label: string) =>
@@ -108,13 +119,57 @@ describe("SharePage", () => {
             // Null in, nothing out. An empty tile claims the file has an artist we failed to
             // name, which is a different thing from having none.
             const wrapper = page({
-                subject: { ...props().subject, artist: null, album: null, year: null, duration: null }
+                subject: { ...props().subject, artist: null, album: null, year: null, genre: null, duration: null }
             });
 
             expect(tile(wrapper, translate("music.columns.artist"))).toBeUndefined();
             expect(tile(wrapper, translate("music.columns.album"))).toBeUndefined();
             expect(tile(wrapper, translate("music.columns.year"))).toBeUndefined();
+            expect(tile(wrapper, translate("music.columns.genre"))).toBeUndefined();
             expect(tile(wrapper, translate("music.columns.duration"))).toBeUndefined();
+        });
+
+        it("says what kind of music it is, and does not link into the library", () => {
+            // The genre tile arrived on 2026-08-13 (the owner): it is the fact that means most
+            // to somebody who does not know the band. UNLINKED, unlike every other page that
+            // draws it — a genre page lives under `/music`, so a guest following it would land
+            // on the login form.
+            const genre = tile(page(), translate("music.columns.genre"));
+
+            expect(genre?.text()).toContain("Post-Rock");
+            expect(genre?.element.tagName).not.toBe("A");
+            expect(genre?.find("a").exists()).toBe(false);
+        });
+
+        it("explains itself to somebody who has never been here", () => {
+            // The only page in the app a stranger can reach, and the header above it looks like
+            // an app they have never signed into — so the hero says the music was sent to them
+            // and that no account is involved. It is also what fills the space beside the cover.
+            //
+            // ONE SENTENCE PER KIND, because German agrees its determiner and pronoun with the
+            // noun — so this asserts the SONG copy with the noun substituted, which is exactly
+            // what a reader of a song link sees. The noun is an element (a chip with the app's
+            // glyph), which is why the sentence is assembled by `<i18n-t>` rather than by `t()`.
+            const intro = page().find(".hero-section__description");
+
+            expect(sentence(intro.text())).toBe(
+                translate("share.intro.song").replace("{kind}", translate("share.kind.song"))
+            );
+            expect(sentence(intro.find(".share__kind").text())).toBe(translate("share.kind.song"));
+        });
+
+        it("names the kind in the intro the way that kind's own grammar needs", () => {
+            // The bug this pins is a German one: a single sentence with the noun swapped in
+            // reads "Dieses Song" / "Diese Album" in three of four cases. Each kind therefore
+            // has its own copy, and the page picks it off `share.kind`.
+            for (const kind of ["song", "album", "artist", "playlist"] as const) {
+                const wrapper = page({ share: { kind, validUntil: "2026-08-18T09:30:00+00:00", expired: false } });
+
+                expect(sentence(wrapper.find(".hero-section__description").text())).toBe(
+                    translate(`share.intro.${kind}`).replace("{kind}", translate(`share.kind.${kind}`))
+                );
+                wrapper.unmount();
+            }
         });
 
         it("offers one verb, not the pair a Music hero wears", () => {
@@ -235,6 +290,42 @@ describe("SharePage", () => {
 
         it("fans their own sleeves in place of the photograph this app does not store", () => {
             expect(artist().find(".cover-sleeves").exists()).toBe(true);
+        });
+    });
+
+    describe("a playlist share", () => {
+        /** A shared playlist: no cover of its own, a fan of its records instead. */
+        const playlist = () =>
+            page({
+                share: { kind: "playlist" as ShareKind, validUntil: "2026-08-18T09:30:00+00:00", expired: false },
+                subject: {
+                    ...props().subject,
+                    name: "Freitagabend",
+                    artist: null,
+                    album: null,
+                    year: null,
+                    genre: null,
+                    coverUrl: null,
+                    sleeves: ["/s/share-1/tracks/track-1/cover"]
+                }
+            });
+
+        it("fans its records, because a playlist is not one", () => {
+            // Shareable since 2026-08-13. The hero it gets is the ARTIST's shape rather than the
+            // album's — no single picture — which is also what the playlist's own page draws.
+            const wrapper = playlist();
+
+            expect(wrapper.find(".cover-sleeves").exists()).toBe(true);
+            expect(wrapper.find("h2").text()).toBe("Freitagabend");
+        });
+
+        it("wears the playlist glyph, in the heading and in the intro's chip", () => {
+            // The same icon the app uses for a playlist everywhere else — the heading and the
+            // sentence read it off one map, so they cannot come to disagree.
+            const wrapper = playlist();
+
+            expect(wrapper.find("h2").html()).toContain("playlist");
+            expect(sentence(wrapper.find(".share__kind").text())).toBe(translate("share.kind.playlist"));
         });
     });
 });

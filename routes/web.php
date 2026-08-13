@@ -292,6 +292,22 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
             ->middleware('throttle:30,1,share-revoke')
             ->name('shares.destroy');
 
+        // Re-activate an EXPIRED one for another seven days — the same URL, working again,
+        // which is what makes the thirty-day grace period worth having (the owner, 2026-08-13).
+        // A PATCH because it changes one field of a row that goes on being the same row, and
+        // the same request twice leaves the same state (bar the clock). Only the minter may,
+        // and only while the link is actually dead: renewing a LIVE one would be the extension
+        // the mint route's re-hand rule exists to prevent, so RenewShareRequest refuses it —
+        // both refusals answering 404, which it explains.
+        //
+        // MINTING'S CEILING RATHER THAN REVOKING'S, because this manufactures a working link:
+        // it is the same act as minting from the reader's side, on a row that already exists.
+        // Its own bucket, per the note at the top of this file.
+        Route::patch('/shares/{share}/renew', [ShareController::class, 'renew'])
+            ->whereUuid('share')
+            ->middleware('throttle:20,1,share-renew')
+            ->name('shares.renew');
+
         // The play queue, synced up from the browser. A PUT rather than a POST because it
         // REPLACES one row that is read and written wholesale — the same request twice
         // leaves the same state, which matters when the last one is fired by a tab that is

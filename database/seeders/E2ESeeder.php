@@ -67,6 +67,17 @@ class E2ESeeder extends Seeder
     public const EXPIRED_SHARE = '019e0007-0000-7000-8000-000000000002';
 
     /**
+     * A SECOND dead link, for the app spec that re-activates one.
+     *
+     * IT EXISTS SO THAT SPEC DOES NOT TOUCH {@see EXPIRED_SHARE}, which the guest spec opens to
+     * see the "this link has expired" page: renewing that one would break a spec in another
+     * project from a file that never mentions it — the exact cross-spec failure an account per
+     * spec exists to prevent, arriving by way of a fixture instead. An ALBUM, so the row is
+     * findable in the list by a name no other seeded share carries.
+     */
+    public const RENEWABLE_SHARE = '019e0007-0000-7000-8000-000000000003';
+
+    /**
      * Album title, year, artist key, genre key, bit rate, and the real track listing.
      *
      * Real track titles rather than generated ones, because the specs read better and
@@ -260,6 +271,10 @@ class E2ESeeder extends Seeder
      * the track list, so it exercises the whole page rather than just the hero. The expired
      * one is a song, which keeps the two rows describing different code.
      *
+     * A THIRD ROW SINCE 2026-08-13 ({@see RENEWABLE_SHARE}): dead as well, and owned by the same
+     * account, so the app spec can re-activate one without disturbing the dead link the GUEST
+     * spec reads. Same reasoning as the note on the constant.
+     *
      * Owned by the canonical account rather than a spec user of its own: nothing about a
      * share is user-scoped from the guest's side, and the reader never sees who minted it
      * (SharePageController says why that is deliberate rather than an omission).
@@ -285,6 +300,15 @@ class E2ESeeder extends Seeder
             'user_id' => $userId,
             'track_id' => Track::query()->where('name', 'Paranoid Android')->value('id'),
             'valid_until' => now()->subDays(3),
+        ]);
+
+        // Well inside the thirty-day grace period, because that is the state the re-activate
+        // button exists for: a link that died last week and can be switched back on.
+        Share::query()->create([
+            'id' => self::RENEWABLE_SHARE,
+            'user_id' => $userId,
+            'collection_id' => Collection::query()->where('name', 'The Bends')->value('id'),
+            'valid_until' => now()->subDays(4),
         ]);
     }
 

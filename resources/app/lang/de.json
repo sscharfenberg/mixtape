@@ -231,10 +231,13 @@
             "kind": {
                 "song": "Song",
                 "album": "Album",
-                "artist": "Künstler"
+                "artist": "Künstler",
+                "playlist": "Wiedergabeliste"
             },
             "validUntil": "gültig bis {date}",
             "expired": "abgelaufen",
+            "expiredHeadline": "Deine abgelaufenen Links",
+            "expiredIntro": "Diese Links funktionieren nicht mehr. Klick auf „abgelaufen“, um einen davon wieder zu aktivieren – derselbe Link, noch einmal sieben Tage. 30 Tage nach dem Ablaufen verschwinden sie von selbst.",
             "empty": "Du hast gerade nichts geteilt.",
             "copy": {
                 "open": "Link kopieren",
@@ -246,6 +249,13 @@
                 "header": "Link zurückziehen?",
                 "body": "Willst du den Link zu „{name}“ wirklich zurückziehen? Wer den Link hat, kann ihn danach nicht mehr benutzen.",
                 "confirm": "Zurückziehen"
+            },
+            "renew": {
+                "open": "Wieder aktivieren – noch einmal sieben Tage",
+                "label": "Link zu „{name}“ wieder aktivieren",
+                "header": "Link wieder aktivieren?",
+                "body": "Der Link zu „{name}“ funktioniert dann wieder – für sieben Tage ab jetzt. Es ist derselbe Link wie vorher: Wer ihn noch hat, kann damit wieder mithören.",
+                "confirm": "Wieder aktivieren"
             }
         }
     },
@@ -448,6 +458,7 @@
         },
         "export": {
             "open": "Playlist-Datei exportieren",
+            "tooltip": "Lädt diese Playlist als .m3u-Datei herunter — eine Liste der Dateipfade in dieser Reihenfolge, zum Abspielen in einem anderen Player, auf dem Handy oder im Autoradio. Wahlweise erweitert, mit Künstler, Titel und Länge pro Eintrag.",
             "header": "Playlist-Datei exportieren",
             "intro": "Eine .m3u-Datei zum Mitnehmen — für einen anderen Player, ein Handy oder das Autoradio. Die Datei enthält die Titel in dieser Reihenfolge; abgespielt wird sie dort, wo die Musikdateien liegen.",
             "formatLabel": "Dateiformat",
@@ -468,6 +479,7 @@
         },
         "sort": {
             "open": "Playlist sortieren",
+            "tooltip": "Sortiert die Titel nach Dateipfad — also nach Ordner und Dateiname, so wie sie auf der Platte liegen. Bringt ein Album wieder in seine Reihenfolge.",
             "done": "Playlist nach Dateipfad sortiert.",
             "already": "Die Playlist ist bereits nach Dateipfad sortiert."
         },
@@ -505,6 +517,18 @@
     },
     "share": {
         "play": "Abspielen",
+        "kind": {
+            "song": "Song",
+            "album": "Album",
+            "artist": "Künstler",
+            "playlist": "Wiedergabeliste"
+        },
+        "intro": {
+            "song": "Diesen {kind} hat dir jemand über einen Link zum Mithören geschickt. Du kannst ihn hier direkt anhören – ohne Konto und ohne Anmeldung.",
+            "album": "Dieses {kind} hat dir jemand über einen Link zum Mithören geschickt. Du kannst es hier direkt anhören – ohne Konto und ohne Anmeldung.",
+            "artist": "Diesen {kind} hat dir jemand über einen Link zum Mithören geschickt. Du kannst hier direkt mithören – ohne Konto und ohne Anmeldung.",
+            "playlist": "Diese {kind} hat dir jemand über einen Link zum Mithören geschickt. Du kannst sie hier direkt anhören – ohne Konto und ohne Anmeldung."
+        },
         "expires": {
             "label": "Link gültig bis",
             "description": "Danach funktioniert dieser Link nicht mehr. Frag dann einfach nach einem neuen."

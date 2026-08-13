@@ -7,8 +7,10 @@ namespace App\Http\Controllers\Shares;
 use App\Enums\ShareSubject;
 use App\Http\Controllers\Controller;
 use App\Models\Share;
+use App\Services\Music\DominantGenre;
 use App\Services\Shares\ShareArtwork;
 use App\Services\Shares\ShareGrant;
+use Illuminate\Database\Query\Builder;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
@@ -60,10 +62,11 @@ class SharePageController extends Controller
         $grant = ShareGrant::for($share);
         $subject = $grant->subject();
 
-        // A share this app has no subject case for — today, only a hand-written
-        // `playlist_id` row, since playlist sharing is deferred and `ShareSubject` has no
-        // case to mint one with. There is no page to build, so it is a 404 rather than an
-        // empty one: the link names something this instance does not serve.
+        // A share this app has no subject case for. Every column the table permits now has
+        // one (playlist sharing landed 2026-08-13), so this is reachable only through a row
+        // with no subject at all — which the table's CHECK forbids on Postgres. There is no
+        // page to build for it, so it is a 404 rather than an empty one: the link names
+        // something this instance does not serve.
         abort_if($subject === null, HttpResponse::HTTP_NOT_FOUND);
 
         $live = $share->isLive();
@@ -121,12 +124,13 @@ class SharePageController extends Controller
     }
 
     /**
-     * What the subject IS: its name, and the two credits that place it.
+     * What the subject IS: its name, the two credits that place it, and what kind of music
+     * it is.
      *
      * Read off the share's own relations rather than re-queried, so which row is described
      * can never disagree with which row was granted.
      *
-     * @return array{name: string, artist: string|null, album: string|null, year: int|null}
+     * @return array{name: string, artist: string|null, album: string|null, year: int|null, genre: string|null}
      */
     private function identity(Share $share, ShareSubject $subject): array
     {
@@ -138,6 +142,8 @@ class SharePageController extends Controller
                 'artist' => $share->track->artist?->name,
                 'album' => $share->track->collection?->name,
                 'year' => $share->track->collection?->year,
+                // A TRACK carries its genre itself, so there is nothing to derive here.
+                'genre' => $share->track->genre?->name,
             ],
             ShareSubject::Album => [
                 'name' => $share->collection->name,
@@ -146,13 +152,47 @@ class SharePageController extends Controller
                 'artist' => $share->collection->albumArtist?->name,
                 'album' => null,
                 'year' => $share->collection->year,
+                'genre' => $this->dominantGenre(DominantGenre::albumWinners($share->collection_id)),
             ],
             ShareSubject::Artist => [
                 'name' => $share->artist->name,
                 'artist' => null,
                 'album' => null,
                 'year' => null,
+                'genre' => $this->dominantGenre(DominantGenre::winners($share->artist_id)),
+            ],
+            // A PLAYLIST HAS NONE OF THE FOUR, and each absence is a fact rather than a gap:
+            // it is a list of other people's records, so no single artist, album or year
+            // describes it — and no genre either, since DominantGenre ranks by ARTIST and by
+            // ALBUM, and "mostly Doom" is not a thing a hand-made mix is. What it has instead
+            // is a track count and a playing time, which {@see subject()} adds for every kind.
+            ShareSubject::Playlist => [
+                'name' => $share->playlist->name,
+                'artist' => null,
+                'album' => null,
+                'year' => null,
+                'genre' => null,
             ],
         };
+    }
+
+    /**
+     * The main genre of an album or an artist, by name.
+     *
+     * ASKED OF THE SAME SERVICE THE LIBRARY'S OWN PAGES ASK, which is the whole reason this
+     * is one line rather than a query: genre is tagged per TRACK in this app, so neither an
+     * album nor an artist has one of its own, and "mostly this" is a derived fact with a
+     * tie-break rule (DominantGenre). A guest arriving at a share must not be told a
+     * different genre than the album page shows its owner.
+     *
+     * It takes the QUERY rather than an id, because the two kinds are ranked over different
+     * owner columns and each caller above already knows which of DominantGenre's two entry
+     * points is theirs — narrowed to one subject, so this is one row or none.
+     *
+     * Null where nothing is tagged, which drops the tile rather than printing an empty chip.
+     */
+    private function dominantGenre(Builder $winners): ?string
+    {
+        return $winners->first()?->genre_name;
     }
 }

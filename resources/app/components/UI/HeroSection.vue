@@ -88,11 +88,25 @@ defineProps<{
      * the second thing saying the same.
      */
     unframedCover?: boolean;
+    /**
+     * Let the metadata tiles GROW to fill their row, instead of each sitting at its content
+     * width.
+     *
+     * Off by default, which is what the Music heroes want: a few chips against a wide panel,
+     * stretched across it, read as a table nobody asked for (see the styles).
+     *
+     * On for the guest share page (the owner's call, 2026-08-13), where the same argument runs
+     * the other way. That hero carries the fewest facts and ONE button, so its text column ran
+     * out well before the cover square did and the row of chips left a bare stripe to the right
+     * of it — on the one page in the app that has to look deliberate to somebody who has never
+     * seen the app before. Filling the row is what removes the stripe.
+     */
+    growMetadata?: boolean;
 }>();
 </script>
 
 <template>
-    <div class="hero-section">
+    <div class="hero-section" :class="{ 'hero-section--grow-metadata': growMetadata }">
         <div
             v-if="$slots.cover"
             :class="['hero-section__cover', { 'hero-section__cover--unframed': unframedCover }]"
@@ -343,11 +357,12 @@ defineProps<{
     }
 
     /* The subject's own words. Sized down a step from the body copy and one rung quieter in
-       ink, so it reads as a caption to the title rather than competing with the facts under
-       it — and `margin: 0` because it is a <p> inside a flex column that already spaces its
-       children with a gap. */
+       ink, so it reads as a caption to the title rather than competing with the facts under it.
+       The margin is the block-END only, added to the flex column's gap rather than replacing it
+       (the token says why); the block-start stays 0, since the column's gap already spaces it
+       from whatever is above. */
     &__description {
-        margin: 0;
+        margin: 0 0 map.get(s.$c-hero-section, "description-margin");
 
         color: map.get(c.$c-hero-section, "description");
 
@@ -487,5 +502,16 @@ defineProps<{
             box-shadow: 0 0 map.get(s.$c-hero-section, "metadata-halo") map.get(c.$c-hero-section, "metadata-halo-link");
         }
     }
+}
+
+/* THE TILES FILL THE ROW — `growMetadata`, and the exception to the `flex-grow: 0` above rather
+   than a rethink of it. Written as its own top-level rule because the modifier sits on the ROOT
+   while the tiles are two levels down, which `&` inside the block cannot express without
+   reading backwards.
+
+   `flex-grow: 1` is what a FactPair does inside a facts card anyway, so this is the tile's own
+   default being allowed back rather than a look invented here. */
+.hero-section--grow-metadata .hero-section__metadata > :slotted(*) {
+    flex-grow: 1;
 }
 </style>

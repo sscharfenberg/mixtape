@@ -192,16 +192,41 @@ class CreateShareTest extends TestCase
         $this->assertDatabaseCount('shares', 0);
     }
 
-    public function test_a_playlist_cannot_be_shared_yet(): void
+    public function test_a_reader_can_share_their_own_playlist(): void
     {
-        // Deferred by the owner (2026-08-11). The COLUMN exists so the table's CHECK was
-        // written once; the enum does not, which is what makes this a 422 rather than a
-        // subject that would need an ownership check nobody has written.
-        $playlist = Playlist::factory()->create();
+        // Switched on by the owner (2026-08-13), and the only subject with an owner: the
+        // library belongs to every account alike, a playlist belongs to one.
+        $user = User::factory()->create();
+        $playlist = Playlist::factory()->create(['user_id' => $user->id]);
+
+        $response = $this->actingAs($user)
+            ->postJson('/shares', ['subject' => 'playlist', 'id' => $playlist->id])
+            ->assertOk()
+            ->assertJsonStructure(['url', 'validUntil']);
+
+        $share = Share::query()->sole();
+
+        $this->assertSame($playlist->id, $share->playlist_id);
+        // One subject and one only — the other three FKs stay null, which is what the table's
+        // CHECK requires of every row.
+        $this->assertNull($share->track_id);
+        $this->assertNull($share->collection_id);
+        $this->assertNull($share->artist_id);
+        $this->assertSame($share->url(), $response->json('url'));
+    }
+
+    public function test_a_reader_cannot_share_somebody_elses_playlist(): void
+    {
+        // A VALIDATION ERROR RATHER THAN A 403, and on `id` rather than on `subject`: a
+        // stranger's playlist is refused exactly as a made-up UUID is, so the answer does not
+        // confirm that the id names somebody's real playlist. Same disclosure posture as
+        // DestroyShareRequest's 404 (StoreShareRequest says why it is a rule and not an
+        // `authorize()`).
+        $theirs = Playlist::factory()->create();
 
         $this->actingAs(User::factory()->create())
-            ->postJson('/shares', ['subject' => 'playlist', 'id' => $playlist->id])
-            ->assertJsonValidationErrorFor('subject');
+            ->postJson('/shares', ['subject' => 'playlist', 'id' => $theirs->id])
+            ->assertJsonValidationErrorFor('id');
 
         $this->assertDatabaseCount('shares', 0);
     }

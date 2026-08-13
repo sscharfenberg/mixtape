@@ -64,6 +64,10 @@ return [
         // Deliberately does not name the link: the row it refers to went away with the click,
         // and "which one" was answered by the dialog just before it.
         'revoked' => 'The link has been revoked and no longer works.',
+        // Names no link either: the dialog just before it said which one, and the row is now in
+        // the list above. The days come from Share::LIFETIME_DAYS so no number here can outlive
+        // the rule.
+        'renewed' => 'The link works again — for :days days from now.',
     ],
 
 ];

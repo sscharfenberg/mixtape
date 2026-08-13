@@ -27,12 +27,29 @@ use Illuminate\Database\Query\Builder;
  * would eventually grant a set the artist page never showed (docs/sharing.md → "the artist
  * trap").
  *
+ * A PLAYLIST IS THE ONE SUBJECT THAT MAPPING CANNOT ANSWER (2026-08-13), and everything
+ * special about playlist sharing follows from it: a playlist's tracks are rows of
+ * `playlist_tracks`, in the reader's own `position` order, so `grant()` is null and
+ * {@see query()} joins the pivot instead. Two consequences worth knowing before touching
+ * anything here. Its ORDER has to be the pivot's, so {@see tracks()} takes a branch of its
+ * own — `QueuePayload::fromQuery` would impose album-then-disc-then-track and silently
+ * rewrite a hand-made list. And an entry can repeat, deliberately (the same song twice in
+ * one playlist is a thing people do), so the join can hand back a track more than once —
+ * which is what the playlist's own page already shows its owner.
+ *
+ * IT IS RESOLVED FRESH ON EVERY REQUEST, which is the whole of "a shared playlist stays up
+ * to date" (the owner's requirement, 2026-08-13). Nothing is copied at mint time: the row
+ * holds a `playlist_id` and this class asks the pivot each time, so an owner adding, moving
+ * or removing an entry changes what the link plays on the guest's next reload. No live
+ * push, and none wanted — a reload is the contract.
+ *
  * A SHARE WITH NO SUBJECT THIS APP CAN RESOLVE ANSWERS "NOTHING", rather than throwing.
- * `shares.playlist_id` exists in the schema with no mint path (the owner deferred playlist
- * sharing), so a row naming one can only have been written by hand — and the honest answer
- * to a link the app cannot serve is a 404 from the caller, not a 500 from here. Hence
- * {@see subject()} is nullable and the two readers below degrade to "no tracks, contains
- * nothing"; SharePageController turns that into the 404.
+ * Every column the table permits now has a case, so this is reachable only through a row
+ * the table's CHECK would reject (all four FKs null) — the test connection is sqlite, which
+ * has no CHECK, and the honest answer to a link the app cannot serve is a 404 from the
+ * caller rather than a 500 from here. Hence {@see subject()} is nullable and the readers
+ * below degrade to "no tracks, contains nothing"; SharePageController turns that into the
+ * 404.
  */
 final class ShareGrant
 {
@@ -50,9 +67,8 @@ final class ShareGrant
      * FKs the row has set — the reverse of the mapping the mint route wrote it with
      * (`ShareSubject::foreignKey()`).
      *
-     * Null for a share this app has no subject case for, which today means exactly one
-     * thing: a hand-written `playlist_id` row. See the class note for why that is a null
-     * rather than an exception.
+     * Null only for a row with none of the four set, which the table's CHECK forbids — see
+     * the class note for why that is a null rather than an exception.
      */
     public function subject(): ?ShareSubject
     {
@@ -60,6 +76,7 @@ final class ShareGrant
             $this->share->track_id !== null => ShareSubject::Song,
             $this->share->collection_id !== null => ShareSubject::Album,
             $this->share->artist_id !== null => ShareSubject::Artist,
+            $this->share->playlist_id !== null => ShareSubject::Playlist,
             default => null,
         };
     }
@@ -87,6 +104,11 @@ final class ShareGrant
      * A grant with no resolvable subject narrows to `whereRaw('1 = 0')` rather than to
      * everything — the failure mode of getting that backwards is handing a stranger the
      * whole library, so it is spelled out rather than left to a caller's guard.
+     *
+     * A PLAYLIST IS A JOIN RATHER THAN A `where`, and it is the only subject that is: its
+     * tracks are pivot rows, so the narrowing is on `playlist_tracks.playlist_id`. The join
+     * also means a track can come back TWICE, which is correct — an entry may repeat, and the
+     * playlist's own page shows it repeated too.
      */
     public function query(): Builder
     {
@@ -98,9 +120,32 @@ final class ShareGrant
 
         $type = $this->trackType();
 
-        return QueuePayload::query()
-            ->where($subject->grant()->column(), $this->subjectId())
+        return $this->narrow($subject)
             ->when($type !== null, fn (Builder $query) => $query->where('tracks.type', $type->value));
+    }
+
+    /**
+     * The subject's own narrowing, before any type filter — a column comparison for the three
+     * library kinds, a pivot join for a playlist.
+     *
+     * Split out of {@see query()} so that "which rows" and "which kinds of track" stay two
+     * separate decisions: the type filter is applied to whatever comes back from here, and a
+     * caller reading `query()` can see both halves without either being buried in a `match`.
+     */
+    private function narrow(ShareSubject $subject): Builder
+    {
+        $grant = $subject->grant();
+
+        if ($grant !== null) {
+            return QueuePayload::query()->where($grant->column(), $this->subjectId());
+        }
+
+        // The pivot side is selected as well as joined, so the callers that need the reader's
+        // own order (tracks(), and the card's sleeve pick) can sort on `position` — the join
+        // is the only place that column is reachable from.
+        return QueuePayload::query()
+            ->join('playlist_tracks', 'playlist_tracks.track_id', '=', 'tracks.id')
+            ->where('playlist_tracks.playlist_id', $this->subjectId());
     }
 
     /**
@@ -114,12 +159,18 @@ final class ShareGrant
      * rule that holds only because of a constraint in a different table is one a later
      * migration can quietly repeal.
      *
-     * THE OTHER TWO ARE UNFILTERED, which is not an inconsistency but the same rule read
+     * THE OTHER THREE ARE UNFILTERED, which is not an inconsistency but the same rule read
      * the other way: a song share names ONE row and grants that row whatever kind it is, and
      * an album share grants its collection's tracks, where `collections` already
      * discriminates album from audiobook. Both are therefore as narrow as their subject
      * already, and a type filter on them is precisely what would break when audiobook shares
      * switch on (docs/sharing.md → Known edges).
+     *
+     * A PLAYLIST IS UNFILTERED FOR A THIRD REASON, and it is the strongest of them: a reader
+     * may deliberately mix music with audiobook chapters in one — that is what the unified
+     * `tracks` table is for — so filtering here would silently drop entries they put in
+     * themselves. PlaylistController says the same thing about its own page, and it has to be
+     * the same answer: a shared playlist plays what the playlist plays.
      */
     private function trackType(): ?TrackType
     {
@@ -159,37 +210,55 @@ final class ShareGrant
             ShareSubject::Song => $this->share->track->name,
             ShareSubject::Album => $this->share->collection->name,
             ShareSubject::Artist => $this->share->artist->name,
+            ShareSubject::Playlist => $this->share->playlist->name,
             default => null,
         };
     }
 
     /**
-     * One track of this grant that carries artwork, from the artist's most recent record.
+     * One track of this grant that carries artwork — the sleeve a social preview borrows.
      *
      * IT EXISTS FOR THE SOCIAL CARD, which needs a single picture where the page fans three
-     * (ShareArtwork). An artist has no image of their own in this app, so the card borrows a
-     * sleeve — and "the latest" is the owner's rule: a band's newest record is the one a
-     * recipient is most likely to recognise, and it is stable, where the page's fan is
-     * deliberately re-shuffled on every visit. A preview that changed each time it was pasted
-     * would look like a bug in whatever chat window is showing it.
+     * (ShareArtwork). The two kinds that have no one picture of their own borrow one here, and
+     * WHICH one is a different question for each:
+     *
+     *   - AN ARTIST lends their most recent granted record. The owner's rule: a band's newest
+     *     record is the one a recipient is most likely to recognise. Undated records sort last
+     *     rather than first — `collections.year` is null for plenty of rips, and "no year" is
+     *     not "the newest".
+     *   - A PLAYLIST lends its FIRST ENTRY (2026-08-13), because a playlist has an order and
+     *     its opening track is the one thing about it a maker actually chose. Sorting it by
+     *     year would pick a record out of the middle of somebody's sequence.
+     *
+     * EITHER WAY IT IS STABLE, which is the requirement the whole method exists to meet: the
+     * page's fan is deliberately re-shuffled on every visit, while this string is what a chat
+     * window caches against the URL — a preview that changed on each paste looks like a fault
+     * in whatever is showing it.
      *
      * DRAWN FROM THE GRANT, like the fan, which is the artist trap in miniature: a sleeve off
      * an album this link cannot play would be a picture of something the page has no rows for.
      *
-     * Undated records sort last rather than first — `collections.year` is null for plenty of
-     * rips, and "no year" is not "the newest". Null when nothing granted carries a cover at all.
+     * Null when nothing granted carries a cover at all.
      */
-    public function latestCoveredTrackId(): ?string
+    public function cardTrackId(): ?string
     {
-        $row = $this->query()
+        $query = $this->query()
             ->where('tracks.cover', true)
+            ->select(['tracks.id']);
+
+        if ($this->subject() === ShareSubject::Playlist) {
+            // `position` then the pivot's own id, the tie-break the playlist page uses too:
+            // position is deliberately non-unique, so two entries sharing one would otherwise
+            // be free to swap places between two crawls of the same link.
+            return $query->orderBy('playlist_tracks.position')->orderBy('playlist_tracks.id')->first()?->id;
+        }
+
+        return $query
             ->leftJoin('collections', 'collections.id', '=', 'tracks.collection_id')
             ->orderByRaw('coalesce(collections.year, 0) desc')
             ->orderBy('collections.name')
-            ->select(['tracks.id'])
-            ->first();
-
-        return $row?->id;
+            ->first()
+            ?->id;
     }
 
     /**
@@ -223,7 +292,40 @@ final class ShareGrant
             'coverUrl' => $entry['coverUrl'] === null
                 ? null
                 : route('shares.tracks.cover', [$this->share, $entry['id']], absolute: false),
-        ], QueuePayload::fromQuery($this->query(), only: null));
+        ], $this->entries());
+    }
+
+    /**
+     * The granted tracks as queue entries, in the order the link should play them.
+     *
+     * TWO ORDERS, AND THE SPLIT IS THE POINT. Three of the four subjects want playing order —
+     * album, then disc, then track — which is what a listener pressing "play this artist"
+     * expects and what `QueuePayload::fromQuery` imposes. A PLAYLIST wants the reader's own
+     * sequence, so it goes the long way round `selectFrom`: `fromQuery` would sort a hand-made
+     * list into record order and nothing would look broken, which is the worst kind of wrong —
+     * the guest would simply hear somebody else's playlist in an order they never chose. The
+     * playlist's own page makes exactly this split for exactly this reason (PlaylistController).
+     *
+     * `only: null` on both, because what a link may play is already decided by the grant: an
+     * artist share is narrowed to music inside {@see query()}, and a playlist may deliberately
+     * hold audiobook chapters that a type filter here would drop.
+     *
+     * @return list<array<string, mixed>> entries in the shape `QueueTrack` expects
+     */
+    private function entries(): array
+    {
+        if ($this->subject() !== ShareSubject::Playlist) {
+            return QueuePayload::fromQuery($this->query(), only: null);
+        }
+
+        // `position` then the pivot's own id — position is deliberately non-unique, so without
+        // the second key two entries sharing one could swap places between two loads.
+        return QueuePayload::selectFrom($this->query(), only: null)
+            ->orderBy('playlist_tracks.position')
+            ->orderBy('playlist_tracks.id')
+            ->get()
+            ->map(fn (object $row): array => QueuePayload::entry($row))
+            ->all();
     }
 
     /**

@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Shares;
 use App\Enums\ShareSubject;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Shares\DestroyShareRequest;
+use App\Http\Requests\Shares\RenewShareRequest;
 use App\Http\Requests\Shares\StoreShareRequest;
 use App\Models\Share;
 use Illuminate\Http\JsonResponse;
@@ -38,6 +39,12 @@ use Illuminate\Http\RedirectResponse;
  * THE FEATURE IS WHOLE SINCE 2026-08-12: the URL this hands back is served (SharePageController
  * and the two media routes beside it), and `destroy` below is the revoke the modal has been
  * promising the reader, reachable from `/dashboard/shared`.
+ *
+ * THREE VERBS, ONE LIFECYCLE, and they are here together on purpose: mint, renew, revoke are the
+ * only three things that ever happen to a `shares` row, and reading them in one file is what
+ * keeps their rules consistent — most of all the one they share, that a link's seven days are the
+ * app's decision rather than the reader's (`store` re-hands rather than extends, `renew` refuses a
+ * live row, and neither takes a duration).
  */
 class ShareController extends Controller
 {
@@ -70,6 +77,39 @@ class ShareController extends Controller
         return response()->json([
             'url' => $share->url(),
             'validUntil' => $share->valid_until->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * Re-activate an expired link: the same URL, live again for another seven days.
+     *
+     * THIS IS WHAT THE GRACE PERIOD IS FOR (the owner's call, 2026-08-13). A dead row is kept for
+     * `Share::PRUNE_AFTER_DAYS` so its minter can still see it, and until now all they could do
+     * with it was revoke it or mint a second link to the same subject — which means the link
+     * already sitting in somebody's chat window stays broken, and the recipient has to be sent a
+     * new one. Renewing puts the original back to work, so "it expired, send it again" is a
+     * button rather than a conversation.
+     *
+     * SEVEN DAYS FROM NOW, not seven added to what was there: the row is finished, so there is no
+     * remainder to extend, and `now()` is the only honest start. Which is also why the request
+     * refuses a LIVE row — that direction is the extension the mint route's reuse rule exists to
+     * prevent (see RenewShareRequest, which carries the whole argument).
+     *
+     * A reader who already minted a replacement while this one was dead now holds two live links
+     * to the same subject. That is not a bug to guard: both were deliberate acts, and `store`
+     * above hands back whichever it finds first — one link revoked is one row deleted, and the
+     * other goes on working.
+     *
+     * A redirect back rather than JSON, like `destroy` below: the caller is on their list of
+     * links and expects to see the row move from the expired half to the live one.
+     */
+    public function renew(RenewShareRequest $request, Share $share): RedirectResponse
+    {
+        $share->update(['valid_until' => now()->addDays(Share::LIFETIME_DAYS)]);
+
+        return back()->with([
+            'message' => __('flash.share.renewed', ['days' => Share::LIFETIME_DAYS]),
+            'type' => 'success',
         ]);
     }
 

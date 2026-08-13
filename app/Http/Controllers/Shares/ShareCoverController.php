@@ -30,10 +30,11 @@ use Symfony\Component\HttpFoundation\Response;
  * the share and nothing else, so what it may serve is settled by which row it resolved.
  * ShareCoverRequest checks the clock and that is all there is to check.
  *
- * An ARTIST share has no cover from this route at all — MixTape stores no artist images —
- * and the page knows: SharePageController sends `coverUrl: null` and fans a few of the
- * artist's own sleeves instead, through the per-track route. So this 404s for that kind,
- * which nothing points an <img> at.
+ * TWO KINDS HAVE NO COVER FROM THIS ROUTE AT ALL: an ARTIST, because MixTape stores no artist
+ * images, and a PLAYLIST, because it is a list of other people's records rather than a record.
+ * The page knows — SharePageController sends `coverUrl: null` for both and fans a few of their
+ * own sleeves instead, through the per-track route — so this 404s for them, which nothing
+ * points an <img> at.
  */
 class ShareCoverController extends Controller
 {
@@ -51,7 +52,8 @@ class ShareCoverController extends Controller
         $path = match (ShareGrant::for($share)->subject()) {
             ShareSubject::Song => $this->covers->path($share->track),
             ShareSubject::Album => $this->covers->albumPath($share->collection),
-            // An artist (and a subject this app cannot resolve at all) has no single image.
+            // An artist, a playlist (and a subject this app cannot resolve at all) has no
+            // single image — see the class note.
             default => null,
         };
 

@@ -309,8 +309,9 @@ instance, written for someone else's server.
   analyser is wired directly with no toggle. Also records what no test can see (Playwright runs
   Chromium muted, so the bars never move in CI).
 - [`docs/sharing.md`](docs/sharing.md) — share links (designed 2026-08-10; **minting and the `/s/`
-  guest space both built 2026-08-11**): play one song / album / artist with **no account**, which
-  now works end to end. Why the plan moved off signed URLs onto a `shares` row (a signature is an
+  guest space both built 2026-08-11**, the owner's list and revoking 2026-08-12, pruning and
+  **playlist shares** 2026-08-13): play one song / album / artist / playlist with **no account**,
+  which now works end to end. Why the plan moved off signed URLs onto a `shares` row (a signature is an
   assertion, not a record, so nothing can revoke it), the four-FK subject and its CHECK, and the
   `/s/{share}` space whose containment is **structural** — a share cannot name a track outside its
   grant, so `/music` stays wholly behind `auth`. Records the two seams the code already had:
@@ -323,11 +324,26 @@ instance, written for someone else's server.
   written twice they drift, and the drift reads as a player stopping silently on one song out of
   ninety. **Anything new under `/s/` asks it rather than re-deriving the set.**
 
-  **What is still missing: the "My shares" dashboard subpage the modal already promises** (so
-  revoking means deleting the row by hand) and pruning. **No genre shares, ever** (a genre is a
-  shelf, not a thing somebody chose to send) and **no playlist shares yet** — both stated in
-  `App\Enums\ShareSubject`, which simply has no case for either, so neither can be minted by a
-  hand-written request.
+  **A PLAYLIST is the exception to both of those sentences** (built 2026-08-13). Its tracks are
+  `playlist_tracks` rows in the reader's own `position` order, so `ShareSubject::grant()` answers
+  **null** for it and `ShareGrant` joins the pivot — and `ShareGrant::entries()` must sort on that
+  position, because `QueuePayload::fromQuery`'s album-then-disc-then-track order would silently
+  rewrite a hand-made list. Nothing is snapshotted: the grant is resolved per request, so a shared
+  playlist follows its owner's edits on the guest's next reload (the owner's requirement) and a
+  removed track stops streaming at once. It is also the **only subject with an owner** — the mint
+  request narrows its `exists` rule by `user_id`, a 422 rather than a 403, so refusing does not
+  confirm the playlist exists.
+
+  **`/dashboard/shared` sends TWO lists** (2026-08-13) — `shares` and `expiredShares`, sorted in
+  opposite directions, with no `expired` flag on the row because the list it arrives in is that
+  answer. **The word "abgelaufen" on a dead row is a button**: `PATCH /shares/{share}/renew` gives
+  it another seven days, which is what makes the thirty-day grace period worth having (the same URL
+  a reader already sent starts working again). **A LIVE link cannot be renewed** — that would be the
+  extension `store`'s re-hand rule exists to prevent — and both refusals answer 404.
+
+  **No genre shares, ever** (a genre is a shelf, not a thing somebody chose to send) — stated in
+  `App\Enums\ShareSubject`, which simply has no case for one, so none can be minted by a
+  hand-written request. Audiobook shares stay blocked on the Audiobooks area existing.
 
   Two things about the guest page worth knowing before touching the player: it renders in
   **`ShareLayout`** (FullLayout minus the breadcrumb, minus persistence), and that second half is why

@@ -37,5 +37,10 @@ $shares: (
     "font-size": 0.9rem,
     // the row's revoke button
     "control-padding": 0.35rem,
-    "control-radius": map.get(s.$radius, "base")
+    "control-radius": map.get(s.$radius, "base"),
+    // air above and below each of the page's two blocks, so neither list runs straight into
+    // the heading over it or the one under it. The form wrapper's own inset, as a literal
+    // rather than read across from it: this page holds no form, and what it wants is the
+    // amount of air every /dashboard page has, not a dependency on the form column's rhythm.
+    "block-margin": 3rem
 ) !default;

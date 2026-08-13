@@ -23,9 +23,11 @@ use Tests\TestCase;
  *   - ONLY THE MINTER MAY, and somebody else's link answers 404 rather than 403. A 403 would
  *     confirm that the id names a real, live share belonging to another account, which on an
  *     instance shared between family and friends is a disclosure.
- *   - THE LIST IS THE READER'S OWN, and shows expired links too — they are still rows the
- *     reader made, still revocable, and a list that quietly shrank would read as links going
- *     missing.
+ *   - THE LIST IS THE READER'S OWN, and arrives as TWO of them (2026-08-13): the links that
+ *     still work, and the ones that have run out of days. Both halves are sent — a dead link is
+ *     still a row the reader made, still revocable, and a page that quietly dropped them would
+ *     read as links going missing — but which half a row is in is the server's answer to
+ *     "does this still work", so it is asserted here rather than left to a flag on the row.
  *
  * The `shares` shared prop that gates both entry points is asserted here as well, because it
  * is the same question ("has this reader shared anything?") asked from a different place, and
@@ -65,11 +67,16 @@ class RevokeShareTest extends TestCase
                 // root-relative path is not a link there. The same string the mint response
                 // hands back, so the two places a reader copies from cannot differ.
                 ->where('shares.0.url', $share->url())
-                ->where('shares.0.expired', false)
+                // A live link is in the live half and nowhere else. There is no `expired` flag
+                // on the row at all: the list a row arrives in IS that answer, and a second one
+                // beside it could only ever disagree — a dead row in the live half is a copy
+                // button that pastes a 404.
+                ->missing('shares.0.expired')
+                ->has('expiredShares', 0)
             );
     }
 
-    public function test_it_lists_expired_links_too_so_they_can_be_tidied_away(): void
+    public function test_it_lists_expired_links_in_their_own_half_so_they_can_be_tidied_away(): void
     {
         [$user, $share] = $this->shared();
         $share->update(['valid_until' => now()->subDay()]);
@@ -77,8 +84,34 @@ class RevokeShareTest extends TestCase
         $this->actingAs($user)
             ->get('/dashboard/shared')
             ->assertInertia(fn (AssertableInertia $page) => $page
-                ->has('shares', 1)
-                ->where('shares.0.expired', true)
+                // Out of the live half — what a reader wants at a glance is "what am I sharing
+                // right now" — but still on the page, under its own heading.
+                ->has('shares', 0)
+                ->has('expiredShares', 1)
+                ->where('expiredShares.0.id', $share->id)
+            );
+    }
+
+    public function test_each_half_is_ordered_by_what_a_reader_looks_for_in_it(): void
+    {
+        [$user] = $this->shared();
+        $album = Collection::query()->firstOrFail();
+
+        // `shared()` left one live link a week out; these three sit either side of it.
+        $soonest = Share::factory()->ofAlbum($album)->create(['user_id' => $user->id, 'valid_until' => now()->addHour()]);
+        $justDied = Share::factory()->ofAlbum($album)->expired()->create(['user_id' => $user->id]);
+        Share::factory()->ofAlbum($album)->create(['user_id' => $user->id, 'valid_until' => now()->subMonth()]);
+
+        $this->actingAs($user)
+            ->get('/dashboard/shared')
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                // Live: soonest to die first, because "which of these runs out next" is what a
+                // reader is looking for among links that still work.
+                ->where('shares.0.id', $soonest->id)
+                // Dead: most recently dead first, because the question there is the other way
+                // round — "where has the link I sent on Monday gone?".
+                ->where('expiredShares.0.id', $justDied->id)
+                ->has('expiredShares', 2)
             );
     }
 
@@ -89,7 +122,10 @@ class RevokeShareTest extends TestCase
 
         $this->actingAs($stranger)
             ->get('/dashboard/shared')
-            ->assertInertia(fn (AssertableInertia $page) => $page->has('shares', 0));
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->has('shares', 0)
+                ->has('expiredShares', 0)
+            );
 
         $this->assertModelExists($share);
     }

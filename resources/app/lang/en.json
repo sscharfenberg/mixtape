@@ -231,10 +231,13 @@
             "kind": {
                 "song": "Song",
                 "album": "Album",
-                "artist": "Artist"
+                "artist": "Artist",
+                "playlist": "Playlist"
             },
             "validUntil": "works until {date}",
             "expired": "expired",
+            "expiredHeadline": "Your expired links",
+            "expiredIntro": "These links no longer work. Click “expired” to switch one back on — the same link, for another seven days. 30 days after expiring they disappear on their own.",
             "empty": "You are not sharing anything right now.",
             "copy": {
                 "open": "Copy this link",
@@ -246,6 +249,13 @@
                 "header": "Revoke this link?",
                 "body": "Do you really want to revoke the link to “{name}”? Whoever has the link will not be able to use it any more.",
                 "confirm": "Revoke"
+            },
+            "renew": {
+                "open": "Switch it back on — another seven days",
+                "label": "Re-activate the link to “{name}”",
+                "header": "Re-activate this link?",
+                "body": "The link to “{name}” will work again — for seven days from now. It is the same link as before: anybody who still has it can listen again.",
+                "confirm": "Re-activate"
             }
         }
     },
@@ -448,6 +458,7 @@
         },
         "export": {
             "open": "Export playlist file",
+            "tooltip": "Downloads this playlist as an .m3u file — a list of the file paths in this order, to play in another player, on a phone or in the car. Optionally extended, with artist, title and length per entry.",
             "header": "Export playlist file",
             "intro": "An .m3u file to take with you — for another player, a phone or a car stereo. It holds the tracks in this order; it plays wherever the music files live.",
             "formatLabel": "File format",
@@ -468,6 +479,7 @@
         },
         "sort": {
             "open": "Sort playlist",
+            "tooltip": "Sorts the tracks by file path — by folder and file name, the way they sit on the disk. Puts an album back into its own order.",
             "done": "Playlist sorted by file path.",
             "already": "The playlist is already sorted by file path."
         },
@@ -505,6 +517,18 @@
     },
     "share": {
         "play": "Play",
+        "kind": {
+            "song": "Song",
+            "album": "Album",
+            "artist": "Artist",
+            "playlist": "Playlist"
+        },
+        "intro": {
+            "song": "Somebody sent you this {kind} as a listening link. You can play it right here — no account, no signing in.",
+            "album": "Somebody sent you this {kind} as a listening link. You can play it right here — no account, no signing in.",
+            "artist": "Somebody sent you this {kind} as a listening link. You can listen right here — no account, no signing in.",
+            "playlist": "Somebody sent you this {kind} as a listening link. You can play it right here — no account, no signing in."
+        },
         "expires": {
             "label": "Link works until",
             "description": "After that this link stops working. Just ask for a new one."

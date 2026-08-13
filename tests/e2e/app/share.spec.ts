@@ -44,6 +44,13 @@ const linkField = (page: Page) => page.locator(".share-modal__link");
  */
 const LIVE_SHARE = "019e0007-0000-7000-8000-000000000001";
 
+/**
+ * The seeded DEAD link this file re-activates (E2ESeeder → RENEWABLE_SHARE), a literal for the
+ * same reason. Deliberately not the other expired one: that is the fixture `guest/share.spec.ts`
+ * opens to see the "this link has expired" page.
+ */
+const RENEWABLE_SHARE = "019e0007-0000-7000-8000-000000000003";
+
 test.describe("sharing", () => {
     test("mints a link from the song's hero and copies it out of the field", async ({ page, context }) => {
         // Granted on the CONTEXT, because a clipboard read is a permission and Chromium
@@ -90,6 +97,96 @@ test.describe("sharing", () => {
         expect(await linkField(page).inputValue()).toBe(first);
     });
 
+    test("shares a playlist, and a guest gets it in the reader's own order", async ({ page, context }) => {
+        /*
+         * PLAYLIST SHARES (2026-08-13), end to end, and the assertion that needs the whole
+         * journey: a playlist's ORDER is its content, so the one way to be sure the share space
+         * did not re-sort it into album order is to read the owner's list and the guest's queue
+         * and compare them. ShowShareTest pins the same rule server-side with a fixture built to
+         * make the two orders disagree; this walks the path a reader actually takes.
+         *
+         * `Roadtrip` is the fixture's populated playlist and no spec mutates it (the reorder
+         * tests use `Umsortieren`), so minting a link from it disturbs nothing. Minting does not
+         * touch the playlist itself either way — the row it writes belongs to `shares`.
+         */
+        await page.goto("/playlists");
+        await page.locator("li.playlist", { hasText: "Roadtrip" }).locator("a.playlist__link").click();
+        await expect(page.locator(".hero-section")).toBeVisible();
+
+        const owner = (await page.locator(".playlist-tracks__name").allTextContents()).map(text => text.trim());
+        expect(owner.length).toBeGreaterThan(1);
+
+        // The same button an album's hero wears, with the same modal behind it.
+        await page.locator(".share-button").click();
+        await expect(linkField(page)).toBeVisible();
+        const id = (await linkField(page).inputValue()).split("/s/")[1]!;
+
+        // A context with NO session, which is the whole feature — and the only honest way to
+        // ask it, since this browser is signed in as the playlist's owner.
+        const guest = await context.browser()!.newContext({ storageState: undefined });
+        const guestPage = await guest.newPage();
+        await guestPage.goto(`/s/${id}`);
+
+        await expect(guestPage.getByRole("heading", { level: 2, name: "Roadtrip" })).toBeVisible();
+        // The queue IS the page here (the share page draws NowPlayingSection), so these rows are
+        // what the link plays, in the order it will play them.
+        await expect(guestPage.locator(".np-queue .play-queue__row")).toHaveCount(owner.length);
+        const heard = (await guestPage.locator(".np-queue .play-queue__name").allTextContents()).map(text =>
+            text.trim()
+        );
+        expect(heard).toStrictEqual(owner);
+
+        // A playlist is not a record, so the hero fans its sleeves rather than claiming one
+        // cover — the same shape the owner's own page draws.
+        await expect(guestPage.locator(".cover-sleeves")).toBeVisible();
+
+        await guest.close();
+    });
+
+    test("re-activates an expired link from the word that says it expired", async ({ page, context }) => {
+        /*
+         * WHAT MAKES THE THIRTY-DAY GRACE PERIOD MEAN SOMETHING (the owner, 2026-08-13), walked
+         * the way a reader walks it: find the dead row, press the word "abgelaufen", confirm, and
+         * watch it come back up into the live list — with its copy button, which a dead row has
+         * none of.
+         *
+         * THE FIXTURE IS ITS OWN (E2ESeeder::RENEWABLE_SHARE, an album). The other dead seeded
+         * link is what `guest/share.spec.ts` opens to see the "expired" page, and renewing that
+         * one would break a spec in another project from a file that never names it.
+         *
+         * The guest visit at the end is the assertion no other layer can make: RenewShareTest
+         * proves the row goes live, but only a browser with NO session proves the URL that was
+         * already handed out plays again for the person holding it.
+         */
+        const album = "The Bends";
+
+        await page.goto("/dashboard/shared");
+        const dead = page.locator(".shares--expired .shares__row", { hasText: album });
+        await expect(dead).toHaveCount(1);
+        // Nothing to copy while it is dead — pasting a 404 into a chat window is worse than
+        // having no button.
+        await expect(dead.locator(".shares__copy")).toHaveCount(0);
+
+        await dead.locator(".shares__renew").click();
+        await expect(page.locator("dialog.modal-dialog")).toBeVisible();
+        await page.getByRole("button", { name: /^Wieder aktivieren$/u }).click();
+
+        // Up into the live half, copyable again…
+        const live = page.locator(".shares--active .shares__row", { hasText: album });
+        await expect(live).toHaveCount(1);
+        await expect(live.locator(".shares__copy")).toHaveCount(1);
+        await expect(page.locator(".shares--expired .shares__row", { hasText: album })).toHaveCount(0);
+
+        // …and working for whoever was already holding the link.
+        const guest = await context.browser()!.newContext({ storageState: undefined });
+        const guestPage = await guest.newPage();
+        await guestPage.goto(`/s/${RENEWABLE_SHARE}`);
+
+        await expect(guestPage.getByRole("heading", { level: 2, name: album })).toBeVisible();
+        await expect(guestPage.locator(".np-queue .play-queue__row").first()).toBeVisible();
+        await guest.close();
+    });
+
     test("offers no share button on a genre", async ({ page }) => {
         // The owner's call (2026-08-11): "listen to this genre" is a different kind of act.
         // The two verbs beside it are still there, so this is an absence and not a broken row.
@@ -122,16 +219,22 @@ test.describe("sharing", () => {
 
         // The row is found by the ALBUM's name, not by position: this account holds the two
         // seeded links as well, and the point of a per-row button is revoking the right one.
+        // In the LIVE half specifically — the page splits the two since 2026-08-13, and a link
+        // minted a second ago belongs on top.
         await page.goto("/dashboard/shared");
-        const row = page.locator(".shares__row", { hasText: album });
+        const row = page.locator(".shares--active .shares__row", { hasText: album });
         await expect(row).toHaveCount(1);
 
         await row.locator(".shares__revoke").click();
         await expect(page.locator("dialog.modal-dialog")).toBeVisible();
         await page.getByRole("button", { name: /^Zurückziehen$/u }).click();
 
-        // Gone from the list…
+        // Gone from the list — and NOT moved into the expired half below it. Revoking deletes
+        // the row (the owner's call, 2026-08-13), so the link leaves the page rather than
+        // joining the links that ran out of days; that half is about the calendar, not about a
+        // decision its owner made.
         await expect(row).toHaveCount(0);
+        await expect(page.locator(".shares--expired .shares__row", { hasText: album })).toHaveCount(0);
 
         // …and gone for EVERYBODY, which is the assertion worth the browser. A fresh context
         // with no session is the only honest way to ask it — the same 404 a typo gets, because

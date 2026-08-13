@@ -36,6 +36,7 @@ import { useI18n } from "vue-i18n";
 import Button from "Components/Form/Button.vue";
 import CoverSleeves from "Components/Music/CoverSleeves.vue";
 import PlayCountFacts from "Components/Music/PlayCountFacts.vue";
+import ShareButton from "Components/Music/ShareButton.vue";
 import SubjectActions from "Components/Music/SubjectActions.vue";
 import ActionPanel from "Components/UI/ActionPanel.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
@@ -223,17 +224,48 @@ function sort(): void {
                     <action-panel>
                         <subject-actions :tracks="tracks" />
                     </action-panel>
-                    <Button variant="default" no-halo type="button" @click="exporting = true">
+                    <!-- BOTH LOWER BUTTONS CARRY A TOOLTIP (the owner's call, 2026-08-13),
+                         because both labels name a verb whose meaning is a decision the reader
+                         cannot see: "export" says nothing about .m3u, about which of the two
+                         shapes it can write, or about the device it is for, and "sort" does not
+                         say by WHAT — and sorting a hand-made list by the wrong key is the one
+                         action on this page that silently discards something the reader
+                         arranged. The directive rather than the Tooltip wrapper, since neither
+                         button ever disables itself; a disabled control emits no mouse events
+                         and its hint would simply never appear (WidgetFooter documents that
+                         trap). -->
+                    <Button
+                        variant="default"
+                        no-halo
+                        type="button"
+                        v-tooltip="t('playlists.export.tooltip')"
+                        @click="exporting = true"
+                    >
                         <icon name="file_export" :size="1" />
                         <span>{{ t("playlists.export.open") }}</span>
                     </Button>
                     <!-- No spinner and no disabled state: the sort happens in this click — see
                          `sort()`. A button that cannot be pressed twice would be describing a
                          wait that does not exist. -->
-                    <Button variant="default" no-halo type="button" @click="sort">
+                    <Button
+                        variant="default"
+                        no-halo
+                        type="button"
+                        v-tooltip="t('playlists.sort.tooltip')"
+                        @click="sort"
+                    >
                         <icon name="sort" :size="1" />
                         <span>{{ t("playlists.sort.open") }}</span>
                     </Button>
+                    <!-- SHARE IT, exactly as an album or an artist is shared (the owner's call,
+                         2026-08-13) — the same button, the same modal, the same `/s/` link. It
+                         belongs in this lower row rather than in the panel above for the reason
+                         the Music heroes put it there: the panel holds what a reader came to do
+                         with the music, and these three take the playlist somewhere else.
+                         Offered unconditionally here because a reader can only ever open their
+                         OWN playlist (ShowPlaylistRequest 404s on anybody else's), which is the
+                         same account the server checks the share against. -->
+                    <share-button subject="playlist" :subject-id="playlist.id" />
                 </template>
             </hero-section>
 

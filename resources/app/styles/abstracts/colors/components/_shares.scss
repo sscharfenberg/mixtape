@@ -7,19 +7,22 @@
  * contextual partial consumes globals, never another partial's tokens). A row here is a
  * thing in a list with one control on it, which is what those are too.
  *
- * NO HOVER FILL AND NO HALO, unlike every other row in this app, and that is the difference
- * worth stating: those rows are pressable along their whole width — they play something —
- * and light up to say so. This one is not. The only thing that can be pressed is the revoke
- * button, so it is the only thing that responds, and a row that lit up under the pointer
- * would be promising a click that does nothing.
+ * NO HOVER FILL AND NO HALO ON THE ROW, unlike every other row in this app, and that is the
+ * difference worth stating: those rows are pressable along their whole width — they play
+ * something — and light up to say so. This one is not. What can be pressed are the two or
+ * three CONTROLS on it, so they are the only things that respond, and a row that lit up under
+ * the pointer would be promising a click that does nothing.
  *
- * AN EXPIRED ROW DROPS ITS INK rather than being greyed wholesale, because the revoke button
- * has to keep its contrast: tidying up is exactly what a reader comes to a dead row to do.
+ * AN EXPIRED ROW DROPS ITS INK rather than being greyed wholesale, because its controls have
+ * to keep their contrast: tidying up — or switching the link back on — is exactly what a
+ * reader comes to a dead row to do.
  *
- * The revoke control is QUIET AT REST and comes up to the app's control neon when aimed at —
- * the same rule the queue's and the playlist's per-row buttons follow. It matters more here
- * than anywhere: a column of delete glyphs at full contrast reads as a list of warnings
- * rather than as a list of links somebody chose to send.
+ * EVERY CONTROL ON THE ROW WEARS `control-background` AT REST and comes up to
+ * `*-active` when aimed at (the owner's call, 2026-08-13, extending what the revoke button
+ * alone did the day before). The INK is quiet either way at rest — a column of delete glyphs
+ * at full contrast reads as a list of warnings rather than as a list of links somebody chose
+ * to send — but the surfaces are uniform, because three controls in three weights read as
+ * three kinds of thing and leave a reader working out which is which.
  * Consumed as c.$c-shares via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
@@ -44,16 +47,18 @@ $shares: (
     // on and no more, which is the neighbour card's rule and for the same reason: the row is
     // already a panel on the page, so a pip that contrasted hard would read as a third layer.
     "chip": light-dark(map.get(c.$grey, "mystic"), map.get(c.$grey, "ebony")),
-    // the revoke button: quiet INK at rest, neon when aimed at — but it keeps a fill of its
-    // own throughout (below), which the app's other per-row controls do not.
+    // the row's controls — copy, revoke, and the "abgelaufen" button on a dead row: quiet INK
+    // at rest, neon when aimed at, and all three keeping a fill of their own throughout
+    // (below), which the app's other per-row controls do not.
     "control": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
     "control-active": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
-    // A REAL FILL AT REST, which is where this parts company with the queue's and the
-    // playlist's per-row buttons (the owner's call, 2026-08-12). Those sit among several
-    // controls and stay quiet so the list reads as a list; this is the ONLY control on the
-    // row, and it is the one control in the app whose consequence lands in somebody else's
-    // hands. A target that announces itself is one you hit on purpose — and, being a button
-    // rather than a glyph, one you do not press by accident.
+    // A REAL FILL AT REST, which is where this row parts company with the queue's and the
+    // playlist's per-row buttons (the owner's call, 2026-08-12; extended to every control on
+    // the row 2026-08-13). Those sit among several controls and stay quiet so the list reads as
+    // a list; these belong to a row whose loudest act — revoking — is the one control in the
+    // app whose consequence lands in somebody else's hands. A target that announces itself is
+    // one you hit on purpose — and, being a button rather than a glyph, one you do not press by
+    // accident.
     "control-background": light-dark(
             color.adjust(map.get(c.$grey, "iron"), $alpha: -0.45),
             color.adjust(map.get(c.$grey, "black"), $alpha: -0.2)
