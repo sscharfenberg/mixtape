@@ -46,6 +46,7 @@ class MusicPageTest extends TestCase
                 // the stats widget's collection totals.
                 ->has('stats', fn (Assert $stats) => $stats->hasAll([
                     'songs', 'sizeBytes', 'playtimeSeconds', 'albums', 'artists', 'genres',
+                    'firstYear', 'lastYear',
                 ]))
             );
     }
@@ -391,6 +392,43 @@ class MusicPageTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->where('songs.popular.0.id', $loved->id)
                 ->where('songs.popular.0.plays', 1)
+            );
+    }
+
+    /**
+     * The card's year RANGE, and the two things about it that are not a count.
+     *
+     * It is one fact drawn from two aggregates, and both are nullable: SQL's MIN/MAX skip rows with
+     * no year, so a library of untagged albums has no range at all and the client drops the tile
+     * rather than drawing a dash between two blanks.
+     */
+    public function test_the_stats_carry_the_oldest_and_newest_album_year(): void
+    {
+        Collection::factory()->create(['year' => 1994]);
+        Collection::factory()->create(['year' => 2024]);
+        Collection::factory()->create(['year' => 1965]);
+        // Untagged, and an audiobook of its own — neither belongs in a MUSIC card's range.
+        Collection::factory()->create(['year' => null]);
+        Collection::factory()->audiobook()->create(['year' => 1901]);
+
+        $this->actingAs(User::factory()->create())
+            ->get('/music')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('stats.firstYear', 1965)
+                ->where('stats.lastYear', 2024)
+            );
+    }
+
+    /** No year anywhere is null rather than zero — the tile then draws nothing at all. */
+    public function test_a_library_with_no_album_years_reports_no_range(): void
+    {
+        Collection::factory()->create(['year' => null]);
+
+        $this->actingAs(User::factory()->create())
+            ->get('/music')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('stats.firstYear', null)
+                ->where('stats.lastYear', null)
             );
     }
 }

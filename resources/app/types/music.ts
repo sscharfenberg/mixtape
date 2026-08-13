@@ -200,4 +200,15 @@ export interface CollectionStats {
     artists: number;
     /** Number of genres with at least one track. */
     genres: number;
+    /**
+     * The oldest year any album carries, or null when none of them is tagged with one — the card
+     * draws the pair as a range ("1965–2024") and skips the tile entirely when it is null.
+     *
+     * Two numbers rather than a formatted range, per the app's raw-values rule; and note a year is
+     * NOT locale-formatted like the counts beside it, since "1.994" is a thousand-separated quantity
+     * rather than a year.
+     */
+    firstYear: number | null;
+    /** The newest year any album carries, or null on the same condition as {@link firstYear}. */
+    lastYear: number | null;
 }

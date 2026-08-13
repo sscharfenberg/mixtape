@@ -42,10 +42,17 @@ Thumbs.db
 # authentication cookie for the seeded account — harmless against a throwaway sqlite,
 # but a credential-shaped file has no business in a public repo. The database is the
 # seeded throwaway itself, truncated at the start of each run.
+#
+# The GLOB covers sqlite's `-wal` and `-shm` sidecars, and the reason they are ignored
+# rather than cleaned up is that they must NOT be cleaned up: the run deliberately leaves
+# its database behind (the state a failure happened in is worth more than a tidy working
+# directory — see globalTeardown), and uncheckpointed writes live in the write-ahead log,
+# so deleting it would throw away the tail of exactly the run somebody wants to open. The
+# next run removes all three before it migrates (resetDatabase in tests/e2e/support).
 /playwright-report
 /test-results
 /tests/e2e/.auth
-/storage/e2e.sqlite
+/storage/e2e.sqlite*
 # The playable media the run generates: a copy of the committed one-second mp3 fixture
 # at every path E2ESeeder claims, so the player specs stream real audio through the real
 # stream route. Rewritten on every run (see seedMediaFiles in tests/e2e/support).

@@ -284,6 +284,7 @@
                 "songs": "Songs",
                 "size": "Dateigröße",
                 "playtime": "Spielzeit",
+                "years": "Jahre",
                 "albums": "Alben",
                 "artists": "Künstler",
                 "genres": "Genres"
@@ -292,6 +293,7 @@
                 "songs": "Anzahl der Musikdateien in der Sammlung",
                 "size": "Gesamtgröße aller Musikdateien auf der Festplatte",
                 "playtime": "Gesamtdauer aller Musikdateien",
+                "years": "Von der ältesten bis zur jüngsten Jahresangabe deiner Alben — Alben ohne Jahr zählen nicht mit",
                 "albums": "Anzahl der Musikalben",
                 "artists": "Anzahl der Künstler mit mindestens einem Titel",
                 "genres": "Anzahl der Genres mit mindestens einem Titel"

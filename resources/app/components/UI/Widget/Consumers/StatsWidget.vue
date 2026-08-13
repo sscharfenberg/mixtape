@@ -69,16 +69,33 @@ const { query, scope, groups, loading, failed, active, tooShort, listboxId, acti
 const anchorName = "--all-music-search";
 
 /** One stat tile — a glyph, a label, the formatted value, and a tooltip explaining the calculation. */
-type StatTile = { key: string; icon: string; value: string; label: string; hint: string };
+type StatTile = {
+    key: string;
+    icon: string;
+    value: string;
+    label: string;
+    hint: string;
+    /**
+     * Span the grid's whole row instead of one track, for a value that is a PHRASE rather than a
+     * number. Only playtime is; the cell's own style rule carries the measurements.
+     */
+    wide?: boolean;
+};
 
 /**
- * The five compact count/size tiles that fill the auto-fit grid (formatted via Utils/formatting).
+ * The six tiles that fill the auto-fit grid (formatted via Utils/formatting).
  *
  * The glyphs are the ones the music widgets' pips already use for the same facts, so a reader meets
- * one meaning per icon across the page: `song`, `album`, `artist`, `genre`, and `file` for the one
- * fact that is about bytes rather than about music.
+ * one meaning per icon across the page: `song`, `album`, `artist`, `genre`, `duration`, and `file`
+ * for the one fact that is about bytes rather than about music.
+ *
+ * PLAYTIME IS ONE OF THEM NOW, styled like the rest (the owner's call, 2026-08-13). It was a
+ * full-width row of its own below the grid, because its value is a PHRASE rather than a number —
+ * "6 Stunden, 38 Minuten, 3 Sekunden", which is what that tile is for: a library's playing time runs
+ * to months, so a clock (`4761:23:11`) would be a worse answer than a long one. As a plain cell the
+ * card is one set of tiles rather than a set plus an exception.
  */
-const compactTiles = computed<StatTile[]>(() => [
+const tiles = computed<StatTile[]>(() => [
     {
         key: "songs",
         icon: "song",
@@ -113,21 +130,48 @@ const compactTiles = computed<StatTile[]>(() => [
         value: formatDecimals(props.genres, locale.value),
         label: t("music.stats.label.genres"),
         hint: t("music.stats.hint.genres")
+    },
+    // Only where there is a range to show — see `yearRange`. Spread rather than a `v-if` in the
+    // template, so the list stays the one description of what the card holds.
+    ...(yearRange.value === null
+        ? []
+        : [{
+            key: "years",
+            icon: "calendar",
+            value: yearRange.value,
+            label: t("music.stats.label.years"),
+            hint: t("music.stats.hint.years")
+        }]),
+    {
+        key: "playtime",
+        icon: "duration",
+        // i18n injected into the formatter: each unit resolves to a pluralised label from the shared
+        // `common.duration.*` keys. Months are a flat 30 days (a duration has no calendar), so the
+        // parts always sum back to the exact total.
+        value: formatDuration(props.playtimeSeconds, (key, count) => t(`common.duration.${key}`, count)),
+        label: t("music.stats.label.playtime"),
+        hint: t("music.stats.hint.playtime"),
+        wide: true
     }
 ]);
 
 /**
- * The playtime tile — its own full-width row, since the breakdown is a long phrase. i18n is
- * injected into formatDuration: each unit resolves to a pluralised label from the shared
- * `common.duration.*` keys.
+ * The album years as one range — "1965–2024", or a single year for a collection that spans none.
+ *
+ * Null when no album carries a year at all, which drops the tile: a range with a dash and nothing
+ * either side is worse than one fewer fact. An EN DASH without spaces, the typographic form for a
+ * span of years in both catalogues.
+ *
+ * NOT `formatDecimals`, unlike every count on this card, and that is the one thing to be careful of
+ * here: a year is not a quantity, so a German locale would render 1994 as "1.994". The album and song
+ * widgets print theirs with `String()` for the same reason.
  */
-const playtimeTile = computed<StatTile>(() => ({
-    key: "playtime",
-    icon: "duration",
-    value: formatDuration(props.playtimeSeconds, (key, count) => t(`common.duration.${key}`, count)),
-    label: t("music.stats.label.playtime"),
-    hint: t("music.stats.hint.playtime")
-}));
+const yearRange = computed<string | null>(() => {
+    const { firstYear, lastYear } = props;
+    if (firstYear === null || lastYear === null) return null;
+
+    return firstYear === lastYear ? String(firstYear) : `${firstYear}–${lastYear}`;
+});
 
 /** The results panel, so its popover state can be driven from the query. */
 const panel = useTemplateRef<HTMLElement>("panel");
@@ -174,7 +218,13 @@ watch(
             </div>
 
             <div class="widget-stats__grid">
-                <tooltip v-for="tile in compactTiles" :key="tile.key" :text="tile.hint" class="widget-stats__cell">
+                <tooltip
+                    v-for="tile in tiles"
+                    :key="tile.key"
+                    :text="tile.hint"
+                    class="widget-stats__cell"
+                    :class="{ 'widget-stats__cell--wide': tile.wide }"
+                >
                     <span class="widget-stats__head">
                         <icon :name="tile.icon" :size="1" />
                         <span class="widget-stats__label">{{ tile.label }}</span>
@@ -182,13 +232,6 @@ watch(
                     <span class="widget-stats__value">{{ tile.value }}</span>
                 </tooltip>
             </div>
-            <tooltip :text="playtimeTile.hint" class="widget-stats__cell widget-stats__cell--wide">
-                <span class="widget-stats__head">
-                    <icon :name="playtimeTile.icon" :size="1" />
-                    <span class="widget-stats__label">{{ playtimeTile.label }}</span>
-                </span>
-                <span class="widget-stats__value">{{ playtimeTile.value }}</span>
-            </tooltip>
         </div>
 
         <!-- `v-if` as well as the popover state, so an unsearched page carries no panel at all;
@@ -238,14 +281,25 @@ watch(
     anchor-name: v-bind(anchorName);
 }
 
-/* As many ~7rem tiles as fit, stretched to fill — and `flex: 1` so the row of them grows into the
-   card's spare height rather than leaving it blank. `grid-auto-rows: 1fr` shares that height
-   evenly when the tiles wrap onto two rows on a narrow card. */
-.widget-stats__grid {
-    display: grid;
+/* WRAPPING FLEX LINES, NOT A TRACK GRID, and the difference is the whole of "no whitespace".
 
-    grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
-    grid-auto-rows: 1fr;
+   It was `grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr))`, which decides a track COUNT
+   from the width and then leaves any track the tiles do not reach standing empty — measured at
+   1280px: six tracks for five number tiles, so every row ended 132px short. And no tile count fixes
+   that, because the count that divides evenly changes with the width: a sixth tile squares 1280px
+   and leaves 1100px with a row holding one tile and four empty tracks.
+
+   Flex lines have no tracks to leave empty. Each tile is `flex: 1 1 7rem`, so it wraps at about the
+   same width as before and then GROWS to fill whatever line it lands on — five across, or three and
+   two, always flush to both edges. The cost is that tiles on different lines can differ in width,
+   which for six independent facts reads as fine and never as ragged.
+
+   `flex: 1` on the container is what hands the card's spare height to the tiles; `align-content`
+   defaults to `stretch` for a wrapping flex container, so that height is shared between the lines
+   rather than pooling under the last one. */
+.widget-stats__grid {
+    display: flex;
+    flex-wrap: wrap;
 
     flex: 1;
 
@@ -263,6 +317,12 @@ watch(
     justify-content: center;
     flex-direction: column;
 
+    min-width: 0;
+
+    /* Grow to fill the line, wrap at about 7rem, and `min-width: 0` so a long value ("724,22 MB")
+       shrinks rather than widening its basis and pushing a sibling onto the next line. */
+    flex: 1 1 7rem;
+
     padding: map.get(s.$c-widget, "cell-padding");
     gap: 0.15rem;
 
@@ -270,6 +330,20 @@ watch(
     border-radius: map.get(s.$c-widget, "cell-radius");
 
     text-align: start;
+
+    /* THE WHOLE REMAINING ROW FOR A PHRASE, at the same size as every other tile (the owner: "same
+       styling and all", then "make it grow so there is no whitespace").
+
+       The measurements, at 1280px where the grid gives ~146px tracks. In ONE track the thirty-character
+       value wrapped to six lines and made its tile 305px tall — "Sekunden" alone is wider than one.
+       Sharing a line with two others it was two lines with dead space beside it. On a line of its own
+       it is one line, full width, and nothing is empty anywhere.
+
+       `flex-basis: 100%` rather than a span count, so it does not have to know how many tiles shared
+       the line above it — and so another stat tile can be added without touching this. */
+    &--wide {
+        flex-basis: 100%;
+    }
 }
 
 /* The glyph and the label on one line above the number, which is what the icons bought: the label
@@ -290,11 +364,6 @@ watch(
     font-size: 1.8rem;
     font-weight: 700;
     line-height: 1.1;
-
-    // the wide playtime value is a long phrase — dial it down so it doesn't shout.
-    .widget-stats__cell--wide & {
-        font-size: 1.2rem;
-    }
 }
 
 /* Bigger than it was (0.8rem), because the tiles now have the room and a label nobody can read is

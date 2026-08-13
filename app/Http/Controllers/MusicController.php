@@ -65,11 +65,24 @@ class MusicController extends Controller
      * (seconds → months/days/…). `size`/`duration` are cast so a null SUM on an
      * empty library becomes 0 rather than null.
      *
-     * @return array{songs: int, sizeBytes: int, playtimeSeconds: float, albums: int, artists: int, genres: int}
+     * `firstYear` / `lastYear` are the OLDEST and NEWEST year any album carries, which the card draws
+     * as one range ("1965–2024"). Two nullable columns rather than a composed string, because the
+     * client formats — and a year is not a quantity, so it prints unseparated where every count on
+     * this card gets its locale's separators. Both are null for a library whose albums are all
+     * untagged (SQL's MIN/MAX skip nulls), and the tile then draws nothing at all rather than a dash.
+     *
+     * @return array{songs: int, sizeBytes: int, playtimeSeconds: float, albums: int, artists: int, genres: int, firstYear: int|null, lastYear: int|null}
      */
     private function stats(): array
     {
         $music = fn () => Track::query()->where('type', TrackType::Music);
+        // One row, two aggregates, one pass — the alternative is two queries for one tile. Scoped to
+        // albums like every other number here: `collections` holds audiobooks too, and their year has
+        // no business in a music card's range.
+        $years = Collection::query()
+            ->where('type', CollectionType::Album)
+            ->selectRaw('min(year) as first_year, max(year) as last_year')
+            ->first();
 
         return [
             'songs' => $music()->count(),
@@ -78,6 +91,8 @@ class MusicController extends Controller
             'albums' => Collection::query()->where('type', CollectionType::Album)->count(),
             'artists' => Artist::query()->has('tracks')->count(),
             'genres' => Genre::query()->has('tracks')->count(),
+            'firstYear' => $years?->first_year === null ? null : (int) $years->first_year,
+            'lastYear' => $years?->last_year === null ? null : (int) $years->last_year,
         ];
     }
 
