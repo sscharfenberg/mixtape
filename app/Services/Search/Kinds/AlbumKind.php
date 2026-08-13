@@ -8,6 +8,7 @@ use App\Enums\CollectionType;
 use App\Enums\SearchKind;
 use App\Models\Collection;
 use App\Models\User;
+use App\Services\DataTableService;
 use App\Services\Search\SearchHit;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -37,7 +38,9 @@ final class AlbumKind extends DatabaseKind
         return Collection::query()
             ->where('collections.type', CollectionType::Album)
             ->leftJoin('artists', 'collections.album_artist_id', '=', 'artists.id')
-            ->select(['collections.id', 'collections.name', 'artists.name as artist_name']);
+            ->select(['collections.id', 'collections.name', 'artists.name as artist_name'])
+            // How many tracks it holds — the album's own, so a compilation counts what is on it.
+            ->withCount('tracks');
     }
 
     /** @return list<string> */
@@ -62,12 +65,28 @@ final class AlbumKind extends DatabaseKind
             id: $row->id,
             name: $row->name,
             href: route('music.albums.show', $row->id, absolute: false),
-            text: $row->artist_name,
+            facts: [
+                'artist' => $row->artist_name,
+                'songs' => (int) $row->tracks_count,
+            ],
         );
     }
 
+    /**
+     * The listing, narrowed to the same reading THIS group used.
+     *
+     * `searchIn=name` is what makes the hand-off honest: the group counts rows matching their own
+     * name, and the listing's default search is wider — so without the mode "show all 70" landed on
+     * a table of 2,000+ and the two numbers contradicted each other in front of the reader (the
+     * owner's report, 2026-08-13). See DataTableService::SEARCH_IN_NAME for the whole argument, and
+     * note that the listing keeps the mode while the reader sorts, pages and re-types, with its
+     * toolbar offering the way back out to the wide search.
+     */
     protected function seeAll(string $query): ?string
     {
-        return route('music.albums', ['search' => $query], absolute: false);
+        return route('music.albums', [
+            'search' => $query,
+            'searchIn' => DataTableService::SEARCH_IN_NAME,
+        ], absolute: false);
     }
 }

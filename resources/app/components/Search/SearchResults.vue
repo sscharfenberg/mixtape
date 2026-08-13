@@ -12,6 +12,19 @@
  * been compared to anything else. A component that re-ordered would be the second opinion the
  * design exists to avoid.
  *
+ * EACH GROUP OPENS WITH A FULL-BLEED STRIP — its kind's glyph, the kind, and the total as a pill —
+ * because the first draft separated groups with nothing but small grey capitals and read, in the
+ * owner's words, as a grey mess. The strip runs edge to edge rather than sitting inside the panel's
+ * padding: an inset band reads as a block of content, a full-width one reads as a divider, and the
+ * whole job here is dividing. Its palette is the widget title's, with one measured deviation for
+ * dark mode — `c.$c-search` → `heading-background` carries the numbers.
+ *
+ * A ROW'S TWO FACTS ARE PIPS, the shape the music widgets' cards already use (WidgetList): an icon
+ * and a value, never a written label, because five rows × two facts of "Alben: 12" is a wall of
+ * repeated words in a list meant to be scanned. The label survives in the tooltip, which is also
+ * what stops the glyph carrying the meaning alone. WHICH two facts, and which glyph stands for
+ * each, is this component's decision — the server sends a bag of raw values and nothing else.
+ *
  * FIVE STATES, AND THE ORDER THEY ARE TESTED IN IS THE DESIGN. Too short comes before everything
  * — a reader who has typed two letters has not searched yet, and telling them "nothing found"
  * would be a lie about their library. Then a failure, then rows if there are any, then the
@@ -34,9 +47,10 @@ import { Link } from "@inertiajs/vue3";
 import { computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "Components/UI/Icon.vue";
+import LabelledLink from "Components/UI/LabelledLink.vue";
 import { SEARCH_MIN_LENGTH, searchOptionKey, searchSeeAllKey } from "Composables/useLibrarySearch";
-import type { SearchGroup, SearchKind, SearchRow } from "Types/search";
-import { formatDecimals } from "Utils/formatting";
+import type { SearchFactKey, SearchGroup, SearchKind, SearchRow } from "Types/search";
+import { formatClock, formatDecimals } from "Utils/formatting";
 
 const props = defineProps<{
     /** The groups to draw, in the server's order. */
@@ -60,8 +74,86 @@ const emit = defineEmits<{
 
 const { t, locale } = useI18n();
 
-/** Whether there is anything to draw at all — what decides between the list and a message. */
+/** How a fact is drawn: which glyph stands for it, and how its raw value becomes a string. */
+type FactSpec = {
+    /** Sprite icon — the pip's whole visible label. */
+    icon: string;
+    /** What the fact IS, spelled out for the tooltip so the glyph never carries the meaning alone. */
+    label: string;
+    /** Raw → display. Counts pick up the locale's separators; seconds become a clock. */
+    format: (value: number | string) => string;
+};
+
+/** The glyph that stands for each kind, on its heading strip. */
+const KIND_ICONS: Record<SearchKind, string> = {
+    artist: "artist",
+    album: "album",
+    playlist: "playlist",
+    song: "song",
+    genre: "genre"
+};
+
+/**
+ * WHICH FACTS EACH KIND SHOWS, in the order they are drawn (the owner's set, 2026-08-13):
+ *
+ *   artist → albums, total runtime      album → artist, tracks
+ *   song   → artist, runtime            genre → artists, songs
+ *   playlist → tracks, total runtime
+ *
+ * The order lives here rather than in the server's payload because it is a layout decision, and
+ * because a JSON object's key order is a poor thing to depend on. A key the server did not send —
+ * or sent as null — simply draws no pip.
+ */
+const KIND_FACTS: Record<SearchKind, SearchFactKey[]> = {
+    artist: ["albums", "duration"],
+    album: ["artist", "songs"],
+    playlist: ["tracks", "duration"],
+    song: ["artist", "duration"],
+    genre: ["artists", "songs"]
+};
+
+/**
+ * Whether there is anything to draw at all — what decides between the list and a message.
+ */
 const hasRows = computed(() => props.groups.length > 0);
+
+/**
+ * How to draw one fact. Counts are locale-formatted, runtimes are clocked, a credit prints as it
+ * stands — and the labels are the ones the music widgets already use for the same facts, so a
+ * reader meeting "12 albums" here and on a card is told it the same way.
+ */
+function factSpec(key: SearchFactKey): FactSpec {
+    const count = (value: number | string): string => formatDecimals(Number(value), locale.value);
+    const clock = (value: number | string): string => formatClock(Number(value)) ?? "";
+
+    switch (key) {
+        case "albums":
+            return { icon: "album", label: t("music.pips.albumCount"), format: count };
+        case "artists":
+            return { icon: "artist", label: t("music.pips.artistCount"), format: count };
+        case "songs":
+            return { icon: "song", label: t("music.pips.songCount"), format: count };
+        case "tracks":
+            return { icon: "track", label: t("playlists.facts.tracks"), format: count };
+        case "duration":
+            return { icon: "duration", label: t("music.pips.totalDuration"), format: clock };
+        case "artist":
+        default:
+            return { icon: "artist", label: t("music.columns.artist"), format: String };
+    }
+}
+
+/** One row's pips, in this kind's order, with the facts it does not have left out. */
+function pipsFor(kind: SearchKind, row: SearchRow): Array<{ key: string; icon: string; label: string; value: string }> {
+    return KIND_FACTS[kind].flatMap(key => {
+        const value = row.facts[key];
+        if (value === undefined || value === null || value === "") return [];
+
+        const spec = factSpec(key);
+
+        return [{ key, icon: spec.icon, label: spec.label, value: spec.format(value) }];
+    });
+}
 
 /**
  * The `id` one row's option carries.
@@ -78,20 +170,6 @@ function optionId(kind: SearchKind, id: string): string {
 /** The `id` of a group's hand-off, which is a walkable option like any row. */
 function seeAllId(kind: SearchKind): string {
     return `${props.listboxId}-${searchSeeAllKey(kind)}`;
-}
-
-/**
- * A row's second line: a name to print, or a number to pluralise for this kind.
- *
- * Both come off the server raw — the count is a number rather than the phrase "12 Alben",
- * because that phrase is German and a reader may be on the English catalog. Null where a kind
- * carries neither, which is a real case: a song whose file credits no artist.
- */
-function metaFor(kind: SearchKind, row: SearchRow): string | null {
-    if (row.text !== null) return row.text;
-    if (row.count === null) return null;
-
-    return t(`search.meta.${kind}`, row.count);
 }
 
 /** A group's accessible name — its kind and how many there really are. */
@@ -162,8 +240,9 @@ watch(
                 <!-- Hidden from assistive tech because the group's own `aria-label` already
                      carries both halves of it; read out, this would be the second time. -->
                 <p class="search-results__heading" aria-hidden="true">
-                    <span>{{ t(`search.kind.${group.kind}`) }}</span>
-                    <span class="search-results__total">{{ formatDecimals(group.total, locale) }}</span>
+                    <icon :name="KIND_ICONS[group.kind]" :size="1" />
+                    <span class="search-results__kind">{{ t(`search.kind.${group.kind}`) }}</span>
+                    <span class="search-results__count">{{ formatDecimals(group.total, locale) }}</span>
                 </p>
 
                 <Link
@@ -178,23 +257,47 @@ watch(
                     @click="emit('navigate')"
                 >
                     <span class="search-results__name">{{ row.name }}</span>
-                    <span v-if="metaFor(group.kind, row) !== null" class="search-results__meta">
-                        {{ metaFor(group.kind, row) }}
+                    <!-- The tip sits on the whole pip, not on the icon: the value is part of what
+                         it says, and anchoring to the glyph alone would leave the number beside it
+                         unexplained. The same reasoning WidgetList records. -->
+                    <span v-if="pipsFor(group.kind, row).length > 0" class="search-results__pips">
+                        <span
+                            v-for="pip in pipsFor(group.kind, row)"
+                            :key="pip.key"
+                            v-tooltip="`${pip.label}: ${pip.value}`"
+                            class="search-results__pip"
+                        >
+                            <icon :name="pip.icon" :size="0" />
+                            <!-- Its own element rather than a bare text node so it can be
+                                 ellipsised: `text-overflow` needs a box to act on. -->
+                            <span class="search-results__pip-value">{{ pip.value }}</span>
+                        </span>
                     </span>
                 </Link>
 
-                <Link
+                <!-- A LabelledLink rather than a bare row (the owner's call): the way OUT of a
+                     group is an action, so it wears the app's link treatment — underline and a
+                     leading glyph — over a band of its own. Its attributes fall through to the
+                     `<a>` LabelledLink renders, which is what keeps it a walkable option with the
+                     same id the keyboard expects.
+
+                     `prefetch` is left off. The rule is about what a link LEADS TO, and a listing
+                     is safe to warm — but this one is a dropdown row a reader sweeps the pointer
+                     across on the way to something else, and warming a paginated table per sweep
+                     buys nothing. -->
+                <labelled-link
                     v-if="group.seeAll !== null"
                     :id="seeAllId(group.kind)"
                     :href="group.seeAll"
+                    :icon="KIND_ICONS[group.kind]"
                     role="option"
                     :aria-selected="activeOptionId === seeAllId(group.kind)"
                     class="search-results__row search-results__row--all"
                     :class="{ 'search-results__row--active': activeOptionId === seeAllId(group.kind) }"
                     @click="emit('navigate')"
                 >
-                    <span class="search-results__name">{{ seeAllLabel(group) }}</span>
-                </Link>
+                    {{ seeAllLabel(group) }}
+                </labelled-link>
             </div>
         </div>
         <p v-else-if="loading" class="search-results__note">{{ t("search.searching") }}</p>
@@ -216,8 +319,11 @@ watch(
     display: flex;
     flex-direction: column;
 
-    /* The scrolling area. A ceiling rather than a height, so three rows take three rows'
-       worth — see the token's own note on why it is `dvh` and not `vh`.
+    /* The scrolling area, and it is deliberately FULL WIDTH — its host gives it no inline padding
+       (SearchOverlay's panel pads only the block axis), which is what puts the scrollbar at the
+       panel's own inner edge instead of floating it inside the padding, a step in from the edge.
+       That was the owner's report: a scrollbar sitting oddly to the left of the right padding.
+       The inset the rows still need is theirs, not this container's.
 
        THE CEILING IS OVERRIDABLE, via `--search-results-height`, because the two mountings sit in
        different kinds of space: the overlay hangs over the page and may take most of the screen,
@@ -232,52 +338,105 @@ watch(
         overflow-y: auto;
 
         max-height: var(--search-results-height, #{map.get(s.$c-search, "results-height")});
-
-        gap: map.get(s.$c-search, "padding");
     }
 
+    /* NO GAP between the strip and its rows, and none between the rows (the owner's call). The
+       strip is a header attached to the set beneath it, and the zebra stripes only read as a rhythm
+       if they actually touch — air between them turns a banded list back into a stack of separate
+       blocks, which is what the strips were introduced to stop. */
     &__group {
         display: flex;
         flex-direction: column;
-
-        gap: map.get(s.$c-search, "group", "gap");
     }
 
-    /* Kind on one side, count on the other. Quieter than the rows under it: it is a label for
-       them, and a heading that competes with its own contents makes the list harder to scan. */
+    /* THE DIVIDER, and it earns that word by running edge to edge: kind glyph, kind, count. The
+       palette is the widget title's, with a measured dark-mode substitution — `c.$c-search` →
+       `heading-background` carries the contrast figures and why the widget's own dark ink could
+       not be borrowed.
+
+       `position: sticky` is deliberately NOT set. A strip per group that stuck would stack up as
+       the reader scrolled a five-group answer, and with `LIMIT 5` per kind there is never enough
+       list under one heading for stickiness to pay for itself. */
     &__heading {
         display: flex;
-        align-items: baseline;
-        justify-content: space-between;
+        align-items: center;
 
-        padding: 0 map.get(s.$c-search, "row", "padding");
+        // Block: tight — it is a rule with words in it, not a block of content. Inline: the
+        // PANEL's padding, so the label starts on the same vertical as the field above it and the
+        // names below it, even though the strip's fill runs past both to the panel's edges.
+        padding: map.get(s.$c-search, "group", "heading-padding") map.get(s.$c-search, "padding");
         margin: 0;
+        gap: map.get(s.$c-search, "pip", "gap");
 
-        color: map.get(c.$c-search, "muted");
+        background: map.get(c.$c-search, "heading-background");
+        color: map.get(c.$c-search, "heading-surface");
 
         font-size: map.get(s.$c-search, "group", "heading-size");
         text-transform: uppercase;
         letter-spacing: 0.05em;
     }
 
-    &__total {
+    /* Takes the slack, so the count is pushed to the trailing edge whatever the kind is called. */
+    &__kind {
+        flex: 1 1 auto;
+    }
+
+    /* The count as a pill — Badge's geometry, the panel's own colours. It reads as a hole punched
+       through the strip, which is also what makes its contrast the panel's own (the highest pair
+       in the token set) rather than something that has to be measured against a gradient. */
+    &__count {
+        padding: map.get(s.$c-search, "count", "padding");
+
+        background-color: map.get(c.$c-search, "count-background");
+        color: map.get(c.$c-search, "count-surface");
+
+        border-radius: map.get(s.$c-search, "count", "radius");
+
+        font-size: map.get(s.$c-search, "count", "size");
+        font-weight: 700;
         font-variant-numeric: tabular-nums;
         letter-spacing: 0;
     }
 
-    /* A row: name over meta. `position: relative` so the active row's glow paints over its
+    /* A row: name over pips. `position: relative` so the active row's glow paints over its
        neighbours rather than under the next opaque row — the same reason DataTable's hovered
-       `<tr>` is positioned. */
+       `<tr>` is positioned. The inline padding is the row's own, since the list around it has
+       none; it is what lines the names up with the field above them. */
+
+    /* ONE LINE WHERE THERE IS ROOM, TWO WHERE THERE IS NOT (the owner's call), and flex wrapping
+       gives exactly that for free — because of the thing that is usually a trap. A wrapping flex
+       line is broken by each item's MAX-CONTENT width, not by the width it could shrink to, so a
+       name longer than the row leaves has the pips wrap to a second line rather than squeezing them;
+       once alone on line one, the name then ellipsises as it always did. Same mechanism as the
+       `<Headline>` bug in the memory of this repo, used deliberately this time.
+
+       Which also means: NO `flex: 1 1` on the name. Letting it grow would fill the line and push the
+       pips down every time, and letting it shrink would keep them up there ellipsising the title
+       into nothing. Its natural width, plus `min-width: 0` so it can still ellipsise when it is the
+       only thing on the line, is the whole arrangement. */
     &__row {
         display: flex;
         position: relative;
-        flex-direction: column;
+        align-items: center;
 
-        padding: map.get(s.$c-search, "row", "padding");
+        /* TRAILING ON A SHARED LINE, LEADING ON ITS OWN — one declaration, because that is already
+           what `space-between` means: two items on a line go to the two ends, and a line holding a
+           SINGLE item packs it flush to the main-start edge. So a short name keeps its pips at the
+           trailing edge, and a name long enough to wrap them leaves them left underneath, lined up
+           with the name rather than stranded out to the right (the owner's call). */
+        justify-content: space-between;
+        flex-flow: row wrap;
+
+        // Inline from the PANEL's padding rather than the row's own, for the reason the strip
+        // above gives: the list has no padding of its own, so this is what puts every name on the
+        // same vertical as the field.
+        padding: map.get(s.$c-search, "row", "padding") map.get(s.$c-search, "padding");
+
+        // Column: the least space allowed between a name and the pips sharing its line. Row: what
+        // separates the two lines when they do not.
+        gap: map.get(s.$c-search, "pip", "gap") map.get(s.$c-search, "gap");
 
         color: map.get(c.$c-search, "surface");
-
-        border-radius: map.get(s.$c-search, "row", "radius");
 
         text-decoration: none;
 
@@ -287,25 +446,65 @@ watch(
                 box-shadow ti.$c-search linear;
         }
 
-        &:hover {
+        /* ZEBRA, and it counts `<a>` elements only — `nth-of-type` rather than `nth-child`,
+           because the group's first child is the heading `<p>` and counting that would flip every
+           stripe and leave the first row on the "even" wash. The hand-off is an `<a>` too and so
+           takes a turn in the sequence, which is why its own band below has to win. */
+        &:nth-of-type(odd) {
+            background-color: map.get(c.$c-search, "row-odd");
+        }
+
+        &:nth-of-type(even) {
+            background-color: map.get(c.$c-search, "row-even");
+        }
+
+        /* After the stripes, so it beats whichever one the sequence handed it at equal
+           specificity — and before hover/active, which must beat this in turn. */
+        &--all {
+            background-color: map.get(c.$c-search, "see-all-background");
+        }
+
+        /* FOCUS TAKES THE HOVER WASH (the owner's call), because a row is reachable two ways and
+           only one of them had any feedback. The arrow keys move a flag and leave the caret in the
+           field (`--active` below), but TAB moves real focus through these links — and with nothing
+           but the UA's ring to go on, a keyboard reader tabbing a five-group answer could not see
+           where they were.
+
+           `:focus-visible` rather than `:focus`: it is the same wash, and this way a row does not
+           light up under a mouse click on its way to navigating away. */
+        &:hover,
+        &:focus-visible {
             background-color: map.get(c.$c-search, "row-hover");
         }
 
         /* Where the arrows have landed — the app's neon "this is the live one", the same
            two-layer fill-plus-glow the DataTable's hovered row and the queue's loaded row use.
            It is a class rather than `:focus`, because focus deliberately stays in the field
-           (SearchField's banner says why). */
+           (SearchField's banner says why).
+
+           No `border-radius` on either state, unlike the first draft: the row spans the panel's
+           full width now, so a rounded corner would cut the fill away from an edge it is meant to
+           meet. */
         &--active {
             background-color: map.get(c.$c-search, "row-active-background");
             box-shadow:
-                0 0 0 1px map.get(c.$c-search, "row-active-glow"),
-                0 0 8px map.get(c.$c-search, "row-active-glow");
+                inset 0 0 0 1px map.get(c.$c-search, "row-active-glow"),
+                inset 0 0 8px map.get(c.$c-search, "row-active-glow");
         }
 
-        /* The hand-off reads as an action rather than as a result: one line, quieter, and no
-           second line to leave a gap where a row's meta would be. */
+        /* The hand-off reads as an action rather than as a result: one line, a size down, and no
+           pips to leave a gap where a row's facts would be.
+
+           IT UNDOES THE `space-between` ABOVE, which is the one thing it must: LabelledLink's two
+           children are a glyph and its label, and pushing those to opposite ends of the panel would
+           read as two unrelated things rather than as one labelled link. The tighter gap is the same
+           thought — 8px reads as two objects side by side, 4px as one. */
         &--all {
-            color: map.get(c.$c-search, "muted");
+            align-items: center;
+            justify-content: flex-start;
+            flex-direction: row;
+
+            gap: map.get(s.$c-search, "pip", "gap");
 
             font-size: map.get(s.$c-search, "row", "meta-size");
         }
@@ -321,18 +520,61 @@ watch(
         text-overflow: ellipsis;
     }
 
-    &__meta {
+    /* NO auto margin here, deliberately — the row's `justify-content` does the placing. An
+       `margin-inline-start: auto` was tried first and is what has to be removed for the wrapped
+       case to work at all: auto margins are resolved BEFORE `justify-content` and absorb all the
+       free space, so the pips stayed pinned to the trailing edge on their own line too.
+
+       `nowrap` keeps the pips ONE item as far as the wrapping row above is concerned, so they move
+       down together instead of one at a time. */
+    &__pips {
+        display: flex;
+        flex-wrap: nowrap;
+
         overflow: hidden;
 
-        color: map.get(c.$c-search, "muted");
+        gap: map.get(s.$c-search, "pip", "gap");
+    }
 
-        font-size: map.get(s.$c-search, "row", "meta-size");
+    /* A fact: glyph plus value, on its own quiet wash. Opaque rather than translucent so the pair
+       has exactly one contrast ratio to answer for whatever state the row is in — the token
+       carries the measurement. */
+    &__pip {
+        display: inline-flex;
+        align-items: center;
+
+        min-width: 0;
+        padding: map.get(s.$c-search, "pip", "padding");
+        gap: 0.4ch;
+
+        background-color: map.get(c.$c-search, "pip-background");
+        color: map.get(c.$c-search, "pip-surface");
+
+        border-radius: map.get(s.$c-search, "pip", "radius");
+
+        /* NO font-size, deliberately: a pip is the name's size (the owner's call, 2026-08-13). It
+           went 0.7rem → 0.8rem → inherited over one afternoon, and each step was the same
+           correction — a fact nobody can read is not a fact. What separates a pip from the name it
+           sits with is its wash and its glyph, which is plenty; shrinking the text as well was
+           saying "less important" twice and costing legibility for it. */
         white-space: nowrap;
+
+        /* The glyph is the pip's label, so it is the one part that must never give ground — flex
+           distributes shrink in proportion to base width, and without this the icon squashes
+           before the text it names does. */
+        svg {
+            flex-shrink: 0;
+        }
+    }
+
+    &__pip-value {
+        overflow: hidden;
+
         text-overflow: ellipsis;
     }
 
     &__note {
-        padding: map.get(s.$c-search, "row", "padding");
+        padding: map.get(s.$c-search, "row", "padding") map.get(s.$c-search, "padding");
         margin: 0;
 
         color: map.get(c.$c-search, "muted");

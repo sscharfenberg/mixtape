@@ -31,7 +31,65 @@ $search: (
     // A row's second line, a group's count, the "nothing found" note — body text, so it takes
     // the accessible muted pair rather than the quieter grey glyphs are allowed.
     "muted": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
+    // group heading strip ---------------------------------------------------
+    /*
+     * A full-bleed strip per group, borrowing the WIDGET TITLE's look (the owner's suggestion,
+     * 2026-08-13) so a group of results reads like the header of a card rather than like grey text
+     * floating between rows.
+     *
+     * THE LIGHT GRADIENT IS THE WIDGET'S OWN; THE DARK ONE IS NOT, AND THAT IS DELIBERATE.
+     * `$c-widget` → `title-background` runs c5→c6 in dark mode — a dark purple into a LIGHT pink —
+     * and no single ink is legible across that span: measured, the widget title's own
+     * `title-surface` (#ffe64d) sits at 5.19:1 over the purple end and **2.20:1** over the pink
+     * one, which fails WCAG AA for text. Since AA was the requirement, dark mode takes a strip
+     * whose two ends are both dark (c4-dark → c5-light) and carries white: measured across the
+     * whole gradient in eleven steps, worst case **9.25:1**. Light mode keeps the widget's own
+     * pair, worst case **5.15:1** at the blend's darkest point against `ebony`.
+     *
+     * (The widget title strip itself is left alone. Its dark-mode ink is the same 2.20:1 problem
+     * and worth fixing, but that is every widget on every page, not a search dropdown.)
+     */
+    "heading-background": light-dark(
+            linear-gradient(to bottom right, map.get(c.$retro, "c3", "dark"), map.get(c.$retro, "c6", "dark")),
+            linear-gradient(to bottom right, map.get(c.$retro, "c4", "dark"), map.get(c.$retro, "c5", "light"))
+        ),
+    "heading-surface": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "white")),
+    /*
+     * The count pill on that strip — the panel's own fill and ink, so it reads as a hole punched
+     * through the strip. Which also makes its contrast the panel's own, already the highest pair
+     * in this file: 17.4:1 light, 19.4:1 dark.
+     */
+    "count-background": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "black")),
+    "count-surface": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral")),
     // rows ------------------------------------------------------------------
+    /*
+     * ZEBRA STRIPING, the DataTable's own pair (`$c-datatable` → td backgrounds, re-picked from the
+     * globals as a contextual partial must). A dropdown of five names per group over five groups is
+     * a lot of rows in a small space, and the first draft left them on one flat fill with only the
+     * line spacing to separate them — alternating washes give the eye a rhythm to scan down without
+     * adding a single rule or border.
+     *
+     * Both are translucent so the panel shows through, which is what keeps them a texture rather
+     * than two blocks of colour; the row's OWN states (hover, and the arrow-walk's lit fill) are
+     * opaque enough to cover either.
+     */
+    "row-odd": light-dark(
+            color.adjust(map.get(c.$grey, "astral"), $alpha: -0.25),
+            color.adjust(map.get(c.$grey, "ebony"), $alpha: -0.25)
+        ),
+    "row-even": light-dark(
+            color.adjust(map.get(c.$grey, "infra"), $alpha: -0.35),
+            color.adjust(map.get(c.$grey, "bunker"), $alpha: -0.25)
+        ),
+    /*
+     * The hand-off's own band — a step further from the panel than either stripe, because it is not
+     * a result: it is the way out of the group, and it reads as an action rather than as the sixth
+     * row (the owner's call, 2026-08-13).
+     */
+    "see-all-background": light-dark(
+            color.adjust(map.get(c.$grey, "fog"), $alpha: -0.4),
+            color.adjust(map.get(c.$grey, "abbey"), $alpha: -0.4)
+        ),
     "row-hover": light-dark(
             color.adjust(map.get(c.$grey, "iron"), $alpha: -0.5),
             color.adjust(map.get(c.$grey, "abbey"), $alpha: -0.25)
@@ -43,6 +101,18 @@ $search: (
             color.adjust(map.get(c.$retro, "c3", "dark"), $alpha: -0.85)
         ),
     "row-active-glow": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
+    /*
+     * A row's fact pips: a quiet wash with its own ink, the WidgetList pip's idea one size down.
+     *
+     * OPAQUE RATHER THAN A TRANSLUCENT GREY, unlike the widget's, and that is what makes the AA
+     * claim checkable: a pip sits on a row that may be resting, hovered or lit by the arrow keys,
+     * so a see-through fill has three different composites and only one of them can be measured
+     * from the tokens. Fixed, the pair is exactly one ratio — measured **5.61:1** in light
+     * (`asher` on `mystic`) and **5.48:1** in dark (`iron` on `bunker`), both clear of the 4.5:1
+     * that small text needs.
+     */
+    "pip-background": light-dark(map.get(c.$grey, "mystic"), map.get(c.$grey, "bunker")),
+    "pip-surface": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
     // field -----------------------------------------------------------------
     // Its own entry rather than a reuse of `c.$c-input`: that palette belongs to a FORM field,
     // which this is not — nothing here validates, submits or reports an error, and inheriting a

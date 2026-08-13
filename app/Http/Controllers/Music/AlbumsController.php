@@ -147,6 +147,12 @@ class AlbumsController extends Controller
             searchCallback: fn (Builder $q, string $search) => FoldedSearch::apply($q, $search, [
                 'collections.name', 'artists.name',
             ]),
+            // The NARROW reading, for `?searchIn=name` — the album's own title, without the
+            // album-artist column beside it. What the cross-kind search dropdown counts, so what
+            // its hand-off must show (DataTableService::SEARCH_IN_NAME).
+            nameSearchCallback: fn (Builder $q, string $search) => FoldedSearch::apply($q, $search, [
+                'collections.name',
+            ]),
             rowMapper: fn (Collection $album): array => [
                 'id' => $album->id,
                 'name' => $album->name,

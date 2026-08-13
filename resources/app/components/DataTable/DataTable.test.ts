@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import type { Component } from "vue";
 import { emitRouterEvent, resetInertia, routerCalls } from "Testing/inertia";
-import { mountApp } from "Testing/mount";
+import { mountApp, translate } from "Testing/mount";
 import type { ColumnDef, TableResponse } from "Types/dataTable";
 import DataTable from "./DataTable.vue";
 
@@ -223,4 +223,66 @@ describe("DataTable loading overlay", () => {
 
         expect(hasOverlay(wrapper)).toBe(false);
     });
+})
+
+/*
+ * THE NARROWING CHIP. A listing reached from the cross-kind search dropdown matches titles only
+ * (`?searchIn=name`), because that is what the dropdown counted — and a table quietly showing fewer
+ * rows than its own search would find is the same confusion the mode exists to fix, pointing the
+ * other way. So the mode has to announce itself, and pressing the chip has to drop it.
+ *
+ * Asserted here rather than in Playwright because all of it is markup and one router call: whether
+ * the chip is drawn, and what URL widening asks for.
+ */
+describe("DataTable narrowed search", () => {
+    const chip = (wrapper: ReturnType<typeof table>) => wrapper.find(".dt-toolbar__mode");
+
+    it("draws no chip for a listing running its own search", () => {
+        expect(chip(table({ search: "black" })).exists()).toBe(false);
+    });
+
+    it("says so when the server narrowed the search to the name", () => {
+        const wrapper = table({ search: "black", searchIn: "name" });
+
+        expect(chip(wrapper).exists()).toBe(true);
+        expect(chip(wrapper).text()).toContain(translate("components.datatable.search_in_name"));
+    });
+
+    /** A mode the server did not apply must not be announced — the chip would be a clickable lie. */
+    it("ignores a mode the server did not echo back", () => {
+        expect(chip(table({ search: "black", searchIn: null })).exists()).toBe(false);
+    });
+
+    /**
+     * The URL is set for real here, because that is where `buildUrl` reads the state it PRESERVES
+     * from — the assertion that matters is which parameters survive widening and which one does
+     * not, and against a bare location every one of them would trivially be absent.
+     */
+    it("drops the mode and returns to page 1 when pressed, keeping the rest of the URL", async () => {
+        const original = window.location.href;
+        window.history.replaceState({}, "", "/music/songs?search=black&searchIn=name&sort=name&dir=desc");
+
+        try {
+            const wrapper = table({ search: "black", searchIn: "name", page: 3 });
+
+            await chip(wrapper).trigger("click");
+
+            // Indexed rather than `.at(-1)`: the project targets `lib: ES2020`, where that method
+            // does not exist as far as vue-tsc is concerned (docs/testing.md → Traps).
+            const visits = routerCalls.filter(call => call.method === "get");
+            const visit = visits[visits.length - 1];
+            expect(visit).toBeDefined();
+            // Dropped rather than set to anything: ABSENT is the wide search.
+            expect(visit.url).not.toContain("searchIn");
+            expect(visit.url).toContain("page=1");
+            // …and everything the chip has no opinion about survives — widening is about WHERE the
+            // query looks, not what it is or how the table is sorted.
+            expect(visit.url).toContain("search=black");
+            expect(visit.url).toContain("sort=name");
+            expect(visit.url).toContain("dir=desc");
+        } finally {
+            window.history.replaceState({}, "", original);
+        }
+    });
 });
+;

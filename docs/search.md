@@ -90,10 +90,22 @@ which is a better answer than two hundred of their songs.
 
 ### …and the wide search is still there
 
-It moves to the hand-off. **"Alle 77 in Songs anzeigen"** links to `/music/songs?search=black`, and
-that listing does the wide match across four columns, sorted, paginated, and deep-linkable. So both
-behaviours exist, each where it fits: narrow while you are typing, wide once you have committed to a
-kind. Nothing about the listings changes.
+It moves to the hand-off. **"Alle 77 in Songs anzeigen"** links to the Songs listing, which does the
+wide match across four columns, sorted, paginated and deep-linkable. So both behaviours exist, each
+where it fits: narrow while you are typing, wide once you have committed to a kind.
+
+**"Nothing about the listings changes" turned out to be wrong** (found by the owner the day it
+shipped, 2026-08-13). A group header saying 77 and a hand-off promising "all of them" landing on a
+table of 2,000+ is not two behaviours, it is two answers to one question — "godspeed you black
+emperor" and every band filed under Black Metal, none of them a song called Black. So the hand-off
+carries its reading with it: **`?search=black&searchIn=name`**, and `DataTableService` takes a second,
+narrower callback for that mode
+([`components/DataTable/README.md`](../resources/app/components/DataTable/README.md) → *the narrow
+search*). The listing announces the narrowing in its toolbar and offers one press back out to the
+wide search, so both readings stay reachable and the numbers agree either way.
+
+Only the two listings that HAVE a wider reading are handed off narrowed: Songs and Albums. Artists
+and Genres already match a single column, and a mode there would be a claim with nothing behind it.
 
 ## Ranking
 
@@ -194,9 +206,23 @@ and one code path. Anything added here asks that class rather than re-deriving i
   offered only when there is more to see. Five is what fits an overlay without scrolling on a phone.
 - **`kinds=` is the chip filter** — the same endpoint, fewer groups. Not a second route: the chips are
   a narrowing of one question, and two endpoints would be two ranking rules to keep in step.
-- **`meta` is one line of context per row**, computed per kind (an artist's album count, a song's
-  artist, a playlist's track count) — a row saying only "Black" three times is a row a reader cannot
-  choose from.
+- **Two FACTS per row**, computed per kind — a row saying only "Black" three times is a row a reader
+  cannot choose from. The set is the owner's (2026-08-13):
+
+  | kind | facts |
+  | --- | --- |
+  | artist | albums, total runtime |
+  | album | artist, tracks |
+  | playlist | tracks, total runtime |
+  | song | artist, runtime |
+  | genre | artists, songs |
+
+  They travel **raw and as a bag** (`facts: { albums: 12, duration: 4322.5 }`): raw because seconds
+  become a clock and a count picks up its locale's separators in the client, and a bag because the
+  five kinds do not agree on which two they carry. **A null fact draws no pip** — an artist credited
+  on albums who performs no tracks, and a file whose tags carried no duration, are both real, and
+  "0:00" reads as a broken row rather than as an absence. Which glyph and which order belongs to
+  `SearchResults`, since both are layout decisions.
 
 ### On the client
 

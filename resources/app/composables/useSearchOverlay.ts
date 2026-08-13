@@ -28,6 +28,14 @@
  * entry. That check is written down because the failure would be silent and bizarre — a reader
  * typing a song title while their music seeks around under them.
  *
+ * ASKING FOR SEARCH ALWAYS PUTS THE CARET IN THE FIELD, even when the panel is already up — which
+ * is why there is a nonce here beside the flag. Opening used to be the only signal, so the overlay
+ * focused on the flag's false→true edge; press ⌘K after tabbing out of an open panel and nothing
+ * happened at all (measured: focus stayed on a breadcrumb link). Every one of the three ways to ask
+ * bumps `focusNonce`, and the overlay watches that as well as the flag. Same idea as the flash
+ * `nonce` in the Inertia share: a value whose CHANGE is the message, for an event that has no state
+ * of its own to watch.
+ *
  * `/` IS GUARDED, `⌘K` IS NOT. A bare slash must never be stolen from a field somebody is typing
  * in (this app's search field included, where `/` is a character), so it stands down for text
  * entry and for any modifier. `⌘K` has a modifier by definition and works from anywhere, which is
@@ -47,7 +55,7 @@ export type UseSearchOverlayReturn = {
     exists: ComputedRef<boolean>;
     /** Whether the overlay is showing. */
     isOpen: ComputedRef<boolean>;
-    /** Show it — what the header's trigger and both keys do. */
+    /** Show it, and ask for the caret — what the header's trigger and both keys do. */
     open: () => void;
     /** Hide it — what a chosen result does, once it has navigated. */
     close: () => void;
@@ -58,10 +66,18 @@ export type UseSearchOverlayReturn = {
      * here rather than leaving the flag claiming a panel that is gone.
      */
     setOpen: (next: boolean) => void;
+    /**
+     * Bumped every time somebody asks for search. Watch it to put the caret in the field — the flag
+     * alone cannot say "asked again" when the panel is already open. See the banner.
+     */
+    focusNonce: ComputedRef<number>;
 };
 
-// Module-level: the header's trigger and the overlay share these two.
+// Module-level: the header's trigger and the overlay share these.
 const open = ref(false);
+
+/** Incremented by every request to search — see the banner and `focusNonce`. */
+const focusNonce = ref(0);
 
 /** Whether a SearchOverlay is mounted right now. See {@link noteSearchOverlay}. */
 const present = ref(false);
@@ -103,7 +119,7 @@ export function bindSearchShortcuts(): void {
         // the bare-slash arm below, so Cmd+/ is not read as a slash.
         if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
             event.preventDefault();
-            open.value = true;
+            requestOpen();
 
             return;
         }
@@ -117,11 +133,23 @@ export function bindSearchShortcuts(): void {
         if (event.defaultPrevented) return;
 
         event.preventDefault();
-        open.value = true;
+        requestOpen();
     };
 
     window.addEventListener("keydown", onKeydown);
     teardown.push(() => window.removeEventListener("keydown", onKeydown));
+}
+
+/**
+ * Show the panel and ask for the caret — the one path every request to search goes through.
+ *
+ * Separate from writing the flag because the two are not the same statement: the flag says whether
+ * a panel is on screen, the nonce says somebody just asked to use it, and only the second is true
+ * of a second press while it is already open.
+ */
+function requestOpen(): void {
+    open.value = true;
+    focusNonce.value++;
 }
 
 /** Drop the key listeners. Called by SearchOverlay on unmount. */
@@ -141,18 +169,20 @@ export function useSearchOverlay(): UseSearchOverlayReturn {
     return {
         exists: computed(() => present.value),
         isOpen: computed(() => open.value),
-        open: () => {
-            open.value = true;
-        },
+        open: requestOpen,
         close: () => {
             open.value = false;
         },
+        // Only an opening press asks for the caret; a closing one is the reader putting the panel
+        // away, and moving focus there would be taking it from wherever they are going next.
         toggle: () => {
-            open.value = !open.value;
+            if (open.value) open.value = false;
+            else requestOpen();
         },
         setOpen: (next: boolean) => {
             open.value = next;
-        }
+        },
+        focusNonce: computed(() => focusNonce.value)
     };
 }
 
@@ -167,5 +197,6 @@ export function useSearchOverlay(): UseSearchOverlayReturn {
 export function resetSearchOverlayForTests(): void {
     open.value = false;
     present.value = false;
+    focusNonce.value = 0;
     unbindSearchShortcuts();
 }

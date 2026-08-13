@@ -69,11 +69,14 @@ const openOverlay = async (page: Page): Promise<void> => {
 };
 
 /**
- * Ask a question and wait for the answer.
+ * Ask a question and wait for the answer to be ON SCREEN.
  *
- * It waits on the RESPONSE rather than on a timeout, because the client debounces 200ms and then
- * pays a round trip — a fixed wait would be either flaky or slow. The rows are then waited for
- * separately, since a response is not yet a repaint.
+ * Waiting on the RESPONSE rather than on a timeout, because the client debounces 200ms and then
+ * pays a round trip — a fixed wait would be either flaky or slow. But a response is not a repaint,
+ * and that second half matters: a helper that returned on the response let a one-shot `evaluate`
+ * read the DOM before Vue had painted the rows, which failed as "expected Künstler, got undefined"
+ * under a loaded machine and passed every time in isolation. So it also waits for the panel to be
+ * showing something — rows, or one of the notes that stands in for them.
  */
 const search = async (page: Page, query: string): Promise<void> => {
     const answered = page.waitForResponse(
@@ -81,19 +84,19 @@ const search = async (page: Page, query: string): Promise<void> => {
     );
     await field(page).fill(query);
     await answered;
+    await expect(page.locator(".search-results__row, .search-results__note").first()).toBeVisible();
 };
 
 /**
  * The group KINDS, in the order they are drawn — the fixed group order.
  *
- * Two things this has to dodge. The heading holds the kind AND the total in two spans, so it is
- * read off the first of them rather than off the whole cell. And it uses `textContent`, not
- * `innerText`: the heading is `text-transform: uppercase`, which `innerText` faithfully reports as
- * "KÜNSTLER" — an assertion against the word as it is written in the catalog then fails looking
- * like a missing translation.
+ * Read off the heading's own kind element rather than the whole strip, which also carries the
+ * kind's glyph and the total. And with `textContent`, not `innerText`: the strip is
+ * `text-transform: uppercase`, which `innerText` faithfully reports as "KÜNSTLER" — an assertion
+ * against the word as the catalog spells it then fails looking like a missing translation.
  */
 const groupKinds = async (page: Page): Promise<string[]> =>
-    (await page.locator(".search-results__heading span:first-child").allTextContents()).map(text => text.trim());
+    (await page.locator(".search-results__kind").allTextContents()).map(text => text.trim());
 
 test.describe("the header search overlay", () => {
     test("opens from the header, answers, and closes on Escape", async ({ page }) => {
@@ -164,6 +167,39 @@ test.describe("the header search overlay", () => {
         await expect(page).toHaveURL(/\/music\/songs\?search=the/u);
         await expect(page.locator(".dt-toolbar__input")).toHaveValue("the");
         await expect(page.locator("tbody tr").first()).toBeVisible();
+    });
+
+    /**
+     * THE NUMBERS HAVE TO AGREE. The group header says a count and the hand-off promises "all of
+     * them"; the listing's own search is wider (title, artist, album, genre), so without
+     * `?searchIn=name` the table showed several times what was promised — the owner's report, with
+     * 70 becoming 2,000+ on the real library. Asserted as the two numbers rather than as the URL,
+     * because the URL is the mechanism and this is the contract.
+     */
+    test("lands on exactly as many rows as the group promised", async ({ page }) => {
+        await page.goto("/dashboard");
+        await openOverlay(page);
+        await search(page, "the");
+
+        // The songs group's own total, off its count pill.
+        const songsGroup = page.locator(".search-results__group", { has: page.locator(".search-results__kind", { hasText: /^Songs$/u }) });
+        const promised = Number((await songsGroup.locator(".search-results__count").innerText()).trim());
+        expect(promised).toBeGreaterThan(5);
+
+        await songsGroup.locator(".search-results__row--all").click();
+        await expect(page).toHaveURL(/searchIn=name/u);
+
+        // "1–25 / TOTAL" — the listing's own count of what it found.
+        await expect(page.locator(".dt-pagination__info")).toContainText(`/ ${promised}`);
+
+        // And the way back out to the wide search is offered, and widens it.
+        const chip = page.locator(".dt-toolbar__mode");
+        await expect(chip).toBeVisible();
+        await chip.click();
+        await expect(page).not.toHaveURL(/searchIn=name/u);
+        await expect(page.locator(".dt-toolbar__mode")).toHaveCount(0);
+        // Wider means more: the same query now also matches artist, album and genre.
+        await expect(page.locator(".dt-pagination__info")).not.toContainText(`/ ${promised}`);
     });
 
     test("walks the rows with the arrow keys and opens one with Enter", async ({ page }) => {
@@ -238,6 +274,33 @@ test.describe("the keys that open it", () => {
 
         await expect(page.locator(".search-panel")).toBeVisible();
         await expect(field(page)).toBeFocused();
+    });
+
+    /**
+     * ASKING AGAIN BRINGS THE CARET BACK. Opening the panel focuses the field, and that always
+     * worked — but the flag it hung on cannot change when the panel is ALREADY open, so a reader who
+     * had tabbed into the results and pressed ⌘K got nothing at all: measured with focus sitting on
+     * a breadcrumb link. A request to search is an event rather than a state, so it travels as a
+     * nonce (useSearchOverlay) and every one of the three ways to ask puts the caret back.
+     */
+    test("brings the caret back when the panel is already open", async ({ page }) => {
+        await page.goto("/dashboard");
+        await openOverlay(page);
+
+        // Tab out of the field, into the panel.
+        await page.keyboard.press("Tab");
+        await expect(field(page)).not.toBeFocused();
+
+        await page.keyboard.press("ControlOrMeta+k");
+        await expect(field(page)).toBeFocused();
+
+        // …and the bare slash does it too, since by then focus is back in a text field and the
+        // guard would otherwise (correctly) stand aside — so tab out again first.
+        await page.keyboard.press("Tab");
+        await page.keyboard.press("/");
+        await expect(field(page)).toBeFocused();
+        // The slash that asked must not land in the field it just filled.
+        await expect(field(page)).toHaveValue("");
     });
 
     /** A slash typed into a field is a character, not a shortcut. */

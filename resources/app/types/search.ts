@@ -25,7 +25,26 @@ export type SearchKind = "artist" | "album" | "playlist" | "song" | "genre";
  */
 export type SearchScope = "all" | SearchKind;
 
-/** One result row: what to call it, one line of context, and where it goes. */
+/**
+ * A fact a row can carry, as the server names it (`App\Services\Search\SearchHit`).
+ *
+ * Which two a kind sends is fixed per kind; which ICON and label stand for each, and the order
+ * they are drawn in, belong to SearchResults — so this is only the vocabulary the two ends share.
+ */
+export type SearchFactKey = "albums" | "artists" | "artist" | "songs" | "tracks" | "duration";
+
+/**
+ * The raw facts of one row: counts as numbers, runtimes as SECONDS, a credit as a name.
+ *
+ * Raw because the client formats — a clock, a locale's thousands separator — and because "12
+ * Alben" composed in PHP would be German on a page being read in English. A key that is absent or
+ * null is a fact the row does not have, and its pip is simply not drawn: an artist credited on
+ * albums but performing no tracks, or a file whose tags carried no duration, are both real, and
+ * "0:00" reads as a broken row rather than as an absence.
+ */
+export type SearchFacts = Partial<Record<SearchFactKey, number | string | null>>;
+
+/** One result row: what to call it, the two facts that tell it apart, and where it goes. */
 export interface SearchRow {
     /** The subject's UUID — the list's `:key`, in a list that repaints per keystroke. */
     id: string;
@@ -33,16 +52,8 @@ export interface SearchRow {
     name: string;
     /** The row's own page. Decided server-side, like every link in this app. */
     href: string;
-    /**
-     * A number this kind counts — an artist's albums, a genre's songs, a playlist's tracks —
-     * pluralised here against the group's kind. Null for the kinds that name something instead.
-     */
-    count: number | null;
-    /**
-     * A name to print as it stands: the performing artist of a song, the album-artist of an
-     * album. Null when the kind counts instead, and also when the file simply credits nobody.
-     */
-    text: string | null;
+    /** The kind's own two facts, raw — see {@link SearchFacts}. */
+    facts: SearchFacts;
 }
 
 /** One kind's answer — see `App\Services\Search\SearchGroup` for why `total` is not `rows.length`. */

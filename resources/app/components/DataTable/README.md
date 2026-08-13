@@ -172,6 +172,7 @@ interface TableResponse<T> {
     sort: { key: string; direction: "asc" | "desc" } | null;
     tiebreakers?: string[]; // extra keys ordering the table after `sort`, always ascending
     search: string | null;
+    searchIn?: string | null;    // "name" when the search was narrowed to the row's own name
     filters: Record<string, string | string[]> | null; // reserved; currently always null
 }
 ```
@@ -281,13 +282,49 @@ looking like a link on every row — the row's cursor and hover wash already say
 Sort, pagination, and search live in URL query parameters for bookmarkability:
 
 ```
-?sort=name&dir=asc&page=2&pageSize=25&search=Lightning
+?sort=name&dir=asc&page=2&pageSize=25&search=Lightning&searchIn=name
 ```
 
 The component reads initial state from the `response` prop (the server is the
 source of truth) and emits changes via `router.get()` with `preserveState` and
 `preserveScroll`. Existing query params are preserved across navigations (changing
 page keeps the current sort and pageSize).
+
+### `searchIn=name` — the narrow search
+
+A listing's search is usually **wider than one column**: Songs matches title, artist, album *and*
+genre, which is right for somebody who arrived to browse. The cross-kind search dropdown
+([`docs/search.md`](../../../../docs/search.md)) matches a row's **own name** only — so its "show
+all 70 songs" hand-off used to open a table of 2,000+, and the two surfaces contradicted each other
+about one query.
+
+`?searchIn=name` is that hand-off's mode. Pass a **second, narrower callback** and the service uses
+it whenever the parameter is present:
+
+```php
+DataTableService::buildResponse(
+    …,
+    searchCallback: fn (Builder $q, string $search) => FoldedSearch::apply($q, $search, [
+        'tracks.name', 'artists.name', 'collections.name', 'genres.name',
+    ]),
+    nameSearchCallback: fn (Builder $q, string $search) => FoldedSearch::apply($q, $search, [
+        'tracks.name',
+    ]),
+);
+```
+
+Four things follow, and each is load-bearing:
+
+- **Omit `nameSearchCallback` where the listing has no narrower reading.** Artists and Genres already
+  match a single column, so the mode there would be a claim with nothing behind it — the service
+  ignores it and echoes `searchIn: null`.
+- **The response echoes back which search RAN**, not which was asked for. The toolbar draws its
+  "titles only" chip off that, so a mode that did not apply is never announced.
+- **The chip is the way out.** Pressing it drops the parameter (back to page 1) and the listing's own
+  wider search runs again.
+- **Typing keeps the mode.** The reader arrived in "titles only", the URL says so, and `buildUrl`
+  preserves the query params it does not own — so refining the query stays in the reading they chose
+  until they press the chip.
 
 ## Server Implementation (Laravel)
 

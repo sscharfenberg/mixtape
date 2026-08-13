@@ -258,7 +258,7 @@ class SearchTest extends TestCase
         $this->actingAs($reader)
             ->getJson('/search?q=black&kinds=playlist')
             ->assertOk()
-            ->assertJsonPath('groups.0.rows.0.count', 3)
+            ->assertJsonPath('groups.0.rows.0.facts.tracks', 3)
             ->assertJsonPath('groups.0.rows.0.href', "/playlists/{$playlist->id}")
             // No hand-off: the playlists listing is a hand-ordered list with no `?search=`.
             ->assertJsonPath('groups.0.seeAll', null);
@@ -282,7 +282,29 @@ class SearchTest extends TestCase
             ->assertOk()
             ->assertJsonPath('groups.0.total', 7)
             ->assertJsonCount(5, 'groups.0.rows')
-            ->assertJsonPath('groups.0.seeAll', '/music/songs?search=black');
+            // `searchIn=name` is what makes the offer honest: the listing's own search is wider
+            // than this group's, so without the mode "all 7" would open a table of rather more
+            // than 7 (DataTableService::SEARCH_IN_NAME).
+            ->assertJsonPath('groups.0.seeAll', '/music/songs?search=black&searchIn=name');
+    }
+
+    /**
+     * The hand-off carries the mode only where the listing HAS two readings. Artists and genres
+     * already match nothing but the name, so a mode there would be a claim with nothing behind it —
+     * and the toolbar would offer a way out of a narrowing that never happened.
+     */
+    public function test_only_the_wider_listings_are_handed_off_narrowed(): void
+    {
+        foreach (range(1, 6) as $number) {
+            Artist::factory()->create(['name' => "Black Artist {$number}"]);
+            Collection::factory()->create(['name' => "Black Album {$number}"]);
+        }
+
+        $this->actingAs(User::factory()->create())
+            ->getJson('/search?q=black&kinds=artist,album')
+            ->assertOk()
+            ->assertJsonPath('groups.0.seeAll', '/music/artists?search=black')
+            ->assertJsonPath('groups.1.seeAll', '/music/albums?search=black&searchIn=name');
     }
 
     /** Nothing more to see means nothing to offer — the hand-off is not decoration. */
@@ -327,27 +349,99 @@ class SearchTest extends TestCase
     }
 
     /**
-     * The second line of each row, per kind — a dropdown of rows all called "Black" is a
-     * dropdown a reader cannot choose from.
+     * THE TWO FACTS EACH KIND CARRIES (the owner's set, 2026-08-13) — a dropdown of rows all
+     * called "Black" is a dropdown a reader cannot choose from, and which two facts tell them
+     * apart is a per-kind decision worth pinning rather than re-deriving:
+     *
+     *   artist → albums, total runtime      album → artist, tracks
+     *   song   → artist, runtime            genre → artists, songs
+     *
+     * All RAW: seconds, not clocks, and counts without separators. The client draws them as pips.
      */
-    public function test_every_row_carries_one_line_of_context(): void
+    public function test_every_row_carries_the_two_facts_its_kind_shows(): void
     {
         $artist = Artist::factory()->create(['name' => 'Blackfield']);
-        Collection::factory()->count(2)->create(['album_artist_id' => $artist->id]);
+        $album = Collection::factory()->create(['name' => 'Blackout', 'album_artist_id' => $artist->id]);
+        Collection::factory()->create(['album_artist_id' => $artist->id]);
 
         $genre = Genre::factory()->create(['name' => 'Blackgaze']);
-        Track::factory()->count(2)->create(['genre_id' => $genre->id]);
+        Track::factory()->count(2)->create(['genre_id' => $genre->id, 'artist_id' => $artist->id, 'duration' => 100.0]);
 
-        Track::factory()->create(['name' => 'Black Dog', 'artist_id' => $artist->id]);
+        Track::factory()->create([
+            'name' => 'Black Dog',
+            'artist_id' => $artist->id,
+            'collection_id' => $album->id,
+            'duration' => 285.5,
+        ]);
 
-        $this->actingAs(User::factory()->create())
-            ->getJson('/search?q=black')
+        $response = $this->actingAs(User::factory()->create())->getJson('/search?q=black')->assertOk();
+
+        // Artists: their discography, and what their own tracks add up to (2 × 100 + 285.5).
+        $response->assertJsonPath('groups.0.kind', 'artist')
+            ->assertJsonPath('groups.0.rows.0.facts.albums', 2)
+            ->assertJsonPath('groups.0.rows.0.facts.duration', 485.5);
+
+        // Albums: who it is by, and how many tracks it holds.
+        $response->assertJsonPath('groups.1.kind', 'album')
+            ->assertJsonPath('groups.1.rows.0.facts.artist', 'Blackfield')
+            ->assertJsonPath('groups.1.rows.0.facts.songs', 1);
+
+        // Songs: who performs it, and how long it runs — the track's own column, raw seconds.
+        $response->assertJsonPath('groups.2.kind', 'song')
+            ->assertJsonPath('groups.2.rows.0.facts.artist', 'Blackfield')
+            ->assertJsonPath('groups.2.rows.0.facts.duration', 285.5);
+
+        // Genres: artists whose MAIN genre it is, and every music track carrying it.
+        $response->assertJsonPath('groups.3.kind', 'genre')
+            ->assertJsonPath('groups.3.rows.0.facts.artists', 1)
+            ->assertJsonPath('groups.3.rows.0.facts.songs', 2);
+    }
+
+    /** A playlist's two facts, over its pivot — a song held twice is two entries and twice as long. */
+    public function test_a_playlist_row_carries_its_length_and_runtime(): void
+    {
+        $reader = User::factory()->create();
+        $playlist = Playlist::factory()->for($reader)->create(['name' => 'Blackout']);
+        $track = Track::factory()->create(['duration' => 200.0]);
+
+        foreach ([0, 1] as $position) {
+            PlaylistTrack::factory()->create([
+                'playlist_id' => $playlist->id,
+                'track_id' => $track->id,
+                'position' => $position,
+            ]);
+        }
+
+        $this->actingAs($reader)
+            ->getJson('/search?q=black&kinds=playlist')
             ->assertOk()
-            // An artist counts their discography; a song names its performer; a genre counts
-            // its songs. Raw values either way — the client pluralises and prints.
-            ->assertJsonPath('groups.0.rows.0.count', 2)
-            ->assertJsonPath('groups.0.rows.0.text', null)
-            ->assertJsonPath('groups.1.rows.0.text', 'Blackfield')
-            ->assertJsonPath('groups.2.rows.0.count', 2);
+            ->assertJsonPath('groups.0.rows.0.facts.tracks', 2)
+            // 400, not 200: the same track twice really does play twice — the opposite of the
+            // rule play COUNTS need over this pivot.
+            //
+            // Asserted as an INT because that is what lands on the wire: `json_encode` drops a
+            // whole float's fraction without JSON_PRESERVE_ZERO_FRACTION, so 400.0 travels as
+            // `400` while the 485.5 above keeps its point. Immaterial to the client, where both
+            // are `number` — but `assertJsonPath` compares strictly.
+            ->assertJsonPath('groups.0.rows.0.facts.duration', 400);
+    }
+
+    /**
+     * A MISSING FACT IS NULL, NOT ZERO, and the client draws no pip for it. Both cases here are
+     * real: a file whose tags carried no duration, and an artist credited on albums who performs
+     * no tracks of their own (a compilation owner). "0:00" on either would read as a broken row.
+     */
+    public function test_a_fact_the_row_does_not_have_is_null_rather_than_zero(): void
+    {
+        $artist = Artist::factory()->create(['name' => 'Black Compilations']);
+        Collection::factory()->create(['album_artist_id' => $artist->id]);
+        Track::factory()->create(['name' => 'Black Untagged', 'duration' => null]);
+
+        $response = $this->actingAs(User::factory()->create())->getJson('/search?q=black')->assertOk();
+
+        $response->assertJsonPath('groups.0.rows.0.facts.albums', 1)
+            ->assertJsonPath('groups.0.rows.0.facts.duration', null);
+        $response->assertJsonPath('groups.1.kind', 'song')
+            ->assertJsonPath('groups.1.rows.0.facts.duration', null);
     }
 }

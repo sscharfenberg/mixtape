@@ -16,14 +16,26 @@
  * decided is a search box is a fight not worth having. `autocomplete="off"` for the same reason
  * the pattern needs: the browser's own suggestion list would cover the app's.
  *
- * THE SPINNER TAKES THE GLYPH'S PLACE, in a slot of a fixed size. A search box that GREW a second
- * indicator while it works would move the field's content sideways under the reader's cursor, so
- * the addon is sized once and holds either the magnifying glass or the app's own LoadingSpinner —
- * the same component and the same `colored` pending tint FormRow uses for an async validation, so
- * "working" looks the same wherever it appears. (It was the search glyph SPINNING at first, which
- * the owner rightly called weird: a magnifying glass has an orientation, and rotating it reads as
- * a broken icon rather than as progress.) It appears from the keystroke rather than from the
- * request, so the 200ms debounce reads as "working" instead of as "nothing found".
+ * THE GLYPH IS A WELDED ADDON, the convention every field in this app follows
+ * (styles/components/form/row/_addon.scss): an outer frame around the pair, the icon inside it,
+ * and one border as the seam between icon and input — the addon keeping the leading corners while
+ * the input keeps the trailing ones. It shares the field's fill and lights with it on focus, so
+ * the two read as one control rather than as a glyph parked next to a box.
+ *
+ * THE WORKING INDICATOR SITS AT THE TRAILING END, and it is the app's own LoadingSpinner in its
+ * `colored` pending tint — the same component and the same colour FormRow uses for an async
+ * validation, so "working" looks the same wherever it appears. It went through two wrong shapes
+ * first, both the owner's catches: the search glyph SPINNING (a magnifying glass has an
+ * orientation, so rotating it reads as a broken icon rather than as progress), then a spinner
+ * standing in for the glyph on the leading edge (which makes the thing that says what the field IS
+ * flicker away while you use it). At the trailing end it is where every other field in this app
+ * reports on itself, beside the clear button rather than in place of the label.
+ *
+ * The trailing end is a fixed-width slot whether or not anything is in it, so neither the spinner
+ * arriving nor the clear button appearing moves the text under the reader's cursor.
+ *
+ * It shows from the keystroke rather than from the request, so the 200ms debounce reads as
+ * "working" instead of as "nothing found".
  *
  * It does not own the keyboard. Every key it receives goes up to the host, which hands it to
  * useLibrarySearch — one keymap for both mountings, which is the whole point of the composable.
@@ -82,12 +94,11 @@ defineExpose({ focus });
 
 <template>
     <div class="search-field">
-        <!-- One slot, two contents, one size — see the banner. Hidden from assistive tech in both
-             states: the results block announces what happened through its own live region, and a
-             screen reader has no use for "picture of a magnifying glass". -->
+        <!-- Decorative: the field's own `aria-label` says what it is, and the results block
+             announces what happened through its live region. A screen reader has no use for
+             "picture of a magnifying glass". -->
         <span class="search-field__addon" aria-hidden="true">
-            <loading-spinner v-if="loading" class="search-field__spinner colored" :size="1.5" />
-            <icon v-else name="search" :size="1" />
+            <icon name="search" :size="1" />
         </span>
         <input
             ref="input"
@@ -107,17 +118,22 @@ defineExpose({ focus });
             @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
             @keydown="emit('keydown', $event)"
         />
-        <!-- Only once there is something to clear: a button that does nothing is worse than no
-             button, and on a phone it costs the query two characters of width. -->
-        <button
-            v-if="modelValue !== ''"
-            type="button"
-            class="search-field__clear"
-            :aria-label="t('search.clear')"
-            @click="clear"
-        >
-            <icon name="close" :size="1" />
-        </button>
+        <!-- The trailing slot: what the field has to say about itself, and the way out of it. It
+             holds its width whether or not either is showing — see the banner. -->
+        <span class="search-field__actions">
+            <loading-spinner v-if="loading" class="search-field__spinner colored" :size="1.5" />
+            <!-- Only once there is something to clear: a button that does nothing is worse than
+                 no button. -->
+            <button
+                v-if="modelValue !== ''"
+                type="button"
+                class="search-field__clear"
+                :aria-label="t('search.clear')"
+                @click="clear"
+            >
+                <icon name="close" :size="1" />
+            </button>
+        </span>
     </div>
 </template>
 
@@ -127,21 +143,27 @@ defineExpose({ focus });
 @use "Abstracts/sizes" as s;
 @use "Abstracts/timings" as ti;
 
-/* One row: glyph, input, clear. The wrapper carries the frame so the three read as one control
-   — and so the focus ring can be drawn around all of it rather than around the input alone,
-   which would leave the glyph outside the thing that has focus. */
+/* THE WELDED PAIR — the shape every field in this app wears (form/row/_addon.scss): a frame
+   around the whole control, the glyph inside it, and ONE border as the seam between glyph and
+   input. So the frame lives on the two children rather than on this wrapper, which is only the
+   row that holds them and the box the focus halo is drawn around.
+
+   `position: relative` for the trailing slot, which is positioned over the input's own padding
+   rather than placed after it: a third flex segment there would draw a second seam and read as an
+   addon on the other end. */
 .search-field {
     display: flex;
-    align-items: center;
+    position: relative;
+
+    /* STRETCH, NOT CENTRE, and this is the whole reason the seam looks like a seam. The two
+       segments have different natural heights — the addon is a 19px glyph, the input a 22.4px text
+       line box — so centring them left the addon 35px against the input's 38.4px and the border
+       stepped up and down where they met (the owner's report). Stretching hands the addon the
+       input's height, exactly as FormRow's addon takes a textarea's; the glyph is then centred
+       INSIDE it rather than the box being sized around the glyph. */
+    align-items: stretch;
 
     box-sizing: border-box;
-    padding: 0 map.get(s.$c-search, "gap");
-    border: map.get(s.$c-search, "border") solid map.get(c.$c-search, "field", "border");
-
-    gap: map.get(s.$c-search, "gap");
-
-    background-color: map.get(c.$c-search, "field", "background");
-    color: map.get(c.$c-search, "field", "surface");
 
     border-radius: map.get(s.$c-search, "radius");
 
@@ -149,55 +171,60 @@ defineExpose({ focus });
         transition: box-shadow ti.$c-search linear;
     }
 
-    /* The app's neon focus glow, moved from the input to the frame with `:focus-within` — the
-       same two-layer treatment every focused control here gets, so the search box does not
-       announce focus in a way of its own. */
+    /* The app's neon focus glow, on the wrapper via `:focus-within` so it surrounds the pair
+       rather than the input alone — the same two-layer treatment every focused control here
+       gets. */
     &:focus-within {
         box-shadow:
             0 0 0 1px map.get(c.$c-search, "field", "glow"),
             0 0 8px map.get(c.$c-search, "field", "glow");
     }
 
-    /* A FIXED SQUARE, the size of the glyph it usually holds, so swapping in the spinner moves
-       nothing. `flex-shrink: 0` because a long query must eat into the input, never into this. */
+    /* The addon keeps the LEADING corners and squares the trailing ones, which is the half of the
+       convention that makes the seam a seam.
+
+       Its WIDTH is fixed so the glyph sits dead centre; its HEIGHT is not set at all — the flex
+       stretch above gives it the input's, which is what keeps the border unbroken across the seam.
+       Setting one here is what broke it. */
     &__addon {
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
 
+        box-sizing: content-box;
         width: map.get(s.$c-icon, "small");
-        height: map.get(s.$c-icon, "small");
+        padding-inline: map.get(s.$c-search, "row", "padding");
 
+        border: map.get(s.$c-search, "border") solid map.get(c.$c-search, "field", "border");
+
+        background-color: map.get(c.$c-search, "field", "background");
         color: map.get(c.$c-search, "muted");
+
+        border-radius: map.get(s.$c-search, "radius") 0 0 map.get(s.$c-search, "radius");
     }
 
-    /* POSITIONED, and not decoratively: LoadingSpinner draws itself entirely in two ABSOLUTE
-       pseudo-elements, so without a positioned parent they would anchor to whatever ancestor
-       happens to be positioned — the panel — and the spinner would appear in its corner. FormRow's
-       copy gets this for free by being absolutely placed itself; this one has to say it.
+    /* …and the input keeps the trailing ones, with no border on the side it meets the addon: two
+       bordered edges against each other draw a 4px line beside every 2px one, which is the exact
+       fault the Select-in-a-FormRow seam was measured and fixed for.
 
-       The size is FormRow's, 1.5 — 18px against the 19px glyph it replaces, so the two carry the
-       same weight in the same slot. A step smaller was tried and read as a stray comma: this
-       spinner draws an orbiting dot rather than a ring, and below ~18px there is not enough arc
-       left to look like motion. The dot is a `box-shadow` painted 0.2em OUTSIDE the box, so it
-       orbits a few pixels into the field's own padding, which is why the slot needs no extra room
-       for it. */
-    &__spinner {
-        position: relative;
-    }
-
-    /* Frameless: the wrapper is the frame. `min-width: 0` because a flex item's floor is its
-       content, and a long query would otherwise push the clear button off the end. */
+       `min-width: 0` because a flex item's floor is its content, and a long query would otherwise
+       push the control wider than the panel. */
     &__input {
         min-width: 0;
         flex: 1 1 auto;
-        padding: map.get(s.$c-search, "row", "padding") 0;
-        border: 0;
+        padding: map.get(s.$c-search, "row", "padding");
 
-        background: none;
-        color: inherit;
+        // Room for the trailing slot, which floats over this padding — see `&__actions`.
+        padding-inline-end: map.get(s.$c-search, "actions-reserve");
+        border: map.get(s.$c-search, "border") solid map.get(c.$c-search, "field", "border");
+        border-inline-start: 0;
+
+        background-color: map.get(c.$c-search, "field", "background");
+        color: map.get(c.$c-search, "field", "surface");
         outline: 0;
+
+        border-radius: 0 map.get(s.$c-search, "radius") map.get(s.$c-search, "radius") 0;
 
         font: inherit;
 
@@ -206,11 +233,49 @@ defineExpose({ focus });
         }
     }
 
+    /* THE TRAILING SLOT, over the input's end padding. Its width is reserved by that padding
+       whether or not anything is in it, so the spinner arriving and the clear button appearing
+       both cost the text nothing — a field whose content shifts while you type in it is the one
+       thing this arrangement exists to avoid. */
+
+    /* PINNED TO BOTH BLOCK EDGES, which is the part that was missing: with only an inline offset
+       an absolutely-positioned box takes its STATIC position for the other axis, and that position
+       stopped being centred the moment the field switched from `align-items: center` to `stretch`
+       (for the seam) — so the clear button drifted to the top of the field. Spanning the height and
+       centring inside it does not depend on how the row aligns its items. */
+    &__actions {
+        display: flex;
+        position: absolute;
+        inset-inline-end: map.get(s.$c-search, "row", "padding");
+        inset-block: 0;
+        align-items: center;
+
+        gap: map.get(s.$c-search, "gap");
+    }
+
+    /* POSITIONED, and not decoratively: LoadingSpinner draws itself entirely in two ABSOLUTE
+       pseudo-elements, so without a positioned parent they would anchor to the nearest one — the
+       panel — and the spinner would turn in its corner. FormRow's copy gets this for free by
+       being absolutely placed itself; this one has to say it.
+
+       `colored` (on the element) is the pending tint the token set already carries, so the working
+       state is the app's blue here exactly as it is on a validating form field. The size is
+       FormRow's, 1.5 — a step smaller reads as a stray comma, since this spinner draws an
+       orbiting dot rather than a ring and there is not enough arc left below ~18px. */
+    &__spinner {
+        position: relative;
+        flex-shrink: 0;
+    }
+
+    /* A REAL TAP TARGET. It was the glyph and nothing else — 19×19, which is under the 24px WCAG
+       2.2 asks for and well under what a thumb wants. Stretching it to the field's height and
+       padding it out inline makes it ~31×38 without moving the glyph or the text beside it: the
+       room it needs was already reserved by the input's trailing padding (`actions-reserve`). */
     &__clear {
         display: flex;
         align-items: center;
+        align-self: stretch;
 
-        padding: 0;
         border: 0;
 
         background: none;
@@ -218,13 +283,15 @@ defineExpose({ focus });
 
         cursor: pointer;
 
+        padding-inline: map.get(s.$c-search, "row", "padding");
+
         @media (prefers-reduced-motion: no-preference) {
             transition: color ti.$c-search linear;
         }
 
         &:hover,
         &:focus-visible {
-            color: map.get(c.$c-search, "surface");
+            color: map.get(c.$c-search, "field", "surface");
         }
     }
 }

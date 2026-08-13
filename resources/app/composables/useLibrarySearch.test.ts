@@ -56,8 +56,7 @@ const group = (kind: SearchGroup["kind"], names: string[], seeAll: string | null
         id: `${kind}-${index}`,
         name,
         href: `/${kind}/${index}`,
-        count: null,
-        text: null
+        facts: {}
     })),
     seeAll
 });

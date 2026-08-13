@@ -55,6 +55,21 @@ export interface TableResponse<T> {
      */
     tiebreakers?: string[];
     search: string | null;
+    /**
+     * Which search ran — `"name"` when the listing was narrowed to the row's own name, null for
+     * its own (usually wider) default.
+     *
+     * It exists because two surfaces disagreed about one query: the cross-kind search dropdown
+     * matches a row's own name, the Songs listing also matches artist, album and genre, so "show
+     * all 70 songs" opened a table of 2,000+. The dropdown now links with `?searchIn=name` and this
+     * is the server saying it applied — which is what lets the toolbar announce the narrowing and
+     * offer the way out of it. See `App\Services\DataTableService::SEARCH_IN_NAME`.
+     *
+     * OPTIONAL like `tiebreakers`, and for the same reason: DataTableService always sends it, so
+     * nothing can forget to — and every hand-written fixture in the test suite would otherwise have
+     * to carry a field its assertions never look at.
+     */
+    searchIn?: string | null;
     /** Reserved for future column/faceted filtering. v1: always null. */
     filters: Record<string, string | string[]> | null;
 }

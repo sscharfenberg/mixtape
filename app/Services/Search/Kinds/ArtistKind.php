@@ -34,16 +34,26 @@ final class ArtistKind extends DatabaseKind
     }
 
     /**
-     * Every artist, plus their DISCOGRAPHY as the row's second line — albums credited to them
-     * (`collections.album_artist_id`), which is the same count the Artists listing shows and
-     * the same set the artist page's own discography lists. Not "albums holding a track of
-     * theirs", which would count every compilation they appear on.
+     * Every artist, with the two facts their row shows: how many albums, and how long their
+     * tracks run.
+     *
+     * `albums` is their DISCOGRAPHY — albums credited to them (`collections.album_artist_id`),
+     * which is the same count the Artists listing shows and the same set the artist page's own
+     * discography lists. Not "albums holding a track of theirs", which would count every
+     * compilation they appear on.
+     *
+     * The runtime is aliased away from `tracks_sum_duration` on purpose: an aggregate landing on
+     * an attribute that HAS a cast picks that cast up, which is the trap MusicController's
+     * artists() documents. It is null rather than 0 for an artist who performs nothing — a
+     * credited-only compilation owner — and the client then draws no pip at all instead of
+     * "0:00".
      */
     protected function query(User $reader): Builder
     {
         return Artist::query()
             ->select(['artists.id', 'artists.name'])
-            ->withCount('albums');
+            ->withCount('albums')
+            ->withSum('tracks as total_duration', 'duration');
     }
 
     /** @return list<string> */
@@ -68,10 +78,18 @@ final class ArtistKind extends DatabaseKind
             id: $row->id,
             name: $row->name,
             href: route('music.artists.show', $row->id, absolute: false),
-            count: (int) $row->albums_count,
+            facts: [
+                'albums' => (int) $row->albums_count,
+                'duration' => $row->total_duration === null ? null : (float) $row->total_duration,
+            ],
         );
     }
 
+    /**
+     * No `searchIn=name` on this one, unlike the songs and albums hand-offs: this listing's own
+     * search already matches nothing but the name, so the wide and narrow readings are the same
+     * query and the mode would be a claim with nothing behind it.
+     */
     protected function seeAll(string $query): ?string
     {
         return route('music.artists', ['search' => $query], absolute: false);

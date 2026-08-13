@@ -396,6 +396,11 @@ this is the record of *why* that code exists.
   presenting as broken *features* rather than as mis-timed input. Prefer a locator action with
   `{ position }` over raw coordinates where one will do; it waits *and* verifies the element is
   what receives the press.
+- **`waitForResponse` is not `waitForRepaint`.** A helper that returned as soon as the search
+  endpoint answered let a one-shot `page.evaluate` read the DOM before Vue had painted the rows — it
+  failed as *"expected Künstler, got undefined"* in a full parallel run and passed every time in
+  isolation, twice. A `locator` assertion retries and would have ridden it out; a single `evaluate`
+  gets one look. **Wait for something the answer put on screen** before reading the DOM by hand.
 - **A zero-height `[popover]` layer CLIPS its own panel, and the failure reads as a broken
   selector.** The overlay pattern this app uses twice — a full-bleed fixed "layer" with
   `pointer-events: none`, holding an absolutely-positioned panel — depends on the layer having a
@@ -410,6 +415,14 @@ this is the record of *why* that code exists.
   `text-transform: uppercase` comes back as `"KÜNSTLER"`, so an assertion against the word as the
   catalog spells it fails looking like a missing translation. Use `allTextContents()` whenever the
   expectation comes from an i18n key.
+- **A computed COLOUR read straight after a hover or a focus is mid-transition.** Every interactive
+  surface here transitions `background-color` over ~150ms, and `getComputedStyle` during that window
+  returns the interpolated value — so a probe taken immediately after `hover()` reports the RESTING
+  colour and the rule looks as though it never applied. Cost several probes on the search rows'
+  focus wash, and it survived being "confirmed" by swapping the target colour for `red`: the reading
+  came back `rgb(246, 245, 245)`, i.e. one frame of red, which reads as noise rather than as a clue.
+  **Wait out the transition (or assert with `expect.poll`) before reading a colour**, the same rule
+  as measuring a popover's box.
 - **A popover must be STILL before it is measured.** Panels open with a `rotateY`, and a transform is
   included in `getBoundingClientRect` — so a box read on the click is a couple of pixels from where
   it lands. `:popover-open` and visibility are both true from the first frame, so neither is the

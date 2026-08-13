@@ -24,6 +24,22 @@ class DataTableService
     private const DEFAULT_SORT_DIR = 'asc';
 
     /**
+     * The value of `?searchIn=` that narrows a listing's search to the row's OWN NAME.
+     *
+     * WHY A LISTING NEEDS TWO SEARCHES AT ALL (the owner's report, 2026-08-13). The Songs listing
+     * matches title, artist, album AND genre, which is the right default for somebody who has
+     * arrived to browse — but the cross-kind search dropdown matches a row's own name only, and its
+     * hand-off said "show all 70 songs" and then landed on a table of 2,000+: "godspeed you black
+     * emperor" and every band filed under Black Metal, none of which is a song called Black. Two
+     * numbers for one query, and the reader has no way to tell which is lying.
+     *
+     * So the mode travels in the URL beside the query. The dropdown links with it, the wide search
+     * stays the default for anyone who came to the listing directly, and both remain bookmarkable —
+     * which a hidden preference or a session flag would not be.
+     */
+    public const SEARCH_IN_NAME = 'name';
+
+    /**
      * Build a paginated, sorted, searchable table response array.
      *
      * The sort key is validated against the $sortable whitelist (never trust the
@@ -37,12 +53,18 @@ class DataTableService
      * @param  array<string, string>  $sortColumnMap  Maps a sort key to its actual DB column.
      * @param  string  $defaultSort  Fallback sort key when none/invalid is given.
      * @param  (callable(Builder, string): void)|null  $searchCallback  Applies search filtering; null disables search.
+     * @param  (callable(Builder, string): void)|null  $nameSearchCallback  The NARROW search — the row's own name
+     *                                                                      alone — used when the request carries
+     *                                                                      `?searchIn=name`. Null where a listing has no
+     *                                                                      narrower reading than its default (the Artists
+     *                                                                      and Genres tables already match one column), and
+     *                                                                      the mode is then ignored rather than faked.
      * @param  callable(mixed): array<string, mixed>  $rowMapper  Transforms each model into a plain row array (must include a string `id`).
      * @param  string[]  $tiebreakers  Sort KEYS appended after the chosen sort, always ascending;
      *                                 mapped through $sortColumnMap like the primary. Always
      *                                 applied; echoed back in `tiebreakers` only while the table
      *                                 is on its default sort — see there.
-     * @return array{rows: array<int, array<string, mixed>>, total: int, totalUnfiltered: int, page: int, pageSize: int, sort: array{key: string, direction: string}, tiebreakers: string[], search: string|null, filters: null}
+     * @return array{rows: array<int, array<string, mixed>>, total: int, totalUnfiltered: int, page: int, pageSize: int, sort: array{key: string, direction: string}, tiebreakers: string[], search: string|null, searchIn: string|null, filters: null}
      */
     public static function buildResponse(
         Builder|HasMany $query,
@@ -54,6 +76,7 @@ class DataTableService
         callable $rowMapper,
         string $defaultDirection = self::DEFAULT_SORT_DIR,
         array $tiebreakers = [],
+        ?callable $nameSearchCallback = null,
     ): array {
         $sortKey = $request->input('sort', $defaultSort);
         $sortDir = $request->input('dir', $defaultDirection);
@@ -73,6 +96,17 @@ class DataTableService
         $search = $request->input('search');
 
         /*
+         * Which of the two searches this request wants — see SEARCH_IN_NAME for why there are two.
+         *
+         * The narrow one is used only when the caller HAS one: a listing whose wide search is
+         * already a single column has nothing to narrow, so `?searchIn=name` there is silently the
+         * same search rather than a mode the response would claim to be in and the toolbar would
+         * offer a way out of.
+         */
+        $narrowed = $nameSearchCallback !== null && $request->input('searchIn') === self::SEARCH_IN_NAME;
+        $applySearch = $narrowed ? $nameSearchCallback : $searchCallback;
+
+        /*
          * How big the table is with NO search applied, which is what decides whether the
          * pager is worth drawing at all (see `totalUnfiltered` in the response).
          *
@@ -81,10 +115,10 @@ class DataTableService
          * common request pays nothing. When there is one, this is a second COUNT — the
          * price of a pager that does not appear and vanish as somebody types.
          */
-        $totalUnfiltered = $search && $searchCallback ? (clone $query)->toBase()->count() : null;
+        $totalUnfiltered = $search && $applySearch ? (clone $query)->toBase()->count() : null;
 
-        if ($search && $searchCallback) {
-            $searchCallback($query, $search);
+        if ($search && $applySearch) {
+            $applySearch($query, $search);
         }
 
         $sortColumn = $sortColumnMap[$sortKey] ?? $sortKey;
@@ -143,6 +177,12 @@ class DataTableService
             // the marking mean less rather than more.
             'tiebreakers' => $sortKey === $defaultSort ? $applied : [],
             'search' => $search,
+            /*
+             * Which search ran, so the toolbar can say so and offer the way out. Null unless the
+             * narrow one actually applied — a mode the table is not really in is worse than no
+             * mode at all, because the chip announcing it would be a lie the reader can click.
+             */
+            'searchIn' => $narrowed ? self::SEARCH_IN_NAME : null,
             'filters' => null,
         ];
     }

@@ -38,11 +38,58 @@ $search: (
     // the fold, which is the whole reason the results REPLACE the tiles rather than push them
     // down. Read through `--search-results-height` (see SearchResults).
     "results-height-inline": math.round(s.$base * 20),
+    /*
+     * The trailing slot's width inside the field — the spinner and the clear button, plus the air
+     * either side of them.
+     *
+     * RESERVED WHETHER OR NOT ANYTHING IS IN IT, which is the whole reason it is a fixed number
+     * rather than the slot's own content width: both controls come and go while a reader is
+     * typing, and a field whose text shifts under the caret is worse than one with a little
+     * unused room at the end.
+     *
+     * 68px covers the pair at their widest — an 18px spinner, the gap, and a clear button padded
+     * out to ~31px so it is a thumb-sized target rather than a 19px glyph — plus the slot's own
+     * offset from the field's edge. Grew from 56px when the button did.
+     */
+    "actions-reserve": math.round(s.$base * 4.25),
     "group": (
-        // Between a group's heading and its rows; smaller than the gap BETWEEN groups, so a
-        // heading reads as belonging to the rows under it rather than floating between two sets.
-        "gap": math.round(s.$base * 0.25),
-        "heading-size": 0.8rem
+        // There is deliberately no `gap` here any more: a group's strip and its rows touch, and so
+        // do the rows (see SearchResults). The token went with the rule rather than being left
+        // behind for a reader to wonder about.
+        "heading-size": 0.8rem,
+        // The heading strip's block padding. It was a third of this and read as a hairline rule
+        // with words crammed into it (the owner, 2026-08-13): a divider between two sets of rows
+        // needs enough air to be a band rather than a line. The inline half comes from the panel's
+        // own padding, so the label lines up with the names below it.
+        "heading-padding": math.round(s.$base * 0.4)
+    ),
+    /*
+     * The result count on a group's heading, drawn as a pill.
+     *
+     * Badge's geometry (its padding and `featured` radius), because it should read as the same
+     * family — but not Badge itself: that component's four variants are all STATE colours
+     * (success / warning / error / caution) and "77 results" is not a state, so an amber pill
+     * would be saying something untrue on a strip that is already carrying colour.
+     */
+    "count": (
+        "padding": math.round(s.$base * 0.05) math.round(s.$base * 0.4),
+        "radius": map.get(s.$radius, "featured"),
+        "size": 0.75rem
+    ),
+    /*
+     * A row's facts, drawn as icon pips beside or beneath its name — the same shape the music
+     * widgets' cards use (WidgetList).
+     *
+     * THERE IS NO `size` HERE, and that is the decision rather than an omission: a pip is drawn at
+     * the NAME's size (the owner's call). It went 0.7rem → 0.8rem → inherited over one afternoon,
+     * every step the same correction — a fact nobody can read is not a fact. The wash and the glyph
+     * are what separate a pip from the name beside it, which is plenty; shrinking the text too was
+     * saying "less important" twice and paying for it in legibility.
+     */
+    "pip": (
+        "padding": 0 math.round(s.$base * 0.25),
+        "radius": map.get(s.$radius, "base"),
+        "gap": math.round(s.$base * 0.25)
     ),
     "row": (
         "padding": math.round(s.$base * 0.375),

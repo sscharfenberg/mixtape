@@ -48,7 +48,7 @@ import { useLibrarySearch } from "Composables/useLibrarySearch";
 import { bindSearchShortcuts, noteSearchOverlay, unbindSearchShortcuts, useSearchOverlay } from "Composables/useSearchOverlay";
 
 const { t } = useI18n();
-const { isOpen, close, setOpen } = useSearchOverlay();
+const { isOpen, close, setOpen, focusNonce } = useSearchOverlay();
 
 // Opening a result puts the panel away: the reader has gone somewhere, and a dropdown still
 // hanging over the page they asked for is a dropdown they have to dismiss.
@@ -124,27 +124,37 @@ function handleToggle(event: ToggleEvent): void {
 watch(isOpen, apply);
 
 /**
- * Focus the field once the panel is actually showing.
+ * Put the caret in the field.
  *
- * `flush: "post"` because a popover that is still `display: none` cannot take focus — the DOM has
- * to have been updated and the element promoted to the top layer first. This is also why the
- * shortcuts only set the flag: "open it" and "put the caret in it" are one gesture for the reader
- * and two frames for the browser.
+ * `flush: "post"` on both watchers below, because a popover that is still `display: none` cannot
+ * take focus — the DOM has to have been updated and the element promoted to the top layer first.
+ * That is also why the shortcuts only ask rather than focusing themselves: "open it" and "put the
+ * caret in it" are one gesture for the reader and two frames for the browser.
  */
-watch(
-    isOpen,
-    open => {
-        if (open) field.value?.focus();
-    },
-    { flush: "post" }
-);
+function focusField(): void {
+    field.value?.focus();
+}
+
+// The panel just opened — including when something other than a deliberate request opened it.
+watch(isOpen, open => (open ? focusField() : undefined), { flush: "post" });
+
+/*
+ * …AND WHENEVER SEARCH IS ASKED FOR, which is the case the flag above cannot see: press ⌘K (or the
+ * header's glyph, or `/`) while the panel is ALREADY open and `isOpen` does not change, so nothing
+ * fired and the caret stayed wherever it was — measured on a breadcrumb link after tabbing out of an
+ * open panel. A request is an event rather than a state, so it travels as a nonce (useSearchOverlay).
+ */
+watch(focusNonce, focusField, { flush: "post" });
 </script>
 
 <template>
     <div v-if="user" ref="layer" class="search-layer" popover="auto" @toggle="handleToggle">
         <section class="search-panel" :aria-label="t('search.label')">
+            <!-- The one child that keeps an inset, since the panel has none: a field welded to
+                 the panel's edges would read as part of the frame. -->
             <search-field
                 ref="field"
+                class="search-panel__field"
                 v-model="query"
                 :listbox-id="listboxId"
                 :active-option-id="activeOptionId"
@@ -266,8 +276,20 @@ watch(
        column rather than a 1440px dropdown with five words in it. */
     width: calc(100% - #{map.get(s.$c-app, "padding", "desktop")} * 2);
     max-width: map.get(s.$c-search, "panel-max");
-    padding: map.get(s.$c-search, "padding");
+
+    /* BLOCK PADDING ONLY, which is what lets the results run edge to edge: a full-width heading
+       strip is a divider where an inset band is just another block of content, and the scroll
+       container's scrollbar then lands on the panel's own inner edge instead of floating a step
+       inside it (the owner's report). The field puts its own inset back with a margin below; the
+       rows and the strips carry theirs as padding, from the same token, so every line of text in
+       the panel still starts on one vertical. */
+    padding-block: map.get(s.$c-search, "padding");
+
+    /* NO TOP BORDER. The panel hangs directly off the header, which already draws a bottom edge —
+       two lines a pixel apart read as a seam rather than as a frame. The same reasoning the queue
+       panel's `border-inline`-only rule records for the edges it meets. */
     border: map.get(s.$c-search, "border") solid map.get(c.$c-search, "border");
+    border-top: 0;
 
     gap: map.get(s.$c-search, "gap");
 
@@ -277,6 +299,11 @@ watch(
     border-radius: 0 0 map.get(s.$c-search, "radius") map.get(s.$c-search, "radius");
 
     pointer-events: auto;
+
+    /* The field keeps the inset the panel gave up — the results deliberately do not. */
+    &__field {
+        margin-inline: map.get(s.$c-search, "padding");
+    }
 
     /* A short drop, not a slide: the panel is already where it belongs and only announces its
        arrival. The distance is small on purpose — this opens often (two keystrokes from

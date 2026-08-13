@@ -6,6 +6,7 @@ namespace App\Services\Search\Kinds;
 
 use App\Enums\SearchKind;
 use App\Models\Playlist;
+use App\Models\PlaylistTrack;
 use App\Models\User;
 use App\Services\Search\SearchHit;
 use Illuminate\Database\Eloquent\Builder;
@@ -41,18 +42,33 @@ final class PlaylistKind extends DatabaseKind
     }
 
     /**
-     * The reader's own playlists and how many tracks each holds.
+     * The reader's own playlists, with how many tracks each holds and how long it runs.
      *
-     * Counted over `playlistTracks` — the pivot rows — rather than over distinct tracks,
-     * because that is what the listing and the detail page count: a playlist that deliberately
-     * holds one song twice is two entries long.
+     * BOTH ARE COUNTED OVER THE PIVOT — the `playlist_tracks` rows — rather than over distinct
+     * tracks, and that is right for both: a playlist deliberately holding one song twice is two
+     * entries long and takes twice as long to play. Note this is the OPPOSITE of the rule
+     * `PlayCounts::forPlaylist` had to adopt (2026-08-13), where a join over the same pivot made
+     * one listen count twice: a LISTEN is an event that happened once, while a track sitting in a
+     * list twice really is played twice. Same table, two questions.
+     *
+     * The runtime is a correlated sub-select rather than a `withSum` through the relation, because
+     * the relation is a `belongsToMany` carrying an ORDER BY for the playlist's running order —
+     * which an aggregate has no use for. Null when the playlist is empty, so the client draws no
+     * pip rather than "0:00".
      */
     protected function query(User $reader): Builder
     {
+        $runtime = PlaylistTrack::query()
+            ->join('tracks', 'tracks.id', '=', 'playlist_tracks.track_id')
+            ->whereColumn('playlist_tracks.playlist_id', 'playlists.id')
+            ->selectRaw('sum(tracks.duration)')
+            ->toBase();
+
         return Playlist::query()
             ->where('playlists.user_id', $reader->id)
             ->select(['playlists.id', 'playlists.name'])
-            ->withCount('playlistTracks as tracks_count');
+            ->withCount('playlistTracks as tracks_count')
+            ->addSelect(['total_duration' => $runtime]);
     }
 
     /** @return list<string> */
@@ -77,7 +93,10 @@ final class PlaylistKind extends DatabaseKind
             id: $row->id,
             name: $row->name,
             href: route('playlists.show', $row->id, absolute: false),
-            count: (int) $row->tracks_count,
+            facts: [
+                'tracks' => (int) $row->tracks_count,
+                'duration' => $row->total_duration === null ? null : (float) $row->total_duration,
+            ],
         );
     }
 

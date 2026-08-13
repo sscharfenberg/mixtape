@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { mountApp } from "Testing/mount";
-import type { SearchGroup, SearchRow } from "Types/search";
+import { iconNames, mountApp } from "Testing/mount";
+import type { SearchFacts, SearchGroup, SearchRow } from "Types/search";
 import SearchResults from "./SearchResults.vue";
 
 vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
@@ -25,14 +25,12 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
  * rendering as itself.
  */
 
-/** One row, with whichever half of its second line the case is about. */
-const row = (name: string, extra: Partial<SearchRow> = {}): SearchRow => ({
+/** One row, carrying whichever facts the case is about. */
+const row = (name: string, facts: SearchFacts = {}): SearchRow => ({
     id: `id-${name}`,
     name,
     href: `/somewhere/${name}`,
-    count: null,
-    text: null,
-    ...extra
+    facts
 });
 
 /** One group, defaulting to no hand-off. */
@@ -121,31 +119,59 @@ describe("SearchResults", () => {
         });
     });
 
-    describe("a row's second line", () => {
-        it("prints a name as it stands", () => {
-            const wrapper = render({ groups: [group("song", [row("Black Dog", { text: "Led Zeppelin" })])] });
+    describe("a row's facts, drawn as pips", () => {
+        /** Two facts per kind, in the order the kind lists them — the owner's set. */
+        it("draws the two pips its kind carries, in order", () => {
+            const wrapper = render({
+                groups: [group("artist", [row("Blackfield", { albums: 12, duration: 4322 })])]
+            });
 
-            expect(wrapper.find(".search-results__meta").text()).toBe("Led Zeppelin");
+            const pips = wrapper.findAll(".search-results__pip-value").map(node => node.text());
+            expect(pips).toEqual(["12", "1:12:02"]);
         });
 
-        /** The raw-values rule: a number arrives as a number and is worded in the reader's catalog. */
-        it("pluralises a count against its own kind", () => {
-            const wrapper = render({ groups: [group("artist", [row("Blackfield", { count: 12 })])] });
+        /** The raw-values rule: seconds arrive as seconds and are clocked in the reader's locale. */
+        it("clocks a runtime rather than printing its seconds", () => {
+            const wrapper = render({ groups: [group("song", [row("Black Dog", { duration: 285 })])] });
 
-            expect(wrapper.find(".search-results__meta").text()).toBe("12 Alben");
+            expect(wrapper.find(".search-results__pip-value").text()).toBe("4:45");
         });
 
-        it("uses the singular where the count is one", () => {
-            const wrapper = render({ groups: [group("artist", [row("Blackfield", { count: 1 })])] });
+        it("prints a credit as it stands", () => {
+            const wrapper = render({ groups: [group("song", [row("Black Dog", { artist: "Led Zeppelin" })])] });
 
-            expect(wrapper.find(".search-results__meta").text()).toBe("1 Album");
+            expect(wrapper.find(".search-results__pip-value").text()).toBe("Led Zeppelin");
         });
 
-        /** A song whose file credits nobody has nothing to say, and must not say "null". */
-        it("disappears when the kind has neither", () => {
+        /**
+         * A MISSING FACT DRAWS NO PIP. Both cases are real — a file crediting nobody, an artist
+         * who performs no tracks of their own — and "0:00" there reads as a broken row.
+         */
+        it("leaves out a fact the row does not have", () => {
+            const wrapper = render({
+                groups: [group("artist", [row("Black Compilations", { albums: 1, duration: null })])]
+            });
+
+            expect(wrapper.findAll(".search-results__pip")).toHaveLength(1);
+            expect(wrapper.find(".search-results__pip-value").text()).toBe("1");
+        });
+
+        it("draws no pip row at all when the kind sent nothing", () => {
             const wrapper = render({ groups: [group("song", [row("Black Dog")])] });
 
-            expect(wrapper.find(".search-results__meta").exists()).toBe(false);
+            expect(wrapper.find(".search-results__pips").exists()).toBe(false);
+        });
+
+        /**
+         * THE GLYPH IS THE PIP'S ONLY VISIBLE LABEL, so which one is drawn is the whole of what a
+         * reader has to go on. Asserted as the group's own glyph followed by one per fact, in the
+         * kind's order. (The words survive in the tooltip, which `v-tooltip` keeps on the element
+         * rather than in an attribute — so what a spec can check here is the icons.)
+         */
+        it("gives each fact its own glyph, in the kind's order", () => {
+            const wrapper = render({ groups: [group("genre", [row("Blackgaze", { artists: 3, songs: 40 })])] });
+
+            expect(iconNames(wrapper)).toEqual(["genre", "artist", "song"]);
         });
     });
 
@@ -161,7 +187,7 @@ describe("SearchResults", () => {
         });
 
         it("is absent for a group that has none", () => {
-            const wrapper = render({ groups: [group("playlist", [row("Roadtrip", { count: 3 })])] });
+            const wrapper = render({ groups: [group("playlist", [row("Roadtrip", { tracks: 3 })])] });
 
             expect(wrapper.find(".search-results__row--all").exists()).toBe(false);
         });

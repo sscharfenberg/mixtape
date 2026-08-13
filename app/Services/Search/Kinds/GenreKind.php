@@ -8,6 +8,7 @@ use App\Enums\SearchKind;
 use App\Enums\TrackType;
 use App\Models\Genre;
 use App\Models\User;
+use App\Services\Music\DominantGenre;
 use App\Services\Search\SearchHit;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -33,10 +34,20 @@ final class GenreKind extends DatabaseKind
         return SearchKind::Genre;
     }
 
+    /**
+     * Every genre, with how many artists it owns and how many songs carry it.
+     *
+     * ARTISTS COUNTS THE ONES WHOSE MAIN GENRE THIS IS (DominantGenre), not everyone who ever
+     * recorded a song in it — the same rule the Genres listing and the genre's own page use, so a
+     * reader meeting the same genre twice is never told two different things. LEFT-joined and
+     * COALESCEd, because a genre can hold plenty of songs while being nobody's main one.
+     */
     protected function query(User $reader): Builder
     {
         return Genre::query()
             ->select(['genres.id', 'genres.name'])
+            ->leftJoinSub(DominantGenre::artistCountsPerGenre(), 'main', 'main.genre_id', '=', 'genres.id')
+            ->selectRaw('coalesce(main.artists_count, 0) as artists_count')
             ->withCount(['tracks as songs_count' => fn (Builder $q): Builder => $q->where('tracks.type', TrackType::Music)]);
     }
 
@@ -62,10 +73,18 @@ final class GenreKind extends DatabaseKind
             id: $row->id,
             name: $row->name,
             href: route('music.genres.show', $row->id, absolute: false),
-            count: (int) $row->songs_count,
+            facts: [
+                'artists' => (int) $row->artists_count,
+                'songs' => (int) $row->songs_count,
+            ],
         );
     }
 
+    /**
+     * No `searchIn=name` on this one, unlike the songs and albums hand-offs: this listing's own
+     * search already matches nothing but the name, so the wide and narrow readings are the same
+     * query and the mode would be a claim with nothing behind it.
+     */
     protected function seeAll(string $query): ?string
     {
         return route('music.genres', ['search' => $query], absolute: false);

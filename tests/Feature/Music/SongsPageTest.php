@@ -173,4 +173,55 @@ class SongsPageTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page->has('table.rows', 1));
     }
+
+    /**
+     * THE WIDE SEARCH IS THE DEFAULT, and it is what a reader who came to browse wants: "black"
+     * finds a song called Black, everything by an artist with Black in their name, and everything
+     * filed under Black Metal.
+     */
+    public function test_the_default_search_matches_artist_album_and_genre_as_well_as_the_title(): void
+    {
+        Track::factory()->create(['name' => 'Back in Black']);
+        Track::factory()->create(['name' => 'Paranoid', 'artist_id' => Artist::factory()->create(['name' => 'Black Sabbath'])->id]);
+        Track::factory()->create(['name' => 'Freezing Moon', 'genre_id' => Genre::factory()->create(['name' => 'Black Metal'])->id]);
+        Track::factory()->create(['name' => 'Enter Sandman', 'collection_id' => Collection::factory()->create(['name' => 'Black Album'])->id]);
+
+        $this->actingAs(User::factory()->create())
+            ->get('/music/songs?search=black')
+            ->assertInertia(fn (Assert $page) => $page->has('table.rows', 4)->where('table.searchIn', null));
+    }
+
+    /**
+     * …AND `?searchIn=name` NARROWS IT TO THE TITLE, which is the mode the cross-kind search
+     * dropdown hands off in. It exists because the two disagreed in front of the reader: the
+     * dropdown counted 70 songs called something with Black in the title and its "show all" opened
+     * a table of 2,000+ (the owner's report, 2026-08-13). Same query, one reading.
+     */
+    public function test_searching_in_the_name_matches_the_title_alone(): void
+    {
+        Track::factory()->create(['name' => 'Back in Black']);
+        Track::factory()->create(['name' => 'Paranoid', 'artist_id' => Artist::factory()->create(['name' => 'Black Sabbath'])->id]);
+        Track::factory()->create(['name' => 'Freezing Moon', 'genre_id' => Genre::factory()->create(['name' => 'Black Metal'])->id]);
+
+        $this->actingAs(User::factory()->create())
+            ->get('/music/songs?search=black&searchIn=name')
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('table.rows', 1)
+                ->where('table.rows.0.name', 'Back in Black')
+                // Echoed back, which is how the toolbar knows to say the table is narrowed and to
+                // offer the way out of it.
+                ->where('table.searchIn', 'name')
+            );
+    }
+
+    /** An unknown mode is not a search of its own — it falls back to the listing's default. */
+    public function test_an_unknown_search_mode_leaves_the_wide_search_in_place(): void
+    {
+        Track::factory()->create(['name' => 'Back in Black']);
+        Track::factory()->create(['name' => 'Paranoid', 'artist_id' => Artist::factory()->create(['name' => 'Black Sabbath'])->id]);
+
+        $this->actingAs(User::factory()->create())
+            ->get('/music/songs?search=black&searchIn=nonsense')
+            ->assertInertia(fn (Assert $page) => $page->has('table.rows', 2)->where('table.searchIn', null));
+    }
 }

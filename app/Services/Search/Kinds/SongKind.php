@@ -8,6 +8,7 @@ use App\Enums\SearchKind;
 use App\Enums\TrackType;
 use App\Models\Track;
 use App\Models\User;
+use App\Services\DataTableService;
 use App\Services\Search\SearchHit;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -47,7 +48,10 @@ final class SongKind extends DatabaseKind
         return Track::query()
             ->where('tracks.type', TrackType::Music)
             ->leftJoin('artists', 'tracks.artist_id', '=', 'artists.id')
-            ->select(['tracks.id', 'tracks.name', 'artists.name as artist_name']);
+            // `duration` is the track's own column, so the row's second fact costs no join and
+            // no aggregate. Null for the odd file whose tags carried no duration, which the
+            // client draws as no pip rather than as 0:00.
+            ->select(['tracks.id', 'tracks.name', 'tracks.duration', 'artists.name as artist_name']);
     }
 
     /** @return list<string> */
@@ -72,12 +76,28 @@ final class SongKind extends DatabaseKind
             id: $row->id,
             name: $row->name,
             href: route('music.songs.show', $row->id, absolute: false),
-            text: $row->artist_name,
+            facts: [
+                'artist' => $row->artist_name,
+                'duration' => $row->duration === null ? null : (float) $row->duration,
+            ],
         );
     }
 
+    /**
+     * The listing, narrowed to the same reading THIS group used.
+     *
+     * `searchIn=name` is what makes the hand-off honest: the group counts rows matching their own
+     * name, and the listing's default search is wider — so without the mode "show all 70" landed on
+     * a table of 2,000+ and the two numbers contradicted each other in front of the reader (the
+     * owner's report, 2026-08-13). See DataTableService::SEARCH_IN_NAME for the whole argument, and
+     * note that the listing keeps the mode while the reader sorts, pages and re-types, with its
+     * toolbar offering the way back out to the wide search.
+     */
     protected function seeAll(string $query): ?string
     {
-        return route('music.songs', ['search' => $query], absolute: false);
+        return route('music.songs', [
+            'search' => $query,
+            'searchIn' => DataTableService::SEARCH_IN_NAME,
+        ], absolute: false);
     }
 }

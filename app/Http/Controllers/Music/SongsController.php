@@ -69,6 +69,14 @@ class SongsController extends Controller
             searchCallback: fn (Builder $q, string $search) => FoldedSearch::apply($q, $search, [
                 'tracks.name', 'artists.name', 'collections.name', 'genres.name',
             ]),
+            // …and the NARROW one, for `?searchIn=name` — the title alone, which is what the
+            // cross-kind search dropdown matches and therefore what its hand-off has to land on.
+            // Without it "show all 70 songs" opened a table of 2,000+: every track by Godspeed You!
+            // Black Emperor and everything filed under Black Metal, none of them a song called
+            // Black. See DataTableService::SEARCH_IN_NAME.
+            nameSearchCallback: fn (Builder $q, string $search) => FoldedSearch::apply($q, $search, [
+                'tracks.name',
+            ]),
             rowMapper: fn (Track $song): array => [
                 'id' => $song->id,
                 'name' => $song->name,

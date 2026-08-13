@@ -577,6 +577,8 @@
         "datatable": {
             "search": "Suche",
             "search_placeholder": "Suchen …",
+            "search_in_name": "nur Titel",
+            "search_in_name_hint": "Es wird nur im Namen gesucht — angeklickt sucht überall (auch Künstler, Album, Genre).",
             "no_results": "Keine Ergebnisse gefunden",
             "select_all": "Alle auswählen",
             "select_row": "Zeile auswählen",

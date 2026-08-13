@@ -262,6 +262,17 @@ function onSort(key: string) {
     }
     visit({ sort: key, dir: direction, page: 1 });
 }
+/**
+ * Drop the narrow search mode, so the listing's own (wider) search runs — what the toolbar's
+ * narrowing chip presses.
+ *
+ * Back to page 1 like every other change to what the table is showing: the row that was on page 4
+ * of the narrowed result is somewhere else entirely in the wide one.
+ */
+function onWiden() {
+    visit({ searchIn: null, page: 1 });
+}
+
 /** Navigate with an updated search query, resetting to page 1. */
 function onSearch(query: string) {
     visit({ search: query || null, page: 1 });
@@ -304,7 +315,13 @@ onBeforeUnmount(() => {
 
 <template>
     <div ref="root" class="dt" :class="{ 'dt--loading': isLoading }">
-        <data-table-toolbar :search="response.search" :selected-count="selectedIds.length" @search="onSearch">
+        <data-table-toolbar
+            :search="response.search"
+            :search-in="response.searchIn"
+            :selected-count="selectedIds.length"
+            @search="onSearch"
+            @widen="onWiden"
+        >
             <template v-if="$slots['toolbar-actions']" #actions>
                 <slot name="toolbar-actions" :selected-ids="selectedIds" />
             </template>

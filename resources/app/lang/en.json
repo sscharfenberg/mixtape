@@ -577,6 +577,8 @@
         "datatable": {
             "search": "Search",
             "search_placeholder": "Search …",
+            "search_in_name": "titles only",
+            "search_in_name_hint": "Searching the name only — click to search everywhere (artist, album, genre too).",
             "no_results": "No results found",
             "select_all": "Select all",
             "select_row": "Select row",
