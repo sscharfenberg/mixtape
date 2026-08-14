@@ -107,6 +107,17 @@ test.describe("the music widgets", () => {
 
         const during = await card.evaluate(node => Math.round(node.getBoundingClientRect().height));
         expect(during).toBe(before);
+
+        /*
+         * AND THE HOLD IS RELEASED when the data lands. The body is pinned to its measured
+         * height for the flight (Widget::onRefreshing — a skeleton cannot know that an entry
+         * wrapped, so the height is remembered rather than guessed), and a floor left behind
+         * afterwards would strand a strip of empty card under a shorter "random" refresh for
+         * as long as the page lived.
+         */
+        await expect(skeleton).toBeHidden({ timeout: 10_000 });
+        const held = await card.locator(".widget__body").evaluate(node => node.style.minHeight);
+        expect(held).toBe("");
     });
 
     test("clips a long entry name instead of letting it widen the card", async ({ page }) => {

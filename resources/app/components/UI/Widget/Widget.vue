@@ -7,11 +7,14 @@
  * WidgetLoader overlay covers the whole card. When `refresh` is set, the footer
  * shows a refresh button; while its partial reload is in flight the body is
  * swapped for a WidgetSkeleton (the footer emits `refreshing`), so the card
- * shows placeholders until the fresh data lands. Drop several inside a
- * WidgetGroup for the responsive grid; set `wide` to span two of its columns
- * (from the landscape breakpoint up, where two tracks fit).
+ * shows placeholders until the fresh data lands — held at the height the body
+ * already had, because no fixed skeleton can know that an entry wrapped (see
+ * `onRefreshing`). Drop several inside a WidgetGroup for the responsive grid;
+ * set `wide` to span two of its columns (from the landscape breakpoint up,
+ * where two tracks fit).
  *****************************************************************************/
-import { ref } from "vue";
+import type { ComponentPublicInstance } from "vue";
+import { ref, useTemplateRef } from "vue";
 import WidgetBody from "./WidgetBody.vue";
 import WidgetFooter from "./WidgetFooter.vue";
 import WidgetLoader from "./WidgetLoader.vue";
@@ -43,16 +46,50 @@ withDefaults(
 
 /** True while the footer's refresh partial-reload is in flight; swaps the body for the skeleton. */
 const refreshing = ref(false);
+
+/** The body, so its height can be read before the skeleton replaces what is in it. */
+const body = useTemplateRef<ComponentPublicInstance>("body");
+
+/** The height the body is held at while refreshing, or null when it is free to size itself. */
+const heldHeight = ref<string | null>(null);
+
+/**
+ * Start or end a refresh, holding the body at the height it already had.
+ *
+ * WHY A MEASUREMENT RATHER THAN A TALLER SKELETON. The skeleton reserves four entries of a
+ * fixed height, which is right for almost every row — but an entry is only that tall when its
+ * pips fit on one line, and a long credit wraps them onto a second. Measured on the E2E
+ * fixture: the Albums card's fourth entry is 89px where its neighbours are 65px, so its
+ * skeleton came up 24px short, the card shrank mid-refresh, and every card sharing its subgrid
+ * row shrank with it. No fixed skeleton can know that in advance — the height is a fact about
+ * the DATA — so the only honest answer is to remember what the body actually was.
+ *
+ * MEASURED IN THIS HANDLER, synchronously, which is the part that matters: the footer emits
+ * before anything re-renders, so the body still holds the real content here. A watcher on
+ * `refreshing` would run after the swap and measure the skeleton.
+ *
+ * `min-height`, not `height`: a skeleton is never taller than what it stands in for today, but
+ * a floor cannot clip one that is.
+ */
+const onRefreshing = (inFlight: boolean): void => {
+    const element = body.value?.$el as HTMLElement | undefined;
+
+    // Released on the way out, so the card settles to whatever the fresh data needs — a
+    // "random" refresh legitimately brings a shorter list, and holding the old height would
+    // leave a strip of empty card under it for as long as the page lived.
+    heldHeight.value = inFlight && element ? `${Math.round(element.getBoundingClientRect().height)}px` : null;
+    refreshing.value = inFlight;
+};
 </script>
 
 <template>
     <div class="widget" :class="{ 'widget--wide': wide }">
         <widget-title v-if="$slots.title"><slot name="title" /></widget-title>
-        <widget-body :centered="centered">
+        <widget-body ref="body" :centered="centered" :style="heldHeight ? { minHeight: heldHeight } : undefined">
             <widget-skeleton v-if="refreshing" :rows="4" :variant="skeleton" />
             <slot v-else />
         </widget-body>
-        <widget-footer v-if="$slots.footer || refresh" :refresh="refresh" @refreshing="refreshing = $event">
+        <widget-footer v-if="$slots.footer || refresh" :refresh="refresh" @refreshing="onRefreshing">
             <slot name="footer" />
         </widget-footer>
         <widget-loader v-if="loading" />
