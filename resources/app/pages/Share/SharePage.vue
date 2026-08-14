@@ -248,10 +248,12 @@ const playable = computed<boolean>(() => props.tracks.length > 0);
             </card>
 
             <template v-else>
-                <!-- `grow-metadata`: this hero carries the fewest facts and ONE button, so its
-                     chips left a bare stripe beside them where a Music hero's row runs full
-                     (the owner's call, 2026-08-13). See the prop. -->
-                <hero-section :unframed-cover="fanned" grow-metadata>
+                <!-- This hero carried `grow-metadata` from 2026-08-13 until 2026-08-14, when
+                     filling the row became every hero's behaviour and the prop went with it.
+                     The argument for it here was the strongest case rather than a special one:
+                     the fewest facts and ONE button, so the chips left a bare stripe beside
+                     them on the one page that has to look deliberate to a stranger. -->
+                <hero-section :unframed-cover="fanned">
                     <!-- The artwork. An artist fans up to three of their own sleeves in place
                          of the photograph this app does not store; the other two kinds show
                          one picture, or CoverImage's glyph inside the hero's dashed square

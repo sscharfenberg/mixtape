@@ -10,6 +10,7 @@ use App\Models\Author;
 use App\Models\Collection;
 use App\Models\Genre;
 use App\Models\Narrator;
+use App\Models\Play;
 use App\Models\Playlist;
 use App\Models\PlaylistTrack;
 use App\Models\Share;
@@ -263,9 +264,44 @@ class E2ESeeder extends Seeder
 
         $this->seedAudiobooks();
 
-        // Last, because both pick rows out of the library above by name.
+        // Last, because all three pick rows out of the library above by name.
         $this->seedPlaylists();
         $this->seedShares();
+        $this->seedPlays();
+    }
+
+    /**
+     * Two listens on one named track, so a hero somewhere reliably draws BOTH play tiles.
+     *
+     * WHY THE FIXTURE HAS TO CARRY THEM: PlayCountFacts hides a count of zero, so on a library
+     * nobody has listened to, its two tiles never render — and until 2026-08-14 that is exactly
+     * why nothing noticed they were missing the hero's halo. They are rendered by a MULTI-ROOT
+     * component, so Vue's slotted marker never reached them and `:slotted()` could not see
+     * them. A test can only catch that recurring if the tiles are on screen.
+     *
+     * ONE BY THE CANONICAL ACCOUNT AND ONE BY ANOTHER, because the two tiles are "Von dir" and
+     * "Von anderen" and each appears on its own terms — a track only the reader had heard would
+     * draw one of them and prove half of it.
+     *
+     * IT DOES NOT MAKE PLAY COUNTS DETERMINISTIC and is not trying to: specs that press play
+     * record real listens through the beacon, so these are a FLOOR rather than the total. That
+     * is why nothing asserts a number — see tests/e2e/app/hero.spec.ts, which asserts only that
+     * the tiles are painted like the tiles beside them. Ranking BY plays is PHPUnit's
+     * (MusicPageTest), where the fixture is built per test.
+     */
+    private function seedPlays(): void
+    {
+        $trackId = Track::query()->where('name', 'Karma Police')->value('id');
+
+        // No fixed id, unlike the rows above: nothing reads a play by id, and `HasUuids` is
+        // welcome to mint one.
+        foreach (['Ashaltiriak', 'spec-player'] as $name) {
+            Play::query()->create([
+                'user_id' => User::query()->where('name', $name)->value('id'),
+                'track_id' => $trackId,
+                'played_at' => now(),
+            ]);
+        }
     }
 
     /**

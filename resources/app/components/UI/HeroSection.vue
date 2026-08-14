@@ -88,25 +88,11 @@ defineProps<{
      * the second thing saying the same.
      */
     unframedCover?: boolean;
-    /**
-     * Let the metadata tiles GROW to fill their row, instead of each sitting at its content
-     * width.
-     *
-     * Off by default, which is what the Music heroes want: a few chips against a wide panel,
-     * stretched across it, read as a table nobody asked for (see the styles).
-     *
-     * On for the guest share page (the owner's call, 2026-08-13), where the same argument runs
-     * the other way. That hero carries the fewest facts and ONE button, so its text column ran
-     * out well before the cover square did and the row of chips left a bare stripe to the right
-     * of it — on the one page in the app that has to look deliberate to somebody who has never
-     * seen the app before. Filling the row is what removes the stripe.
-     */
-    growMetadata?: boolean;
 }>();
 </script>
 
 <template>
-    <div class="hero-section" :class="{ 'hero-section--grow-metadata': growMetadata }">
+    <div class="hero-section">
         <div
             v-if="$slots.cover"
             :class="['hero-section__cover', { 'hero-section__cover--unframed': unframedCover }]"
@@ -471,14 +457,31 @@ defineProps<{
 
         list-style: none;
 
-        /* `flex-grow: 0`, unlike the same tile inside a facts card, where growing is what
-           stops a line ending ragged: here a few chips sit against a wide panel, and
-           stretching them across it would read as a table nobody asked for.
+        /* THE TILES FILL THE ROW — `flex-grow: 1` everywhere, which is what a FactPair does
+           inside a facts card anyway, so this is the tile's own default being allowed rather
+           than a look invented here.
+
+           It used to be `flex-grow: 0` on the argument that a few chips stretched across a
+           wide panel read as a table nobody asked for, with the share page opting back in
+           through a `growMetadata` prop. The owner settled it the other way on 2026-08-14:
+           every hero fills its row, and the prop is gone rather than left with no callers.
+           What the old default actually produced was a row of chips ending in a bare stripe,
+           which is the thing the share page was given an opt-out to escape.
 
            The halo is the hero's own addition to a tile that is flat everywhere else — see
-           c.$c-hero-section "metadata-halo" for why it belongs here and not in the card. */
-        > :slotted(*) {
-            flex-grow: 0;
+           c.$c-hero-section "metadata-halo" for why it belongs here and not in the card.
+
+           `:deep(.fact-pair)`, NOT `:slotted(*)`, AND THAT IS A BUG FIX (2026-08-14). Vue puts
+           the slotted marker (`data-v-…-s`) on the ROOT of what it was handed, and
+           `PlayCountFacts` is a MULTI-ROOT component — two `FactPair`s in a fragment — so its
+           tiles never carried the marker and `:slotted` could not see them. Measured: the two
+           "Von dir" / "Von anderen" tiles had `box-shadow: none` while every tile written
+           straight into the slot glowed, on all seven pages that show play counts. Naming the
+           class instead reaches a tile however deeply the thing that rendered it is nested.
+           Every `#metadata` slot in the app holds FactPairs and nothing else, so the class is
+           the honest name for "the tiles" here. */
+        > :deep(.fact-pair) {
+            flex-grow: 1;
 
             box-shadow: 0 0 map.get(s.$c-hero-section, "metadata-halo") map.get(c.$c-hero-section, "metadata-halo");
         }
@@ -494,24 +497,12 @@ defineProps<{
            to live where the rule does. Same shape as the `:has(img)` test in the cover slot
            above — this component keys off what it was actually handed.
 
-           Note this reaches INTO a slotted component on purpose, by naming its own class,
-           and only to paint. That is the safe version of what the cover slot got wrong: a
-           `:slotted` rule that sets SIZE lands on the component's root and outranks the
-           sizing that component declares for itself. */
-        > :slotted(.fact-pair--link) {
+           Note this reaches INTO a slotted component on purpose, and only to paint. That is
+           the safe version of what the cover slot got wrong: a rule that sets SIZE lands on
+           the component's root and outranks the sizing that component declares for itself. */
+        > :deep(.fact-pair--link) {
             box-shadow: 0 0 map.get(s.$c-hero-section, "metadata-halo") map.get(c.$c-hero-section, "metadata-halo-link");
         }
     }
-}
-
-/* THE TILES FILL THE ROW — `growMetadata`, and the exception to the `flex-grow: 0` above rather
-   than a rethink of it. Written as its own top-level rule because the modifier sits on the ROOT
-   while the tiles are two levels down, which `&` inside the block cannot express without
-   reading backwards.
-
-   `flex-grow: 1` is what a FactPair does inside a facts card anyway, so this is the tile's own
-   default being allowed back rather than a look invented here. */
-.hero-section--grow-metadata .hero-section__metadata > :slotted(*) {
-    flex-grow: 1;
 }
 </style>
