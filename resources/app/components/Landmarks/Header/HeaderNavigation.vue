@@ -40,6 +40,7 @@ import SearchToggle from "Components/Search/SearchToggle.vue";
 
 <style scoped lang="scss">
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/colors" as c;
 @use "Abstracts/mixins" as m;
 @use "Abstracts/sizes" as s;
 
@@ -61,11 +62,10 @@ import SearchToggle from "Components/Search/SearchToggle.vue";
        round — and it is the same 2px the user menu already carries as `--highlighted`, which is
        what makes all four buttons geometrically identical rather than merely equally tall.
 
-       `transparent`, NOT the background colour spelled out again, and that is the better half of
-       the trick: a background paints to the BORDER box by default, so a transparent border shows
-       whatever fill the element has — the base variant's gradient (which no `border-color` could
-       match), the subtle grey, the hover fill, and every future variant, with the transitions
-       following for free because it is literally the same paint.
+       `transparent`, so that a flat fill — the subtle grey, the hover navy — simply shows through:
+       a background paints to the BORDER box, so the ring is literally the same paint, hover
+       transitions included, with no colour to keep in step. That holds for a *colour*. It does
+       NOT hold for the gradient, which is the second rule below.
 
        `:not(--highlighted)` because that variant has a real, visible border of its own at this
        exact width: without the exclusion this rule's higher specificity would paint it away.
@@ -76,6 +76,26 @@ import SearchToggle from "Components/Search/SearchToggle.vue";
        asked for. */
     :deep(.popover-button:not(.popover-button--highlighted)) {
         border: map.get(s.$c-popover, "border") solid transparent;
+    }
+
+    /* A GRADIENT DOES NOT SHOW THROUGH A TRANSPARENT BORDER — IT TILES INTO IT (2026-08-14).
+       `background-origin` is `padding-box`, `background-clip` is `border-box`: the gradient is
+       sized to the 32×32 padding box and then REPEATED to cover the 36×36 border box. So the ring
+       above and left of the button paints the tile's bottom-right end (bright c2) and the ring
+       below and right paints its top-left end (deep navy c1) — a seam all the way round, reading
+       as a hard dark corner where the top-left of the fill meets a bright edge. Reported on the
+       logged-out user menu, which for a guest is the only button in this row.
+
+       An OPAQUE border covers the seam outright, and the colour to make it is the one already on
+       the button: `button-surface`, the white of the glyph inside it. That also makes the two
+       gradient triggers ring the way `--highlighted` does — a border in its own ink — rather than
+       being the odd ones out with none.
+
+       `--subtle` is excluded because it wants the paragraph above: a flat fill has no tile and no
+       seam, and a white ring on the grey would be a second focal point in a row that gives the
+       queue and search glyphs the quiet variant precisely to avoid one. */
+    :deep(.popover-button:not(.popover-button--highlighted, .popover-button--subtle)) {
+        border-color: map.get(c.$c-popover, "button-surface");
     }
 }
 </style>
