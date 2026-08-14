@@ -294,9 +294,9 @@ page keeps the current sort and pageSize).
 
 A listing's search is usually **wider than one column**: Songs matches title, artist, album *and*
 genre, which is right for somebody who arrived to browse. The cross-kind search dropdown
-([`docs/search.md`](../../../../docs/search.md)) matches a row's **own name** only — so its "show
-all 70 songs" hand-off used to open a table of 2,000+, and the two surfaces contradicted each other
-about one query.
+([`docs/search.md`](../../../../docs/search.md)) matches a row's **own name** only — so a group header
+saying 70 handing off to the wide search opens a table of 2,000+, and the two surfaces then contradict
+each other about one query.
 
 `?searchIn=name` is that hand-off's mode. Pass a **second, narrower callback** and the service uses
 it whenever the parameter is present:

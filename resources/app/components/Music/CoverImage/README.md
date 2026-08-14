@@ -59,9 +59,10 @@ Metrics live in `abstracts/sizes/components/_cover-image.scss`, colours in the `
 2. **No artwork** (`src` is `null`) — a muted `music` glyph.
 3. **Failed artwork** — the same glyph. This is the one that earns the component: `coverUrl` rests on
    scan-time flags (`tracks.cover`, `collections.cover_path`), so a file re-tagged or deleted since
-   the last `app:update` is still advertised and then 404s. Every consumer used to keep a
-   `failedCovers` `Set` keyed by row id plus an `@error` handler, purely because the `<img>` sat
-   inside a `v-for`. A component instance already has that identity, so it is one boolean here.
+   the last `app:update` is still advertised and then 404s. Handled at the call site, that costs
+   every consumer a `failedCovers` `Set` keyed by row id plus an `@error` handler, purely because the
+   `<img>` sits inside a `v-for`. A component instance already has that identity, so it is one
+   boolean here.
 
 The `src` watcher that resets that boolean is **load-bearing**: Vue reuses a component instance when a
 keyed list re-orders, so without it a row that once 404'd would keep its placeholder after being handed
@@ -79,10 +80,10 @@ placeholder's `role="img"` / label. A hero omits it: there the picture is the su
 
 ## Gotcha — never size this from the outside
 
-`HeroSection` used to, via `> :slotted(img)`, and that rule **silently outranked this component's own
+A `> :slotted(img)` rule in a host such as `HeroSection` **silently outranks this component's own
 sizing**: Vue puts the slot scope id on a slotted component's _root element_, and this component's root
-is the `<img>`, so `:slotted` reached straight through it and won on specificity ((0,2,1) against
-(0,2,0)). The two only appeared to agree because the numbers happened to match.
+is the `<img>`, so `:slotted` reaches straight through it and wins on specificity ((0,2,1) against
+(0,2,0)). The two can appear to agree for a long time, as long as the numbers happen to match.
 
 The general rule: a `:slotted` selector that sets **size** is a trap once slots receive components
 rather than bare elements. Reaching in deliberately to _paint_ is fine — `HeroSection` still does it

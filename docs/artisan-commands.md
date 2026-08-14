@@ -4,8 +4,8 @@ Project-specific `artisan` commands for MixTape (namespaced `app:*`). Framework
 and package commands (`migrate`, `queue:work`, …) are not listed here — run
 `php artisan list` for the full set.
 
-> Run everything from the app root. On the server that is
-> `/var/www/mixtape.dev`; locally it is your working copy.
+> Run everything from the app root. On a server, artisan resolves its base path
+> from its own location, so an absolute path works from any working directory.
 
 ## Index
 
@@ -111,8 +111,7 @@ Example output:
 
 ## `app:update`
 
-Scans the media library on disk into the database. This is the v2 replacement for
-the legacy `app:update` chain (`app:clean` + `app:csv:*` + `app:db:*`).
+Scans the media library on disk into the database.
 
 ```
 php artisan app:update {--area=*} {--skip-cleanup}
@@ -130,12 +129,13 @@ whenever files are added, removed, re-tagged, or moved.
    AppleDouble `._*`, `Thumbs.db`, Samba `.@__*` / `.smbdelete*`, …) from the
    library roots *before* anything is analysed, so it can't be mistaken for media.
    Masks: `config('mixtape.scan.cleanup_masks')`.
-2. **Scan** — a **content-hash diff**, not the legacy truncate-and-rebuild
-   ([`data-model.md`](data-model.md) → *the one fact*). Per area, in one
-   transaction: unchanged files fast-path on `(path, size, mtime)`; a same-path
-   byte change is a re-tag (update in place); a new path is hash-matched against
-   vanished rows to catch renames; the rest are inserts; gone files are
-   relink-then-cascade deleted; orphan taxonomy/collections are pruned.
+2. **Scan** — a **content-hash diff**, not a truncate-and-rebuild
+   ([`data-model.md`](data-model.md) → *The one fact that colours everything*).
+   Per area, in one transaction: unchanged files fast-path on
+   `(path, size, mtime)`; a same-path byte change is a re-tag (update in place); a
+   new path is hash-matched against vanished rows to catch renames; the rest are
+   inserts; gone files are relink-then-cascade deleted; orphan
+   taxonomy/collections are pruned.
 
 **Identity is the audio-frame hash**, so a rename *or* a re-tag keeps the track's
 id — playlists, most-played, and share links stay anchored. Two files with
@@ -143,10 +143,10 @@ identical audio are two rows (clones) sharing a hash.
 
 **Re-tagging an artist, genre or album title renames the row in place**, id intact — so the
 URLs to it, and any share pointing at it, keep working. That includes a **change of case
-only** (`NARGAROTH` → `Nargaroth`), which is worth stating because it silently did nothing
-until 2026-08-13: name dedup is a case-insensitive column collation, so the scanner's
-`firstOrCreate` *found* the old row and handed it back unchanged. The tags are the source of
-truth for the spelling too, and the scan now adopts it (`LibraryScanService::adoptSpelling`).
+only** (`NARGAROTH` → `Nargaroth`), which needs explicit handling: name dedup is a
+case-insensitive column collation, so a plain `firstOrCreate` *finds* the old row and hands it
+back unchanged, with no insert and no update to notice. The tags are the source of truth for
+the spelling, so the scan adopts it (`LibraryScanService::adoptSpelling`).
 
 > **A scan only re-reads files whose `(size, mtime)` moved**, so this fixes future re-tags and
 > does not retroactively repair a name that a previous scan already recorded. If a row is
@@ -186,8 +186,8 @@ truth for the spelling too, and the scan now adopts it (`LibraryScanService::ado
 > but healthy areas in the same run still scan normally. To genuinely empty an
 > area, remove the rows deliberately rather than via a scan that found nothing.
 
-> **Resilience:** unlike the legacy scanner (one bad file aborted the whole run
-> *after* truncation), a file that can't be read is skipped — but never silently:
+> **Resilience:** a file that can't be read is skipped rather than aborting the
+> run — but never silently:
 > getID3's full diagnosis (errors **and** warnings, e.g. *"garbage data for 49902
 > bytes between 522 and 50424"*) is logged to the `library` channel, and if any
 > files were skipped the run e-mails an end-of-run summary (`LibraryScanSkipped`,
@@ -359,21 +359,20 @@ php artisan app:playlist {name=Testliste} {--user=} {--tracks=12} {--type=music}
 
 ### Why it exists
 
-It was written when nothing in the UI could add a track to a playlist, so the
-only ways to get a populated one were a seeder or this — and a seeder is useless
-on any instance whose collection is real. `LibrarySeeder`'s tracks are factory
-rows pointing at paths no file was ever written to, so the playlist *looks* right
-and every row is silently unplayable; worse, running `migrate:fresh --seed` on a
-box that has a scanned collection would throw that collection away to fix it.
-(That seeder is switched off in `DatabaseSeeder` for exactly this reason.) This
-command picks from `tracks` instead, so whatever `app:update` found on disk is
-what lands in the playlist, and pressing play really plays.
+To fill a long list quickly with something arbitrary — which is what a test
+playlist wants and what a hand-picked one is not. The UI can add to a playlist
+from every detail page's hero and from the play queue's menu
+(`POST /playlists/{playlist}/tracks`), but that is one track or one subject at a
+time.
 
-**The UI caught up on 2026-08-09** — every detail page's hero and the play
-queue's menu can add to a playlist now (`POST /playlists/{playlist}/tracks`) — so
-this is no longer the only way to build one. It stays useful for filling a long
-list quickly with something arbitrary, which is what a test playlist wants and
-what a hand-picked one is not.
+**A seeder is the alternative, and it is useless on any instance whose collection
+is real.** `LibrarySeeder`'s tracks are factory rows pointing at paths no file was
+ever written to, so the playlist *looks* right and every row is silently
+unplayable; worse, running `migrate:fresh --seed` on a box that has a scanned
+collection would throw that collection away to fix it. (That seeder is switched
+off in `DatabaseSeeder` for exactly this reason.) This command picks from `tracks`
+instead, so whatever `app:update` found on disk is what lands in the playlist,
+and pressing play really plays.
 
 ### What it does
 

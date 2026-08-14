@@ -9,7 +9,7 @@ return [
     |
     | MixTape keeps its Inertia pages under resources/app/pages, not the
     | framework-default resources/js/pages (see the frontend conventions in
-    | docs/app-rewrite.md). The `inertia.view-finder` is built from these
+    | docs/architecture.md). The `inertia.view-finder` is built from these
     | `paths`/`extensions`, and it backs both the optional runtime page-exists
     | guard and the assertInertia()->component() check in tests — so pointing
     | it here is what lets feature tests assert page components by name.

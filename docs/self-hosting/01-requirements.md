@@ -101,7 +101,7 @@ the headline feature. That makes hardening non-optional.
 - **TLS:** Let's Encrypt via certbot once you have a domain. Before that, a self-signed certificate
   on the LAN, which validates the entire nginx → php-fpm → app path without needing DNS.
 - **App auth:** open registration disabled, one-time expiring invite tokens, optional per-user 2FA,
-  and signed temporary URLs for account-free sharing.
+  and expiring, revocable share links for account-free listening.
 - **Hardening:** `unattended-upgrades` for security patches, `fail2ban` on SSH and the web login,
   AppArmor, `auditd`, and sysctl hardening.
 - **Mail:** transactional mail goes through a **relay**, never directly from a residential IP — those

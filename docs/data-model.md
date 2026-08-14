@@ -1,687 +1,482 @@
-# Data model (Phase 2)
+# Data model
 
-> Findings + proposed data model for the MixTape v2 rewrite. See [../CLAUDE.md](../CLAUDE.md) for the
-> overview and [app-rewrite.md](app-rewrite.md) for the app-rewrite plan this feeds into.
->
-> **Status: proposal — all substantive decisions settled.** Nothing here is implemented yet. It records
-> the analysis of the legacy schema (`../MixTape`, read-only reference) and the recommended v2 shape. The
-> four forks are now decided: the **scan model** (content-hash *diff*, not truncate-and-rebuild), the
-> **tracks split** (option B + the collections half-step), **play-queue persistence** (client composable +
-> server `player_states`), and the **playlist-reorder strategy** (contiguous positions) — see
-> [Open decisions](#open-decisions) for each. The fifth — most-played — **aggregates by `track_id`**
-> (re-decided 2026-08-08, reversing the original `content_hash` grain once play counts were built; see
-> #5 and [`player.md`](player.md) → *What counts as a play*), so each file counts for itself.
-> Treat the schemas below as the recommended direction, not final migrations;
-> the next step is drafting the v2 migrations + models. Written 2026-07-19; decisions settled 2026-07-20.
+The schema, and the reasoning behind the parts of it that are not obvious. Read
+[`architecture.md`](architecture.md) first for how the app is wired; this document is about what is
+stored and why it is shaped that way.
 
-## Scope
-
-Three questions drove the investigation, plus the decision to make playlists first-class:
-
-- **(a)** Should music and audiobooks keep separate tables? (They were split in v1 because the two are
-  usually *tagged* differently.)
-- **(b)** Are the foreign-key constraints right?
-- **(c)** Are additional indexes needed?
-- **Playlists** should stop being an afterthought — user-specific, central to the UX (queue an album,
-  add to existing playlists, etc.).
-
-The single most important context: **v1 runs on MySQL/MariaDB (InnoDB, `utf8mb4_unicode_ci`); v2 runs
-on PostgreSQL 17.** Several recommendations below exist only because of that move — Postgres does not
-auto-index FK columns and is case-sensitive by default, both of which MySQL papered over for free.
-
----
+The database is **PostgreSQL 17**. Several decisions below exist because of that specifically:
+Postgres does not auto-index the referencing side of a foreign key, and it is case-sensitive by
+default. Both are things MySQL papers over for free, so a schema ported from one will be subtly wrong
+on the other.
 
 ## The one fact that colours everything: the scan must preserve identity
 
-The legacy library scan is **truncate-and-rebuild, not a diff.** Every `app:db:music` /
-`app:db:audiobook` run does `SET FOREIGN_KEY_CHECKS=0` → `TRUNCATE` all four tables → re-`INSERT` every
-file, **minting fresh random UUIDs each time.** That was a *deliberate, reasonable* choice: **everything**
-about an mp3 can change between scans — the `path` (a renamed file or a renamed parent directory) and
-every ID3 tag including `track` — so there was no obvious stable key to match an incoming file back to
-its existing row, and matching on the wrong key risks **duplicate track rows.** Truncating sidesteps the
-question entirely: start empty, match nothing.
+The library is mp3 files on disk; the database is a queryable index of them, rebuilt by
+[`app:update`](artisan-commands.md#appupdate). The hard question that scan has to answer is **what
+makes an incoming file the same track as an existing row.**
 
-Its cost is that **row identity is destroyed on every scan.** Fresh UUIDs mean nothing downstream can
-hold a real FK to a track — which is exactly why the legacy schema is shaped the way it is:
+The obvious answer is not to answer it: truncate every table and re-insert every file with fresh
+UUIDs. That is a genuinely reasonable design, because **everything** about an mp3 can change between
+scans — the `path` (a renamed file or a renamed parent directory) and every ID3 tag including `track` —
+so there is no obvious stable key, and matching on the wrong key risks duplicate track rows.
+Truncating sidesteps the question entirely: start empty, match nothing.
 
-- `playlist_entries` can't hold a `song_id` FK (it would be invalidated on every scan), so it
-  **denormalises** `path / song / artist / album` as strings and reconnects later via `where('path', …)`.
-- `timestamps = false` on every media model (no point tracking created/updated on rows recreated nightly).
-- Orphan handling is implicit (truncate) rather than a real diff.
+Its cost is that **row identity is destroyed on every scan**, and that cost is fatal here. Nothing
+downstream can hold a real FK to a track, so playlists have to denormalise `path / song / artist /
+album` as strings and reconnect by string comparison; `created_at` is meaningless on rows recreated
+nightly; orphan handling is implicit rather than a real diff. Every feature this app is *for* — user
+playlists, listen history, most-played, share links — needs stable identity. A playlist that silently
+loses a track because you renamed a folder, or a play count that resets when you re-tag a file, is
+broken.
 
-Every headline v2 feature — user playlists, listen history / most-played, share links — **requires**
-stable identity: a playlist that silently loses a track because you renamed a folder, or a "most played"
-that resets when you re-tag a file, is broken UX. So v2 has to answer the question truncate dodged.
+So the question has to be answered. It splits into two independent ones:
 
-### Two decisions, not one
+1. **Identity** — what makes an incoming file *the same track* as an existing row, across a rename
+   *and* a re-tag?
+2. **Write strategy** — blind reinsert, or diff the filesystem against the database (insert new /
+   update matched / remove gone)?
 
-"Truncate vs. diff" bundles two independent choices that are cleaner kept apart:
+You cannot adopt a diff until identity is solved, and **`path` does not solve it** — it is one of the
+*most* volatile attributes, not a stable key. Neither do the tags. The only thing that survives both a
+rename and a re-tag is **the audio itself.**
 
-1. **Identity** — what makes an incoming file *the same track* as an existing row, across a rename *and*
-   a re-tag?
-2. **Write strategy** — blind reinsert, or diff the filesystem against the DB (insert new / update
-   matched / mark-gone)?
+### Identity is a hash of the audio stream
 
-You can't adopt a diff until identity is solved, and **`path` does not solve it** — it is one of the
-*most volatile* attributes, not a stable key. Neither do the tags. The only thing that survives both a
-rename and a re-tag is the **audio itself.**
+An mp3 is `[ID3v2 tag][audio frames][ID3v1 trailer]`. Editing tags (including `track`) rewrites the
+tag regions and leaves the audio frames byte-for-byte identical. So hash **only the audio frames** —
+the byte range getID3 already reports — not the whole file:
 
-### Identity = a hash of the audio stream
+| candidate | verdict |
+| --- | --- |
+| **audio-stream hash** | stable across rename *and* re-tag — **chosen** |
+| full-file hash | survives a rename but **breaks on a re-tag**, because the tag bytes are in the hash. Re-tagging is part of the workflow here |
+| acoustic fingerprint (Chromaprint) | survives even re-encoding, but needs decoding plus a library. Overkill unless files are re-ripped at new bitrates |
 
-An mp3 is `[ID3v2 tag][audio frames][ID3v1 trailer]`. Editing tags (including `track`) rewrites the tag
-regions and leaves the audio frames byte-for-byte identical. So hash **only the audio frames** — the byte
-range the tag library (getID3) already reports — not the whole file:
+`path`, `track`, artist and album therefore demote from *identity* to plain **mutable attributes**.
+The audio hash is the identity; `path` is a change-detection input and a display value.
 
-- **audio-stream hash** → stable across rename *and* re-tag. ✅ chosen.
-- full-file hash → survives rename but **breaks on re-tag** (tag bytes are in the hash). Rejected —
-  re-tagging is part of the workflow here.
-- acoustic fingerprint (Chromaprint) → survives even re-encoding, but needs decoding + a library.
-  Overkill unless files are re-ripped at new bitrates.
+### The write strategy: a diff with a cheap fast-path
 
-`path`, `track`, artist, album all demote from *identity* to plain **mutable attributes.** The audio hash
-is the identity; `path` becomes a change-detection input and a display value.
-
-### Write strategy = diff, with a cheap fast-path
-
-The scan needs just **one** new column, `content_hash` — `path` (unique), `size`, and `modified_at`
-(filemtime) already exist in the legacy schema. (`created_at`, for "recently added", is also new but
-incidental to the diff — see (c).) A scan:
+A scan needs exactly one column the naive schema would not have — `content_hash` — alongside `path`
+(unique), `size` and `modified_at`. Then, per area, in one transaction:
 
 1. Enumerate files; read cheap `(path, size, modified_at)`.
 2. **Unchanged fast-path:** a row with matching `path` + `size` + `modified_at` is untouched → keep it,
    keep its id. *No hashing* — this is what keeps steady-state scans fast.
-3. **Same path, changed content** (a re-tag): matched unambiguously **by `path`** (which is `UNIQUE`) →
-   update tags/hash in place, keep id.
+3. **Same path, changed content** (a re-tag): matched unambiguously **by `path`**, which is unique →
+   update tags and hash in place, keep the id.
 4. **New path on disk** — the only case that needs the hash. Hash it; look among the **unclaimed** rows
-   (those whose old path vanished this scan — rename candidates) for the same `content_hash`:
-   - exactly one → it's a **rename/move** → update its path, keep id;
-   - none → **genuinely new audio** → insert (new id);
-   - several (duplicate audio, below) → disambiguate on parent directory / tag similarity.
-5. **Orphans → hard delete, relink-first:** unclaimed rows still absent from disk → the file is gone →
-   **delete the row outright** (no soft-delete flag). Before deleting, the scan runs *relink-then-cascade*
-   — if a surviving **clone** shares the row's `content_hash`, its `playlist_tracks` and `plays` are
-   repointed to the clone; otherwise the FK `cascade` drops them (see b#4).
+   (those whose old path vanished this scan — the rename candidates) for the same `content_hash`:
+   - exactly one → it is a **rename/move** → update its path, keep the id;
+   - none → **genuinely new audio** → insert;
+   - several (duplicate audio, below) → disambiguate on parent directory and tag similarity.
+5. **Gone files → hard delete, relink first:** unclaimed rows still absent from disk are gone, so the
+   row is deleted outright (no soft-delete flag). Before deleting, the scan runs
+   *relink-then-cascade* — if a surviving **clone** shares the row's `content_hash`, its
+   `playlist_tracks` and `plays` are repointed to the clone; otherwise the FK cascade drops them.
+6. **Prune orphan taxonomy** (below).
 
-Trace the two feared mutations: a **rename** misses the fast-path → hashes → matches → updates path,
-**id preserved**; a **re-tag** trips size/mtime → matched by `path` → updates tags, **id preserved.**
-That is the guarantee truncate couldn't give, and it's why the extra code is worth it. First scan hashes
-everything (reading ~96 GB is minutes, not the legacy ~40 s); steady state stays fast because step 2
-skips unchanged files.
+Trace the two feared mutations: a **rename** misses the fast-path → hashes → matches → updates the
+path, **id preserved**; a **re-tag** trips size/mtime → matched by `path` → updates the tags, **id
+preserved.** That is the guarantee truncation cannot give.
+
+A first scan hashes everything, which for a large collection is minutes rather than seconds; steady
+state stays fast because step 2 skips unchanged files. A happy side effect of content-based identity:
+even a **backup restore that resets every mtime** re-hashes but re-matches, so ids survive the
+restore, where a truncate-and-rebuild would renumber the whole library and break every playlist.
 
 ### Duplicate audio is allowed — and surfaced
 
-**Decision (2026-07-20): the same audio in two files is two track rows.** The recording on its original
-album *and* on a compilation are both legitimate library entries, each with its own album / track-number
-tags. So:
+**The same audio in two files is two track rows.** A recording on its original album *and* on a
+compilation are both legitimate library entries, each with its own album and track-number tags. So:
 
-- **No `UNIQUE (content_hash)`.** The uniqueness anchor is **`UNIQUE (type, path)`**:
-  *one file per area ⇒ exactly one row.* That is the line between duplicates you *want* (two files) and
-  the accidental ones you *don't* (one file spawning a phantom). (`path` is stored **relative to the area
-  root**, not the absolute server path, so relocating the collection is a fast-path no-op — and relative
-  paths can collide across areas, e.g. music vs. audiobook `Foo/1.mp3`, which is why the anchor is
-  `(type, path)` rather than `path` alone. Implemented 2026-07-22, superseding the original absolute
-  `UNIQUE (path)`.)
-- `content_hash` is stored **indexed, non-unique** — its jobs are catching renames (step 4) and the
+- **No `UNIQUE (content_hash)`.** The uniqueness anchor is **`UNIQUE (type, path)`**: *one file per
+  area ⇒ exactly one row.* That is the line between duplicates you *want* (two files) and the
+  accidental ones you don't (one file spawning a phantom). `path` is stored **relative to the area
+  root**, not as an absolute server path, so relocating the collection is a fast-path no-op — and
+  relative paths can collide across areas (music vs. audiobook `Foo/1.mp3`), which is why the anchor is
+  `(type, path)` rather than `path` alone.
+- `content_hash` is stored **indexed, non-unique**. Its jobs are catching renames (step 4) and the
   clones feature below.
-- `id` stays an **independent random uuid.** (A deterministic `uuidv5(content_hash)` is off the table —
-  it would collapse clones into one row.)
-- **"x clones" feature:** `WHERE content_hash = ? AND id <> ?` (cheap, indexed) → a track view shows
-  *"also appears in 2 other places"* and links to them. The same lookup powers **self-healing playlists**:
-  when a file is deleted but a clone survives, the scan **repoints** that track's `playlist_tracks` and
-  `plays` to the surviving copy before removing the row (relink-then-cascade, b#4) — automatic, no
-  dead entries. The hash does **not** drive the play grain: most-played counts by `track_id`, so each
-  file keeps its own figure (re-decided 2026-08-08 — decision #5).
+- `id` is an **independent random UUID**. A deterministic `uuidv5(content_hash)` would collapse clones
+  into one row.
+- **Clones:** `WHERE content_hash = ? AND id <> ?` — cheap and indexed — lets a track page say *"also
+  appears in 2 other places"*. The same lookup powers **self-healing playlists**: when a file is
+  deleted but a clone survives, the scan repoints that track's `playlist_tracks` and `plays` to the
+  surviving copy before removing the row. Automatic, no dead entries.
 
-**Known limit (graceful):** if two clones are moved *in the same scan*, two unclaimed rows share a hash
-and step 4 can't tell which new file was which old row. It disambiguates on directory / tags; in the
-pathological case (both moved *and* their distinguishing directory/tags changed at once) the two
-identical-audio siblings may swap ids — invisible unless a playlist pinned one specifically, and even
-then it points at an identical recording. Acceptable; not engineered against.
+**A known limit, gracefully handled:** if two clones are moved *in the same scan*, two unclaimed rows
+share a hash and step 4 cannot tell which new file was which old row. It disambiguates on directory and
+tags; in the pathological case (both moved *and* their distinguishing directory and tags changed at
+once) the two identical-audio siblings may swap ids — invisible unless a playlist pinned one
+specifically, and even then it points at an identical recording. Accepted, not engineered against.
 
-**Foundational recommendation: v2 replaces truncate-and-rebuild with a diff keyed on an audio-stream
-`content_hash`** (path/size/mtime as the fast-path), keeping `UNIQUE (path)` and allowing duplicate audio
-as distinct rows. Stable ids then make everything below possible — real playlist FKs, real
-listen-history FKs, a genuine "recently added", and removal of the denormalisation hack. Happy side
-effect: because identity is content-based, even a **backup/restore that resets every mtime** re-hashes
-but re-matches, so ids survive the restore — where truncate-rebuild would renumber the whole library and
-break every playlist.
+## One `tracks` table, one `collections` table
 
----
+Music and audiobooks are **tagged** differently. The same ID3 frames mean different things:
 
-## (a) Separate tables for music vs. audiobooks
+| ID3 source | → Music | → Audiobook |
+| --- | --- | --- |
+| `TPE1` (artist) | artist | **narrator** |
+| `TPE2` (album-artist) | album artist | *(unused)* |
+| `TALB` (album) | album | **book title** |
+| `TCOM` (composer) | composer | **author** |
+| `TCON` (genre) | genre | *(not applicable)* |
 
-### What's there
+That remapping is handled entirely by the scanner having two arms, which makes it an **ingest**
+concern, wholly independent of whether the rows land in one table or two. That frees the storage
+decision to be made on its own merits — and on its merits, one table wins.
 
-Two parallel hierarchies:
+**`tracks` is unified, with a `type` enum (`music` / `audiobook`).** Every cross-cutting feature —
+`plays`, share links, unified search, the play queue, background auto-advance — is about "a playable
+thing". Under a split schema each of those needs two nullable FKs plus a CHECK, or a polymorphic
+`playable_type`/`playable_id` pair that gives up referential integrity entirely. One table gives one
+clean FK per feature, and mixed-type playlists for free. At the scale of a personal collection
+performance is not the driver; maintainability is.
 
-- **Music:** `artists` → `albums` → `songs`, plus `genres`.
-- **Audiobooks:** `authors` / `narrators` / `audiobooks` → `tracks`.
+**`collections` is unified too, with its own `type` enum (`album` / `audiobook`)**, and that half is
+not optional. The nullable-FK cost of a unified row has two sources that grow very differently as
+types are added:
 
-`songs` and `tracks` share **15 identical columns** (`path`, `codec`, `channel`, `size`, `duration`,
-`sample_rate`, `bit_rate`, `vbr`, `cover`, `track`, `disc`, `modified_at`, `name`, `id`, …). They differ
-only in the taxonomy FKs, plus `composer` / `publisher` (music only).
+- **Container FK** (`album_id` / `audiobook_id` / …) — grows **one column per type**. Most of the
+  sprawl.
+- **Contributor FKs** (`artist_id`, `genre_id`, `narrator_id`, `author_id`) — grows only a little per
+  type.
 
-### The "tagged differently" argument is an *ingest* concern, not a *storage* one
+Merging the containers collapses every container FK into a single `collection_id` on `tracks`. The net
+effect is four taxonomy FKs on `tracks` instead of seven, of which any given row uses two or three —
+and, more importantly, **a new kind stays cheap**: an audio-drama or lecture kind becomes a new
+`collections.type` value plus at most a contributor field, not a new container column that lands null
+on every existing row.
 
-The two are read by **two separate scanners** over two separate share directories (`/music/`,
-`/audiobooks/`), and they *remap the same ID3 frames* to different meanings:
+**Generalising *contributors* the same way is deliberately not done.** A `contributors` table with a
+role pivot would make a new type truly zero-column, and it would model "an artist who is also an
+author" once. It also complicates the scanner and every UI query, for a payoff a bounded handful of
+types does not justify. An artist is not an author is not a narrator; the three taxonomy trees stay
+separate.
 
-| ID3 source            | → Music      | → Audiobook         |
-| --------------------- | ------------ | ------------------- |
-| `artist` tag          | artist       | **narrator**        |
-| `TPE2` (album-artist) | album_artist | *(unused)*          |
-| `album` tag           | album        | **audiobook title** |
-| `TCOM` (composer)     | composer     | **author**          |
-| `genre` tag           | genre        | *(dropped)*         |
-
-Because the different tagging is handled entirely by keeping two scanners, it is **independent of whether
-the rows land in one table or two.** That frees the storage decision to be made on its own merits.
-
-### Options
-
-| Option                           | What                                                                                    | Pros                                                                                                            | Cons                                                                                                                                                |
-| -------------------------------- | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **A. Keep the split** (legacy)   | 2× everything                                                                           | Proven; semantically clean; no nullable type-only columns                                                       | Every cross-cutting v2 feature built **twice** or via UNION/polymorphic                                                                             |
-| **B. Unify the playable row** ⭐ | One `tracks` table + `type` enum (`music` / `audiobook`); keep taxonomy tables separate | `plays`, share-links, unified search, the play queue all point at **one** table & FK; mixed-type playlists free | 3–4 nullable taxonomy FKs per row (guard with a `CHECK` on `type`) — cut to 2–3, and made cheap to extend, by the **collections half-step** (below) |
-| **C. Full normalisation**        | `collections`(type) + `contributors`(+ role pivot) + one `tracks`                       | Textbook-DRY; an artist-who-is-also-an-author modelled once                                                     | Over-engineered at this scale; a role pivot complicates scanner + UI                                                                                |
-
-### Decision: B + the collections half-step ✅ (2026-07-20)
-
-Unify the playable row into one `tracks` table with a `type` enum, **and** take the collections
-half-step up front: merge `albums` + `audiobooks` into one `collections` table with its own `type`.
-Keep the two taxonomy *trees* separate — an artist isn't an author isn't a narrator. Option **C**
-(generalising *contributors* into a role pivot) is explicitly rejected as over-engineering for a
-personal collection.
-
-Every headline v2 feature — listen history / most-played, signed share-links per song/album/playlist,
-unified search, background auto-advance — is cross-cutting over "a playable thing." Under the split,
-each needs two nullable FKs + a `CHECK`, or a polymorphic `playable_type/playable_id` that gives up FK
-integrity. One `tracks` table gives one clean FK per feature. At ~12k songs, performance is not the
-driver — maintainability is.
-
-#### Why the collections half-step is now part of B (not optional)
-
-The nullable-FK cost of a unified row has two sources that grow very differently as *types* are added:
-
-- **Container FK** (`album_id` / `audiobook_id` / …) — grows **one column per type.** Most of the sprawl.
-- **Contributor FKs** (`artist_id`, `album_artist_id`, `genre_id` / `author_id`, `narrator_id`) — grows
-  only a little per type.
-
-Merging the containers into one `collections` table collapses every container FK into a single
-`collection_id` on `tracks`, and moves the container-level owner (`album_artist_id` for music,
-`author_id` for audiobooks) up onto the collection row where it belongs (this also fixes b#3). Net
-effect on `tracks`: a drop from **seven** taxonomy FKs to **four** (`collection_id` + `artist_id` +
-`genre_id` + `narrator_id`), of which any given row uses 2–3.
-
-The reason to adopt it **now** rather than leave it optional: **adding a third type stays cheap.** A
-an audio-drama or lecture kind (podcasts were tried and dropped, 2026-08-08 — see below) becomes a new
-`collections.type` value plus at most a contributor
-field or two — **not a new container column that lands null on every existing row.** Container growth is
-exactly where the "does every new type cost more columns?" pain lives, and this removes it. (Generalising
-*contributors* the same way would make a new type truly zero-column — but that is option C, and it
-complicates the scanner + UI for a payoff a bounded 2–4 types doesn't justify.)
-
-#### Shape
+### Shape
 
 ```
 collections
   id               uuid pk
-  type             album | audiobook                        # enum → varchar + CHECK
-  name             string
-  year             int   nullable
-  cover_path       string nullable                              # RELATIVE to the area root — the album's own directory image
-  album_artist_id  uuid  fk → artists   nullable  (music)       # container owner
-  author_id        uuid  fk → authors   nullable  (audiobook)   # fixes b#3
+  type             album | audiobook                    # varchar + CHECK
+  name             string                               # ICU case-insensitive collation
+  name_fold        string                               # search companion, default collation
+  year             int    nullable
+  cover_path       string nullable                      # RELATIVE to the area root — the directory image
+  album_artist_id  uuid   fk → artists  nullable        # music only; the container's owner
   timestamps
-  CHECK: album_artist_id set only when type='album'; author_id only when type='audiobook'
-  unique NULLS NOT DISTINCT (type, name, album_artist_id, author_id)   # dedup, case-insensitive; see (b#3)
+  CHECK  album_artist_id set only when type = 'album'
+  UNIQUE NULLS NOT DISTINCT (type, name, album_artist_id)
 
 tracks
-  id               uuid pk                                   # independent random uuid (NOT uuidv5(hash))
-  type             music | audiobook                        # playable kind; corresponds to collection.type
-  collection_id    uuid  fk → collections   (restrict)       # ONE container FK, every type; taxonomy FKs = restrict (b#1)
-  artist_id        uuid  fk → artists       nullable  (music)      # performer
-  genre_id         uuid  fk → genres        nullable  (music)
-  narrator_id      uuid  fk → narrators     nullable  (audiobook)
-  composer, publisher   (music, text)
-  path             string                                    # RELATIVE to the area root; UNIQUE (type, path) — one file per area
-  content_hash     string  index (non-unique)                # NEW — audio-stream hash = identity; clones share it
-  size, modified_at                                          # with path = the "unchanged" fast-path
-  … other technical columns (codec, channel, duration, sample_rate, bit_rate, vbr, cover, track, disc) …
-  created_at                                                 # NEW — real "recently added" (see (c))
-  CHECK: music FKs null unless type='music'; narrator_id null unless type='audiobook'
+  id               uuid pk                              # independent random uuid
+  type             music | audiobook                    # the playable kind
+  collection_id    uuid   fk → collections  (restrict)  # ONE container FK, every type
+  artist_id        uuid   fk → artists      nullable    # music: the performer
+  genre_id         uuid   fk → genres       nullable    # music
+  author_id        uuid   fk → authors      nullable    # audiobook — per CHAPTER, see audiobooks.md
+  narrator_id      uuid   fk → narrators    nullable    # audiobook
+  composer, publisher                                   # music, text
+  path             string                               # RELATIVE to the area root
+  content_hash     string index (non-unique)            # audio-stream hash = identity
+  size, modified_at                                     # with path, the "unchanged" fast-path
+  codec, channel, duration, sample_rate, bit_rate, vbr, cover, track, disc
+  name, name_fold
+  created_at                                            # a real "date added"
+  UNIQUE (type, path)
+  CHECK  music FKs null unless type = 'music'; audiobook FKs null unless type = 'audiobook'
 ```
 
-`type` is stored on `tracks` (not just derived through the join) because a Postgres `CHECK` can't
-reference another table — the type-guard above needs the value locally; the scanner keeps it in step
-with the collection. The two enums are **parallel but not identical**: a track's `type` is the *playable
-kind* (`music` / `audiobook`), its collection's `type` is the *container kind* (`album` /
-`audiobook`), mapping `music↔album` and `audiobook↔audiobook`. The
-guard now covers a **smaller** set of columns than literal B (the container and both owners moved to
-`collections`), and `collections` carries its own small type-guard for the two owner FKs.
+`type` is stored on `tracks` rather than derived through the join because a Postgres `CHECK` cannot
+reference another table — the type guard needs the value locally. The scanner keeps it in step with the
+collection. The two enums are **parallel but not identical**: a track's `type` is the *playable kind*
+(`music` / `audiobook`), its collection's `type` is the *container kind* (`album` / `audiobook`),
+mapping `music↔album` and `audiobook↔audiobook`.
+
+**An audiobook has no owner column at all**, unlike an album. `author_id` lives on the chapter beside
+`narrator_id`, because TCOM is a per-file tag and an anthology uses it per story. See
+[`audiobooks.md`](audiobooks.md) for what that costs and why a book-level column cannot work.
 
 ### Cover art: a bool on `tracks`, a path on `collections`
 
 The asymmetry is deliberate, and it is about where the bytes live.
 
 A **track's** art is *inside the file whose path is already stored*, so `tracks.cover` only has to
-answer "is there one?" — `cover` (bool) + `path` is already a complete location, and a path column
+answer "is there one?" — `cover` (bool) plus `path` is already a complete location, and a path column
 there would just repeat `path`.
 
-An **album's** art is a *sibling file whose name cannot be derived*. Measured on the real collection
-(951 album directories holding mp3s): `folder.jpg` in 923, `cover.jpg` in 63, sometimes named after the
-album, and 15 with no image at all — plus `back.jpg` / `cd.jpg` / `inlay.jpg` / `booklet.jpg`, every one
-of which sorts *before* `folder.jpg`. So the name is the fact worth storing, and
-`collections.cover_path` (nullable, area-relative like `tracks.path`) stores it.
+A **collection's** art is a *sibling file whose name cannot be derived*. Measured across a real
+collection of ~950 album directories: `folder.jpg` in the great majority, `cover.jpg` in a few dozen,
+sometimes named after the album, and a handful with no image at all — plus `back.jpg` / `cd.jpg` /
+`inlay.jpg` / `booklet.jpg`, every one of which sorts *before* `folder.jpg`. So the name is the fact
+worth storing, and `collections.cover_path` (nullable, area-relative like `tracks.path`) stores it.
 
 Recording it moves the resolution — candidate names in configured order
 (`mixtape.covers.folder_images`), matched case-insensitively, then a lone unrecognised image — from
-**every page render to once per scan** (`LibraryScanService::syncCollectionCovers`, step 6). A page of
-50 albums used to need 50 directory reads just to decide whether to show a thumbnail; it now reads a
-column. Nothing is extracted at scan time: the column holds a filename, and cover *bytes* stay lazily
-cached on first request, as they always were. Pre-extracting the 12060 embedded pictures instead would
-have cost ~330 MB and minutes per scan for art nobody may ever open.
+**every page render to once per scan** (`LibraryScanService::syncCollectionCovers`). A page of 50
+albums would otherwise need 50 directory reads just to decide whether to show a thumbnail; it now reads
+a column. Nothing is extracted at scan time: the column holds a filename, and cover *bytes* stay
+lazily cached on first request. Pre-extracting every embedded picture instead would cost hundreds of
+megabytes and minutes per scan for art nobody may ever open.
 
-Two consequences, both accepted: art added **without** a rescan is unseen until the next `app:update`
-(cover art arrives with the music it belongs to, which is when you scan anyway); and a **stale** path
-degrades rather than 404s, because the cover route re-resolves live when the recorded file has gone
-(`CoverService::albumFolderImage`).
+Two consequences, both accepted: art added **without** a rescan is unseen until the next
+`app:update` (cover art arrives with the music it belongs to, which is when you scan anyway); and a
+**stale** path degrades rather than 404s, because the cover route re-resolves live when the recorded
+file has gone (`CoverService::albumFolderImage`).
 
 An album whose only art is embedded has `cover_path = null` — that half of the question is answered by
-`tracks.cover`, and an album prefers its directory image over any embedded picture precisely because
+`tracks.cover` — and an album prefers its directory image over any embedded picture precisely because
 per-song inline art would otherwise decide the album's thumbnail by sort order.
 
----
+## Foreign keys
 
-## (b) Foreign-key constraints
+**Taxonomy FKs are `restrict`, not `cascade` and not `nullOnDelete`.** That covers
+`tracks.{collection_id, artist_id, genre_id, author_id, narrator_id}` and
+`collections.album_artist_id`. `cascade` there would mean *deleting one artist deletes all their
+tracks*, which is a footgun waiting for a stray statement. Because the scanner only ever removes
+**orphaned** taxonomy (below), `restrict` never blocks the prune — an orphan has nothing referencing
+it — and it turns any *accidental* delete of a still-referenced taxonomy row into a loud error rather
+than a silent cascade or a stray null.
 
-Findings and recommended changes:
+`cascade` is reserved for true ownership: `users → playlists → playlist_tracks`, `users →
+player_states`, `tracks → plays`, and the four subject FKs on `shares`.
 
-1. **Everything is `onDelete('cascade')` — a footgun once you stop truncating.** Today it's masked by
-   `FOREIGN_KEY_CHECKS=0` + truncate; under a real diff those cascades fire, and `songs.artist_id →
-   cascade` literally means *deleting one artist deletes all their songs.* Because the scanner only ever
-   removes **orphaned** taxonomy (see #5), the right constraint on the taxonomy FKs
-   (`tracks.{collection_id, artist_id, genre_id, narrator_id}`, `collections.{album_artist_id,
-   author_id}`) is **`restrict`** — not `cascade`, not `nullOnDelete`. An orphan has nothing referencing
-   it, so `restrict` never blocks the prune; and it turns any *accidental* delete of a still-referenced
-   taxonomy row into a loud error rather than a silent cascade or a stray null (which is what you'd
-   rather not have to reason about). Reserve `cascade` for true ownership (`user → playlists →
-   playlist_tracks`).
+**Every name column is unique, on an ICU case-insensitive collation.** Postgres is case-sensitive by
+default, so without this a scanner creates `Rock` *and* `rock`, `Beatles` *and* `beatles`. The
+collation (`case_insensitive`, minted in the `users` migration) goes on `artists`, `authors`,
+`narrators`, `genres` and the per-type composite on `collections`, making dedup case-insensitive *and*
+database-enforced.
 
-2. **`albums`, `genres`, `audiobooks` have no unique constraint on `name`** — dedup is *purely*
-   `firstOrCreate` logic. MySQL's `utf8mb4_unicode_ci` still made matching case-insensitive; **Postgres
-   is case-sensitive by default,** so the v2 scanner would create `Rock` *and* `rock`, `Beatles` *and*
-   `beatles`. Add unique constraints and **reuse the ICU `case_insensitive` collation already minted for
-   `users.name`** (see the v2 `create_users_table` migration) on every name column: `artists`,
-   `authors`, `narrators`, `genres`, and the per-type composite on `collections` (see #3). Dedup then
-   becomes case-insensitive *and* DB-enforced.
+> **What that costs: a case-insensitive lookup cannot see a case-only rename.** Re-tagging
+> `NARGAROTH` to `Nargaroth` makes `firstOrCreate` find the old row and hand it back unchanged — no
+> insert, no update, nothing to notice — where every other rename works by minting a row and letting
+> the old one be pruned. The scanner therefore adopts the tag's spelling explicitly
+> (`LibraryScanService::adoptSpelling`), renaming in place so the id, and every URL and share pointing
+> at it, survive. The tags are the source of truth for spelling.
+>
+> The sqlite side of these columns must be pinned to `nocase` for the same reason: sqlite's default is
+> `BINARY`, so a test suite left at the default does **the opposite** of production for two names
+> differing only in case — and neither outcome looks wrong on its own. See
+> [`testing.md`](testing.md) → *Traps*.
 
-   > **What that costs, found 2026-08-13:** a case-insensitive lookup cannot see a case-only
-   > RENAME. Re-tagging `NARGAROTH` to `Nargaroth` made `firstOrCreate` find the old row and hand
-   > it back unchanged — no insert, no update, nothing to notice — while every other rename works
-   > by minting a row and letting the old one be pruned. The scanner therefore adopts the tag's
-   > spelling explicitly (`LibraryScanService::adoptSpelling`), renaming in place so the id, and
-   > every URL and share pointing at it, survive. The sqlite side of these columns had to be
-   > pinned to `nocase` at the same time: its default is `BINARY`, so the suite had been doing the
-   > opposite of production and could not see any of this (see
-   > [`testing.md`](testing.md) → *Traps*).
+**`collections` dedups on `UNIQUE NULLS NOT DISTINCT (type, name, album_artist_id)`.** The
+`NULLS NOT DISTINCT` (Postgres 15+) matters because the owner is nullable: a plain unique treats NULLs
+as *distinct*, so two rows with no owner tag and the same title would slip past as separate. With it,
+two same-title albums by different artists stay distinct **and** two with no artist tag still dedup
+instead of duplicating.
 
-3. **`audiobooks` has no `author_id` / `narrator_id`,** and `getAudiobook()` dedups on **name only** — so
-   two different books whose `album` tag collides **collapse into one row.** A latent data-integrity bug.
-   Under **B + collections** this is fixed by construction: the `collections` row carries the owner FK
-   (`author_id` for audiobooks, `album_artist_id` for music albums) and the dedup key is
-   **`UNIQUE NULLS NOT DISTINCT (type, name, album_artist_id, author_id)`** (Postgres 15+, fine on 17).
-   The `NULLS NOT DISTINCT` matters because the owner is nullable: a plain unique treats NULLs as
-   *distinct*, so two *untagged-owner* rows of the same title would slip past as separate. With it, two
-   same-title books by different authors stay distinct **and** two with no author tag still dedup instead
-   of duplicating.
+**Orphaned taxonomy must be pruned**, which is a problem the diff creates: truncation cleared unused
+artists, albums and genres for free, and a diff leaves them behind. A browse list full of zero-track
+artists is bad. After reconciling tracks, the scan deletes any taxonomy row with no remaining
+referrers — checking **both** referring sides, since a contributor is reached from `tracks` *and*
+`collections`:
 
-4. **`playlist_entries` has no `song_id` FK** (see *the one fact*). Under stable IDs it becomes a real
-   `playlist_tracks.track_id → tracks` (**`cascade`**), owned via `playlist_id → playlists → users` (no
-   separate `user_id` on the row — ownership rides the playlist). On a file deletion the scanner runs
-   **relink-then-cascade**: before hard-deleting the orphaned track it looks for a surviving **clone**
-   (another row, same `content_hash`) and, if found, `UPDATE`s that track's `playlist_tracks` *and*
-   `plays` to point at the clone; only if no clone survives does the `cascade` drop them. So `track_id` is
-   **always a live FK** — no nulls, no snapshot, no dead entries — and a curated playlist survives your
-   culling one of two identical files. `plays.track_id → tracks` takes the same `cascade` + relink rule.
+```sql
+DELETE FROM artists a
+ WHERE NOT EXISTS (SELECT 1 FROM tracks t      WHERE t.artist_id = a.id)
+   AND NOT EXISTS (SELECT 1 FROM collections c WHERE c.album_artist_id = a.id);
+```
 
-5. **Orphaned taxonomy must be pruned — a *new* problem the diff creates.** Truncate cleared unused
-   artists/albums/genres for free every night; a diff leaves them behind, and a browse list full of
-   zero-track artists is bad UX. After reconciling tracks, the scan deletes any taxonomy row with no
-   remaining referrers — checking **both** referring sides, since a contributor is reached from `tracks`
-   *and* `collections`:
+(`genres` / `authors` / `narrators` / empty `collections` likewise.) This is what makes the `restrict`
+above a non-event: only orphans are ever deleted, and an orphan has nothing pointing at it.
 
-    ```sql
-    DELETE FROM artists a
-     WHERE NOT EXISTS (SELECT 1 FROM tracks t      WHERE t.artist_id = a.id)
-       AND NOT EXISTS (SELECT 1 FROM collections c WHERE c.album_artist_id = a.id);
-    ```
+**Postgres has no `FOREIGN_KEY_CHECKS=0`, and none is needed.** The schema is acyclic (`tracks →
+collections → contributors`, no back-edge), so the scan writes **parent-first** (contributors →
+collections → tracks) and prunes in reverse (orphan tracks, then orphan taxonomy) inside one
+transaction. `DEFERRABLE INITIALLY DEFERRED` FKs are the fallback only if a cycle is ever introduced.
 
-    (`genres` / `narrators` / `authors` / empty `collections` likewise.) This is what makes the `restrict`
-    in #1 a non-event: only orphans are ever deleted, and an orphan has nothing pointing at it.
+## Indexes
 
-6. **Postgres has no `FOREIGN_KEY_CHECKS=0`.** The legacy scan disabled FK checking wholesale; there's no
-   session equivalent — and none is needed. The schema is acyclic (`tracks → collections → contributors`,
-   no back-edge), so the scan writes **parent-first** (contributors → collections → tracks) and prunes in
-   reverse (orphan tracks, then orphan taxonomy) inside one transaction. `DEFERRABLE INITIALLY DEFERRED`
-   FKs (`->deferrable()->initiallyDeferred()`) are the fallback only if a cycle is ever introduced.
+**PostgreSQL does not index the referencing side of a foreign key** — it only requires a unique index
+on the *referenced* side, the PK. `foreignUuid()->constrained()` in Laravel adds the constraint,
+**not** an index. So FK indexes have to be added back explicitly, but proportionately: at the scale of
+a personal collection a seqscan join is sub-millisecond, so most FK indexes here do not speed up reads
+at all. **They back the delete path** — every `restrict` / `cascade` check and the orphan prune scans
+the child by its FK column, many times per scan.
 
----
+The indexes that actually move *read* latency are the **`plays` composites** (the one table that grows
+unbounded) and the **trigram search index** (a full scan on every keystroke is the one thing a reader
+would feel). Index for those and for the delete checks; do not cargo-cult the rest.
 
-## (c) Indexes
+- **FK columns needing a *standalone* index:** `tracks.{artist_id, genre_id, author_id, narrator_id}`,
+  `collections.album_artist_id`, `playlist_tracks.track_id`. **Do *not* add standalone indexes for**
+  `tracks.collection_id`, `playlist_tracks.playlist_id`, `playlists.user_id` or the `plays.*` FKs —
+  each is already the leftmost prefix of a composite or unique below, so a separate index is pure
+  write overhead.
+- **Scan identity:** `tracks.content_hash`, a plain B-tree (equality only) for the rename match and
+  the clones lookup. `tracks.path` is already indexed by its unique constraint; the fast-path also
+  compares `size` and `modified_at`, which need no index because the `path` hit is the selective one.
+- **Name equality and dedup:** the unique plus the ICU collation *is* the index. On `artists` /
+  `authors` / `narrators` / `genres` it leads with `name`, so it serves both name-equality lookups and
+  `firstOrCreate` dedup. On `collections` the unique is `(type, name, album_artist_id)`: it covers
+  dedup **and** doubles as the alphabetical browse index (`WHERE type = ? ORDER BY name`) — but,
+  leading with `type`, it does *not* serve a bare `name` lookup. Name *search* on collections rides the
+  trigram GIN below.
+- **Substring search: `name_fold` + a `pg_trgm` GIN index.** Every search here is
+  `LIKE '%segment%'` — a leading wildcard, non-sargable, so a full scan — and matching the raw `name`
+  columns is a dead end besides: **Postgres refuses `LIKE` / `ILIKE` / regex on the nondeterministic
+  `case_insensitive` ICU collation** those columns carry. Pinning `COLLATE "C"` in the query works on
+  Postgres and is un-runnable on the sqlite test database (`near "ILIKE": syntax error`), which leaves
+  search untested.
 
-**Lead finding:** on the legacy MySQL box, InnoDB auto-created a backing index for every FK, so the
-`*_id` columns were indexed for free. **PostgreSQL does not index the referencing side of a FK** — it
-only requires a unique index on the *referenced* side (the PK). `foreignUuid()->constrained()` in
-Laravel adds the constraint, **not** an index. So the FK indexes have to be added back explicitly — but
-be proportionate about *why*. At ~12k tracks a seqscan join is sub-millisecond, so most FK indexes here
-don't speed up reads; they **back the delete path** — every `restrict` / `cascade` check and the
-orphan-prune (b#5) scans the child by its FK column, many times per scan. The indexes that actually move
-*read* latency are the **`plays` composites** (the one table that grows unbounded) and the **trgm search
-index** (a full-text seqscan on every keystroke is the one thing a user would feel). Index for those and
-for the delete checks; don't cargo-cult the rest.
-
-Recommended indexes:
-
-- **FK columns that need a *standalone* index:** `tracks.{artist_id, genre_id, narrator_id}`,
-  `collections.{album_artist_id, author_id}`, and `playlist_tracks.track_id`. Their main job is backing
-  the `restrict` / `cascade` checks and the orphan-prune (b#1, b#5), not read-joins. **Do *not* add
-  standalone indexes for** `tracks.collection_id`, `playlist_tracks.playlist_id`, `playlists.user_id`, or
-  the `plays.*` FKs — each is already the leftmost prefix of a composite / unique below (ordered-playback,
-  `(playlist_id, position)`, `unique (user_id, name)`, the `plays` composites), so a separate index is
-  pure write-overhead.
-- **Scan identity:** `tracks.content_hash` (plain B-tree, equality only) for the rename-match step *and*
-  the "x clones" lookup; `tracks.path` is already indexed by its `UNIQUE` constraint (the fast-path also
-  compares `size` / `modified_at`, which need no index — the `path` hit is the selective one).
-- **Name equality / dedup:** the unique + ICU `case_insensitive` collation from (b) *is* the index. On
-  `artists` / `authors` / `narrators` / `genres` it leads with `name`, so it serves both name-equality
-  lookups and `firstOrCreate` dedup. On `collections` the unique is `(type, name, album_artist_id,
-  author_id)`: it covers dedup **and** doubles as the alphabetical browse index (`WHERE type = ? ORDER BY
-  name`) — but, leading with `type`, it does *not* serve a bare `name` lookup; name *search* on
-  collections rides the trgm GIN below.
-- **Substring search (`name_fold` + `pg_trgm` GIN)** — *implemented, migration
-  `2026_07_28_000000_add_name_fold_search_columns`.* Every legacy search is `LIKE '%segment%'` (leading
-  wildcard, non-sargable → full scan), and matching the raw `name` columns is a dead end besides:
-  Postgres refuses `LIKE` / `ILIKE` / regex on the nondeterministic `case_insensitive` ICU collation from
-  (b), which is why the first version needed a `COLLATE "C"` pin — Postgres-only SQL that could not run on
-  the SQLite test DB at all (`near "ILIKE": syntax error`), leaving search untested.
   So each searchable name gains a **`name_fold` companion column** on the default (deterministic)
-  collation — `tracks`, `collections`, `artists`, `authors`, `narrators`, `genres` — holding
-  `FoldedSearch::fold(name)`: lowercased, diacritics stripped, and anything with no ASCII form (CJK)
-  **kept** rather than dropped, so the fold is a superset of the raw value and no second pass over `name`
-  is needed. `HasFoldedName` writes it from the `name` mutator, so the scanner's three write paths
-  (insert / re-tag / rename-match) cannot forget it. Search is then one plain `like` on both drivers, and
-  `USING gin (name_fold gin_trgm_ops)` gives it an index. Folding in PHP rather than via `unaccent()` is
-  deliberate: the value is *stored*, so it must be identical on every machine (no ICU-version drift), the
-  rule stays greppable and unit-tested, and it transliterates Cyrillic, which `unaccent()` does not.
-  `pg_trgm` is a *trusted* extension on PG13+, so the app's own DB user installs it in the migration —
-  no superuser step, as long as it holds `CREATE` on the database.
-- **Ordered album/book playback:** composite `(collection_id, disc, track)` on `tracks` — this is also
-  the index that covers `collection_id` on its own. `disc` / `track` are nullable → nulls sort last,
+  collation — on `tracks`, `collections`, `artists`, `authors`, `narrators`, `genres` and `playlists` —
+  holding `FoldedSearch::fold(name)`: lowercased, diacritics stripped, and anything with no ASCII form
+  (CJK) **kept** rather than dropped, so the fold is a superset of the raw value and no second pass
+  over `name` is needed. `HasFoldedName` writes it from the `name` mutator, so the scanner's three
+  write paths (insert / re-tag / rename-match) cannot forget it. Search is then one plain `like` on
+  both drivers, and `USING gin (name_fold gin_trgm_ops)` indexes it.
+
+  **Folding in PHP rather than via `unaccent()` is deliberate:** the value is *stored*, so it must be
+  identical on every machine (no ICU-version drift), the rule stays greppable and unit-tested, and it
+  transliterates Cyrillic, which `unaccent()` does not. `pg_trgm` is a *trusted* extension on PG13+,
+  so the app's own database user installs it in the migration — no superuser step, as long as it holds
+  `CREATE` on the database.
+- **Ordered album/book playback:** a composite `(collection_id, disc, track)` on `tracks` — which is
+  also what covers `collection_id` on its own. `disc` and `track` are nullable, so nulls sort last,
   which is the right place for untracked files.
-- **"Recently added" — per media type** (music churns, audiobooks barely move, so the widgets are split):
-  `(type, created_at)` at **both grains** — `collections (type, created_at)` for "recently added
-  albums / books" and `tracks (type, created_at)` for the track grain — each answering `WHERE type = ?
-  ORDER BY created_at DESC LIMIT n`. The `collections` type-unique does *not* cover this (no
-  `created_at`), so it's a genuine extra index. And `created_at` is finally meaningful: under the diff
-  it's set once at insert and untouched by re-tags / renames (those are UPDATEs) — a stable true "date
-  added," unlike legacy's `modified_at` (file mtime), which moved on every re-tag.
-- **`plays` (new) — most-played is per-user *and* global:** `(user_id, played_at)` for a user's history
-  feed; `(track_id)` for **global** most-played (also serves the relink `UPDATE … WHERE track_id = …` and
-  the cascade check); `(user_id, track_id)` for **per-user** most-played. Both most-played views **group
-  by `plays.track_id`** (#5), so they are answered by these indexes alone — no join to `tracks` at all,
-  which is one fewer table than the original `content_hash` grain needed (pre-aggregate into a
-  materialized view only if `plays` ever grows enough to feel it). A *subject's* count — an artist's, a
-  genre's, an album's — does join `plays → tracks` and filters on the taxonomy FK, which the
-  `tracks.artist_id` / `genre_id` / `(collection_id, …)` indexes already serve. `plays` is the only
-  unbounded-growth table, so these are the read indexes that matter most.
-- **`playlist_tracks`:** `(playlist_id, position)` for ordered render (also covers `playlist_id`);
-  `track_id` for the reverse lookup ("which playlists contain this track") + the relink `UPDATE` + the
-  cascade check.
+- **"Recently added", per media type** (music churns, audiobooks barely move, so the widgets are
+  split): `(type, created_at)` at **both grains** — `collections (type, created_at)` for recently
+  added albums and books, `tracks (type, created_at)` for the track grain — each answering `WHERE type
+  = ? ORDER BY created_at DESC LIMIT n`. The `collections` type-unique does not cover this (no
+  `created_at`), so it is a genuine extra index. `created_at` is meaningful precisely because of the
+  diff: it is set once at insert and untouched by re-tags and renames, which are UPDATEs. A file
+  mtime, by contrast, moves on every re-tag.
+- **`plays`** is the only unbounded-growth table, so these are the read indexes that matter most:
+  `(user_id, played_at)` for a user's history feed; `(track_id)` for global most-played (also serving
+  the relink `UPDATE … WHERE track_id = …` and the cascade check); `(user_id, track_id)` for per-user
+  most-played. Both most-played views group by `plays.track_id` (below), so they are answered by these
+  indexes alone, with no join to `tracks` at all. A *subject's* count — an artist's, a genre's, an
+  album's — does join `plays → tracks` and filter on the taxonomy FK, which the `tracks.artist_id` /
+  `genre_id` / `(collection_id, …)` indexes already serve.
+- **`playlist_tracks`:** `(playlist_id, position)` for the ordered render (also covers
+  `playlist_id`); `track_id` for the reverse lookup ("which playlists contain this track"), the relink
+  UPDATE and the cascade check.
 
-Postgres portability notes (all non-issues, just be aware): `$table->year()` maps to `integer`;
-`enum('channel', …)` becomes `varchar` + `CHECK`; `float(precision: 53)` = `double precision`.
+Postgres portability notes, all non-issues but worth knowing: Laravel's `$table->year()` maps to
+`integer`; `enum('channel', …)` becomes `varchar` + `CHECK`; `float(precision: 53)` is
+`double precision`.
 
----
+## Saved playlists and the play queue are two different things
 
-## Playlists as a first-class concept
+"Playlist" bundles two concepts that are cleaner kept apart:
 
-v1 treated playlists as a global, denormalised afterthought. v2 makes them user-owned and central. The
-key reframe is that "playlist" is **two concepts** v1 smushed together:
+| | **Saved playlists** | **Play queue** |
+| --- | --- | --- |
+| Lifespan | durable, named, CRUD | ephemeral — what is playing now and next |
+| Owner | a user | the current player |
+| Driven by | user intent (curate) | the player (auto-advance) |
+| Lives in | **server / database** | **a client composable**, synced to `player_states` |
 
-|           | **Saved playlists**  | **Play queue** ("temporary playlist")                                                             |
-| --------- | -------------------- | ------------------------------------------------------------------------------------------------- |
-| Lifespan  | Durable, named, CRUD | Ephemeral — what's playing now / next                                                             |
-| Owner     | A user               | The current session                                                                               |
-| Driven by | User intent (curate) | The player (auto-advance)                                                                         |
-| Lives in  | **Server / DB**      | **Client composable** (live) + server `player_states` (logged-in); `localStorage` fallback (anon) |
-
-### Saved playlists — schema (assumes B + collections)
+### Saved playlists
 
 ```
 playlists
   id            uuid pk
-  user_id       uuid  fk → users        (cascade)     # user-specific (v2 users use uuid PKs — HasUuids)
-  name          string
-  description   text  nullable
-  position      int                                    # user's ordering of their own playlists
+  user_id       uuid fk → users  (cascade)
+  name          string           # ICU case-insensitive collation
+  name_fold     string
+  description   text nullable
+  description_fold text nullable
+  position      int              # the user's ordering of their own playlists
   timestamps
-  unique (user_id, name)                               # your "Rock" ≠ my "Rock"
+  UNIQUE (user_id, name)         # your "Rock" is not my "Rock"
 
-playlist_tracks                                         # renamed from playlist_entries
+playlist_tracks
   id            uuid pk
-  playlist_id   uuid  fk → playlists     (cascade)
-  track_id      uuid  fk → tracks        (cascade)     # always live — relink-to-clone, else cascade (b#4)
+  playlist_id   uuid fk → playlists (cascade)
+  track_id      uuid fk → tracks    (cascade)   # always live — relink-to-clone, else cascade
   position      int
   created_at
-  index (playlist_id, position)
-  index (track_id)                                       # reverse lookup + the relink UPDATE
+  INDEX (playlist_id, position)
+  INDEX (track_id)
 ```
 
-This fixes two v1 problems: a **real `track_id` FK** (only possible thanks to stable, content-hash
-identity), and **mixed-type playlists for free** — because `tracks` is unified (option B), a playlist row
-list is just `track_id`s and can hold music *and* audiobook chapters with no polymorphism. (Under option A this table
-needs two nullable FKs + a `CHECK` — another point for B.) And unlike v1's denormalised
-`path/song/artist/album` strings, **no snapshot is needed**: relink-then-cascade keeps `track_id`
-pointing at a live row, so title/artist come from the join.
+Two things this buys, both only possible because of content-hash identity: a **real `track_id` FK**,
+so title and artist come from the join and no denormalised snapshot is needed; and **mixed-type
+playlists for free**, because `tracks` is unified, so a playlist row list is just `track_id`s and can
+hold music *and* audiobook chapters with no polymorphism.
 
-### The play queue — client composable, server-persisted
+**Reordering rewrites contiguous integers inside a transaction** — the client PATCHes the full
+sequence and the server writes `position = 0…n−1`. At tens to hundreds of tracks that is a
+sub-millisecond bulk UPDATE, so the write amplification that gap-based schemes and LexoRank optimise
+away is noise. `(playlist_id, position)` stays **non-unique**, because a mid-transaction state has
+transient duplicates; same rule for `playlists.position`. Reconsider only at thousands of items *plus*
+frequent concurrent moves, which is not this app.
 
-> **Build status (client half done 2026-08-03).** `usePlayerQueue` (module singleton,
-> `localStorage`-backed, user-scoped), the `PlayQueue` panel and the `PlayerBar`, both mounted once in
-> `FullLayout`, an enqueue button on the song page — and, as of 2026-08-03, **audio**: a native
-> `<audio>` driven by `usePlayerAudio`, a `GET /music/songs/{song}/stream` route with HTTP Range and an
-> nginx `X-Accel-Redirect` hand-off, a scrubbable timeline with a buffer indicator, and repeat.
-> Auto-advance rides the `ended` event, so the queue walks itself in a backgrounded tab.
-> [`play-queue.md`](play-queue.md) is the queue as built — including the 2026-08-06 storage rework
-> (payload trimmed to what the id cannot rebuild, the pointer moved to its own key, writes coalesced
-> behind a flush when the tab goes away) and the browser budget that prompted it.
-> [`player.md`](player.md) has what the audio build settled (including that the production CSP needed
-> no widening — `media-src 'self'` is enough for a same-origin `<audio src>`, and there is a test that
-> proves it).
->
-> **The server sync described below was built 2026-08-07** — `PUT /player/state` going up out of
-> `flushQueueWrites()`, the `playerState` shared prop coming back down on a full page load. Ids up,
-> whole tracks down; missing ids skipped with the pointer following them; conflicts settled by a
-> CLIENT-issued `updatedAt` stamp rather than by the server winning outright (a page load races the
-> sync PUT, and the server's copy is regularly the older one). The **position** is deliberately not
-> synced — see [`play-queue.md`](play-queue.md) → _Following the listener, not the browser_.
-> **Shuffle landed 2026-08-06** as a play mode (the list keeps its order, the pointer jumps through a
-> bag) alongside repeat in the player bar's settings popover — see [`play-queue.md`](play-queue.md).
-> **The play-history beacon was built 2026-08-07.** What counts as a play — heard seconds against
-> half the track, capped at four minutes, no de-duplication for repeats — is settled in
-> [`player.md`](player.md) → _What counts as a play_. One row per listen, as this schema always
-> intended: the counter question was asked and answered with arithmetic (a household of five writes
-> ~25 MB a year, and a counter deletes every question with "when" in it).
-
-The queue is the natural home for the **background-playback** feature: auto-advance drives off the audio
-element's `ended` event, which lives in the browser, and the player keeps running while Inertia swaps
-pages (it lives in a **persistent layout**). So the **live** queue is always a client composable —
-`usePlayerQueue`, an ordered array of track refs + current index + position — never a server round-trip
-per track change.
-
-For logged-in users that composable is **persisted server-side** as a single per-user JSON row, so the
-queue and your place in it resume on any device. It is deliberately *not* a normalised table: unlike a
-saved playlist (relational, queried, shared), the queue is private to one player and read/written
-**wholesale** — load it whole, save it whole.
+### The play queue
 
 ```
 player_states
-  user_id     uuid pk  fk → users (cascade)
-  queue       jsonb        # AS BUILT: { version, tracks: [track_id, …], currentIndex, repeat, shuffle, updatedAt }
-  updated_at               # (position_ms was planned and is not synced — see play-queue.md)
+  user_id     uuid pk fk → users (cascade)
+  queue       jsonb    # { version, tracks: [track_id, …], currentIndex, repeat, shuffle, positionMs, updatedAt }
+  updated_at
 ```
 
-- **Hydrate via Inertia:** the server ships `player_states.queue` in the shared props on load; the
-  persistent player layout hydrates from it, then the client POSTs **debounced** syncs (on track change /
-  pause / unload — a lightweight `204`, not a full Inertia visit). Last-write-wins across devices is fine
-  at this scale.
-- **Anonymous listeners** have no `user_id` → the same composable falls back to `localStorage` (or
-  in-memory). Server-persistence enhances logged-in use; the queue must still work without it.
-- **Stale ids:** a persisted queue can reference a track the DB has since removed (cascade) → hydration
-  **skips missing ids**, never assuming the cached queue is still valid.
-- Operations: `playNow` (replace), `queue` (append), `playNext` (insert after current), `remove`,
-  `reorder`, `clear`.
-- Wire the **Media Session API** here for OS / lock-screen controls + now-playing metadata.
-- **Bridge to saved playlists:** "Save queue as playlist" → POST the queue → create a `playlists` row +
-  entries. "Play playlist" → load its tracks → replace/append the queue. The temporary list can be
-  *promoted* to a permanent one.
+The **live** queue is always a client composable (`usePlayerQueue`), never a server round-trip per
+track change. That is forced by playback: auto-advance drives off the audio element's `ended` event,
+which lives in the browser, and the player keeps running while Inertia swaps pages, so it lives in the
+persistent layout.
 
-### Actions → where they land
+For signed-in users that composable is **persisted as a single per-user JSON row**, so the queue and
+your place in it resume on any device. It is deliberately *not* a normalised table: unlike a saved
+playlist (relational, queried, shared), the queue is private to one player and read and written
+**wholesale** — load it whole, save it whole.
 
-| UI action (album or song context)     | Target | Mechanism                                     |
-| ------------------------------------- | ------ | --------------------------------------------- |
-| Play album now                        | Queue  | `playNow` — replace queue with album's tracks |
-| Queue album                           | Queue  | `queue` — append album's tracks               |
-| Play next                             | Queue  | insert after current index                    |
-| Add song / album to existing playlist | Saved  | POST append `track_id`(s) → `playlist_tracks` |
-| New playlist from album/selection     | Saved  | POST create playlist + entries                |
-| Save current queue as a playlist      | Saved  | POST queue → playlist                         |
-| Reorder / remove within a playlist    | Saved  | PATCH positions (re-normalise in a txn)       |
+- **Hydrated through Inertia**, from the shared props on a full page load; the client then PUTs
+  debounced syncs answering `204`, not a full Inertia visit.
+- **Ids go up, whole tracks come down.** The server is where the tracks came from, so a title sent up
+  would only be a copy to go stale; the browser has no REST API to turn an id back into a title, which
+  is the same reason the client-side queue holds whole tracks.
+- **Conflicts settle on a client-issued `updatedAt` stamp**, not by the server winning. A page load
+  races the sync PUT, so the server's copy is regularly the older one.
+- **Stale ids are skipped**, with the pointer following them. A persisted queue can reference a track
+  the database has since removed.
+- **Anonymous listeners** have no `user_id`, so the same composable falls back to `localStorage`.
+  Server persistence *enhances* signed-in use; the queue must still work without it.
 
-### How it plugs into the rest of v2
+[`play-queue.md`](play-queue.md) is the queue as built, including the storage trim, the write
+coalescing and the shuffle walk. [`player.md`](player.md) is everything that makes sound.
 
-- **Share links:** the access model already names a playlist as a share target ("signed URLs scoped to a
-  single song / album / **playlist**"). A first-class playlist is the natural unit — a signed/temporary
-  URL renders a read-only, playable playlist for a friend with no account. No extra schema unless you
-  want *revocable per-link* shares (a separate `shares` table, later).
-- **Listen history / most-played:** the client fires a "played" beacon on `ended`/threshold as the queue
-  advances → the `plays` table. Same unified `track_id`, so listens count uniformly across playlists,
-  albums, and ad-hoc queue plays; **most-played then aggregates by `track_id`** (#5), so the same
-  recording on album + compilation + best-of counts three times, once per file. Relink-then-cascade
-  (b#4) still applies to the rows themselves:
-  a recording keeps its count as long as *any* copy of that audio survives, and loses it only when the
-  last copy is gone — exactly the "hash nowhere in the DB → don't care" rule.
-- **Cross-device resume:** because the whole player-state (queue + `current_index` + `position_ms`)
-  persists per user, resuming the *current* session on another device is free — including mid-audiobook.
-  Remembering your place in *every* book across sessions (after you've since played other things) is a
-  separate optional per-book bookmark, later.
+### Listen history
 
----
+The client fires a "played" beacon as the queue advances, writing one row per listen to `plays`
+(`user_id`, `track_id`, `played_at`). What counts as a play — heard seconds against half the track,
+capped at four minutes, no de-duplication for repeats — is settled in [`player.md`](player.md) →
+*What counts as a play*.
 
-## Open decisions
+**Most-played aggregates by `track_id`.** A recording living on its album, a compilation and a
+best-of counts as **three** entries, each with its own figure. The alternative — grouping by
+`content_hash`, so clones count once, on the grounds that a reader thinks of those copies as one song
+— loses on three counts:
 
-1. ~~**Scan write model + track identity.**~~ **Decided 2026-07-20 → content-hash diff:** replace
-   truncate-and-rebuild with a diff keyed on an audio-stream `content_hash`; `UNIQUE (path)` anchors
-   *one file ⇒ one row*; duplicate audio is allowed and surfaced as "clones". Rationale + algorithm in
-   *the one fact that colours everything*.
-2. ~~**Tracks split: A / B / C.**~~ **Decided 2026-07-20 → B + the collections half-step:** unify the
-   playable row into one `tracks` table; merge `albums` + `audiobooks` into `collections`; keep the two
-   taxonomy *trees* separate; reject C. Rationale + shape in (a). The playlist / `plays` / share-link
-   designs all assume it, and a future kind is a new `collections.type` value rather than
-   new columns.
-3. ~~**Play-queue persistence.**~~ **Decided 2026-07-20 → client composable, server-persisted.** The live
-   queue is a client composable (`usePlayerQueue`, in a persistent layout — forced by the browser audio
-   player), synced to a per-user JSON `player_states` row for logged-in users (cross-device resume,
-   hydrated via Inertia shared props) with a `localStorage` fallback for anonymous listeners. Shape +
-   rationale under *The play queue*.
-4. ~~**Playlist reorder strategy.**~~ **Decided 2026-07-20 → contiguous integers, renumber in a txn.** A
-   reorder rewrites `position = 0…n−1` for the new order (client PATCHes the full sequence) inside one
-   transaction — at tens-to-hundreds of tracks that's a sub-millisecond bulk `UPDATE`, so the
-   write-amplification that gap-based / LexoRank optimise away is noise here. `(playlist_id, position)`
-   stays **non-unique** (transient mid-txn dups); same rule for `playlists.position`. Reconsider only at
-   thousands of items *plus* frequent concurrent moves — not this app.
-5. ~~**Most-played aggregation grain.**~~ **Re-decided 2026-08-08 → aggregate by `track_id`.** Every play
-   count the app shows groups by the row that was played, so a recording living on its album, a
-   compilation and a best-of counts as **three** entries, each with its own figure.
+- **It is what makes the figures add up.** An album's count is the sum of its tracks'. Under the hash
+  rule each track quietly counts its twin elsewhere, so the tracks sum to more than the record they
+  sit on, with nothing on screen to say which number is the odd one.
+- **A subject count cannot use the hash anyway.** "Plays of this artist" joins `plays → tracks` and
+  filters on `artist_id`; matching by hash would count one recording twice for any artist holding two
+  copies of it, which is the normal case in a real collection.
+- **One rule beats two.** Every ranking query in the app groups by the row that was played.
 
-   _Originally decided 2026-07-20 the other way_ — `GROUP BY t.content_hash`, clones counted once, on the
-   grounds that a reader thinks of those copies as one song. What settled it against that, once play
-   counts were actually built (2026-08-07/08, see [`player.md`](player.md) → *What counts as a play*):
+The cost, accepted knowingly: play a song from the best-of and its entry on the album shows nothing.
+That is the honest reading — these are two files, and a page is about the file. The `content_hash`
+index keeps both its other jobs (rename-matching in the scan, relink-then-cascade on delete); it is
+only the play grain that does not use it.
 
-   - **The only most-played that exists already counts by id.** `MusicController`'s `popular` widget modes
-     rank songs with `withCount('plays')`. The hash rule was never implemented anywhere; the song page
-     briefly was the sole exception, and reversing it left one rule in the whole app instead of two.
-   - **It is what makes the figures add up.** An album's count is the sum of its tracks'. Under the hash
-     rule each track quietly counted its twin elsewhere, so the tracks summed to more than the record
-     they sit on — with nothing on screen to say which number was the odd one.
-   - **A subject count cannot use the hash anyway.** "Plays of this artist" joins `plays → tracks` and
-     filters on `artist_id`; matching by hash would count one recording twice for any artist holding two
-     copies of it, which is the normal case in this collection.
+`plays` being an **event table rather than a counter** is what makes every question with "when" in it
+answerable. Fifteen listens are fifteen rows, about four kilobytes; a household of five listening three
+hours a day writes roughly 25 MB a year against a collection two thousand times that size on the same
+disk. A counter would save that and delete the feature.
 
-   The cost, accepted knowingly: play a song from the best-of and its entry on the album shows nothing.
-   That is the honest reading — these are two files, and a page is about the file. The `content_hash`
-   index keeps both its other jobs (rename-matching in the scan, relink-then-cascade on delete); it is
-   only the play grain that no longer uses it.
+## How the pieces plug together
 
-   **There is no most-played PAGE, and there may never be** — the feature exists as the widgets' `popular`
-   modes. If one is ever built, it inherits this grain; the "pick a representative clone for the label"
-   problem the old decision carried disappears with it, since a row already has its own tags.
-
-**Every decision is now settled** — #5 aggregates most-played by `track_id` (each file counts for itself).
-The proposal is ready to become the v2 schema: draft the migrations + models (`Track`, `Collection`,
-taxonomy, `Playlist`, `PlaylistTrack`, `PlayerState`) and the `usePlayerQueue` composable shape.
-
----
-
-## Appendix — legacy schema as-is (`../MixTape`, MySQL/MariaDB)
-
-Reference snapshot of what the legacy migrations actually create. UUID PKs throughout except `users`
-(bigint). `songs` / `tracks` set `timestamps = false`.
-
-**Music**
-
-- `artists` — `id`, `name` **unique**.
-- `albums` — `id`, `name`, `year?`, `album_artist_id → artists (cascade)`. *(name not unique)*
-- `genres` — `id`, `name`. *(name not unique)*
-- `songs` — `id`, `name`, `track?`, `disc?`, `publisher?`, `composer?`, `codec?`, `channel?` (enum:
-  stereo/dual_mono/joint_stereo/mono), `size?`, `duration?` (double), `sample_rate?`, `bit_rate?`,
-  `vbr` (default false), `cover` (default false), `path` **unique**, `artist_id → artists (cascade)`,
-  `album_artist_id → artists (cascade)`, `album_id → albums (cascade)`, `genre_id → genres (cascade)`,
-  `modified_at?`.
-
-**Audiobooks**
-
-- `authors` — `id`, `name` **unique**.
-- `narrators` — `id`, `name` **unique**.
-- `audiobooks` — `id`, `name`, `year?`. *(name not unique; no author/narrator FK)*
-- `tracks` — `id`, `name`, `track?`, `disc?`, `codec?`, `channel?` (enum), `size?`, `duration?`,
-  `sample_rate?`, `bit_rate?`, `vbr` (default false), `cover` (default false), `path` **unique**,
-  `author_id → authors (cascade)`, `narrator_id → narrators (cascade)`,
-  `audiobook_id → audiobooks (cascade)`, `modified_at?`. *(no genre/publisher/composer columns)*
-
-**Other**
-
-- `global_properties` — `id`, `key` (64), `updated_at?`. Used only for the `refresh.full` timestamp.
-- `playlists` — `id`, `name` **unique**, `sort`, timestamps. *(global, not user-scoped)*
-- `playlist_entries` — `id`, `path`, `song`, `artist`, `album` (all denormalised strings), `duration?`,
-  `size?`, `sort`, `playlist_id → playlists (cascade)`, timestamps. *(no song FK)*
-
-**Tag → column mapping (ingest)**
-
-- *Music* `songs`: `name←song`, `artist_id←artist`, `album_artist_id←TPE2 ?? artist`,
-  `album_id←album (+album_artist, +year)`, `genre_id←genre`, `publisher←TPUB`, `composer←TCOM`,
-  `track←track`, `disc←TPOS`, technical fields from the stream, `modified_at←filemtime`.
-- *Audiobook* `tracks`: `name←song`, `author_id←TCOM`, `narrator_id←artist`, `audiobook_id←album (+year)`,
-  `track←track`, `disc←TPOS`, technical fields, `modified_at←filemtime`. No genre; `bit_rate` is not
-  populated by the audiobook scanner.
-
-**Known query hot-spots** (for the index rationale; all in `app/Services/`)
-
-- List endpoints eager-load all rows then aggregate in PHP (`count`/`sum`/`unique`) — plus an N+1 genre
-  load per album in `AlbumService`, and repeated `Author::all()` / `Narrator::all()` inside a per-book
-  map in `AudiobookService`.
-- Search is space-split `LIKE '%segment%'` per token (non-sargable).
-- "Recently added" widgets load the whole table then sort by `modified_at` in PHP.
-- Playlist rendering runs 3 aggregate queries per playlist and reconnects entries via
-  `where('path', …)` against an unindexed `playlist_entries.path`.
+- **Share links** name a `tracks`, `collections`, `artists` or `playlists` row directly, with real FKs
+  so a rescan that drops a subject cascades its shares away. See [`sharing.md`](sharing.md).
+- **Cross-device resume** is free, because the whole player state (queue, pointer, position) persists
+  per user — including mid-audiobook, for the book that is playing *now*. Remembering your place in
+  *every* book, after you have since played other things, is a separate per-book bookmark
+  (`audiobook_bookmarks`) — see [`audiobooks.md`](audiobooks.md).
+- **Search** rides the `name_fold` columns and their trigram indexes, and the rule that a row matches
+  its **own** name is what keeps it cheap. See [`search.md`](search.md).

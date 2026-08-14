@@ -45,8 +45,8 @@ pools, nginx vhosts, and log files. If you only want one site, build the prod on
 
 ## Gotchas index
 
-Every one of these cost real debugging time. They are explained in context in the documents above;
-this is a jump table for when something is already broken.
+Each of these fails in a way that points somewhere other than its cause. They are explained in
+context in the documents above; this is a jump table for when something is already broken.
 
 | Symptom | Cause | Where |
 | --- | --- | --- |
@@ -64,11 +64,11 @@ this is a jump table for when something is already broken.
 | SPF suddenly fails after adding a record | Two SPF TXT records on one domain = permerror. There must be exactly one, with merged includes | [04](04-going-public.md#dns-records) |
 | 429 on a form that validates as you type | Precognition posts to the same route as the submit, so live validation eats the throttle budget | [03](03-production-deploy.md#rate-limiting-and-precognition) |
 | `psysh` refuses to start under `artisan tinker` | www-data's home is deploy-owned by design; pass `HOME=/tmp` | [03](03-production-deploy.md#running-artisan-in-production) |
-| `storage/logs/laravel.log` missing on prod but present on dev | Different drivers: dev is `single`, prod is `stack`+`daily`, and the daily driver writes `laravel-YYYY-MM-DD.log`. Resolve the newest `laravel*.log` instead of hardcoding | [03](03-production-deploy.md#traps-this-ran-into) |
-| `cd /var/www/mixtape.prod && sudo …` → "Permission denied" | The `cd` runs as your login user, which cannot traverse the `2750` deploy-owned tree; only the `sudo` after it becomes `www-data`. Don't `cd` — artisan resolves its base path from `__DIR__` | [03](03-production-deploy.md#traps-this-ran-into) |
-| `sudo -u www-data -s` exits instantly with "account is not available" | `-s` uses the target's login shell, and `www-data`'s is `/usr/sbin/nologin` by design. Name `bash` explicitly | [03](03-production-deploy.md#traps-this-ran-into) |
-| A shell script works on Linux but aborts on macOS with "unbound variable" | macOS ships bash 3.2, where expanding an **empty** array under `set -u` is an error, not an empty expansion | [03](03-production-deploy.md#traps-this-ran-into) |
-| Piping a remote command's output shows `\r` on every line | `ssh -t` allocates a TTY, which translates LF to CRLF. Allocate one only when stdout is a terminal | [03](03-production-deploy.md#traps-this-ran-into) |
+| `storage/logs/laravel.log` missing on prod but present on dev | Different drivers: dev is `single`, prod is `stack`+`daily`, and the daily driver writes `laravel-YYYY-MM-DD.log`. Resolve the newest `laravel*.log` instead of hardcoding | [03](03-production-deploy.md#traps) |
+| `cd /var/www/mixtape.prod && sudo …` → "Permission denied" | The `cd` runs as your login user, which cannot traverse the `2750` deploy-owned tree; only the `sudo` after it becomes `www-data`. Don't `cd` — artisan resolves its base path from `__DIR__` | [03](03-production-deploy.md#traps) |
+| `sudo -u www-data -s` exits instantly with "account is not available" | `-s` uses the target's login shell, and `www-data`'s is `/usr/sbin/nologin` by design. Name `bash` explicitly | [03](03-production-deploy.md#traps) |
+| A shell script works on Linux but aborts on macOS with "unbound variable" | macOS ships bash 3.2, where expanding an **empty** array under `set -u` is an error, not an empty expansion | [03](03-production-deploy.md#traps) |
+| Piping a remote command's output shows `\r` on every line | `ssh -t` allocates a TTY, which translates LF to CRLF. Allocate one only when stdout is a terminal | [03](03-production-deploy.md#traps) |
 | A new zsh completion is ignored even after restarting the shell | oh-my-zsh rebuilds its compdump only when the *fpath string* changes, and adding a file to a directory already on fpath does not change it. Delete `~/.zcompdump*` | [03](03-production-deploy.md#tab-completion-zsh) |
 | A completion entry inserts the wrong command but looks right in the list | `_describe` splits on the first **unescaped** colon; colons inside the value must be written `\:` | [03](03-production-deploy.md#tab-completion-zsh) |
 | Completing a `--flag` offers nothing, with no error | Candidates starting with `-` need the `options` tag requested; in a nested `_arguments` state `_describe` succeeds while displaying nothing. Use `_wanted options expl … compadd` | [03](03-production-deploy.md#tab-completion-zsh) |

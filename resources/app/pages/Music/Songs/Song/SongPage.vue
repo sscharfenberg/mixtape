@@ -27,7 +27,7 @@
  * replaced the SubjectMenu popover in the heading on the same day, and for the same reason
  * the title moved — a page's two most likely actions should not be hidden behind a "…".
  * Play history and the clone list ("also appears in N other places") are still to come —
- * see docs/app-rewrite.md.
+ * see docs/architecture.md.
  *****************************************************************************/
 import { Head } from "@inertiajs/vue3";
 import { computed } from "vue";

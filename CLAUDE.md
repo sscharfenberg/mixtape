@@ -25,7 +25,7 @@ this repo starts clean.
    Spec + design in [`docs/self-hosting/01-requirements.md`](docs/self-hosting/01-requirements.md);
    the concrete box in `docs/host.local/infrastructure.md` (**untracked**, see *Docs*).
 2. ⬜ **Rewrite the app** — **IN PROGRESS.** New design; Inertia v3 instead of the REST API;
-   composables-first Vue + TS. See [`docs/app-rewrite.md`](docs/app-rewrite.md); public go-live in
+   composables-first Vue + TS. See [`docs/architecture.md`](docs/architecture.md); public go-live in
    [`docs/self-hosting/04-going-public.md`](docs/self-hosting/04-going-public.md) (generic) and
    `docs/host.local/go-live.md` (**untracked**, real values + status).
 
@@ -160,7 +160,7 @@ page. Sub-folders are for a *nested route* (`Songs/Song/SongPage.vue`) or a self
 (`Dashboard/TwoFactor/`), named after the thing — not after the kind of file.
 Controllers render the explicit path — `Inertia::render('Home/HomePage', …)` — and prefer an invokable
 (`__invoke`) controller for single-action pages. Full rationale:
-[`docs/app-rewrite.md`](docs/app-rewrite.md) → *Frontend conventions*.
+[`docs/architecture.md`](docs/architecture.md) → *Frontend conventions*.
 
 **Never `prefetch` a link that leads to a FORM** (learned from a real bug, 2026-08-10). A hover
 prefetch whose response lands *after* you have navigated to that same URL is applied to the page you
@@ -291,7 +291,7 @@ instance, written for someone else's server.
 
 **App (Phase 2 — next):**
 
-- [`docs/app-rewrite.md`](docs/app-rewrite.md) — the rewrite: stack, goals, features, access model, legacy map.
+- [`docs/architecture.md`](docs/architecture.md) — how the app is wired: stack rules, access model, page/component conventions.
 - [`docs/testing.md`](docs/testing.md) — the three test layers (PHPUnit / Vitest / Playwright): where
   tests live, how each is set up, which layer to reach for, and the traps each one hides.
 - [`docs/player.md`](docs/player.md) — the player (**built 2026-08-03**): why a native `<audio>`

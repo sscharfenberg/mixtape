@@ -32,7 +32,7 @@ use Inertia\Response;
  * Cover art is the one prop that is NOT a stored fact: `coverUrl` points at
  * SongCoverController, which extracts the image from the file on first request.
  *
- * Still to come here (docs/app-rewrite.md): the player, play history and the
+ * Still to come here (docs/architecture.md): the player, play history and the
  * "also appears in N other places" clone list.
  */
 class SongController extends Controller

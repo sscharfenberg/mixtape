@@ -476,12 +476,12 @@ Then confirm the check on the dashboard went red, and green again after a real r
       `curl -sI https://<your-domain> | grep -iE 'content-security|x-frame|x-content|referrer'`
 - [ ] **Audio playback works under the full CSP** — the likeliest casualty, so exercise it explicitly.
       The policy itself needs no widening (a native `<audio src>` on the same origin satisfies
-      **`media-src 'self'`, and an end-to-end spec plays a track under the shipped policy), so what is
+      `media-src 'self'`, and an end-to-end spec plays a track under the shipped policy), so what is
       left to check here is the **hand-off**: with `MIXTAPE_STREAM_INTERNAL_PREFIX` set, the bytes
       must come from nginx's `internal;` locations. A missing location shows up as a **500 whose only
       trace is nginx's `rewrite or internal redirection cycle` — Laravel's log stays empty**. Confirm
-      nginx is the one serving by reading the `ETag` — nginx writes `"<hex-mtime>-<hex-size>"` beside
-      its own `Last-Modified`, where the PHP path sends a content hash. `Content-Length` is a** real
+      nginx is the one serving by reading the `ETag`: nginx writes `"<hex-mtime>-<hex-size>"` beside
+      its own `Last-Modified`, where the PHP path sends a content hash. `Content-Length` is a real
       byte count on both paths, so it proves nothing here.
 - [ ] **SSH, Samba, and the database are unreachable from the WAN** — over IPv4 **and** IPv6.
 - [ ] The invite flow works end to end, and a share link plays without login, **refuses both download

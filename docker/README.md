@@ -1,10 +1,10 @@
 # Local Docker dev stack
 
-A self-contained way to run and develop MixTape **without the home server**
-(debbie is LAN-only). Everything runs on your laptop: Postgres, a seeded demo
-library, PHP-FPM, nginx, and a live-reloading Vite dev server. This is a
-**development** setup only — production on debbie deploys via git
-(`docs/self-hosting/`), not Docker.
+A self-contained way to run and develop MixTape **without a server**. Everything
+runs on one machine: Postgres, a seeded demo library, PHP-FPM, nginx, and a
+live-reloading Vite dev server. This is a **development** setup only — a real
+instance deploys from git onto a host of its own
+([`../docs/self-hosting/`](../docs/self-hosting/README.md)), not from Docker.
 
 ## Quick start
 
@@ -33,18 +33,18 @@ Stop with `Ctrl-C`, or `docker compose down` (add `-v` to also wipe the DB +
 
 - **Your real `.env` is not touched.** Dev overrides live in `docker/app.env` and
   are injected as container env vars, which win over the bind-mounted `.env`
-  (Laravel's Dotenv won't override an already-set variable). So at-home settings
-  (sqlite, the SSH-tunnel DB port) stay as they are.
+  (Laravel's Dotenv won't override an already-set variable). So whatever your
+  local `.env` points at — sqlite, a tunnelled database — stays as it is.
 - **`node_modules` is a named volume**, so the container's Linux-native install
-  (sharp, lightningcss, sass-embedded, …) never clashes with your Mac's copy.
+  (sharp, lightningcss, sass-embedded, …) never clashes with the host's copy.
 - **`vendor` is reused from the bind mount** when present (it's portable PHP);
   the entrypoint only runs `composer install` if it's genuinely missing.
 
 ## Common tasks
 
-Run these on your **host** (the Mac), in a terminal at the project root — the
-folder with `docker-compose.yml`. The `exec <service>` prefix runs the command
-inside that already-running container, so the stack must be up first.
+Run these on the **host**, in a terminal at the project root — the folder with
+`docker-compose.yml`. The `exec <service>` prefix runs the command inside that
+already-running container, so the stack must be up first.
 
 PHP / Laravel / composer commands go to the `app` service:
 
@@ -63,21 +63,21 @@ docker compose exec vite npm run icons                     # rebuild the SVG ico
 ```
 
 `npm run icons` writes to `storage/app/public/sprite.svg` (served at
-`/storage/sprite.svg` via the `public/storage` symlink). The file lands on your
-Mac through the bind mount and is gitignored — re-run it only after you add or
-change an icon in `resources/app/assets/icons/`.
+`/storage/sprite.svg` via the `public/storage` symlink). The file lands on the
+host through the bind mount and is gitignored — re-run it after you add or change
+an icon in `resources/app/assets/icons/`.
 
 ## Working with real data (optional)
 
 The seeded library has no audio files on disk, so **playback won't stream** — it's
-for UI/data work. To use a real (small) collection you copied to your laptop:
+for UI/data work. To use a real (small) collection on the host machine:
 
 1. Uncomment the media bind mount in `docker-compose.yml` under **both** `app`
-   and `vite` (e.g. `- /Users/you/media:/media:ro`).
+   and `vite` (e.g. `- /path/to/media:/media:ro`).
 2. Point the paths in `docker/app.env` at it, e.g. `MIXTAPE_MUSIC_PATH=/media/music`.
 3. `docker compose up -d` then `docker compose exec app php artisan app:update`.
 
-Or restore a Postgres dump you took from debbie before leaving:
+Or restore a Postgres dump taken from a real instance:
 
 ```sh
 docker compose exec -T db psql -U mixtape -d mixtape < your-dump.sql
@@ -89,6 +89,6 @@ docker compose exec -T db psql -U mixtape -d mixtape < your-dump.sql
   `docker-compose.yml` (`8080:80`, `5432:5432`, `5173:5173`).
 - **HMR not picking up file changes** — Docker Desktop's VirtioFS usually
   delivers fs events, but if edits don't hot-reload, restart the `vite` service.
-- **Stale config after switching from at-home dev** — the entrypoint clears
+- **Stale config after switching from a non-Docker setup** — the entrypoint clears
   config/route/view caches on every start; if something looks off,
   `docker compose exec app php artisan optimize:clear`.

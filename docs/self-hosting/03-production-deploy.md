@@ -267,11 +267,10 @@ since nginx cannot emit per-request nonces) and `style-src 'unsafe-inline'` (Vue
 styles). Both still block external-origin loads. Moving CSP into Laravel middleware with per-request
 nonces would let you drop the former.
 
-> **The player needed no CSP change.** It is a native `<audio>` whose `src` is a same-origin route,
-> which the shipped `media-src 'self'` already allows — the `blob:` this note used to warn about
-> would only have been needed by a library that wraps audio in a MediaSource. Still exercise
-> playback after any CSP change; it remains the likeliest casualty, and the end-to-end suite has a
-> spec that plays a track under this exact policy.
+> **The player needs no CSP widening.** It is a native `<audio>` whose `src` is a same-origin route,
+> which the shipped `media-src 'self'` already allows; a `blob:` source would only be needed by a
+> library that wraps audio in a MediaSource. Still exercise playback after any CSP change — it is the
+> likeliest casualty, and the end-to-end suite has a spec that plays a track under this exact policy.
 
 ## 10. First deploy
 
@@ -467,7 +466,7 @@ asks on the *workstation* side, reading from `/dev/tty` so a piped stdin cannot 
 duplicating — the unpushed-commit check, maintenance-mode handling, the dirty-tree refusal. Keep
 calling `mixtape-prod-deploy` / `mixtape-dev-deploy` for those.
 
-### Traps this ran into
+### Traps
 
 - **`cd <site> && sudo -u www-data …` fails on prod with "Permission denied".** The `cd` runs as
   *your* login user, and only the `sudo` after it switches to `www-data` — so on the `2750`
@@ -556,15 +555,15 @@ apart — because they fail identically from the browser's side, as a 429.
 
 #### `limit_conn` counts HTTP/2 streams — read this one first
 
-This is the one that caused a real outage on 2026-08-11. The vhost runs `http2 on`, and under HTTP/2
-a browser opens **one** TCP connection and multiplexes every request over it — but nginx's
-`limit_conn` counts each **stream** as a connection. So a page that asks for thirty cover thumbnails
-has thirty "connections" as far as the directive is concerned.
+This one takes whole pages down. The vhost runs `http2 on`, and under HTTP/2 a browser opens **one**
+TCP connection and multiplexes every request over it — but nginx's `limit_conn` counts each **stream**
+as a connection. So a page that asks for thirty cover thumbnails has thirty "connections" as far as
+the directive is concerned.
 
-The limit was 20, justified by a comment reasoning that "a browser opens ~6 per host". That is true
-under HTTP/1.1 and has been false since the day http2 was switched on: the ceiling sat *below what a
-single page load needs*. The Now Playing page asked for a cover per queue row and nginx refused 105
-of them, the audio stream, and `/favicon.ico`.
+The tempting limit is a low one, on the reasoning that "a browser opens ~6 connections per host".
+That is true under HTTP/1.1 and false the moment http2 is on, and it puts the ceiling *below what a
+single page load needs*: a queue page asking for a cover per row will see nginx refuse a hundred of
+them, the audio stream, and `/favicon.ico`.
 
 **That last one is the diagnostic.** A static file cannot be refused by `limit_req` — those live only
 in `location ~ \.php$`. If something outside PHP is 429ing, it is `limit_conn`. Definitively, the
@@ -621,9 +620,9 @@ visitor. That looks fine until someone presses play on a large artist: the queue
 renders a row per track, every visible row fetches its cover — and the burst is gone before the
 **stream** is even requested.
 
-(This split was made in response to the outage above, and did not fix it — the refusals were
-`limit_conn`'s. It stays because the shared bucket is a real latent problem: it costs nothing, and
-it is what stops thumbnails from starving audio once the connection ceiling stops hiding it.)
+(The split is not what fixes the HTTP/2 problem above — those refusals are `limit_conn`'s. It exists
+because the shared bucket is a real latent problem in its own right: it costs nothing, and it is what
+stops thumbnails from starving audio once the connection ceiling stops hiding the difference.)
 
 So [`files/mixtape-limits.conf`](files/mixtape-limits.conf) sorts requests into three zones with a
 `map` on `$request_uri`, and the vhost applies all three:

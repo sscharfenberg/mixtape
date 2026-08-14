@@ -28,7 +28,7 @@ use Inertia\Response;
  * Two blocks: the hero identifies the album (art, title, and the handful of facts that
  * describe the whole container), then its TRACK LISTING as a server-driven DataTable —
  * the thing the page is for. Still to come are the play/queue controls the hero will
- * grow once there is a player at all (docs/app-rewrite.md).
+ * grow once there is a player at all (docs/architecture.md).
  *
  * Sends RAW values like every other controller here: seconds for the playing time,
  * an ISO-8601 instant for the file date, counts as counts. Formatting happens on the
