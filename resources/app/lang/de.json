@@ -585,6 +585,7 @@
             "playlist": "Diese {kind} hat dir jemand über einen Link zum Mithören geschickt. Du kannst sie hier direkt anhören – ohne Konto und ohne Anmeldung.",
             "audiobook": "Dieses {kind} hat dir jemand über einen Link zum Mithören geschickt. Du kannst es hier direkt anhören – ohne Konto und ohne Anmeldung."
         },
+        "notKept": "Auf dieser Seite wird nichts gespeichert: Die Warteschlange und deine Position beginnen bei jedem Öffnen des Links wieder von vorn. Mit einem eigenen Konto bleiben beide erhalten – frag die Person, die dir diesen Link geschickt hat, nach einer Einladung.",
         "expires": {
             "label": "Link gültig bis",
             "description": "Danach funktioniert dieser Link nicht mehr. Frag dann einfach nach einem neuen."

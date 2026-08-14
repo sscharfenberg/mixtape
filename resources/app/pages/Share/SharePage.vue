@@ -292,7 +292,10 @@ const playable = computed<boolean>(() => props.tracks.length > 0);
                          It says nothing about WHEN the link dies — that is the tile on the right,
                          and repeating it here would be the second place a reader has to reconcile. -->
                     <template #description>
-                        <i18n-t :keypath="`share.intro.${share.kind}`" scope="global">
+                        <!-- `tag="span"` is `<i18n-t>`'s own default; named here only so the
+                             class has something to sit on, which is what lets a test read this
+                             half of the paragraph apart from the sentence below it. -->
+                        <i18n-t :keypath="`share.intro.${share.kind}`" scope="global" tag="span" class="share__intro">
                             <template #kind>
                                 <!-- NO WHITESPACE inside the span, and the gap comes from a
                                      margin on the icon instead: the chip sits in running text,
@@ -303,6 +306,22 @@ const playable = computed<boolean>(() => props.tracks.length > 0);
                                 }}</span>
                             </template>
                         </i18n-t>
+                        <!-- WHAT THIS PAGE WILL NOT REMEMBER, and what to do about it (the
+                             owner, 2026-08-14). ShareLayout runs the queue in ephemeral mode, so
+                             a reader who closes the tab and comes back starts at the top — and
+                             with no sentence saying so that reads as the page having forgotten
+                             rather than never having been asked to remember. It doubles as the
+                             one honest pitch this page can make: the app is invite-only, so the
+                             route to being remembered runs through whoever sent the link.
+
+                             ONE SENTENCE FOR ALL FIVE KINDS, unlike the intro above it: this one
+                             names no noun, so German needs no per-kind copy of it.
+
+                             A `<span>`, not a second `<p>`: HeroSection wraps the whole slot in
+                             one paragraph, and a nested <p> is invalid HTML the browser silently
+                             un-nests. It is prose in the same paragraph, which is what it reads
+                             as anyway. -->
+                        <span class="share__not-kept">{{ t("share.notKept") }}</span>
                     </template>
 
                     <template #metadata>
@@ -445,5 +464,23 @@ const playable = computed<boolean>(() => props.tracks.length > 0);
     .icon {
         margin-inline-end: 0.4ch;
     }
+}
+
+/* THE SENTENCE ABOUT WHAT IS NOT REMEMBERED, on a line of its own.
+
+   A BLOCK rather than a fourth sentence running on from the intro, for two reasons that point
+   the same way. It is an aside about how the link behaves rather than more of the explanation
+   above it, and it reads as one. And a `condense`d template drops the whitespace between
+   `</i18n-t>` and this element outright — the space would have to be written as an
+   interpolation on one line to survive — so "inline" here means either a deliberate `{{ " " }}`
+   or two sentences run together with no gap at all.
+
+   The gap is the description's OWN bottom margin, read across rather than minted: this is a
+   paragraph break inside a paragraph, so the distance between the two halves should be the same
+   one the block below them already sits at (CLAUDE.md → design tokens). */
+.share__not-kept {
+    display: block;
+
+    margin-block-start: map.get(s.$c-hero-section, "description-margin");
 }
 </style>

@@ -585,6 +585,7 @@
             "playlist": "Somebody sent you this {kind} as a listening link. You can play it right here — no account, no signing in.",
             "audiobook": "Somebody sent you this {kind} as a listening link. You can listen right here — no account, no signing in."
         },
+        "notKept": "Nothing on this page is kept: the queue and your place in it start over every time the link is opened. With an account of your own both are remembered — ask whoever sent you this link for an invite.",
         "expires": {
             "label": "Link works until",
             "description": "After that this link stops working. Just ask for a new one."

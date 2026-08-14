@@ -150,12 +150,50 @@ describe("SharePage", () => {
             // noun — so this asserts the SONG copy with the noun substituted, which is exactly
             // what a reader of a song link sees. The noun is an element (a chip with the app's
             // glyph), which is why the sentence is assembled by `<i18n-t>` rather than by `t()`.
-            const intro = page().find(".hero-section__description");
+            const intro = page().find(".share__intro");
 
             expect(sentence(intro.text())).toBe(
                 translate("share.intro.song").replace("{kind}", translate("share.kind.song"))
             );
             expect(sentence(intro.find(".share__kind").text())).toBe(translate("share.kind.song"));
+        });
+
+        it("warns that nothing here is remembered, and says what to do about it", () => {
+            /*
+             * ShareLayout runs the queue in ephemeral mode, so a reader who closes the tab and
+             * comes back starts at the top. Unsaid, that reads as the page having forgotten
+             * rather than never having been asked to remember — and it is the one honest pitch
+             * this page can make, the app being invite-only.
+             *
+             * ONE SENTENCE FOR EVERY KIND, unlike the intro above it, because it names no noun
+             * for German to agree with. Asserted on all five so a future kind cannot quietly
+             * lose it the way the intro's own per-kind copy nearly did.
+             */
+            for (const kind of ["song", "album", "artist", "playlist", "audiobook"] as const) {
+                const wrapper = page({ share: { kind, validUntil: "2026-08-18T09:30:00+00:00", expired: false } });
+
+                expect(sentence(wrapper.find(".share__not-kept").text())).toBe(translate("share.notKept"));
+                wrapper.unmount();
+            }
+
+            // And in English, because a guest sent a link is the reader least likely to share
+            // the owner's language — the same reason the expiry tile is asserted in both.
+            expect(sentence(page({}, "en").find(".share__not-kept").text())).toBe(
+                translate("share.notKept", "en")
+            );
+        });
+
+        it("keeps the two halves of the description apart, so neither runs into the other", () => {
+            // A `condense`d template drops the whitespace between them outright, so they are
+            // two blocks rather than two sentences on one line — see the style note. Without
+            // that they render as "…ohne Anmeldung.Auf dieser Seite…".
+            const description = page().find(".hero-section__description");
+
+            expect(description.find(".share__intro").exists()).toBe(true);
+            expect(description.find(".share__not-kept").exists()).toBe(true);
+            // Invalid HTML a browser would silently un-nest: HeroSection already wraps the slot
+            // in a <p>, so the second half has to be a span.
+            expect(description.find(".share__not-kept").element.tagName).toBe("SPAN");
         });
 
         it("names the kind in the intro the way that kind's own grammar needs", () => {
@@ -170,7 +208,7 @@ describe("SharePage", () => {
             for (const kind of ["song", "album", "artist", "playlist", "audiobook"] as const) {
                 const wrapper = page({ share: { kind, validUntil: "2026-08-18T09:30:00+00:00", expired: false } });
 
-                expect(sentence(wrapper.find(".hero-section__description").text())).toBe(
+                expect(sentence(wrapper.find(".share__intro").text())).toBe(
                     translate(`share.intro.${kind}`).replace("{kind}", translate(`share.kind.${kind}`))
                 );
                 wrapper.unmount();
