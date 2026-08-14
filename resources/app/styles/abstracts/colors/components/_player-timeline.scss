@@ -32,6 +32,23 @@ $player-timeline: (
             color.adjust(map.get(c.$retro, "c3", "dark"), $alpha: -0.55)
         ),
     "thumb": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
-    // the two clock readings either side; quieter than the title above them
-    "time": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron"))
+    /*
+     * The two clock readings either side; quieter than the title above them.
+     *
+     * LIGHT MOVED ON 2026-08-14, and not because of anything here: the player bar this
+     * paints onto was recoloured (see c.$c-player-bar), and `asher` measures 3.56:1 on the
+     * new light-blue fill where text needs 4.5. `bunker` is 6.35.
+     *
+     * DARK STAYED `iron` — but only after going to `ebony` and back, because the bar spent
+     * an afternoon pink, where `iron` was 1.68:1. It reads 6.81 on the green the bar
+     * settled on. The round trip is the point of this note.
+     *
+     * THE LESSON IS THE FILE BOUNDARY, and it is worth stating because nothing in the build
+     * catches it: a component that paints text onto ANOTHER component's surface has to be
+     * re-measured whenever that surface moves, and the two live in different partials with
+     * no reference between them. The bar's own `muted` learned this twice; this is the
+     * third time and the first from outside.
+     *
+     */
+    "time": light-dark(map.get(c.$grey, "bunker"), map.get(c.$grey, "iron"))
 ) !default;

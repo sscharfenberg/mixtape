@@ -31,12 +31,56 @@
 @use "../global-color-tokens" as c;
 
 $player-bar: (
+    /*
+     * THE HEADER LINKS' OWN PAIR (the owner, 2026-08-14): "make the player more visible".
+     * It was a frosted grey — the header's colour, chosen so the two ends of the affixed
+     * chrome read as one family — and a grey bar under a grey page is exactly as quiet as
+     * that sounds. Light mode is the pill an ordinary SiteMenuLink wears: light-blue fill
+     * with the deep navy ink. Dark mode is a different pill from the same set, for the
+     * reason set out below.
+     *
+     * PICKED FROM THE GLOBALS, not read out of `c.$c-site-menu-links`. Rule 1 aside, the
+     * two are not one decision: the links are a navigation state and this is a surface
+     * that happens to want the same hues today.
+     *
+     * STILL ALPHA-ADJUSTED, so the bar keeps frosting the page scrolling under it — that
+     * part of the family resemblance is worth keeping, and an opacity tweak is all Rule 2
+     * allows on a global anyway.
+     *
+     * DARK MODE IS THE CURRENT-LINK PAIR INSTEAD (`dark2`: green fill, yellow ink), and it
+     * took three attempts to get there. The record matters more than the answer, because
+     * the trap caught two of them:
+     *
+     *   1. The link's ordinary dark fill is the deep navy `dark1` — and this app's dark PAGE
+     *      is `ebony`. Composited, that bar measured **1.01:1** against the page behind it.
+     *      Not a subtle bar, an invisible one, which is exactly what the owner reported.
+     *   2. Pink (`c6`, the link's hover) fixed the visibility at 4.85:1 and was "a bit much".
+     *      It also squeezed the ink: on a MID-TONE fill only the two darkest rungs clear AA,
+     *      so the artist line could not be a quieter version of the title any more.
+     *   3. Green `dark2` is 1.19:1 against the page — the same failure as the navy, because
+     *      it is the only green in the palette and it is nearly black.
+     *
+     * SO THE EDGE DOES THE WORK THE FILL CANNOT. The border below is the yellow in dark
+     * mode rather than a grey: a near-black shelf on a near-black page is delineated by its
+     * top line or not at all. That is what keeps attempt 3 from repeating attempt 1, and it
+     * is why `border` is no longer the quiet grey pair it was for both themes.
+     *
+     * The alternative is a brighter green in the GLOBAL palette, which is a palette decision
+     * rather than a component one — Rule 2 forbids minting the hue here.
+     *
+     * STILL ALPHA-ADJUSTED either way, so the bar keeps frosting the page under it.
+     */
     "background": light-dark(
-            color.adjust(map.get(c.$grey, "white"), $alpha: -0.15),
-            color.adjust(map.get(c.$grey, "bunker"), $alpha: -0.15)
+            color.adjust(map.get(c.$brand, "light1", "color"), $alpha: -0.15),
+            color.adjust(map.get(c.$brand, "dark2", "color"), $alpha: -0.15)
         ),
-    "surface": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral")),
-    "border": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher")),
+    "surface": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$brand, "dark2", "contrast")),
+    // THE EDGE IS THE INK, in both themes (the owner, 2026-08-14). Dark needed it first and
+    // for a hard reason — a near-black bar on a near-black page is delineated by its top line
+    // or not at all — and light took the same rule afterwards because one shelf drawn two
+    // ways is a shelf with two explanations. So this is `surface` again rather than a third
+    // decision: navy under the light-blue fill, yellow under the green.
+    "border": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$brand, "dark2", "contrast")),
     // The artist line under the title, and the not-yet-wired transport glyphs.
     //
     // `slate` UNTIL 2026-08-10, WHEN IT FAILED AN AUDIT: the artist name came out at 3.11:1
@@ -50,7 +94,19 @@ $player-bar: (
     // than a colour being invented. Measured against the composited bar — #fefefe light,
     // #343434 dark: slate was 3.09 / 4.00, this is 6.52 / 5.83. Nothing between them on the
     // grey ramp passes both (`charcoal` is 4.03 light, `iron` 2.12).
-    "muted": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
+    //
+    // AND IT MOVED AGAIN WHEN THE BAR TURNED BLUE (2026-08-14), for the same reason and
+    // caught by the same arithmetic: `asher` on the new light-mode fill is 3.68:1, which is
+    // the identical failure a rung further along. `bunker` is 6.56 and stays clearly below
+    // the title's 9.59, so the two lines keep their order. (Recomputed against the real
+    // page fill afterwards: 6.35 rather than 6.56 — the light page is `mystic`, not white.)
+    //
+    // DARK IS BACK TO A LIGHT INK, and that is the one thing the green fill buys back. On
+    // the pink attempt only the two darkest rungs cleared AA, so the artist line stopped
+    // being a quieter TITLE and became a differently-coloured one. On the near-black green
+    // there is room again: `iron` measures 6.81 under a yellow title at 11.56, which is the
+    // hierarchy this line is supposed to have.
+    "muted": light-dark(map.get(c.$grey, "bunker"), map.get(c.$grey, "iron")),
     "control": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral")),
     "control-hover": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
     // the quiet pill under prev / next / volume, and what it becomes on hover
