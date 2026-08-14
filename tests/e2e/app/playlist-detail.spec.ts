@@ -281,7 +281,7 @@ test.describe("a playlist's detail page", () => {
         const position = async (): Promise<number> =>
             page.evaluate(() => document.querySelector("audio")?.currentTime ?? 0);
 
-        await expect.poll(position, { timeout: 5_000 }).toBeGreaterThan(0.1);
+        await expect.poll(position).toBeGreaterThan(0.1);
         expect(await page.evaluate(() => document.querySelector("audio")?.paused)).toBe(false);
     });
 

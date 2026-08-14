@@ -27,11 +27,54 @@ export default defineConfig({
      * out of the database precisely so logins do not contend for its write lock.
      */
     fullyParallel: true,
-    workers: process.env.CI ? 1 : 3,
+    /*
+     * TWO, not three, and it is FREE — which is the only reason to prefer it. Measured over six
+     * interleaved full runs on 2026-08-14: three at each setting, alternating so machine drift
+     * could not favour either. Two workers averaged 5.6 minutes against three workers' 5.5, i.e.
+     * no cost at all, because this suite waits on a SERIAL app server rather than on CPU (see the
+     * timeout note below). The one failure in those six runs was at three.
+     *
+     * That single failure proves nothing on its own and is not the argument. The argument is that
+     * a third worker buys no time and can only add contention to the one thing that is already the
+     * bottleneck, so there is nothing to weigh against it.
+     */
+    workers: process.env.CI ? 1 : 2,
 
     /* A test that only passes sometimes is worse than no test — never let one land green. */
     forbidOnly: Boolean(process.env.CI),
     retries: 0,
+
+    /*
+     * ROOM FOR THE SERVER TO STALL, which it does, and which was costing one or two red runs a
+     * day — a different test every time, all green in isolation (measured 2026-08-14).
+     *
+     * WHAT IS ACTUALLY HAPPENING. `artisan serve` is PHP's built-in server: strictly SERIAL, one
+     * connection at a time, for all three workers. Polling `/up` — Laravel's health route, which
+     * touches nothing — every 200ms through a whole run puts the median at 20ms and the p99 at
+     * 1.2s, with a worst case of 3.8s. A trace of a real failure showed the same thing from the
+     * browser's side: 5.6s and 9.0s of `wait` (time to first byte) on a static font and a 404,
+     * arriving in batches as the queue drained. The app was never wrong; it was waiting.
+     *
+     * Against that, Playwright's DEFAULT 5s assertion budget leaves about a second of headroom.
+     * Anything that costs the machine a moment — another suite, a build, a busy laptop — tips a
+     * correct app into a red run. 15s is four times the worst stall measured.
+     *
+     * IT HIDES NOTHING, which is why it is this rather than `retries`. An assertion resolves the
+     * instant it is true, so a green run costs exactly the same; a genuinely broken app still
+     * fails, ten seconds later. Retries would have made a flaky test land green, which the line
+     * above rejects on principle.
+     *
+     * The per-TEST timeout goes up with it, or a spec making several slow waits would hit the
+     * 30s cap while every individual assertion was still inside its own.
+     *
+     * WHAT WAS TRIED AND REJECTED: `PHP_CLI_SERVER_WORKERS`, the obvious answer to a serial
+     * server. Measured on the real suite it was WORSE — 6 failures against 1, and the worst stall
+     * up from 3.8s to 10.2s. Four PHP processes contend for one sqlite file, and a blocked writer
+     * waits out `DB_BUSY_TIMEOUT` (5s, see serverEnv). The median improved and the tail is what
+     * fails tests. Do not put it back without measuring the tail.
+     */
+    timeout: 60_000,
+    expect: { timeout: 15_000 },
 
     reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : [["list"], ["html", { open: "never" }]],
 

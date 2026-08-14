@@ -255,22 +255,24 @@ test.describe("a book's page", () => {
         await page.getByRole("link", { name: /Berge des Wahnsinns/ }).first().click();
         await page.waitForURL(/\/audiobooks\/[0-9a-f-]{36}$/u);
 
-        const verbs = () => page.locator(".action-panel button").allInnerTexts();
+        /*
+         * POLLED, NOT READ ONCE, and that is a fix rather than a style (2026-08-14). This used
+         * `expect((await verbs()).map(…))`, which is a ONE-SHOT read: `allInnerTexts` resolves to
+         * an array and `expect` on an array never retries, so nothing here waits for the panel to
+         * exist. After the `reload()` below it read an empty page and failed with `[]` against
+         * three labels — three times in one afternoon, and never in isolation. No timeout can
+         * help a one-shot read; only polling can. `expect.poll` retries within the same budget a
+         * web-first assertion gets.
+         */
+        const verbs = async () => (await page.locator(".action-panel button").allInnerTexts()).map(l => l.trim());
 
         // Unstarted: play and enqueue. No second play, however it is worded.
-        expect((await verbs()).map(label => label.trim())).toStrictEqual([
-            "Hörbuch abspielen",
-            "Warteschlange"
-        ]);
+        await expect.poll(verbs).toStrictEqual(["Hörbuch abspielen", "Warteschlange"]);
 
         // Part-way through: resume, restart, enqueue — three verbs, each a different act.
         await playChapterAndStore(page, LAST_CHAPTER);
         await page.reload();
-        expect((await verbs()).map(label => label.trim())).toStrictEqual([
-            "Weiterhören",
-            "Von vorn",
-            "Warteschlange"
-        ]);
+        await expect.poll(verbs).toStrictEqual(["Weiterhören", "Von vorn", "Warteschlange"]);
     });
 
     test("pressing a chapter ROW queues the whole book from there", async ({ page }) => {

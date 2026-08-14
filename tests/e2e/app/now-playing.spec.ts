@@ -155,7 +155,7 @@ test.describe("the Now Playing page", () => {
          * fixture is one second long, which is the whole reason this was ever done in one breath.
          */
         await expect
-            .poll(() => page.evaluate(() => document.querySelector("audio")?.paused), { timeout: 5_000 })
+            .poll(() => page.evaluate(() => document.querySelector("audio")?.paused))
             .toBe(false);
         await page.keyboard.press("KeyK");
 

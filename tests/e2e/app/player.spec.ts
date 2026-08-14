@@ -203,7 +203,7 @@ test.describe("the player", () => {
         // The press is what fetches, which is the whole point: nothing was lost, it was
         // only deferred to the moment a listener actually wanted the audio.
         await playButton(page).click();
-        await expect.poll(() => streamed.length, { timeout: 5_000 }).toBeGreaterThan(0);
+        await expect.poll(() => streamed.length).toBeGreaterThan(0);
     });
 
     test("answers the stream request with audio, not a page", async ({ page }) => {
@@ -226,7 +226,7 @@ test.describe("the player", () => {
         await playButton(page).click();
 
         // The element is really decoding, and the cursor the UI reads comes off it.
-        await expect.poll(async () => (await audioState(page)).currentTime, { timeout: 5_000 }).toBeGreaterThan(0.1);
+        await expect.poll(async () => (await audioState(page)).currentTime).toBeGreaterThan(0.1);
         expect((await audioState(page)).paused).toBe(false);
 
         /*
@@ -242,7 +242,7 @@ test.describe("the player", () => {
          * given, so it is worth pinning anyway.
          */
         await expect
-            .poll(() => page.locator(".player-timeline__input").inputValue(), { timeout: 5_000 })
+            .poll(() => page.locator(".player-timeline__input").inputValue())
             .not.toBe("0");
     });
 
@@ -265,7 +265,7 @@ test.describe("the player", () => {
         await enableRepeat(page);
 
         await playButton(page).click();
-        await expect.poll(async () => (await audioState(page)).currentTime, { timeout: 5_000 }).toBeGreaterThan(0.1);
+        await expect.poll(async () => (await audioState(page)).currentTime).toBeGreaterThan(0.1);
         await playButton(page).click();
 
         const paused = await audioState(page);
@@ -283,7 +283,7 @@ test.describe("the player", () => {
         await enableRepeat(page);
 
         await playButton(page).click();
-        await expect.poll(async () => (await audioState(page)).buffered, { timeout: 5_000 }).toBeGreaterThan(0);
+        await expect.poll(async () => (await audioState(page)).buffered).toBeGreaterThan(0);
 
         const segment = page.locator(".player-timeline__buffer").first();
         await expect(segment).toHaveCount(1);
@@ -375,7 +375,7 @@ test.describe("the player", () => {
         await row.click({ position: { x: 3, y: box.height / 2 } });
 
         await expect(page.locator(".player-bar__name")).toHaveText(second);
-        await expect.poll(async () => (await audioState(page)).paused, { timeout: 5_000 }).toBe(false);
+        await expect.poll(async () => (await audioState(page)).paused).toBe(false);
     });
 
     test("plays from the title too, instead of navigating to the song", async ({ page }) => {
@@ -403,7 +403,7 @@ test.describe("the player", () => {
         await page.locator(".play-queue__name").nth(1).click({ force: true });
 
         await expect(page.locator(".player-bar__name")).toHaveText(second);
-        await expect.poll(async () => (await audioState(page)).paused, { timeout: 5_000 }).toBe(false);
+        await expect.poll(async () => (await audioState(page)).paused).toBe(false);
         expect(page.url()).toBe(before);
     });
 
@@ -621,7 +621,7 @@ test.describe("the player", () => {
         await enqueueSongs(page, 1);
         await playButton(page).click();
 
-        await expect.poll(async () => (await audioState(page)).currentTime, { timeout: 5_000 }).toBeGreaterThan(0.1);
+        await expect.poll(async () => (await audioState(page)).currentTime).toBeGreaterThan(0.1);
         expect(violations).toStrictEqual([]);
     });
 
@@ -632,7 +632,7 @@ test.describe("the player", () => {
         await enqueueSongs(page, 1);
         await enableRepeat(page);
         await playButton(page).click();
-        await expect.poll(async () => (await audioState(page)).currentTime, { timeout: 5_000 }).toBeGreaterThan(0.1);
+        await expect.poll(async () => (await audioState(page)).currentTime).toBeGreaterThan(0.1);
 
         await page.locator(".player-bar__name").click();
         await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);

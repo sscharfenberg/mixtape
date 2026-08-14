@@ -450,6 +450,56 @@ this is the record of *why* that code exists.
   can have (`main:has(.hero-section) h2`), which restores the wait the narrower selector gave for
   free.
 
+### Why the suite went red about twice a day (measured 2026-08-14)
+
+A different test every time, one or two per run, every one of them green in isolation. Two separate
+causes, and one popular fix that measurement rejected.
+
+**THE APP SERVER STALLS FOR SECONDS.** `artisan serve` is PHP's built-in server: strictly serial,
+one connection at a time, shared by all three Playwright workers. Polling `/up` — Laravel's health
+route, which touches nothing, so a slow answer can only mean the server was busy elsewhere — every
+200ms through a whole run:
+
+| | median | p90 | p99 | worst | over 1s | over 2s |
+| --- | --- | --- | --- | --- | --- | --- |
+| the run as configured | 20ms | 421ms | 1.2s | **3.8s** | 13 | 3 |
+
+A trace of a real failure says the same from the browser's side: 5.6s and 9.0s of `wait` (time to
+first byte) on a **static font** and a **404**, released in batches as the queue drained. The app
+was never wrong; it was waiting. Against that, Playwright's default **5s** assertion budget left
+about a second of headroom — so anything that cost the machine a moment turned a correct app into a
+red run. `playwright.config.ts` now allows assertions 15s (four times the worst stall measured) and
+tests 60s. It hides nothing: an assertion resolves the instant it is true, so a green run costs the
+same, and a broken app still fails — which is why it is this rather than `retries`.
+
+**`PHP_CLI_SERVER_WORKERS` IS THE OBVIOUS FIX AND IT IS WORSE.** A serial server invites more
+workers, and on the real suite four of them scored **6 failures against 1**, with the worst stall up
+from 3.8s to **10.2s**. The median improves (7ms) and the *tail* is what fails tests: four PHP
+processes contend for one sqlite file and a blocked writer waits out `DB_BUSY_TIMEOUT` (5s). Do not
+put it back without measuring the tail. A synthetic probe will not show this — `curl` closes its
+connection immediately, so it never reproduces what a browser holding one open does.
+
+**A SPEC-LOCAL `{ timeout: 5_000 }` SHADOWS ALL OF THAT**, which is how the config change missed
+the tests that needed it most. Eleven of them sat on "wait for real audio to start or advance" —
+`player.spec.ts` polling `currentTime > 0.1` after pressing play — and those are the most
+load-sensitive assertions in the suite, because what they wait for is the machine actually
+decoding. They now pass no `timeout` at all and inherit the configured budget, so there is one
+number to tune instead of twelve. The remaining explicit ones are a different intent (waiting for
+something to go AWAY — a peek closing, a HUD hiding) and were left alone.
+
+**TWO WORKERS RATHER THAN THREE, because it is free.** Six interleaved full runs, three at each
+setting: 5.6 minutes average at two against 5.5 at three. No cost, because the suite waits on the
+serial server rather than on CPU — so the third worker buys nothing and can only add contention.
+
+**AND A ONE-SHOT READ CANNOT WAIT, whatever the timeout is.** `expect((await
+locator.allInnerTexts()).map(…)).toStrictEqual([…])` resolves the array FIRST and asserts on a plain
+value, so nothing retries — read straight after a `reload()` it sees an empty page. That is what
+made audiobooks' "offers three distinct verbs" fail three times in one afternoon with `[]` against
+three labels, and no timeout could ever have helped it. **`await expect.poll(fn)`** is the fix; it
+retries within the same budget a web-first assertion gets. The suite still has ~45 `expect(await …)`
+reads — most are fine because something web-first precedes them, but any one that follows a
+navigation, a reload or a click is the next flake.
+
 ---
 
 ## Choosing a layer
