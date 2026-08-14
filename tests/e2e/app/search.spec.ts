@@ -225,6 +225,51 @@ test.describe("the header search overlay", () => {
      *
      * They appear WITH the results rather than above an empty field, so this asserts both halves.
      */
+    test("keeps a row's pips at the trailing edge even when they wrap to their own line", async ({ page }) => {
+        /*
+         * A row is "name … pips", and a name too long for the line pushes the pips underneath.
+         * WHERE THEY GO THEN WAS REVERSED on 2026-08-14: the row used to say `space-between`,
+         * which packs a line holding one item to the main-START edge, so a wrapped pips line sat
+         * flush left under the name. The owner's call is that a fact belongs at the trailing edge
+         * on every row, so the eye finds it in one column — an auto margin on the pips now does
+         * the placing on both lines.
+         *
+         * PINNED BECAUSE THE OLD BEHAVIOUR WAS DELIBERATE and documented as such, right down to a
+         * comment saying the auto margin had been tried and removed. Without a test, the next
+         * person reading that history would put it back.
+         *
+         * A narrow viewport, because wrapping is the whole subject: at 380px the fixture's longest
+         * artist name ("Jóhann Jóhannsson, Hildur Guðnadóttir & The Theatre of Voices") wraps and
+         * the short ones do not, so one query exercises both branches.
+         */
+        await page.setViewportSize({ width: 380, height: 900 });
+        await page.goto("/dashboard");
+        await openOverlay(page);
+        await search(page, "the");
+
+        const rows = await page.locator(".search-results__row:not(.search-results__row--all)").evaluateAll(nodes =>
+            nodes
+                .filter(node => node.querySelector(".search-results__pips"))
+                .map(node => {
+                    const row = node.getBoundingClientRect();
+                    const name = node.querySelector(".search-results__name")!.getBoundingClientRect();
+                    const pips = node.querySelector(".search-results__pips")!.getBoundingClientRect();
+
+                    return {
+                        wrapped: Math.round(pips.top) > Math.round(name.top),
+                        fromRight: Math.round(row.right - pips.right)
+                    };
+                })
+        );
+
+        // Both branches are present, or this proves only the easy one.
+        expect(rows.some(row => row.wrapped)).toBe(true);
+        expect(rows.some(row => !row.wrapped)).toBe(true);
+
+        // Every row's pips end the same distance from the edge — the row's own inline padding.
+        expect(new Set(rows.map(row => row.fromRight)).size).toBe(1);
+    });
+
     test("narrows to one kind with a chip, and shows none until there is a query", async ({ page }) => {
         await page.goto("/dashboard");
         await openOverlay(page);

@@ -423,12 +423,10 @@ watch(
         position: relative;
         align-items: center;
 
-        /* TRAILING ON A SHARED LINE, LEADING ON ITS OWN — one declaration, because that is already
-           what `space-between` means: two items on a line go to the two ends, and a line holding a
-           SINGLE item packs it flush to the main-start edge. So a short name keeps its pips at the
-           trailing edge, and a name long enough to wrap them leaves them left underneath, lined up
-           with the name rather than stranded out to the right (the owner's call). */
-        justify-content: space-between;
+        /* TRAILING ON EITHER LINE — see `__pips`, which owns the placing with an auto margin.
+           This was `justify-content: space-between` until 2026-08-14, which put a wrapped pips
+           line flush LEFT under the name; the owner reversed that call, so the row now only
+           decides the flow and the gaps. */
         flex-flow: row wrap;
 
         // Inline from the PANEL's padding rather than the row's own, for the reason the strip
@@ -499,13 +497,14 @@ watch(
         /* The hand-off reads as an action rather than as a result: one line, a size down, and no
            pips to leave a gap where a row's facts would be.
 
-           IT UNDOES THE `space-between` ABOVE, which is the one thing it must: LabelledLink's two
-           children are a glyph and its label, and pushing those to opposite ends of the panel would
-           read as two unrelated things rather than as one labelled link. The tighter gap is the same
-           thought — 8px reads as two objects side by side, 4px as one. */
+           IT USED TO UNDO THE ROW'S `space-between`, which mattered: LabelledLink's two children are
+           a glyph and its label, and pushing those to opposite ends of the panel read as two
+           unrelated things rather than as one labelled link. That override is gone with the
+           `space-between` it existed for (2026-08-14) — the trailing edge is now an auto margin on
+           `__pips`, which this row has none of, so nothing here has to be undone. The tighter gap
+           is the same thought as before — 8px reads as two objects side by side, 4px as one. */
         &--all {
             align-items: center;
-            justify-content: flex-start;
             flex-direction: row;
 
             gap: map.get(s.$c-search, "pip", "gap");
@@ -524,10 +523,16 @@ watch(
         text-overflow: ellipsis;
     }
 
-    /* NO auto margin here, deliberately — the row's `justify-content` does the placing. An
-       `margin-inline-start: auto` was tried first and is what has to be removed for the wrapped
-       case to work at all: auto margins are resolved BEFORE `justify-content` and absorb all the
-       free space, so the pips stayed pinned to the trailing edge on their own line too.
+    /* AN AUTO MARGIN DOES THE PLACING, and it is the whole of the trailing-edge rule: auto margins
+       are resolved BEFORE `justify-content` and absorb all the free space on their own flex LINE,
+       so the pips sit flush right whether they share the name's line or have one to themselves.
+
+       WHICH IS A REVERSAL, and worth recording as one. The row used to say `space-between` and this
+       comment used to say "no auto margin, deliberately" — because `space-between` packs a line
+       holding a single item to the main-START edge, which put a wrapped pips line left underneath
+       the name, lined up with it. The owner called it the other way on 2026-08-14: a fact belongs
+       at the trailing edge on every row, so the eye finds it in one column down a list of nine.
+       The mechanism that was removed to get the old behaviour is the mechanism that gets this one.
 
        `nowrap` keeps the pips ONE item as far as the wrapping row above is concerned, so they move
        down together instead of one at a time. */
@@ -537,6 +542,7 @@ watch(
 
         overflow: hidden;
 
+        margin-inline-start: auto;
         gap: map.get(s.$c-search, "pip", "gap");
     }
 
