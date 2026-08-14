@@ -29,13 +29,15 @@ use Illuminate\Database\Eloquent\Model;
  * than pretending its name matched. Both columns needed a `_fold` companion, which is the one
  * migration this feature brought with it.
  *
- * IT IS THE ONLY KIND WITH NO HAND-OFF. The playlists listing is a hand-ordered list of cards,
- * not a DataTable, so there is no `?search=` to link to: the group shows its five and says
+ * IT HAS NO HAND-OFF, one of two kinds that does not (audiobooks are the other). The playlists
+ * listing is a hand-ordered list of cards, not a DataTable, so there is no `?search=` to link
+ * to: the group shows its five and says
  * nothing more. If a household ever holds enough playlists for that to bite, the fix is that
  * listing growing a search — not this dropdown growing a page.
  */
 final class PlaylistKind extends DatabaseKind
 {
+    /** The registry key and the group's place in the order — `SearchKind::cases()` is that order. */
     public function kind(): SearchKind
     {
         return SearchKind::Playlist;
@@ -77,16 +79,20 @@ final class PlaylistKind extends DatabaseKind
         return ['playlists.name', 'playlists.description'];
     }
 
+    /** Ranked on the NAME alone, though the blurb is matched too: a playlist found only by its
+     * description belongs in the "anywhere else" tier rather than at the top. */
     protected function ranked(): string
     {
         return 'playlists.name';
     }
 
+    /** The id, so two playlists of the same name cannot tie and flicker between identical queries. */
     protected function tieBreak(): string
     {
         return 'playlists.id';
     }
 
+    /** One playlist → its page, with how many entries it holds and how long they run. */
     protected function hit(Model $row): SearchHit
     {
         return new SearchHit(

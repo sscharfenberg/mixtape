@@ -135,9 +135,9 @@ class FortifyServiceProvider extends ServiceProvider
     /**
      * Configure the login authentication pipeline.
      *
-     * Kept feature-aware even though two-factor auth is currently disabled (see
-     * config/fortify.php): the 2FA redirect drops out via the null filter until
-     * the feature is switched on, so enabling it later needs no change here.
+     * Kept FEATURE-AWARE rather than assuming 2FA: the redirect drops out via the null
+     * filter when the feature is off, so an instance that disables it in config/fortify.php
+     * needs no change here. 2FA is a per-user choice and never forced, but it is available.
      * Throttling is handled by the route-level `throttle:login` middleware, so
      * EnsureLoginIsNotThrottled is skipped while config('fortify.limiters.login')
      * is set.
@@ -158,8 +158,8 @@ class FortifyServiceProvider extends ServiceProvider
     /**
      * Configure the login / two-factor / auth-mail rate limiters.
      *
-     * All are registered up front so the `two-factor` limiter is already in
-     * place for when two-factor auth is enabled; only `login` is exercised today.
+     * All three are registered up front, and all three are reachable: `login` on the form,
+     * `two-factor` on the challenge, and `auth-mail` on the two routes that send mail.
      */
     private function configureRateLimiting(): void
     {

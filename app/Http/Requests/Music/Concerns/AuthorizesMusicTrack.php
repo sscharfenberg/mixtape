@@ -18,6 +18,10 @@ use Symfony\Component\HttpFoundation\Response;
  */
 trait AuthorizesMusicTrack
 {
+    /**
+     * The routed track must be MUSIC — `tracks` is unified, so without this an audiobook chapter's
+     * id would resolve and be served by a song page, a cover route or the music stream.
+     */
     public function authorize(): bool
     {
         $song = $this->route('song');

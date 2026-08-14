@@ -19,9 +19,9 @@ use App\Services\Search\Kinds\SongKind;
  * (docs/search.md).
  *
  * THE REGISTRY IS THE POINT of this class. Each kind knows its own table, scope, ranking
- * column and link; this only decides which of them are asked and in what order. Adding
- * audiobooks the day that area exists is a class beside the five in `Kinds/`, one enum case,
- * and one line below — not an edit to how matching, counting or ordering work.
+ * column and link; this only decides which of them are asked and in what order. Adding a kind
+ * is a class beside the others in `Kinds/`, one enum case, and one line below — not an edit to
+ * how matching, counting or ordering work. Audiobooks cost exactly that.
  *
  * THE ORDER IS THE ENUM'S, NOT THE CALLER'S. `?kinds=` narrows the answer and cannot reorder
  * it, because this walks `SearchKind::cases()` and skips what was not asked for. A reader

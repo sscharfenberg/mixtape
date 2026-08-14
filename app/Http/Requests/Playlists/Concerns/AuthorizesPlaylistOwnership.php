@@ -18,6 +18,10 @@ use Symfony\Component\HttpFoundation\Response;
  */
 trait AuthorizesPlaylistOwnership
 {
+    /**
+     * The routed playlist must belong to the caller. A playlist is the one subject in this app with
+     * an owner, so this is the only place ownership is a question at all.
+     */
     public function authorize(): bool
     {
         $playlist = $this->route('playlist');

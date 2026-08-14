@@ -25,6 +25,10 @@ class SongStreamController extends Controller
 {
     use SendsTrackAudio;
 
+    /**
+     * Stream one song's audio. The guard is the request's; the bytes are {@see SendsTrackAudio}'s,
+     * shared with the audiobook chapter stream.
+     */
     public function __invoke(SongStreamRequest $request, Track $song): BinaryFileResponse|LaravelResponse
     {
         return $this->sendAudio($song);

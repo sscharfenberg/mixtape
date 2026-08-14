@@ -12,9 +12,9 @@ use App\Services\Search\SearchGroup;
  * One entry in the search registry — everything `LibrarySearch` needs to ask a kind for its
  * answer, and nothing else.
  *
- * AN INTERFACE RATHER THAN A FOUR-WAY UNION IN THE ORCHESTRATOR, because the list of kinds is
- * known to grow: audiobooks join it the day that area stops being a placeholder, and the whole
- * of that change should be one class plus one registry line (docs/search.md → "The kinds").
+ * AN INTERFACE RATHER THAN A UNION IN THE ORCHESTRATOR, because the list of kinds grows:
+ * audiobooks joined it as one class plus one registry line, which is the whole of what a new
+ * kind should cost (docs/search.md → "The kinds are a registry, not a union").
  * The alternative — a `match` over the enum inside one big service — makes every new kind an
  * edit to the ranking, the counting and the shaping at once.
  *

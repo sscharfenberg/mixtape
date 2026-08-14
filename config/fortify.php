@@ -159,9 +159,9 @@ return [
         // Email verification IS enabled: registration creates an unverified user,
         // sends a verification email (App\Notifications\VerifyEmailNotification),
         // and login is blocked until the address is confirmed
-        // (App\Actions\Fortify\EnsureEmailIsVerified). The "resend verification"
-        // endpoint is intentionally NOT wired yet. Note: with MAIL_MAILER=log the
-        // link lands in the log until a mail relay (Mailtrap) is configured.
+        // (App\Actions\Fortify\EnsureEmailIsVerified), with a "resend verification"
+        // endpoint for a link that expired (routes/web.auth.php). Note: with
+        // MAIL_MAILER=log the link lands in the log until a mail relay is configured.
         Features::emailVerification(),
         //
         // Password reset ("forgot password / username", App\Http\Controllers\Auth\

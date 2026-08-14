@@ -170,8 +170,8 @@ final class LibraryScanService
                 $row->fill($this->buildAttributes($type, $meta, $relPath, $size, $mtime))->save();
                 $result->updated++;
 
-                // The file's bytes changed while its id — a hash of the audio frames
-                // only — did not, which is the ONE case the cover cache cannot notice
+                // The file's bytes changed while its id did not — identity is the hash of
+                // the audio frames alone — which is the ONE case the cover cache cannot notice
                 // on its own: a re-tag that replaced the embedded picture would keep
                 // being served from the old cached JPEG. Dropped here because this is
                 // the exact moment we know it happened.
@@ -352,8 +352,8 @@ final class LibraryScanService
                 //
                 // BOTH LAND ON THE CHAPTER, and the book is keyed on its title alone. TCOM is
                 // a per-file tag and an anthology uses it per story: "Necrophobia 1" names
-                // four authors across its 33 chapters. With the author in the collection key,
-                // that book scans as four rows sharing a name — measured, on the real library.
+                // six authors across its 32 chapters. With the author in the collection key,
+                // that book scans as six rows sharing a name — measured, on a real library.
                 // So the author is a fact about the chapter, exactly as the narrator is.
                 $author = $this->taxonomy(Author::class, $meta->composer);
                 $narrator = $this->taxonomy(Narrator::class, $meta->artist);

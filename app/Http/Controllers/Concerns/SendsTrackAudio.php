@@ -34,13 +34,26 @@ use Symfony\Component\HttpFoundation\Response;
  */
 trait SendsTrackAudio
 {
+    /** A month, for a route behind `auth`: the bytes are immutable and the reader keeps coming back. */
+    public const AUDIO_MAX_AGE = 60 * 60 * 24 * 30;
+
+    /** A day, for the guest `/s/` space — see {@see sendAudio()} for why a share may not be held longer. */
+    public const SHARED_AUDIO_MAX_AGE = 60 * 60 * 24;
+
     /**
      * The response for a track's audio.
      *
      * A missing file is a 404 rather than a 500: the row and the file go out of step whenever
      * something is deleted between library scans, and a dead <audio> src is the honest answer.
+     *
+     * `$maxAge` is the ONE thing a caller varies. A signed-in route keeps the bytes for a month;
+     * the guest `/s/` route keeps them for a day, because a browser told to hold a share for
+     * thirty days would go on playing it for weeks after the link expired, from a URL the server
+     * has begun refusing. Everything else here — the readability guard, the nginx hand-off, the
+     * `private` caching, the ETag — must NOT vary, which is why this is a parameter rather than
+     * a second copy of the method.
      */
-    protected function sendAudio(Track $track): BinaryFileResponse|LaravelResponse
+    protected function sendAudio(Track $track, int $maxAge = self::AUDIO_MAX_AGE): BinaryFileResponse|LaravelResponse
     {
         $path = $track->absolutePath();
 
@@ -52,8 +65,8 @@ trait SendsTrackAudio
         $uri = InternalRedirect::uriFor($track->path, $track->type);
 
         return $uri === null
-            ? $this->sendDirectly($path)
-            : $this->handOffToNginx($uri);
+            ? $this->sendDirectly($path, $maxAge)
+            : $this->handOffToNginx($uri, $maxAge);
     }
 
     /**
@@ -66,12 +79,12 @@ trait SendsTrackAudio
      * `private` caching because this instance is internet-facing behind auth: a shared proxy
      * must never end up holding a track.
      */
-    private function sendDirectly(string $path): BinaryFileResponse
+    private function sendDirectly(string $path, int $maxAge): BinaryFileResponse
     {
         return response()
             ->file($path, ['Content-Type' => 'audio/mpeg'])
             ->setPrivate()
-            ->setMaxAge(60 * 60 * 24 * 30)
+            ->setMaxAge($maxAge)
             ->setAutoEtag();
     }
 
@@ -82,7 +95,7 @@ trait SendsTrackAudio
      * nginx URL-DECODES the target — is InternalRedirect's, since the download route needs
      * the identical string.
      */
-    private function handOffToNginx(string $uri): LaravelResponse
+    private function handOffToNginx(string $uri, int $maxAge): LaravelResponse
     {
         return response('', Response::HTTP_OK, [
             'X-Accel-Redirect' => $uri,
@@ -91,6 +104,6 @@ trait SendsTrackAudio
             'Content-Type' => 'audio/mpeg',
         ])
             ->setPrivate()
-            ->setMaxAge(60 * 60 * 24 * 30);
+            ->setMaxAge($maxAge);
     }
 }

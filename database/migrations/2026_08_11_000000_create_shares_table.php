@@ -53,8 +53,8 @@ return new class extends Migration
             $table->foreignUuid('artist_id')->nullable()->constrained()->cascadeOnDelete();
             $table->foreignUuid('playlist_id')->nullable()->constrained()->cascadeOnDelete();
 
-            // Who it was for, in the minter's own words — the `invites.note` precedent.
-            // Nothing writes it yet; the mint button sends no note.
+            // Who it was for, in the minter's own words — the `invites.note` precedent. It is
+            // deliberately never shown to the recipient: the owner's list is what reads it.
             $table->string('note', 255)->nullable();
 
             $table->timestamp('valid_until');
@@ -65,7 +65,7 @@ return new class extends Migration
             // of a FK, so this is also `user_id`'s index.
             $table->index(['user_id', 'valid_until']);
 
-            // The three subject FKs have no standalone index on purpose: nothing looks
+            // The four subject FKs have no standalone index on purpose: nothing looks
             // a share up BY its subject — the guest page arrives with the share's own
             // id, and the mint route's "do I already have a live one for this?" query
             // is keyed on the user first, which the composite above already serves.

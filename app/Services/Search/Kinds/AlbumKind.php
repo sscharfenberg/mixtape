@@ -17,9 +17,9 @@ use Illuminate\Database\Eloquent\Model;
  * Music albums, matched on their own name.
  *
  * `type = album` IS LOAD-BEARING, not tidy: `collections` is the merged albums + audiobooks
- * table, so without it a search for a music album would return audiobooks — a kind that has no
- * page to link to yet, which is the same class of bug the share request's type narrowings exist
- * to prevent. Audiobooks become a registry entry of their own when that area exists.
+ * table, so without it a search for a music album would return audiobooks — the same class of
+ * bug the share request's type narrowings exist to prevent. Audiobooks are a registry entry of
+ * their own ({@see AudiobookKind}), which is what keeps the two answers apart.
  *
  * THE ALBUM ARTIST IS JOINED FOR THE SECOND LINE ONLY, and is deliberately NOT searched: two
  * albums called "Live" are told apart by who made them, but an album is not an answer to its
@@ -28,11 +28,14 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class AlbumKind extends DatabaseKind
 {
+    /** The registry key and the group's place in the order — `SearchKind::cases()` is that order. */
     public function kind(): SearchKind
     {
         return SearchKind::Album;
     }
 
+    /** Albums only: `collections` is the merged table, so the `type` narrowing is what keeps a
+     * book out of a record search. Carries the artist and the track count for the second line. */
     protected function query(User $reader): Builder
     {
         return Collection::query()
@@ -49,16 +52,19 @@ final class AlbumKind extends DatabaseKind
         return ['collections.name'];
     }
 
+    /** Ranked and sorted A→Z on the album's own name — not the artist's, which is the group above. */
     protected function ranked(): string
     {
         return 'collections.name';
     }
 
+    /** The id, so two albums of the same name cannot tie and flicker between identical queries. */
     protected function tieBreak(): string
     {
         return 'collections.id';
     }
 
+    /** One album → its page, with the artist who made it and how many tracks it holds. */
     protected function hit(Model $row): SearchHit
     {
         return new SearchHit(

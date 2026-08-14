@@ -147,7 +147,6 @@ class PlaylistController extends Controller
         )
             ->addSelect([
                 'playlist_tracks.id as entry_id',
-                'tracks.collection_id',
                 'collections.year as album_year',
                 'tracks.path',
             ])

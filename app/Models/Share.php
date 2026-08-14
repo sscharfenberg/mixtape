@@ -110,8 +110,8 @@ class Share extends Model
     }
 
     /**
-     * Narrow to the shares OF one subject — the same three-way mapping the mint route uses
-     * to decide which FK to fill, read back the other way round.
+     * Narrow to the shares OF one subject — the same mapping the mint route uses to decide
+     * which of the four FKs to fill, read back the other way round.
      *
      * @param  Builder<Share>  $query
      */
@@ -132,7 +132,7 @@ class Share extends Model
         return $this->belongsTo(Track::class);
     }
 
-    /** The shared album (or, one day, audiobook). @return BelongsTo<Collection, $this> */
+    /** The shared album OR audiobook — `collections` holds both, so this FK carries either. @return BelongsTo<Collection, $this> */
     public function collection(): BelongsTo
     {
         return $this->belongsTo(Collection::class);

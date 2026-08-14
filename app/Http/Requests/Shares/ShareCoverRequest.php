@@ -17,6 +17,10 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class ShareCoverRequest extends FormRequest
 {
+    /**
+     * The share must still be live. No track to check — this route serves the SUBJECT's artwork,
+     * which is why it needs a guard of its own rather than AuthorizesShareTrack's.
+     */
     public function authorize(): bool
     {
         $share = $this->route('share');

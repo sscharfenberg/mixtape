@@ -33,11 +33,13 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class AudiobookKind extends DatabaseKind
 {
+    /** The registry key and the group's place in the order — `SearchKind::cases()` is that order. */
     public function kind(): SearchKind
     {
         return SearchKind::Audiobook;
     }
 
+    /** Audiobooks only: the same `type` narrowing as albums, read the other way round. */
     protected function query(User $reader): Builder
     {
         return Collection::query()
@@ -55,16 +57,19 @@ final class AudiobookKind extends DatabaseKind
         return ['collections.name'];
     }
 
+    /** Ranked and sorted A→Z on the book's own title — never its author, who has no page to reach. */
     protected function ranked(): string
     {
         return 'collections.name';
     }
 
+    /** The id, so two books of the same title cannot tie and flicker between identical queries. */
     protected function tieBreak(): string
     {
         return 'collections.id';
     }
 
+    /** One book → its page, with the chapter count that says most about what kind of book it is. */
     protected function hit(Model $row): SearchHit
     {
         return new SearchHit(
@@ -80,6 +85,8 @@ final class AudiobookKind extends DatabaseKind
         );
     }
 
+    /** Null: the audiobooks entry page is a cover grid rather than a DataTable, so there is no
+     * `?search=` to hand off to. Playlists answer null for the same shape of reason. */
     protected function seeAll(string $query): ?string
     {
         return null;

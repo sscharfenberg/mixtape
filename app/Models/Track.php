@@ -15,10 +15,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * A playable row — one unified table for music, audiobook chapters, and (future)
- * (option B). Identity is the audio-stream `content_hash`, not
- * the `path`, so a rename or re-tag keeps the id (data-model.md → "the one
- * fact"); two files with identical audio are two rows (clones) sharing a hash.
+ * A playable row — one unified table for music and audiobook chapters. Identity is the
+ * audio-stream `content_hash`, not the `path`, so a rename or re-tag keeps the id
+ * (data-model.md → "The one fact that colours everything"); two files with identical
+ * audio are two rows (clones) sharing a hash.
  *
  * `path` is stored RELATIVE to the area root (e.g. `Artist/Album/01.mp3`), never
  * the absolute server path, so relocating the collection doesn't touch the DB.
@@ -113,8 +113,11 @@ class Track extends Model
         return $this->belongsTo(Narrator::class);
     }
 
-    /** Who WROTE this chapter — per-track like the narrator, since an anthology has both. */
-    /** @return BelongsTo<Author, $this> */
+    /**
+     * Who WROTE this chapter — per-track like the narrator, since an anthology has both.
+     *
+     * @return BelongsTo<Author, $this>
+     */
     public function author(): BelongsTo
     {
         return $this->belongsTo(Author::class);

@@ -15,8 +15,9 @@ use Illuminate\Support\Facades\Log;
  * `tracks.cover`), and re-reading a 12k-file collection's embedded art on every
  * page view is wasteful. So the first request for a cover pays for the
  * extraction and every later one is served from a cached file, keyed by the
- * track id — which is a content hash of the audio, so a re-tagged file keeps its
- * cached cover and a genuinely different file cannot collide with it.
+ * track id. That id survives a rename and a re-tag — identity is the audio-stream
+ * `content_hash`, and the id itself is a stable random UUID — so a re-tagged file
+ * keeps its cached cover and a genuinely different file cannot collide with it.
  *
  * Two sources, in the order a ripper writes them: the file's own embedded
  * picture, else an album image sitting beside it in the directory (the configured
@@ -352,9 +353,10 @@ final class CoverService
      * Drop a track's cached cover, returning whether there was one to drop.
      *
      * This is the invalidation the cache key cannot do by itself, and the scanner is
-     * the only thing that knows when to call it. A track's key is its id — a hash of
-     * the audio FRAMES only ([avdataoffset, avdataend), see Id3TagReader), chosen
-     * precisely so a re-tag keeps the row's identity. The cost of that choice is here:
+     * the only thing that knows when to call it. A track's key is its id, which a re-tag
+     * deliberately does not move: identity is the hash of the audio FRAMES only
+     * ([avdataoffset, avdataend), see Id3TagReader), so the row — and its id — survive one.
+     * The cost of that choice is here:
      * replacing a file's embedded artwork changes the tag bytes and not the hash, so
      * the key does not move and the OLD picture would be served for good. A re-tag is
      * exactly the event the scanner detects in pass 1, so it deletes the entry there.

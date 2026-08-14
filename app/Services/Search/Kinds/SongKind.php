@@ -33,6 +33,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class SongKind extends DatabaseKind
 {
+    /** The registry key and the group's place in the order — `SearchKind::cases()` is that order. */
     public function kind(): SearchKind
     {
         return SearchKind::Song;
@@ -60,16 +61,20 @@ final class SongKind extends DatabaseKind
         return ['tracks.name'];
     }
 
+    /** Ranked and sorted A→Z on the song's own title — not its artist's or album's name, which is
+     * the central rule of this feature. */
     protected function ranked(): string
     {
         return 'tracks.name';
     }
 
+    /** The id, so two songs of the same title cannot tie and flicker between identical queries. */
     protected function tieBreak(): string
     {
         return 'tracks.id';
     }
 
+    /** One song → its page, with who performs it and how long it runs. */
     protected function hit(Model $row): SearchHit
     {
         return new SearchHit(

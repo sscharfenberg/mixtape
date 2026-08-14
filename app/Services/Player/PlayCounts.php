@@ -19,10 +19,10 @@ use Illuminate\Support\Facades\DB;
  * everything filed under one artist, genre or album.
  *
  * A track, not a song: `tracks` is one table for music and audiobook chapters, and a listen
- * is a listen whatever kind of thing was listened to. Nothing
- * here knows or asks about the type, so the audiobook pages can read it the day they exist
- * without this file changing. Only the SENTENCES are per-subject, because "you played this
- * song 3 times" is the wrong noun for a chapter — those live with the page that says them.
+ * is a listen whatever kind of thing was listened to. Where the type IS asked about, it is
+ * the caller's `musicOnly` narrowing rather than a rule of this file — see the note further
+ * down. Only the SENTENCES are per-subject, because "you played this song 3 times" is the
+ * wrong noun for a chapter — those live with the page that says them.
  *
  * EVERYTHING HERE COUNTS BY `track_id` — plain listening EVENTS against the row that was
  * played. One rule for a song and for a subject, which is what lets the figures add up: the

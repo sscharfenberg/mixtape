@@ -27,6 +27,10 @@ class ChapterStreamController extends Controller
 {
     use SendsTrackAudio;
 
+    /**
+     * Stream one chapter's audio. The guard is the request's; the bytes are {@see SendsTrackAudio}'s,
+     * shared with the song stream — the two routes differ only in which guard admits the track.
+     */
     public function __invoke(ChapterStreamRequest $request, Track $chapter): BinaryFileResponse|LaravelResponse
     {
         return $this->sendAudio($chapter);

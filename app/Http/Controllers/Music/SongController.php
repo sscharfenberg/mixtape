@@ -47,8 +47,8 @@ class SongController extends Controller
      */
     public function __invoke(ShowSongRequest $request, Track $song, CoverService $covers): Response
     {
-        // Eager-loaded rather than lazily touched in the array below, so the page
-        // costs a fixed number of queries no matter how much the scaffold grows.
+        // Eager-loaded rather than lazily touched in the array below, so the page costs a
+        // fixed number of queries however many facts it comes to show.
         //
         // `album_artist_id` HAS to be in the collection's select list even though the
         // page never reads it: a constrained select that omits the FK leaves Eloquent

@@ -19,6 +19,10 @@ use Symfony\Component\HttpFoundation\Response;
  */
 trait AuthorizesMusicAlbum
 {
+    /**
+     * The routed collection must be an ALBUM — `collections` holds audiobooks too, so a UUID-bound
+     * route would otherwise serve a book through the album pages.
+     */
     public function authorize(): bool
     {
         $album = $this->route('album');

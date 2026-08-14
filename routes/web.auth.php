@@ -28,9 +28,8 @@ use Laravel\Fortify\Http\Controllers\TwoFactorSecretKeyController;
  *
  * FortifyServiceProvider calls Fortify::ignoreRoutes(), so the auth endpoints
  * are declared here explicitly rather than auto-registered. Login/logout,
- * invite-only registration, email verification and password reset exist today;
- * two-factor auth is deferred (see config/fortify.php) and its routes will be
- * added here alongside its UI. Login/logout/registration use Fortify's own
+ * invite-only registration, email verification, password reset and optional
+ * two-factor auth are all declared below. Login/logout/registration use Fortify's own
  * controllers, which defer to the (optionally overridden) response classes;
  * password reset uses app-owned controllers (ForgotController /
  * NewPasswordController) instead of Fortify's, so the single "forgot
@@ -154,7 +153,9 @@ if (Features::enabled(Features::emailVerification())) {
 
 // Password strength (zxcvbn) score for the live registration meter. A stateless
 // utility (returns a 0–4 score; changes nothing), so it's a plain web route, not
-// a data API. Throttled to blunt abuse of the zxcvbn call.
+// a data API. Throttled to blunt abuse of the zxcvbn call — and bounded in length by
+// ScorePasswordRequest, without which the throttle is the only thing between an
+// unauthenticated caller and super-linear work on a megabyte of text.
 Route::post('/password/entropy', EntropyController::class)
     ->middleware('throttle:60,1,password-entropy')
     ->name('password.entropy');

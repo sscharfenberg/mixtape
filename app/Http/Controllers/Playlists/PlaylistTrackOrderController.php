@@ -30,6 +30,12 @@ use Illuminate\Support\Facades\DB;
  */
 class PlaylistTrackOrderController extends Controller
 {
+    /**
+     * Renumber one playlist's entries into the order they were dragged into.
+     *
+     * The playlist's ownership is the request's to check; this only writes. Same contiguous
+     * renumbering as the playlists themselves, and for the same reason.
+     */
     public function __invoke(ReorderPlaylistTracksRequest $request, Playlist $playlist): RedirectResponse
     {
         /** @var array<int, string> $ids */

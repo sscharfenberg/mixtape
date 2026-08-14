@@ -40,7 +40,14 @@ class ConfigureLocale
         $locales = Collection::make(explode(',', $header))->map(function ($locale) {
             $parts = explode(';', $locale);
             $tag = explode('-', trim($parts[0]))[0];
-            $factor = isset($parts[1]) ? (float) explode('=', $parts[1])[1] : 1.0;
+            // Both halves default rather than assume: a fragment may carry no `;` at all, and
+            // one that does need not carry a `=` after it. `de;x` and `en;q` are malformed but
+            // perfectly sendable, and reading `[1]` of either raises "Undefined array key 1" —
+            // an ErrorException, i.e. a 500. This branch runs for every visitor with no session
+            // locale, so that is a 500 on a stranger's FIRST request, including `/` and the
+            // guest `/s/{share}` space. An unreadable weight is treated as "no preference
+            // stated", which is what the specification's own default of 1 means.
+            $factor = (float) (explode('=', $parts[1] ?? '')[1] ?? 1.0);
 
             return ['locale' => $tag, 'factor' => $factor];
         })->sortByDesc('factor');

@@ -400,11 +400,13 @@ playlists for free**, because `tracks` is unified, so a playlist row list is jus
 hold music *and* audiobook chapters with no polymorphism.
 
 **Reordering rewrites contiguous integers inside a transaction** — the client PATCHes the full
-sequence and the server writes `position = 0…n−1`. At tens to hundreds of tracks that is a
-sub-millisecond bulk UPDATE, so the write amplification that gap-based schemes and LexoRank optimise
-away is noise. `(playlist_id, position)` stays **non-unique**, because a mid-transaction state has
-transient duplicates; same rule for `playlists.position`. Reconsider only at thousands of items *plus*
-frequent concurrent moves, which is not this app.
+sequence and the server writes `position = 0…n−1`, one UPDATE per row. At tens to hundreds of
+tracks that is a few hundred statements inside one transaction, which is fast enough that the
+write amplification gap-based schemes and LexoRank optimise away is not worth the complexity they
+cost. `(playlist_id, position)` stays **non-unique**, because a mid-transaction state has transient
+duplicates; same rule for `playlists.position`. The row count is the thing to watch: a 673-chapter
+book dragged into a playlist writes 673 statements, so collapse this into a single `CASE` or
+`upsert` before playlists grow into the thousands.
 
 ### The play queue
 

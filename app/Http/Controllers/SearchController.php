@@ -22,7 +22,7 @@ use Illuminate\Http\JsonResponse;
  * player state, and this is the third of the same kind: the caller is not navigating, it wants
  * rows to draw.
  *
- * `private, no-store` IS NOT BOILERPLATE. One of the five kinds is the reader's own playlists,
+ * `private, no-store` IS NOT BOILERPLATE. One of the kinds is the reader's own playlists,
  * so two accounts in one household typing the same three letters get different totals — a
  * response cached anywhere, by a proxy or by the browser's own history, would show one of them
  * the other's list. Nothing about the URL says the answer is per-person, which is exactly why

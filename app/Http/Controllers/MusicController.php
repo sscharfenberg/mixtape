@@ -23,9 +23,10 @@ use Inertia\Response;
  * for the music collection. Renders four widgets' worth of data as Inertia
  * props; each widget gets every mode it supports (latest + random for all, plus
  * a "popular" set for songs/artists/genres), four entries each, so its header
- * toggle flips between them client-side without a round trip. (For a huge
- * collection, or fresher randomness on every toggle, these could move to
- * Inertia::defer / partial reloads — the payload is tiny, so it's eager for now.)
+ * toggle flips between them client-side without a round trip. Eager rather than
+ * `Inertia::defer`, because four entries per set is a tiny payload and deferring it
+ * would trade one round trip for four — the trade only turns the other way on a
+ * collection large enough that the queries themselves are the cost.
  */
 class MusicController extends Controller
 {
@@ -175,8 +176,8 @@ class MusicController extends Controller
                 'name' => $song->name,
                 'artist' => $song->artist?->name,
                 'year' => $song->collection?->year,
-                // Aliased away from `plays_count`, which `withCount('plays')` already owns in
-                // the popular branch — and which counts EVERYBODY's listens, not the reader's.
+                // `own_plays_count` rather than `plays_count`, because it counts THE READER's
+                // listens — the pip beside it is theirs, not the household's.
                 'plays' => (int) $song->own_plays_count,
                 'href' => route('music.songs.show', $song->id, absolute: false),
             ])

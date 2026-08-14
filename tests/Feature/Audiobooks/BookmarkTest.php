@@ -93,6 +93,43 @@ class BookmarkTest extends TestCase
         $this->assertSame($chapters[2]->id, AudiobookBookmark::query()->sole()->track_id);
     }
 
+    public function test_moving_one_bookmark_leaves_every_other_row_where_it_was(): void
+    {
+        /*
+         * THE CASE THAT FALLS BETWEEN THE THREE TESTS AROUND IT, and the only one that can see an
+         * unscoped UPDATE. The two below write each bookmark ONCE, so every write is an insert;
+         * the one above updates, but with a single row in the table — where "update this row" and
+         * "update every row" are the same statement. It takes a second write to a pair while
+         * OTHER pairs exist for the difference to show.
+         *
+         * What it guards is a silent whole-table rewrite: Eloquent builds an update's WHERE from
+         * `getKeyName()`, and a composite-keyed model has none, so the clause is dropped rather
+         * than refused (AudiobookBookmark::setKeysForSaveQuery carries the mechanism). Every
+         * reader's place in every book would follow whichever book was played last.
+         */
+        [$first, $firstChapters] = $this->book();
+        [$second, $secondChapters] = $this->book();
+        $reader = User::factory()->create();
+        $other = User::factory()->create();
+
+        $this->actingAs($reader)->putJson("/audiobooks/{$first->id}/bookmark", ['trackId' => $firstChapters[0]->id, 'positionMs' => 100]);
+        $this->actingAs($reader)->putJson("/audiobooks/{$second->id}/bookmark", ['trackId' => $secondChapters[0]->id, 'positionMs' => 200]);
+        $this->actingAs($other)->putJson("/audiobooks/{$second->id}/bookmark", ['trackId' => $secondChapters[0]->id, 'positionMs' => 300]);
+
+        // The second write to the FIRST pair — the one that updates rather than inserts.
+        $this->actingAs($reader)
+            ->putJson("/audiobooks/{$first->id}/bookmark", ['trackId' => $firstChapters[2]->id, 'positionMs' => 999])
+            ->assertNoContent();
+
+        $place = fn (User $user, Collection $book) => AudiobookBookmark::query()
+            ->where('user_id', $user->id)->where('collection_id', $book->id)->sole();
+
+        $this->assertSame(999, $place($reader, $first)->position_ms, 'the bookmark written to should move');
+        $this->assertSame(200, $place($reader, $second)->position_ms, 'the same reader\'s OTHER book must not');
+        $this->assertSame(300, $place($other, $second)->position_ms, 'another reader\'s bookmark must not');
+        $this->assertSame($secondChapters[0]->id, $place($reader, $second)->track_id, 'nor may the chapter move');
+    }
+
     public function test_several_books_are_in_flight_at_once(): void
     {
         // The whole reason this is not `player_states`: putting one book down for an evening

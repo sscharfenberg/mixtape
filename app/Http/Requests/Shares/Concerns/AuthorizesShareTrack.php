@@ -30,6 +30,13 @@ use Symfony\Component\HttpFoundation\Response;
  */
 trait AuthorizesShareTrack
 {
+    /**
+     * The share must be LIVE and the track must be inside the grant it names.
+     *
+     * Asked of {@see ShareGrant} rather than re-derived, because the guest page is drawn from
+     * the same object: written twice they drift, and the drift reads as a player stopping
+     * silently on one song out of ninety.
+     */
     public function authorize(): bool
     {
         $share = $this->route('share');

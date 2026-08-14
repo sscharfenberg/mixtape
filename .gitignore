@@ -76,6 +76,12 @@ Thumbs.db
 # tracked file — the exact thing the rule exists to prevent.
 docs/host.local/
 
+# Code-review working notes — never tracked, same reasoning as docs/host.local/ above.
+# These are candid findings about a public, internet-facing codebase, and docs/ is
+# curated documentation written for a stranger rather than a place for working notes
+# (CLAUDE.md -> "DOCUMENTATION IS NOT AGENT MEMORY").
+docs/review.local/
+
 # `php artisan app:encoding` writes its report next to wherever it was run, which is
 # usually here. It is a throwaway working file — a list of paths to rename, re-generated
 # whenever you want it — and it would otherwise show up as an untracked file in the

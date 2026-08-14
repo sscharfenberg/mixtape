@@ -33,6 +33,13 @@ class VerifyEmailRequest extends FormRequest
     /** Whether the lookup has run, so a genuinely absent user isn't looked up twice. */
     private bool $resolved = false;
 
+    /**
+     * The signed link must name a real user AND still describe that user's current address.
+     *
+     * `hash_equals` rather than `===`, because this compares a secret-derived digest and a
+     * timing-safe comparison costs nothing here. See the class note for why the two failures
+     * answer with different codes.
+     */
     public function authorize(): bool
     {
         $user = $this->verifiable();

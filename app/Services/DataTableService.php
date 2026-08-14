@@ -40,6 +40,22 @@ class DataTableService
     public const SEARCH_IN_NAME = 'name';
 
     /**
+     * The page size this request is in force with — its own, coerced to one the frontend
+     * offers, or the default.
+     *
+     * Public because a caller sometimes has to reason about WHICH page a particular row falls
+     * on: the audiobook page opens on the reader's bookmarked chapter, and working that out
+     * means dividing by exactly the size the response will use. Asking here is what stops the
+     * two drifting the moment somebody picks 25 rows in the Select.
+     */
+    public static function pageSizeFor(Request $request): int
+    {
+        $pageSize = (int) $request->input('pageSize', self::DEFAULT_PAGE_SIZE);
+
+        return in_array($pageSize, self::ALLOWED_PAGE_SIZES) ? $pageSize : self::DEFAULT_PAGE_SIZE;
+    }
+
+    /**
      * Build a paginated, sorted, searchable table response array.
      *
      * The sort key is validated against the $sortable whitelist (never trust the
@@ -67,22 +83,6 @@ class DataTableService
      *                                 is on its default sort — see there.
      * @return array{rows: array<int, array<string, mixed>>, total: int, totalUnfiltered: int, page: int, pageSize: int, sort: array{key: string, direction: string}, tiebreakers: string[], search: string|null, searchIn: string|null, filters: null}
      */
-    /**
-     * The page size this request is in force with — its own, coerced to one the frontend
-     * offers, or the default.
-     *
-     * Public because a caller sometimes has to reason about WHICH page a particular row falls
-     * on: the audiobook page opens on the reader's bookmarked chapter, and working that out
-     * means dividing by exactly the size the response will use. Asking here is what stops the
-     * two drifting the moment somebody picks 25 rows in the Select.
-     */
-    public static function pageSizeFor(Request $request): int
-    {
-        $pageSize = (int) $request->input('pageSize', self::DEFAULT_PAGE_SIZE);
-
-        return in_array($pageSize, self::ALLOWED_PAGE_SIZES) ? $pageSize : self::DEFAULT_PAGE_SIZE;
-    }
-
     public static function buildResponse(
         Builder|HasMany $query,
         Request $request,

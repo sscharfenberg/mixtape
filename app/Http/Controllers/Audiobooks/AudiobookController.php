@@ -41,6 +41,13 @@ use Inertia\Response;
  */
 class AudiobookController extends Controller
 {
+    /**
+     * Render one book: its hero facts, its chapters as a table, and where the reader left off.
+     *
+     * Opens on the BOOKMARKED chapter's page rather than page one — see {@see pageOfBookmark}
+     * for how that page number is derived, and why it has to divide by the same size the
+     * response will use.
+     */
     public function __invoke(ShowAudiobookRequest $request, Collection $audiobook, CoverService $covers): Response
     {
         $totals = $this->chapterTotals($audiobook);
@@ -197,10 +204,17 @@ class AudiobookController extends Controller
             // survivors back, so the header can mark CD *and* Track as sorted rather than
             // pretending only the first one is.
             tiebreakers: ['disc', 'track', 'name'],
-            // OPEN ON THE BOOKMARKED CHAPTER'S PAGE. The owner's question, and the answer is
-            // yes: on a 673-chapter book the chapter you left off at is on page 12, which is
-            // not somewhere anybody would find by paging.
-            defaultPage: $this->pageOfBookmark($audiobook, $bookmark, DataTableService::pageSizeFor($request)),
+            // OPEN ON THE BOOKMARKED CHAPTER'S PAGE: on a 673-chapter book the chapter you left
+            // off at is on page 12, which is not somewhere anybody would find by paging.
+            //
+            // ONLY UNDER THE DEFAULT ORDERING, which is what the guard is for. The page number is
+            // derived by counting the rows that sort BEFORE the bookmark, so it means nothing once
+            // the reader sorts by narrator or searches: `?sort=narrator` would open page 12 of a
+            // differently ordered table, and a search matching three chapters would open page 12
+            // of a one-page result — an empty table, which reads as a broken filter.
+            defaultPage: $request->hasAny(['sort', 'dir', 'search'])
+                ? null
+                : $this->pageOfBookmark($audiobook, $bookmark, DataTableService::pageSizeFor($request)),
         );
     }
 

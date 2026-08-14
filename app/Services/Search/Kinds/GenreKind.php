@@ -29,6 +29,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class GenreKind extends DatabaseKind
 {
+    /** The registry key and the group's place in the order — `SearchKind::cases()` is that order. */
     public function kind(): SearchKind
     {
         return SearchKind::Genre;
@@ -57,16 +58,19 @@ final class GenreKind extends DatabaseKind
         return ['genres.name'];
     }
 
+    /** Ranked and sorted A→Z on the genre's name. */
     protected function ranked(): string
     {
         return 'genres.name';
     }
 
+    /** The id, so two genres of the same name cannot tie and flicker between identical queries. */
     protected function tieBreak(): string
     {
         return 'genres.id';
     }
 
+    /** One genre → its page, with how many artists call it theirs and how many songs it holds. */
     protected function hit(Model $row): SearchHit
     {
         return new SearchHit(

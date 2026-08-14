@@ -77,8 +77,8 @@ Route::post('/lang/{locale}', [LocaleController::class, 'update'])
     ->middleware('throttle:30,1,locale')
     ->name('locale');
 
-// Authenticated pages. `verified` is folded in only once email verification is
-// switched on (deferred — see config/fortify.php), mirroring cantrip.me's group.
+// Authenticated pages. `verified` is folded in only where email verification is switched
+// on, so an instance that turns the feature off in config/fortify.php still routes.
 Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerification()) ? 'verified' : null]))
     ->group(function () {
         Route::get('/dashboard', DashboardController::class)->name('dashboard');
@@ -104,8 +104,9 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
             ->middleware('throttle:60,1,search')
             ->name('search');
 
-        // Top-level browse areas — linked from the header site menu (useSiteAreas).
-        // Scaffolds for now: each renders a placeholder page.
+        // Top-level browse areas — linked from the header site menu (useSiteAreas). Each is
+        // gated in the menu on the library actually holding that kind, never here: a reader
+        // who bookmarked one must still get a page rather than a 404.
         Route::get('/music', MusicController::class)->name('music');
         Route::get('/audiobooks', AudiobooksController::class)->name('audiobooks');
         Route::get('/playlists', PlaylistsController::class)->name('playlists');

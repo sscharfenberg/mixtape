@@ -14,9 +14,9 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Everything the five kinds do identically: match, rank, limit, count, shape.
+ * Everything the six kinds do identically: match, rank, limit, count, shape.
  *
- * A base class rather than five copies, because the parts that must not drift are exactly the
+ * A base class rather than six copies, because the parts that must not drift are exactly the
  * parts that are the same everywhere — most of all THE CENTRAL RULE, that a row matches its
  * OWN name (docs/search.md → "What a match is"). A song is not returned because its artist
  * matched; the artist is, as an artist. That rule lives in one place here: whatever a subclass
@@ -118,8 +118,9 @@ abstract class DatabaseKind implements SearchableKind
      *
      * This is where the WIDE search still lives: the four Music listings each match several
      * columns, sorted, paginated and deep-linkable, so "see all in Songs" is both behaviours
-     * kept — narrow while you are typing, wide once you have committed to a kind. Only
-     * playlists answer null, their listing being a hand-ordered list rather than a DataTable.
+     * kept — narrow while you are typing, wide once you have committed to a kind. Two kinds
+     * answer null: playlists, whose listing is a hand-ordered list rather than a DataTable, and
+     * audiobooks, whose entry page is a cover grid for the same reason.
      */
     abstract protected function seeAll(string $query): ?string;
 }

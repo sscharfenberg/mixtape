@@ -25,6 +25,10 @@ use Symfony\Component\HttpFoundation\Response;
  */
 trait AuthorizesAudiobookChapter
 {
+    /**
+     * The routed track must be an audiobook CHAPTER — `tracks` is unified, so without this a song's
+     * id would resolve and be streamed by the audiobook route.
+     */
     public function authorize(): bool
     {
         $chapter = $this->route('chapter');

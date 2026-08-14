@@ -26,6 +26,12 @@ use Illuminate\Support\Facades\DB;
  */
 class PlaylistOrderController extends Controller
 {
+    /**
+     * Renumber the reader's own playlists into the order they dragged them into.
+     *
+     * Contiguous integers rewritten inside one transaction (docs/data-model.md → "Saved
+     * playlists"), so `position` never carries gaps a later insert would have to reason about.
+     */
     public function __invoke(ReorderPlaylistsRequest $request): RedirectResponse
     {
         /** @var array<int, string> $ids */

@@ -8,9 +8,9 @@ namespace App\Enums;
  * What the cross-kind search can find (docs/search.md → "The kinds").
  *
  * THE DECLARATION ORDER IS THE GROUP ORDER, and it is a decision rather than an accident:
- * artists → albums → playlists → songs → genres. Containers before contents, because one
- * artist row leads to everything by them; a genre last, because a genre is a shelf rather
- * than a thing somebody was looking for. `LibrarySearch` walks `cases()` to build its groups,
+ * artists → albums → playlists → songs → genres → audiobooks. Containers before contents,
+ * because one artist row leads to everything by them; a genre late, because a genre is a shelf
+ * rather than a thing somebody was looking for. `LibrarySearch` walks `cases()` to build its groups,
  * so `?kinds=` can narrow the answer but cannot reorder it — a reader scanning a dropdown is
  * aiming at a shape they have learnt, and a shape that reshuffles per query is one they
  * cannot learn.

@@ -46,7 +46,7 @@ class DestroyShareRequest extends FormRequest
     }
 
     /** See the class note: a 403 here would confirm somebody else's link exists. */
-    protected function failedAuthorization(): void
+    protected function failedAuthorization(): never
     {
         abort(Response::HTTP_NOT_FOUND);
     }

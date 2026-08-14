@@ -20,11 +20,10 @@ namespace App\Enums;
  *     instead. It is likewise the only subject with an OWNER: a playlist belongs to
  *     one user where the library belongs to everybody, so the mint request checks
  *     that the reader is sharing their own (StoreShareRequest).
- *   - No `audiobook` yet. Blocked on there being an audiobook page to share FROM;
- *     it costs one case and no migration when that arrives, since `collections`
- *     already discriminates album from audiobook.
+ *   - `audiobook`, which cost one case and NO migration: `collections` already
+ *     discriminates album from audiobook, so the schema carried it for free.
  *
- * THE GRANT IS NOT DEFINED HERE for the three library subjects. A share must play
+ * THE GRANT IS NOT DEFINED HERE for the library subjects. A share must play
  * exactly the tracks the app already considers to BE its subject, so
  * {@see self::grant()} delegates to `PlaylistSubject`, whose `column()` is the same
  * narrowing each detail controller applies to build its `queueTracks` prop. Restating

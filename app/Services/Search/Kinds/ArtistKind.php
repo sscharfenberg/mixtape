@@ -28,6 +28,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class ArtistKind extends DatabaseKind
 {
+    /** The registry key and the group's place in the order — `SearchKind::cases()` is that order. */
     public function kind(): SearchKind
     {
         return SearchKind::Artist;
@@ -62,16 +63,19 @@ final class ArtistKind extends DatabaseKind
         return ['artists.name'];
     }
 
+    /** Ranked and sorted A→Z on the artist's name, which is the only thing an artist is found by. */
     protected function ranked(): string
     {
         return 'artists.name';
     }
 
+    /** The id, so two artists of the same name cannot tie and flicker between identical queries. */
     protected function tieBreak(): string
     {
         return 'artists.id';
     }
 
+    /** One artist → their page, with an album count and a total runtime (null where they perform on none). */
     protected function hit(Model $row): SearchHit
     {
         return new SearchHit(
