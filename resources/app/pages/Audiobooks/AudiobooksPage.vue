@@ -148,13 +148,19 @@ const booksOf = (credits: AudiobookCredit[], id: string): DiscographyAlbum[] =>
             :tabs="tabs"
             :label="t('audiobooks.tabs.label')"
         >
+            <!-- `count-key` on every grid: a book's tracks are CHAPTERS, and the shared
+                 component's default word is the one an album wants. -->
             <template #books>
-                <discography :albums="books" :page-size="25" />
+                <discography :albums="books" :page-size="25" count-key="audiobooks.chapterCount" />
             </template>
             <template #authors>
                 <accordion v-model:open="openCredits" name="authors" :sections="authorSections">
                     <template v-for="author in authors" :key="author.id" #[author.id]>
-                        <discography :albums="booksOf(authors, author.id)" :page-size="25" />
+                        <discography
+                            :albums="booksOf(authors, author.id)"
+                            :page-size="25"
+                            count-key="audiobooks.chapterCount"
+                        />
                     </template>
                 </accordion>
                 <p v-if="authors.length === 0">{{ t("audiobooks.noCredits") }}</p>
@@ -162,7 +168,11 @@ const booksOf = (credits: AudiobookCredit[], id: string): DiscographyAlbum[] =>
             <template #narrators>
                 <accordion v-model:open="openCredits" name="narrators" :sections="narratorSections">
                     <template v-for="narrator in narrators" :key="narrator.id" #[narrator.id]>
-                        <discography :albums="booksOf(narrators, narrator.id)" :page-size="25" />
+                        <discography
+                            :albums="booksOf(narrators, narrator.id)"
+                            :page-size="25"
+                            count-key="audiobooks.chapterCount"
+                        />
                     </template>
                 </accordion>
                 <p v-if="narrators.length === 0">{{ t("audiobooks.noCredits") }}</p>

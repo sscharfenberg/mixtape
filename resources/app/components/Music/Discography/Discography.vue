@@ -59,7 +59,7 @@ export interface DiscographyAlbum {
      * compilation filed under no album-artist, which drops the chip.
      */
     artist?: string | null;
-    /** How many tracks are filed under it. */
+    /** How many tracks are filed under it — chapters, where the grid is showing books. */
     songs: number;
     /** Total playing time in seconds, or null when not one file carried a duration. */
     duration: number | null;
@@ -86,8 +86,19 @@ const props = withDefaults(
          * people, and there the name is the fact that tells one record from the next.
          */
         showArtist?: boolean;
+        /**
+         * The i18n key that pluralises the `songs` chip — because what a "track" is called
+         * depends on what the grid is showing. An album holds songs; an audiobook holds
+         * CHAPTERS, and "32 Songs" on a book is simply wrong.
+         *
+         * A KEY rather than a finished string, so the caller does not have to hold a `t()`
+         * and re-run it on a locale switch — and rather than a `kind` enum, so the next
+         * caller with a different word adds a catalogue entry instead of a branch here (the
+         * same registry-not-a-union reflex the search kinds are built on).
+         */
+        countKey?: string;
     }>(),
-    { pageSize: 25, showArtist: false }
+    { pageSize: 25, showArtist: false, countKey: "music.discography.songCount" }
 );
 
 const { t } = useI18n();
@@ -148,12 +159,13 @@ watch(
 );
 
 /**
- * How many songs an album holds, already pluralised — e.g. "4 Songs".
+ * How many tracks an entry holds, already pluralised — "4 Songs" for an album, "32 Kapitel"
+ * for an audiobook, depending on `countKey`.
  *
  * Its own chip rather than part of a joined sentence: each fact is a separate pill, so the
  * separator that used to hold "4 Songs · 26:23" together is the chip boundary now.
  */
-const songCount = (album: DiscographyAlbum): string => t("music.discography.songCount", album.songs);
+const songCount = (album: DiscographyAlbum): string => t(props.countKey, album.songs);
 </script>
 
 <template>

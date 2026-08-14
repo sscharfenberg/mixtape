@@ -77,6 +77,10 @@ it is aimed at when a reader picks 25 rows.
 - **No DataTable on the entry page.** This is a music player that also holds audiobooks; twenty
   books do not need sorting, paging or a column of file sizes. They need to be recognisable,
   which means covers — so all three tabs draw the shared `Discography` grid.
+  Borrowing that grid borrowed its vocabulary with it, and a book advertised itself as "6 Songs"
+  until 2026-08-14. The word is a prop now (`count-key="audiobooks.chapterCount"`, passed on all
+  three grids) rather than a `kind` branch in the component — the next caller with a different
+  word adds a catalogue entry, not a case.
 - **The chapter rows are not links.** A chapter has no page of its own; what a reader wants from
   a row is to hear it, so each carries a play button instead.
 - **Pressing a chapter queues the WHOLE BOOK** and starts there (`playSubjectFrom`). Playing that

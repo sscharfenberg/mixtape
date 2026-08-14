@@ -101,6 +101,25 @@ test.describe("the audiobooks entry page", () => {
         await expect(page.getByRole("link", { name: /Berge des Wahnsinns/ })).toBeVisible();
     });
 
+    test("counts a book's tracks as CHAPTERS on the tile, not as songs", async ({ page }) => {
+        /*
+         * The cover grid is the shared `Discography`, whose default word is the one an album
+         * wants — so a book advertised itself as "6 Songs" until 2026-08-14. Asserted on the
+         * page rather than only in the component's own Vitest spec, because the thing that
+         * actually broke is the prop reaching all three grids on this page.
+         */
+        const tile = page.getByRole("link", { name: /Necrophobia 1/ }).first();
+        await expect(tile).toContainText(/\d+ (Kapitel|chapters?)/u);
+        await expect(tile).not.toContainText(/Songs?\b/u);
+
+        // The credit tabs draw the same grid and were the two call sites easiest to miss.
+        await page.getByRole("tab", { name: /Autoren|Authors/u }).click();
+        await page.getByRole("button", { name: /Brian Lumley/u }).click();
+        const region = page.getByRole("region", { name: /Brian Lumley/u });
+        await expect(region).toContainText(/\d+ (Kapitel|chapters?)/u);
+        await expect(region).not.toContainText(/Songs?\b/u);
+    });
+
     test("files the anthology under every author who wrote in it", async ({ page }) => {
         /*
          * The point of the credit tabs, and what the schema change bought: with a book-level

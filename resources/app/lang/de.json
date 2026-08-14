@@ -480,6 +480,7 @@
         "credit": {
             "books": "{n} Buch | {n} Bücher"
         },
+        "chapterCount": "{n} Kapitel | {n} Kapitel",
         "noCredits": "Keine Einträge gefunden.",
         "actions": {
             "resume": "Weiterhören",

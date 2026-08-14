@@ -2,7 +2,7 @@
 
 A compact list of albums — artwork, name, year, and what the record adds up to — each row linking to
 that album's own page. It belongs to whatever is showing albums, not to one page: an artist's own
-records today, a genre's next.
+records, a genre's, and the **Audiobooks** area's three grids of books.
 
 ```vue
 <discography :albums="discography" />
@@ -10,10 +10,11 @@ records today, a genre's next.
 
 ## Props
 
-| Prop         | Type                 | Default | Notes                                                              |
-| ------------ | -------------------- | ------- | ------------------------------------------------------------------ |
-| `albums`     | `DiscographyAlbum[]` | —       | Already ordered by the server. Empty ⇒ renders the empty sentence. |
-| `showArtist` | `boolean`            | `false` | Show each album's artist as one of its facts — see below.          |
+| Prop         | Type                 | Default                       | Notes                                                              |
+| ------------ | -------------------- | ----------------------------- | ------------------------------------------------------------------ |
+| `albums`     | `DiscographyAlbum[]` | —                             | Already ordered by the server. Empty ⇒ renders the empty sentence. |
+| `showArtist` | `boolean`            | `false`                       | Show each album's artist as one of its facts — see below.          |
+| `countKey`   | `string`             | `music.discography.songCount` | i18n key pluralising the `songs` chip — see below.                 |
 
 `DiscographyAlbum` is exported from the component. Every value is **raw** — seconds, not a clock —
 because formatting is the client's job against the active locale (`Utils/formatting.ts`):
@@ -39,6 +40,17 @@ It renders as **plain text**, not a link to the artist, and cannot become one: t
 already an `<a>` to the album, and an anchor inside an anchor is invalid HTML that browsers silently
 un-nest. Reaching the artist is a hop through the album — the trade for a tile-sized click target.
 (`DataTable` affords both because its rows are not anchors; see its README on clickable rows.)
+
+### `countKey`
+
+The `songs` field is "how many tracks are filed under this tile", and what a track is **called**
+depends on what the grid is showing. An album holds songs; an audiobook holds **chapters**, and
+`32 Songs` on a book is simply wrong — so the Audiobooks area passes
+`count-key="audiobooks.chapterCount"` on all three of its grids.
+
+A **key**, not a finished string, so the caller does not hold a `t()` of its own and the chip
+re-renders on a locale switch like everything else. And not a `kind` enum, so the next caller with a
+different word adds a catalogue entry rather than a branch in the component.
 
 ## Server side
 

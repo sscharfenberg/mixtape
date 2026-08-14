@@ -480,6 +480,7 @@
         "credit": {
             "books": "{n} book | {n} books"
         },
+        "chapterCount": "{n} chapter | {n} chapters",
         "noCredits": "Nothing found.",
         "actions": {
             "resume": "Resume",

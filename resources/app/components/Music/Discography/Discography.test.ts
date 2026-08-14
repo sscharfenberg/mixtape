@@ -36,12 +36,20 @@ const albums = (count: number): DiscographyAlbum[] =>
     Array.from({ length: count }, (_unused, index) => album(index + 1));
 
 /** Mount the discography over a set of albums. */
-const discography = (props: { albums: DiscographyAlbum[]; pageSize?: number; showArtist?: boolean }) =>
-    mountApp(Discography, { props });
+const discography = (props: {
+    albums: DiscographyAlbum[];
+    pageSize?: number;
+    showArtist?: boolean;
+    countKey?: string;
+}) => mountApp(Discography, { props });
 
 /** The album names currently rendered. */
 const namesIn = (wrapper: ReturnType<typeof discography>): string[] =>
     wrapper.findAll(".discography__name").map(node => node.text());
+
+/** The fact chips of every rendered tile, flattened. */
+const factsIn = (wrapper: ReturnType<typeof discography>): string[] =>
+    wrapper.findAll(".discography__fact").map(node => node.text());
 
 describe("Discography", () => {
     beforeEach(() => {
@@ -84,6 +92,26 @@ describe("Discography", () => {
 
             expect(facts).toContain("1997");
             expect(facts).toContain("1:01:01");
+        });
+
+        it("counts an album's tracks as SONGS by default, pluralised", () => {
+            const one = discography({ albums: [album(1, { songs: 1 })] });
+            const many = discography({ albums: [album(1, { songs: 12 })] });
+
+            expect(factsIn(one)).toContain("1 Song");
+            expect(factsIn(many)).toContain("12 Songs");
+        });
+
+        it("counts them as CHAPTERS when the caller says so, as an audiobook needs", () => {
+            // The grid is shared with the Audiobooks area, where a book's tracks are chapters
+            // and "32 Songs" would be plainly wrong. The word is the caller's to choose.
+            const wrapper = discography({
+                albums: [album(1, { songs: 32 })],
+                countKey: "audiobooks.chapterCount"
+            });
+
+            expect(factsIn(wrapper)).toContain("32 Kapitel");
+            expect(wrapper.text()).not.toContain("Song");
         });
 
         it("drops the year for an untagged rip instead of showing an empty chip", () => {
