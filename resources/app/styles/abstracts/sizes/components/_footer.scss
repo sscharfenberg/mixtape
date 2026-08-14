@@ -1,0 +1,34 @@
+/******************************************************************************
+ * contextual size tokens — component:footer
+ * @type {Sass}
+ * The site footer, dressed as the player bar's quiet twin (see the colour partial for
+ * why). Its border and BLOCK padding are the bar's own numbers, taken from the same
+ * globals rather than out of `s.$c-player-bar`, so the shelf at the bottom of the
+ * window is the same height whichever of the two is showing.
+ *
+ * NO INLINE PADDING HERE. The footer spans the window — its fill and its top edge have
+ * to reach both sides — and a `Container` inside it does the centring and the inline
+ * gutter, so the line of text lands under the page content rather than out at the
+ * window edge. Setting it in both places is how the two drift apart.
+ *
+ * Consumed as s.$c-footer via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$footer: (
+    "border": map.get(s.$border, "base"),
+    // ROOMIER THAN THE PLAYER BAR (the owner, 2026-08-14). It started at the bar's own
+    // 0.5rem so the two shelves would match in height, and that was the wrong instinct: the
+    // bar is dense because it is full of controls, while the footer holds one line and reads
+    // cramped at the same number. They are the same OBJECT, not the same content.
+    "padding-block": map.get(s.$padding, "portrait"),
+    // Between the copyright line and the repository link when they share a row, and
+    // what separates them once they stack on a narrow screen.
+    //
+    // NO `font-size` HERE ANY MORE (the owner, 2026-08-14). It was 0.85rem — the reflex that
+    // a footer is small print — and this one is not: it carries the version somebody may want
+    // to read out and the only link off the app. It takes the page's own size, so there is no
+    // token because there is no decision.
+    "gap": map.get(s.$padding, "base")
+) !default;

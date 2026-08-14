@@ -65,7 +65,9 @@
         "logoAlt": "{appName} logo"
     },
     "footer": {
-        "copyright": "© {appName} contributors {date} · {version}"
+        "copyright": "© {appName} contributors {date} · v{version}",
+        "copyrightPlain": "© {appName} contributors {date}",
+        "repository": "Source code"
     },
     "auth": {
         "login": {

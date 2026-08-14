@@ -17,6 +17,29 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Application Version
+    |--------------------------------------------------------------------------
+    |
+    | Read out of package.json, which is the one place a version is already
+    | maintained — npm owns it, `npm version` bumps it, and a second copy in a
+    | .env or in this file would be a copy that goes stale. Ported from
+    | cantrip.me, where the footer asks the same question.
+    |
+    | The file read costs nothing in production: config is cached, so it happens
+    | once at `config:cache` time rather than per request. Null-safe on purpose —
+    | a missing or unreadable package.json must not take the app down over a
+    | string in the footer.
+    |
+    */
+
+    'version' => rescue(
+        fn (): ?string => json_decode((string) file_get_contents(base_path('package.json')), true)['version'] ?? null,
+        null,
+        report: false
+    ),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Environment
     |--------------------------------------------------------------------------
     |

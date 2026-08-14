@@ -27,6 +27,10 @@ declare module "@inertiajs/core" {
             // this is for the one place that talks to the server WITHOUT a visit —
             // the play queue's sync PUT (see usePlayerQueue).
             csrfToken: string;
+            // The app's version for the footer line, read out of package.json by
+            // config/app.php. Nullable because that read is guarded: a missing
+            // package.json must not take the app down over a string in the footer.
+            version: string | null;
             // The queue this user left behind, from `player_states`. Present only on a
             // FULL page load (HandleInertiaRequests skips it for client-side visits,
             // where the persistent layout already holds a live queue), and `null` both

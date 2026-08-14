@@ -85,6 +85,12 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'csrfToken' => csrf_token(),
+            // The app's version, for the footer line. Read out of package.json by
+            // config/app.php — see there for why that is the source of truth rather
+            // than a second copy. The footer has ALWAYS asked for this prop and it was
+            // never shared, so it rendered `undefined` behind an `as string` cast until
+            // 2026-08-14.
+            'version' => config('app.version'),
             // Active locale (resolved by ConfigureLocale, which runs first) and
             // the supported set. Only the locale string is shared — the message
             // catalogs are code-split JSON the client loads on demand (see i18n.ts).

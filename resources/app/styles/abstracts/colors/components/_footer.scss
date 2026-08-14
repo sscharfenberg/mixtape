@@ -1,0 +1,29 @@
+/******************************************************************************
+ * contextual color tokens — component:footer
+ * @type {Sass}
+ * The site footer, which since 2026-08-14 is dressed as the PLAYER BAR's quiet twin:
+ * the two are alternatives in the layout — once a track is loaded the bar takes the
+ * footer's place — so the reader should meet the same shelf at the bottom of the
+ * window either way, and only its contents should change.
+ *
+ * THE SAME PAIR THE BAR USES, picked from the same globals rather than read out of
+ * `c.$c-player-bar`: each component owns its own decision, and this one is "the quiet
+ * shelf at the bottom", not "whatever the player happens to be". They will move
+ * together while that is true, and this file is where the footer stops following if it
+ * ever stops being true.
+ *
+ * NOT FROSTED, though, which is the one deliberate difference: the bar is FIXED and
+ * blurs the page scrolling under it, and the footer is in flow with nothing behind it.
+ * A `backdrop-filter` over an opaque page costs a compositing layer for no visible
+ * effect, so the fill here is solid where the bar's is alpha-adjusted.
+ *
+ * Consumed as c.$c-footer via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-color-tokens" as c;
+
+$footer: (
+    "background": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "bunker")),
+    "surface": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
+    "border": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher"))
+) !default;
