@@ -389,6 +389,58 @@ export function endEphemeralQueue(): void {
 }
 
 /**
+ * Drop the queue on the way OUT of a session — and write nothing at all.
+ *
+ * WHAT IT IS FOR: a signed-out reader cannot play anything they were listening to. Every
+ * `streamUrl` in the queue is behind `auth`, so the panel keeps offering rows that answer a
+ * redirect and the bar keeps offering a play button that does nothing. FullLayout calls this
+ * the moment `auth.user` goes null — a logout, a deleted account, an expired session alike —
+ * and the player, the panel and the header's toggle all disappear as a CONSEQUENCE of the
+ * queue being empty rather than through gates of their own. Which is the right shape: a
+ * guest reading a share link legitimately has a player, and an auth gate on the bar itself
+ * would take it away from them.
+ *
+ * IT WRITES NOTHING, and that is the requirement rather than a detail. `clear()` cannot be
+ * used here for exactly that reason: it commits, so it would put an empty queue in
+ * localStorage under `userId: null` and — if it ever ran while the session were still alive
+ * — hand the server an empty row over the queue the reader spent an evening building. This
+ * drains the pending write instead. The departing user's stored copy is left untouched, so
+ * signing back in restores it (`hydrate` refuses to serve it to anyone else in the meantime,
+ * so a shared browser shows a guest nothing).
+ *
+ * The last change before a logout is saved by `UserMenu`, which flushes on the click while
+ * the session is still there — see it for why that belongs at the press rather than here.
+ *
+ * `hydrated` is re-armed, as `endEphemeralQueue` does and for the same reason: signing in
+ * again is an Inertia visit (`useLogin` → `router.visit`), so this layout is never
+ * re-created and only a re-run of `hydrate()` can bring the queue back without a reload.
+ */
+export function abandonQueue(): void {
+    // The pending write goes with it — see above. A timer left armed would fire a few
+    // hundred milliseconds into the signed-out page and store the emptiness.
+    if (writeTimer !== null) {
+        clearTimeout(writeTimer);
+        writeTimer = null;
+    }
+    dirty.clear();
+    localUpdatedAt = 0;
+    // The PlayerBar's `onUnmounted` will drop this too, a tick from now, when `current` goes
+    // null. Dropped here as well so nothing in between can read `currentTime` off an element
+    // on its way out of the document and mark the pointer dirty again.
+    readPosition = null;
+    writtenPosition = 0;
+    restoredPosition = 0;
+
+    tracks.value = [];
+    currentIndex.value = NOTHING;
+    repeat.value = false;
+    shuffle.value = false;
+    shufflePick.value = NOTHING;
+    resetShuffleWalk();
+    hydrated = false;
+}
+
+/**
  * The signed-in user's id, or null for a guest arriving on a share link.
  *
  * Read from Inertia's shared props on every call rather than captured once: this
@@ -1490,29 +1542,16 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
  * app are drained (see docs/testing.md → module singletons).
  */
 export function resetPlayerQueueForTests(): void {
-    // The pending write goes with it, and that part is not optional: a flush left
-    // scheduled by one spec would fire during the next one and drop this spec's queue
-    // into that spec's storage. `flushBound` is deliberately NOT reset — the listeners
-    // are on a window that outlives every reset in the file.
-    if (writeTimer !== null) {
-        clearTimeout(writeTimer);
-        writeTimer = null;
-    }
-    dirty.clear();
-    localUpdatedAt = 0;
-    readPosition = null;
-    writtenPosition = 0;
-    restoredPosition = 0;
-
-    tracks.value = [];
-    currentIndex.value = NOTHING;
-    repeat.value = false;
-    shuffle.value = false;
-    shufflePick.value = NOTHING;
-    resetShuffleWalk();
-    hydrated = false;
-    // Left on by a share-page spec, this would silently stop the NEXT spec's queue from
-    // persisting — and a persistence test that finds nothing in storage reads as a broken
-    // queue rather than as a leaked flag.
+    // THROUGH `abandonQueue`, not a second copy of its body: "forget this session's queue
+    // without writing anything" is precisely what a test reset wants, and the two lists
+    // drifted the moment there were two of them. The pending write goes with it, and that
+    // part is not optional — a flush left scheduled by one spec would fire during the next
+    // one and drop this spec's queue into that spec's storage. `flushBound` is deliberately
+    // NOT reset: the listeners are on a window that outlives every reset in the file.
+    abandonQueue();
+    // The one thing a sign-out does not touch, because a sign-out cannot happen inside the
+    // share page's mode. Left on by a share-page spec it would silently stop the NEXT spec's
+    // queue from persisting — and a persistence test that finds nothing in storage reads as
+    // a broken queue rather than as a leaked flag.
     ephemeral = false;
 }

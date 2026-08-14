@@ -30,6 +30,7 @@ This file is the client half **as built**.
 | Add the whole queue to a playlist                | ✅ 2026-08-09 — the panel's menu, _The panel_ below              |
 | The panel's entrance                             | ✅ 2026-08-09 — a wipe, and a peek that lights its edge          |
 | Knowing what plays NEXT under shuffle            | ✅ 2026-08-09 — the pre-draw, _Playing in a random order_ below  |
+| Letting go of it when the session ends           | ✅ 2026-08-14 — _Signing out_ below                              |
 
 ## What it is
 
@@ -436,6 +437,41 @@ props to know whose queue it is reading. It discards rather than adopts:
 - **a single unusable row** — a row with no id is dropped on its own rather than costing the other
   200 theirs.
 
+### Signing out
+
+Built **2026-08-14**, from a plain report: after logging out the player was still there and nothing
+in it would play. Every `streamUrl` in the queue is behind `auth`, so a queue left standing is a
+panel of rows that answer a redirect — a player that has silently stopped working rather than one
+that has gone away.
+
+**Why it survived at all** is the same fact this whole file rests on: `FullLayout` is Inertia's
+persistent layout and logging out is a client-side visit, so `setup()` never runs again. The module
+singleton kept the tracks, `hydrate()`'s one-shot guard was still set, and nothing anywhere read
+`auth.user`. FullLayout now watches it and calls **`abandonQueue()`** on any change.
+
+**`clear()` is the wrong function here, and that is the whole design.** It commits — so it would
+store an empty list under `userId: null` over the copy that is the only thing bringing the queue
+back on the next sign-in, and, run a moment sooner, hand the same emptiness to `player_states`.
+`abandonQueue()` drops the pending timer, clears the dirty set and empties the refs **without
+writing anything at all**. The departing reader's stored copy is left exactly as it was; the refusal
+above is what keeps a guest, or the next person to use the browser, from seeing it.
+
+**The last change before the press is saved by `UserMenu`, not here.** Writes are coalesced behind a
+500 ms trailing timer, so a track dragged just before the click is still only in memory — and by the
+time the response lands there is no cookie to authorise the PUT. The logout item flushes on the
+click, the same flush-then-change ordering `beginEphemeralQueue` uses.
+
+**The player, the panel and the header's toggle disappear as a consequence, not through gates of
+their own** — they already key off `current` / `isEmpty`. That is deliberate rather than lazy: a
+guest reading a share link has a legitimate player, and an `auth` gate on the bar would take it away
+from them.
+
+**And it re-arms `hydrate()`**, which is what makes the return trip work: signing in is a visit too
+(`useLogin` → `router.visit`), so without a second `hydrate()` the reader would face an empty queue
+until their next full page load — `playerState` only rides down on one of those, but their
+localStorage copy answers immediately. The watcher therefore abandons on *every* change of user and
+hydrates whenever the new one is not a guest.
+
 ### How much fits
 
 The budget is per **origin**, small, and counted differently per browser — which is the part worth
@@ -612,6 +648,17 @@ grip, so **tapping the cover no longer plays the track** — the other ~90% of t
   loaded row into view. The one that quietly guards the storage rework is **"survives a navigation,
   because the new order is persisted"** — it drags a row and then does a full page load, so it
   exercises the actual `pagehide` flush and rehydration rather than a mocked timer.
+- **Signing out is split across both, because neither can answer it alone.** The half that only a
+  browser knows is that the persistent layout survives the visit at all, so
+  `tests/e2e/guest/logout.spec.ts` queues a track, signs out, and asserts the bar, the panel and the
+  toggle are gone — it reproduces the original report exactly when the watcher is removed. The half
+  a browser cannot cheaply prove is the one about **not writing**: that the departing reader's
+  stored copy is byte-for-byte what it was, and that a write still on the timer is dropped rather
+  than landing after the logout. Those are `usePlayerQueue.test.ts` → _when the session ends_. The
+  E2E does close the loop on the SERVER's copy, by wiping localStorage while signed out so the queue
+  that comes back can have come from nowhere else.
+  That spec lives in the **guest** project with an account of its own, and it is the only one whose
+  parked session is never read — it signs out, which would kill any session it borrowed.
 
 **Two traps found writing these**, both worth knowing beyond this file:
 

@@ -208,12 +208,18 @@ class E2ESeeder extends Seeder
      * queue behind. It owns no rows of its own — the only user-scoped thing search can find is a
      * playlist, and that half is pinned in tests/Feature/Search rather than in a browser.
      *
+     * AND `spec-logout` IS THE FIRST REASON AGAIN, plus one nothing else here needs (2026-08-14):
+     * its spec queues tracks in order to watch them be abandoned, so it leaves a queue — and it
+     * SIGNS OUT, which kills the session it is using. That is why it is the only one of these
+     * whose parked session is never read: it lives in the guest project and signs in for real,
+     * because signing out is the thing under test.
+     *
      * The names are the spec files they serve, so a stray row in the database says which
      * spec left it. Everything else keeps signing in as the canonical seeded account.
      */
     private function seedSpecUsers(): void
     {
-        $names = ['spec-queue', 'spec-player', 'spec-now-playing', 'spec-shortcuts', 'spec-widgets', 'spec-playlist-detail', 'spec-add-to-playlist', 'spec-playlists', 'spec-search', 'spec-audiobooks'];
+        $names = ['spec-queue', 'spec-player', 'spec-now-playing', 'spec-shortcuts', 'spec-widgets', 'spec-playlist-detail', 'spec-add-to-playlist', 'spec-playlists', 'spec-search', 'spec-audiobooks', 'spec-logout'];
 
         foreach ($names as $name) {
             User::factory()->create([

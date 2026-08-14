@@ -3,6 +3,7 @@ import { setupI18n } from "@/i18n";
 import de from "@/lang/de.json";
 import type { QueueTrack } from "Composables/usePlayerQueue";
 import {
+    abandonQueue,
     beginEphemeralQueue,
     bindPositionSource,
     endEphemeralQueue,
@@ -1419,6 +1420,106 @@ describe("usePlayerQueue", () => {
             usePlayerQueue().hydrate();
 
             expect(ids()).toStrictEqual(["mine"]);
+        });
+    });
+
+    describe("when the session ends", () => {
+        /*
+         * A signed-out reader cannot play any of it: every `streamUrl` in the queue is behind
+         * `auth`, so a queue left standing is a panel full of rows that answer a redirect.
+         * FullLayout abandons it the moment `auth.user` goes null.
+         *
+         * THE WHOLE POINT IS THAT NOTHING IS WRITTEN. `clear()` would have done the visible
+         * half and quietly cost the reader their queue: it commits, so it stores an empty
+         * list under `userId: null` over the copy that is the only thing bringing the queue
+         * back on the next sign-in — and, run a moment earlier, would push the emptiness to
+         * the server too. That failure is invisible until the day after.
+         */
+
+        /** Queue two tracks and get them on disk and on the server, as a real session would. */
+        const listeningSession = () => {
+            usePlayerQueue().playNow([track("a"), track("b")]);
+            flushQueueWrites();
+            fetchMock.mockClear();
+        };
+
+        it("empties the queue, so the player and the panel go with it", () => {
+            listeningSession();
+
+            abandonQueue();
+
+            expect(ids()).toStrictEqual([]);
+            expect(usePlayerQueue().isEmpty.value).toBe(true);
+            expect(usePlayerQueue().current.value).toBeNull();
+        });
+
+        it("tells the server nothing, so the queue it holds is still the reader's", () => {
+            listeningSession();
+
+            abandonQueue();
+            // The `pagehide` path too: a flush with nothing dirty must stay silent rather
+            // than push the empty queue up on the way out of the signed-out page.
+            flushQueueWrites(true);
+
+            expect(fetchMock).not.toHaveBeenCalled();
+        });
+
+        it("leaves the departing reader's stored queue exactly as it was", () => {
+            listeningSession();
+            const before = window.localStorage.getItem("mixtape.queue");
+
+            abandonQueue();
+            flushQueueWrites(true);
+
+            expect(window.localStorage.getItem("mixtape.queue")).toBe(before);
+        });
+
+        it("drops a write that was still pending rather than letting it land after the logout", () => {
+            // Coalesced writes sit on a 500ms timer. One left armed fires into the signed-out
+            // page and stores the emptiness under `userId: null`.
+            listeningSession();
+
+            vi.useFakeTimers();
+            try {
+                usePlayerQueue().enqueue(track("c"));
+                abandonQueue();
+                vi.advanceTimersByTime(500);
+            } finally {
+                vi.useRealTimers();
+            }
+
+            expect(stored().tracks.map((entry: { id: string }) => entry.id)).toStrictEqual(["a", "b"]);
+        });
+
+        it("shows a guest nothing, even with the previous reader's queue still on disk", () => {
+            // hydrate() already refuses a payload belonging to somebody else; this is the
+            // half that matters on a shared browser, and it is why the stored copy above can
+            // safely be left behind.
+            listeningSession();
+
+            abandonQueue();
+            signedInAs(null);
+            usePlayerQueue().hydrate();
+
+            expect(ids()).toStrictEqual([]);
+        });
+
+        it("brings the queue back when the same reader signs in again", () => {
+            // Signing in is an Inertia visit, so the layout is never re-created and
+            // `hydrate()` would be a no-op without the re-arm this does — the reader would
+            // face an empty queue until their next full page load.
+            listeningSession();
+
+            abandonQueue();
+            signedInAs(null);
+            usePlayerQueue().hydrate();
+
+            // Back in: FullLayout's watcher abandons whatever the guest had and reads again.
+            signedInAs("user-1");
+            abandonQueue();
+            usePlayerQueue().hydrate();
+
+            expect(ids()).toStrictEqual(["a", "b"]);
         });
     });
 

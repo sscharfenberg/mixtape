@@ -35,6 +35,8 @@
  * — the reason it works that way — Inertia clears it at the component swap
  * rather than when the request starts, so the trail never blinks out mid-visit.
  *****************************************************************************/
+import { usePage } from "@inertiajs/vue3";
+import { computed, watch } from "vue";
 import AppFooter from "Components/Landmarks/Footer/AppFooter.vue";
 import AppHeader from "Components/Landmarks/Header/AppHeader.vue";
 import AppMain from "Components/Landmarks/Main/AppMain.vue";
@@ -46,19 +48,50 @@ import Container from "Components/UI/Container.vue";
 import ToastContainer from "Components/UI/ToastContainer.vue";
 import TooltipLayer from "Components/UI/Tooltip/TooltipLayer.vue";
 import type { BreadcrumbItem } from "Composables/useBreadcrumbs";
-import { usePlayerQueue } from "Composables/usePlayerQueue";
+import { abandonQueue, usePlayerQueue } from "Composables/usePlayerQueue";
 
 defineProps<{
     /** The current page's breadcrumb trail, or undefined on a page that declares none. */
     breadcrumbs?: BreadcrumbItem[];
 }>();
 
+const page = usePage();
 const { current, hydrate } = usePlayerQueue();
 
 // Restore the stored queue once, here, because this is the one component that
 // mounts before any page and never unmounts. It needs Inertia's shared props to
 // know whose queue it is reading, which is why it cannot happen at module load.
 hydrate();
+
+/** Who the queue belongs to right now — null once the reader signs out. */
+const userId = computed(() => page.props.auth.user?.id ?? null);
+
+/**
+ * Follow the session: forget the queue when it ends, read it back when one begins.
+ *
+ * THIS LAYOUT NEVER UNMOUNTS, which is the whole reason the watcher is needed. Logging out
+ * is an Inertia visit, so `setup()` does not run again and `hydrate()`'s one-shot guard is
+ * still set — the previous reader's queue stayed in memory, the PlayerBar kept offering it,
+ * and every row in it pointed at a stream behind `auth`. It looked like a player that had
+ * quietly stopped working.
+ *
+ * ABANDONED UNCONDITIONALLY, because the watcher only fires on a change and a change means
+ * whatever is in memory belongs to somebody who is no longer reading this page. Not
+ * `clear()`, which persists — see `abandonQueue`'s note on why writing here is the one thing
+ * it must not do. The player, the queue panel and the header's toggle then vanish because
+ * the queue is EMPTY, not because anything gates on `auth`: a guest on a share link has a
+ * legitimate player, and a gate here would be a gate there too.
+ *
+ * THEN READ THE NEW READER'S OWN, which `abandonQueue` has just re-armed `hydrate()` for.
+ * Signing in is a visit as well, so without this the queue would not come back until the
+ * next full page load. `playerState` only rides down on one of those, but the reader's
+ * localStorage copy was left untouched and is what answers here.
+ */
+watch(userId, now => {
+    abandonQueue();
+
+    if (now !== null) hydrate();
+});
 </script>
 
 <template>

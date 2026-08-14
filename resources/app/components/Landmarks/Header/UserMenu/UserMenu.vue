@@ -14,6 +14,7 @@ import LanguageSwitch from "Components/Landmarks/Header/UserMenu/LanguageSwitch.
 import ThemeSwitch from "Components/Landmarks/Header/UserMenu/ThemeSwitch.vue";
 import Icon from "Components/UI/Icon.vue";
 import PopOver from "Components/UI/PopOver.vue";
+import { flushQueueWrites } from "Composables/usePlayerQueue";
 
 const { t } = useI18n();
 const page = usePage();
@@ -31,6 +32,23 @@ const triggerClass = computed(() => `popover-button--rounded${user.value ? " pop
 function closePopover(): void {
     const dialog = document.getElementById("userMenu");
     if (dialog !== null) dialog.hidePopover();
+}
+
+/**
+ * Close the menu and write the queue out while there is still a session to write it to.
+ *
+ * THE PRESS IS THE LAST MOMENT IT CAN HAPPEN. Queue writes are coalesced behind a 500ms
+ * timer, so a track dragged or enqueued just before this click is still only in memory —
+ * and by the time the logout response lands, FullLayout has abandoned the queue and the
+ * cookie that would have authorised the PUT is gone. Flushed here it goes up as the queue
+ * the reader left, which is the copy they meet again on their next sign-in.
+ *
+ * The same ordering, and the same reason, as `beginEphemeralQueue`: flush first, then
+ * change what persistence means.
+ */
+function handleLogout(): void {
+    flushQueueWrites();
+    closePopover();
 }
 </script>
 
@@ -87,7 +105,7 @@ function closePopover(): void {
                         method="post"
                         as="button"
                         type="button"
-                        @click="closePopover"
+                        @click="handleLogout"
                     >
                         <icon name="logout" :size="1" />
                         {{ t("header.userMenu.logout") }}

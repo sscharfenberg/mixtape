@@ -360,7 +360,19 @@ export const SPEC_USERS = {
      * area's resume feature is per (reader, book), so a bookmark left by another spec would be
      * a chapter this one never played.
      */
-    audiobooks: "spec-audiobooks"
+    audiobooks: "spec-audiobooks",
+    /*
+     * The queue reason again, with a twist that makes this the only entry whose parked session
+     * is never read: its spec SIGNS OUT, which kills the session it is using, so a stored
+     * `storageState` would be dead for anything else that touched it. It therefore lives in the
+     * `guest` project and signs in for real — signing out being the thing under test.
+     *
+     * It is still listed here rather than as a loose string, because the rule it obeys is this
+     * one: it queues a track in order to watch the queue be abandoned, and a queue follows the
+     * USER. The session auth.setup mints for it is one unused login a run, on a throttle bucket
+     * of its own, which is cheaper than a second register of account names to keep in step.
+     */
+    logout: "spec-logout"
 } as const;
 
 /** Where a spec account's signed-in session is parked by the setup project. */
