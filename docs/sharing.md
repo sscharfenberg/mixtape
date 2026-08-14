@@ -644,6 +644,26 @@ What shipped: `tests/Feature/Shares/CreateShareTest.php`, `tests/Feature/Shares/
   the other end and it is the more instructive half: it eager-loads `collection:id,name`, so the type
   was not there to read at all and every book in the list said "Album". The eager load now names
   `type` explicitly, with a comment saying why.
+
+  **And it cost two `match` arms nobody added, found 2026-08-14** — the same shape of miss a third
+  time, which is what makes it worth writing down. `ShareArtwork::hero()` and
+  `ShareCoverController` both listed `Song` and `Album` and let everything else fall to a `default`
+  meaning "no single picture" — correct for an artist and a playlist, wrong for a book, which has a
+  Folder.jpg exactly as a record does. So every shared audiobook drew CoverImage's placeholder glyph,
+  and through `ShareArtwork::preview()` unfurled in a chat window with no image at all. Both arms are
+  the album's now, for the reason `AudiobookCoverController` already calls `albumPath()`: a book is a
+  `collections` row and `CoverService` is keyed on the collection.
+
+  The lesson generalises past this bug: **adding an enum case does not fail any `match` that has a
+  `default`**, and three of this feature's arms were reached through one. A `default` that means
+  "the kinds with no cover" is a list of kinds written as an absence — worth being suspicious of
+  whenever the enum grows.
+
+  Its intro sentence was written to a different pattern too, and vue-i18n said so on every render
+  (`Detected HTML in '…<strong>{name}</strong>…'`). The other four kinds take `{kind}` and wear a
+  chip; the book's took `{name}` and marked it up. Fixed by writing it like its four neighbours —
+  and `SharePage.test.ts`'s per-kind loop, which had been iterating four of five kinds, now covers
+  all of them.
 - **No genre shares**, confirmed by the owner on 2026-08-11. `PlaylistSubject` has a `Genre` case and
   the mapping would be free, but "listen to this genre" is a different kind of act from "listen to
   this" — a share hands over one thing somebody chose to send, and a genre is a shelf. `ShareSubject`

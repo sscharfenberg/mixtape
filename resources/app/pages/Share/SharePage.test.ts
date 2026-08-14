@@ -162,7 +162,12 @@ describe("SharePage", () => {
             // The bug this pins is a German one: a single sentence with the noun swapped in
             // reads "Dieses Song" / "Diese Album" in three of four cases. Each kind therefore
             // has its own copy, and the page picks it off `share.kind`.
-            for (const kind of ["song", "album", "artist", "playlist"] as const) {
+            //
+            // EVERY kind, which is the half this loop was missing: `audiobook` arrived written
+            // to a different pattern entirely — `<strong>{name}</strong>`, with no `{kind}` for
+            // the chip to fill and HTML vue-i18n warns about on every render. A loop over four
+            // of five kinds is a loop that cannot see the fifth being wrong.
+            for (const kind of ["song", "album", "artist", "playlist", "audiobook"] as const) {
                 const wrapper = page({ share: { kind, validUntil: "2026-08-18T09:30:00+00:00", expired: false } });
 
                 expect(sentence(wrapper.find(".hero-section__description").text())).toBe(

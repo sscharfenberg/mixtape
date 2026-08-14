@@ -45,6 +45,13 @@ final class ShareArtwork
      * an album prefers the directory's folder image while a song prefers its own embedded
      * picture, because rips exist where every file carries a different inline cover — and
      * there, "the embedded cover" makes a record's artwork depend on which track sorts first.
+     *
+     * AN AUDIOBOOK ASKS THE ALBUM'S QUESTION, which is the arm this was missing until
+     * 2026-08-14: it is a `collections` row like an album, its `Folder.jpg` is recorded in
+     * `collections.cover_path` by the scanner, and AudiobookCoverController serves it with the
+     * same `albumPath()` call. Left out of the match it fell to `default => false` and every
+     * shared book drew CoverImage's placeholder glyph — and, through {@see preview}, unfurled
+     * in a chat window with no image at all.
      */
     public function hero(Share $share): ?string
     {
@@ -54,7 +61,7 @@ final class ShareArtwork
 
         $exists = match (ShareGrant::for($share)->subject()) {
             ShareSubject::Song => $this->covers->exists($share->track),
-            ShareSubject::Album => $this->covers->existsForAlbum($share->collection),
+            ShareSubject::Album, ShareSubject::Audiobook => $this->covers->existsForAlbum($share->collection),
             default => false,
         };
 

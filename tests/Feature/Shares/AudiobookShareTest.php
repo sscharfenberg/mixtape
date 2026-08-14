@@ -115,6 +115,50 @@ class AudiobookShareTest extends TestCase
             );
     }
 
+    public function test_the_guest_page_points_at_the_books_own_cover(): void
+    {
+        /*
+         * A BOOK IS A `collections` ROW LIKE AN ALBUM, and ShareArtwork::hero() matched only
+         * Song and Album — so every shared audiobook fell to `default => false` and the hero
+         * drew CoverImage's placeholder glyph beside a book that has a perfectly good
+         * Folder.jpg (reported 2026-08-14). The social card had the same hole, through the
+         * same method.
+         *
+         * `cover_path` rather than a file on disk: what is asserted here is which URL the page
+         * is given, and `existsForAlbum` answers off the column. The bytes at the other end are
+         * ShareMediaTest's half.
+         */
+        $book = $this->book();
+        $book->update(['cover_path' => 'Necrophobia 1/Folder.jpg']);
+        $share = Share::factory()->create(['collection_id' => $book->id]);
+
+        $this->get("/s/{$share->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('subject.coverUrl', route('shares.cover', $share, absolute: false))
+                // Not a fan: a book has one picture of its own, so the sleeves stay empty.
+                ->where('subject.sleeves', [])
+            );
+    }
+
+    public function test_a_book_with_no_artwork_is_sent_without_a_cover_url(): void
+    {
+        // The other half of the rule, and the reason the placeholder exists: a null is what
+        // lets the hero draw its glyph rather than point an <img> at a route that 404s.
+        //
+        // BOTH SOURCES SILENCED EXPLICITLY. `existsForAlbum` is `cover_path || any track with
+        // art`, and TrackFactory rolls `cover` on `boolean(70)` — so left to the factory this
+        // asserts null about nine times in ten and fails the tenth, in a file nobody would
+        // think to look at.
+        $book = $this->book();
+        $book->tracks()->update(['cover' => false]);
+        $share = Share::factory()->create(['collection_id' => $book->id]);
+
+        $this->get("/s/{$share->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('subject.coverUrl', null));
+    }
+
     public function test_a_shared_album_still_reads_as_an_album(): void
     {
         // The control for the case above — telling the two apart must not have moved albums.

@@ -277,6 +277,33 @@ class ShareMediaTest extends TestCase
         $this->assertSame(300, getimagesizefromstring($response->streamedContent())[0]);
     }
 
+    /**
+     * A BOOK'S HERO IS SERVED BY THE SAME ROUTE AS A RECORD'S, and was not until 2026-08-14:
+     * `ShareCoverController` matched Song and Album and let an audiobook fall to `default =>
+     * null`, so this 404'd. Nobody saw the 404, because `ShareArtwork` had the identical hole
+     * and so never pointed an `<img>` at it — the page just drew its placeholder glyph. Both
+     * arms are now the album's, which is right for the same reason `AudiobookCoverController`
+     * calls `albumPath()`: a book is a `collections` row whose Folder.jpg the scanner records
+     * exactly as it does a record's.
+     */
+    public function test_a_shared_book_serves_its_own_cover(): void
+    {
+        $book = Collection::factory()->audiobook()->create();
+        Track::factory()->audiobook()->create([
+            'collection_id' => $book->id,
+            'path' => $this->mediaFile('Le Guin/The Dispossessed/01.mp3', 'chapterone'),
+        ]);
+        File::put($this->mediaRoot.'/Le Guin/The Dispossessed/folder.jpg', $this->jpeg(300));
+
+        $share = Share::factory()->ofAlbum($book)->create();
+
+        $response = $this->get("/s/{$share->id}/cover")
+            ->assertOk()
+            ->assertHeader('content-type', 'image/jpeg');
+
+        $this->assertSame(300, getimagesizefromstring($response->streamedContent())[0]);
+    }
+
     public function test_an_artist_share_has_no_subject_cover(): void
     {
         $artist = Artist::factory()->create();

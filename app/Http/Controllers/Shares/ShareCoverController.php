@@ -51,7 +51,12 @@ class ShareCoverController extends Controller
     {
         $path = match (ShareGrant::for($share)->subject()) {
             ShareSubject::Song => $this->covers->path($share->track),
-            ShareSubject::Album => $this->covers->albumPath($share->collection),
+            // An AUDIOBOOK joins the album's arm rather than getting one of its own: it is a
+            // `collections` row, its Folder.jpg is in `collections.cover_path`, and
+            // AudiobookCoverController serves it with this same call. It was missing until
+            // 2026-08-14, so a shared book 404'd here — invisibly, because ShareArtwork had
+            // the same hole and so never pointed an <img> at it.
+            ShareSubject::Album, ShareSubject::Audiobook => $this->covers->albumPath($share->collection),
             // An artist, a playlist (and a subject this app cannot resolve at all) has no
             // single image — see the class note.
             default => null,

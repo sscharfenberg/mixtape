@@ -583,7 +583,7 @@
             "album": "Somebody sent you this {kind} as a listening link. You can play it right here — no account, no signing in.",
             "artist": "Somebody sent you this {kind} as a listening link. You can listen right here — no account, no signing in.",
             "playlist": "Somebody sent you this {kind} as a listening link. You can play it right here — no account, no signing in.",
-            "audiobook": "Someone shared the audiobook <strong>{name}</strong> with you."
+            "audiobook": "Somebody sent you this {kind} as a listening link. You can listen right here — no account, no signing in."
         },
         "expires": {
             "label": "Link works until",
