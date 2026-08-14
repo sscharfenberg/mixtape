@@ -21,13 +21,33 @@
 @use "../global-color-tokens" as c;
 
 $hero-section: (
-    // The hero panel's fill. The SAME pick as the Widget's card surface
-    // (c.$c-widget "background") so the hero and the facts cards below it sit on one
-    // surface rather than two near-identical ones — deliberately re-picked from the
-    // global palette instead of reading the Widget's token, because a contextual
-    // partial consumes globals, never another partial's tokens. If the card surface
-    // is ever retuned, this is the second place to follow it.
+    // The hero panel's fill, and the FIRST STOP of the gradient below — one token, because
+    // they are one decision and a second name for the same colour is a second thing to keep
+    // in step. The SAME pick as the Widget's card surface (c.$c-widget "background") so the
+    // hero and the facts cards below it sit on one surface rather than two near-identical
+    // ones — deliberately re-picked from the global palette instead of reading the Widget's
+    // token, because a contextual partial consumes globals, never another partial's tokens.
+    // If the card surface is ever retuned, this is the second place to follow it.
+    //
+    // It is ALSO what the title knocks out of (see the note further down), and the 135deg
+    // ramp is what makes that still true: the gradient starts at the panel's top-left corner,
+    // which is where the heading sits, so the letters are filled with the colour actually
+    // behind them.
     "background": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "black")),
+    // The gradient's far stop — the hero wears the same quiet grey ramp as the welcome page's
+    // intro panel (the owner, 2026-08-14), so a detail page's loudest element and the landing
+    // page's opening block are visibly the same surface treatment.
+    //
+    // RE-PICKED FROM THE GLOBALS, not read from c.$c-welcome-intro, per the token rules — the
+    // same arrangement the card surface above already documents. If one ramp is retuned the
+    // other is the second place to follow it.
+    //
+    // The two themes do NOT take the same delta, and that is measured rather than assumed. In
+    // lightness: white L100 → infra L85.5 is 14.5 points, where a first attempt on the welcome
+    // page ran to `astral` L96.5 and was 3.5 — imperceptible, which is not "subtle" but absent.
+    // Dark goes black L0 → ebony L10.5, dialled back from `bunker` L22, because the same
+    // numeric step reads considerably stronger against a near-black ground.
+    "gradient-to": light-dark(map.get(c.$grey, "infra"), map.get(c.$grey, "ebony")),
     // The hero panel's featured border: the ramp walks the retro hues in palette
     // order, c2 → c3 → c4 → c5 → c6 → c7, so it runs blue → violet → magenta →
     // steel and back round to blue where the component closes the loop. A

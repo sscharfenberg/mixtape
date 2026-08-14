@@ -146,3 +146,66 @@ test("stacks them into one column well before the cards get cramped", async ({ p
     expect(Math.abs(music.width - books.width)).toBeLessThanOrEqual(1);
     expect(books.y).toBeGreaterThan(music.y + music.height - 1);
 });
+
+/*
+ * THE TWO CARDS' TILE ROWS LINE UP (the owner, 2026-08-14), which is a `WidgetGroup --pair`
+ * decision and only observable in a browser.
+ *
+ * A wrapping tile grid shares its card's SPARE height between its own lines, and the two cards
+ * never have the same amount spare: the real library's playtime runs to "2 Monate, 17 Tage, …"
+ * and wraps to two lines where the audiobook card's fits on one. So each card divided what it had
+ * across its own three rows and every tile came out a different height to its opposite number —
+ * measured at 1440px before the fix: row 1 drawn 72px tall on the left and 83px on the right, the
+ * years row starting 10px lower and the playtime row 22px lower on the right.
+ *
+ * THE LONG PLAYTIME IS INJECTED, and that needs justifying. The E2E library is a handful of
+ * files, so both playtimes fit on one line here and the rows line up whatever `align-content`
+ * says — a test over the seeded data would pass against the bug. What is under test is the CSS,
+ * not the numbers, so the fixture the CSS needs is a value long enough to wrap: the same pieces
+ * the formatter would emit for a real collection, written into the tile the same way. Growing the
+ * seeder to two months of audio to get there would be a far worse trade.
+ */
+test("keeps both cards' tile rows aligned when one playtime wraps", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto("/");
+    // `goto` resolves on load, which is before Vue has mounted the page — so the cards have to be
+    // waited for, or the evaluate below reaches into an empty NodeList.
+    await expect(page.locator(".widget-stats__cell").first()).toBeVisible();
+
+    const rows = await page.evaluate(() => {
+        const cards = [...document.querySelectorAll(".widget")];
+
+        // Give the MUSIC card the playtime a real library has — five unbreakable pieces, which is
+        // what the formatter produces once the total passes a month.
+        const cells = cards[0].querySelectorAll(".widget-stats__cell");
+        const playtime = cells[cells.length - 1].querySelector(".widget-stats__value")!;
+        playtime.innerHTML = ["2 Monate,", "17 Tage,", "6 Stunden,", "38 Minuten,", "3 Sekunden"]
+            .map(part => `<span class="widget-stats__part">${part}</span>`)
+            .join(" ");
+
+        // Force layout, then read every tile's top edge per card.
+        void (cards[0] as HTMLElement).offsetHeight;
+
+        return cards.map(card => [...card.querySelectorAll(".widget-stats__cell")].map(cell => {
+            const box = cell.getBoundingClientRect();
+
+            return { top: Math.round(box.top), height: Math.round(box.height) };
+        }));
+    });
+
+    const [music, books] = rows;
+
+    // Same number of tiles on both cards here (six facts plus a year range), so the tops compare
+    // one for one. Every row starts at the same y; only the wrapped playtime's own HEIGHT differs,
+    // and it may, because it is the last row and grows downward.
+    expect(books).toHaveLength(music.length);
+    music.forEach((cell, index) => expect(Math.abs(cell.top - books[index].top)).toBeLessThanOrEqual(1));
+
+    // THE PREMISE OF THE CASE, asserted rather than assumed: the injected value really did wrap,
+    // so the tops above line up in spite of unequal content and not because there was none. This
+    // is the assertion that would have failed before the fix — with the tiles stretching, the
+    // taller playtime is exactly what pulled every row above it out of step.
+    const lastMusic = music[music.length - 1];
+    const lastBooks = books[books.length - 1];
+    expect(lastMusic.height).toBeGreaterThan(lastBooks.height);
+});

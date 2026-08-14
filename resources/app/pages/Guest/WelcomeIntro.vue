@@ -86,6 +86,7 @@ const target = computed(() => (user.value ? "/music" : "/login"));
     align-items: center;
     flex-wrap: wrap;
 
+    overflow: hidden;
     padding: map.get(s.$c-welcome-intro, "padding");
     border: map.get(s.$c-welcome-intro, "border") solid map.get(c.$c-welcome-intro, "border");
     gap: map.get(s.$c-welcome-intro, "gap");

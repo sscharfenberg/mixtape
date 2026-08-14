@@ -32,11 +32,13 @@
  *              (`> :slotted(*)`), so this is a document-outline decision only, with
  *              nothing visual riding on it.
  *
- *              ONLY THE PLAYLIST AND NOW PLAYING PAGES FILL IT as of 2026-08-11. The four
- *              Music detail pages moved their titles up into the same glowing <Headline>
- *              every listing wears, so arriving at an album looks like arriving anywhere
- *              else in the app — and their heroes now open with the facts. The slot stays
- *              because those two still read better with the title beside the art.
+ *              ONLY THE NOW PLAYING PAGE FILLS IT. The four Music detail pages moved their
+ *              titles up into the same glowing <Headline> every listing wears (2026-08-11),
+ *              so arriving at an album looks like arriving anywhere else in the app — and
+ *              their heroes now open with the facts; the playlist and share pages followed.
+ *              The slot stays because Now Playing still reads better with the title beside
+ *              the art, and it is the one page whose knockout lettering is on screen — which
+ *              is why the gradient below starts at the panel colour the title is filled with.
  *   #menu      what acts on the subject AS A WHOLE — the play / enqueue menu. Sits on the
  *              far end of the heading's line, level with its first line, and is a
  *              sibling of #title rather than part of it (the styles say why: a button
@@ -176,10 +178,45 @@ defineProps<{
     position: relative; // positioning context for the border ring below
     isolation: isolate; // keep the ring's rung contained to this panel
 
+    /* THE PANEL KEEPS ITS OWN LIGHT IN (the owner, 2026-08-14). Two things in here glow past
+       their own boxes: every `#metadata` tile carries a halo (see `metadata-halo` below) and the
+       action buttons carry the neon `.btn` spread. On a wide panel both have room; on a phone the
+       tiles reach the padding and the glow washes straight over the rotating gradient ring —
+       measured at 400px, the trailing tile ends 16px from the panel edge with a halo wider than
+       that, so the ring's right side sat under a blue wash. It reads as the border being broken,
+       which is the ONE thing the hero uses to say "this is the loudest element on the page".
+
+       `clip`, NOT `hidden`, and the difference is real rather than stylistic: `hidden` makes this
+       a scroll container, so focusing a control near the edge would scroll the panel and reveal
+       what was meant to stay clipped. `clip` cannot scroll at all, which is exactly right for a
+       decorative bleed. Both follow `border-radius`, so the corners clip round.
+
+       Nothing that must escape is affected: the menu and every tooltip are native `[popover]`
+       elements in the browser's TOP LAYER, which no ancestor's overflow can touch. The one thing
+       that deliberately overflows its own box — the unframed cover's rotated sleeve fan — sits
+       well inside this padding. */
+    overflow: clip;
+
     padding: map.get(s.$c-hero-section, "padding");
     gap: map.get(s.$c-hero-section, "gap");
 
+    /* The panel surface, ramped across the diagonal — the same quiet grey gradient the welcome
+       page's intro panel wears (the owner, 2026-08-14), so the landing page's opening block and
+       a detail page's loudest element read as one surface treatment.
+
+       THE FLAT COLOUR STAYS UNDERNEATH, and it is not belt-and-braces: `background` is what the
+       TITLE is filled with, so the two must be one token or the knockout drifts the day either
+       moves. It is also the honest fallback for anything that paints a colour but not an image.
+
+       135deg PUTS THE FIRST STOP AT THE TOP-LEFT CORNER, which is the reason the knockout still
+       works: the heading sits in the panel's leading column, so the letters carry the colour
+       actually behind them. */
     background-color: map.get(c.$c-hero-section, "background");
+    background-image: linear-gradient(
+        135deg,
+        map.get(c.$c-hero-section, "background"),
+        map.get(c.$c-hero-section, "gradient-to")
+    );
     border-radius: map.get(s.$c-hero-section, "radius");
 
     /* TWO COLUMNS ONLY WHEN THERE IS A COVER TO PUT IN THE SECOND. Declared unconditionally,

@@ -90,10 +90,32 @@ defineProps<{
    lines can differ in width, which for independent facts reads as fine and never as ragged.
 
    `flex: 1` on the container is what hands the card's spare height to the tiles;
-   `align-content` defaults to `stretch` for a wrapping flex container, so that height is
-   shared between the lines rather than pooling under the last one. */
+   `align-content` decides what happens to it, and the default `stretch` shares it between the
+   lines rather than pooling it under the last one.
+
+   THAT DEFAULT IS ALSO WHY TWO CARDS SIDE BY SIDE CANNOT LINE UP, which is what
+   `--stat-tiles-align` exists for (2026-08-14, the owner). Stretching is a per-card decision
+   made from that card's OWN spare height: on the welcome page the music card's playtime runs to
+   "2 Monate, 17 Tage, …" and wraps to two lines, so it has ~30px less to give away than the
+   audiobook card beside it — and each card shared what it had across its own three lines.
+   Measured at 1440px: identical row 1 in both, drawn 72px tall in one and 83px in the other, so
+   the years row started 10px lower on the right and the playtime row 22px lower. Every tile a
+   different size to its opposite number.
+
+   `flex-start` is the fix, and the cost is explicit rather than hidden: lines take their natural
+   height, so all three rows start at the same y in both cards (485 / 570 / 654, measured) and
+   only the playtime's own box is taller — which is fine, because it is last and grows downward.
+   The shorter card then leaves its slack as a strip at the bottom, the very thing `stretch` was
+   added to remove. So this is a CHOICE BETWEEN TWO COSTS, not a bug fix, and which one is right
+   depends on the neighbours: a card alone beside four browse widgets has a lot of spare height
+   and should absorb it, while a matched pair should agree with each other.
+
+   WHICH IS WHY THE GROUP DECIDES, NOT THIS FILE. A custom property inherits, so
+   `WidgetGroup --pair` publishes `flex-start` and this reads it — no prop threaded down through
+   Widget and the two consumer cards to reach a layout question none of them asks. */
 .widget-stats__grid {
     display: flex;
+    align-content: var(--stat-tiles-align, stretch);
     flex-wrap: wrap;
 
     flex: 1;
