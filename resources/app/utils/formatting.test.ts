@@ -8,7 +8,8 @@ import {
     formatDurationParts,
     formatFileSize,
     formatPosition,
-    formatTimesPlayed
+    formatTimesPlayed,
+    formatYearRange
 } from "Utils/formatting";
 
 /*
@@ -256,5 +257,32 @@ describe("formatTimesPlayed", () => {
     it("formats a zero rather than refusing it — hiding it is the caller's decision", () => {
         // The hero tiles omit a zero, the listings draw a dash. Neither rule belongs here.
         expect(formatTimesPlayed(0)).toBe("0\u00d7");
+    });
+});
+
+describe("formatYearRange", () => {
+    it("writes a span as two years joined by an en dash, unspaced", () => {
+        expect(formatYearRange(1965, 2024)).toBe("1965\u20132024");
+    });
+
+    it("collapses a collection that spans a single year to that one year", () => {
+        // Not "1994\u20131994", which reads as a range somebody forgot to fill in.
+        expect(formatYearRange(1994, 1994)).toBe("1994");
+    });
+
+    it("never separates the thousands, which is the whole reason this is not formatDecimals", () => {
+        // A year is not a quantity. Through the locale-aware formatter a German reader would be
+        // shown "1.965\u20132.024", which reads as two large numbers rather than as a span. That is
+        // also why this formatter takes no locale: there is nothing here for one to decide.
+        expect(formatYearRange(1965, 2024)).not.toContain(".");
+        expect(formatYearRange(1994, 1994)).not.toContain(".");
+    });
+
+    it("answers null when either end is unknown, so the caller can drop the tile", () => {
+        // SQL's MIN/MAX skip untagged rows, so both ends are null for a collection whose rows
+        // carry no year at all \u2014 and a dash with blanks either side is worse than one fewer fact.
+        expect(formatYearRange(null, null)).toBeNull();
+        expect(formatYearRange(1965, null)).toBeNull();
+        expect(formatYearRange(null, 2024)).toBeNull();
     });
 });

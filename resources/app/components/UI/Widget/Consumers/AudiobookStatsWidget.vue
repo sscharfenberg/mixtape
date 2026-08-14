@@ -1,8 +1,9 @@
 <script setup lang="ts">
 /******************************************************************************
  * AudiobookStatsWidget
- * The Audiobooks page's "Alle Hörbücher" card — a WIDE Widget holding the six numbers that
- * describe the audiobook collection.
+ * The Audiobooks page's "Alle Hörbücher" card — a Widget holding the numbers that describe the
+ * audiobook collection. Wide by default (spans two of its group's columns), which `wide`
+ * lets a host page turn off.
  *
  * A sibling of StatsWidget rather than a mode of it: the two cards answer different questions
  * (an album count against a book count, artists and genres against authors and narrators) and
@@ -12,6 +13,10 @@
  * ITS SEARCH IS SCOPED TO THIS AREA. The field is the shared SearchHub, told to answer with
  * audiobooks alone — a box on the Audiobooks page returning songs would send a reader
  * somewhere they were not browsing. The header's overlay is the one that searches both.
+ *
+ * AND IT IS OPTIONAL (`searchable`, 2026-08-14), for the reason StatsWidget's banner spells
+ * out: the welcome page draws this card to a visitor with no session, and `/search` is inside
+ * the auth group, so a field there would answer 401 to everything typed into it.
  *
  * Values arrive raw from AudiobooksController and are formatted here: counts locale-aware,
  * size bytes → GB/MB, and playtime seconds → a "months, days, hours, minutes, seconds"
@@ -27,9 +32,25 @@ import StatTiles from "Components/UI/Widget/StatTiles.vue";
 import Widget from "Components/UI/Widget/Widget.vue";
 import type { AudiobookStats } from "Types/audiobooks";
 import type { SearchKind } from "Types/search";
-import { formatDecimals, formatDurationParts, formatFileSize } from "Utils/formatting";
+import { formatDecimals, formatDurationParts, formatFileSize, formatYearRange } from "Utils/formatting";
 
-const props = defineProps<AudiobookStats>();
+/** The collection's totals, plus the two things a host page decides about the card itself. */
+interface Props extends AudiobookStats {
+    /**
+     * Draw the search field above the tiles. On by default — the Audiobooks page is what this
+     * card was built for; the welcome page turns it off (see the banner).
+     */
+    searchable?: boolean;
+    /**
+     * Span two of the WidgetGroup's columns. On by default, because this card is the only one
+     * in its group on the Audiobooks page and should fill the row rather than sit in a third of
+     * it. The welcome page turns it off so the pair of cards splits the row instead —
+     * StatsWidget's prop carries why that is the way round it is.
+     */
+    wide?: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), { searchable: true, wide: true });
 
 const { t, locale } = useI18n();
 
@@ -53,11 +74,20 @@ const playtimeParts = computed<string[]>(() => {
 });
 
 /**
- * The six tiles.
+ * The books' years as one range, or null when none of them carries a year — which drops the
+ * tile. `formatYearRange` holds the rules, shared with the music card so a span of years is
+ * written identically wherever it appears.
+ */
+const yearRange = computed<string | null>(() => formatYearRange(props.firstYear, props.lastYear));
+
+/**
+ * The tiles.
  *
  * The glyphs are the ones this area already uses for the same facts — `audiobook`, `track`,
  * `author`, `narrator`, `duration`, and `file` for the one fact that is about bytes rather
- * than about books — so a reader meets one meaning per icon across the page.
+ * than about books — so a reader meets one meaning per icon across the page. The year range
+ * borrows `calendar` and the music card's LABEL as well, because it is the same fact about a
+ * different shelf and inventing a second word for it would be the only difference.
  */
 const tiles = computed<StatTile[]>(() => [
     {
@@ -95,6 +125,17 @@ const tiles = computed<StatTile[]>(() => [
         label: t("audiobooks.columns.narrators"),
         hint: t("audiobooks.stats.hint.narrators")
     },
+    // Only where there is a range to show. Spread rather than a `v-if` in the template, so this
+    // list stays the one description of what the card holds — the music card does the same.
+    ...(yearRange.value === null
+        ? []
+        : [{
+            key: "years",
+            icon: "calendar",
+            value: [yearRange.value],
+            label: t("music.stats.label.years"),
+            hint: t("audiobooks.stats.hint.years")
+        }]),
     {
         key: "playtime",
         icon: "duration",
@@ -107,13 +148,13 @@ const tiles = computed<StatTile[]>(() => [
 </script>
 
 <template>
-    <widget wide>
+    <widget :wide="wide">
         <template #title>
             <icon name="audiobook" />
             {{ t("audiobooks.widgets.allAudiobooks") }}
         </template>
         <div class="widget-stats">
-            <search-hub name="audiobooks" :only="AUDIOBOOK_KINDS" />
+            <search-hub v-if="searchable" name="audiobooks" :only="AUDIOBOOK_KINDS" />
 
             <stat-tiles :tiles="tiles" />
         </div>

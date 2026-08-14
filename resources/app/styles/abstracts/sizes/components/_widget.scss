@@ -15,6 +15,19 @@ $widget: (
     "padding": map.get(s.$padding, "portrait"),
     "group-min": 18.75rem,
     // 300px at the 16px base
+    //
+    // The floor for a group of exactly two STATS cards (WidgetGroup `pair`, the welcome page).
+    // Bigger than `group-min` because those cards are dense — six or seven tiles and a playtime
+    // written out as a phrase — where a browse widget is four one-line entries. At the general
+    // floor the pair stayed two-up down to ~590px, at which width "6 Stunden, 38 Minuten,
+    // 3 Sekunden" wraps to three lines in a 275px card. This lands the collapse to one column at
+    // about 800px instead.
+    //
+    // Note both floors are in REM and the root font-size steps DOWN on small viewports
+    // (s.$c-app "font-size"), so a rem floor shrinks exactly where a card can least afford it —
+    // 18.75rem is 300px at the desktop base and 270px at the portrait one. That is why this
+    // number looks larger than the arithmetic suggests it needs to be.
+    "pair-min": 24rem,
     "group-gap": map.get(s.$padding, "portrait"),
     "skeleton-bar": 0.9rem,
     "skeleton-gap": 0.6rem,

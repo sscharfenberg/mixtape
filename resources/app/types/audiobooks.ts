@@ -22,6 +22,17 @@ export interface AudiobookStats {
     authors: number;
     /** Distinct narrators credited on at least one chapter. */
     narrators: number;
+    /**
+     * The oldest year any BOOK carries, or null when none of them is tagged with one — the card
+     * draws the pair as a range ("1965–2024") and skips the tile entirely when it is null.
+     *
+     * Two numbers rather than a formatted range, per the app's raw-values rule; and note a year
+     * is NOT locale-formatted like the counts beside it, since "1.994" is a thousand-separated
+     * quantity rather than a year. Same shape and same reasoning as CollectionStats' pair.
+     */
+    firstYear: number | null;
+    /** The newest year any book carries, or null — see `firstYear`. */
+    lastYear: number | null;
 }
 
 /**

@@ -69,6 +69,14 @@
         "copyrightPlain": "© {appName} Mitwirkende {date}",
         "repository": "Quellcode"
     },
+    "home": {
+        "title": "Willkommen",
+        "claim": "Deine Musiksammlung.",
+        "intro": "MixTape ist eine Musik- und Hörbuchsammlung, die auf einem privaten Home-Server läuft — kein Streaming-Dienst, sondern echte Dateien, über Jahre zusammengetragen.",
+        "invite": "Ein Konto gibt es nur auf Einladung. Für einen geteilten Link brauchst du keines — der spielt einfach.",
+        "signIn": "Anmelden",
+        "browse": "Zur Sammlung"
+    },
     "auth": {
         "login": {
             "pageTitle": "Anmelden",
@@ -476,6 +484,7 @@
                 "size": "Gesamtgröße aller Kapiteldateien auf der Festplatte",
                 "authors": "Anzahl der Autoren mit mindestens einem Kapitel",
                 "narrators": "Anzahl der Erzähler mit mindestens einem Kapitel",
+                "years": "Von der ältesten bis zur jüngsten Jahresangabe deiner Hörbücher — Bücher ohne Jahr zählen nicht mit",
                 "playtime": "Gesamtdauer aller Kapitel"
             }
         },

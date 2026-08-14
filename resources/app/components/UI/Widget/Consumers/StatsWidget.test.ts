@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import SearchHub from "Components/Search/SearchHub.vue";
 import Tooltip from "Components/UI/Tooltip/Tooltip.vue";
 import { resetInertia } from "Testing/inertia";
 import type { TestLocale } from "Testing/mount";
@@ -36,9 +37,15 @@ const stats = (overrides: Partial<CollectionStats> = {}): CollectionStats => ({
     ...overrides
 });
 
-/** Mount the card over one library, in German unless a case is about the other locale. */
-const widget = (overrides: Partial<CollectionStats> = {}, locale: TestLocale = "de") =>
-    mountApp(StatsWidget, { props: stats(overrides), locale });
+/**
+ * Mount the card over one library, in German unless a case is about the other locale.
+ *
+ * `searchable` defaults to the component's own default rather than being spelled out, so every
+ * case above meets the card as the Music page builds it; only the two cases about the field
+ * pass it.
+ */
+const widget = (overrides: Partial<CollectionStats> = {}, locale: TestLocale = "de", searchable = true) =>
+    mountApp(StatsWidget, { props: { ...stats(overrides), searchable }, locale });
 
 /**
  * A tile's label, looked up rather than spelled out.
@@ -179,5 +186,28 @@ describe("StatsWidget", () => {
         expect(hints).toHaveLength(7);
         expect(hints).toContain(translate("music.stats.hint.years"));
         expect(hints.every(hint => hint !== "")).toBe(true);
+    });
+
+    /*
+     * The field is optional since 2026-08-14, because the welcome page draws this card to a
+     * visitor with no session and `/search` is inside the auth group — a box there would answer
+     * 401 to everything typed into it.
+     *
+     * What is worth pinning is that dropping the field drops NOTHING ELSE. The card is one flex
+     * column holding the field and the tiles, so a `v-if` in the wrong place, or a stray tile
+     * that assumed a search above it, would show up as a landing page missing a number rather
+     * than as an error.
+     */
+    it("carries the search field by default, which is the card the Music page asks for", () => {
+        expect(widget().findComponent(SearchHub).exists()).toBe(true);
+    });
+
+    it("drops the field when told it has no search, and keeps every tile", () => {
+        const wrapper = widget({}, "de", false);
+
+        expect(wrapper.findComponent(SearchHub).exists()).toBe(false);
+        expect(labels(wrapper)).toStrictEqual(
+            ["songs", "size", "albums", "artists", "genres", "years", "playtime"].map(key => label(key))
+        );
     });
 });

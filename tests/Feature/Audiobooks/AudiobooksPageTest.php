@@ -79,6 +79,11 @@ class AudiobooksPageTest extends TestCase
                 ->where('stats.narrators', 1)
                 ->where('stats.sizeBytes', 10_000)
                 ->where('stats.playtimeSeconds', fn (float|int $s) => (float) $s === 1000.0)
+                // The years the BOOKS span, drawn as one range on the card (2026-08-14). Two
+                // nullable numbers rather than a string, because a year must not be
+                // locale-separated like the counts beside it.
+                ->where('stats.firstYear', 2008)
+                ->where('stats.lastYear', 2010)
             );
     }
 
@@ -192,8 +197,45 @@ class AudiobooksPageTest extends TestCase
                 ->where('stats.books', 0)
                 ->where('stats.sizeBytes', 0)
                 ->where('stats.playtimeSeconds', fn (float|int $s) => (float) $s === 0.0)
+                // …except the year range, which is NULL rather than zero, and deliberately so:
+                // "0–0" would be a fact the library does not have. The card drops the tile.
+                ->where('stats.firstYear', null)
+                ->where('stats.lastYear', null)
                 ->has('books', 0)
                 ->has('authors', 0)
+            );
+    }
+
+    public function test_the_year_range_ignores_music_albums_entirely(): void
+    {
+        // `collections` holds albums and audiobooks in one table, so the range is one `type`
+        // filter away from being the music library's — and an album either side of the books'
+        // span is what makes a missing filter visible rather than merely possible.
+        $this->library();
+        Collection::factory()->create(['year' => 1900]);
+        Collection::factory()->create(['year' => 2050]);
+
+        $this->actingAs(User::factory()->create())
+            ->get('/audiobooks')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('stats.firstYear', 2008)
+                ->where('stats.lastYear', 2010)
+            );
+    }
+
+    public function test_an_untagged_book_does_not_drag_the_range_to_null(): void
+    {
+        // SQL's MIN/MAX skip nulls, which is the behaviour the card relies on: one undated book
+        // among dated ones must narrow nothing. Only a library where NOTHING carries a year
+        // answers null, and that is the case above.
+        $this->library();
+        Collection::factory()->audiobook()->create(['name' => 'Undatiert', 'year' => null]);
+
+        $this->actingAs(User::factory()->create())
+            ->get('/audiobooks')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('stats.firstYear', 2008)
+                ->where('stats.lastYear', 2010)
             );
     }
 }

@@ -69,6 +69,14 @@
         "copyrightPlain": "© {appName} contributors {date}",
         "repository": "Source code"
     },
+    "home": {
+        "title": "Welcome",
+        "claim": "Your music collection.",
+        "intro": "MixTape is a music and audiobook collection running on a private home server — not a streaming service, but real files, gathered over years.",
+        "invite": "Accounts are by invitation only. A shared link needs none — it simply plays.",
+        "signIn": "Sign in",
+        "browse": "Browse the collection"
+    },
     "auth": {
         "login": {
             "pageTitle": "Sign in",
@@ -476,6 +484,7 @@
                 "size": "Combined size of all chapter files on disk",
                 "authors": "Number of authors with at least one chapter",
                 "narrators": "Number of narrators with at least one chapter",
+                "years": "From the oldest to the newest year your audiobooks carry — books with no year are left out",
                 "playtime": "Combined duration of all chapters"
             }
         },

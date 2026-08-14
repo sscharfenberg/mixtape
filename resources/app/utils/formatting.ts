@@ -187,3 +187,27 @@ export const formatPosition = (index: number | null, total: number | null): stri
  * @param count how many listens, already counted by the server
  */
 export const formatTimesPlayed = (count: number): string => `${count}×`;
+
+/**
+ * Two years as one range — "1965–2024", or a single year for a collection that spans none.
+ *
+ * Null when neither end is known, which is a real answer rather than a fallback: a range with a
+ * dash and nothing either side is worse than one fewer fact, so the caller drops the tile.
+ *
+ * AN EN DASH WITHOUT SPACES, the typographic form for a span of years in both catalogues.
+ *
+ * NOT `formatDecimals`, unlike every count that sits beside it, and this is the whole reason the
+ * range is a formatter of its own: a year is not a quantity, so a German locale would render 1994
+ * as "1.994". That is also why it takes no locale — there is nothing here for one to decide.
+ *
+ * Shared by the music and audiobook stats cards, so the two can never disagree about how a span
+ * of years is written.
+ *
+ * @param firstYear the oldest year anything in the collection carries, or null when none does
+ * @param lastYear the newest, likewise
+ */
+export const formatYearRange = (firstYear: number | null, lastYear: number | null): string | null => {
+    if (firstYear === null || lastYear === null) return null;
+
+    return firstYear === lastYear ? String(firstYear) : `${firstYear}–${lastYear}`;
+};

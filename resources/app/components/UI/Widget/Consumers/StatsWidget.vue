@@ -1,10 +1,11 @@
 <script setup lang="ts">
 /******************************************************************************
  * StatsWidget
- * The Music page's "Alle Musik" card — a WIDE Widget (spans two grid columns for room) holding the
- * page's SEARCH HUB over a grid of collection stat tiles, each an icon, a label and a big number,
- * wrapped in a Tooltip that explains how the number is derived. Music-only, matching the browse
- * widgets; no mode toggle or footer.
+ * The Music page's "Alle Musik" card — a Widget holding the page's SEARCH HUB over a grid of
+ * collection stat tiles, each an icon, a label and a big number, wrapped in a Tooltip that explains
+ * how the number is derived. Music-only, matching the browse widgets; no mode toggle or footer.
+ * Wide by default (spans two of its group's columns for room), and `wide` says why a page might
+ * want otherwise.
  *
  * THE FILE NAME IS NARROWER THAN THE JOB, since 2026-08-13 (docs/search.md → "The Music page"):
  * this was the stats card, and the heading said _Statistik_. It is kept as the search's home
@@ -34,6 +35,11 @@
  * the query in the header overlay are two questions — which is what stops opening the overlay
  * re-running whatever was left in this field.
  *
+ * AND IT IS OPTIONAL (`searchable`, 2026-08-14), because the welcome page draws this card to a
+ * visitor with no session. `/search` is inside the auth group, so a field there would be a box
+ * that answers 401 to everything typed into it. The card's other half — six numbers describing a
+ * collection — is exactly what that page wants, so the field is dropped rather than the card.
+ *
  * Values arrive raw from MusicController (CollectionStats) and are formatted here: counts
  * locale-aware, size bytes → GB/MB, and playtime seconds → a human "months, days, hours, minutes,
  * seconds" breakdown. Months are a flat 30 days (a duration has no calendar), so the parts always
@@ -48,9 +54,29 @@ import type { StatTile } from "Components/UI/Widget/StatTiles.vue";
 import Widget from "Components/UI/Widget/Widget.vue";
 import type { CollectionStats } from "Types/music";
 import type { SearchKind } from "Types/search";
-import { formatDecimals, formatDurationParts, formatFileSize } from "Utils/formatting";
+import { formatDecimals, formatDurationParts, formatFileSize, formatYearRange } from "Utils/formatting";
 
-const props = defineProps<CollectionStats>();
+/** The collection's totals, plus the two things a host page decides about the card itself. */
+interface Props extends CollectionStats {
+    /**
+     * Draw the search field above the tiles. On by default — the Music page is what this card
+     * was built for. The welcome page turns it off; see the banner for why a guest gets none.
+     */
+    searchable?: boolean;
+    /**
+     * Span two of the WidgetGroup's columns. On by default, because this card shares its group
+     * with four browse widgets and needs the room.
+     *
+     * The welcome page turns it OFF, and that is the opposite of what it sounds like: two cards
+     * asking for two tracks each in a group that fits three leaves one per row, stacked. At one
+     * track each the group's `auto-fit` collapses the track neither lands in and the `1fr` on
+     * the other two absorbs its width — so they end up SIDE BY SIDE, splitting the row, which
+     * is what "not wide" buys here.
+     */
+    wide?: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), { searchable: true, wide: true });
 
 const { t, locale } = useI18n();
 
@@ -151,33 +177,24 @@ const playtimeParts = computed<string[]>(() => {
 });
 
 /**
- * The album years as one range — "1965–2024", or a single year for a collection that spans none.
+ * The album years as one range — "1965–2024", or null when no album carries a year at all, which
+ * drops the tile.
  *
- * Null when no album carries a year at all, which drops the tile: a range with a dash and nothing
- * either side is worse than one fewer fact. An EN DASH without spaces, the typographic form for a
- * span of years in both catalogues.
- *
- * NOT `formatDecimals`, unlike every count on this card, and that is the one thing to be careful of
- * here: a year is not a quantity, so a German locale would render 1994 as "1.994". The album and song
- * widgets print theirs with `String()` for the same reason.
+ * The rules live in `formatYearRange` (shared with the audiobook card since 2026-08-14), including
+ * the one to be careful of: a year is deliberately NOT locale-separated like every count beside it.
  */
-const yearRange = computed<string | null>(() => {
-    const { firstYear, lastYear } = props;
-    if (firstYear === null || lastYear === null) return null;
-
-    return firstYear === lastYear ? String(firstYear) : `${firstYear}–${lastYear}`;
-});
+const yearRange = computed<string | null>(() => formatYearRange(props.firstYear, props.lastYear));
 
 </script>
 
 <template>
-    <widget wide>
+    <widget :wide="wide">
         <template #title>
             <icon name="music" />
             {{ t("music.widgets.allMusic") }}
         </template>
         <div class="widget-stats">
-            <search-hub name="music" :only="MUSIC_KINDS" />
+            <search-hub v-if="searchable" name="music" :only="MUSIC_KINDS" />
 
             <stat-tiles :tiles="tiles" />
         </div>

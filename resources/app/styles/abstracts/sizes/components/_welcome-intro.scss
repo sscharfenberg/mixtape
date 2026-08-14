@@ -1,0 +1,33 @@
+/******************************************************************************
+ * contextual size tokens — component:WelcomeIntro
+ * @type {Sass}
+ * The welcome page's explanation-and-CTA panel — prose on the left, the button
+ * centred on the right, wrapping to one column when the pair no longer fits.
+ *
+ * `column-min` is what decides that wrap, and it is the whole layout in one
+ * number: both halves take it as their flex-basis and grow equally from it, so
+ * above `2 × column-min + gap` they are two EQUAL halves — which is what makes
+ * "centred on the right half" mean anything — and below it the button drops
+ * under the text. In `rem`, like the group floors it sits beside, so it steps
+ * with the root font-size.
+ *
+ * `measure` caps the prose INSIDE its half rather than capping the half itself:
+ * in `ch`, because that is the unit the question is actually asked in ("how many
+ * characters before the eye loses the next line"). Capping the flex item instead
+ * would hand the slack to the button's half and stop the two being halves at all.
+ *
+ * The panel metrics (border / radius / padding) mirror the Widget's, so the
+ * introduction and the cards it introduces are drawn by the same rules.
+ * Consumed as s.$c-welcome-intro via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$welcome-intro: (
+    "measure": 62ch,
+    "column-min": 20rem,
+    "border": map.get(s.$border, "base"),
+    "radius": map.get(s.$radius, "featured"),
+    "padding": map.get(s.$padding, "portrait"),
+    "gap": map.get(s.$padding, "portrait")
+) !default;

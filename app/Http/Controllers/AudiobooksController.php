@@ -3,11 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Enums\CollectionType;
-use App\Enums\TrackType;
 use App\Models\Author;
 use App\Models\Collection;
 use App\Models\Narrator;
 use App\Models\Track;
+use App\Services\Library\LibraryStats;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -41,36 +41,11 @@ class AudiobooksController extends Controller
         return Inertia::render('Audiobooks/AudiobooksPage', [
             // Closures, so the widget's refresh button can re-run one of these without the
             // page around it — the arrangement MusicController's stats and widgets use.
-            'stats' => fn (): array => $this->stats(),
+            'stats' => fn (): array => LibraryStats::audiobooks(),
             'books' => fn (): array => $this->books(),
             'authors' => fn (): array => $this->credits(Author::class, 'author_id'),
             'narrators' => fn (): array => $this->credits(Narrator::class, 'narrator_id'),
         ]);
-    }
-
-    /**
-     * The six numbers on the stats card: books, chapters, size, authors, narrators, playtime.
-     *
-     * Authors and narrators are counted over TAXONOMY ROWS rather than distinct values on
-     * tracks, which is the same thing given the scanner prunes orphans on every run — and one
-     * index-only count instead of a scan of the chapter table.
-     *
-     * @return array{books: int, chapters: int, sizeBytes: int, playtimeSeconds: float, authors: int, narrators: int}
-     */
-    private function stats(): array
-    {
-        $chapters = fn () => Track::query()->where('type', TrackType::Audiobook);
-
-        return [
-            'books' => Collection::query()->where('type', CollectionType::Audiobook)->count(),
-            'chapters' => $chapters()->count(),
-            // Cast so a null SUM on an empty library is 0 rather than null, the same guard
-            // the music card carries.
-            'sizeBytes' => (int) $chapters()->sum('size'),
-            'playtimeSeconds' => (float) $chapters()->sum('duration'),
-            'authors' => Author::query()->has('tracks')->count(),
-            'narrators' => Narrator::query()->has('tracks')->count(),
-        ];
     }
 
     /**

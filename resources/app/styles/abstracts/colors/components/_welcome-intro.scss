@@ -1,0 +1,42 @@
+/******************************************************************************
+ * contextual color tokens — component:WelcomeIntro
+ * @type {Sass}
+ * The welcome page's explanation-and-CTA panel: a bordered box carrying a very
+ * quiet gradient, so it reads as a panel introducing the two stats cards below
+ * rather than as a third card competing with them.
+ *
+ * THE GRADIENT RAMPS FROM THE CARD SURFACE — `white` / `black` — into the greys,
+ * across the diagonal. It stays grey on purpose: a brand ramp here would put a
+ * third saturated gradient on a page that already has the heading's glowing
+ * border and two cards with cyan→pink title strips.
+ *
+ * THE TWO THEMES DO NOT TAKE THE SAME DELTA, and the numbers are the reason
+ * (retuned 2026-08-14 — the owner, who could not see the light one at all).
+ * In lightness: white L100 → infra L85.5 is 14.5 points, where the first attempt
+ * ran to `astral` L96.5 and was 3.5 — imperceptible, which is not "subtle", it is
+ * absent. Dark goes black L0 → ebony L10.5, which is 10.5 points, dialled back
+ * from `bunker` L22: the same numeric step reads considerably stronger against a
+ * near-black ground, so matching the two by the number would over-drive the dark
+ * one, which it did.
+ *
+ * The light end deliberately overshoots the body colour (`mystic` L93) to `infra`,
+ * so the far corner stays clearly a panel rather than dissolving into the page.
+ * Dark lands ON its body value (`ebony`), which is fine for the reason the light
+ * side cannot rely on: the border carries the edge, and only one corner of a
+ * diagonal reaches the end stop at all.
+ *
+ * The border and the ink MIRROR the Widget's / Card's picks, re-picked from the
+ * global palette rather than read off those partials — a contextual partial
+ * consumes globals, never another partial's tokens. If the panel surfaces are
+ * retuned, these move with them.
+ * Consumed as c.$c-welcome-intro via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-color-tokens" as c;
+
+$welcome-intro: (
+    "gradient-from": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "black")),
+    "gradient-to": light-dark(map.get(c.$grey, "infra"), map.get(c.$grey, "ebony")),
+    "surface": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral")),
+    "border": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher"))
+) !default;
