@@ -170,17 +170,51 @@ test.describe("a book's page", () => {
         await expect(rows.nth(5)).not.toContainText("Lovecraft");
     });
 
-    test("a chapter's play button queues the whole book from there", async ({ page }) => {
+    test("offers three distinct verbs, never two ways to press play", async ({ page }) => {
+        /*
+         * THE BUG THIS GUARDS, and the reason a label assertion earns its place: the hero used
+         * the shared `SubjectActions` for its enqueue button, which brings its own "Abspielen"
+         * along with it. Beside "Weiterhören" that is two play buttons — and the plainer-looking
+         * one silently restarted a book somebody was forty chapters into, which is the single
+         * thing this area exists to prevent. Every other test here passed throughout.
+         */
+        await page.goto("/audiobooks");
+        await page.getByRole("link", { name: /Berge des Wahnsinns/ }).first().click();
+        await page.waitForURL(/\/audiobooks\/[0-9a-f-]{36}$/u);
+
+        const verbs = () => page.locator(".action-panel button").allInnerTexts();
+
+        // Unstarted: play and enqueue. No second play, however it is worded.
+        expect((await verbs()).map(label => label.trim())).toStrictEqual([
+            "Hörbuch abspielen",
+            "Warteschlange"
+        ]);
+
+        // Part-way through: resume, restart, enqueue — three verbs, each a different act.
+        await playChapterAndStore(page, LAST_CHAPTER);
+        await page.reload();
+        expect((await verbs()).map(label => label.trim())).toStrictEqual([
+            "Weiterhören",
+            "Von vorn",
+            "Warteschlange"
+        ]);
+    });
+
+    test("pressing a chapter ROW queues the whole book from there", async ({ page }) => {
         /*
          * NOT just that one chapter, which is the distinction a book cannot afford to get
          * wrong: pressing chapter 3 has to leave chapters 4, 5 and 6 behind it, or the player
          * stops at the end of the one that was pressed.
+         *
+         * The press lands on the ROW rather than on a control in it — there is no play button
+         * any more, the row itself is the target — so this also proves the table's
+         * `rowClickable` path, which a click on the title button would sail past.
          */
         await page.goto("/audiobooks");
         await page.getByRole("link", { name: /Berge des Wahnsinns/ }).first().click();
         await expect(page.locator("tbody tr")).toHaveCount(5);
 
-        await page.locator("tbody tr").nth(2).getByRole("button").first().click();
+        await page.locator("tbody tr").nth(2).click();
 
         // The player took the third chapter…
         await expect(page.locator(".player-bar")).toContainText("Drittes Kapitel");
@@ -190,6 +224,30 @@ test.describe("a book's page", () => {
         // storage key or its shape.
         await openQueuePanel(page);
         await expect(page.locator(".play-queue__row")).toHaveCount(5);
+    });
+});
+
+test.describe("the keyboard", () => {
+    test("reaches a chapter through its title, which a row cannot offer", async ({ page }) => {
+        /*
+         * THE ACCESSIBILITY HALF of making the row pressable. A <tr> takes no focus and
+         * announces nothing, so if the title were plain text the chapters would be unreachable
+         * without a pointer — which is why the title is a real <button> wearing the cell's own
+         * text. The music tables keep their title a <Link> for the same reason; a chapter has
+         * no page to link to, so it is a button instead.
+         */
+        await page.goto("/audiobooks");
+        await page.getByRole("link", { name: /Berge des Wahnsinns/ }).first().click();
+        await expect(page.locator("tbody tr")).toHaveCount(5);
+
+        const title = page.locator("tbody tr").nth(1).getByRole("button");
+        // Named for what pressing it does, not just the chapter — a screen reader hears the verb.
+        await expect(title).toHaveAccessibleName(/Kapitel abspielen: Zweites Kapitel/);
+
+        await title.focus();
+        await page.keyboard.press("Enter");
+
+        await expect(page.locator(".player-bar")).toContainText("Zweites Kapitel");
     });
 });
 
@@ -245,6 +303,27 @@ test.describe("resume", () => {
 
         // "Weiterhören" rather than "Hörbuch abspielen" — the label itself says which it is.
         await page.getByRole("button", { name: /Weiterhören|Resume/ }).click();
+
+        await expect(page.locator(".player-bar")).toContainText("Fünftes Kapitel");
+    });
+
+    test("pressing the marked row carries on rather than starting the chapter again", async ({ page }) => {
+        // The branch a press takes on the bookmarked row: `resume()`, which seeks to the stored
+        // offset, where any other row starts its chapter at 0:00. What is assertable in a
+        // browser is WHICH chapter loads — the offset itself is milliseconds into a one-second
+        // fixture, and a test of that would measure the fixture rather than the feature.
+        await page.goto("/audiobooks");
+        await page.getByRole("link", { name: /Berge des Wahnsinns/ }).first().click();
+        await page.waitForURL(/\/audiobooks\/[0-9a-f-]{36}$/u);
+        const bookUrl = page.url();
+
+        await playChapterAndStore(page, LAST_CHAPTER);
+        await page.goto("/music");
+        await page.goto(bookUrl);
+
+        const marked = page.locator("tbody tr.chapter-row--bookmarked");
+        await expect(marked).toHaveCount(1);
+        await marked.click();
 
         await expect(page.locator(".player-bar")).toContainText("Fünftes Kapitel");
     });

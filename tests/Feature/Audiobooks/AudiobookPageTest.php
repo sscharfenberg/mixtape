@@ -137,8 +137,10 @@ class AudiobookPageTest extends TestCase
                 // The uncredited chapter is null, not an empty string or a borrowed name.
                 ->where('table.rows.2.author', null)
                 ->where('table.rows.2.narrator', null)
-                // Each row carries its own audio, so a play button needs no second round trip.
-                ->where('table.rows.0.streamUrl', "/audiobooks/chapters/{$chapters[0]->id}/stream")
+                // No per-row stream URL: pressing a row queues the whole book from the
+                // `queueTracks` payload, so a second address for the same bytes would only be
+                // something to keep in step.
+                ->missing('table.rows.0.streamUrl')
                 // The denominators behind "1/2" and "1/2": two discs, two chapters on disc 1.
                 ->where('table.rows.0.discTotal', 2)
                 ->where('table.rows.0.trackTotal', 2)

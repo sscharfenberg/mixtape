@@ -22,7 +22,7 @@ import { DATA_TABLE_KEY } from "Types/dataTable";
 // matched deliberately so a row and a link inside one behave identically — and
 // so sweeping the pointer down a 25-row table fires nothing.
 const HOVER_INTENT = 75;
-defineProps<{
+const props = defineProps<{
     /** Column definitions controlling which cells to render per row. */
     columns: ColumnDef<T>[];
     /** Data rows for the current page. */
@@ -31,10 +31,20 @@ defineProps<{
     selectable: boolean;
     /** Whether to render the per-row three-dot actions button. */
     hasActions: boolean;
+    /** Extra class(es) for one row, decided by the page — see DataTable's own prop. */
+    rowClass?: (row: T) => string | undefined;
+    /** Treat rows as pressable even without an `href` — see DataTable's own prop. */
+    rowClickable?: boolean;
 }>();
 const emit = defineEmits<{
     /** Emitted when a row's three-dot action button is clicked. */
     action: [row: T, el: HTMLElement];
+    /**
+     * A row was pressed and it has no `href` to follow — the page decides what that means.
+     * Guarded by the same `isRowNavigation` check a navigating row uses, so a text selection,
+     * a middle click or a click that landed on a control inside the row is not one.
+     */
+    rowClick: [row: T];
 }>();
 const provided = inject(DATA_TABLE_KEY)!;
 const slots = useSlots();
@@ -45,7 +55,11 @@ let prefetchTimer: ReturnType<typeof setTimeout> | undefined;
  * cell, at the end of a drag-select, or with a modifier held; see rowNavigation.ts.
  */
 function onRowClick(row: T, event: MouseEvent) {
-    if (row.href && isRowNavigation(event)) router.visit(row.href);
+    if (!isRowNavigation(event)) return;
+
+    // An `href` still means navigate, exactly as before; a row without one asks the page.
+    if (row.href) router.visit(row.href);
+    else if (props.rowClickable) emit("rowClick", row);
 }
 /**
  * Fetch the row's detail page while the pointer is resting on it, so the click
@@ -77,7 +91,7 @@ function onActionClick(row: T, event: MouseEvent) {
         <tr
             v-for="row in rows"
             :key="row.id"
-            :class="{ 'dt-body__row--clickable': !!row.href }"
+            :class="[{ 'dt-body__row--clickable': !!row.href || rowClickable }, rowClass?.(row)]"
             @click="onRowClick(row, $event)"
             @mouseenter="onRowEnter(row)"
             @mouseleave="cancelPrefetch"

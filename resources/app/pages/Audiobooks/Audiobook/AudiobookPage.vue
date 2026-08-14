@@ -39,7 +39,6 @@ import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import DownloadButton from "Components/Music/DownloadButton.vue";
 import PlayCountFacts from "Components/Music/PlayCountFacts.vue";
 import ShareButton from "Components/Music/ShareButton.vue";
-import SubjectActions from "Components/Music/SubjectActions.vue";
 import ActionPanel from "Components/UI/ActionPanel.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Container from "Components/UI/Container.vue";
@@ -97,8 +96,6 @@ export interface ChapterRow {
     narrator: string | null;
     /** Playing time in SECONDS; the page clocks it. */
     duration: number | null;
-    /** The chapter's audio, carried so a row can be played without a second round trip. */
-    streamUrl: string;
 }
 
 const props = defineProps<{
@@ -124,7 +121,7 @@ setBreadcrumbs([
 
 // The hero's play/enqueue and every row's play button share one fetch of the book: the first
 // press pays for the round trip and the rest are instant.
-const { busy, playSubjectFrom } = useSubjectTracks();
+const { busy, playSubjectFrom, enqueueSubject } = useSubjectTracks();
 
 /*
  * Resume, and the write that keeps it current. The chapter ids come from the TABLE, which is
@@ -140,6 +137,28 @@ const { bookmark, resume, restart } = useAudiobookBookmark(
 
 /** Whether a row is the one the reader left off at — what the bookmark glyph marks. */
 const isBookmarked = (row: ChapterRow): boolean => bookmark.value?.trackId === row.id;
+
+/**
+ * Press a chapter: queue the whole book and start there.
+ *
+ * THE BOOKMARKED ROW RESUMES AT ITS OFFSET rather than at 0:00 — `resume()` seeks to the
+ * stored millisecond — which is what makes pressing the marked row mean "carry on" and
+ * pressing any other mean "start this chapter". Both queue the WHOLE book, so the reader goes
+ * on to the next chapter without touching anything.
+ */
+const playChapter = (row: ChapterRow): Promise<unknown> =>
+    isBookmarked(row) ? resume() : playSubjectFrom(row.id);
+
+/**
+ * Mark the bookmarked chapter's whole ROW, not just its glyph.
+ *
+ * A 16px icon in a column of 50 rows is not findable, and finding it is the entire job — so
+ * the row wears the same colours as the CURRENT ITEM in the header's site menu, which is the
+ * app's established way of saying "this is the one you are on". Reading that component's own
+ * tokens rather than restating the colours keeps the two in step if either is ever retuned.
+ */
+const rowClass = (row: ChapterRow): string | undefined =>
+    isBookmarked(row) ? "chapter-row--bookmarked" : undefined;
 
 /** The book's total playing time as a clock, or empty when nothing carried a duration. */
 const playingTime = computed(() => formatClock(props.audiobook.duration) ?? "");
@@ -175,21 +194,7 @@ const columns = computed<ColumnDef<ChapterRow>[]>(() => [
     { key: "name", label: t("music.columns.title"), sortable: true, cardPrimary: true },
     { key: "author", label: t("audiobooks.columns.author"), sortable: true },
     { key: "narrator", label: t("audiobooks.columns.narrator"), sortable: true },
-    { key: "duration", label: t("audiobooks.columns.playtime"), sortable: true, align: "right" },
-    /*
-     * The play button as a COLUMN OF ITS OWN, not the DataTable's `hasActions` popover.
-     *
-     * That popover is the right home for a row's secondary verbs — it is where the music
-     * listings put "add to playlist" and the rest — but hearing a chapter is the PRIMARY act
-     * on this page, and one behind a ⋯ menu is two clicks for the only thing a reader came to
-     * do. Trailing, where an action belongs, and its header is empty because a column of
-     * buttons needs no name.
-     *
-     * Keyed on `streamUrl` because a ColumnDef's key must name a real field — and this column
-     * IS that field, rendered as a button rather than printed as a URL, which is the pattern
-     * ColumnDef documents for a URL column with a `#cell-` slot.
-     */
-    { key: "streamUrl", label: "", sortable: false, align: "right" }
+    { key: "duration", label: t("audiobooks.columns.playtime"), sortable: true, align: "right" }
 ]);
 </script>
 
@@ -260,19 +265,32 @@ const columns = computed<ColumnDef<ChapterRow>[]>(() => [
                      without an account. -->
                 <template #actions>
                     <action-panel>
-                        <!-- Play RESUMES (the owner's call), with a separate way back to the
-                             start beside it — on a book part-way through, resuming is what the
-                             obvious big button should do, and restarting is the rarer verb
-                             that still has to be reachable. -->
+                        <!-- THREE VERBS, WRITTEN OUT HERE RATHER THAN `SubjectActions`, which
+                             every Music hero uses. That component pairs play + enqueue, and its
+                             play always starts at the beginning — beside a resume button it read
+                             as two play buttons, and the plainer-looking one silently restarted
+                             a book you were forty chapters into (the owner spotted it).
+
+                             Play RESUMES, with a separate way back to the start beside it: on a
+                             book part-way through, resuming is what the obvious big button
+                             should do, and restarting is the rarer verb that still has to be
+                             reachable. Enqueue is the same verb SubjectActions offers and wears
+                             its label, since a queue is a queue in either area. -->
                         <Button variant="primary" no-halo :disabled="busy" @click="resume">
                             <icon :name="busy ? 'refresh' : 'playlist'" :size="1" :rotate="busy" />
                             <span>{{ t(bookmark ? "audiobooks.actions.resume" : "audiobooks.actions.play") }}</span>
                         </Button>
+                        <!-- `default`, not primary (the owner's call): starting a book over is
+                             the rarer of the two ways to press play, and the outline look says
+                             so beside the filled one that resumes. -->
                         <Button v-if="bookmark" no-halo :disabled="busy" @click="restart">
                             <icon name="first-page" :size="1" />
                             <span>{{ t("audiobooks.actions.restart") }}</span>
                         </Button>
-                        <subject-actions />
+                        <Button variant="primary" no-halo :disabled="busy" @click="enqueueSubject">
+                            <icon :name="busy ? 'refresh' : 'playlist_add'" :size="1" :rotate="busy" />
+                            <span>{{ t("music.subjectActions.enqueue") }}</span>
+                        </Button>
                     </action-panel>
                     <download-button :href="audiobook.downloadUrl" subject="audiobook" />
                     <share-button subject="audiobook" :subject-id="audiobook.id" />
@@ -286,12 +304,27 @@ const columns = computed<ColumnDef<ChapterRow>[]>(() => [
                 :response="table"
                 :base-url="`/audiobooks/${audiobook.id}`"
                 :has-actions="false"
+                :row-class="rowClass"
+                row-clickable
+                @row-click="playChapter"
             >
-                <!-- The chapter the reader left off at, marked where the eye already is: in
-                     the title cell rather than a column of its own, which would be empty on
-                     every other row of a 673-chapter book. -->
+                <!-- THE TITLE IS THE CONTROL, and that is an accessibility decision rather
+                     than a style one: the whole row is pressable for a pointer, but a row is
+                     not focusable and announces nothing, so without a real control here the
+                     chapters would be unreachable by keyboard entirely. The music tables make
+                     the title a <Link> for exactly this reason; a chapter has no page to link
+                     to, so it is a <button> that does what the row does.
+
+                     The bookmark glyph rides in the same cell — a column of its own would be
+                     empty on all 672 other rows of a big book. -->
                 <template #cell-name="{ row }">
-                    <span class="chapter-name">
+                    <button
+                        type="button"
+                        class="chapter-name"
+                        :disabled="busy"
+                        :aria-label="`${t('audiobooks.chapter.play')}: ${row.name}`"
+                        @click="playChapter(row)"
+                    >
                         <!-- `additional-classes`, which is Icon's own API: it builds its class
                              list from its props, so a raw `class` is not the way to reach it. -->
                         <icon
@@ -302,7 +335,7 @@ const columns = computed<ColumnDef<ChapterRow>[]>(() => [
                             :aria-label="t('audiobooks.chapter.bookmarked')"
                         />
                         {{ row.name }}
-                    </span>
+                    </button>
                 </template>
                 <template #cell-disc="{ row }">
                     {{ formatPosition(row.disc, row.discTotal) ?? "" }}
@@ -313,23 +346,6 @@ const columns = computed<ColumnDef<ChapterRow>[]>(() => [
                 <template #cell-duration="{ row }">
                     {{ formatClock(row.duration) ?? "" }}
                 </template>
-                <!-- One button per row: queue the whole book and start here. Disabled while
-                     the book is being fetched, so a second press cannot start a race. -->
-                <template #cell-streamUrl="{ row }">
-                    <!-- `default` (the neon outline) and no halo: it sits inside a table row
-                         rather than on the page, where the pooled glow reads as a smudge —
-                         the same call the hero's buttons make. -->
-                    <Button
-                        variant="default"
-                        no-halo
-                        :aria-label="t('audiobooks.chapter.play')"
-                        :title="t('audiobooks.chapter.play')"
-                        :disabled="busy"
-                        @click="playSubjectFrom(row.id)"
-                    >
-                        <icon name="play" :size="1" />
-                    </Button>
-                </template>
                 <template #empty>{{ t("components.datatable.no_results") }}</template>
             </data-table>
         </div>
@@ -338,6 +354,7 @@ const columns = computed<ColumnDef<ChapterRow>[]>(() => [
 
 <style scoped lang="scss">
 @use "sass:map";
+@use "Abstracts/colors" as c;
 @use "Abstracts/sizes" as s;
 
 /* The page's two blocks, spaced by the card gap — a page reads the token of the component
@@ -349,16 +366,69 @@ const columns = computed<ColumnDef<ChapterRow>[]>(() => [
     gap: map.get(s.$c-card, "gap");
 }
 
+/* THE CHAPTER YOU LEFT OFF AT, wearing the site menu's CURRENT-ITEM colours: dark green with
+   yellow ink in dark mode, and the inverse in light (the owner's call). Measured against the
+   header's own pill afterwards — both `rgb(22, 50, 27)` on `rgb(255, 230, 77)` — because
+   reading `$c-site-menu-links` rather than restating the values is what keeps them in step if
+   either is ever retuned. A page reads the token of the component that already defines a
+   value; it does not mint a duplicate (CLAUDE.md → tokens).
+
+   BOTH HALVES GO ON THE CELLS, and the selector is counted rather than guessed. DataTableBody
+   stripes with `.dt-body tr:nth-child(odd) td` — three class-level units and two elements once
+   Vue's scope attribute joins in — and its own comment records losing a tie to exactly that
+   rule. A plain `:deep(.chapter-row--bookmarked td)` carries two and one, so the stripe won:
+   the fill showed through the semi-transparent stripe diluted, which read as a washed-out
+   green (the owner's report), and the ink was overridden outright. Naming `.dt-body` and
+   pinning `:nth-child(n)` — which matches every row and exists here only for its weight —
+   makes it four and two, a clear win rather than a tie settled by source order.
+
+   The row itself keeps the fill too, so the halo a hovered row paints outside its cells sits
+   on the right colour. */
+:deep(.dt-body tr.chapter-row--bookmarked) {
+    background-color: map.get(c.$c-site-menu-links, "active-background");
+}
+
+:deep(.dt-body tr.chapter-row--bookmarked:nth-child(n) td) {
+    background-color: map.get(c.$c-site-menu-links, "active-background");
+    color: map.get(c.$c-site-menu-links, "active-surface");
+}
+
+/* The glyph rides the row's ink rather than carrying a colour of its own. */
+.chapter-name__mark {
+    color: inherit;
+}
+
 /* One flex item around the glyph and the title, so a long chapter name wraps as ONE block
    under its own first line rather than the mark being pushed onto a line of its own — the
-   trap a bare text node beside an icon falls into in a wrapping row. */
+   trap a bare text node beside an icon falls into in a wrapping row.
+
+   IT IS A <button> WEARING THE CELL'S OWN TEXT: stripped of every button default, because the
+   affordance a reader is meant to see is the ROW lighting up under the pointer, not a control
+   in one cell. What the element buys is the half a row cannot give — focus, Enter and Space,
+   and a name a screen reader can announce. The focus ring is left to the browser rather than
+   removed, since it is the only thing that shows a keyboard user where they are. */
 .chapter-name {
     display: flex;
     align-items: center;
 
+    width: 100%;
     min-width: 0;
 
+    padding: 0;
+    border: 0;
     gap: 0.4ch;
+
+    background: none;
+    color: inherit;
+
+    font: inherit;
+    text-align: start;
+
+    cursor: pointer;
+
+    &:disabled {
+        cursor: default;
+    }
 }
 
 .chapter-name__mark {

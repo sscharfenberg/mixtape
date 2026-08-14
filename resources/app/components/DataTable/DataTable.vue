@@ -46,6 +46,29 @@ const props = withDefaults(
         hasActions?: boolean;
         /** Base URL for Inertia navigation; defaults to current pathname. */
         baseUrl?: string;
+        /**
+         * Extra CSS class(es) for one ROW, decided per row — the row-level counterpart of
+         * `ColumnDef.cellClass`, which can only reach a single cell.
+         *
+         * A callback rather than a field on the row, because "is this row special" is a
+         * question the PAGE answers and the server has no opinion about: the audiobook page
+         * marks the chapter its reader left off at, which depends on a bookmark the table
+         * knows nothing of. Applies to the card view as well as the table, so a phone gets
+         * the same mark.
+         */
+        rowClass?: (row: T) => string | undefined;
+        /**
+         * Make rows pressable even though they carry no `href`.
+         *
+         * The table's own clickable row NAVIGATES: it visits `row.href`, which is what a
+         * listing row means everywhere in this app. A chapter has no page to visit — what a
+         * reader wants from that row is to hear it — so this says "a press here is an action,
+         * and the page will say which" and the press arrives as `@row-click`.
+         *
+         * The visible affordance is the same either way: the hover wash and the pointer
+         * cursor, so a pressable row does not look like a different kind of thing.
+         */
+        rowClickable?: boolean;
     }>(),
     {
         selectable: false,
@@ -53,6 +76,14 @@ const props = withDefaults(
         baseUrl: ""
     }
 );
+const emit = defineEmits<{
+    /**
+     * A row with no `href` was pressed (see `rowClickable`). The audiobook page plays that
+     * chapter with it; a table whose rows navigate never fires this.
+     */
+    rowClick: [row: T];
+}>();
+
 /**
  * Explicit slot contract — vue-tsc loses prop inference for slots that
  * sit inside a nested `<template v-if … #default>` (the `actions` slot
@@ -356,7 +387,10 @@ onBeforeUnmount(() => {
                     :rows="response.rows"
                     :selectable="selectable"
                     :has-actions="hasActions"
+                    :row-class="rowClass"
+                    :row-clickable="rowClickable"
                     @action="onAction"
+                    @row-click="emit('rowClick', $event)"
                 >
                     <template v-for="name in cellSlotNames" :key="name" #[name]="slotProps">
                         <slot :name="name" v-bind="slotProps" />

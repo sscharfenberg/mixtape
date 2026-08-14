@@ -186,10 +186,12 @@ class AudiobookController extends Controller
                 'author' => $chapter->author_name,
                 'narrator' => $chapter->narrator_name,
                 // Raw seconds; the page clocks them against the viewer's locale.
+                //
+                // NO `streamUrl` HERE, deliberately. The row carried one while it had a play
+                // button of its own; pressing a row now queues the WHOLE book and starts at
+                // that chapter, which comes from the `queueTracks` payload — so a per-row URL
+                // would be a second address for the same bytes, kept in step by nobody.
                 'duration' => $chapter->duration,
-                // What the row's play button loads. The row is NOT a link — a chapter has no
-                // page of its own, and the thing a reader wants from a row is to hear it.
-                'streamUrl' => route('audiobooks.chapters.stream', $chapter->id, absolute: false),
             ],
             // Sort KEYS, not columns — the service maps them like the primary and hands the
             // survivors back, so the header can mark CD *and* Track as sorted rather than
