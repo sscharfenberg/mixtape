@@ -140,6 +140,60 @@ test.describe("the audiobooks entry page", () => {
         }
     });
 
+    test("drops the words from a credit's fact chips below 480px, keeping the numbers", async ({ page }) => {
+        /*
+         * The owner's rule, 2026-08-14: a section header carries two chips — how many books and
+         * how long they run — and on a phone there is room for the credit's NAME and a number,
+         * with the icon saying which number it is. 480px is `portrait`, the app's own first
+         * breakpoint.
+         *
+         * A MEDIA QUERY IS PLAYWRIGHT'S ALONE. Vitest renders the same DOM at every width, so
+         * the words are in the markup either way; whether they are on SCREEN is a question only
+         * a real viewport answers. `innerText` is the right reader for it — unlike
+         * `textContent`, it reports what is laid out.
+         */
+        await page.getByRole("tab", { name: /Autoren|Authors/u }).click();
+        const header = page.getByRole("button", { name: /Brian Lumley/u });
+
+        await page.setViewportSize({ width: 900, height: 800 });
+        await expect(header).toContainText(/Buch|book/u);
+        await expect(header).toContainText(/Spielzeit|Playtime/u);
+
+        await page.setViewportSize({ width: 400, height: 800 });
+        const narrow = await header.innerText();
+        expect(narrow).not.toMatch(/Buch|book|Spielzeit|Playtime/u);
+        // The facts themselves stay: a count and a clock, which is the half that must survive.
+        expect(narrow).toMatch(/\d/u);
+        await expect(header.locator(".accordion__fact")).toHaveCount(2);
+    });
+
+    test("points the chevron down while a section is shut and up once it is open", async ({ page }) => {
+        /*
+         * The one job a disclosure triangle has. It was `rotate(90deg)` until 2026-08-14 — the
+         * glyph turned sideways, matching neither state — and the comment beside it claimed it
+         * pointed down when open, which is how that survived. `chevron.svg` already points DOWN at
+         * rest, so the closed state needs no transform and the open one needs half a turn.
+         *
+         * STILL BEFORE MEASURED. The rotation is a transition, so a transform read on the frame
+         * after the click is a few degrees in — polled, not sampled (the same trap the play queue's
+         * panel documents for its own geometry).
+         */
+        await page.getByRole("tab", { name: /Autoren|Authors/u }).click();
+        const header = page.getByRole("button", { name: /Brian Lumley/u });
+        const chevron = header.locator(".accordion__chevron");
+        const rotation = () => chevron.evaluate(node => getComputedStyle(node).transform);
+
+        expect(await rotation()).toBe("none");
+
+        await header.click();
+        await expect(header).toHaveAttribute("aria-expanded", "true");
+        await expect.poll(rotation).toBe("matrix(-1, 0, 0, -1, 0, 0)");
+
+        await header.click();
+        await expect(header).toHaveAttribute("aria-expanded", "false");
+        await expect.poll(rotation).toBe("none");
+    });
+
     test("puts the open author in the URL, so it can be linked", async ({ page }) => {
         await page.getByRole("tab", { name: /Autoren|Authors/ }).click();
         await page.getByRole("button", { name: /Brian Lumley/ }).click();

@@ -478,7 +478,8 @@
             }
         },
         "credit": {
-            "books": "{n} Buch | {n} Bücher"
+            "books": "{n} Buch | {n} Bücher",
+            "booksUnit": "Buch | Bücher"
         },
         "chapterCount": "{n} Kapitel | {n} Kapitel",
         "noCredits": "Keine Einträge gefunden.",

@@ -1,0 +1,32 @@
+/******************************************************************************
+ * contextual color tokens — component:accordion
+ * @type {Sass}
+ * The FACT CHIPS in a section's header (Components/UI/Accordion) — "3 Bücher",
+ * "Spielzeit 40:51:45" — and nothing else. The rest of the accordion still reads the
+ * widget's tokens, which is where it started: its trigger IS a widget cell, wearing that
+ * cell's fill, padding and radius. This partial exists because the chips are the one part
+ * that is not.
+ *
+ * ONE RUNG OFF THE THING THEY SIT ON, and that is the whole colour decision. The trigger is
+ * `c.$c-widget "cell-background"` — mystic in light, ebony in dark — so a chip filled with
+ * the facts card's tile colour would be invisible: `c.$c-facts "tile-background"` resolves
+ * to exactly the same pair. The chip therefore steps one further from the page in each
+ * theme (infra / bunker), the same "one rung, in the direction the theme is going" move the
+ * play queue's quiet popover trigger makes.
+ *
+ * THE LABEL IS TINTED AND THE VALUE IS NOT, which is FactPair's rule and worth keeping here:
+ * inside a chip the number is the fact and the word beside it is furniture, and the word is
+ * also the half that disappears below 480px. Both clear WCAG 2.1 AA on the fill above, and the
+ * label is the one with no room to spare — measured 4.7:1 light / 5.5:1 dark against 4.5, with
+ * the value at 12.4:1 and 10.8:1. So a lighter tint here is the change that would break it.
+ *
+ * Consumed as c.$c-accordion via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-color-tokens" as c;
+
+$accordion: (
+    "fact-background": light-dark(map.get(c.$grey, "infra"), map.get(c.$grey, "bunker")),
+    "fact-surface": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral")),
+    "fact-label": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron"))
+) !default;

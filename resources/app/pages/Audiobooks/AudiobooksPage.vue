@@ -24,7 +24,7 @@ import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { DiscographyAlbum } from "Components/Music/Discography/Discography.vue";
 import Discography from "Components/Music/Discography/Discography.vue";
-import type { AccordionSection } from "Components/UI/Accordion/Accordion.vue";
+import type { AccordionFact, AccordionSection } from "Components/UI/Accordion/Accordion.vue";
 import Accordion from "Components/UI/Accordion/Accordion.vue";
 import Container from "Components/UI/Container.vue";
 import Headline from "Components/UI/Headline.vue";
@@ -36,7 +36,7 @@ import WidgetGroup from "Components/UI/Widget/WidgetGroup.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import { useTabParam } from "Composables/useTabParam";
 import type { AudiobookCredit, AudiobookStats } from "Types/audiobooks";
-import { formatClock } from "Utils/formatting";
+import { formatClock, formatDecimals } from "Utils/formatting";
 
 const props = defineProps<{
     /** The six numbers on the stats card. */
@@ -49,7 +49,7 @@ const props = defineProps<{
     narrators: AudiobookCredit[];
 }>();
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const { setBreadcrumbs } = useBreadcrumbs();
 
 setBreadcrumbs([{ labelKey: "header.siteMenu.audiobooks", icon: "audiobook" }]);
@@ -106,19 +106,43 @@ const tabs = computed<TabDefinition[]>(() => [
  *
  * The header's facts are composed here rather than on the server, because only the client
  * knows the locale: a book COUNT is pluralised through the catalogue and a duration is
- * clocked. The middle dot joins two facts that are already words — it is punctuation, not a
- * sentence, so it survives the language switch.
+ * clocked.
+ *
+ * TWO CHIPS RATHER THAN ONE SENTENCE since 2026-08-14 (the owner). They used to be joined by
+ * a middle dot — "6 Bücher · 12:30:04" — and a joined string cannot be given a chip apiece,
+ * nor drop its words on a phone while keeping its numbers, which is what the accordion now
+ * does below 480px.
+ *
+ * EACH ONE TAKES ITS WORD ON THE SIDE ITS GRAMMAR WANTS: the count is a phrase and wears its
+ * noun after it ("3 Bücher"), the duration is a labelled measurement and wears its name
+ * before it ("Spielzeit 40:51:45"). `AccordionFact` has a field for each rather than one
+ * field and a flag — see it for why.
+ *
+ * The duration chip is dropped entirely when nothing carries one, as the old joined string
+ * did: a "Spielzeit" with nothing after it says only that the field exists.
  */
 const sectionsFor = (credits: AudiobookCredit[]): AccordionSection[] =>
     credits.map(credit => {
-        const books = t("audiobooks.credit.books", credit.bookCount);
         const clock = formatClock(credit.duration);
+        const facts: AccordionFact[] = [
+            {
+                icon: "audiobook",
+                value: formatDecimals(credit.bookCount, locale.value),
+                unit: t("audiobooks.credit.booksUnit", credit.bookCount),
+                title: t("audiobooks.credit.books", credit.bookCount)
+            }
+        ];
 
-        return {
-            id: credit.id,
-            label: credit.name,
-            meta: clock === null ? books : `${books} · ${clock}`
-        };
+        if (clock !== null) {
+            facts.push({
+                icon: "duration",
+                label: t("audiobooks.columns.playtime"),
+                value: clock,
+                title: `${t("audiobooks.columns.playtime")} ${clock}`
+            });
+        }
+
+        return { id: credit.id, label: credit.name, facts };
     });
 
 const authorSections = computed(() => sectionsFor(props.authors));

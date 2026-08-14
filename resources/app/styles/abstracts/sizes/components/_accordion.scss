@@ -1,0 +1,30 @@
+/******************************************************************************
+ * contextual size tokens — component:accordion
+ * @type {Sass}
+ * The FACT CHIPS in a section's header (Components/UI/Accordion). Everything else about the
+ * accordion still steps off the widget's metrics — its trigger is a widget cell — so this is
+ * only the chips; see the colour partial beside this one for the same split.
+ *
+ * A CHIP IS NOT A TILE, which is the one thing these numbers say. The facts card's tiles
+ * (s.$c-facts) stack a label above a value and take the widget cell's full padding; these sit
+ * on ONE line inside a header that is already a cell, so the block padding is a quarter of
+ * that rung rather than the whole of it — enough to read as an object, not enough to grow the
+ * header it lives in. The radius is the shared `base` rung, so a chip is rounded like every
+ * other small box in the app.
+ *
+ * `gap` separates two chips; `inner-gap` separates a chip's icon from its words and is given
+ * in `ch` on purpose — it is a word space, so it should scale with the type rather than with
+ * the layout.
+ *
+ * Consumed as s.$c-accordion via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:math"; // https://sass-lang.com/documentation/modules/math
+@use "../global-size-tokens" as s;
+
+$accordion: (
+    "fact-padding": math.round(map.get(s.$padding, "base") * 0.25) math.round(map.get(s.$padding, "base") * 0.75),
+    "fact-radius": map.get(s.$radius, "base"),
+    "fact-gap": math.round(map.get(s.$padding, "base") * 0.5),
+    "fact-inner-gap": 0.5ch
+) !default;

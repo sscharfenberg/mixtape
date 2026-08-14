@@ -15,8 +15,17 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
  */
 
 const sections = [
-    { id: "lovecraft", label: "H.P. Lovecraft", meta: "6 Bücher" },
-    { id: "king", label: "Stephen King", meta: "1 Buch" },
+    {
+        id: "lovecraft",
+        label: "H.P. Lovecraft",
+        // The two shapes a fact can take, on one section: a count wearing its noun AFTER it and
+        // a measurement wearing its name BEFORE it.
+        facts: [
+            { icon: "audiobook", value: "6", unit: "Bücher", title: "6 Bücher" },
+            { icon: "duration", label: "Spielzeit", value: "12:30:04", title: "Spielzeit 12:30:04" }
+        ]
+    },
+    { id: "king", label: "Stephen King", facts: [{ icon: "audiobook", value: "1", unit: "Buch", title: "1 Buch" }] },
     { id: "eschbach", label: "Andreas Eschbach", icon: "author" }
 ];
 
@@ -126,11 +135,49 @@ describe("Accordion", () => {
         expect(panel.attributes("aria-labelledby")).toBe("authors-accordion-header-lovecraft");
     });
 
-    it("prints the facts the consumer formatted, and nothing when there are none", () => {
-        const wrapper = stack();
-        const metas = wrapper.findAll(".accordion__meta").map(node => node.text());
+    describe("the fact chips", () => {
+        it("gives each fact its own chip, and draws none where there are none", () => {
+            // One chip per fact, not one element holding a joined sentence — which is what this
+            // was until 2026-08-14 and why the words could not be hidden on a phone.
+            const wrapper = stack();
 
-        // Two sections carry facts; the third has none and gets no empty element.
-        expect(metas).toStrictEqual(["6 Bücher", "1 Buch"]);
+            // UNSPACED on purpose: a chip is a flex row, so the distance between its icon, its
+            // word and its number is a `gap` rather than a word space. Written with no space
+            // here so the day somebody puts one in the markup — where `condense` would eat it
+            // anyway — this says which mechanism is doing the spacing.
+            expect(wrapper.findAll(".accordion__fact").map(node => node.text().replace(/\s+/gu, ""))).toStrictEqual([
+                "6Bücher",
+                "Spielzeit12:30:04",
+                "1Buch"
+            ]);
+            // The third section carries none and gets no empty row to hold a gap open.
+            expect(wrapper.findAll(".accordion__facts")).toHaveLength(2);
+        });
+
+        it("puts the word on the side that fact's grammar wants", () => {
+            /*
+             * The owner's call, 2026-08-14: a count reads as a phrase ("3 Bücher") and a
+             * measurement as a labelled fact ("Spielzeit 40:51:45"), so one word trails the
+             * value and the other leads it. Asserted on the rendered ORDER, which is the only
+             * thing that can tell the two apart — both are the same element and both vanish at
+             * the same width.
+             */
+            const chips = stack().findAll(".accordion__fact");
+            const parts = (index: number) =>
+                chips[index].findAll("span").map(node => node.text().replace(/\s+/gu, " "));
+
+            expect(parts(0)).toStrictEqual(["6", "Bücher"]);
+            expect(parts(1)).toStrictEqual(["Spielzeit", "12:30:04"]);
+        });
+
+        it("names the whole fact on the chip, since a word may be hidden and the icon is mute", () => {
+            // Below 480px the chip is an icon and a number; without this a reader would meet a
+            // bare "6" with nothing saying six of what.
+            expect(stack().findAll(".accordion__fact").map(node => node.attributes("title"))).toStrictEqual([
+                "6 Bücher",
+                "Spielzeit 12:30:04",
+                "1 Buch"
+            ]);
+        });
     });
 });
