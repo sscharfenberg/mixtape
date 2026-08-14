@@ -6,8 +6,8 @@
  * is why this file exists at all — `playlist` was added to the union when the playlist page
  * started showing these tiles, PlayCountFacts' spec went on naming four subjects by hand, and the
  * two `music.plays.playlist.*` sentences were never written. Nothing failed, because a missing
- * translation is a console warning and the raw key on screen, until the owner opened a playlist
- * (2026-08-13). Driven off the array, a subject with no copy fails the spec instead.
+ * translation is a console warning and the raw key on screen — both of which a hand-written list
+ * of subjects sails past. Driven off the array, a subject with no copy fails the spec instead.
  *****************************************************************************/
 
 /**

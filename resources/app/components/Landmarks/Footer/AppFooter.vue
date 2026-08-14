@@ -3,12 +3,12 @@
  * AppFooter
  * The site footer landmark: the copyright / version line, and a link to the source.
  *
- * DRESSED AS THE PLAYER BAR'S QUIET TWIN (the owner, 2026-08-14). The two are
+ * DRESSED AS THE PLAYER BAR'S QUIET TWIN. The two are
  * ALTERNATIVES in FullLayout — once a track is loaded the bar takes this element's
  * place — so a reader should meet the same shelf at the bottom of the window either
  * way, with only its contents changing. Hence the same fill and the same top edge, from the
  * same globals. What is deliberately NOT shared: the frosting (a footer in flow has nothing
- * to blur) and, since the owner asked for more room, the block padding — the bar is dense
+ * to blur) and the block padding — the bar is dense
  * because it is full of controls, and one line of text at that number reads cramped.
  *
  * A CONTAINER INSIDE IT, not around it: the fill and the top edge have to reach both

@@ -122,9 +122,9 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         // HandlePrecognitiveRequests — the FRAMEWORK's — drives the form's live validation on
         // both submits, and is the right one of the two because these rules live in a FormRequest
         // (Store/UpdatePlaylistRequest): its dispatchers resolve the action's parameters, which is
-        // what validates a request class, and then abort 204 so the action never runs. This route
-        // wore the app's HandleControllerPrecognitiveRequest until 2026-08-10 and that let a
-        // request merely CLAIMING precognition perform the write — see that class's docblock.
+        // what validates a request class, and then abort 204 so the action never runs. With the
+        // app's HandleControllerPrecognitiveRequest instead, a request merely CLAIMING
+        // precognition performs the write — see that class's docblock.
         //
         // Neither kind of validation spends these 30: App\Http\Middleware\ThrottleRequests counts
         // validate-only traffic in a bucket of its own, which is what stops a reader tabbing
@@ -363,7 +363,7 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
             ->name('shares.destroy');
 
         // Re-activate an EXPIRED one for another seven days — the same URL, working again,
-        // which is what makes the thirty-day grace period worth having (the owner, 2026-08-13).
+        // which is what makes the thirty-day grace period worth having.
         // A PATCH because it changes one field of a row that goes on being the same row, and
         // the same request twice leaves the same state (bar the clock). Only the minter may,
         // and only while the link is actually dead: renewing a LIVE one would be the extension

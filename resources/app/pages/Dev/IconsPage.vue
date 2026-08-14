@@ -7,8 +7,8 @@
  * directly at /icons (see the dev section in routes/web.php).
  *
  * The names arrive as a prop rather than from an `import.meta.glob` of the
- * icon directory, which is how this page used to find them. A glob would pull
- * all 55 SVGs into the Vite build as emitted assets for the image optimizer to
+ * icon directory. A glob would pull
+ * every SVG into the Vite build as an emitted asset for the image optimizer to
  * re-optimize, even though they only ever ship inlined in the sprite — see
  * IconsController for the full reasoning.
  *****************************************************************************/

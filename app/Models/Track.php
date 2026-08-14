@@ -39,7 +39,7 @@ class Track extends Model
     /**
      * Only `created_at` is tracked (a stable insert-time "date added"); there is
      * no `updated_at` column — re-tags/renames are UPDATEs we don't want to bump
-     * a modified timestamp on (data-model.md → (c)).
+     * a modified timestamp on (data-model.md → "Indexes").
      */
     const UPDATED_AT = null;
 

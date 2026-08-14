@@ -18,8 +18,8 @@
  *
  * NOT OFFERED FOR EVERY SUBJECT. `ShareableSubject` is genre-less by construction, so a hero
  * that cannot be shared cannot pass a subject that would be — the genre page renders no
- * ShareButton at all rather than one that fails on submit. A PLAYLIST can be shared since
- * 2026-08-13, and is the only subject whose id the server checks the OWNER of; the playlist
+ * ShareButton at all rather than one that fails on submit. A PLAYLIST is the only subject
+ * whose id the server checks the OWNER of; the playlist
  * page only ever renders this for a playlist the reader owns (it cannot open somebody else's),
  * so that check is a backstop rather than something this button has to think about.
  *

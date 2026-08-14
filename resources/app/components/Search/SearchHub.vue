@@ -3,7 +3,7 @@
  * SearchHub
  * A search field with its results floating over the card it sits on — the block a stats card
  * hosts, extracted from StatsWidget when the Audiobooks card wanted the same thing scoped to
- * its own area (2026-08-13).
+ * its own area.
  *
  * WHAT MOVED IS THE AWKWARD HALF, which is why it moved rather than being copied: the panel is
  * a native `[popover]` in the browser's TOP LAYER, anchored to the field with CSS anchor

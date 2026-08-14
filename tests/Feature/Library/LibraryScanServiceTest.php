@@ -317,13 +317,12 @@ class LibraryScanServiceTest extends TestCase
     public function test_an_anthology_is_one_book_however_many_authors_its_chapters_name(): void
     {
         /*
-         * THE CASE THE REAL LIBRARY FOUND (2026-08-13). TCOM is a per-FILE tag and an
-         * anthology uses it per story: on the owner's share, "Necrophobia 1" names four
-         * authors across its 33 chapters and "Necrophobia 2" names five, and some chapters
-         * carry no author tag at all.
+         * THE CASE A REAL LIBRARY FINDS. TCOM is a per-FILE tag and an anthology uses it per
+         * story: "Necrophobia 1" names four authors across its 33 chapters and "Necrophobia 2"
+         * names five, and some chapters carry no author tag at all.
          *
-         * While `author_id` was part of the collection's dedup key, each of those authors
-         * opened a book of its own — eleven collection rows sharing two names, which is what
+         * With `author_id` in the collection's dedup key, each of those authors opens a book
+         * of its own — eleven collection rows sharing two names, which is what
          * a reader would have seen in the listing. The author belongs on the chapter.
          */
         $ab = $this->makeAudiobookRoot();
@@ -417,9 +416,8 @@ class LibraryScanServiceTest extends TestCase
     }
 
     /**
-     * A CASE-ONLY RENAME IS STILL A RENAME — the owner's report, 2026-08-13: an artist tagged
-     * "NARGAROTH" was re-tagged "Nargaroth", `app:update` ran, and the app went on saying
-     * NARGAROTH.
+     * A CASE-ONLY RENAME IS STILL A RENAME: an artist tagged "NARGAROTH" is re-tagged
+     * "Nargaroth", `app:update` runs, and without this the app goes on saying NARGAROTH.
      *
      * It fell exactly between the scanner's two working paths. A genuinely different name misses
      * the case-insensitive lookup, so it mints a row and the old one is pruned; an identical name

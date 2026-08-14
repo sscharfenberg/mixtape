@@ -11,8 +11,8 @@ use Illuminate\Console\Command;
  * `app:encoding` — list the library paths a Windows-1252 playlist export cannot name, as a
  * Markdown file to work through.
  *
- * The export modal warns a reader per playlist; this is the owner's view of the whole
- * collection, so the handful of offenders can be renamed once rather than warned about forever.
+ * The export modal warns a reader per playlist; this is the view over the WHOLE collection, so
+ * the handful of offenders can be renamed once rather than warned about forever.
  * Thin, like the other library commands: the walk lives in PathEncodingAudit and the document in
  * PathEncodingReport.
  *

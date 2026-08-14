@@ -11,9 +11,8 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Send one track's audio bytes, by whichever route the environment allows.
  *
- * Extracted from SongStreamController when the audiobook chapter stream arrived (2026-08-13):
- * the two routes differ only in which guard admits the track, and a second copy of the
- * hand-off would be the copy that stops matching. Nothing in here reads the track's TYPE —
+ * Shared by the song and the audiobook-chapter stream routes, which differ only in which guard
+ * admits the track — a second copy of the hand-off would be the copy that stops matching. Nothing in here reads the track's TYPE —
  * `Track::absolutePath()` resolves the area root from it, and InternalRedirect takes it as an
  * argument, so both areas are already served by the same two lines.
  *

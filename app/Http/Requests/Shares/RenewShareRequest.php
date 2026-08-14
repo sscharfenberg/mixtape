@@ -12,12 +12,11 @@ use Symfony\Component\HttpFoundation\Response;
  * "Give this dead link another seven days" — the guard on `PATCH /shares/{share}/renew`, pressed
  * from the expired half of the reader's own list (docs/sharing.md → "Re-activating").
  *
- * IT IS WHAT MAKES THE THIRTY-DAY GRACE PERIOD MEAN SOMETHING (the owner's call, 2026-08-13).
- * Expired rows were already kept for `Share::PRUNE_AFTER_DAYS` so their minter could still see
- * them, but seeing them was all they could do: the only verbs on a dead row were "revoke" and
- * "mint a second link to the same thing". Now the three weeks after a link dies are a window in
- * which the person who sent it can simply switch it back on — the same URL, already sitting in
- * somebody's chat window, working again.
+ * IT IS WHAT MAKES THE THIRTY-DAY GRACE PERIOD MEAN SOMETHING. Expired rows are kept for
+ * `Share::PRUNE_AFTER_DAYS` so their minter can still see them, and without this the only verbs
+ * on a dead row are "revoke" and "mint a second link to the same thing". With it, the three weeks
+ * after a link dies are a window in which the person who sent it can simply switch it back on —
+ * the same URL, already sitting in somebody's chat window, working again.
  *
  * ONLY THE MINTER MAY, exactly as with revoking, and for the same reason: this list is a list of
  * things one person decided to send, and another account reviving a row from it would be handing

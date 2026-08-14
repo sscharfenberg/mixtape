@@ -11,7 +11,7 @@ use Illuminate\Queue\SerializesModels;
 /**
  * End-of-run summary of files the scan could not read (and why), sent to
  * `config('mixtape.scan.alert_email')`. Skipped files are non-fatal — the scan
- * completes — but they must never be silent, so the owner gets the list plus
+ * completes — but they must never be silent, so the operator gets the list plus
  * getID3's reason for each, enough to find and fix the file.
  */
 class LibraryScanSkipped extends Mailable

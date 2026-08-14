@@ -7,16 +7,15 @@
  * Wide by default (spans two of its group's columns for room), and `wide` says why a page might
  * want otherwise.
  *
- * THE FILE NAME IS NARROWER THAN THE JOB, since 2026-08-13 (docs/search.md → "The Music page"):
- * this was the stats card, and the heading said _Statistik_. It is kept as the search's home
- * rather than a new widget beside it because the tiles are the right neighbours for a search
- * field — they describe what there is to search — and because a reader who came to browse still
- * gets them first.
+ * THE FILE NAME IS NARROWER THAN THE JOB (docs/search.md → "The page hub"): this is the stats
+ * card AND the page's search hub. One card rather than a new widget beside it, because the tiles
+ * are the right neighbours for a search field — they describe what there is to search — and
+ * because a reader who came to browse still gets them first.
  *
- * THE RESULTS FLOAT OVER THE CARD; they neither push the tiles down nor replace them (the owner's
- * call, 2026-08-13 — the first version swapped the tiles out, which left the card looking empty
- * mid-search and told a reader who was only checking a number that their page had gone). So the
- * card is never disturbed, and the answer arrives on top of it.
+ * THE RESULTS FLOAT OVER THE CARD; they neither push the tiles down nor replace them. Swapping
+ * the tiles out leaves the card looking empty mid-search, and tells a reader who was only
+ * checking a number that their page has gone. So the card is never disturbed, and the answer
+ * arrives on top of it.
  *
  * WHICH IS WHY THE PANEL IS A `[popover]` RATHER THAN AN ABSOLUTE BOX. Two properties on the card
  * make an ordinary overlay impossible, and both are there for good reasons of their own: Widget
@@ -35,7 +34,7 @@
  * the query in the header overlay are two questions — which is what stops opening the overlay
  * re-running whatever was left in this field.
  *
- * AND IT IS OPTIONAL (`searchable`, 2026-08-14), because the welcome page draws this card to a
+ * AND IT IS OPTIONAL (`searchable`), because the welcome page draws this card to a
  * visitor with no session. `/search` is inside the auth group, so a field there would be a box
  * that answers 401 to everything typed into it. The card's other half — six numbers describing a
  * collection — is exactly what that page wants, so the field is dropped rather than the card.
@@ -81,7 +80,7 @@ const props = withDefaults(defineProps<Props>(), { searchable: true, wide: true 
 const { t, locale } = useI18n();
 
 /**
- * The kinds this card's field may answer with (the owner's call): the music ones, never
+ * The kinds this card's field may answer with: the music ones, never
  * audiobooks. It sits on the Music page, and a book turning up in it would send a reader to an
  * area they were not browsing — the header's overlay is the box that searches everything.
  */
@@ -94,7 +93,7 @@ const MUSIC_KINDS: SearchKind[] = ["artist", "album", "playlist", "song", "genre
  * one meaning per icon across the page: `song`, `album`, `artist`, `genre`, `duration`, and `file`
  * for the one fact that is about bytes rather than about music.
  *
- * PLAYTIME IS ONE OF THEM NOW, styled like the rest (the owner's call, 2026-08-13). It was a
+ * PLAYTIME IS ONE OF THEM NOW, styled like the rest. It was a
  * full-width row of its own below the grid, because its value is a PHRASE rather than a number —
  * "6 Stunden, 38 Minuten, 3 Sekunden", which is what that tile is for: a library's playing time runs
  * to months, so a clock (`4761:23:11`) would be a worse answer than a long one. As a plain cell the
@@ -180,7 +179,7 @@ const playtimeParts = computed<string[]>(() => {
  * The album years as one range — "1965–2024", or null when no album carries a year at all, which
  * drops the tile.
  *
- * The rules live in `formatYearRange` (shared with the audiobook card since 2026-08-14), including
+ * The rules live in `formatYearRange` (shared with the audiobook card), including
  * the one to be careful of: a year is deliberately NOT locale-separated like every count beside it.
  */
 const yearRange = computed<string | null>(() => formatYearRange(props.firstYear, props.lastYear));

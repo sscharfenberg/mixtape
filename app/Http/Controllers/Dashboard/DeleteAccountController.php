@@ -20,9 +20,9 @@ class DeleteAccountController extends Controller
     /**
      * Log the user out, invalidate the session, and delete the record.
      *
-     * The password confirmation is DeleteAccountRequest's — which is a restoration rather
-     * than a change: the check was hand-rolled here to work around a JSON-rendering
-     * condition that no longer holds, and the request class records why.
+     * The password confirmation is DeleteAccountRequest's, per the repo's form-request rule.
+     * That request class records the one thing about it worth knowing: why a hand-rolled
+     * `Hash::check` here would be the wrong shape even though the modal wants JSON back.
      *
      * What stays here is the SHAPE of the answer, which is not validation. The modal drives
      * this with fetch() rather than an Inertia visit (so a failure cannot scroll the

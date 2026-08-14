@@ -415,7 +415,7 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
         if (!element) {
             /*
              * THERE IS NOTHING TO PLAY ON YET, and dropping the request here is what made
-             * "play this artist" fill the queue and then sit paused (reported 2026-08-06).
+             * "play this artist" fill the queue and then sit paused.
              * The bar renders the element and only exists while the queue has a track, so a
              * press that FILLS an empty queue reaches this function a tick before the element
              * it needs: `playNow()` is synchronous, mounting is not.
@@ -611,13 +611,12 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
         // The seek itself, so the cursor lands as soon as the element agrees rather
         // than at the next timeupdate.
         /*
-         * A JUMP IS DISCOUNTED WHEN IT STARTS, not when it lands, and the difference is a
-         * bug the owner found: one track played to five minutes in recorded FOUR plays.
-         * `timeupdate` fires when the position changes — including DURING a seek — and
-         * nothing promises it arrives after `seeked`. So the reading that followed a
-         * restored position was a jump of everything heard in the previous session
-         * (250 seconds in one delta) landing as time heard now, past the threshold, on
-         * every page load of a track resumed past four minutes.
+         * A JUMP IS DISCOUNTED WHEN IT STARTS, not when it lands, and the difference is a real
+         * bug: one track played to five minutes recording FOUR plays. `timeupdate` fires when
+         * the position changes — including DURING a seek — and nothing promises it arrives after
+         * `seeked`. So the reading that follows a restored position is a jump of everything heard
+         * in the previous session (250 seconds in one delta) landing as time heard now, past the
+         * threshold, on every page load of a track resumed past four minutes.
          *
          * Both events move the mark, because either can be the first to tell us.
          */
@@ -660,7 +659,7 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
         // A track whose file went missing between library scans, or a dropped
         // connection. Stopping is the honest response: the glyph goes back to play
         // rather than sitting on pause over silence. Silence is ALSO what a paused
-        // player looks like, though, so since 2026-08-07 the listener is told which
+        // player looks like, though, so the listener is told which
         // track failed and why — Utils/playbackError owns the message and the
         // say-it-once rule. The queue deliberately does not skip on: a bad file is
         // worth noticing, not stepping over.
@@ -742,8 +741,8 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
          * explains: "metadata" cost five requests and megabytes on every reload of a long
          * track, for a duration the queue already knew).
          *
-         * WHETHER IT ALSO PLAYS IS THE INTENT, not a constant — and `false` used to be
-         * hardcoded here, which is the other half of the bug `play()` documents above. Page
+         * WHETHER IT ALSO PLAYS IS THE INTENT, not a constant. Hardcoding `false` here is the
+         * other half of the bug `play()` documents above. Page
          * load leaves the intent false, so a hydrated queue stays silent (a page load is not a
          * user gesture and a browser would refuse anyway). A press that filled an empty queue
          * leaves it TRUE, and this is the first moment there is an element to honour it on.

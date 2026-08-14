@@ -13,7 +13,7 @@
  * AN ENTRY IS A SMALL HERO — the detail pages' panel, at list scale: the same inset,
  * corner and slowly rotating gradient ring (tokens copied into `*.$c-playlist`, see the
  * styles). Its title is painted the hero's way too, and has been since both stopped wearing the
- * app's synthwave chrome (2026-08-10): filled with the card's own colour and defined by a stroke,
+ * app's synthwave chrome: filled with the card's own colour and defined by a stroke,
  * so the name reads as cut out of the entry. Each ring starts at a different point in the same
  * turn, so a column of them drifts rather than pulsing in unison; the phase comes from
  * `--playlist-index`, published per row below.
@@ -517,7 +517,7 @@ li.playlist {
         }
     }
 
-    /* The entry's heading, OUTLINED as of 2026-08-10: filled with the card's own colour and drawn
+    /* The entry's heading, OUTLINED: filled with the card's own colour and drawn
        round with a line, so the name reads as cut out of the entry. How it is drawn — the line and
        its paint order, the glow, the weight, the leading — is the shared `.text-outline` class
        (styles/components/_text-outline.scss), which this element carries in the template and which

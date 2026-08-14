@@ -490,8 +490,8 @@ describe("usePlayerQueue", () => {
         /*
          * `nextTrack` / `previousTrack` exist so the Now Playing page can NAME the neighbours of
          * the loaded track. In order that is arithmetic; under shuffle it is the whole reason
-         * `shufflePick` was added, because the draw used to happen inside the press and there was
-         * nothing to show until you asked.
+         * `shufflePick` exists: draw inside the press and there is nothing to show until
+         * somebody asks.
          *
          * The assertion that matters in every shuffle case below is the same one: WHAT WAS SHOWN
          * IS WHAT PLAYS. A pre-draw that were re-rolled at the press would pass a "there is a next
@@ -955,8 +955,8 @@ describe("usePlayerQueue", () => {
         });
 
         it("does not rewrite the list when a song merely ends", () => {
-            // THE reason the pointer has a key of its own: this write used to carry every
-            // queued track, unchanged, every few minutes, for as long as the queue played.
+            // THE reason the pointer has a key of its own: sharing one, this write carries every
+            // queued track, unchanged, every few minutes, for as long as the queue plays.
             usePlayerQueue().enqueue([track("a"), track("b")]);
             flushQueueWrites();
 
@@ -1230,7 +1230,7 @@ describe("usePlayerQueue", () => {
         it("keeps the local queue when the server's copy is older than it", () => {
             /*
              * THE RACE THIS EXISTS FOR, and it is not hypothetical — the E2E suite hit it on
-             * the first run (2026-08-07). Enqueue, then click a link: the sync PUT and the
+             * the first run. Enqueue, then click a link: the sync PUT and the
              * next page's HTML are two requests racing, and if the page wins, the server
              * hands back the queue as it was BEFORE the enqueue. Adopting it unconditionally
              * loses the track that was just added.

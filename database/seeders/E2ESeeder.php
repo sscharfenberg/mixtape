@@ -192,28 +192,28 @@ class E2ESeeder extends Seeder
      * sequentially against an account nothing else can reach. What they still owe each other
      * is a reset between tests, which is `clearServerQueue` in the E2E support.
      *
-     * PLAYLISTS NEEDED THE SAME TREATMENT for a different reason, and `spec-add-to-playlist`
-     * is the case that showed it: that spec creates playlists, and rows added to the shared
-     * account's listing moved the coordinates `playlists.spec.ts`'s DRAG test computes from
-     * its own rows — a failure in a file the new one never touches. Anything user-scoped and
-     * written by a spec belongs to an account of its own, queue or not.
+     * PLAYLISTS NEED THE SAME TREATMENT for a different reason: a spec that creates playlists
+     * adds rows to the shared account's listing, which moves the coordinates another file's DRAG
+     * test computes from its own rows — a failure in a file the new one never touches. Anything
+     * user-scoped and written by a spec belongs to an account of its own, queue or not.
      *
-     * AND `spec-playlists` IS HERE FOR THE SESSION RATHER THAN THE ROWS (2026-08-12) — a third
-     * reason, and the least obvious of them: Inertia carries validation errors and flash
-     * messages in the session, Laravel writes the session whole, and two workers sharing one
-     * cookie lose one of the two writes. See SPEC_USERS in tests/e2e/support/environment.ts,
-     * where the measurements are.
+     * AND THE SESSION ITSELF IS A THIRD KIND, the least obvious of them: Inertia carries
+     * validation errors and flash messages in the session, Laravel writes the session whole, and
+     * two workers sharing one cookie lose one of the two writes. That is why `spec-playlists` is
+     * here even though every test in that file builds its own rows. See SPEC_USERS in
+     * tests/e2e/support/environment.ts, where the measurements are.
      *
-     * AND `spec-search` IS BACK TO THE FIRST REASON (2026-08-13): its spec proves that typing in
-     * the search overlay does not drive the player, so it needs something playing, so it leaves a
-     * queue behind. It owns no rows of its own — the only user-scoped thing search can find is a
-     * playlist, and that half is pinned in tests/Feature/Search rather than in a browser.
+     * So each name here is on the list for one of three reasons:
      *
-     * AND `spec-logout` IS THE FIRST REASON AGAIN, plus one nothing else here needs (2026-08-14):
-     * its spec queues tracks in order to watch them be abandoned, so it leaves a queue — and it
-     * SIGNS OUT, which kills the session it is using. That is why it is the only one of these
-     * whose parked session is never read: it lives in the guest project and signs in for real,
-     * because signing out is the thing under test.
+     * - it leaves a QUEUE — most of them, including `spec-search` (its spec proves that typing in
+     *   the search overlay does not drive the player, so it needs something playing);
+     * - it leaves PLAYLISTS — `spec-playlist-detail`, `spec-add-to-playlist`;
+     * - it needs a session nobody else writes — `spec-playlists`.
+     *
+     * `spec-logout` leaves a queue AND does one thing nothing else here does: it SIGNS OUT,
+     * which kills the session it is using. It is therefore the only one of these whose parked
+     * session is never read — it lives in the guest project and signs in for real, because
+     * signing out is the thing under test.
      *
      * The names are the spec files they serve, so a stray row in the database says which
      * spec left it. Everything else keeps signing in as the canonical seeded account.
@@ -274,10 +274,10 @@ class E2ESeeder extends Seeder
      * Two listens on one named track, so a hero somewhere reliably draws BOTH play tiles.
      *
      * WHY THE FIXTURE HAS TO CARRY THEM: PlayCountFacts hides a count of zero, so on a library
-     * nobody has listened to, its two tiles never render — and until 2026-08-14 that is exactly
-     * why nothing noticed they were missing the hero's halo. They are rendered by a MULTI-ROOT
-     * component, so Vue's slotted marker never reached them and `:slotted()` could not see
-     * them. A test can only catch that recurring if the tiles are on screen.
+     * nobody has listened to its two tiles never render — and a tile that is never on screen is
+     * a tile no test can check. That matters concretely, because these two are rendered by a
+     * MULTI-ROOT component, which Vue's slotted marker does not reach, so `:slotted()` cannot
+     * see them and they silently lose the hero's halo.
      *
      * ONE BY THE CANONICAL ACCOUNT AND ONE BY ANOTHER, because the two tiles are "Von dir" and
      * "Von anderen" and each appears on its own terms — a track only the reader had heard would
@@ -321,9 +321,9 @@ class E2ESeeder extends Seeder
      * the track list, so it exercises the whole page rather than just the hero. The expired
      * one is a song, which keeps the two rows describing different code.
      *
-     * A THIRD ROW SINCE 2026-08-13 ({@see RENEWABLE_SHARE}): dead as well, and owned by the same
-     * account, so the app spec can re-activate one without disturbing the dead link the GUEST
-     * spec reads. Same reasoning as the note on the constant.
+     * A THIRD ROW ({@see RENEWABLE_SHARE}): dead as well, and owned by the same account, so the
+     * app spec can re-activate one without disturbing the dead link the GUEST spec reads. Same
+     * reasoning as the note on the constant.
      *
      * Owned by the canonical account rather than a spec user of its own: nothing about a
      * share is user-scoped from the guest's side, and the reader never sees who minted it
@@ -366,13 +366,11 @@ class E2ESeeder extends Seeder
      * The playlists the fixture ships with — one populated, one empty, per account that
      * needs them.
      *
-     * WHY THE FIXTURE CARRIES THEM AT ALL: they were written when nothing in the UI could add
-     * a track to a playlist, so a populated one could not be built by driving the app. Without
-     * these, a spec would have to INSERT its own (which playlist-detail.spec.ts did until this
-     * landed), and a human running the E2E app to look at something would find a playlists area
-     * with nothing in it. The UI caught up on 2026-08-09, but building a twelve-entry fixture
-     * through the browser would cost every spec that reads it a dozen round trips to arrive at
-     * rows a seeder writes in one statement.
+     * WHY THE FIXTURE CARRIES THEM AT ALL: the app can add a track to a playlist, but building a
+     * twelve-entry fixture through the browser would cost every spec that reads it a dozen round
+     * trips to arrive at rows a seeder writes in one statement. Without these, each spec would
+     * have to INSERT its own, and a human running the E2E app to look at something would find a
+     * playlists area with nothing in it.
      *
      * BOTH accounts get the populated one because playlists are PRIVATE PER OWNER: the
      * canonical reader's copy is what a person browsing the seeded app sees, and
@@ -588,15 +586,16 @@ class E2ESeeder extends Seeder
     }
 
     /**
-     * Two audiobooks, ADDED to the fixture rather than reshaping it (2026-08-13): every
-     * existing spec names music rows by hand, so nothing above may move.
+     * Two audiobooks, ADDED to the fixture rather than reshaping it: every existing spec names
+     * music rows by hand, so nothing above may move.
      *
      * TWO BOOKS BECAUSE THE AREA HAS TWO SHAPES, and only one of them is interesting:
      *
      * - **"Berge des Wahnsinns"** is the ordinary case — one author, one narrator, five
      *   chapters — and it is what the resume spec uses, because a bookmark is easier to
      *   assert against a book whose chapters are all alike.
-     * - **"Necrophobia 1"** is the ANTHOLOGY, and it is the whole reason the schema changed:
+     * - **"Necrophobia 1"** is the ANTHOLOGY, and it is the whole reason an audiobook's author
+     *   hangs off the CHAPTER rather than the book (see docs/audiobooks.md):
      *   six chapters naming three authors and two narrators, one of them crediting nobody.
      *   It is what proves a book appears under every contributor in the Authors tab, and that
      *   a per-chapter Author column has something to show. Its shape is taken from the real

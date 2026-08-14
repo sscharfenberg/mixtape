@@ -132,7 +132,7 @@ describe("GenrePage", () => {
     });
 
     it("offers no share button, unlike the other three detail pages", () => {
-        // The owner's call (2026-08-11): "listen to this genre" is a different kind of act
+        // Deliberate: "listen to this genre" is a different kind of act
         // from "listen to this" — a share hands over one thing somebody chose to send, and a
         // genre is a shelf. App\Enums\ShareSubject has no genre case either, so the server
         // would refuse one; a button that always 422s would be the worse half of that

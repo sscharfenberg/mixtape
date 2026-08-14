@@ -138,15 +138,15 @@ class PlaylistPageTest extends TestCase
     public function test_a_track_listed_twice_counts_one_listen_once(): void
     {
         /*
-         * REVERSED ON 2026-08-13 (the owner). This asserted 2: `forPlaylist` joined the pivot, and
-         * a join yields a row per ENTRY, so a song sitting in the playlist twice doubled every one
-         * of its plays. The argument written down for it was "somebody who put a song in twice
-         * hears it twice" — true of playing the list THROUGH, which writes two rows in `plays` and
-         * counts two under either rule. It was never true of THIS fixture, which is a single
-         * listen: one row in `plays`, and a tile that answered "2" to one press of play.
+         * ONE LISTEN COUNTS ONCE, even for a track the playlist holds twice. Join the pivot and
+         * you get a row per ENTRY, so a song sitting in the playlist twice doubles every one of
+         * its plays. The argument for that reading — "somebody who put a song in twice hears it
+         * twice" — is true of playing the list THROUGH, which writes two rows in `plays` and
+         * counts two either way. It is not true of THIS fixture, which is a single listen: one
+         * row in `plays`, against a tile that would answer "2" to one press of play.
          *
          * These figures are counts of listening EVENTS everywhere else in PlayCounts, and the
-         * pivot is read as a set of track ids now, so the shape cannot double count rather than
+         * pivot is read as a set of track ids, so the shape cannot double count rather than
          * having to remember not to.
          */
         $playlist = $this->ownedPlaylist($reader);

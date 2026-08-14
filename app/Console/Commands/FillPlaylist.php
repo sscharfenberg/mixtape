@@ -26,10 +26,10 @@ use function Laravel\Prompts\select;
  * whatever `app:update` found on disk is what lands in the playlist, and pressing play really
  * plays.
  *
- * THE UI CAUGHT UP ON 2026-08-09 (PlaylistTracksController + App\Services\Playlists\
- * PlaylistAdditions), so this is no longer the only way to build a playlist. It stays useful
- * for filling a long list quickly with something arbitrary — which is what a test playlist
- * wants and what a hand-picked one is not. Note the two APPEND differently on purpose: this
+ * THE APP CAN ALSO DO THIS, one subject at a time (PlaylistTracksController +
+ * App\Services\Playlists\PlaylistAdditions). What this command is for is filling a long list
+ * quickly with something arbitrary — which is what a test playlist wants and what a hand-picked
+ * one is not. Note the two APPEND differently on purpose: this
  * creates entries one at a time (a dozen rows, and `$touches` does the rest), where the
  * service bulk-inserts and touches the playlist by hand because "add this artist" can be
  * hundreds of rows.

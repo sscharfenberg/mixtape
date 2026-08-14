@@ -24,11 +24,10 @@ use Tests\TestCase;
  * countable as a song, and that the two numbers the page shows are split the way a reader
  * would expect.
  *
- * THE COUNTS ARE BY `track_id` — listens to the row whose page this is, and no other. That
- * was the reverse until 2026-08-08 (a song counted every copy of its recording); the owner's
- * call turned it around and data-model.md decision #5 was re-decided to match. PlayCounts'
- * own docblock has the argument. The test below is the one that would have caught the old
- * rule still in place, so it is worth keeping pointed at the new one.
+ * THE COUNTS ARE BY `track_id` — listens to the row whose page this is, and no other. The
+ * tempting alternative is to count every copy of the recording (`content_hash`); PlayCounts'
+ * own docblock has the argument against it, and the test below is what would catch that rule
+ * arriving here.
  */
 class PlayHistoryTest extends TestCase
 {

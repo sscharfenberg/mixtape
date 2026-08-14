@@ -120,7 +120,7 @@ describe("SearchResults", () => {
     });
 
     describe("a row's facts, drawn as pips", () => {
-        /** Two facts per kind, in the order the kind lists them — the owner's set. */
+        /** Two facts per kind, in the order the kind lists them. */
         it("draws the two pips its kind carries, in order", () => {
             const wrapper = render({
                 groups: [group("artist", [row("Blackfield", { albums: 12, duration: 4322 })])]

@@ -19,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * in `player_states`. Because `tracks` is unified, a playlist can freely mix
  * music and audiobook chapters — its rows are just `track_id`s.
  *
- * THE ONLY MODEL THAT FOLDS TWO COLUMNS (2026-08-13, docs/search.md): the cross-kind search
+ * THE ONLY MODEL THAT FOLDS TWO COLUMNS (docs/search.md): the cross-kind search
  * matches a playlist on its blurb as well as its name, so both carry a `_fold` companion and
  * both mutators are mixed in. It is also the only searchable kind that is USER-SCOPED, which
  * is what makes the search response reader-specific and therefore uncacheable.

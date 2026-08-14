@@ -46,12 +46,13 @@ final class ShareArtwork
      * picture, because rips exist where every file carries a different inline cover — and
      * there, "the embedded cover" makes a record's artwork depend on which track sorts first.
      *
-     * AN AUDIOBOOK ASKS THE ALBUM'S QUESTION, which is the arm this was missing until
-     * 2026-08-14: it is a `collections` row like an album, its `Folder.jpg` is recorded in
-     * `collections.cover_path` by the scanner, and AudiobookCoverController serves it with the
-     * same `albumPath()` call. Left out of the match it fell to `default => false` and every
-     * shared book drew CoverImage's placeholder glyph — and, through {@see preview}, unfurled
-     * in a chat window with no image at all.
+     * AN AUDIOBOOK ASKS THE ALBUM'S QUESTION, and needs its own arm to say so: it is a
+     * `collections` row like an album, its `Folder.jpg` is recorded in `collections.cover_path`
+     * by the scanner, and AudiobookCoverController serves it with the same `albumPath()` call.
+     * Left out of the match it falls to `default => false`, and every shared book draws
+     * CoverImage's placeholder glyph — and, through {@see preview}, unfurls in a chat window
+     * with no image at all. A `default` meaning "the kinds with no cover" is a list of kinds
+     * written as an absence; be suspicious of it whenever ShareSubject grows.
      */
     public function hero(Share $share): ?string
     {

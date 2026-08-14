@@ -11,7 +11,7 @@
  * there is no listing this page came from and nowhere above it a guest may go. FullLayout's
  * trail would render as a lone home chip pointing at a page that offers a login form.
  *
- * NO QUEUE PANEL (2026-08-12, the owner's call). The share page puts the queue ON the page —
+ * NO QUEUE PANEL. The share page puts the queue ON the page —
  * it fills it on arrival and draws NowPlayingSection over it — so a second, sliding copy of the
  * same list would be one list too many, in a space where a reader has no library to build a
  * queue out of anyway. The panel is a signed-in reader's affordance and stays one. Its absence
@@ -34,7 +34,7 @@
  *
  * The HEADER is kept too, unchanged, because it trims ITSELF: SiteMenu renders nothing
  * without a signed-in user, so a guest gets the wordmark, the language and theme switches
- * they may well need, and a login link they may well want — while the owner, arriving at
+ * they may well need, and a login link they may well want — while the link's minter, arriving at
  * their own link, keeps their way back into the app.
  *****************************************************************************/
 import { onBeforeUnmount } from "vue";

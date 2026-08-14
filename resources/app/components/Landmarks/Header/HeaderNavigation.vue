@@ -3,18 +3,17 @@
  * HeaderNavigation
  * groups the header's two navigations — SiteMenu (top-level areas) and UserMenu
  * (account + preferences) — plus the play queue's toggle, and pushes the group to
- * the trailing edge of the header row. The "push right" used to live on UserMenu
- * itself; it belongs here now that they travel together.
+ * the trailing edge of the header row. The "push right" belongs here rather than on
+ * UserMenu, because the two menus travel together.
  *
  * The toggle is last on purpose and hides itself twice over: it renders nothing
  * with an empty queue, and nothing where the layout mounts no panel for it to open
  * (the guest share space, which puts the queue on the page instead). It has no
- * width rule any more — the second clause here used to say "nothing from `landscape`
- * up, where the queue is a permanent column", and that arrangement ended in
- * 2026-08-08; the panel is now opened the same way at every width.
+ * width rule at all: the panel is opened the same way at every width, so there is no
+ * "nothing from `landscape` up, where the queue is a permanent column" clause to write.
  *
- * SEARCH SITS SECOND TO LAST, immediately before the queue toggle (2026-08-13, the
- * owner's placement), and hides itself the same way the queue toggle does — off the
+ * SEARCH SITS SECOND TO LAST, immediately before the queue toggle, and hides itself the
+ * same way the queue toggle does — off the
  * overlay having registered itself, so it is absent in the guest share space and for
  * guests, who have nothing behind `auth` to search. That puts the two round glyphs the
  * reader OPENS side by side at the trailing edge, after the two menus.
@@ -78,7 +77,7 @@ import SearchToggle from "Components/Search/SearchToggle.vue";
         border: map.get(s.$c-popover, "border") solid transparent;
     }
 
-    /* A GRADIENT DOES NOT SHOW THROUGH A TRANSPARENT BORDER — IT TILES INTO IT (2026-08-14).
+    /* A GRADIENT DOES NOT SHOW THROUGH A TRANSPARENT BORDER — IT TILES INTO IT.
        `background-origin` is `padding-box`, `background-clip` is `border-box`: the gradient is
        sized to the 32×32 padding box and then REPEATED to cover the 36×36 border box. So the ring
        above and left of the button paints the tile's bottom-right end (bright c2) and the ring

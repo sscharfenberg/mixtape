@@ -13,11 +13,10 @@
  *              <Icon>, or a CoverImage with no art, which renders its glyph) and the
  *              square is drawn as a dashed neon placeholder around it instead — see
  *              the `:has(img)` note in the styles for how that switch works without
- *              a prop. This slot deliberately does NOT size what it is handed: it
- *              used to, and that rule silently outranked CoverImage's own (a slotted
- *              component's ROOT element carries the slot scope id, so `:slotted(img)`
- *              reached inside it), leaving two places declaring one square with the
- *              hero quietly winning.
+ *              a prop. This slot deliberately does NOT size what it is handed: such a
+ *              rule silently outranks CoverImage's own (a slotted component's ROOT
+ *              element carries the slot scope id, so `:slotted(img)` reaches inside it),
+ *              leaving two places declaring one square with the hero quietly winning.
  *
  *              …unless `unframedCover` says the content brings its own size — see
  *              the prop.
@@ -26,16 +25,14 @@
  *              without anything here having to know.
  *
  *              IN THIS APP THAT LEVEL IS <h2>: the document's <h1> is the wordmark in
- *              AppHeader, which every page carries, so a hero that also claimed h1 gave
- *              each detail page two of them and no outline (fixed 2026-08-06 — the artist
- *              page is where the owner spotted it). The styling is level-agnostic
+ *              AppHeader, which every page carries, so a hero that also claimed h1 would
+ *              give each detail page two of them and no outline. The styling is level-agnostic
  *              (`> :slotted(*)`), so this is a document-outline decision only, with
  *              nothing visual riding on it.
  *
- *              ONLY THE NOW PLAYING PAGE FILLS IT. The four Music detail pages moved their
- *              titles up into the same glowing <Headline> every listing wears (2026-08-11),
- *              so arriving at an album looks like arriving anywhere else in the app — and
- *              their heroes now open with the facts; the playlist and share pages followed.
+ *              ONLY THE NOW PLAYING PAGE FILLS IT. Every other detail page puts its title
+ *              in the same glowing <Headline> the listings wear, so arriving at an album
+ *              looks like arriving anywhere else in the app, and its hero opens with the facts.
  *              The slot stays because Now Playing still reads better with the title beside
  *              the art, and it is the one page whose knockout lettering is on screen — which
  *              is why the gradient below starts at the panel colour the title is filled with.
@@ -178,7 +175,7 @@ defineProps<{
     position: relative; // positioning context for the border ring below
     isolation: isolate; // keep the ring's rung contained to this panel
 
-    /* THE PANEL KEEPS ITS OWN LIGHT IN (the owner, 2026-08-14). Two things in here glow past
+    /* THE PANEL KEEPS ITS OWN LIGHT IN. Two things in here glow past
        their own boxes: every `#metadata` tile carries a halo (see `metadata-halo` below) and the
        action buttons carry the neon `.btn` spread. On a wide panel both have room; on a phone the
        tiles reach the padding and the glow washes straight over the rotating gradient ring —

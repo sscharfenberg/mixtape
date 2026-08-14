@@ -20,8 +20,7 @@ import { clearServerQueue, specStorageState } from "../support/environment";
  *     once the queue is empty" is a statement about layout and default actions. There is no
  *     scroll position without a viewport.
  *   - A REAL PASSWORD FIELD ON A REAL FORM, typed into. The Vitest guard test builds an
- *     <input> by hand; this puts a space into the actual dashboard field, which is the
- *     thing the owner asked about.
+ *     <input> by hand; this puts a space into the actual dashboard field.
  *
  * The fixture's tracks are one second of audio claiming two to eight minutes
  * (docs/testing.md), so any assertion here is about STATE and DIRECTION, never about a
@@ -227,7 +226,7 @@ test.describe("the player's keyboard shortcuts", () => {
 
     test("takes nothing from a password field, so a space in a passphrase is just a space", async ({ page }) => {
         /*
-         * The case the owner raised. A real form, a real password input, a real space.
+         * A real form, a real password input, a real space.
          * Asserted on the FIELD as well as the player: the character has to arrive, not
          * merely fail to reach the player.
          *

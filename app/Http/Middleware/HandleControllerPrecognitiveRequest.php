@@ -28,7 +28,7 @@ use Illuminate\Routing\ControllerDispatcher;
  * is no request to type-hint. Under the framework's dispatchers the abort comes FIRST and nothing
  * is ever validated.
  *
- * Measured 2026-08-10 on a route of that shape, sending a value the rule cannot accept:
+ * Measured on a route of that shape, sending a value the rule cannot accept:
  *
  *   framework middleware → 204 `Precognition-Success: true`   ← "valid", having checked nothing
  *   this middleware      → 422 {"name": ["…is invalid."]}
@@ -40,14 +40,11 @@ use Illuminate\Routing\ControllerDispatcher;
  *
  * AND THAT IS THE OBLIGATION IT PUTS ON THE ROUTE. Nothing else stops the action, so an action
  * reached through this middleware MUST short-circuit itself. Put this in front of one that does not
- * and a request merely CLAIMING precognition performs the real thing — which is what happened to
- * five routes here until 2026-08-10, when they were validating through FormRequests and wearing this
- * anyway: `Precognition: true` with no `Precognition-Validate-Only` header created playlists, wrote
- * metadata, sent password-reset and verification mail, and reset a password (consuming its token and
- * logging the session in). They now carry the framework's middleware, which is correct for them.
- *
- * (Ported from cantrip.me, where the reasoning above was recorded backwards — as being about the
- * dispatchers NOT executing the action, which is the opposite of what these bindings achieve.)
+ * and a request merely CLAIMING precognition performs the real thing. On a route that validates
+ * through a FormRequest and wears this anyway, `Precognition: true` with no
+ * `Precognition-Validate-Only` header will create a playlist, write metadata, send password-reset
+ * and verification mail, or reset a password (consuming its token and logging the session in).
+ * A FormRequest route wants the FRAMEWORK's middleware, which short-circuits for it correctly.
  */
 class HandleControllerPrecognitiveRequest extends HandlePrecognitiveRequests
 {

@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Log;
 /**
  * Cover art for a track, extracted on demand and cached as a JPEG.
  *
- * Ported from the legacy `CoverService`, and for the same reason: cover bytes do
+ * EXTRACTED LAZILY, NOT AT SCAN TIME: cover bytes do
  * not belong in the database (the scanner only records the boolean
  * `tracks.cover`), and re-reading a 12k-file collection's embedded art on every
  * page view is wasteful. So the first request for a cover pays for the
@@ -28,7 +28,7 @@ use Illuminate\Support\Facades\Log;
  * image wins there, because an album whose files each carry their own inline picture
  * would otherwise get a thumbnail decided by sort order. See that method.
  *
- * WHICH directory image an album has is no longer worked out per request: the scanner
+ * WHICH directory image an album has is not worked out per request: the scanner
  * resolves it once (`directoryImage`, called from
  * LibraryScanService::syncCollectionCovers) and records the path in
  * `collections.cover_path`, so a listing answers "is there artwork?" from a column.
@@ -405,8 +405,8 @@ final class CoverService
      *     behind, unreachable but on disk. Only the newest stamp per album can still
      *     match a request, so the rest go.
      *
-     * Surgical rather than legacy's "wipe the cache on every rescan", because these files
-     * cost real work to rebuild: a full sweep would re-extract from every mp3 someone
+     * Surgical rather than "wipe the cache on every rescan", because these files cost real
+     * work to rebuild: a full sweep would re-extract from every mp3 someone
      * happens to view next, and this cache is the reason a page render doesn't decode
      * audio at all.
      *
@@ -599,7 +599,7 @@ final class CoverService
      *
      * That leaves the superseded file behind, which is why `forgetAlbum()` globs: the
      * scanner drops an album's stale entries when its recorded path changes, and the
-     * cleanup step sweeps the rest (legacy wiped this cache wholesale on a rescan).
+     * cleanup step sweeps the rest.
      */
     private function albumCachePath(Collection $album, string $folderImage): string
     {

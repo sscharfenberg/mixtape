@@ -5,9 +5,9 @@ import { expect, test } from "@playwright/test";
  * of them: the user menu. SiteMenu renders nothing for a guest (every area it links to is
  * behind `auth`), and the search and queue toggles hide themselves the same way.
  *
- * WHAT THIS PINS is the fix for a real artefact (2026-08-14). HeaderNavigation gives every
+ * WHAT THIS PINS is the fix for a real artefact. HeaderNavigation gives every
  * non-highlighted trigger a 2px border purely to make the row one height, and that border
- * used to be `transparent` on the theory that the fill shows through it. That holds for a
+ * must NOT be `transparent` on the theory that the fill shows through it. That holds for a
  * flat colour and NOT for the gradient this button carries: `background-origin` is
  * padding-box while `background-clip` is border-box, so the gradient is sized to the 32×32
  * padding box and REPEATED into the 36×36 border box — the ring above and left painting the

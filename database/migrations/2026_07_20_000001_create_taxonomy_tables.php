@@ -10,31 +10,31 @@ return new class extends Migration
     /**
      * The taxonomy (lookup) tables: the two contributor trees kept deliberately
      * separate under option B — music `artists` + `genres`, audiobook `authors` +
-     * `narrators` (data-model.md → (a), "keep the two taxonomy trees separate").
+     * `narrators` (data-model.md → "One tracks table, one collections table").
      * All four are identical in shape (a uuid PK + a unique name), so they live in
      * one migration.
      *
-     * Two v1 bugs are fixed here (data-model.md → (b) #2):
-     *  - Every `name` is now UNIQUE (legacy left albums/genres/audiobooks unindexed
-     *    and deduped purely in PHP `firstOrCreate`).
+     * Two things are enforced in the DATABASE rather than in PHP (data-model.md →
+     * "Foreign keys"):
+     *  - Every `name` is UNIQUE. Dedup by `firstOrCreate` alone leaves nothing stopping
+     *    two rows for one name if a scan races or a rule changes.
      *  - On Postgres each `name` is pinned to the `case_insensitive` ICU collation
      *    minted by the users migration (`und-u-ks-level2`, strength 2 = ignore case,
      *    keep accents). That collation is Unicode-aware, so Chinese / CJK / any
-     *    script sorts and dedupes correctly — it is the v2 equivalent of the legacy
-     *    MySQL `utf8mb4_unicode_ci`. Pinning it at the column level also makes the
-     *    scanner's `firstOrCreate` case-insensitive transparently ("Rock" == "rock").
+     *    script sorts and dedupes correctly. Pinning it at the column level also makes
+     *    the scanner's `firstOrCreate` case-insensitive transparently ("Rock" == "rock").
      *
      * The sqlite connection used by the test suite doesn't understand the ICU DDL, so it gets
      * `nocase` — sqlite's own case-insensitive collation, which folds ASCII only.
      *
      * THAT USED TO BE `null`, AND THE COMMENT HERE CLAIMED SQLITE'S DEFAULT WAS "already
      * case-folding". It is not: the default is `BINARY`, which is case-SENSITIVE — so for two
-     * names differing only in case the suite did the exact OPPOSITE of production, and neither
-     * behaviour was wrong-looking on its own. Postgres found the existing row (and the scanner
-     * then never rewrote its spelling, which is the bug the owner reported on 2026-08-13);
-     * sqlite created a second row and pruned the first, so the name looked right and the ID
-     * silently changed. A test could not have caught either, because it was asserting the wrong
-     * engine's answer. Both now dedupe case-insensitively; Postgres additionally does it for
+     * names differing only in case the suite would do the exact OPPOSITE of production, and
+     * neither behaviour is wrong-looking on its own. Postgres finds the existing row (and unless
+     * the scanner rewrites its spelling, a case-only rename then does nothing at all); sqlite
+     * creates a second row and prunes the first, so the name looks right and the ID silently
+     * changes. A test cannot catch either, because it is asserting the wrong engine's answer.
+     * Both dedupe case-insensitively; Postgres additionally does it for
      * every script rather than for ASCII, which is a difference the fixtures never reach.
      */
     public function up(): void
@@ -49,7 +49,7 @@ return new class extends Migration
                 $table->uuid('id')->primary();
                 $table->string('name', 255)->collation($collation)->unique();
                 // No timestamps: taxonomy rows carry no lifecycle of their own —
-                // they are minted/pruned by the scanner (data-model.md → (b) #5).
+                // they are minted/pruned by the scanner (data-model.md → "Foreign keys").
             });
         }
     }

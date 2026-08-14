@@ -4,7 +4,7 @@
  * The Now Playing page's EQ (Components/Player/Visualizer): how tall the row is, how many bars it
  * holds at each width, and how they are spaced.
  *
- * KEPT SHORT ON PURPOSE (the owner's brief: "not too tall"). It sits between the track that is
+ * KEPT SHORT ON PURPOSE. It sits between the track that is
  * playing and the two either side of it, so anything taller starts pushing the thing the page is
  * actually about off the top of a phone. A literal rather than a `$scale` rung: this is a picture
  * height chosen by eye against the cards above and below it, which is exactly the case the
@@ -29,7 +29,7 @@ $visualizer: (
     //
     // IT STEPS DOWN BECAUSE THE BARS GET THINNER, NOT FEWER. At the full count a phone drew bars a
     // couple of pixels wide — a smear rather than a spectrum — and the row is the same 100% wide
-    // whatever the window is. The owner's brief was 100 / 65 / 50 per cent of 48.
+    // whatever the window is. The ladder is 100 / 65 / 50 per cent of 48.
     //
     // 32 rather than 31 (65% is 31.2): the counts must DIVIDE the 96 bins the analyser spreads over
     // — 2, 3 and 4 bins a band exactly — or the bands come out unequal widths, and a band averaging
@@ -53,7 +53,7 @@ $visualizer: (
     // because that is what an inline height written per frame has to be. This only stops a bar
     // vanishing altogether if the row is ever shorter than the percentage can survive.
     //
-    // The pair used to be 2px and 2%, which is where the owner's "it is still hidden when paused"
-    // came from: one pixel of grey in a 56px box is present in the DOM and absent to the eye.
+    // At 2px and 2% the row reads as "still hidden when paused": one pixel of grey in a 56px
+    // box is present in the DOM and absent to the eye.
     "idle-bar": 2px
 ) !default;

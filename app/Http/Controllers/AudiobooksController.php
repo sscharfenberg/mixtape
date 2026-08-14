@@ -18,7 +18,7 @@ use Inertia\Response;
  * stats over three ways into it: the BOOKS themselves, and the same books grouped by who
  * wrote them and by who reads them.
  *
- * WHY IT IS NOT A DATATABLE, unlike every Music listing (the owner's call): this app is a
+ * WHY IT IS NOT A DATATABLE, unlike every Music listing: this app is a
  * music player that also holds audiobooks, and twenty books do not need sorting, paging or a
  * column of file sizes. They need to be recognisable, which means covers. So the books are
  * the shared `Discography` grid — the component the artist and genre pages already use for

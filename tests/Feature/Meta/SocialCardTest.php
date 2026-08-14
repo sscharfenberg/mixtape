@@ -140,10 +140,10 @@ class SocialCardTest extends TestCase
     public function test_a_shared_playlist_names_itself_and_borrows_its_opening_sleeve(): void
     {
         /*
-         * PLAYLIST SHARES (2026-08-13), and the card is where they were nearly missed: the
-         * description is built from `social.share.kind.<subject>`, so a subject without a label
-         * would have unfurled the raw KEY into somebody's chat window — a failure no page test
-         * can see, because the page never reads that catalog.
+         * A PLAYLIST SHARE, and the card is the easiest place to miss a subject kind: the
+         * description is built from `social.share.kind.<subject>`, so a subject with no label
+         * unfurls the raw KEY into somebody's chat window — a failure no page test can see,
+         * because the page never reads that catalog.
          *
          * The sleeve is the FIRST ENTRY, not the newest record: a playlist has an order, and its
          * opening track is the one thing about it its maker actually chose. The fixture puts the
@@ -200,8 +200,8 @@ class SocialCardTest extends TestCase
 
         $this->assertTag($response, 'og:title', 'Einladung zu MixTape');
         $this->assertTag($response, 'og:description', 'Du wurdest zu einer privaten Musiksammlung eingeladen.');
-        // The note is the owner's private reminder of who the invite was for, in their own
-        // words — it is for the "My invites" list, not for a chat window. The card is the same
+        // The note is a private reminder of who the invite was for, in the minter's own
+        // words — it is for their own list, not for a chat window. The card is the same
         // for every invite there has ever been, which is the whole of its privacy model.
         $response->assertDontSee('Oma', false);
     }

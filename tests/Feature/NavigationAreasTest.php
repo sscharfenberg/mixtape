@@ -69,7 +69,7 @@ class NavigationAreasTest extends TestCase
          * The login page has to render with no database at all, and that is not a
          * hypothetical: the E2E harness waits for the server to answer BEFORE it migrates,
          * so a shared prop touching `tracks` deadlocks the whole suite behind a table that
-         * does not exist yet (CI, 2026-08-08). SiteMenu renders nothing without a user
+         * does not exist yet. SiteMenu renders nothing without a user
          * anyway, so there is no question to answer here.
          */
         DB::statement('DROP TABLE tracks');
@@ -100,9 +100,9 @@ class NavigationAreasTest extends TestCase
 
     public function test_podcasts_are_gone(): void
     {
-        // Dropped whole on 2026-08-08 — a podcast is something you listen to on the
-        // service that publishes it, not a folder of mp3s. The route is the half a reader
-        // could still have bookmarked.
+        // There is deliberately no podcast area — a podcast is something you listen to on
+        // the service that publishes it, not a folder of mp3s. The route is the half a
+        // reader could still have bookmarked.
         $this->actingAs(User::factory()->create())
             ->get('/podcasts')
             ->assertNotFound();

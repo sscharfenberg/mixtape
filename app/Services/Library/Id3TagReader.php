@@ -10,8 +10,8 @@ use RuntimeException;
 /**
  * getID3-backed TagReader.
  *
- * The reason for getID3 (over the lighter wapmorgan/mp3info the legacy app used)
- * is the identity hash: getID3 reports the audio-data byte range
+ * The reason for getID3, over a lighter tag reader, is the identity hash: it
+ * reports the audio-data byte range
  * (`avdataoffset` … `avdataend`) — the frames between the leading ID3v2 tag and
  * any trailing ID3v1/APE tag — so we can hash *only the audio*. That is what
  * makes a re-tag keep a track's id: the tag bytes change, the hashed range does

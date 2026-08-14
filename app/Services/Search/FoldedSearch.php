@@ -8,7 +8,7 @@ use Normalizer;
 
 /**
  * Accent- and case-insensitive substring search, via the `name_fold` companion
- * columns (data-model.md → (c), substring search).
+ * columns (data-model.md → "Indexes").
  *
  * Every searchable `name` has a `name_fold` sibling holding its folded form, kept
  * in step by the models' HasFoldedName mutator. Searching that column rather than

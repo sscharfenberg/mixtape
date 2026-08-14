@@ -28,7 +28,7 @@ use Illuminate\Database\Query\Builder;
  * would eventually grant a set the artist page never showed (docs/sharing.md → "the artist
  * trap").
  *
- * A PLAYLIST IS THE ONE SUBJECT THAT MAPPING CANNOT ANSWER (2026-08-13), and everything
+ * A PLAYLIST IS THE ONE SUBJECT THAT MAPPING CANNOT ANSWER, and everything
  * special about playlist sharing follows from it: a playlist's tracks are rows of
  * `playlist_tracks`, in the reader's own `position` order, so `grant()` is null and
  * {@see query()} joins the pivot instead. Two consequences worth knowing before touching
@@ -39,7 +39,7 @@ use Illuminate\Database\Query\Builder;
  * which is what the playlist's own page already shows its owner.
  *
  * IT IS RESOLVED FRESH ON EVERY REQUEST, which is the whole of "a shared playlist stays up
- * to date" (the owner's requirement, 2026-08-13). Nothing is copied at mint time: the row
+ * to date", which is a requirement rather than an accident. Nothing is copied at mint time: the row
  * holds a `playlist_id` and this class asks the pivot each time, so an owner adding, moving
  * or removing an entry changes what the link plays on the guest's next reload. No live
  * push, and none wanted — a reload is the contract.
@@ -230,11 +230,11 @@ final class ShareGrant
      * (ShareArtwork). The two kinds that have no one picture of their own borrow one here, and
      * WHICH one is a different question for each:
      *
-     *   - AN ARTIST lends their most recent granted record. The owner's rule: a band's newest
+     *   - AN ARTIST lends their most recent granted record, because a band's newest
      *     record is the one a recipient is most likely to recognise. Undated records sort last
      *     rather than first — `collections.year` is null for plenty of rips, and "no year" is
      *     not "the newest".
-     *   - A PLAYLIST lends its FIRST ENTRY (2026-08-13), because a playlist has an order and
+     *   - A PLAYLIST lends its FIRST ENTRY, because a playlist has an order and
      *     its opening track is the one thing about it a maker actually chose. Sorting it by
      *     year would pick a record out of the middle of somebody's sequence.
      *

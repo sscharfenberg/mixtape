@@ -47,8 +47,8 @@ final class PlaylistKind extends DatabaseKind
      * BOTH ARE COUNTED OVER THE PIVOT — the `playlist_tracks` rows — rather than over distinct
      * tracks, and that is right for both: a playlist deliberately holding one song twice is two
      * entries long and takes twice as long to play. Note this is the OPPOSITE of the rule
-     * `PlayCounts::forPlaylist` had to adopt (2026-08-13), where a join over the same pivot made
-     * one listen count twice: a LISTEN is an event that happened once, while a track sitting in a
+     * `PlayCounts::forPlaylist` must follow, where a join over the same pivot makes one listen
+     * count twice: a LISTEN is an event that happened once, while a track sitting in a
      * list twice really is played twice. Same table, two questions.
      *
      * The runtime is a correlated sub-select rather than a `withSum` through the relation, because

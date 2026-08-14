@@ -5,9 +5,9 @@
  * (Components/Playlists/AddToPlaylist): the space between its sentence and its controls,
  * between the select and the button, and how much room the select asks for before it wraps.
  *
- * Its inset and shape are NOT here any more — the box moved to `_action-panel.scss` on
- * 2026-08-10, when it turned out to be the hero's action area rather than this component's
- * own. The gaps step off the shared `$padding` rungs so the area breathes like the rest of
+ * Its inset and shape are NOT here — the box is `_action-panel.scss`'s, because it is the
+ * hero's action area rather than this component's own. The gaps step off the shared
+ * `$padding` rungs so the area breathes like the rest of
  * the hero; the select's basis is a LITERAL in `ch`, because it is a text measure —
  * about the width of a long playlist name — and that is the one thing the `$scale` (a rem-based
  * spacing ladder) has no opinion about.

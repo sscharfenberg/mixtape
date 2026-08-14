@@ -29,7 +29,7 @@ export default defineConfig({
     fullyParallel: true,
     /*
      * TWO, not three, and it is FREE — which is the only reason to prefer it. Measured over six
-     * interleaved full runs on 2026-08-14: three at each setting, alternating so machine drift
+     * interleaved full runs: three at each setting, alternating so machine drift
      * could not favour either. Two workers averaged 5.6 minutes against three workers' 5.5, i.e.
      * no cost at all, because this suite waits on a SERIAL app server rather than on CPU (see the
      * timeout note below). The one failure in those six runs was at three.
@@ -46,7 +46,7 @@ export default defineConfig({
 
     /*
      * ROOM FOR THE SERVER TO STALL, which it does, and which was costing one or two red runs a
-     * day — a different test every time, all green in isolation (measured 2026-08-14).
+     * day — a different test every time, all green in isolation.
      *
      * WHAT IS ACTUALLY HAPPENING. `artisan serve` is PHP's built-in server: strictly SERIAL, one
      * connection at a time, for all three workers. Polling `/up` — Laravel's health route, which

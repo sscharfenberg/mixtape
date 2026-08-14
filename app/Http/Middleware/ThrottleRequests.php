@@ -27,11 +27,10 @@ use Symfony\Component\HttpFoundation\Response;
  * naming the route stops unrelated routes sharing a counter, but two kinds of traffic still
  * share the name.
  *
- * MEASURED, 2026-08-10: fifteen scripted saves through the playlist form — thirty
- * validate-on-blur requests and fifteen writes — hit a hard 429 on
- * `throttle:30,1,playlist-create` halfway through. The ceilings on `register` and
- * `password-reset` had already been inflated by hand for the same reason, and `auth-mail`
- * carries a branch that was written to fix it (see FortifyServiceProvider).
+ * MEASURED: fifteen scripted saves through the playlist form — thirty validate-on-blur requests
+ * and fifteen writes — hit a hard 429 on `throttle:30,1,playlist-create` halfway through. The
+ * ceilings on `register` and `password-reset` are inflated by hand for the same reason, and
+ * `auth-mail` carries a branch for it (see FortifyServiceProvider).
  *
  * IT KEYS ON `Precognition-Validate-Only`, NOT ON `Precognition`, and that difference is a
  * bypass. A request that merely CLAIMS precognition can still perform the write — measured
@@ -53,7 +52,7 @@ class ThrottleRequests extends FrameworkThrottleRequests
     /**
      * How much validate-only traffic a route allows, as a multiple of its own ceiling.
      *
-     * FIVE, because it is the ratio the owner reached for by hand the first time this bit
+     * FIVE, because it is the ratio the routes that hit this first needed by hand
      * (`auth-mail`: thirty validations against six sends), and because the traffic says the
      * same thing — a form spends one validation per field and another per correction against
      * a single write, so the validation bucket has to sit well clear of the write's or it

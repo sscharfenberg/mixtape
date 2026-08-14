@@ -18,12 +18,11 @@ $widget: (
     /*
      * title strip -----------------------------------------------------------
      *
-     * DARK MODE'S GRADIENT AND INK BOTH CHANGED ON 2026-08-13, because the pair that shipped
-     * FAILED WCAG AA and no choice of ink could have saved it. It ran `c5-dark` → `c6-dark`: a dark
-     * purple into a LIGHT pink, and the ends want opposite inks — measured, white is 6.54:1 over
-     * the purple and 2.77:1 over the pink, black is 3.21 and 7.58 the other way about. Whatever ink
-     * you pick, one end of every title in the app is illegible; the shipped `#ffe64d` bottomed out
-     * at **2.20:1**, against the 4.5:1 text needs.
+     * DARK MODE'S GRADIENT ENDS DARK AT BOTH ENDS, and no choice of ink can save it otherwise.
+     * The obvious `c5-dark` → `c6-dark` runs a dark purple into a LIGHT pink, and the ends want
+     * opposite inks — measured, white is 6.54:1 over the purple and 2.77:1 over the pink, black
+     * is 3.21 and 7.58 the other way about. Whatever ink you pick, one end of every title in the
+     * app is illegible: `#ffe64d` bottoms out at **2.20:1**, against the 4.5:1 text needs.
      *
      * So the END moved rather than the ink: `c4-dark` → `c5-light` is dark at both ends, which lets
      * one ink carry the whole span. White, worst case **9.25:1** measured across the gradient in

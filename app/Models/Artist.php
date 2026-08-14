@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * A music performer. Referenced both as a track's performer (`tracks.artist_id`)
  * and as an album's owner (`collections.album_artist_id`). Minted and pruned by
  * the library scanner, so it carries no timestamps of its own; its `name` is
- * unique and case-insensitive (data-model.md → (b) #2).
+ * unique and case-insensitive (data-model.md → "Foreign keys").
  */
 #[Fillable(['name'])]
 class Artist extends Model

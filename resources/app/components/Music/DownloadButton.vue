@@ -23,12 +23,11 @@
  * kind interpolated, for the same reason AddToPlaylist has four — German declines the
  * article, and a template with the noun slotted in is wrong in half the cases.
  *
- * WHERE IT STANDS changed on 2026-08-11: it sat inside the hero's tinted ActionPanel, pushed
- * to its trailing edge, and now sits on the row BELOW that panel next to the share button.
- * The panel holds what a reader is most likely to press — play, queue, add to a playlist —
- * and these two are the pair that take the subject somewhere else entirely: onto a disk, or
- * to somebody without an account. Its trailing-edge margin went with the move, since there is
- * no longer a growing sibling to be pushed away from.
+ * WHERE IT STANDS: on the row BELOW the hero's tinted ActionPanel, next to the share button,
+ * rather than inside the panel. The panel holds what a reader is most likely to press — play,
+ * queue, add to a playlist — and these two are the pair that take the subject somewhere else
+ * entirely: onto a disk, or to somebody without an account. No trailing-edge margin, because
+ * out here there is no growing sibling to be pushed away from.
  *
  * No halo (see Button.vue's prop): it stands on the hero's own panel, and a neon pool
  * spilling across that reads as a smudge rather than as neon.

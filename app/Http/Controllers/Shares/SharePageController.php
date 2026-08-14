@@ -62,9 +62,9 @@ class SharePageController extends Controller
         $grant = ShareGrant::for($share);
         $subject = $grant->subject();
 
-        // A share this app has no subject case for. Every column the table permits now has
-        // one (playlist sharing landed 2026-08-13), so this is reachable only through a row
-        // with no subject at all — which the table's CHECK forbids on Postgres. There is no
+        // A share this app has no subject case for. Every column the table permits has one, so
+        // this is reachable only through a row with no subject at all — which the table's CHECK
+        // forbids on Postgres. There is no
         // page to build for it, so it is a 404 rather than an empty one: the link names
         // something this instance does not serve.
         abort_if($subject === null, HttpResponse::HTTP_NOT_FOUND);

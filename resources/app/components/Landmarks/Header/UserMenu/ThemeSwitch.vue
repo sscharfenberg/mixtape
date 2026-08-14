@@ -14,9 +14,9 @@
  * behind is the only part that was ever about colour schemes: the meta tag, the
  * persistence, and the three values.
  *
- * The pill also moved from `:has(input:nth-of-type(n):checked)` to arithmetic on the
- * option count — same three stops, but 100%/3 rather than the 33% / 66% this file
- * used to approximate.
+ * The pill is placed by arithmetic on the option count rather than by
+ * `:has(input:nth-of-type(n):checked)` — same three stops, and 100%/3 exactly, rather
+ * than a hand-written 33% / 66% approximation.
  *****************************************************************************/
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -39,11 +39,11 @@ function updateMeta(val: string): void {
 /**
  * The active theme — seeded from localStorage, then the meta tag, then "follow the OS".
  *
- * A REF, NOT A COMPUTED WITH A SETTER, which it was until 2026-08-06 and which was a bug
- * waiting for a witness. That getter read `localStorage` and an attribute, neither of
- * which Vue tracks, so it never re-evaluated: the old markup got away with it because the
- * pill was drawn by `:has(input:nth-of-type(n):checked)` — the browser's own radio state,
- * which changes whether or not Vue notices. Moving the pill onto component state (see the
+ * A REF, NOT A COMPUTED WITH A SETTER, which would be a bug waiting for a witness. Such a
+ * getter reads `localStorage` and an attribute, neither of which Vue tracks, so it never
+ * re-evaluates — and markup gets away with that only while the pill is drawn by
+ * `:has(input:nth-of-type(n):checked)`, the browser's own radio state, which changes whether
+ * or not Vue notices. With the pill on component state (see the
  * banner) made the staleness visible immediately: the scheme changed and the pill stayed
  * put. Owning the value here is what makes both true at once.
  */

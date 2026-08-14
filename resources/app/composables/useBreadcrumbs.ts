@@ -9,13 +9,13 @@
  * URL: only the page knows the *names* of the things in its path (a song's
  * title, its album) and which parents are actually reachable for this visitor.
  *
- * Why layout props rather than the module-level ref this used to be: the trail
- * has to be emptied between pages, or a page that declares none would inherit
- * the previous one's path — and *when* that emptying happens is the whole
- * experience. Clearing it ourselves on Inertia's `start` event blanked it the
- * instant a link was clicked, so the <nav> unmounted and the content jumped up
- * while the request was still in flight, then jumped back when the new page
- * declared its own. Inertia resets layout props inside `swapComponent` instead
+ * Why layout props rather than a module-level ref: the trail has to be emptied
+ * between pages, or a page that declares none would inherit the previous one's
+ * path — and *when* that emptying happens is the whole experience. Clearing it
+ * ourselves on Inertia's `start` event blanks it the instant a link is clicked,
+ * so the <nav> unmounts and the content jumps up while the request is still in
+ * flight, then jumps back when the new page declares its own. Inertia resets
+ * layout props inside `swapComponent` instead
  * — the exact moment the incoming page replaces the outgoing one — so the old
  * trail stays put for the whole visit and is *replaced*, never blanked.
  *

@@ -69,7 +69,7 @@ class LibrarySeeder extends Seeder
         // authors and several narrators inside ONE book, plus a chapter that names no
         // author at all. Taken from the real library, where "Necrophobia 1" runs four
         // authors across 33 chapters and some chapters carry no TCOM tag — the case that
-        // moved both credits onto the chapter (2026-08-13).
+        // both credits hang off the chapter.
         $anthology = Collection::factory()->audiobook()->create(['name' => 'Anthology of the Weird']);
         $contributors = Author::factory()->count(3)->create();
         $voices = Narrator::factory()->count(2)->create();

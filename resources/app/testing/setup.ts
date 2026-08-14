@@ -78,7 +78,7 @@ Object.defineProperty(globalThis, "localStorage", {
 
 /**
  * `document.execCommand` — removed from happy-dom, but useClipboard still calls it on
- * its legacy fallback path (the branch taken when `navigator.clipboard` is missing, as
+ * its deprecated fallback path (the branch taken when `navigator.clipboard` is missing, as
  * on older mobile WebViews). Defined as a no-op returning true so the fallback can be
  * exercised at all; a test that cares asserts the surrounding DOM dance, since nothing
  * here can put text on a real clipboard.

@@ -19,8 +19,8 @@ use Inertia\Response;
  * and a second `createMediaElementSource()` on the same element throws. If a browser suspends
  * the context while the page is hidden, the music stops in the worst possible way: the element
  * is still "playing", the timeline still advances, the lock screen still says playing, and
- * there is no sound. Screen-off playback on Android is a headline feature of this app
- * (verified 2026-08-07), so that risk has to be measured rather than reasoned about — browser
+ * there is no sound. Screen-off playback on Android is a headline feature of this app, so that
+ * risk has to be measured rather than reasoned about — browser
  * behaviour here differs by engine, by version, and between "tab backgrounded" and "screen
  * off".
  *

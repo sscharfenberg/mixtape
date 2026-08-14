@@ -138,7 +138,7 @@ describe("Accordion", () => {
     describe("the fact chips", () => {
         it("gives each fact its own chip, and draws none where there are none", () => {
             // One chip per fact, not one element holding a joined sentence — which is what this
-            // was until 2026-08-14 and why the words could not be hidden on a phone.
+            // reads as, and why the words could not then be hidden on a phone.
             const wrapper = stack();
 
             // UNSPACED on purpose: a chip is a flex row, so the distance between its icon, its
@@ -156,7 +156,7 @@ describe("Accordion", () => {
 
         it("puts the word on the side that fact's grammar wants", () => {
             /*
-             * The owner's call, 2026-08-14: a count reads as a phrase ("3 Bücher") and a
+             * A count reads as a phrase ("3 Bücher") and a
              * measurement as a labelled fact ("Spielzeit 40:51:45"), so one word trails the
              * value and the other leads it. Asserted on the rendered ORDER, which is the only
              * thing that can tell the two apart — both are the same element and both vanish at

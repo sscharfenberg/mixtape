@@ -85,17 +85,17 @@ export const clockToSeconds = (clock: string): number =>
  *
  * The first `<h2>` inside `<main>`, which is the page title because the wordmark is the
  * document's only `<h1>` (browse.spec pins exactly that). It covers all three shapes a detail
- * page comes in: the <Headline> the four Music pages moved their titles into on 2026-08-11,
- * and the hero title the playlist and Now Playing pages still carry.
+ * page comes in: the <Headline> the Music pages put their titles in, and the hero title the
+ * playlist and Now Playing pages carry.
  *
  * `:has(.hero-section)` IS THE PART THAT MAKES IT USABLE, and it is not decoration. Every
  * caller navigates from a LISTING and then reads this — and a listing has an `<h2>` of its
  * own, the "Songs" / "Alben" headline. Matching `main h2` alone therefore resolved against
  * the page being left behind: `waitForURL` returns when Inertia updates the address, which is
  * before the component has swapped, so the helper answered "Songs" where a song's title was
- * expected. Requiring the hero — which only the destination has — is what restores the wait
- * that the old `.hero-section__title` selector used to provide for free. It cost eleven
- * failing specs to find, all of them looking like the player had loaded the wrong track.
+ * expected. Requiring the hero — which only the destination has — is what restores the wait a
+ * narrower, destination-only selector would give for free. Broadening this without it costs
+ * eleven failing specs, all of them looking like the player had loaded the wrong track.
  *
  * The corollary: this is for detail pages only. A listing's own headline is not reachable
  * through it, and nothing needs it to be.
@@ -131,12 +131,10 @@ export const countDocumentRequests = async (page: Page, block: () => Promise<voi
 /**
  * Open the play-queue panel, whatever width the test is running at.
  *
- * EVERY SPEC THAT TOUCHES THE PANEL NEEDS THIS SINCE 2026-08-08. The panel used to stand
- * permanently open from `landscape` up, so a desktop-width test could enqueue something and
- * read the rows straight away; it is an overlay toggled from the header at every width now
- * (the dashboard's right-aligned headings left no trailing room to inset — see PlayQueue's
- * banner), which means "there is a queue" and "the queue is on screen" became two different
- * facts. This asserts the second.
+ * EVERY SPEC THAT TOUCHES THE PANEL NEEDS THIS. The panel is an overlay toggled from the header
+ * at every width — never a permanent column, see PlayQueue's banner — so "there is a queue" and
+ * "the queue is on screen" are two different facts, even at desktop width. This asserts the
+ * second.
  *
  * Idempotent: a panel that is already open is left alone, so a helper chain can call it
  * without tracking who called it first.
@@ -216,11 +214,10 @@ const dismissQueuePeek = async (page: Page): Promise<void> => {
  * learn the same thing about what an enqueue leaves on screen. One copy now, so the next change
  * to that starting state is made once.
  *
- * TWO REWRITES, WHICH IS THE POINT OF IT LIVING HERE. It pressed a lone "enqueue" Button in the
- * hero's #actions until 2026-08-06, then opened the SubjectMenu popover and picked its second
- * item, and since 2026-08-11 presses a visible button again — the four Music heroes gave the
- * popover up for a row of them (SubjectActions). The playlist page still wears the menu, which
- * is why this helper is about the MUSIC heroes and says so.
+ * IT IS HERE BECAUSE THE GESTURE MOVES. How a hero offers "enqueue" — a visible button, an entry
+ * in a popover — is a design question that gets revisited, and one helper is one place to follow
+ * it. Today it presses a visible button in SubjectActions; the playlist page wears a popover menu
+ * instead, which is why this helper is about the MUSIC heroes and says so.
  *
  * IT LEAVES THE PANEL SHUT — see `dismissQueuePeek` for what that saves. Pass `keepPeek` only
  * to watch the peek itself.
@@ -252,22 +249,20 @@ export const enqueueFromHero = async (page: Page, options: { keepPeek?: boolean 
  * others, and never in the file it belongs to.
  *
  * THE PAGE IS CLOSED WITHOUT RUNNING UNLOAD HANDLERS, so the flush never happens at all.
- * That is the opposite of what this did until 2026-08-11, when it passed `runBeforeUnload:
- * true` in order to make the flush happen "here, awaited, inside the test that owns it" —
- * which Playwright does not do: `runBeforeUnload: true` runs the handlers but, per its own
- * docs, "will NOT wait for the page to close", where the default "does not run any unload
- * handlers and waits for the page to be closed". So the flush fired at some unknowable
- * moment after this returned.
+ * `runBeforeUnload: true` is the tempting opposite — make the flush happen "here, awaited,
+ * inside the test that owns it" — and Playwright does not do that: it runs the handlers but, per
+ * its own docs, "will NOT wait for the page to close", where the default "does not run any unload
+ * handlers and waits for the page to be closed". So the flush fires at some unknowable moment
+ * after this returns.
  *
  * THAT IS ALSO WHY THE SERVER'S STALE-STAMP GUARD DID NOT CATCH IT, which is the part worth
  * remembering: `flushQueueWrites` stamps `updatedAt` with `Date.now()` AT FLUSH TIME, not
  * when the queue changed. A flush that fires after the next test's reset therefore carries a
- * NEWER stamp than the reset did, so PlayerStatePayload::store accepts it — the one write
- * the whole "last write wins" rule cannot refuse. It cost a red CI run on 2026-08-11: the
- * reordering spec queued three, and the next test in the file counted five where it had
- * queued two.
+ * NEWER stamp than the reset did, so PlayerStatePayload::store accepts it — the one write the
+ * whole "last write wins" rule cannot refuse. Measured on CI: the reordering spec queues three,
+ * and the next test in the file counts five where it had queued two.
  *
- * The route abort stays, and is now only about a request already in flight when this runs —
+ * The route abort is only about a request already in flight when this runs —
  * one of those carries a stamp from BEFORE the reset, so the server would refuse it anyway.
  */
 export const stopQueueSync = async (page: Page): Promise<void> => {

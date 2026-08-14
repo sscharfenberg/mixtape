@@ -18,8 +18,7 @@
  * reader comes to a dead row to do.
  *
  * EVERY CONTROL ON THE ROW WEARS `control-background` AT REST and comes up to
- * `*-active` when aimed at (the owner's call, 2026-08-13, extending what the revoke button
- * alone did the day before). The INK is quiet either way at rest — a column of delete glyphs
+ * `*-active` when aimed at. The INK is quiet either way at rest — a column of delete glyphs
  * at full contrast reads as a list of warnings rather than as a list of links somebody chose
  * to send — but the surfaces are uniform, because three controls in three weights read as
  * three kinds of thing and leave a reader working out which is which.
@@ -53,8 +52,7 @@ $shares: (
     "control": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
     "control-active": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
     // A REAL FILL AT REST, which is where this row parts company with the queue's and the
-    // playlist's per-row buttons (the owner's call, 2026-08-12; extended to every control on
-    // the row 2026-08-13). Those sit among several controls and stay quiet so the list reads as
+    // playlist's per-row buttons. Those sit among several controls and stay quiet so the list reads as
     // a list; these belong to a row whose loudest act — revoking — is the one control in the
     // app whose consequence lands in somebody else's hands. A target that announces itself is
     // one you hit on purpose — and, being a button rather than a glyph, one you do not press by

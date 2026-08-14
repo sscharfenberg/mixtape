@@ -80,8 +80,7 @@ const isMuted = ref<boolean>(false);
  * and only one of them is a gesture. `hydrateVolume` restores what was stored, on the first
  * bind, which happens in PlayerBar's `onMounted` — AFTER its children's setup, so anything
  * watching the level is already listening when the restore lands and cannot tell it from
- * somebody turning the knob. The volume readout greeted every page load on exactly that
- * (reported 2026-08-08).
+ * somebody turning the knob — which is how the volume readout ends up greeting every page load.
  *
  * Bumped only where a change was ASKED for, and only when it actually changed something,
  * so a key pressed at the ceiling still ticks nothing.

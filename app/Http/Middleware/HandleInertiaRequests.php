@@ -41,7 +41,7 @@ class HandleInertiaRequests extends Middleware
      * question nobody asks. It also keeps the LOGIN PAGE renderable with no database at
      * all — which is not hypothetical: the E2E harness waits for `/login` to answer before
      * it migrates, so a shared prop that touched `tracks` deadlocked the whole suite behind
-     * a table that did not exist yet (CI, 2026-08-08).
+     * a table that did not exist yet.
      *
      * The shape is the same map rather than an empty one, so a consumer never has to tell
      * "no library" from "did not ask".
@@ -87,9 +87,9 @@ class HandleInertiaRequests extends Middleware
             'csrfToken' => csrf_token(),
             // The app's version, for the footer line. Read out of package.json by
             // config/app.php — see there for why that is the source of truth rather
-            // than a second copy. The footer has ALWAYS asked for this prop and it was
-            // never shared, so it rendered `undefined` behind an `as string` cast until
-            // 2026-08-14.
+            // than a second copy. The footer asks for it by name, and an `as string`
+            // cast on the client means a missing prop renders `undefined` rather than
+            // failing, so this must actually be shared.
             'version' => config('app.version'),
             // Active locale (resolved by ConfigureLocale, which runs first) and
             // the supported set. Only the locale string is shared — the message

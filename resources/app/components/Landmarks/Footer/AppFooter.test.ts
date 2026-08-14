@@ -75,7 +75,7 @@ describe("AppFooter", () => {
 
     it("shows the mark alone, but is still NAMED for anyone who cannot see it", () => {
         /*
-         * The link lost its word on 2026-08-14 and kept its name. An icon-only link is
+         * The link is icon-only and keeps its accessible name. An icon-only link is
          * unlabelled to a screen reader — the glyph is a `<use>`, not text — so the label
          * moved to `aria-label`. This is the assertion that stops the word being deleted
          * outright by someone tidying up.

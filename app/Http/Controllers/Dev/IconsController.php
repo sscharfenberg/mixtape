@@ -14,10 +14,10 @@ use Inertia\Response;
  * (see routes/web.php).
  *
  * The icon NAMES are read here, server-side, for a build reason rather than a data one.
- * The page used to harvest them with `import.meta.glob('…/assets/icons/*.svg')`, which
- * looks free but is not: a glob — lazy or not — registers every match as a build-time
- * import, so Rollup emitted all 55 icons into public/build/assets and
- * vite-plugin-image-optimizer then ran svgo over each one. That is pure waste twice
+ * Harvesting them in the client with `import.meta.glob('…/assets/icons/*.svg')` looks free
+ * and is not: a glob — lazy or not — registers every match as a build-time import, so
+ * Rollup emits every icon into public/build/assets and vite-plugin-image-optimizer then
+ * runs svgo over each one. That is pure waste twice
  * over, because the icons never ship as individual files (resources/build/icons.ts
  * already svgo's them into storage/app/public/sprite.svg, which app.blade.php inlines)
  * and because IconsPage is swept up by main.ts's `pages/**\/*.vue` glob, so production

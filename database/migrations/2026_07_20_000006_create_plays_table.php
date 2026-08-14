@@ -8,8 +8,8 @@ return new class extends Migration
 {
     /**
      * `plays` — one row per listen, written by a "played" beacon the client fires
-     * on `ended`/threshold as the queue advances (data-model.md → "how it plugs
-     * in"). This is the only unbounded-growth table, so its composite indexes are
+     * on `ended`/threshold as the queue advances (data-model.md → "How the pieces plug
+     * together"). This is the only unbounded-growth table, so its composite indexes are
      * the ones that actually matter for read latency.
      *
      * `track_id` is `cascade` (relink-then-cascade, like playlist_tracks): a
@@ -17,16 +17,12 @@ return new class extends Migration
      * loses them only when the last copy is gone.
      *
      * Most-played aggregates by `track_id` — each file counts for itself, so the same
-     * recording on an album + a compilation + a best-of is three entries (data-model.md,
-     * decision #5, re-decided 2026-08-08; it read `content_hash` here until then, which
-     * nothing ever implemented). So both most-played grains are answered by the indexes
+     * recording on an album + a compilation + a best-of is three entries (data-model.md →
+     * "Listen history", which argues it against the `content_hash` grain). So both
+     * most-played grains are answered by the indexes
      * below with no join at all, and `plays` needs no hash column of its own. A SUBJECT's
      * count — an artist's, a genre's, an album's — does join `plays → tracks` and filters on
      * the taxonomy FK, which `tracks` already indexes.
-     *
-     * COMMENT-ONLY CHANGE to an applied migration: the schema below is untouched, and this
-     * file is not re-run. It is edited rather than left lying because a migration docblock is
-     * where the next person looks to find out what an index is for.
      */
     public function up(): void
     {

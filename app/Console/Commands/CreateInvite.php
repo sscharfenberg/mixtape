@@ -12,8 +12,8 @@ use function Laravel\Prompts\text;
  * Mints a one-time, expiring registration invite and prints a link to share.
  *
  * Onboarding is invite-only (open registration is disabled), so this is how new
- * accounts are seeded: the owner runs the command, copies the printed URL, and
- * sends it to the person being onboarded. The recipient opens the link, sets a
+ * accounts are created: an administrator runs the command, copies the printed URL,
+ * and sends it to the person being onboarded. The recipient opens the link, sets a
  * username + e-mail + password, and the invite is spent (deleted) on success.
  *
  * Only the sha256 hash of the code is stored; the plaintext lives solely in the

@@ -20,7 +20,7 @@ namespace App\Enums;
  * empty groups already floats the answer for a specific query, which is the useful half of
  * what a global ranking would buy.
  *
- * THE AUDIOBOOK CASE ARRIVED 2026-08-13, and cost exactly what this file predicted: one entry
+ * THE AUDIOBOOK CASE SHOWS WHAT A KIND COSTS: one entry
  * here, one registry line, and a class beside the others — no edit to how matching, counting
  * or ordering work, which is the whole reason the kinds are a registry rather than a
  * hard-coded union. And no `Genre` share-style omission either: unlike

@@ -12,7 +12,7 @@ export type UseClipboardReturn = {
  * (ported from cantrip.me).
  *
  * Attempts to use the modern `navigator.clipboard` API and falls back to the
- * legacy `document.execCommand('copy')` approach for older browsers and some
+ * deprecated `document.execCommand('copy')` approach for older browsers and some
  * mobile environments where the Clipboard API is unavailable or restricted.
  *
  * `copied` is set to `true` on success and automatically resets after a short
@@ -28,7 +28,7 @@ export const useClipboard = (): UseClipboardReturn => {
      *
      * Prefers the async Clipboard API when available. Falls back to creating
      * a temporary `<textarea>`, selecting its content, and executing the
-     * legacy `execCommand('copy')` — a technique that works in most older
+     * deprecated `execCommand('copy')` — a technique that works in most older
      * and restricted contexts including iOS/Android WebViews.
      *
      * On success, {@link copied} is set to `true` and automatically resets to

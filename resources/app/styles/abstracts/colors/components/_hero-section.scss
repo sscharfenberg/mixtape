@@ -6,10 +6,10 @@
  * lettering is drawn by the shared `.text-outline` (c.$c-text-outline); all this file gives it
  * is the fill it knocks out of, which is the panel colour below.
  *
- * The cover art itself is untinted. It used to carry the app's control neon as a halo
- * (retro `c3`, the same entry the hovered DataTable row and the open popover glow
- * with), dropped because artwork is already the most saturated thing on the page and
- * the halo only muddied its own edge. The placeholder keeps that neon, at a fraction
+ * The cover art itself is untinted — deliberately NOT carrying the app's control neon as a
+ * halo (retro `c3`, the same entry the hovered DataTable row and the open popover glow with),
+ * because artwork is already the most saturated thing on the page and a halo only muddies its
+ * own edge. The placeholder keeps that neon, at a fraction
  * of the opacity, since there it IS the only mark on an empty square.
  *
  * Nothing here dresses the metadata row: those are FactPair tiles now, and they bring
@@ -35,7 +35,7 @@ $hero-section: (
     // behind them.
     "background": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "black")),
     // The gradient's far stop — the hero wears the same quiet grey ramp as the welcome page's
-    // intro panel (the owner, 2026-08-14), so a detail page's loudest element and the landing
+    // intro panel, so a detail page's loudest element and the landing
     // page's opening block are visibly the same surface treatment.
     //
     // RE-PICKED FROM THE GLOBALS, not read from c.$c-welcome-intro, per the token rules — the
@@ -81,7 +81,7 @@ $hero-section: (
             color.adjust(map.get(c.$grey, "bunker"), $alpha: -0.4)
         ),
     "cover-placeholder-icon": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher")),
-    // THE TITLE IS OUTLINED LETTERING as of 2026-08-10 — its glyphs filled with the PANEL'S OWN
+    // THE TITLE IS OUTLINED LETTERING — its glyphs filled with the PANEL'S OWN
     // colour (the component reads `background` above, so "the same as the panel" cannot drift) and
     // drawn round with a line. The line and the glow are NOT here: they are the shared
     // c.$c-text-outline, worn via the `.text-outline` class, because a playlist entry's title is
@@ -134,9 +134,7 @@ $hero-section: (
     // title, and at full contrast it competes with the facts beneath it. The same muted pair
     // the fact labels use, re-picked from the globals.
     "description": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
-    // The title's synthwave lettering — a ramp, a pale stroke and a four-stage glow chain — was
-    // copied HERE and again in the playlist entry's partial, then shared as c.$c-text-chrome
-    // (2026-08-08), and is now gone from both: the heading is OUTLINED instead, in the two
-    // entries above, and the chrome belongs to the app wordmark alone (c.$c-title). Recorded
-    // because the ramp's tuning notes are worth finding, and that is where they went.
+    // NO synthwave lettering here — a ramp, a pale stroke and a four-stage glow chain. That
+    // treatment belongs to the app wordmark alone (c.$c-title, which carries the ramp's tuning
+    // notes); a hero's heading is OUTLINED instead, in the two entries above.
 ) !default;

@@ -4,7 +4,7 @@ import { clearServerQueue, specStorageState } from "../support/environment";
 
 /*
  * The Music page's browse widgets: four cards of entries, each a link to the thing it
- * names with its facts as icon pips — plus, since 2026-08-13, the stats card's tiles,
+ * names with its facts as icon pips — plus the stats card's tiles,
  * which are here for the reason the whole file is rather than because they are a list.
  *
  * The layout guards below are what needs a browser. Everything about them — `min-width`
@@ -84,9 +84,9 @@ test.describe("the music widgets", () => {
 
     test("keeps the card exactly its height while a refresh is in flight", async ({ page }) => {
         /*
-         * The whole point of a skeleton: nothing moves. The placeholder used to be four
-         * plain 14px bars standing in for four 65px entries, so every refresh collapsed the
-         * card to a third of its height and snapped it back — worse than showing nothing.
+         * The whole point of a skeleton: nothing moves. Four plain 14px bars standing in for four
+         * 65px entries collapses the card to a third of its height on every refresh and snaps it
+         * back — worse than showing nothing.
          *
          * The refresh response is held open so the skeleton can actually be measured; it
          * finishes on its own once the route is released at the end of the test.
@@ -170,16 +170,14 @@ test.describe("the music widgets", () => {
          * at an edge nothing on screen explains. Measured before the fix: a 306px pip inside a
          * 230px row, its right edge 46px past the card's.
          *
-         * HOW THE VALUE IS MADE TOO LONG CHANGED, and the note it replaces is worth keeping in
-         * view. It used to read "both halves of the reported condition are load-bearing … it is
-         * the queue taking a column that makes the card ~290px", because at 920px with no queue
-         * two ~430px cards fit and the reported credit did not overflow one. The queue stopped
-         * taking a column on 2026-08-08 (it overlays at every width now — see PlayQueue), so
-         * that lever is gone and the test went green against nothing.
+         * THE VALUE IS MADE TOO LONG BY INJECTION, not by squeezing the card. It is tempting to
+         * narrow the card instead — at 920px with a queue column taking width, a real credit
+         * overflows a ~290px card — but the queue overlays at every width (see PlayQueue), so
+         * there is no such lever and a test built on one goes green against nothing.
          *
-         * The subject was never the queue, though: it is a value too long for its pip. So the
-         * injected string is now unambiguously too long for any card this layout produces,
-         * which makes the test independent of how the content column happens to be sized. The
+         * The subject is not the card's width: it is a value too long for its pip. So the injected
+         * string is unambiguously too long for any card this layout produces, which makes the test
+         * independent of how the content column happens to be sized. The
          * assertions are unchanged and still RELATIONAL — the pip stays inside its entry, the
          * card does not grow — so they keep meaning at whatever width a future layout picks.
          */
@@ -228,9 +226,9 @@ test.describe("the music widgets", () => {
          * break, inside a box that was allowed to shrink below it.
          *
          * Reported from the field at 1600px — "Dateigröße / 83,27 GB" with no padding visible on
-         * either side. The tiles are `flex: 1 1 7rem` and each value became ONE unbreakable span on
-         * 2026-08-13 (a number and its unit are one word to a reader), so `min-width: 0` — correct
-         * while the values could reflow onto two lines — let a tile shrink under its own text.
+         * either side. The tiles are `flex: 1 1 7rem` and each value is ONE unbreakable span (a
+         * number and its unit are one word to a reader), so `min-width: 0` — correct only while the
+         * values can reflow onto two lines — lets a tile shrink under its own text.
          * Measured before the fix: a 122px tile whose value needed 123px, insets 0 and 0, its own
          * `scrollWidth` past its `clientWidth`. After: 139px, insets 8 and 8, nothing overflowing.
          *

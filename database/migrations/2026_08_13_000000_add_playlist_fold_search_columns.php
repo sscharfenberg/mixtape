@@ -12,7 +12,7 @@ return new class extends Migration
      * The fold columns `playlists` was left out of — the one migration the cross-kind
      * search needs (docs/search.md → "Playlists are the awkward one").
      *
-     * The 2026-07-28 migration covered `tracks`, `collections`, `artists`, `authors`,
+     * The original fold migration covered `tracks`, `collections`, `artists`, `authors`,
      * `narrators` and `genres`, because those are the tables the LISTINGS search and
      * playlists have no listing search. Including them in `GET /search` changes that, and
      * the trap is that a plain `like` on `playlists.name` would technically RUN: that
@@ -31,7 +31,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('playlists', function (Blueprint $table): void {
-            // No ->collation() on either, exactly as the 2026-07-28 migration explains:
+            // No ->collation() on either, exactly as the original fold migration explains:
             // a fold column must stay on the database default (deterministic) collation,
             // or Postgres would refuse LIKE on it just as it does on an ICU-collated name.
             // Nullable for the moment between adding them and the backfill below; the
@@ -43,7 +43,7 @@ return new class extends Migration
         $this->backfill();
 
         if (DB::connection()->getDriverName() === 'pgsql') {
-            // Already installed by the 2026-07-28 migration; repeated because a migration
+            // Already installed by the original fold migration; repeated because a migration
             // must not depend on another one having run in the same database.
             DB::statement('CREATE EXTENSION IF NOT EXISTS pg_trgm');
 
@@ -68,7 +68,7 @@ return new class extends Migration
      * Fill both folds for the playlists that already exist.
      *
      * Row-at-a-time through the query builder rather than the Eloquent model, for the
-     * reason the 2026-07-28 backfill gives: a migration must keep working when the models
+     * reason the original fold backfill gives: a migration must keep working when the models
      * move on, and the fold is a PHP function no single UPDATE can express. A household's
      * playlists number in the dozens, so this is instant.
      */

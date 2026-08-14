@@ -30,7 +30,7 @@ describe("PlayerVolumeHud", () => {
 
     it("says nothing on a page load, where the level was merely restored", async () => {
         /*
-         * THE BUG THE OWNER FOUND (2026-08-08): the box greeted every page load.
+         * THE BUG THIS PINS: the box greeting every page load.
          *
          * The restore is what did it, and the ORDER is why this test has to bind an element
          * rather than just mount the component: `usePlayerVolume` reads storage on the first

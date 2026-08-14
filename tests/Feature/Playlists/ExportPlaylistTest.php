@@ -17,9 +17,8 @@ use Tests\TestCase;
  * otherwise: nothing on screen changes, and a mangled encoding or a doubled slash only shows
  * up on whatever the reader plays it on, hours later and somewhere else.
  *
- * Most of these guard a defect the legacy implementation actually had — PlaylistExport's
- * docblock lists the six — so each test names which. The ones that do not are the disclosure
- * rule this whole area follows and the validation legacy had none of.
+ * Most of these guard one of the six decisions PlaylistExport's docblock lists, and each test
+ * names which. The rest cover the disclosure rule this whole area follows, and the validation.
  */
 class ExportPlaylistTest extends TestCase
 {

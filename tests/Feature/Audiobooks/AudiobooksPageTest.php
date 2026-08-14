@@ -79,7 +79,7 @@ class AudiobooksPageTest extends TestCase
                 ->where('stats.narrators', 1)
                 ->where('stats.sizeBytes', 10_000)
                 ->where('stats.playtimeSeconds', fn (float|int $s) => (float) $s === 1000.0)
-                // The years the BOOKS span, drawn as one range on the card (2026-08-14). Two
+                // The years the BOOKS span, drawn as one range on the card. Two
                 // nullable numbers rather than a string, because a year must not be
                 // locale-separated like the counts beside it.
                 ->where('stats.firstYear', 2008)

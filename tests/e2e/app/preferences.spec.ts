@@ -6,7 +6,7 @@ import type { Page } from "@playwright/test";
  *
  * Its behaviour — which option is checked, what reaches the meta tag, what is stored — is
  * covered by ThemeSwitch's own Vitest spec. What only a browser can answer is the ARITHMETIC
- * of the shared control it was migrated onto (Components/UI/OptionBubbles, 2026-08-06): the
+ * of the shared control it is built on (Components/UI/OptionBubbles): the
  * pill's width and offset are a `calc()` over two custom properties, and this is the
  * three-option case. The player's two-option groups exercise the same formula with an even
  * divisor, which is exactly the case that hides a rounding mistake.

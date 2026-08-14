@@ -7,10 +7,10 @@ import { expect, test } from "@playwright/test";
  * of them is invisible to every other layer of the suite:
  *
  *   - the breadcrumb travels as an Inertia layout prop, which Inertia resets at the component
- *     swap. It used to be a module ref we cleared on the `start` event, which emptied it the
- *     instant a link was clicked — the <nav> unmounted, the page jumped up, and jumped back
- *     when the new page declared its own. Sampling every frame is the only way to catch a
- *     regression to that: the end state looks identical either way.
+ *     swap. A module ref cleared on the `start` event instead empties it the instant a link is
+ *     clicked — the <nav> unmounts, the page jumps up, and jumps back when the new page declares
+ *     its own. Sampling every frame is the only way to catch a regression to that: the end state
+ *     looks identical either way.
  *   - the swap runs inside document.startViewTransition, so the outgoing page dissolves into
  *     the incoming one instead of being replaced in a single frame.
  *   - links and DataTable rows prefetch on hover, so the response is usually already in hand
@@ -153,15 +153,13 @@ test.describe("navigating between pages", () => {
 
     test("raises the bar for a click that has to WAIT on the prefetch it started", async ({ page }) => {
         /*
-         * THE OTHER HALF OF THE TEST ABOVE, and the case that was broken for as long as
-         * prefetching has been on (found 2026-08-12, from the owner noticing they had not seen
-         * the bar in a long time).
+         * THE OTHER HALF OF THE TEST ABOVE, and the case a progress bar silently misses.
          *
          * A hover starts a prefetch; a click a moment later lands while that request is still in
-         * flight, and Inertia parks the visit on it. `start` NEVER FIRES for that visit — the bar
-         * was armed on `start`, so the one case it exists for was the one case it missed, and it
-         * presents exactly as the owner described: nothing happens, then the page switches. The
-         * three sequences are recorded in main.ts (armProgress); the bar is armed on `before` now.
+         * flight, and Inertia parks the visit on it. `start` NEVER FIRES for that visit — so a bar
+         * armed on `start` misses the one case it exists for, and it presents as "nothing happens,
+         * then the page switches". The three sequences are recorded in main.ts (armProgress); the
+         * bar is armed on `before`.
          *
          * THE TIMING IS THE TEST, so both numbers are deliberate: the response is held for 1500ms
          * (the bar waits 250ms before drawing, so a local server answering in 20ms would pass this
@@ -206,7 +204,7 @@ test.describe("the breadcrumb on a narrow screen", () => {
 
     test("offers home as the way back from a page directly under the root", async ({ page }) => {
         // `/music` declares one crumb — itself — so there is no second-to-last crumb to mark, and
-        // the trail used to collapse to nothing: an empty <nav> holding its own margin.
+        // the trail would collapse to nothing: an empty <nav> holding its own margin.
         await page.goto("/music");
 
         const shown = page.locator(".breadcrumb__item:visible");

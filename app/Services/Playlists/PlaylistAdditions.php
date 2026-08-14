@@ -14,9 +14,8 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Putting tracks INTO a playlist — the half of a playlist's life that had no code until
- * 2026-08-09, when the detail-page heroes and the queue menu learned to offer it (the artisan
- * `app:playlist` command was the only way before, and says so).
+ * Putting tracks INTO a playlist — what the detail-page heroes and the queue menu call. (The
+ * `app:playlist` artisan command fills one too, but bluntly and at random; see its docblock.)
  *
  * ONE SERVICE FOR TWO CALLERS THAT NAME THEIR TRACKS DIFFERENTLY, which is the whole shape of
  * this file. A detail page hands over a SUBJECT — "artist X" — and the tracks are worked out
@@ -95,8 +94,8 @@ final class PlaylistAdditions
      * that list (HandleInertiaRequests holds the one copy).
      *
      * A playlist drops out when it already holds EVERY track of the subject, which is the
-     * generalisation of what the owner asked for on a song page ("only playlists that do not
-     * yet have this song"): the question is whether pressing save would do anything. A playlist
+     * general form of "only playlists that do not yet have this song": the question is whether
+     * pressing save would do anything. A playlist
      * with nine of an album's ten tracks stays, because the tenth is a real addition.
      *
      * THE COMPARISON IS COUNT AGAINST COUNT, in one grouped query rather than one query per

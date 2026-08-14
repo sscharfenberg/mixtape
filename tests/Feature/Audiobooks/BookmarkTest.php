@@ -14,8 +14,8 @@ use Tests\TestCase;
  * Per-book resume: `PUT /audiobooks/{audiobook}/bookmark` going up, the `bookmark` prop and
  * the opening PAGE coming back down.
  *
- * THE FEATURE THE AREA EXISTS FOR, in the owner's words: knowing you are at chapter 279 and
- * not skipping through half a book to find it. Three properties carry that, and each is a
+ * THE FEATURE THE AREA EXISTS FOR: knowing you are at chapter 279 without skipping through
+ * half a book to find it. Three properties carry that, and each is a
  * different way of losing your place:
  *
  * - **One row per (reader, book)**, so three books can be in flight and none of them forgets

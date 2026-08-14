@@ -22,10 +22,8 @@ use Illuminate\Support\Carbon;
  * is stored unhashed — a share is re-copied from the owner's list weeks after minting, and
  * a digest cannot be re-displayed.
  *
- * THE FEATURE IS WHOLE: minting and the `/s/` guest space (2026-08-11), the "My shares" list
- * with revoking (2026-08-12), pruning (2026-08-13) and playlist shares (2026-08-13). Every
- * subject FK below therefore has a mint path except `genre`, which the schema does not carry
- * at all — "listen to this genre" was ruled out rather than deferred (docs/sharing.md).
+ * EVERY SUBJECT FK BELOW HAS A MINT PATH except `genre`, which the schema does not carry at
+ * all — "listen to this genre" is ruled out on purpose rather than deferred (docs/sharing.md).
  *
  * @property-read Carbon $valid_until
  */
@@ -147,7 +145,7 @@ class Share extends Model
     }
 
     /**
-     * The shared playlist — mintable since 2026-08-13, and the one subject with an owner: a
+     * The shared playlist — the one subject with an owner: a
      * playlist belongs to one account, so only its own maker can share it (StoreShareRequest).
      * What it GRANTS is resolved through `playlist_tracks` on every request rather than copied
      * at mint time, which is what keeps a shared playlist in step with its owner's edits

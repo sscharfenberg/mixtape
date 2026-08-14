@@ -17,15 +17,15 @@
  * and the formatting happens here, with the active locale — sizes, rates and dates all read
  * differently per language; Facts groups the finished pairs and lays them out.
  *
- * THE TITLE MOVED OUT OF THE HERO on 2026-08-11 (the owner's call, made for all four Music
- * detail pages at once). It used to sit beside the cover, on the grounds that the pair read
- * as one unit; it now heads the page in the same glowing <Headline> every listing wears, so
- * arriving at a song looks like arriving anywhere else in the app — and the hero is left to
- * do the one thing only it can, which is show the artwork and the facts.
+ * THE TITLE IS NOT IN THE HERO, on every Music detail page alike. Beside the cover it reads as
+ * one unit with the artwork, which is the argument for putting it there — and against that,
+ * heading the page in the same glowing <Headline> every listing wears means arriving at a song
+ * looks like arriving anywhere else in the app, and leaves the hero doing the one thing only it
+ * can: the artwork and the facts.
  *
- * The hero's controls are SubjectActions in its #actions row: play, enqueue, share. That
- * replaced the SubjectMenu popover in the heading on the same day, and for the same reason
- * the title moved — a page's two most likely actions should not be hidden behind a "…".
+ * The hero's controls are SubjectActions in its #actions row: play, enqueue, share — visible
+ * buttons rather than a popover, because a page's two most likely actions should not be hidden
+ * behind a "…".
  * Play history and the clone list ("also appears in N other places") are still to come —
  * see docs/architecture.md.
  *****************************************************************************/

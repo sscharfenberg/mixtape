@@ -11,7 +11,7 @@ import { isWindows1252, unencodableInWindows1252 } from "./encoding";
  *
  * THE TABLE WAS CROSS-CHECKED AGAINST THE SERVER, once, over the whole real collection: PHP's
  * `mb_convert_encoding` round-trip and this function each flagged 89 of 12,074 paths, with
- * zero disagreements (2026-08-09). That is the guarantee this file cannot give on its own —
+ * zero disagreements. That is the guarantee this file cannot give on its own —
  * what it pins instead is the boundaries, so a later "simplification" to a plain Latin-1 test
  * fails here rather than silently in the car.
  */

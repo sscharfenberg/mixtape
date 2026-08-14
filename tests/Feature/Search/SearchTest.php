@@ -350,7 +350,7 @@ class SearchTest extends TestCase
     }
 
     /**
-     * THE TWO FACTS EACH KIND CARRIES (the owner's set, 2026-08-13) — a dropdown of rows all
+     * THE TWO FACTS EACH KIND CARRIES — a dropdown of rows all
      * called "Black" is a dropdown a reader cannot choose from, and which two facts tell them
      * apart is a per-kind decision worth pinning rather than re-deriving:
      *

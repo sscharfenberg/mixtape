@@ -4,7 +4,7 @@
  * The grid of stat tiles a stats card is made of — a glyph, a label and a big value each,
  * every tile explained by a tooltip.
  *
- * EXTRACTED FROM StatsWidget when the Audiobooks area wanted the same card (2026-08-13). What
+ * EXTRACTED FROM StatsWidget when the Audiobooks area wanted the same card. What
  * moved with it is not really the markup, it is the MEASUREMENTS: the wrapping-flex-lines
  * decision, the `min-content` floor, and the unbreakable value pieces are each the answer to
  * a bug that was found by looking at a browser, and a second copy of them would be the copy

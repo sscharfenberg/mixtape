@@ -8,7 +8,7 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
 
 /*
  * The reader's own share links, at /dashboard/shared — live ones on top, expired ones under
- * their own heading (2026-08-13).
+ * their own heading.
  *
  * WHAT IS TESTED HERE IS WHAT PHP CANNOT SEE, per the repo's layer rule. WHICH half a link is in
  * is the server's decision and is pinned by `assertInertia` in
@@ -87,7 +87,7 @@ describe("SharesPage", () => {
     });
 
     it("makes the word 'expired' the way back, and only on a dead row", () => {
-        // The owner's call (2026-08-13): the remedy hangs off the word a reader is already
+        // Deliberate: the remedy hangs off the word a reader is already
         // looking at, rather than a fourth control on the row. It is the same pip in the same
         // place — a <button> instead of a <span> — so what this asserts is the ELEMENT, and that
         // a live row's validity stays a plain fact.
@@ -129,8 +129,8 @@ describe("SharesPage", () => {
     });
 
     it("labels each row with the kind of thing that was shared", () => {
-        // "(Album)" in running text became a pip on 2026-08-12, so what is asserted is the
-        // WORD rather than the punctuation around it. `playlist` joined the list on 2026-08-13
+        // The kind is a pip rather than "(Album)" in running text, so what is asserted is the
+        // WORD rather than the punctuation around it. `playlist` is on the list
         // and is included here because a row's pip is the only thing telling a reader which of
         // two similarly-named subjects they are about to revoke.
         for (const kind of ["song", "album", "artist", "playlist"] as const) {

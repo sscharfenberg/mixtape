@@ -10,9 +10,8 @@
  *   2. lock the phone (or switch apps) and wait a minute or two — longer than any throttling
  *      the browser might apply, and long enough that a stall is unmistakable;
  *   3. unlock, come back, and read the verdict.
- * Then do the same with DIRECT as a control. Direct playback is already known to survive
- * (2026-08-07), so if direct also fails here the phone or the network is the problem and the
- * routed result says nothing.
+ * Then do the same with DIRECT as a control. Direct playback is known to survive, so if direct
+ * also fails here the phone or the network is the problem and the routed result says nothing.
  *
  * THE VERDICT IS WALL CLOCK AGAINST AUDIO CLOCK, which is the only measurement that survives
  * the page being invisible. Nothing on screen can be watched while the screen is off, and

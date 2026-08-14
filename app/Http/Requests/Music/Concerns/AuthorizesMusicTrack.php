@@ -11,8 +11,8 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * `tracks` is a unified table — audiobook chapters live in it too — so a UUID-constrained
  * route is not enough on its own: a chapter's id would resolve and then be served by a
- * song page, a cover route or the music stream. Stated once here rather than at each of
- * the three call sites it used to be repeated at.
+ * song page, a cover route or the music stream. Stated once here rather than repeated at
+ * each of the three call sites.
  *
  * The model arrives already resolved, binding having been substituted in middleware.
  */

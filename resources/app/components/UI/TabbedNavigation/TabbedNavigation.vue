@@ -1,28 +1,24 @@
 <script setup lang="ts">
 /******************************************************************************
  * TabbedNavigation
- * A tab strip over switchable panels, one named slot per tab. Ported from the
- * legacy app's Components/TabbedNavigation, where the artist page used it for the
- * same two tabs this one does — but rebuilt on three counts, each a fix rather
- * than a preference:
+ * A tab strip over switchable panels, one named slot per tab. Three decisions in it are fixes
+ * for how a tab strip is usually built, rather than preferences:
  *
- * 1. THE ARIA TABS PATTERN, not radio inputs. Legacy built the strip from
- *    `<input type="radio">` + `<label>` and then hid the inputs with
- *    `display: none` — which takes them out of the accessibility tree AND out of
- *    the tab order, so the whole control was unreachable by keyboard and silent
+ * 1. THE ARIA TABS PATTERN, not radio inputs. A strip built from `<input type="radio">` +
+ *    `<label>` with the inputs hidden by `display: none` takes them out of the accessibility
+ *    tree AND out of the tab order, so the whole control is unreachable by keyboard and silent
  *    to a screen reader. Here each tab is a real `role="tab"` button inside a
  *    `role="tablist"`, wired to its panel with aria-controls/aria-labelledby, so
  *    the relationship between a tab and the panel it reveals is actually spoken
  *    ("tab, 2 of 2, selected"). A radiogroup cannot express that.
- * 2. THE PANELS BELONG TO THE COMPONENT. Legacy handed the whole panel area to
- *    one default slot and left the page to hide the inactive half itself with
- *    `v-show="currentTabIndex === 0"` — so every consumer re-implemented the
- *    visibility rule, and none of them could wire up the ARIA. Tabs are declared
- *    by `id` here and each renders `<slot :name="id">`, so a consumer never
+ * 2. THE PANELS BELONG TO THE COMPONENT. Hand the whole panel area to one default slot and the
+ *    page has to hide the inactive half itself with `v-show="currentTabIndex === 0"` — so every
+ *    consumer re-implements the visibility rule, and none of them can wire up the ARIA. Tabs
+ *    are declared by `id` here and each renders `<slot :name="id">`, so a consumer never
  *    touches visibility or ARIA at all.
- * 3. TABS ARE IDENTIFIED BY STRING id, not array index. `songs` says what it
- *    selects where legacy's `1` said nothing, which matters as soon as a
- *    selection is passed in, stored, or read in a debugger.
+ * 3. TABS ARE IDENTIFIED BY STRING id, not array index. `songs` says what it selects where a
+ *    `1` says nothing, which matters as soon as a selection is passed in, stored, or read in a
+ *    debugger.
  *
  * Which tab is open is `selectedTab`, and it is a MODEL rather than plain state:
  * bind it with `v-model:selected-tab` to own the selection from the page, or pass

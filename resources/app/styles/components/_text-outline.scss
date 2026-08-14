@@ -21,8 +21,8 @@
  * before anyone "simplifies" it away. `-webkit-text-stroke` strokes every CONTOUR of a glyph, and
  * a stroke is drawn centred on the path and painted OVER the fill — so in a face that builds a
  * letter from overlapping contours (this one draws a T as a stem meeting a bar) the internal seams
- * come out as lines across the letter: the owner's words were that the T's "vertical line reaches
- * into the horizontal line at the top", and every E, H and A had the same. Reversing the paint
+ * come out as lines across the letter — a T whose "vertical line reaches into the horizontal line
+ * at the top", and every E, H and A the same. Reversing the paint
  * order puts the fill over the stroke, which hides the inner half of every line — including all of
  * those internal ones — and leaves exactly the outer half as the outline. The size token doubles
  * itself for that reason.
@@ -31,7 +31,7 @@
  * hides the seams. A translucent `color` would let them show through.
  *
  * THE TEXT-SHADOW TRICK WAS THE OTHER CANDIDATE and was rendered side by side before this was
- * chosen (2026-08-10): a ring of hard-offset shadows, 8 / 16 / 24 of them, cast from the glyph's
+ * chosen: a ring of hard-offset shadows, 8 / 16 / 24 of them, cast from the glyph's
  * composited alpha and therefore free of the seam problem too. It is NOT smoother — at 6rem the
  * ring visibly rounds every sharp corner, which on a display face reads as a softer, blunter
  * letter than the type designer drew, and it costs one shadow pass per offset on every title. A

@@ -327,12 +327,11 @@ test.describe("the play queue", () => {
          * This describe runs at 1440px, which IS the `full` line — so the panel is 360px
          * here and 280px below it (asserted at 420px in the narrow-screen block).
          *
-         * The second assertion REPLACED its own opposite. The panel used to inset the content
-         * (FullLayout published `--content-inset-end`, Container applied it) and this test
-         * checked the two numbers had not drifted apart. Now that it overlays at every width,
-         * the thing worth pinning is that opening it moves nothing: same content box open and
-         * shut, which is the whole reason an overlay was the half kept when the dashboard
-         * forced the choice.
+         * The second assertion is the OPPOSITE of what an insetting panel would want. Were the
+         * panel to inset the content (a `--content-inset-end` published by FullLayout and applied
+         * by Container), the thing to check would be that the two numbers had not drifted apart.
+         * It overlays at every width, so what is worth pinning is that opening it moves nothing:
+         * the same content box open and shut.
          */
         await enqueueFirstSong(page);
         await page.goto("/music/songs");
@@ -391,11 +390,11 @@ test.describe("the play queue synced to the server", () => {
          * can possibly come from — which is also exactly what a second device looks like.
          */
         /*
-         * ARMED BEFORE THE ENQUEUE, which it was not until 2026-08-08. The sync rides the
+         * ARMED BEFORE THE ENQUEUE, and that ordering is the whole of it. The sync rides the
          * queue's coalesced trailing flush, so waiting for the request AFTER the action that
-         * causes it is a race — and it became a lost one when `enqueueFirstSong` grew a step
-         * (it opens the panel now), widening the window enough for the PUT to land before
-         * anything was listening. Registering first cannot race.
+         * causes it is a race — one that `enqueueFirstSong` loses outright, since it opens the
+         * panel first and that widens the window enough for the PUT to land before anything is
+         * listening. Registering first cannot race.
          */
         const synced = page.waitForResponse(
             response => response.url().includes("/player/state") && response.request().method() === "PUT"
@@ -441,7 +440,7 @@ test.describe("the play queue at library scale", () => {
         /*
          * Bulk enqueue made a thousand-row queue something one click can produce, and the
          * panel renders every row — so `content-visibility: auto` lets the browser skip the
-         * ones off screen. Measured at 2,000 rows (2026-08-07): main-thread blocking during
+         * ones off screen. Measured at 2,000 rows: main-thread blocking during
          * load fell from 810ms to 302ms, the longest single task from 331ms to 151ms, and
          * first paint from 528ms to 268ms.
          *
@@ -868,11 +867,11 @@ test.describe("the play queue from landscape up", () => {
 
     test("stays shut until the header's toggle is pressed, exactly as on a phone", async ({ page }) => {
         /*
-         * THE BEHAVIOUR THAT CHANGED, and the reason it did. This width used to get a panel
-         * that was simply there, with the toggle hidden and the content inset to clear it.
-         * That could not be squared with the dashboard, whose headings are RIGHT-aligned: no
-         * trailing room to give, so the panel overlaid the content there and sat beside it
-         * everywhere else. One behaviour at every width was the answer.
+         * ONE BEHAVIOUR AT EVERY WIDTH, and the reason there is only one. A panel that is simply
+         * there at this width, with the toggle hidden and the content inset to clear it, cannot be
+         * squared with the dashboard: those headings are RIGHT-aligned, so there is no trailing
+         * room to give, and the panel ends up overlaying the content there and sitting beside it
+         * everywhere else.
          */
         await page.goto("/music/songs");
         await page.locator("tbody tr").first().click();
@@ -894,12 +893,11 @@ test.describe("the play queue from landscape up", () => {
 
     test("spans header to player bar however short the queue is", async ({ page }) => {
         /*
-         * At this width the panel used to be only as tall as its contents, so its bottom
-         * edge landed wherever the list happened to reach and MOVED every time something
-         * was queued or removed — which read as a dropdown that had failed to close rather
-         * than a fixture of the layout.
+         * A panel only as tall as its contents lands its bottom edge wherever the list happens
+         * to reach, and MOVES every time something is queued or removed — which reads as a
+         * dropdown that has failed to close rather than as a fixture of the layout.
          *
-         * Asserted with a SINGLE track on purpose: that is the case that used to differ, and
+         * Asserted with a SINGLE track on purpose: that is the case that would differ, and
          * a long queue would fill the height either way and prove nothing. Both ends are
          * checked, because full height is only right if it starts under the header AND
          * finishes on the bar — the narrow-screen spec above covers the bottom edge only.
@@ -928,9 +926,9 @@ test.describe("the hero's play and enqueue buttons", () => {
      * prop: it is absent from the page until one of these buttons asks for it by name, and only a
      * browser can show that the ask really lands and really fills the queue.
      *
-     * They were items in a popover until 2026-08-11 (SubjectMenu → SubjectActions), which changed
-     * nothing about what is tested here: the fetch and the two verbs are the same code, now shared
-     * with the playlist page's menu through `useSubjectTracks`.
+     * The two verbs are visible buttons here (SubjectActions) and entries in a popover on the
+     * playlist page (SubjectMenu), which changes nothing about what is tested: the fetch and both
+     * verbs are the same code, shared through `useSubjectTracks`.
      *
      * The seeded artist is used rather than a song, because the artist is the case that matters:
      * their songs table is paginated, so "play artist" has to queue more than the rows on screen.
@@ -951,7 +949,7 @@ test.describe("the hero's play and enqueue buttons", () => {
         /*
          * The case the spec below missed and a listener hit immediately: with nothing queued
          * there is no player bar, so no <audio> element, so `play()` arrives a tick before the
-         * thing it needs. It used to fill the queue and sit paused. Pressing from an empty queue
+         * thing it needs, and the queue fills while nothing plays. Pressing from an empty queue
          * is also the ordinary way to use this — you open an artist and press play.
          */
         const songs = await openArtist(page);

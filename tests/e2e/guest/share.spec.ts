@@ -18,14 +18,15 @@ import { pageHeading } from "../support/actions";
  *     `media-src 'self'`. happy-dom has no decoder and no network behind an `<audio src>`,
  *     and the PHP suite proves the bytes leave the server, not that the element takes them.
  *   - THAT NOTHING ON THE PAGE BOUNCES TO THE LOGIN FORM. Every URL the page hands out is
- *     rewritten into the share's own space by ShareGrant; one that was missed plays fine for
- *     the owner testing the link and redirects everybody else. Only a browser follows them.
+ *     rewritten into the share's own space by ShareGrant; one that is missed plays fine for the
+ *     signed-in reader testing the link and redirects everybody else. Only a browser follows them.
  *   - THAT THE PAGE BOOTS AT ALL for a signed-out reader. It renders in a layout of its own
  *     (ShareLayout) whose header draws no site menu without a user — a component that assumed
  *     one would throw during setup and leave a blank page, which no unit mount would show.
- *   - THAT THE PLAYER'S OWN ROWS SURVIVE THE TRIP OUT OF THE APP. Since 2026-08-12 the page
- *     fills the queue on arrival and draws NowPlayingSection in place of its own listing, and
- *     that block was built behind `auth` — the queue rows, the neighbour cards and the
+ *   - THAT THE PLAYER'S OWN ROWS SURVIVE THE TRIP OUT OF THE APP. The page fills the queue on
+ *     arrival and draws NowPlayingSection rather than a listing of its own, and every part of
+ *     that block is otherwise only ever rendered behind `auth` — the queue rows, the neighbour
+ *     cards and the
  *     visualiser all reach for things (an analyser, Sortable, a genre map) that a guest either
  *     lacks or is never sent.
  *
@@ -61,9 +62,9 @@ test.describe("a share link, with no account", () => {
     test("arrives with the whole link queued, and nothing playing", async ({ page }) => {
         await page.goto(`/s/${LIVE}`);
 
-        // SINCE 2026-08-12 THE PAGE FILLS THE QUEUE ITSELF, which is what let its own track
-        // listing go: the rows below the hero ARE the queue. What a guest was sent is the
-        // album, so all twelve are there with the first one cued.
+        // THE PAGE FILLS THE QUEUE ITSELF, which is why it needs no track listing of its own:
+        // the rows below the hero ARE the queue. What a guest was sent is the album, so all
+        // twelve are there with the first one cued.
         await expect(page.locator(".np-queue .play-queue__row")).toHaveCount(12);
         await expect(page.locator(".np-queue .play-queue__row--current")).toHaveCount(1);
 
@@ -77,7 +78,7 @@ test.describe("a share link, with no account", () => {
     test("has no queue panel, and no header button offering one", async ({ page }) => {
         await page.goto(`/s/${LIVE}`);
 
-        // The owner's call: the panel is a signed-in reader's affordance, and this space has
+        // Deliberate: the panel is a signed-in reader's affordance, and this space has
         // its queue on the page. Both assertions matter — the panel being absent is the
         // layout's decision, and the button being absent is the header FOLLOWING that decision
         // rather than restating it. A toggle left behind would open nothing at all.
@@ -136,7 +137,7 @@ test.describe("a share link, with no account", () => {
         await page.locator(".share__play").click();
         await expect.poll(async () => (await audioState(page)).src).toContain("/s/");
 
-        // A `/music/…` URL on a queue entry is the failure this guards: it plays for the owner
+        // A `/music/…` URL on a queue entry is the failure this guards: it plays for a signed-in
         // testing their own link and redirects a guest to the login form, which is precisely
         // the case no unit test and no PHP test sees.
         expect(redirects.filter(url => url.includes("/login"))).toStrictEqual([]);

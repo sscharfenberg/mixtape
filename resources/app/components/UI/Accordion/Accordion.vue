@@ -7,8 +7,8 @@
  *
  * SHAPED AFTER TabbedNavigation, deliberately: sections are declared as an array with string
  * ids, each renders `<slot :name="id">`, and the component owns the ARIA. A consumer never
- * touches visibility or wires up an aria-controls, which is the mistake the legacy tab strip
- * made and paid for.
+ * touches visibility or wires up an aria-controls, which is the mistake a hand-rolled
+ * disclosure stack makes and pays for.
  *
  * THE DISCLOSURE PATTERN, not tabs. Each header is a real `<button aria-expanded>` pointing
  * at its own region — so a screen reader says "collapsed/expanded" and the whole stack can be
@@ -23,8 +23,8 @@
  * deep-linkable: the Audiobooks page reads an id out of the URL and writes one back, so a
  * link can open on one author. Pass it once (or not at all) and the stack keeps its own.
  *
- * `closeOther` decides whether opening one closes the rest (the owner's call: configurable
- * rather than chosen). It is TRUE by default — with eleven authors and a shelf of covers
+ * `closeOther` decides whether opening one closes the rest — configurable rather than
+ * chosen. It is TRUE by default: with eleven authors and a shelf of covers
  * under each, a stack that stays open is a page nobody can find their way back up.
  *****************************************************************************/
 import { computed } from "vue";
@@ -38,8 +38,8 @@ import Icon from "Components/UI/Icon.vue";
  * rather than about this component, which is why there are two fields instead of one and a
  * flag. A count reads as a phrase and takes its noun AFTER it ("3 Bücher", "1 Buch"); a
  * measurement reads as a labelled fact and takes its name BEFORE it ("Spielzeit 40:51:45").
- * Forcing both into one order gives you either "Bücher 3" or "40:51:45 Spielzeit", and the
- * owner chose neither (2026-08-14).
+ * Forcing both into one order gives you either "Bücher 3" or "40:51:45 Spielzeit", and both
+ * read as mistakes.
  *
  * BOTH WORDS DISAPPEAR BELOW 480px, where the icon carries the meaning on its own and the
  * value is all the room there is. That is the whole reason the word cannot simply be part of
@@ -73,10 +73,10 @@ export interface AccordionSection {
     /**
      * Optional facts shown after the heading, as one chip each.
      *
-     * A LIST OF PARTS RATHER THAN ONE STRING, which it was until 2026-08-14: the consumer
-     * used to join them itself ("6 Bücher · 12:30:04") and hand over a sentence. A sentence
-     * cannot be given a chip apiece, and — the half that actually forced it — cannot drop its
-     * words on a narrow screen while keeping its numbers.
+     * A LIST OF PARTS RATHER THAN ONE STRING. Joined by the consumer ("6 Bücher · 12:30:04")
+     * this arrives as a sentence, and a sentence cannot be given a chip apiece — nor, the half
+     * that actually forces the shape, drop its words on a narrow screen while keeping its
+     * numbers.
      *
      * Still FORMATTED by the consumer, for the reason it always was: only it knows the
      * reader's locale and what the numbers mean.
@@ -305,7 +305,7 @@ const panelId = (id: string): string => `${props.name}-accordion-panel-${id}`;
     gap: map.get(s.$c-accordion, "fact-gap");
 }
 
-/* EACH FACT IS ITS OWN CHIP (the owner, 2026-08-14), where the pair used to be one dialled-down
+/* EACH FACT IS ITS OWN CHIP, rather than the pair sharing one dialled-down
    sentence — "6 Bücher · 12:30:04" — with a middle dot holding it together.
 
    The fill is a rung off the trigger's own, which is the only thing that makes a chip visible
@@ -330,7 +330,7 @@ const panelId = (id: string): string => `${props.name}-accordion-panel-${id}`;
     white-space: nowrap;
 }
 
-/* THE WORDS GO BELOW 480px, leaving the icon and the number — the owner's rule. A phone header
+/* THE WORDS GO BELOW 480px, leaving the icon and the number. A phone header
    has room for the credit's NAME and a number, and the icon is what says which number it is,
    which is the job an icon in a chip is for.
 

@@ -11,9 +11,9 @@ use Tests\TestCase;
  * The dev-only icon gallery (`/icons`) — that it lists the icon directory server-side.
  *
  * Worth a test despite being a dev page, because the thing it guards is invisible from
- * the page itself: the names used to come from an `import.meta.glob`, which quietly cost
- * 55 emitted-and-re-optimized SVG assets in every production build (see IconsController).
- * Anyone reinstating that glob would see an identical-looking gallery, so only a test
+ * the page itself: harvesting the names with an `import.meta.glob` instead quietly costs an
+ * emitted-and-re-optimized SVG asset per icon in every production build (see IconsController).
+ * Anyone switching to that glob would see an identical-looking gallery, so only a test
  * that pins the names to the *server* keeps the build lean.
  */
 class IconsPageTest extends TestCase

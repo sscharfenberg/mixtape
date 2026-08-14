@@ -25,8 +25,8 @@ import { isInteractive } from "Utils/interactive";
  * True when `event` should navigate to the row's detail page. Callers still check
  * that the row actually carries an `href` — this only judges the click itself.
  *
- * "Which elements own their own gesture" moved to Utils/interactive when the player's
- * keyboard shortcuts needed the same list (2026-08-07): a second copy would have been
+ * "Which elements own their own gesture" lives in Utils/interactive, because the player's
+ * keyboard shortcuts need the same list: a second copy would be
  * right the day it was written and wrong the first time a control was added to one of
  * them.
  */

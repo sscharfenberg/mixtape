@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 
 /**
  * Keeps a row's `name_fold` in lockstep with its `name` — the accent-folded form
- * the search matches against (FoldedSearch, data-model.md → (c)).
+ * the search matches against (FoldedSearch, data-model.md → "Indexes").
  *
  * A mutator rather than a `saving` listener or a caller-side call, because the fold
  * must be impossible to forget: the scanner writes names from three places (insert,

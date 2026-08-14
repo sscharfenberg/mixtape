@@ -4,12 +4,12 @@ import { settled } from "../support/actions";
 /*
  * The hero's metadata row — one rule, and a bug that hid inside a CSS selector.
  *
- * EVERY TILE IS PAINTED THE SAME, and until 2026-08-14 two of them were not. HeroSection styled
- * its tiles through `> :slotted(*)`, and Vue puts the slotted marker (`data-v-…-s`) on the ROOT
- * of what a slot was handed. `PlayCountFacts` is a MULTI-ROOT component — two `FactPair`s in a
- * fragment — so its tiles never carried the marker, the selector could not see them, and the
- * "Von dir" / "Von anderen" tiles rendered with no halo beside tiles that had one. On seven
- * pages. Measured before the fix: `box-shadow: none` against `rgba(0, 124, 184, 0.4) 0 0 8px`.
+ * EVERY TILE IS PAINTED THE SAME, and a `> :slotted(*)` selector cannot guarantee it. Vue puts
+ * the slotted marker (`data-v-…-s`) on the ROOT of what a slot was handed, and `PlayCountFacts`
+ * is a MULTI-ROOT component — two `FactPair`s in a fragment — so its tiles never carry the
+ * marker, the selector cannot see them, and the "Von dir" / "Von anderen" tiles render with no
+ * halo beside tiles that have one, on seven pages. Measured: `box-shadow: none` against
+ * `rgba(0, 124, 184, 0.4) 0 0 8px`.
  *
  * WHY IT NEEDS A BROWSER, and could not have been caught anywhere else. The whole failure is a
  * selector not matching, so the only thing that can answer it is a real engine resolving a real
@@ -54,8 +54,8 @@ test("paints every tile in the row alike, including the ones a nested component 
 
 test("lets the tiles fill the row, so it never ends in a bare stripe", async ({ page }) => {
     /*
-     * The owner's call, 2026-08-14, replacing a per-page `growMetadata` prop that only the guest
-     * share page had turned on. Asserted as `flex-grow` rather than by measuring the row's right
+     * The row grows for every page rather than behind a per-page `growMetadata` prop. Asserted as
+     * `flex-grow` rather than by measuring the row's right
      * edge: a row of tiles that happens to fill 1440px is not the same claim as a row that WILL,
      * and the measurement would move with every fixture change.
      */
@@ -73,7 +73,7 @@ test("lets the tiles fill the row, so it never ends in a bare stripe", async ({ 
 });
 
 /*
- * THE PANEL KEEPS ITS OWN LIGHT IN (the owner, 2026-08-14). Two things in the hero glow past
+ * THE PANEL KEEPS ITS OWN LIGHT IN. Two things in the hero glow past
  * their own boxes — every metadata tile's halo, asserted above, and the neon `.btn` spread on the
  * actions row. On a phone the tiles reach the panel's padding and the glow washes over the
  * rotating gradient ring, which reads as the border being broken.

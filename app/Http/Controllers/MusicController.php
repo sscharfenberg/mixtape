@@ -35,7 +35,7 @@ class MusicController extends Controller
     /**
      * Render the Music browse page. Albums get latest/random only; songs,
      * artists and genres also get a "popular" set — all three ranked by THE READER'S OWN
-     * listens (2026-08-08), the two taxonomies falling back to total file duration so their
+     * listens, the two taxonomies falling back to total file duration so their
      * cards stay populated before much has been played. `stats` carries the collection totals
      * for the stats widget.
      */
@@ -83,7 +83,7 @@ class MusicController extends Controller
      * Four music albums. `latest` orders by the album's newest track's file mtime
      * (`modified_at`) — a collection row has no file date of its own, and mtime is
      * the true "recently added" after a bulk import; `random` shuffles. (No
-     * `popular` mode — the owner scoped it to songs/artists/genres.)
+     * `popular` mode — it is scoped to songs, artists and genres.)
      *
      * Each row also carries the reader's OWN listens to it, as the card's play pip.
      *
@@ -124,23 +124,21 @@ class MusicController extends Controller
      * shuffles. `popular` is the most-played by play count (the `plays` table, all users),
      * over every song with AT LEAST ONE play.
      *
-     * It was gated at more than one play until 2026-08-08, on the theory that a single listen
-     * is noise rather than popularity. In practice that theory hid the answer: a library with
-     * three played songs showed "not enough data" while the data was sitting right there, and
-     * the pip on every other card made the emptiness look like a fault. A top-four teaser over
-     * a young `plays` table is thin, not wrong — and the ranking earns its meaning as listening
-     * accumulates. The "not enough data" note now appears only when NOTHING has been played,
-     * which is the one case where there is genuinely nothing to rank.
+     * DELIBERATELY NOT GATED AT MORE THAN ONE PLAY, tempting as that is on the theory that a
+     * single listen is noise rather than popularity. That theory hides the answer: a library
+     * with three played songs shows "not enough data" while the data is sitting right there,
+     * and the pip on every other card makes the emptiness look like a fault. A top-four teaser
+     * over a young `plays` table is thin, not wrong — and the ranking earns its meaning as
+     * listening accumulates. The "not enough data" note therefore appears only when NOTHING
+     * has been played, which is the one case where there is genuinely nothing to rank.
      *
-     * `popular` COUNTS THE READER, not the household, and that changed on 2026-08-08. It
-     * ranked everybody's listens before, which reads as a shared "what gets played here" set —
-     * a defensible thing to want, and wrong beside a pip. Every card now carries the reader's
-     * own count, so a household ranking could put a song showing "1×" above one showing "5×"
-     * with nothing on screen to explain the order. An order that contradicts the number
-     * printed next to it is read as a bug.
+     * `popular` COUNTS THE READER, not the household. Ranking everybody's listens reads as a
+     * shared "what gets played here" set — a defensible thing to want, and wrong beside a pip.
+     * Every card carries the reader's own count, so a household ranking could put a song
+     * showing "1×" above one showing "5×" with nothing on screen to explain the order. An order
+     * that contradicts the number printed next to it is read as a bug.
      *
-     * It counts by `track_id`, which since 2026-08-08 is the app's one grain — data-model.md
-     * decision #5 was re-decided to match what this method always did. See
+     * It counts by `track_id`, the app's one grain — see docs/data-model.md and
      * App\Services\Player\PlayCounts.
      *
      * The YEAR comes off the song's album rather than the track, because a track has none
@@ -197,11 +195,10 @@ class MusicController extends Controller
      * listens, then by total file duration; `latest` by the newest track's mtime; `random`
      * shuffles.
      *
-     * THE TWO-KEY ORDER IS THE DESIGN, and it changed on 2026-08-08. It was minutes alone —
-     * "the artist with the most audio" — which was defensible until every card grew a play
-     * pip: the set then showed unplayed artists above played ones, and an order that
-     * contradicts the numbers printed on it is read as a bug (it was reported as exactly
-     * that). Plays first fixes it; minutes second is what keeps the card POPULATED on a
+     * THE TWO-KEY ORDER IS THE DESIGN. Minutes alone — "the artist with the most audio" — is
+     * defensible right up until a card grows a play pip: the set then shows unplayed artists
+     * above played ones, and an order that contradicts the numbers printed on it is read as a
+     * bug. Plays first fixes that; minutes second is what keeps the card POPULATED on a
      * library nobody has listened to much, where a strict play ranking would leave this
      * widget's DEFAULT view nearly empty. So a played artist can never sit below an unplayed
      * one, and the unplayed tail keeps the old, useful order.

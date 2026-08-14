@@ -194,8 +194,8 @@ class SongsPageTest extends TestCase
     /**
      * …AND `?searchIn=name` NARROWS IT TO THE TITLE, which is the mode the cross-kind search
      * dropdown hands off in. It exists because the two disagreed in front of the reader: the
-     * dropdown counted 70 songs called something with Black in the title and its "show all" opened
-     * a table of 2,000+ (the owner's report, 2026-08-13). Same query, one reading.
+     * dropdown counts 70 songs called something with Black in the title, and without the mode its
+     * "show all" opens a table of 2,000+. Same query, one reading.
      */
     public function test_searching_in_the_name_matches_the_title_alone(): void
     {

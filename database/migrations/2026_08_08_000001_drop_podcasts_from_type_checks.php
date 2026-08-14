@@ -6,8 +6,8 @@ use Illuminate\Support\Facades\DB;
 return new class extends Migration
 {
     /**
-     * Narrow the two type CHECKs to the kinds that still exist: podcasts are gone
-     * (2026-08-08). A podcast is something you listen to on the service that publishes
+     * Narrow the two type CHECKs to the kinds that exist: there is no podcast kind.
+     * A podcast is something you listen to on the service that publishes
      * it rather than a folder of mp3s anybody downloads, so the area was dropped whole
      * — pages, routes, icon, library path and enum cases — rather than left as a
      * scaffold nobody would finish.

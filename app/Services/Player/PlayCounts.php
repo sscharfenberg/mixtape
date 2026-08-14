@@ -28,13 +28,13 @@ use Illuminate\Support\Facades\DB;
  * played. One rule for a song and for a subject, which is what lets the figures add up: the
  * songs under an album sum to the album's own count, and an artist's tracks sum to theirs.
  *
- * IT DID NOT START THAT WAY. A single track counted by `content_hash` until 2026-08-08, on
- * the grounds that the same recording sits in the library several times over — album,
- * compilation, best-of — and that a reader thinks of those as one song. The owner's call
- * reversed it, and data-model.md decision #5 was re-decided to follow (it is settled there
- * now, not in conflict). It makes the app consistent rather than less so: MusicController's
- * "most played" songs already ranked by `withCount('plays')`, i.e. by id, so the song page
- * was the only place in the app claiming the other rule — and the hash grain was never
+ * NOT BY `content_hash`, which is the tempting alternative: the same recording sits in the
+ * library several times over — album, compilation, best-of — and a reader thinks of those as
+ * one song. Counting the hash breaks the property above, because each track then quietly
+ * counts its twin elsewhere and the tracks sum to more than the record they sit on. It also
+ * cannot answer a SUBJECT count at all: "plays of this artist" joins `plays → tracks` and
+ * filters on `artist_id`, where matching by hash double-counts any artist holding two copies
+ * of one recording — the normal case in a real collection. And the hash grain was never
  * implemented anywhere. It also removed the arithmetic a reader could not reproduce — an
  * album whose track figures summed to more than the album's own, because each track was
  * quietly counting its twin elsewhere.
@@ -129,13 +129,13 @@ final class PlayCounts
      * reproduce — which is the class docblock's rule, reaching the opposite answer here from the
      * one it reaches for an artist.
      *
-     * A TRACK LISTED TWICE COUNTS ITS LISTENS ONCE (the owner's call, 2026-08-13). This was a
-     * `join` on the pivot until then, and a join yields a row per ENTRY: a song sitting in the
-     * playlist twice made every one of its plays count twice. The reasoning written here at the
-     * time — "somebody who put a song in twice hears it twice" — describes playing the list
-     * THROUGH, which produces two play rows and counts two under either rule. It does not describe
-     * the case the test pinned: one listen, one row in `plays`, and a tile claiming two. These
-     * numbers are counts of listening EVENTS everywhere else in this class, and there was one.
+     * A TRACK LISTED TWICE COUNTS ITS LISTENS ONCE, which is why this is not a `join` on the
+     * pivot: a join yields a row per ENTRY, so a song sitting in the playlist twice makes every
+     * one of its plays count twice. The argument for the other reading — "somebody who put a song
+     * in twice hears it twice" — describes playing the list THROUGH, which produces two rows in
+     * `plays` and counts two under either rule. It does not describe the case that actually
+     * breaks: one listen, one row in `plays`, and a tile claiming two. These numbers are counts of
+     * listening EVENTS everywhere else in this class.
      *
      * SO THE PIVOT IS A SET, NOT A JOIN — `whereIn` over the playlist's track ids, which makes
      * double counting structurally impossible rather than something a later reader has to

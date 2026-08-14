@@ -156,7 +156,7 @@ export const formatDuration = (totalSeconds: number, unit: (key: DurationUnit, c
  * The denominator is DROPPED when the index runs past it, because some rips number
  * tracks straight through a multi-disc set and a track can legitimately sit past its
  * own disc's count. "17/8" would read as a bug in the app rather than as sloppy tags,
- * so it degrades to "17" (the same guard the legacy song page had).
+ * so it degrades to "17".
  *
  * Null in, null out, so a file with no disc or track number drops its cell instead of
  * reading "0". Shared by the song page's facts and the artist page's songs table, so

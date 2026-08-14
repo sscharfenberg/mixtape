@@ -11,9 +11,9 @@
  * below them the album's TRACK LISTING in the server-driven DataTable, which is what the
  * page is for.
  *
- * THE TITLE MOVED OUT OF THE HERO on 2026-08-11, with the other three Music detail pages,
- * and the SubjectMenu popover in its heading became the visible SubjectActions row (play,
- * enqueue, share) in #actions. SongPage's banner carries the reasoning for both.
+ * THE TITLE IS NOT IN THE HERO — it heads the page in a <Headline>, as on every Music detail
+ * page, and the hero's controls are the visible SubjectActions row (play, enqueue, share) in
+ * #actions rather than a popover. SongPage's banner carries the reasoning for both.
  *
  * The track rows are clickable: each carries the song's detail URL as `href`, so a row
  * click / card tap goes to the song, and the title cell renders that same URL as a real
@@ -169,7 +169,7 @@ const modified = computed(() => formatDateTime(props.album.modifiedAt, locale.va
  * right-aligned, which is what lets a reader scan a column of them.
  *
  * DISC is deliberately still shown on a single-disc album, matching the song page's "1/1"
- * (the owner's call there): a column that appears and disappears with the album is harder
+ * a column that appears and disappears with the album is harder
  * to read across pages than one that always says which disc you are looking at.
  *
  * The two differ in the CARD view, though. The track number goes in — it is the album's

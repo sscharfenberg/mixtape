@@ -19,7 +19,7 @@ import { clearServerQueue, specStorageState } from "../support/environment";
  *     AudioContext; happy-dom has neither.
  *
  * WHAT IT DELIBERATELY DOES NOT ASSERT: that the bars MOVE. Playwright launches Chromium muted,
- * so the analyser reads zeros however loudly a file is playing — measured 2026-08-09, with the
+ * so the analyser reads zeros however loudly a file is playing — measured, with the
  * audio clock advancing normally and every bar on its 2% baseline. A test that waited for a bar
  * to rise would hang forever for a reason that has nothing to do with this app. The gradient was
  * checked by forcing heights from a stylesheet and looking at it.
@@ -44,7 +44,7 @@ const queueAnArtist = async (page: Page): Promise<void> => {
     await page.locator("tbody tr").first().click();
     await page.waitForURL(/\/music\/artists\/[0-9a-f-]{36}/u);
     // The hero's own enqueue button — which appends, where its neighbour replaces the queue
-    // and starts playing. Both were items in a popover until 2026-08-11 (SubjectActions).
+    // and starts playing. Both are visible buttons in SubjectActions.
     await page.locator(".subject-actions__enqueue").click();
     await expect(page.locator(".play-queue__row").first()).toBeVisible();
 };
@@ -65,7 +65,7 @@ test.describe("the Now Playing page", () => {
         // dropped — a card that vanished would move the queue below it as playback advances.
         await expect(neighbour(page, "previous")).toContainText("Nichts davor");
         // The CONTROL is what is disabled: the card is a container with a button stretched over
-        // it, so that the title inside can be a real heading (2026-08-10 — see the component).
+        // it, so that the title inside can be a real heading — see the component.
         await expect(neighbour(page, "previous").locator(".neighbour__step")).toBeDisabled();
 
         // And the next card names the track the queue will actually load — as a level-3 heading,
@@ -148,8 +148,8 @@ test.describe("the Now Playing page", () => {
 
         /*
          * The row click already STARTS playback, so one press of K pauses it — but only if playback
-         * has actually begun, because K is a TOGGLE. Fired blind it used to start what had not
-         * started yet, the track then ran to its end unpaused, and the badge correctly read "end of
+         * has actually begun, because K is a TOGGLE. Fired blind it STARTS what has not started
+         * yet; the track then runs to its end unpaused and the badge correctly reads "end of
          * queue" — the other half of the very distinction under test, which is a confusing way to
          * fail. So wait for the element, and only then press. It has to be quick either way: the
          * fixture is one second long, which is the whole reason this was ever done in one breath.
@@ -166,11 +166,10 @@ test.describe("the Now Playing page", () => {
 
     test("keeps the visualiser in place while nothing is playing", async ({ page }) => {
         /*
-         * IT USED TO BE MOUNTED ONLY WHILE PLAYING, on the argument that a paused EQ is a row of
-         * flat bars in an empty box. What that produced was a page of four rows that became three
-         * on every press of pause, with the queue below jumping a row up and back down again — so
-         * the owner asked for it always (2026-08-10). A quiet baseline holding its place is both
-         * true and stationary.
+         * IT IS NOT MOUNTED ONLY WHILE PLAYING, tempting as that is on the argument that a paused
+         * EQ is a row of flat bars in an empty box. What that produces is a page of four rows that
+         * becomes three on every press of pause, with the queue below jumping a row up and back
+         * down again. A quiet baseline holding its place is both true and stationary.
          */
         await queueAnArtist(page);
         await page.goto("/now-playing");
@@ -232,10 +231,10 @@ test.describe("the Now Playing page", () => {
 
     test("keeps its quiet text readable, in both themes", async ({ page }) => {
         /*
-         * THE AUDIT THE OWNER RAN, 2026-08-10: the artist line in the player bar came out at
-         * 3.11:1, where body text needs 4.5:1 (WCAG 1.4.3 AA). The cause was one rung of the grey
-         * ramp — `slate` where the two components beside it already used `asher` / `iron` — and the
-         * reason it survived so long is that a wrong rung on an even ramp looks deliberate.
+         * WHAT AN AUDIT FINDS HERE: an artist line in the player bar at 3.11:1, where body text
+         * needs 4.5:1 (WCAG 1.4.3 AA). The cause is one rung of the grey ramp — `slate` where the
+         * two components beside it use `asher` / `iron` — and the reason it survives is that a
+         * wrong rung on an even ramp looks deliberate.
          *
          * ONLY A BROWSER CAN ANSWER THIS. The colours are `light-dark()` pairs resolved against the
          * reader's own preference, over surfaces that are themselves alpha-adjusted greys; nothing
@@ -309,7 +308,7 @@ test.describe("the Now Playing page", () => {
 
     test("keeps both its grids equal when a title is far too long for one", async ({ page }) => {
         /*
-         * THE BUG THE OWNER FOUND, on a real album (Burzum's *Filosofem*): a long title "reaches out
+         * THE BUG THIS PINS, found on a real album (Burzum's *Filosofem*): a long title "reaches out
          * of the box, and messes alignment and parent width". Reported against a 54-character title
          * whose longest WORD is 15 — it is not an unbreakable string at all, and that is the point.
          * `white-space: nowrap` makes min-content equal max-content, so the whole title becomes the
@@ -339,8 +338,8 @@ test.describe("the Now Playing page", () => {
             });
         });
 
-        // 900px: columns of ~400px, where this title genuinely does not fit — which is the case that
-        // used to blow both grids open, rather than the roomy 1280px default.
+        // 900px: columns of ~400px, where this title genuinely does not fit — which is the case
+        // that blows both grids open, rather than the roomy 1280px default.
         await page.setViewportSize({ width: 900, height: 1000 });
 
         const layout = await page.evaluate(() => {

@@ -4,10 +4,9 @@
  * The menu in a detail page's hero: everything you can do with the SUBJECT of that page
  * as a whole — play it now, or add it to the queue.
  *
- * THE PLAYLIST PAGE'S CONTROL, and since 2026-08-11 only its. The four Music heroes wore
- * one too until the owner replaced their popover with a visible row of buttons
- * (SubjectActions): a detail page's two most likely actions were behind a "…" that gave no
- * hint of what it held. A playlist keeps the menu because its hero already carries a row of
+ * THE PLAYLIST PAGE'S CONTROL, and only its. The Music heroes use a visible row of buttons
+ * instead (SubjectActions), because a detail page's two most likely actions behind a "…" give
+ * no hint of what it holds. A playlist keeps the menu because its hero already carries a row of
  * its own — edit, export, delete (PlaylistMenu) — and a second row of buttons beside that
  * one would read as six equal choices.
  *

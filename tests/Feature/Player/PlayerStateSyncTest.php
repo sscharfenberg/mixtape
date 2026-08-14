@@ -197,11 +197,11 @@ class PlayerStateSyncTest extends TestCase
     public function test_a_restored_audiobook_chapter_carries_audiobook_urls(): void
     {
         /*
-         * THE OTHER HALF OF MAKING A BOOK PLAYABLE (2026-08-13). `PlayerStatePayload` has
-         * always restored a queue with `only: null`, so a chapter came back — but
-         * `QueuePayload::entry()` addressed every row as a song, so the restored chapter
-         * pointed at `/music/songs/{id}/stream` and was refused by the music guard. A book
-         * resumed as silence, with nothing in the console to say why.
+         * THE OTHER HALF OF MAKING A BOOK PLAYABLE. `PlayerStatePayload` restores a queue with
+         * `only: null`, so a chapter comes back — but if `QueuePayload::entry()` addressed every
+         * row as a song, the restored chapter would point at `/music/songs/{id}/stream` and be
+         * refused by the music guard. A book resuming as silence, with nothing in the console to
+         * say why.
          *
          * The stream URL is the one that must be right; the cover follows the same rule, and
          * the href points at the chapter's BOOK, which is the only page it is listed on.

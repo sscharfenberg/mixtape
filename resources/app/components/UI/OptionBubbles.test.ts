@@ -71,8 +71,8 @@ describe("OptionBubbles", () => {
     });
 
     it("parks the pill on the first option rather than off the edge for an unknown value", () => {
-        // A missing match used to mean `--selected: -1`, which draws the pill outside the
-        // control and reads as a rendering fault rather than a state.
+        // A missing match resolving to `--selected: -1` draws the pill outside the control,
+        // which reads as a rendering fault rather than as a state.
         expect(bubbles("nonsense").find(".option-bubbles").attributes("style")).toContain("--selected: 0");
     });
 
@@ -107,8 +107,8 @@ describe("OptionBubbles", () => {
 
     it("describes an option to assistive tech with the same sentence the tooltip shows", () => {
         /*
-         * The hint used to be mouse-only: hovering explained things a screen reader never
-         * heard, which is the ambiguity the hint exists to remove. So it is also exposed as a
+         * A hint that is mouse-only explains on hover what a screen reader never hears, which
+         * is the ambiguity the hint exists to remove. So it is also exposed as a
          * description — and the description has to FOLLOW the selection, exactly as the
          * tooltip does, or the option in force would keep offering an action.
          */

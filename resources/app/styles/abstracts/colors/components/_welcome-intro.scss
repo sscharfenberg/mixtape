@@ -10,11 +10,10 @@
  * third saturated gradient on a page that already has the heading's glowing
  * border and two cards with cyan→pink title strips.
  *
- * THE TWO THEMES DO NOT TAKE THE SAME DELTA, and the numbers are the reason
- * (retuned 2026-08-14 — the owner, who could not see the light one at all).
- * In lightness: white L100 → infra L85.5 is 14.5 points, where the first attempt
- * ran to `astral` L96.5 and was 3.5 — imperceptible, which is not "subtle", it is
- * absent. Dark goes black L0 → ebony L10.5, which is 10.5 points, dialled back
+ * THE TWO THEMES DO NOT TAKE THE SAME DELTA, and the numbers are the reason.
+ * In lightness: white L100 → infra L85.5 is 14.5 points, where a run to `astral`
+ * L96.5 is 3.5 — imperceptible, which is not "subtle", it is absent. Dark goes
+ * black L0 → ebony L10.5, which is 10.5 points, dialled back
  * from `bunker` L22: the same numeric step reads considerably stronger against a
  * near-black ground, so matching the two by the number would over-drive the dark
  * one, which it did.

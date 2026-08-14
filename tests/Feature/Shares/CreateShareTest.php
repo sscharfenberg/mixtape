@@ -182,7 +182,7 @@ class CreateShareTest extends TestCase
     {
         // Not a permission — there is no such thing as a genre share, and the enum is where
         // that is said. "Listen to this genre" is a different kind of act from "listen to
-        // this" (the owner's call, 2026-08-11), and the genre hero renders no button at all.
+        // this", and the genre hero renders no button at all.
         $genre = Genre::factory()->create();
 
         $this->actingAs(User::factory()->create())
@@ -194,8 +194,8 @@ class CreateShareTest extends TestCase
 
     public function test_a_reader_can_share_their_own_playlist(): void
     {
-        // Switched on by the owner (2026-08-13), and the only subject with an owner: the
-        // library belongs to every account alike, a playlist belongs to one.
+        // The only subject with an owner: the library belongs to every account alike,
+        // a playlist belongs to one.
         $user = User::factory()->create();
         $playlist = Playlist::factory()->create(['user_id' => $user->id]);
 

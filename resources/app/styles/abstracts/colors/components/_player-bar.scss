@@ -32,7 +32,7 @@
 
 $player-bar: (
     /*
-     * THE HEADER LINKS' OWN PAIR (the owner, 2026-08-14): "make the player more visible".
+     * THE HEADER LINKS' OWN PAIR: "make the player more visible".
      * It was a frosted grey — the header's colour, chosen so the two ends of the affixed
      * chrome read as one family — and a grey bar under a grey page is exactly as quiet as
      * that sounds. Light mode is the pill an ordinary SiteMenuLink wears: light-blue fill
@@ -47,13 +47,13 @@ $player-bar: (
      * part of the family resemblance is worth keeping, and an opacity tweak is all Rule 2
      * allows on a global anyway.
      *
-     * DARK MODE IS THE CURRENT-LINK PAIR INSTEAD (`dark2`: green fill, yellow ink), and it
-     * took three attempts to get there. The record matters more than the answer, because
-     * the trap caught two of them:
+     * DARK MODE IS THE CURRENT-LINK PAIR INSTEAD (`dark2`: green fill, yellow ink). Three
+     * candidates, and the measurements matter more than the answer, because the trap catches
+     * two of them:
      *
      *   1. The link's ordinary dark fill is the deep navy `dark1` — and this app's dark PAGE
      *      is `ebony`. Composited, that bar measured **1.01:1** against the page behind it.
-     *      Not a subtle bar, an invisible one, which is exactly what the owner reported.
+     *      Not a subtle bar, an invisible one.
      *   2. Pink (`c6`, the link's hover) fixed the visibility at 4.85:1 and was "a bit much".
      *      It also squeezed the ink: on a MID-TONE fill only the two darkest rungs clear AA,
      *      so the artist line could not be a quieter version of the title any more.
@@ -63,7 +63,7 @@ $player-bar: (
      * SO THE EDGE DOES THE WORK THE FILL CANNOT. The border below is the yellow in dark
      * mode rather than a grey: a near-black shelf on a near-black page is delineated by its
      * top line or not at all. That is what keeps attempt 3 from repeating attempt 1, and it
-     * is why `border` is no longer the quiet grey pair it was for both themes.
+     * is why `border` is not the quiet grey pair it would otherwise be in both themes.
      *
      * The alternative is a brighter green in the GLOBAL palette, which is a palette decision
      * rather than a component one — Rule 2 forbids minting the hue here.
@@ -75,7 +75,7 @@ $player-bar: (
             color.adjust(map.get(c.$brand, "dark2", "color"), $alpha: -0.15)
         ),
     "surface": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$brand, "dark2", "contrast")),
-    // THE EDGE IS THE INK, in both themes (the owner, 2026-08-14). Dark needed it first and
+    // THE EDGE IS THE INK, in both themes. Dark needed it first and
     // for a hard reason — a near-black bar on a near-black page is delineated by its top line
     // or not at all — and light took the same rule afterwards because one shelf drawn two
     // ways is a shelf with two explanations. So this is `surface` again rather than a third
@@ -83,19 +83,19 @@ $player-bar: (
     "border": light-dark(map.get(c.$brand, "light1", "contrast"), map.get(c.$brand, "dark2", "contrast")),
     // The artist line under the title, and the not-yet-wired transport glyphs.
     //
-    // `slate` UNTIL 2026-08-10, WHEN IT FAILED AN AUDIT: the artist name came out at 3.11:1
-    // against this bar's frosted fill, where body text needs 4.5:1 (WCAG 1.4.3 AA). It reads
-    // as quiet-and-fine at a glance, which is exactly how a contrast failure hides — the ramp
-    // is even enough that the wrong rung looks deliberate.
+    // NOT `slate`, WHICH FAILS AN AUDIT: the artist name comes out at 3.11:1 against this
+    // bar's frosted fill, where body text needs 4.5:1 (WCAG 1.4.3 AA). It reads as
+    // quiet-and-fine at a glance, which is exactly how a contrast failure hides — the ramp is
+    // even enough that the wrong rung looks deliberate.
     //
-    // The pair it moves to is not a new decision: `asher` / `iron` is what the two components
+    // The pair used instead is not a new decision: `asher` / `iron` is what the two components
     // ALREADY beside it on Now Playing use for the same job (c.$c-neighbour-track "muted",
     // c.$c-now-playing-queue "muted"), so this is the outlier being brought into line rather
     // than a colour being invented. Measured against the composited bar — #fefefe light,
     // #343434 dark: slate was 3.09 / 4.00, this is 6.52 / 5.83. Nothing between them on the
     // grey ramp passes both (`charcoal` is 4.03 light, `iron` 2.12).
     //
-    // AND IT MOVED AGAIN WHEN THE BAR TURNED BLUE (2026-08-14), for the same reason and
+    // AND IT MOVED AGAIN WHEN THE BAR TURNED BLUE, for the same reason and
     // caught by the same arithmetic: `asher` on the new light-mode fill is 3.68:1, which is
     // the identical failure a rung further along. `bunker` is 6.56 and stays clearly below
     // the title's 9.59, so the two lines keep their order. (Recomputed against the real

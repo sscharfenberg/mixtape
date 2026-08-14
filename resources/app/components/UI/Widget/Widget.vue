@@ -123,7 +123,7 @@ const onRefreshing = (inFlight: boolean): void => {
     color: map.get(c.$c-widget, "surface");
     border-radius: map.get(s.$c-widget, "radius");
 
-    /* A CARD WITH NO FOOTER GIVES ITS BODY THE FOOTER'S BAND (2026-08-13). The three bands are
+    /* A CARD WITH NO FOOTER GIVES ITS BODY THE FOOTER'S BAND. The three bands are
        shared across a row so that every footer lines up, which means a footerless card was
        reserving an empty strip as tall as its neighbours' footers — visible as a band of blank
        card under its content, and the reason the stats card looked half-used however much its

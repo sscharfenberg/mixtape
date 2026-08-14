@@ -144,9 +144,9 @@ class SongCoverTest extends TestCase
 
     public function test_a_folder_image_is_used_when_the_file_has_no_embedded_picture(): void
     {
-        // The other half of the legacy behaviour: no APIC, but the album directory
-        // carries an image. Written under the FIRST configured candidate name, since
-        // that list (not a single spelling) is what CoverService looks for now.
+        // The other half of the fallback: no APIC, but the album directory carries an
+        // image. Written under the FIRST configured candidate name, since that list —
+        // not a single spelling — is what CoverService looks for.
         $path = $this->mediaFile('The Storm/Thunder Road/02 - Lightning Strikes.mp3');
         File::put(
             $this->mediaRoot.'/The Storm/Thunder Road/'.config('mixtape.covers.folder_images')[0],

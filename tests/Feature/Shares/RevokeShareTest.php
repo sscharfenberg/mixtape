@@ -23,7 +23,7 @@ use Tests\TestCase;
  *   - ONLY THE MINTER MAY, and somebody else's link answers 404 rather than 403. A 403 would
  *     confirm that the id names a real, live share belonging to another account, which on an
  *     instance shared between family and friends is a disclosure.
- *   - THE LIST IS THE READER'S OWN, and arrives as TWO of them (2026-08-13): the links that
+ *   - THE LIST IS THE READER'S OWN, and arrives as TWO of them: the links that
  *     still work, and the ones that have run out of days. Both halves are sent — a dead link is
  *     still a row the reader made, still revocable, and a page that quietly dropped them would
  *     read as links going missing — but which half a row is in is the server's answer to

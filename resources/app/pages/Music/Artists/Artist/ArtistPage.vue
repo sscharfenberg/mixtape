@@ -11,9 +11,9 @@
  * their catalogue — albums, songs, and what those files add up to in time and on disk — and
  * below them the catalogue itself, split across an ALBUMS and a SONGS tab.
  *
- * THE NAME MOVED OUT OF THE HERO on 2026-08-11, with the other three Music detail pages, and
- * the SubjectMenu popover in its heading became the visible SubjectActions row (play,
- * enqueue, share) in #actions. SongPage's banner carries the reasoning for both.
+ * THE NAME IS NOT IN THE HERO — it heads the page in a <Headline>, as on every Music detail
+ * page, and the hero's controls are the visible SubjectActions row (play, enqueue, share) in
+ * #actions rather than a popover. SongPage's banner carries the reasoning for both.
  *
  * Each tab is its own component — the shared Discography and the page-local ArtistSongs — so this file
  * stays the page: the hero, the two tabs, and nothing about how either panel renders. The
@@ -154,7 +154,7 @@ const { tab: openTab } = useTabParam();
  * behind each before opening it. A `computed` so the labels re-evaluate on a locale switch.
  *
  * Albums leads because it is the smaller, structural view of the same catalogue — the shape
- * of an artist's work before its contents — and it matches the legacy app's order, where
+ * of an artist's work before its contents, where
  * this page's tabs were Alben then Songs.
  */
 const tabs = computed<TabDefinition[]>(() => [

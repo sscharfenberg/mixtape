@@ -13,7 +13,7 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
  * WHAT THIS CANNOT TEST, and it is most of the component: whether the bars MOVE. That needs a
  * decoding audio element and a live AudioContext, neither of which happy-dom has — and even a
  * real browser will not give it, because Playwright launches Chromium muted and the analyser then
- * reads zeros however loudly a file is playing (measured 2026-08-09: `live` true, every bar at the
+ * reads zeros however loudly a file is playing (measured: `live` true, every bar at the
  * 2% baseline, with the audio clock advancing normally). So a browser test can prove the graph is
  * WIRED and never that it produces a spectrum; the gradient was checked by forcing heights from a
  * stylesheet and looking.
@@ -91,8 +91,8 @@ describe("Visualizer", () => {
         withMotionPreference(true);
         const wrapper = mountApp(Visualizer);
 
-        // Not merely non-zero: the row used to rest at 2%, which in a 56px strip is one pixel of
-        // grey — "hidden when paused" in the owner's words, and the exact failure the resting height
+        // Not merely non-zero: at 2% the row rests one pixel high in a 56px strip, which reads as
+        // "hidden when paused" rather than as silence — the exact failure the resting height
         // exists to prevent. Pinned as a number because that is the thing that regressed.
         const heights = wrapper.findAll(".visualizer__bar").map(bar => bar.attributes("style"));
 

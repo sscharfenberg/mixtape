@@ -36,9 +36,8 @@ use Illuminate\Http\RedirectResponse;
  * Scoped to the reader's OWN shares, not to anybody's: two users sharing the same album get
  * a link each, so one revoking theirs cannot break the other's.
  *
- * THE FEATURE IS WHOLE SINCE 2026-08-12: the URL this hands back is served (SharePageController
- * and the two media routes beside it), and `destroy` below is the revoke the modal has been
- * promising the reader, reachable from `/dashboard/shared`.
+ * THE URL THIS HANDS BACK IS SERVED (SharePageController and the two media routes beside it), and
+ * `destroy` below is the revoke the modal promises the reader, reachable from `/dashboard/shared`.
  *
  * THREE VERBS, ONE LIFECYCLE, and they are here together on purpose: mint, renew, revoke are the
  * only three things that ever happen to a `shares` row, and reading them in one file is what
@@ -83,12 +82,11 @@ class ShareController extends Controller
     /**
      * Re-activate an expired link: the same URL, live again for another seven days.
      *
-     * THIS IS WHAT THE GRACE PERIOD IS FOR (the owner's call, 2026-08-13). A dead row is kept for
-     * `Share::PRUNE_AFTER_DAYS` so its minter can still see it, and until now all they could do
-     * with it was revoke it or mint a second link to the same subject — which means the link
-     * already sitting in somebody's chat window stays broken, and the recipient has to be sent a
-     * new one. Renewing puts the original back to work, so "it expired, send it again" is a
-     * button rather than a conversation.
+     * THIS IS WHAT THE GRACE PERIOD IS FOR. A dead row is kept for `Share::PRUNE_AFTER_DAYS` so
+     * its minter can still see it — and without renewal all they could do with it is revoke it or
+     * mint a second link to the same subject, which leaves the link already sitting in somebody's
+     * chat window broken and the recipient needing a new address. Renewing puts the original back
+     * to work, so "it expired, send it again" is a button rather than a conversation.
      *
      * SEVEN DAYS FROM NOW, not seven added to what was there: the row is finished, so there is no
      * remainder to extend, and `now()` is the only honest start. Which is also why the request

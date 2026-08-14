@@ -4,7 +4,7 @@ namespace App\Enums;
 
 /**
  * The *playable kind* of a track — the unified `tracks` table holds every kind
- * of playable in one row (data-model.md → (a), "B + the collections half-step").
+ * of playable in one row (data-model.md → "One tracks table, one collections table").
  *
  * This is parallel to, but NOT identical with, CollectionType (the *container*
  * kind): music↔album, audiobook↔audiobook. It is stored on

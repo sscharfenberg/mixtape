@@ -9,7 +9,7 @@
  * it was meant for the thing under the cursor or the caret.
  *
  * It lives here rather than in either caller because the two lists MUST NOT DRIFT. They
- * were one copy in rowNavigation until the shortcuts needed it (2026-08-07); a second copy
+ * were one copy in rowNavigation until the shortcuts needed it; a second copy
  * would have been correct on the day it was written and wrong the first time a control was
  * added to only one of them.
  *

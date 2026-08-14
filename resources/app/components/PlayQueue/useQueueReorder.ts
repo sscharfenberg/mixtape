@@ -87,7 +87,7 @@ export function useQueueReorder(list: Ref<HTMLOListElement | null>): UseQueueReo
      * ends up with a duplicated or missing row.
      *
      * The restore is index-arithmetic-free on purpose: take the children WITHOUT the
-     * dragged node and insert it before whichever one used to follow it (or at the
+     * dragged node and insert it before whichever one followed it (or at the
      * end, when nothing did).
      */
     function applyDrop(event: Sortable.SortableEvent): void {

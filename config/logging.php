@@ -99,7 +99,7 @@ return [
          * Library-scan channel — everything `php artisan app:update` does
          * (cleanup, the content-hash diff, per-file skips, orphan pruning) lands
          * here, one dedicated file away from the app log. Daily rotation, 14-day
-         * retention, mirroring the legacy `lib` channel. The command narrates its
+         * retention. The command narrates its
          * headline lines to both console and here; the scan service logs per-file
          * detail (skipped/unreadable files, removed junk) here directly.
          */

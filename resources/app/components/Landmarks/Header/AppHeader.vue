@@ -84,7 +84,7 @@ onMounted(() => {
 
     // Only the block (vertical) padding lives here; the inline padding comes from the inner
     // Container, so the header content lines up with page content. From the header's OWN scale
-    // since 2026-08-13, rather than `$c-app`'s page gutter halved — see the token, which carries
+    // rather than `$c-app`'s page gutter halved — see the token, which carries
     // why one number could not serve both jobs.
     @include m.mqset(
         "padding-block",

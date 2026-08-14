@@ -95,7 +95,7 @@ describe("Breadcrumb", () => {
 
     it("makes HOME the parent on a top-level page, so the narrow view still goes back", () => {
         /*
-         * The owner's report: `/music` and `/now-playing` declare one crumb — themselves — so
+         * `/music` and `/now-playing` declare one crumb — themselves — so
          * there was no second-to-last crumb to mark, and below `landscape` every chip is hidden
          * except the parent. The result was an empty <nav> holding its own margin. Home IS one
          * level up from those pages, so it takes the role.
@@ -148,8 +148,8 @@ describe("Breadcrumb", () => {
         /*
          * The whole point of moving the trail onto layout props. Inertia replaces them at
          * the component swap, so the outgoing trail is overwritten in one step — it is
-         * never emptied first, which is what used to unmount the <nav> mid-navigation and
-         * make the page jump. One prop change, one render, no gap.
+         * never emptied first. Emptying it is what unmounts the <nav> mid-navigation and makes
+         * the page jump. One prop change, one render, no gap.
          */
         const wrapper = trail([{ label: "Erste Seite" }]);
 

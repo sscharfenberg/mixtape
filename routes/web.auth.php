@@ -70,11 +70,9 @@ Route::middleware('guest')->group(function () {
         //
         // The throttle is generous because the invite requirement is the real abuse gate.
         //
-        // It used to be generous for a second reason that no longer applies —
-        // each field's validate-on-blur being its own request against this
-        // budget. App\Http\Middleware\ThrottleRequests counts that traffic
-        // apart now (30 registrations, 150 validations), so this number is free
-        // to be tightened to what a registration is actually worth.
+        // It does NOT have to hold room for validate-on-blur traffic:
+        // App\Http\Middleware\ThrottleRequests counts that apart (30 registrations,
+        // 150 validations), so this number is what a registration is worth on its own.
         Route::post('/register', [RegisteredUserController::class, 'store'])
             ->middleware(['throttle:30,1,register', HandleControllerPrecognitiveRequest::class])
             ->name('register.store');
@@ -95,9 +93,9 @@ Route::middleware('guest')->group(function () {
         // its own counter, 30 a minute); the limiter in FortifyServiceProvider
         // records the hand-rolled attempt at that and why it did not work.
         // The FRAMEWORK's precognition middleware, because ForgotRequest is a FormRequest:
-        // resolving it validates, and the action — which SENDS MAIL — never runs. It wore the
-        // app's until 2026-08-10, and a request merely claiming precognition sent a real
-        // password-reset email.
+        // resolving it validates, and the action — which SENDS MAIL — never runs. With the app's
+        // middleware instead, a request merely CLAIMING precognition sends a real password-reset
+        // email.
         Route::post('/forgot', [ForgotController::class, 'store'])
             ->middleware(['throttle:auth-mail', HandlePrecognitiveRequests::class])
             ->name('forgot.store');
@@ -112,13 +110,12 @@ Route::middleware('guest')->group(function () {
         // It was raised from `6,1` because three fields validating on blur meant
         // one honest reset cost 4+ requests against this budget and a single
         // correction (mismatched confirmation, rejected weak password) answered
-        // 429. That traffic has its own counter now
-        // (App\Http\Middleware\ThrottleRequests), so the 30 is no longer holding
-        // room for it.
+        // 429. That traffic has a counter of its own
+        // (App\Http\Middleware\ThrottleRequests), so the 30 does not hold room for it.
         // The FRAMEWORK's, as for `forgot.store` above — NewPasswordRequest is a FormRequest.
-        // This is the route where getting it wrong cost the most: until 2026-08-10 a request
-        // claiming precognition RESET THE PASSWORD, consumed the single-use token and logged the
-        // session in.
+        // This is the route where getting that wrong costs the most: with the app's middleware,
+        // a request claiming precognition RESETS THE PASSWORD, consumes the single-use token and
+        // logs the session in.
         Route::post('/reset-password', [NewPasswordController::class, 'store'])
             ->middleware(['throttle:30,1,password-reset', HandlePrecognitiveRequests::class])
             ->name('password.reset.store');
@@ -176,12 +173,12 @@ Route::post('/password/entropy', EntropyController::class)
  * middleware and not the framework's: the framework's aborts before the action and
  * would answer "valid" without checking anything.
  *
- * The generous throttle (matching /register's) was for the field-at-a-time
+ * The generous throttle (matching /register's) is NOT for the field-at-a-time
  * validation these forms do as the reader tabs through them
- * (Precognition-Validate-Only). Since 2026-08-10 that traffic is counted in a
- * bucket of its own — App\Http\Middleware\ThrottleRequests, which reads the
- * precognition middleware off the GROUP below as well as off a route — so what
- * these two numbers now cover is saves alone.
+ * (Precognition-Validate-Only). That traffic is counted in a bucket of its own —
+ * App\Http\Middleware\ThrottleRequests, which reads the precognition middleware
+ * off the GROUP below as well as off a route — so what these two numbers cover is
+ * saves alone.
  *****************************************************************************/
 Route::middleware(['auth', HandleControllerPrecognitiveRequest::class])->group(function () {
     if (Features::enabled(Features::updateProfileInformation())) {

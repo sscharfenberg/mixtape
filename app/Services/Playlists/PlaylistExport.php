@@ -12,14 +12,13 @@ use Illuminate\Support\Facades\DB;
  * Renders a playlist as an .m3u file, for a listener who wants it somewhere this app is not
  * — a phone, a car head unit, a desktop player.
  *
- * Ported from the legacy PlaylistService::exportM3u, with six things changed. They are listed
- * because each was a real defect rather than a matter of taste, and because the legacy file is
- * still the reference anyone will reach for:
+ * Six things about it are decisions rather than defaults, each of them guarding a real defect
+ * that the obvious implementation walks into:
  *
- * 1. NOTHING IS WRITTEN TO DISK. Legacy put the file at `storage/app/downloads/{playlistId}.m3u`
- *    and downloaded it from there. Nothing ever deleted it, so the directory grew a copy per
- *    playlist forever — and because the name was the playlist's id, two exports of one playlist
- *    at once wrote over each other mid-download. A playlist is a few kilobytes of text built
+ * 1. NOTHING IS WRITTEN TO DISK. Writing the file to `storage/app/downloads/{playlistId}.m3u`
+ *    and downloading it from there needs something to delete it, or the directory grows a copy
+ *    per playlist forever — and with the playlist's id as the name, two exports of one playlist
+ *    at once write over each other mid-download. A playlist is a few kilobytes of text built
  *    from rows already in hand; it goes straight out (see {@see render}).
  * 2. THE SOURCE ENCODING IS DECLARED, NOT DETECTED. Legacy asked `mb_detect_encoding` what it
  *    had just built. Detection is a guess by design — it reads pure-ASCII content as ASCII and
@@ -128,7 +127,7 @@ final class PlaylistExport
      * One `#EXTINF` line: the running time in whole seconds, then "Artist - Title".
      *
      * `-1` for a track whose tags carried no duration — the convention's own value for unknown,
-     * where legacy wrote 0 and players showed a zero-length track. A track crediting nobody is
+     * where a 0 makes players show a zero-length track. A track crediting nobody is
      * its title alone rather than " - Title", which is what a bare concatenation produces.
      */
     private static function extinf(object $entry): string

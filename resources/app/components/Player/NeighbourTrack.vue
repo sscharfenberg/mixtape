@@ -5,15 +5,15 @@
  * NowPlayingSection: the artwork, the title, and the same facts a hero carries — artist, album,
  * genre, runtime.
  *
- * IT KNOWS NOTHING ABOUT WHICH PAGE IT IS ON, which is what let it move out of `pages/NowPlaying/`
- * (2026-08-12) with not a line changed: everything it draws comes from the `track` prop, and the
+ * IT KNOWS NOTHING ABOUT WHICH PAGE IT IS ON, which is what lets the guest share page reuse it
+ * unchanged: everything it draws comes from the `track` prop, and the
  * one fact the queue does not carry is handed in as `genre` — null being a perfectly good answer,
  * and the only one the guest share page has.
  *
  * THE WHOLE CARD STEPS THE PLAYER, because a card labelled "next" beside a separate arrow is two
  * controls for one intention — and on a phone the card is the thing under your thumb. That is
  * done with a transparent button STRETCHED OVER the card rather than by making the card itself a
- * `<button>`, which is how it was built and had to change (2026-08-10).
+ * `<button>`, which is how it was built and had to change.
  *
  * THE REASON IS THE TITLE'S HEADING. A track title is a heading — it is what a reader navigating
  * by headings should land on — and inside a `<button>` no heading exists: ARIA prunes a button's

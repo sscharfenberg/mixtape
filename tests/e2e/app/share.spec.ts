@@ -99,9 +99,9 @@ test.describe("sharing", () => {
 
     test("shares a playlist, and a guest gets it in the reader's own order", async ({ page, context }) => {
         /*
-         * PLAYLIST SHARES (2026-08-13), end to end, and the assertion that needs the whole
+         * PLAYLIST SHARES, end to end, and the assertion that needs the whole
          * journey: a playlist's ORDER is its content, so the one way to be sure the share space
-         * did not re-sort it into album order is to read the owner's list and the guest's queue
+         * did not re-sort it into album order is to read the maker's list and the guest's queue
          * and compare them. ShowShareTest pins the same rule server-side with a fixture built to
          * make the two orders disagree; this walks the path a reader actually takes.
          *
@@ -137,7 +137,7 @@ test.describe("sharing", () => {
         expect(heard).toStrictEqual(owner);
 
         // A playlist is not a record, so the hero fans its sleeves rather than claiming one
-        // cover — the same shape the owner's own page draws.
+        // cover — the same shape the signed-in page draws.
         await expect(guestPage.locator(".cover-sleeves")).toBeVisible();
 
         await guest.close();
@@ -145,7 +145,7 @@ test.describe("sharing", () => {
 
     test("re-activates an expired link from the word that says it expired", async ({ page, context }) => {
         /*
-         * WHAT MAKES THE THIRTY-DAY GRACE PERIOD MEAN SOMETHING (the owner, 2026-08-13), walked
+         * WHAT MAKES THE THIRTY-DAY GRACE PERIOD MEAN SOMETHING, walked
          * the way a reader walks it: find the dead row, press the word "abgelaufen", confirm, and
          * watch it come back up into the live list — with its copy button, which a dead row has
          * none of.
@@ -188,7 +188,7 @@ test.describe("sharing", () => {
     });
 
     test("offers no share button on a genre", async ({ page }) => {
-        // The owner's call (2026-08-11): "listen to this genre" is a different kind of act.
+        // Deliberate: "listen to this genre" is a different kind of act.
         // The two verbs beside it are still there, so this is an absence and not a broken row.
         await openFirstRow(page, "/music/genres");
 
@@ -219,7 +219,7 @@ test.describe("sharing", () => {
 
         // The row is found by the ALBUM's name, not by position: this account holds the two
         // seeded links as well, and the point of a per-row button is revoking the right one.
-        // In the LIVE half specifically — the page splits the two since 2026-08-13, and a link
+        // In the LIVE half specifically — the page splits the two, and a link
         // minted a second ago belongs on top.
         await page.goto("/dashboard/shared");
         const row = page.locator(".shares--active .shares__row", { hasText: album });
@@ -230,7 +230,7 @@ test.describe("sharing", () => {
         await page.getByRole("button", { name: /^Zurückziehen$/u }).click();
 
         // Gone from the list — and NOT moved into the expired half below it. Revoking deletes
-        // the row (the owner's call, 2026-08-13), so the link leaves the page rather than
+        // the row, so the link leaves the page rather than
         // joining the links that ran out of days; that half is about the calendar, not about a
         // decision its owner made.
         await expect(row).toHaveCount(0);

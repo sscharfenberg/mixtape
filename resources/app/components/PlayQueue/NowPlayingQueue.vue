@@ -4,12 +4,12 @@
  * The last row of NowPlayingSection: a heading with the queue's totals, over the queue itself.
  *
  * IT LIVES BESIDE THE PANEL rather than in `pages/NowPlaying/`, because it is the queue's SECOND
- * container and this folder is where the queue's containers are (2026-08-12): `PlayQueue` is the
+ * container and this folder is where the queue's containers are: `PlayQueue` is the
  * sliding panel, this is the one that sits on a page, and `QueueList` is the rows both of them
  * draw. It takes no props and asks `usePlayerQueue` itself, so any page may render it.
  *
  * THE ROWS ARE THE PANEL'S ROWS — `QueueList`, the one definition of them, asked for its `page`
- * layout. This file used to draw its own, which lasted about an hour: two copies of a row drift,
+ * layout. Drawing a page-specific row here instead is the trap: two copies of a row drift,
  * and the first thing to drift was the remove glyph (a plain close here, `playlist_remove` in the
  * panel). All this component owns now is the heading and the totals, which the panel puts in its
  * own header for the same reason — a list of its length needs its size stated somewhere.

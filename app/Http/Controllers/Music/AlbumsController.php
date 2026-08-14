@@ -66,9 +66,9 @@ class AlbumsController extends Controller
                 'collections.name',
                 'collections.year',
                 // The album's directory image, as the scanner recorded it. Selected —
-                // not read off disk — which is the whole point of the column: a page
-                // of 50 albums used to cost 50 directory reads to answer "is there
-                // artwork?", and now costs none.
+                // not read off disk — which is the whole point of the column: resolved
+                // live, a page of 50 albums costs 50 directory reads to answer "is there
+                // artwork?". Read as a column it costs none.
                 'collections.cover_path',
                 'artists.name as artist_name',
             ])

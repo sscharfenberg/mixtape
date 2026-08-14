@@ -8,7 +8,7 @@
  * THE PAGE THE SHARE MODAL HAS BEEN PROMISING since minting was built: it tells a reader they
  * can withdraw a link from their dashboard, and until now that meant deleting a row by hand.
  *
- * TWO LISTS UNDER TWO HEADINGS (the owner's call, 2026-08-13), the live links first and the
+ * TWO LISTS UNDER TWO HEADINGS, the live links first and the
  * expired ones below their own right-aligned heading. It was one mixed list with the dead rows
  * marked, and the marking was carrying too much: what a reader wants off this page at a glance
  * is "what am I sharing right now", and that answer was a count they had to make themselves by
@@ -165,7 +165,7 @@ const expiries = computed<Record<string, string>>(() =>
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "Abstracts/sizes" as s;
 
-/* THE PAGE'S TWO BLOCKS, each given air of its own (the owner's call, 2026-08-13). Reaching a
+/* THE PAGE'S TWO BLOCKS, each given air of its own. Reaching a
    child component's root from here works because Vue puts this page's scope id on it, and it is
    the narrowest way to say "on this page": Container is shared by every page in the app and
    holds no inset of its own.

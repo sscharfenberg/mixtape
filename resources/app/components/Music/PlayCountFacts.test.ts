@@ -108,9 +108,9 @@ describe("PlayCountFacts", () => {
              * is the fix for how this broke: `playlist` was added to the subjects when the playlist
              * page started using this component, this test went on naming four of them, and the two
              * German and English sentences for it were never written. Nothing failed — a missing
-             * key is a console warning and the raw key on screen — until the owner opened a
-             * playlist (2026-08-13). Driven off `PLAY_COUNT_SUBJECTS`, a new subject with no copy
-             * now fails here instead, because `translate()` throws on a key the catalog lacks.
+             * key is a console warning and the raw key on screen, both of which a test that names
+             * its subjects by hand sails past. Driven off `PLAY_COUNT_SUBJECTS`, a new subject with
+             * no copy fails here, because `translate()` throws on a key the catalog lacks.
              *
              * BOTH LOCALES, because only de.json is the schema the build type-checks: a key present
              * in German and missing in English is invisible to `vue-tsc` and shows up as a warning

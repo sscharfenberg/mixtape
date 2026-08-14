@@ -94,9 +94,9 @@ describe("PopOver", () => {
     it("really unhooks itself on the way out", () => {
         /*
          * The queue's menu unmounts with its panel every time the queue empties, so the teardown
-         * runs often. It used to re-query the dialog BY ID to remove the listener, which by then
-         * returns null — the element is already detached — so the removal never happened and the
-         * optional chain hid it. The component holds the element now; this is what says so.
+         * runs often. Re-querying the dialog BY ID to remove the listener returns null by then —
+         * the element is already detached — so the removal never happens and the optional chain
+         * hides it. The component holds the element instead; this is what says so.
          */
         const wrapper = popover();
         const dialog = document.getElementById("testMenu")!;

@@ -7,7 +7,7 @@
  * each of the four widgets, which is what v1 did — combined with the page's own field that is
  * five inputs, four of them a subset of the fifth, and each of the four would show a truncated
  * list with no honest way to say "and 72 more". One field plus these chips is the same capability
- * in one place (the owner's call, 2026-08-13). The widgets keep doing what they are for: latest,
+ * in one place. The widgets keep doing what they are for: latest,
  * random, most-played — browsing, not looking.
  *
  * RADIOS, not buttons, for the reason OptionBubbles records: a native radiogroup gives arrow-key

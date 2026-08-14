@@ -4,11 +4,10 @@
  * The "add this to a playlist" AREA (Components/Playlists/AddToPlaylist): the ink of its
  * sentence, and nothing else.
  *
- * ONE DECISION LEFT. The tint this area used to draw around itself moved to
- * `_action-panel.scss` on 2026-08-10, when the box turned out to belong to the hero's action
- * area rather than to this one component (a download button stands in it too). Everything
- * else here is painted by a shared component with its own contextual tokens — the Select and
- * the Button — which is why there is no entry for the control row.
+ * ONE DECISION ONLY. The tint around the area belongs to `_action-panel.scss`, because the box
+ * is the HERO's action area rather than this one component's — a download button stands in it
+ * too. Everything else here is painted by a shared component with its own contextual tokens —
+ * the Select and the Button — which is why there is no entry for the control row.
  * Consumed as c.$c-add-to-playlist via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map

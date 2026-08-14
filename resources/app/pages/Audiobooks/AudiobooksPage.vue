@@ -6,7 +6,7 @@
  * wrote them and by who reads them.
  *
  * NOT A DATATABLE, which is the one thing that makes this page look unlike every Music
- * listing (the owner's call): this app is a music player that also holds audiobooks, and
+ * listing: this app is a music player that also holds audiobooks, and
  * twenty books do not need sorting, paging or a column of file sizes. They need to be
  * recognisable, which means covers — so all three tabs draw the shared `Discography` grid,
  * the component the artist and genre pages already use for exactly this.
@@ -108,10 +108,9 @@ const tabs = computed<TabDefinition[]>(() => [
  * knows the locale: a book COUNT is pluralised through the catalogue and a duration is
  * clocked.
  *
- * TWO CHIPS RATHER THAN ONE SENTENCE since 2026-08-14 (the owner). They used to be joined by
- * a middle dot — "6 Bücher · 12:30:04" — and a joined string cannot be given a chip apiece,
- * nor drop its words on a phone while keeping its numbers, which is what the accordion now
- * does below 480px.
+ * TWO CHIPS RATHER THAN ONE SENTENCE. Joined by a middle dot — "6 Bücher · 12:30:04" — the
+ * string cannot be given a chip apiece, nor drop its words on a phone while keeping its
+ * numbers, which is what the accordion does below 480px.
  *
  * EACH ONE TAKES ITS WORD ON THE SIDE ITS GRAMMAR WANTS: the count is a phrase and wears its
  * noun after it ("3 Bücher"), the duration is a labelled measurement and wears its name

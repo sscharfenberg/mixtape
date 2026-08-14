@@ -16,7 +16,7 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
  * repeating them here would only be a second copy of the same contract. What is this page's
  * own is: the expiry rendered in the READER's locale (the server sends a raw instant and
  * knows neither their language nor their timezone), the expired branch replacing the whole
- * page, the missing tiles for a subject that has no such fact — and, since 2026-08-12, WHAT
+ * page, the missing tiles for a subject that has no such fact — and WHAT
  * THE PAGE DOES TO THE QUEUE ON ARRIVAL.
  *
  * That last one earns a unit test rather than a browser one because it is a decision about
@@ -130,7 +130,7 @@ describe("SharePage", () => {
         });
 
         it("says what kind of music it is, and does not link into the library", () => {
-            // The genre tile arrived on 2026-08-13 (the owner): it is the fact that means most
+            // The genre tile is the fact that means most
             // to somebody who does not know the band. UNLINKED, unlike every other page that
             // draws it — a genre page lives under `/music`, so a guest following it would land
             // on the login form.
@@ -177,7 +177,7 @@ describe("SharePage", () => {
             }
 
             // And in English, because a guest sent a link is the reader least likely to share
-            // the owner's language — the same reason the expiry tile is asserted in both.
+            // the reader's own language — the same reason the expiry tile is asserted in both.
             expect(sentence(page({}, "en").find(".share__not-kept").text())).toBe(
                 translate("share.notKept", "en")
             );
@@ -354,7 +354,7 @@ describe("SharePage", () => {
             });
 
         it("fans its records, because a playlist is not one", () => {
-            // Shareable since 2026-08-13. The hero it gets is the ARTIST's shape rather than the
+            // The hero a playlist gets is the ARTIST's shape rather than the
             // album's — no single picture — which is also what the playlist's own page draws.
             const wrapper = playlist();
 

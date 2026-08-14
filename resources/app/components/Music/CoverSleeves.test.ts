@@ -17,7 +17,7 @@ import CoverSleeves from "./CoverSleeves.vue";
  * the fan sat inside a stacking context, which is the kind of thing that breaks long after
  * the change that caused it.
  *
- * These tests came over from GenreArtists.test.ts when the fan was extracted (2026-08-09).
+ * These tests came over from GenreArtists.test.ts when the fan was extracted.
  */
 
 /** Mount the fan over a list of covers. */

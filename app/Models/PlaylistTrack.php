@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * One ordered entry in a saved playlist. `track_id` is a real FK that is always
- * live (relink-then-cascade, data-model.md → (b) #4), so no denormalised snapshot
+ * live (relink-then-cascade, data-model.md → "Foreign keys"), so no denormalised snapshot
  * is needed. `position` is contiguous and renumbered in a txn on reorder.
  */
 #[Fillable(['playlist_id', 'track_id', 'position'])]

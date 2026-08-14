@@ -24,13 +24,12 @@ use Tests\TestCase;
  * visibly:
  *
  *   - Rules in a FORM REQUEST + the app's HandleControllerPrecognitiveRequest → the action RUNS.
- *     Found 2026-08-10 on five routes: `Precognition: true` with no `Precognition-Validate-Only`
- *     created playlists, wrote metadata, sent password-reset and verification mail, and reset a
+ *     Measured on five real routes: `Precognition: true` with no `Precognition-Validate-Only`
+ *     creates playlists, writes metadata, sends password-reset and verification mail, and resets a
  *     password — consuming its single-use token and logging the session in.
  *   - Rules in the ACTION (Fortify's, wrapped in `precognitive()`) + the framework's
- *     HandlePrecognitiveRequests → nothing is validated. Measured the same day: a value the rule
- *     cannot accept answers 204 `Precognition-Success: true`, so a register form would report a
- *     taken username as free.
+ *     HandlePrecognitiveRequests → nothing is validated. A value the rule cannot accept answers
+ *     204 `Precognition-Success: true`, so a register form reports a taken username as free.
  *
  * So each subject below is asserted twice: a bare CLAIM leaves no trace, and a validate-only
  * request on a field that cannot pass comes back 422 naming it.

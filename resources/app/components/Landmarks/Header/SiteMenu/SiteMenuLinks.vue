@@ -79,7 +79,7 @@ $link-pad-desktop: map.get($link-pad, "desktop") * 0.5;
         list-style: none;
     }
 
-    /* THE ROW'S SHARED HEIGHT, stated rather than derived (2026-08-13). These links were the
+    /* THE ROW'S SHARED HEIGHT, stated rather than derived. These links were the
        tallest of the header's three control heights at 38.4px, and the extra came from the
        block padding stacking on top of a 22.4px text line box — so no padding value turns
        them into exactly 36: 4.8px a side lands on 35.99, and it would drift again the moment

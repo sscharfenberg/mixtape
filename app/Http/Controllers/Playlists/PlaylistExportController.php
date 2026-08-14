@@ -50,8 +50,8 @@ class PlaylistExportController extends Controller
         $filename = PlaylistExport::filename($playlist);
 
         return response($body, Response::HTTP_OK, [
-            // The real type for an .m3u, where legacy sent `application/vnd` — not a media type
-            // at all. The charset rides along so a player that honours it does not have to
+            // The real media type for an .m3u. The charset rides along so a player that
+            // honours it does not have to
             // guess, which is the entire point of offering the choice.
             'Content-Type' => 'audio/x-mpegurl; charset='.$options['encoding'],
             'Content-Length' => (string) strlen($body),

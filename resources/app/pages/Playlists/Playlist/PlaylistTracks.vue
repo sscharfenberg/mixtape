@@ -39,13 +39,13 @@
  * controls are lifted back above that overlay. The playlists listing solves the same problem
  * the same way.
  *
- * It was the TITLE alone at first, and that was wrong in a way only the owner hovering it
- * found: the row lights up under the pointer along its whole width, so it promises a target
- * it did not have — everywhere but the words themselves there was no pointer cursor and
- * nothing to click. Either the promise or the glow had to go, and a listing whose rows are
- * clickable is what every other listing here does.
+ * NOT THE TITLE ALONE, which is wrong in a way only hovering finds: the row lights up under
+ * the pointer along its whole width, so it promises a target it does not have — everywhere but
+ * the words themselves there is no pointer cursor and nothing to click. Either the promise or
+ * the glow has to go, and a listing whose rows are clickable is what every other listing here
+ * does.
  *
- * The title therefore no longer underlines on hover: the row is already the target and
+ * The title therefore does not underline on hover: the row is already the target and
  * already says so, which is the same rule the Songs table's title cell follows. Only FOCUS
  * draws anything, and it draws a ring around the whole row rather than under the words —
  * the words are not what gets activated.

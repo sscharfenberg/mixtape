@@ -6,9 +6,8 @@
  *
  * `font-size` IS THE SIZE OF THE WHOLE BOX, and that is why it is the only length here
  * in absolute units. The padding is `em` and the width reservation is `ch`, so both are
- * ratios of the figure they wrap — set the type and the box follows. It went 1.2rem →
- * 1.5rem on the owner's "25% bigger" (2026-08-07), and that one number was the whole
- * change: the padding and the reserved width grew with it, in proportion.
+ * ratios of the figure they wrap — set the type and the box follows. Resizing the box is
+ * therefore one number: the padding and the reserved width grow with it, in proportion.
  *
  * A literal rather than a step off the type scale, which the token guide allows: this is
  * not body copy at some heading level, it is one number sized to be read at a glance

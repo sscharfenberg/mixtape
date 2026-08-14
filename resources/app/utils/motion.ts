@@ -8,10 +8,8 @@
  * options handed to a library rather than properties on an element — SortableJS's
  * `animation` in the queue's reorder and the listing's — so they have to ask in JS.
  *
- * It lives here rather than beside either caller because the two MUST NOT DRIFT: it was a
- * private helper in useQueueReorder until the playlists listing needed the same answer
- * (2026-08-08), and a second copy would have been correct the day it was written and wrong
- * the first time the query changed.
+ * It lives here rather than beside either caller because the two MUST NOT DRIFT: a private copy
+ * per caller would be correct the day it was written and wrong the first time the query changed.
  *
  * WRITTEN POSITIVELY — `no-preference` rather than a `reduce` opt-out — matching the CSS
  * rule exactly, so a browser that reports nothing at all gets no animation either.

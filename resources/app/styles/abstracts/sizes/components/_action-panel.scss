@@ -5,8 +5,8 @@
  * own inset and shape, and the space between the blocks standing in it.
  *
  * The inset and the gap step off the shared `$padding` rungs so the box breathes like the
- * rest of the hero. Split out of `_add-to-playlist.scss` on 2026-08-10 — see the colour
- * partner for why the box stopped belonging to that one component.
+ * rest of the hero. Its own group rather than `_add-to-playlist.scss`'s — see the colour
+ * partner for why the box belongs to the hero's action area rather than to that one component.
  * Consumed as s.$c-action-panel via `@use "Abstracts/sizes" as s;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map

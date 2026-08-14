@@ -29,10 +29,9 @@ return new class extends Migration
      * cannot be built. `user_id` cascades too — delete the account and the links it
      * handed out stop working.
      *
-     * `playlist_id` had no mint path when this ran (the owner deferred playlist sharing
-     * on 2026-08-11, and switched it on 2026-08-13). It was created here rather than in
-     * a later migration precisely so the CHECK below was written once: adding the column
-     * afterwards would have meant dropping and re-adding the constraint on a live table.
+     * ALL FOUR SUBJECT COLUMNS ARE CREATED TOGETHER, even where the app gains the mint path
+     * for one later, precisely so the CHECK below is written once: adding a subject column
+     * afterwards means dropping and re-adding the constraint on a live table.
      * There is deliberately no `genre_id` at all — "listen to this genre" is a different
      * kind of act from "listen to this", and was not asked for.
      */
@@ -54,7 +53,7 @@ return new class extends Migration
             $table->foreignUuid('artist_id')->nullable()->constrained()->cascadeOnDelete();
             $table->foreignUuid('playlist_id')->nullable()->constrained()->cascadeOnDelete();
 
-            // Who it was for, in the owner's own words — the `invites.note` precedent.
+            // Who it was for, in the minter's own words — the `invites.note` precedent.
             // Nothing writes it yet; the mint button sends no note.
             $table->string('note', 255)->nullable();
 

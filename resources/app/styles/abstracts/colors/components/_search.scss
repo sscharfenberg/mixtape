@@ -86,7 +86,7 @@ $search: (
     /*
      * The hand-off's own band — a step further from the panel than either stripe, because it is not
      * a result: it is the way out of the group, and it reads as an action rather than as the sixth
-     * row (the owner's call, 2026-08-13).
+     * row.
      */
     "see-all-background": light-dark(
             color.adjust(map.get(c.$grey, "fog"), $alpha: -0.4),

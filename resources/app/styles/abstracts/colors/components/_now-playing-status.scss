@@ -5,7 +5,7 @@
  *
  * NOT the shared Badge's palette, and not the Badge component either. That pill is built for the
  * dashboard's two-factor state — a filled box with a `backdrop-filter` behind it — and on this
- * page it read as a white slab with a haze under it, which is what the owner reported. This one is
+ * page it reads as a white slab with a haze under it. This one is
  * an OUTLINE: the state is carried by the ink and the border, so the pill sits beside the "to the
  * song page" link as its peer rather than shouting over it.
  *

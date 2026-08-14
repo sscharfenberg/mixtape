@@ -4,14 +4,14 @@
  * The Now Playing area, at /now-playing (route `now-playing`, behind auth) and linked from the
  * header site menu — which offers it only while the queue holds something (useSiteAreas).
  *
- * FOUR ROWS, in the order the owner asked for and each answering a different question:
+ * FOUR ROWS, each answering a different question:
  *   1. WHAT IS PLAYING — the hero, with the artwork and the track's facts.
  *   2. WHAT IT SOUNDS LIKE — the visualiser, kept deliberately short so it never pushes row 1
  *      off the top of a phone.
  *   3. WHAT IS EITHER SIDE — the previous and next tracks, each card a button that steps there.
  *   4. WHAT IS LINED UP — the whole queue.
  *
- * ROWS 2–4 ARE NowPlayingSection, AND ONLY ROW 1 IS THIS PAGE'S OWN (2026-08-12). The three
+ * ROWS 2–4 ARE NowPlayingSection, AND ONLY ROW 1 IS THIS PAGE'S OWN. The three
  * describe playback rather than this page, and the guest share page wants exactly them under a
  * hero of its own; the hero here stays, because it is about the LOADED TRACK, which is the one
  * thing a share page has no room to say twice.
@@ -21,10 +21,10 @@
  * props: a server payload would only be a second, staler copy of what the composables already
  * hold. The controller's one prop is `genres`, argued below.
  *
- * "WHAT PLAYS NEXT" IS A REAL ANSWER UNDER SHUFFLE, which it was not until 2026-08-09. The draw
- * used to happen inside the press, so there was nothing to show until you asked; the queue now
- * decides it when the current track loads and keeps that promise when next is pressed
- * (docs/play-queue.md → the pre-draw). Row 3 is the whole reason that changed.
+ * "WHAT PLAYS NEXT" IS A REAL ANSWER UNDER SHUFFLE, and row 3 is the whole reason the queue
+ * works that way. Drawing inside the press leaves nothing to show until you ask; instead the
+ * queue decides it when the current track loads and keeps that promise when next is pressed
+ * (docs/play-queue.md → the pre-draw).
  *
  * WHAT THE QUEUE DOES NOT CARRY IS FETCHED, and it is fetched rather than stored for a reason
  * worth knowing before anyone "fixes" it: the stored queue track is trimmed to ~164 characters
@@ -126,7 +126,7 @@ const genres = computed<Record<string, string | null>>(() =>
  * is stopped either way — but they are entirely different things to a listener: one is waiting for
  * a press and the other has nothing left to press.
  *
- * IT READS `queueFinished`, NOT `hasNext`, and the difference is a bug the owner caught: on the
+ * IT READS `queueFinished`, NOT `hasNext`, and the difference is a real bug: on the
  * LAST track `hasNext` is false however you got there, so pausing at the end of a queue announced
  * "end of queue" when the listener had simply pressed pause. The player records the real event
  * instead — a track ending with nothing to follow — which is the only moment the two can be told

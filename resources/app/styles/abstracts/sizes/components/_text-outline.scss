@@ -17,7 +17,7 @@ $text-outline: (
     // the stroke (`paint-order: stroke fill`) to hide that inner half, and doubles this number so
     // that what remains outside is the width named here.
     //
-    // 2px, and in PIXELS rather than `em`, which is the owner's call and holds up: a stroke is a
+    // 2px, and in PIXELS rather than `em`: a stroke is a
     // drawn line, so what matters is whether it reads as one on the screen. In `em` it would be
     // 3.5px on a phone and 5px on a desktop — a marker pen either way. The trade is that it is
     // proportionally heavier on the smaller rungs, which is the point: that is the width at which

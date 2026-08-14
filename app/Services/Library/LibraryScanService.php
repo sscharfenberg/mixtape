@@ -25,8 +25,8 @@ use Symfony\Component\Finder\Finder;
 use Symfony\Component\Finder\SplFileInfo;
 
 /**
- * The library scanner — a content-hash *diff*, not the legacy truncate-and-
- * rebuild (data-model.md → "the one fact that colours everything").
+ * The library scanner — a content-hash *diff* rather than a truncate-and-rebuild
+ * (data-model.md → "The one fact that colours everything").
  *
  * Per area, inside one transaction:
  *   1. Enumerate the audio files on disk.
@@ -114,8 +114,7 @@ final class LibraryScanService
         $result->discovered = count($files);
         $this->announce($progress, "{$type->value}: found {$result->discovered} file(s)");
 
-        // Safety guard (ported from the legacy "empty list → don't touch the DB"):
-        // a configured, existing directory that suddenly yields zero files is far
+        // Safety guard: a configured, existing directory that suddenly yields zero files is far
         // more likely a mount/permission problem than a real mass-deletion. Refuse
         // to prune — leave every row intact — so a dropped share can't wipe an
         // area, and flag it so the command alerts. (A genuine full-clear is rare;
@@ -353,10 +352,9 @@ final class LibraryScanService
                 //
                 // BOTH LAND ON THE CHAPTER, and the book is keyed on its title alone. TCOM is
                 // a per-file tag and an anthology uses it per story: "Necrophobia 1" names
-                // four authors across its 33 chapters. While the author was part of the
-                // collection key, that book became four rows sharing a name (measured
-                // 2026-08-13) — so the author is a fact about the chapter, exactly as the
-                // narrator always was.
+                // four authors across its 33 chapters. With the author in the collection key,
+                // that book scans as four rows sharing a name — measured, on the real library.
+                // So the author is a fact about the chapter, exactly as the narrator is.
                 $author = $this->taxonomy(Author::class, $meta->composer);
                 $narrator = $this->taxonomy(Narrator::class, $meta->artist);
                 $collection = $this->collection(CollectionType::Audiobook, $meta->album, [], $meta->year);
@@ -393,9 +391,9 @@ final class LibraryScanService
      * Rewrite a found row's name when the tag spells it differently — which, the lookup
      * being case-insensitive, means A CHANGE OF CASE.
      *
-     * WITHOUT THIS, RENAMING AN ARTIST DOES NOTHING (reported by the owner, 2026-08-13:
-     * "NARGAROTH" re-tagged to "Nargaroth", `app:update` run, and the app went on saying
-     * NARGAROTH). The dedup that makes "Rock" and "rock" one genre is a column collation, so
+     * WITHOUT THIS, RENAMING AN ARTIST DOES NOTHING: re-tag "NARGAROTH" to "Nargaroth", run
+     * `app:update`, and the app goes on saying NARGAROTH. The dedup that makes "Rock" and
+     * "rock" one genre is a column collation, so
      * `firstOrCreate(['name' => 'Nargaroth'])` FINDS the all-caps row and hands it back
      * unchanged — no insert, no update, nothing to notice. Every other kind of rename works,
      * because a genuinely different name misses the lookup, mints a row and leaves the old one
@@ -422,8 +420,8 @@ final class LibraryScanService
 
     /**
      * firstOrCreate a collection, keyed on (type, name, owner) — the same tuple
-     * the DB dedup index enforces. `year` is written only on creation (legacy
-     * behaviour); a later track never overwrites it.
+     * the DB dedup index enforces. `year` is written only on creation; a later track
+     * never overwrites it, so a mis-tagged file cannot re-date a record.
      *
      * @param  array{album_artist_id?: ?string}  $owner  empty for an audiobook, which has no
      *                                                   owner column — its author is per chapter
@@ -484,7 +482,7 @@ final class LibraryScanService
      * Before hard-deleting an orphaned track, repoint its playlist entries and
      * plays to a surviving clone (another row with the same audio) so a curated
      * playlist survives culling one of two identical files. With no clone, the FK
-     * `cascade` drops them when the row is deleted (data-model.md → (b) #4).
+     * `cascade` drops them when the row is deleted (data-model.md → "Foreign keys").
      */
     private function relinkThenDelete(Track $row): void
     {
@@ -509,7 +507,7 @@ final class LibraryScanService
     /**
      * Delete taxonomy/collections the diff left with no referrers. A diff (unlike
      * truncate) leaves these behind, and a browse list full of zero-track artists
-     * is bad UX (data-model.md → (b) #5). Order matters: empty collections first,
+     * is bad UX (data-model.md → "Foreign keys"). Order matters: empty collections first,
      * then the contributors they referenced — a `restrict` FK would otherwise
      * block deleting a still-referenced artist.
      */

@@ -11,12 +11,11 @@
  * would still reserve its 280px, and the page would sit off-centre for a queue
  * that isn't there.
  *
- * IT OVERLAYS, AND IT IS TOGGLED, AT EVERY WIDTH — the same behaviour on a phone and on
- * a desktop since 2026-08-08. It used to stand permanently open from `landscape` up with
- * the content inset to clear it, and the dashboard is what settled that: its headings are
- * RIGHT-aligned, so there is no trailing room to give, and the panel ended up over the
- * content there and beside it everywhere else. Two behaviours for one control is worse
- * than either.
+ * IT OVERLAYS, AND IT IS TOGGLED, AT EVERY WIDTH — the same behaviour on a phone and on a
+ * desktop. Standing permanently open from `landscape` up, with the content inset to clear it,
+ * is the obvious alternative and the dashboard settles it: that page's headings are
+ * RIGHT-aligned, so there is no trailing room to give, and the panel ends up over the content
+ * there and beside it everywhere else. Two behaviours for one control is worse than either.
  *
  * The overlay is the half worth keeping. Taking a column narrows <main>, and the app's
  * headings are drawn as tabs with one side deliberately open, hidden past the edge of the

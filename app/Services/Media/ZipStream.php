@@ -13,9 +13,9 @@ namespace App\Services\Media;
  * showing nothing before the first byte arrives. (It is also a trap on this box, where
  * `/tmp` is a 16 GB **tmpfs** — a gigabyte of RAM for a download.) And a temp file has to
  * be swept: `deleteFileAfterSend` does not reliably run when the client disconnects
- * mid-download, which is why legacy MixTape pruned its whole download disk before every
+ * mid-download, so the alternative ends up pruning a whole download directory before every
  * single export. Streaming has none of those problems, so the only thing bought by a
- * dependency (or by shelling out to `/usr/bin/zip`, as legacy did) is deflate — see next.
+ * dependency (or by shelling out to `/usr/bin/zip`) is deflate — see next.
  *
  * STORED, NOT DEFLATED. Every byte in here is already compressed: mp3 audio, JPEG
  * artwork, PDF booklets. Deflate would spend a core per download to save approximately

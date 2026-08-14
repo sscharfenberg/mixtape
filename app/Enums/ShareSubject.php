@@ -10,9 +10,10 @@ namespace App\Enums;
  * in the other, and every difference is a decision:
  *
  *   - No `genre`. The mapping would be free, but "listen to this genre" is a
- *     different kind of act from "listen to this", and the owner ruled it out
- *     (2026-08-11). The genre page therefore offers play and enqueue, but no share.
- *   - `playlist`, which that enum deliberately lacks (2026-08-13, the owner). It is
+ *     different kind of act from "listen to this": a share hands over one thing
+ *     somebody chose to send, and a genre is a shelf. The genre page therefore
+ *     offers play and enqueue, but no share.
+ *   - `playlist`, which that enum deliberately lacks. It is
  *     the one subject here whose tracks are NOT named by a column on `tracks` — a
  *     playlist's order is its content — so it is also the one whose grant
  *     {@see self::grant()} cannot answer; ShareGrant resolves it through the pivot
@@ -39,8 +40,7 @@ enum ShareSubject: string
     case Artist = 'artist';
     case Playlist = 'playlist';
     /**
-     * A whole audiobook. Added 2026-08-13, when the area got a page to share FROM — which is
-     * all it was ever waiting on. It cost one case and three arms and NO migration: `shares`
+     * A whole audiobook. It costs one case and three `match` arms and NO migration: `shares`
      * already stores it in `collection_id`, and the table's CHECK counts non-null FKs without
      * caring which kind of collection this one is.
      */

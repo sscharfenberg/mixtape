@@ -12,7 +12,7 @@
  * dark surface needs more of it to register at all.
  *
  * Lifted out of `_genre-artists.scss` with the sizes when the fan became a component
- * of its own (2026-08-09); the value is unchanged.
+ * of its own; the value is unchanged.
  * Consumed as c.$c-cover-sleeves via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map

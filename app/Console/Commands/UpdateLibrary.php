@@ -154,7 +154,7 @@ class UpdateLibrary extends Command
 
     /**
      * E-mail an end-of-run summary of skipped (unreadable) files. Non-fatal, so
-     * the exit code is unaffected — but the owner is told exactly what and why.
+     * the exit code is unaffected — but the operator is told exactly what and why.
      *
      * @param  array<int, array{path: string, reason: string}>  $skipped
      */

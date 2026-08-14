@@ -5,9 +5,8 @@
  * records" flourish. An artist card on a genre page leads with one (GenreArtists); a
  * playlist's hero carries one in place of the artwork it has none of.
  *
- * Extracted from GenreArtists on 2026-08-09, when the second caller arrived. Nothing about
- * the effect changed — the tokens moved from `*.$c-genre-artists` to `*.$c-cover-sleeves`
- * intact — but the RULE below is now stated once instead of being a page's private detail.
+ * A shared component rather than a page's private detail, because two callers want it — and
+ * because the RULE below is worth stating once.
  *
  * THE FAN DEGRADES HONESTLY, which is the load-bearing decision rather than a fallback. On
  * a genre page half of all artists have exactly one album and only a third have three or

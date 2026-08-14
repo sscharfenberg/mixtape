@@ -6,7 +6,7 @@
  * every listing and hero carried its own copy of the same <img>, the same frame,
  * the same placeholder glyph and the same load-failure guard.
  *
- * It owns THREE things a consumer used to repeat:
+ * It owns THREE things every consumer would otherwise repeat:
  *
  * 1. The size triple. A size is not just a width: the corner radius and frame
  *    width move with it, because the 12px rounding that reads as deliberate on a
@@ -24,7 +24,7 @@
  * 3. The FAILED case, which is the one worth having a component for. `coverUrl`
  *    rests on `tracks.cover` / `collections.cover_path` — scan-time flags — so a
  *    file re-tagged or deleted since the last `app:update` is still advertised and
- *    then 404s. Each consumer used to keep a `failedCovers` Set keyed by row id and
+ *    then 404s. Handled at the call site, each consumer needs a `failedCovers` Set keyed by row id and
  *    an `@error` handler to maintain it, purely because the <img> lived inside a
  *    `v-for`. An instance per row already has that identity, so the state is a
  *    single boolean here and the Sets are gone.

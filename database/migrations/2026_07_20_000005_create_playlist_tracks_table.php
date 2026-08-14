@@ -7,9 +7,9 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * `playlist_tracks` — the ordered entries of a saved playlist (renamed from
-     * legacy `playlist_entries`). It finally holds a REAL `track_id` FK, only
-     * possible because v2 ids are stable across scans (data-model.md → (b) #4).
+     * `playlist_tracks` — the ordered entries of a saved playlist. It holds a REAL
+     * `track_id` FK, which is only possible because track ids are stable across scans
+     * (data-model.md → "Foreign keys").
      *
      * `track_id` is `cascade`, and is ALWAYS live: on a file deletion the scanner
      * runs relink-then-cascade — it repoints the entry to a surviving clone (same
@@ -19,7 +19,7 @@ return new class extends Migration
      *
      * No `user_id`: ownership rides `playlist_id → playlists → users`.
      * `position` is contiguous, renumbered in a txn on reorder (kept deliberately
-     * non-unique to allow transient mid-txn dups — data-model.md → open decision #4).
+     * non-unique to allow transient mid-txn dups — data-model.md → "Saved playlists").
      */
     public function up(): void
     {

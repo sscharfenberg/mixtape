@@ -21,7 +21,7 @@ use Inertia\Response;
  * either a stub or a list of unknown length in the middle of a settings page. What sits on the
  * dashboard is a heading and a link; the list lives here, where it can be as long as it is.
  *
- * IT IS SCOPED TO THE READER AND SENT AS TWO LISTS (the owner's call, 2026-08-13). Two people
+ * IT IS SCOPED TO THE READER AND SENT AS TWO LISTS. Two people
  * sharing the same album hold a link each — `ShareController::store` mints per user — so this
  * is a list of what THIS reader has sent, split into the links that still work and the ones
  * that have run out of days. Both halves are here rather than the dead ones being hidden: a
@@ -56,7 +56,7 @@ class SharesController extends Controller
             // `collection:id,name,TYPE` — the type is not decoration here: `collection_id` is
             // the one FK that does not name its own kind, so ShareGrant::subject() reads the
             // row to tell an audiobook share from an album one. Select only id and name and
-            // every book in this list calls itself an album (2026-08-13).
+            // every book in this list calls itself an album.
             ->with(['track:id,name', 'collection:id,name,type', 'artist:id,name', 'playlist:id,name'])
             ->orderBy('valid_until')
             ->get()
@@ -89,8 +89,8 @@ class SharesController extends Controller
                 $grant = ShareGrant::for($share);
                 $subject = $grant->subject();
 
-                // A row whose subject this app cannot resolve — since playlist sharing landed
-                // (2026-08-13) every column the table permits has a case, so this can only be
+                // A row whose subject this app cannot resolve. Every column the table permits
+                // has a case, so this can only be
                 // a row with no subject at all, which the CHECK forbids. It is dropped rather
                 // than drawn as a blank anyway: a line saying nothing, with a revoke button
                 // beside it, is worse than a row the reader never made being absent.

@@ -87,9 +87,9 @@ final class SongKind extends DatabaseKind
      * The listing, narrowed to the same reading THIS group used.
      *
      * `searchIn=name` is what makes the hand-off honest: the group counts rows matching their own
-     * name, and the listing's default search is wider — so without the mode "show all 70" landed on
-     * a table of 2,000+ and the two numbers contradicted each other in front of the reader (the
-     * owner's report, 2026-08-13). See DataTableService::SEARCH_IN_NAME for the whole argument, and
+     * name, and the listing's default search is wider — so without the mode "show all 70" lands on
+     * a table of 2,000+, and the two numbers contradict each other in front of the reader. See
+     * DataTableService::SEARCH_IN_NAME for the whole argument, and
      * note that the listing keeps the mode while the reader sorts, pages and re-types, with its
      * toolbar offering the way back out to the wide search.
      */

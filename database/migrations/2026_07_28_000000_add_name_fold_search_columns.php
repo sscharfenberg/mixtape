@@ -11,8 +11,8 @@ return new class extends Migration
     /**
      * `name_fold` — the accent- and case-folded companion to every searchable
      * `name`, plus the `pg_trgm` GIN indexes that let a leading-wildcard
-     * `LIKE '%x%'` use an index instead of reading every row (data-model.md → (c),
-     * substring search — this is the deferred item landing, folding included).
+     * `LIKE '%x%'` use an index instead of reading every row (data-model.md → "Indexes",
+     * substring search).
      *
      * Why a stored column instead of folding in SQL: `unaccent()` is Postgres-only
      * and cannot be indexed without an IMMUTABLE wrapper lying about the dictionary,

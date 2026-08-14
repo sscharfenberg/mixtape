@@ -4,10 +4,10 @@ import Headline from "./Headline.vue";
 
 /*
  * Twenty-five files render a Headline, and the one thing it decides is the HEADING LEVEL —
- * which is a document-outline decision, not a size. That became worth pinning on 2026-08-06,
- * when the detail pages turned out to be shipping a second <h1> each: the audit that followed
- * cleared this component precisely because `size` cannot go below 2, and nothing was holding
- * that. A `size?: 1 | 2 | 3 | 4` added in a hurry would put the bug straight back.
+ * which is a document-outline decision, not a size. It is worth pinning because the app's only
+ * <h1> is the wordmark in AppHeader: a page that claims a second one has two, and no outline.
+ * This component is safe from that precisely because `size` cannot go below 2 — and a
+ * `size?: 1 | 2 | 3 | 4` added in a hurry would put the bug straight back.
  *
  * Mounted bare rather than through `mountApp`: it needs no i18n, no Inertia and no router, and
  * a test that installs them anyway hides the fact that this component is that simple.
@@ -34,7 +34,7 @@ describe("Headline", () => {
 
     it("holds the whole default slot in ONE element, so a long title cannot be moved off its line", () => {
         /*
-         * The structural half of the fix made on 2026-08-11, when a song whose name runs to
+         * The structural half of the long-title fix. A song whose name runs to
          * four slash-separated clauses rendered BELOW its own icon rather than beside it. A
          * wrapping flex row collects items into lines by their max-content size, so an
          * unwrapped title — an anonymous flex item — was pushed onto a line of its own before

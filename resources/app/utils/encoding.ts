@@ -12,7 +12,7 @@
  * Windows-1252 lacks, no byte sequence in a Windows-1252 file can name it. The only honest
  * response is to say which tracks will be missing.
  *
- * Measured against the real collection (2026-08-09): 89 of 12,074 paths, and they CLUSTER —
+ * Measured against the real collection: 89 of 12,074 paths, and they CLUSTER —
  * 27 for one Taiwanese band, 23 for Mgła, 10 for a Godspeed record. So it is not 0.7% of
  * every playlist, it is none of most playlists and all of a few, which is exactly the shape
  * that makes a warning worth showing.

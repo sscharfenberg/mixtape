@@ -20,12 +20,11 @@ trait ValidatesPlaylistMetadata
     /**
      * Clean the input BEFORE the rules see it.
      *
-     * This is a real fix rather than tidiness. Trimming used to happen in the controller,
-     * after validation, so the `unique` rule compared the raw value: "  Rock  " passed the
-     * check, was stored as "Rock", and collided with the existing row at the database
-     * instead — surviving only because the controller catches that violation and rethrows
-     * it as a field error. Now the rule sees what will actually be written, so `max:255`
-     * and `unique` both measure the stored value.
+     * The ORDER is the point, not tidiness. Trim after validation — in the controller — and the
+     * `unique` rule compares the raw value: "  Rock  " passes the check, is stored as "Rock",
+     * and collides with the existing row at the database instead, surviving only because the
+     * controller catches that violation and rethrows it as a field error. Cleaning first means
+     * `max:255` and `unique` both measure the value that will actually be written.
      *
      * `description` is merged UNCONDITIONALLY so the key always exists: an edit that
      * cleared the field must store null, and a key absent from `validated()` would leave

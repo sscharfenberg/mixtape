@@ -13,7 +13,7 @@
  * as useToast): the toggle lives in the header and the panel lives in the layout
  * body, two components with no path between them.
  *
- * THE BROWSER CAN CLOSE THE PANEL WITHOUT ASKING, since 2026-08-08: it is a native
+ * THE BROWSER CAN CLOSE THE PANEL WITHOUT ASKING: it is a native
  * `[popover]`, so it light-dismisses on a click outside, on Escape, and on Android's back
  * gesture (Chrome routes all three through CloseWatcher). This flag is therefore a MIRROR
  * of the element as much as a command to it — PlayQueue writes what actually happened back
@@ -26,11 +26,10 @@
  * would make it useless for its actual job: queueing a few songs in a row while
  * moving between albums.
  *
- * EVERY WIDTH reads this, since 2026-08-08. It used to be consulted only below the
- * `landscape` step, because above it the panel stood permanently open and there was
- * no toggle at all; the dashboard's right-aligned headings ended that (see
- * PlayQueue's banner). So this flag is now the single answer to "is the queue on
- * screen", rather than one of two depending on how wide the window is.
+ * EVERY WIDTH reads this. The panel is never a permanent column at any width (see
+ * PlayQueue's banner for why the dashboard settles that), so this flag is the single
+ * answer to "is the queue on screen" rather than one of two depending on how wide
+ * the window is.
  *****************************************************************************/
 import type { ComputedRef } from "vue";
 import { computed, ref } from "vue";
@@ -77,7 +76,7 @@ const present = ref(false);
  *
  * THE PANEL IS THE ONE THING THAT KNOWS, which is the whole reason this is a registration
  * rather than a condition the header evaluates. The toggle and the `Q` shortcut both need to
- * disappear wherever no panel is rendered — the guest share space, since 2026-08-12, where the
+ * disappear wherever no panel is rendered — the guest share space, where the
  * queue is on the page instead and the panel is deliberately a signed-in reader's affordance —
  * and any rule they applied themselves ("am I in ShareLayout?", "is there a user?") is a second
  * copy of the layout's decision, kept in step by hand. Two copies drift, and the drift here has

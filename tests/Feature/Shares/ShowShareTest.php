@@ -74,8 +74,7 @@ class ShowShareTest extends TestCase
 
     public function test_the_hero_says_what_kind_of_music_a_link_holds(): void
     {
-        // ADDED 2026-08-13 (the owner): the fact that means most to a recipient who does not
-        // know the band, and the one the album page carried while the share hero did not.
+        // The fact that means most to a recipient who does not know the band.
         //
         // IT IS THE SAME DERIVED ANSWER the library's own pages give — genre is tagged per
         // TRACK, so an album has none of its own and "mostly this" is DominantGenre's, tie-break
@@ -299,7 +298,7 @@ class ShowShareTest extends TestCase
 
     public function test_a_shared_playlist_follows_its_owners_edits(): void
     {
-        // THE OWNER'S REQUIREMENT (2026-08-13): a guest who reloads gets the playlist as it is
+        // A REQUIREMENT, not an accident: a guest who reloads gets the playlist as it is
         // now. Nothing is copied at mint time — the row holds a `playlist_id` and the grant
         // resolves the pivot on every request — so this is a test that no snapshot crept in.
         $playlist = Playlist::factory()->create();

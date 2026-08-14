@@ -148,7 +148,7 @@ test("stacks them into one column well before the cards get cramped", async ({ p
 });
 
 /*
- * THE TWO CARDS' TILE ROWS LINE UP (the owner, 2026-08-14), which is a `WidgetGroup --pair`
+ * THE TWO CARDS' TILE ROWS LINE UP, which is a `WidgetGroup --pair`
  * decision and only observable in a browser.
  *
  * A wrapping tile grid shares its card's SPARE height between its own lines, and the two cards

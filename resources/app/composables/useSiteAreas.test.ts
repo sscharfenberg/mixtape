@@ -9,7 +9,7 @@ import { mountApp, translate } from "Testing/mount";
 vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
 
 /*
- * The header's areas, which stopped being a constant list on 2026-08-08: every one of
+ * The header's areas, which are deliberately not a constant list: every one of
  * them now has to earn its place, and each earns it from a different fact.
  *
  * Music and audiobooks come from the SERVER (only it knows what the library holds),

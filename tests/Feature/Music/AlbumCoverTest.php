@@ -21,8 +21,8 @@ use Tests\TestCase;
  *      of a song. Rips exist where every file carries its own inline art, and there
  *      "the embedded cover" makes an album's thumbnail depend on sort order.
  *   2. Candidate names are matched case-insensitively, and an unrecognised name is
- *      only used when it is the directory's only image. Of 951 album directories in
- *      the owner's collection, 923 spell it `folder.jpg` and one spells it
+ *      only used when it is the directory's only image. Of 951 album directories in a
+ *      real collection, 923 spell it `folder.jpg` and one spells it
  *      `Folder.jpg`; several also hold `back.jpg` / `cd.jpg` / `inlay.jpg`, every one
  *      of which sorts before the front cover.
  *
@@ -161,9 +161,10 @@ class AlbumCoverTest extends TestCase
 
     public function test_a_candidate_name_is_matched_whatever_its_case(): void
     {
-        // The bug this whole list exists for: the collection spells it `folder.jpg`,
-        // the config used to say `Folder.jpg`, and on ext4 that matched 1 directory
-        // in 951. Either spelling has to resolve.
+        // The bug this whole list exists for: a real collection spells it `folder.jpg`,
+        // the documented Windows spelling is `Folder.jpg`, and on a case-sensitive
+        // filesystem an exact match on the latter finds 1 directory in 951. Either
+        // spelling has to resolve.
         [$album, , $directory] = $this->album();
         File::put($directory.'/FOLDER.JPG', $this->jpeg(320));
 

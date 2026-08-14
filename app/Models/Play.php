@@ -14,8 +14,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * event's own time is `played_at` (there are no created/updated timestamps).
  *
  * Every count over these rows groups by `track_id` — each file counts for itself, so the
- * same recording across an album + compilation + best-of is three entries (data-model.md,
- * decision #5, re-decided 2026-08-08 away from `content_hash`). App\Services\Player\PlayCounts
+ * same recording across an album + compilation + best-of is three entries (data-model.md →
+ * "Listen history", which argues it against the `content_hash` grain). App\Services\Player\PlayCounts
  * is the one place that reads them, for a single track and for a whole artist / genre / album.
  */
 #[Fillable(['user_id', 'track_id', 'played_at'])]

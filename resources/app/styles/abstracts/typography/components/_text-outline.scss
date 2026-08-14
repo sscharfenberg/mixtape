@@ -7,8 +7,8 @@
  * THE WEIGHT BELONGS TO THE TREATMENT, not to the caller — which is the opposite of the family
  * and the size, and for a reason the drawing makes plain: an outline is a line around the glyph,
  * so at a light weight the two edges of a stem close in on each other and the letter reads as a
- * seam rather than a shape. The outline needs something to go round (the owner asked for 700 on
- * seeing it at the inherited weight).
+ * seam rather than a shape. The outline needs something to go round, which the inherited weight
+ * does not give it.
  * Consumed as t.$c-text-outline via `@use "Abstracts/typography" as t;`.
  *****************************************************************************/
 

@@ -12,14 +12,13 @@
  * facts above.
  *
  * IT USED TO BE AddToPlaylist's OWN BOX, and moving it out is the whole point of this
- * component (2026-08-10). Whatever stands beside those controls must appear whether or not
+ * component. Whatever stands beside those controls must appear whether or not
  * the reader has any playlists, which a box owned by AddToPlaylist could not manage — that
  * component renders NOTHING for a reader with none.
  *
  * WHAT IT HOLDS is "what a reader is most likely to press": play, queue, and add to a
- * playlist. It held the DOWNLOAD button instead until 2026-08-11, when the four Music heroes
- * gave up their popover menu and the two verbs came in here — download went to the row below,
- * beside share, since those two are the pair that take the subject somewhere else entirely.
+ * playlist. NOT the download button, which sits on the row below beside share: those two are
+ * the pair that take the subject somewhere else entirely.
  *
  * NOT the hero's `__actions` row itself, deliberately: the playlist page and Now Playing
  * both slot plain buttons and a link in there, untinted, and a box drawn by HeroSection

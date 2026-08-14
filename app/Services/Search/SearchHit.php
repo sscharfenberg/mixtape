@@ -11,7 +11,7 @@ namespace App\Services\Search;
  * THE FACTS ARE NOT DECORATION. Searching "black" returns several rows all called something with
  * Black in it, and a dropdown of near-identical strings is a dropdown a reader cannot choose
  * from — so every kind says two more things about its row, drawn as icon pips underneath the
- * name (the owner's set, 2026-08-13):
+ * name:
  *
  *   artist   → how many albums, how long their tracks run
  *   album    → who it is by, how many tracks

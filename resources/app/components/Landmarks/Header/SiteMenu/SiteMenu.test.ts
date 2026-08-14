@@ -35,7 +35,7 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
 /**
  * A library holding both kinds, so every area is offered.
  *
- * Since 2026-08-08 the areas are conditional — the header offers Music only to a library
+ * The areas are conditional — the header offers Music only to a library
  * with music in it — so a menu test that says nothing about the library gets an empty one
  * and asserts against no links at all. useSiteAreas' own spec is where the conditions are
  * covered; here they are simply satisfied.

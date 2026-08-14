@@ -11,7 +11,7 @@
  * fill / light-grey icon. `surface` doubles as the pill frame's border colour.
  *
  * **Selected** — the SiteMenuLinks "current link" highlight in light mode; in
- * dark mode a deliberately SWAPPED variant (the owner's call) so the lit segment
+ * dark mode a deliberately SWAPPED variant so the lit segment
  * stays the warmer green/yellow against the title's purple→pink gradient. Values
  * are re-picked from the globals here (not read off SiteMenuLinks' tokens) so
  * this partial stays self-contained.

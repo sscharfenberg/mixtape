@@ -172,8 +172,8 @@ test.describe("the header search overlay", () => {
     /**
      * THE NUMBERS HAVE TO AGREE. The group header says a count and the hand-off promises "all of
      * them"; the listing's own search is wider (title, artist, album, genre), so without
-     * `?searchIn=name` the table showed several times what was promised — the owner's report, with
-     * 70 becoming 2,000+ on the real library. Asserted as the two numbers rather than as the URL,
+     * `?searchIn=name` the table shows several times what was promised — 70 becoming 2,000+ on a
+     * real library. Asserted as the two numbers rather than as the URL,
      * because the URL is the mechanism and this is the contract.
      */
     test("lands on exactly as many rows as the group promised", async ({ page }) => {
@@ -218,7 +218,7 @@ test.describe("the header search overlay", () => {
     });
 
     /**
-     * THE CHIPS ARE IN BOTH MOUNTINGS (the owner's call, 2026-08-13). They started on the Music page
+     * THE CHIPS ARE IN BOTH MOUNTINGS. They started on the Music page
      * alone, where they replaced a search box in each of the four browse widgets — but the two
      * surfaces are one feature and had no business behaving differently, and a reader who learns the
      * chips on /music looks for them here.
@@ -228,11 +228,10 @@ test.describe("the header search overlay", () => {
     test("keeps a row's pips at the trailing edge even when they wrap to their own line", async ({ page }) => {
         /*
          * A row is "name … pips", and a name too long for the line pushes the pips underneath.
-         * WHERE THEY GO THEN WAS REVERSED on 2026-08-14: the row used to say `space-between`,
-         * which packs a line holding one item to the main-START edge, so a wrapped pips line sat
-         * flush left under the name. The owner's call is that a fact belongs at the trailing edge
-         * on every row, so the eye finds it in one column — an auto margin on the pips now does
-         * the placing on both lines.
+         * WHERE THEY GO THEN IS NOT `space-between`'s answer: that packs a line holding one item
+         * to the main-START edge, so a wrapped pips line sits flush left under the name. A fact
+         * belongs at the trailing edge on every row, so the eye finds it in one column — an auto
+         * margin on the pips does the placing on both lines.
          *
          * PINNED BECAUSE THE OLD BEHAVIOUR WAS DELIBERATE and documented as such, right down to a
          * comment saying the auto margin had been tried and removed. Without a test, the next
@@ -433,7 +432,7 @@ test.describe("typing in the overlay does not drive the player", () => {
 test.describe("the Music page's own field", () => {
     /**
      * THE ANSWER FLOATS OVER THE CARD, and every clause of that is asserted here because each was a
-     * separate failure on the way (the owner's report, 2026-08-13). It replaced the stat tiles at
+     * separate failure on the way. It replaced the stat tiles at
      * first, which left the card looking empty mid-search; then it had to escape a card that sets
      * `overflow: hidden` for its rounded title strip AND `isolation: isolate` for its loader, so it
      * became a `[popover]` in the top layer; and a panel free of its container is free to run off

@@ -5,7 +5,7 @@
  * track, and what is lined up behind it — three rows that describe PLAYBACK rather than a
  * page, which is why they live here rather than in `pages/NowPlaying/`.
  *
- * IT IS THE BOTTOM THREE ROWS OF NowPlayingPage, LIFTED OUT UNCHANGED (2026-08-12). That page
+ * IT IS THE BOTTOM THREE ROWS OF NowPlayingPage, LIFTED OUT UNCHANGED. That page
  * still renders them and still looks identical; what moved is only where they are defined, so
  * that the guest share page at `/s/{share}` can show the same three without restating the box
  * surface, the gaps and the neighbour grid — which is the drift QueueList's own banner records
@@ -48,7 +48,7 @@ const props = withDefaults(
          * and as tracks were queued — a layout moving for reasons a reader cannot see, which
          * is the whole argument NeighbourTrack renders with no track at all.
          *
-         * FALSE ON THE SHARE PAGE (the owner's call), where that argument does not apply: a
+         * FALSE ON THE SHARE PAGE, where that argument does not apply: a
          * guest has no library to queue from, so a one-track link is a one-track link for as
          * long as they are on the page. Nothing can arrive either side of it, and two cards
          * saying "nothing before / nothing after" are then just two dead boxes under the hero.

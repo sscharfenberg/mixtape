@@ -17,12 +17,11 @@ use App\Models\Track;
  * The two sets of numbers that describe the library — one for the music, one for the
  * audiobooks. Exactly what the two stats cards draw, and nothing else.
  *
- * IT IS A SERVICE BECAUSE THREE PAGES ASK NOW. Each set lived as a private method on the
- * controller of the area it described, which was right while each was asked once. The welcome
- * page (2026-08-14) shows BOTH cards to a visitor who has no account, so a second copy of each
- * query would exist — and two copies of "how big is this collection" are two answers waiting to
- * disagree the day one of them learns a new rule (the `has('tracks')` filters below are exactly
- * that kind of rule, and each was a bug once).
+ * IT IS A SERVICE BECAUSE THREE PAGES ASK. A private method on the controller of the area it
+ * describes is right while each set is asked for once — but the welcome page shows BOTH cards to
+ * a visitor who has no account, so a second copy of each query would exist. Two copies of "how
+ * big is this collection" are two answers waiting to disagree the day one of them learns a new
+ * rule, and the `has('tracks')` filters below are exactly that kind of rule.
  *
  * EVERY NUMBER IS RAW, per the app's server-sends-raw rule: bytes and seconds, never a
  * formatted size or a clock. The cards format them, because only the client knows the locale.

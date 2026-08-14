@@ -12,10 +12,9 @@ return [
     | before anything is analysed. On the live box the media sits under
     | `/var/media`; the per-area env overrides let a dev machine point elsewhere.
     |
-    | The keys here line up with App\Enums\TrackType::libraryPathKey(). There were
-    | three areas until 2026-08-08: podcasts were dropped whole, because a podcast is
-    | something you listen to on the service that publishes it rather than a folder of
-    | mp3s anybody downloads.
+    | The keys here line up with App\Enums\TrackType::libraryPathKey(). There are two,
+    | and deliberately no third for podcasts: a podcast is something you listen to on the
+    | service that publishes it rather than a folder of mp3s anybody downloads.
     |
     | No baked-in defaults on purpose: an area's path is whatever `.env` says, so
     | all three behave the same. Empty OR absent → the area is disabled (app:update
@@ -48,7 +47,6 @@ return [
         // Junk files that macOS / Windows / Samba clients scatter through the
         // shares. Deleted (recursively, case-insensitively) BEFORE any analysis
         // so they can't be mistaken for media or dirty a directory listing.
-        // Ported from the legacy `collection.server.to_delete`.
         'cleanup_masks' => [
             'Thumbs.db',    // Windows thumbnail cache
             '._*',          // macOS AppleDouble resource forks
@@ -165,7 +163,7 @@ return [
     |
     | Covers are NOT stored in the database (the scanner only records whether a
     | file has one, as `tracks.cover`) — they are extracted on first request and
-    | cached as JPEGs, the way the legacy CoverService did it. Two sources: the
+    | cached as JPEGs. Two sources: the
     | audio file's own embedded picture, and an image sitting beside it in the
     | album directory. A SONG prefers its own embedded picture; an ALBUM prefers
     | the directory image (CoverService::albumPath says why).
@@ -180,12 +178,11 @@ return [
 
         // Directory images to look for beside the audio file, in this ORDER — the
         // first that matches wins. Matched CASE-INSENSITIVELY, and that is the whole
-        // reason this is a list of lower-case names rather than the single
-        // "Folder.jpg" it started as (legacy `collection.coverFile.name`, the name
-        // Windows Media Player is documented to write). Measured against the real
-        // collection: of 951 album directories, 923 hold `folder.jpg` in lower case
+        // reason this is a list of lower-case names rather than the single exact
+        // "Folder.jpg" Windows Media Player is documented to write. Measured against a
+        // real collection: of 951 album directories, 923 hold `folder.jpg` in lower case
         // and exactly ONE holds the capitalised spelling — so on a case-sensitive
-        // filesystem the old exact-name lookup found art in 1 directory out of 951.
+        // filesystem an exact-name lookup finds art in 1 directory out of 951.
         // It went unnoticed because 12051 of 12060 files carry embedded art, which is
         // checked first for a song and so almost never reaches this list.
         //

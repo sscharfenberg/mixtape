@@ -10,7 +10,7 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
 
 /*
  * The two verbs a Music hero carries, standing in its ActionPanel. They replaced
- * SubjectMenu's popover on 2026-08-11.
+ * SubjectMenu's popover.
  *
  * WHAT IS THIS COMPONENT'S OWN, and so what is tested here: that the two verbs are the RIGHT
  * WAY ROUND. "Play" replaces the queue and "enqueue" appends — swapped, both buttons would
@@ -72,7 +72,7 @@ describe("SubjectActions", () => {
     });
 
     it("offers exactly two verbs, labelled by what they do", () => {
-        // German is the default locale. Short labels on purpose (the owner's call): a button
+        // German is the default locale. Short labels on purpose: a button
         // in the hero of the thing itself does not need to name the thing, and two long
         // labels wrapped the row at hero width.
         const wrapper = actions();

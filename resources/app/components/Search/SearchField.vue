@@ -25,7 +25,7 @@
  * THE WORKING INDICATOR SITS AT THE TRAILING END, and it is the app's own LoadingSpinner in its
  * `colored` pending tint — the same component and the same colour FormRow uses for an async
  * validation, so "working" looks the same wherever it appears. It went through two wrong shapes
- * first, both the owner's catches: the search glyph SPINNING (a magnifying glass has an
+ * first, both worth naming: the search glyph SPINNING (a magnifying glass has an
  * orientation, so rotating it reads as a broken icon rather than as progress), then a spinner
  * standing in for the glyph on the leading edge (which makes the thing that says what the field IS
  * flicker away while you use it). At the trailing end it is where every other field in this app

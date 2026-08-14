@@ -13,9 +13,9 @@ use Tests\TestCase;
  *
  * THE PROBLEM THIS PINS: a Precognition form validates against THE ROUTE IT SUBMITS TO with
  * the same verb, so a `throttle:` in front of that route counts the typing and the write in
- * one counter — and the reader's own tabbing is then what refuses their save. Measured
- * 2026-08-10: fifteen scripted saves through the playlist form (thirty validate-on-blur
- * requests, fifteen writes) hit a hard 429 on `throttle:30,1,playlist-create`.
+ * one counter — and the reader's own tabbing is then what refuses their save. Measured:
+ * fifteen scripted saves through the playlist form (thirty validate-on-blur requests, fifteen
+ * writes) hit a hard 429 on `throttle:30,1,playlist-create`.
  * App\Http\Middleware\ThrottleRequests separates them, and this file is what says it works.
  *
  * IT READS THE RATE-LIMIT HEADERS rather than exhausting a ceiling, wherever it can. Two
@@ -91,8 +91,8 @@ class PrecognitionThrottleTest extends TestCase
         /*
          * `auth-mail` allows six sends a minute per IP, and that number is an anti-abuse gate
          * on somebody else's inbox — it must not move. What must move is whose requests count
-         * against it: six validations of the email field used to fill it exactly, and the
-         * honest send that followed was refused.
+         * against it: six validations of the email field fill it exactly, and the honest send
+         * that follows is refused.
          *
          * THIS IS THE CASE A HAND-ROLLED FIX MISSED TWICE (see FortifyServiceProvider's
          * comment): a named limiter's counter is keyed from the limiter's own `by()`, so two

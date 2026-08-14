@@ -27,19 +27,18 @@ import { specStorageState } from "../support/environment";
  * stamp — a clash surfaces as the create form simply refusing to redirect, which reads as a
  * broken redirect rather than as "that playlist already exists".
  *
- * Second, and sharper: no test may use a row another test made. One did — the menu test
- * opened the row the create test had left — and it failed on a stamp from a PREVIOUS run,
- * because `STAMP` is evaluated at module load and this file's tests turned out not to share
- * one module instance. That rule still holds and is still worth keeping — a test that builds
- * its own fixture cannot be broken by where it runs — and it is what made the move to
- * `mode: "serial"` below free of consequences.
+ * Second, and sharper: no test may use a row another test made. Open the row a previous test
+ * left and it fails on a stamp from a PREVIOUS RUN, because `STAMP` is evaluated at module load
+ * and this file's tests do not share one module instance. A test that builds its own fixture
+ * cannot be broken by where it runs — which is also what makes `mode: "serial"` below free of
+ * consequences.
  *
- * THE LONG FLAKE IS SOLVED (2026-08-10), and both halves of the fix are covered here. "Edits a
- * playlist's metadata" used to fail about one full run in five, with the listing showing the
- * PRE-EDIT blurb afterwards. Asserting the SAVE'S PAYLOAD split the question in two — the form sent
- * the old text, so it was never the server — and a 10ms probe on the form element found the rest:
- * the `<form>` was REPLACED twelve to twenty milliseconds after the field was filled, its
- * replacement seeded from the props again, and `<Form>` reads the DOM at submit.
+ * THE FLAKE THIS FILE PINS, and both halves of its fix. "Edits a playlist's metadata" fails
+ * about one full run in five, with the listing showing the PRE-EDIT blurb afterwards. Asserting
+ * the SAVE'S PAYLOAD splits the question in two — the form sends the old text, so it is never the
+ * server — and a 10ms probe on the form element finds the rest: the `<form>` is REPLACED twelve
+ * to twenty milliseconds after the field is filled, its replacement seeded from the props again,
+ * and `<Form>` reads the DOM at submit.
  *
  * The trigger was the menu's hover `prefetch`: a click that outruns the hover timer sends its own
  * request, so the prefetch is neither cached nor consumed, and Inertia applies its late response to
@@ -58,7 +57,7 @@ import { specStorageState } from "../support/environment";
  */
 /*
  * AN ACCOUNT OF ITS OWN, AND ONE WORKER — the fix for a flake that pointed at playlists and
- * was neither about playlists nor about this spec's assertions (2026-08-12).
+ * was neither about playlists nor about this spec's assertions.
  *
  * "Will not submit a nameless playlist" found no error message, and "edits a playlist's
  * metadata" found no toast, together about one full run in five. Both of those travel in the
@@ -119,7 +118,7 @@ const EDITED = `E2E Bearbeitet ${STAMP}`;
  * A response to the WRITE, not to a live-validation request that happens to share its verb.
  *
  * BOTH FORMS ON THIS PAGE VALIDATE THROUGH PRECOGNITION, and a precognitive request goes to the
- * same URL with the same method — measured 2026-08-10: `PUT /playlists/{id}` with
+ * same URL with the same method — measured: `PUT /playlists/{id}` with
  * `Precognition: true` and `Precognition-Validate-Only: description`, fired by the `change` event
  * that `fill()` dispatches. So a matcher on url + method alone resolves on the VALIDATION and says
  * the save landed when nothing has been saved at all. That is not hypothetical tidying: it is why
@@ -165,10 +164,9 @@ const createPlaylist = async (page: Page, name: string, description?: string): P
  * `timestamps()` and Eloquent's default date format both stop there — and the listing decides
  * "has this been changed?" by comparing the two (PlaylistsController). A create and an edit
  * inside one second are therefore indistinguishable from no edit at all, and this journey is
- * fast enough on a warm machine to fit in one: measured 2026-08-13 on the metadata test, where
- * the row came back `created_at == updated_at == 04:31:02` and the "Geändert" chip was correctly
- * absent. Nothing in the app was wrong; the test was asserting a difference it had not left room
- * for.
+ * fast enough on a warm machine to fit in one: measured on the metadata test, where the row came
+ * back `created_at == updated_at == 04:31:02` and the "Geändert" chip was correctly absent.
+ * Nothing in the app is wrong there; the test is asserting a difference it left no room for.
  *
  * It waits only the REMAINDER of the current second (plus a small margin), so it costs under a
  * second and never a whole one — and it is called from the one test that needs an edit to be

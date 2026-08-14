@@ -9,12 +9,10 @@
  * each owns its own decision. If the hero's frame changes, this is the second place to
  * follow it.
  *
- * HOW THE TITLE IS PAINTED is copied from the hero again, and deliberately: both took an
- * outlined treatment on 2026-08-10 (fill from the card, stroke from its ink, one soft glow), so
- * the three numbers below are the hero's three numbers. In between — from 2026-08-08 — the two
- * shared a synthwave ramp as s.$c-text-chrome / c.$c-text-chrome, which is now the app
- * wordmark's alone and lives with it. The rule has not changed: a contextual partial consumes
- * globals, never another partial's tokens, so a copy is the honest shape and retuning one means
+ * HOW THE TITLE IS PAINTED is copied from the hero, and deliberately: both wear the same
+ * outlined treatment (fill from the card, stroke from its ink, one soft glow), so the three
+ * numbers below are the hero's three numbers. A contextual partial consumes globals, never
+ * another partial's tokens, so a copy is the honest shape here — and retuning one means
  * retuning the other.
  *
  * What is NOT copied is the cover square (an entry has no artwork) and the hero's

@@ -225,11 +225,29 @@ tokens (`ti.$c-*`), **never raw `ms`/`s`**. One deliberate exception (by design,
 **loading spinner keeps turning even under reduced motion** — a frozen spinner reads as broken — but it
 runs *much slower by default* and only switches to the lively duration under `no-preference`.
 
+**DOCUMENTATION IS NOT AGENT MEMORY.** `docs/*.md` and code comments are written for a person — or an
+agent — meeting this project for the first time, who does not care what changed last week. **Anything
+you want remembered because you would otherwise forget it belongs in THIS file**, not in a doc or a
+docblock. Concretely, three things never go in documentation or comments:
+
+- **A changelog.** No "it used to be X, now it is Y", no "this was a bug until …", no "reported by",
+  no "extracted from Z when the second caller arrived". Git already stores that, and a reader who
+  wants it can `git log -p`. State what the code does and why *that* is right. Where the rejected
+  alternative is the point (why a content hash rather than a path, why a row rather than a signed URL),
+  write it as a choice between options — never as a diff against an earlier version of the file.
+- **Dates and provenance.** No `(2026-08-13)`, no "built …", no "the owner's call", no "verified on".
+  A date beside a claim tells a reader nothing except that somebody needed a reminder; it also rots,
+  and it invites the reader to distrust anything undated. If a fact was *measured*, keep the
+  measurement and drop the day it happened on.
+- **Status.** No "still to come", no "not built yet", no checklists of what is done. The absence of code
+  is what says a thing does not exist. A *deliberate* omission is different and worth keeping — say
+  what is not there and why it never will be, without a date or a tick-box.
+
 **Comments (docblocks)** — **every named function, method, and constructor in `.php`, `.ts` and `.vue`
 files carries a docblock stating both *what* it does and *why*.** The "why" is the load-bearing half —
-the part the signature doesn't already tell you: a design-doc reference, a race it guards, a legacy quirk
-it ports, an ordering that matters. The bar is **no named declaration left uncommented**; after editing,
-re-check (grep `function ` and eyeball that the line above each hit is a comment).
+the part the signature doesn't already tell you: a design-doc reference, a race it guards, an ordering
+that matters, a platform quirk it works around. The bar is **no named declaration left uncommented**;
+after editing, re-check (grep `function ` and eyeball that the line above each hit is a comment).
 
 - **Prose, not just tags — because Pint strips tags.** Pint's default preset prunes "superfluous"
   `@param`/`@return` tags (types it can already read from the signature), so a comment made *only* of

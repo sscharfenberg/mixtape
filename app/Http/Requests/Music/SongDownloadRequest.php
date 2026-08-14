@@ -13,7 +13,7 @@ use Illuminate\Foundation\Http\FormRequest;
  * because a rule this route did not share with SongController would mean a page offering
  * a button that answers 403.
  *
- * A SHARE LINK DOES NOT WIDEN IT, which is the opposite of what this said until 2026-08-11:
+ * A SHARE LINK DOES NOT WIDEN IT, which is the one exception to the sentence above:
  * a share grants LISTENING and nothing else, and the `/s/` space has no counterpart to
  * either download route (docs/sharing.md → "What a share is"). "Listen to this" and "here
  * is the file" are different acts, and only the first one is being asked for.

@@ -90,7 +90,7 @@ $playlist: (
             color.adjust(map.get(c.$grey, "mystic"), $alpha: -0.3),
             color.adjust(map.get(c.$grey, "bunker"), $alpha: -0.3)
         ),
-    // THE TITLE IS OUTLINED LETTERING as of 2026-08-10, the same as a hero's: filled with the
+    // THE TITLE IS OUTLINED LETTERING, the same as a hero's: filled with the
     // card's own colour — `background`, and `background-hover` under the pointer, both above — and
     // drawn round with a line. The line and the glow are the shared c.$c-text-outline, worn via the
     // `.text-outline` class; the fill stays here because only this card knows what it is.

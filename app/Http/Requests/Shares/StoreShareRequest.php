@@ -21,8 +21,8 @@ use Illuminate\Validation\Rules\Exists;
  * actually enforced — a body naming one fails the enum rule rather than reaching a controller
  * that would have to know about it.
  *
- * WHAT MAY BE SHARED IS DECIDED BY THE RULES, NOT BY `authorize()`, and that stays true now
- * that a PLAYLIST can be shared (2026-08-13) — the one subject with an owner, where the
+ * WHAT MAY BE SHARED IS DECIDED BY THE RULES, NOT BY `authorize()`, and that holds even for a
+ * PLAYLIST — the one subject with an owner, where the
  * library belongs to every account alike. Its ownership is a `where` on the `exists` rule
  * rather than a check of its own, because it is the same KIND of question the two type
  * narrowings below already answer: "could the page that sent this have shown it to you?" A

@@ -149,13 +149,13 @@ describe("usePlayerAudio", () => {
 
         it("plays a track that was queued and pressed BEFORE the element existed", async () => {
             /*
-             * The bug behind "Play this artist" filling the queue and then sitting paused
-             * (2026-08-06). The bar renders the element and only exists while the queue holds
-             * a track, so a press that FILLS an empty queue calls `play()` a tick before there
-             * is anything to play on: `playNow()` is synchronous, mounting is not.
+             * The bug behind "Play this artist" filling the queue and then sitting paused. The
+             * bar renders the element and only exists while the queue holds a track, so a press
+             * that FILLS an empty queue calls `play()` a tick before there is anything to play
+             * on: `playNow()` is synchronous, mounting is not.
              *
              * `play()` therefore keeps the INTENT when it finds no element, and `attach()`
-             * honours it — the alternative (which shipped) was dropping the request silently
+             * honours it — the alternative is dropping the request silently
              * and leaving the reader looking at a full queue and a play glyph.
              */
             usePlayerQueue().playNow([track("a")]);
@@ -555,7 +555,7 @@ describe("usePlayerAudio", () => {
         });
 
         it("keeps what was heard before a seek, so skipping at 90% still counts", () => {
-            // The owner's call: the threshold was crossed long before the skip, and hitting
+            // Deliberate: the threshold was crossed long before the skip, and hitting
             // next must not lose a play that was already earned.
             usePlayerQueue().enqueue(track("a", 200));
             const element = attachElement();
@@ -597,7 +597,7 @@ describe("usePlayerAudio", () => {
 
         it("does not count the position it RESUMED from as time heard", () => {
             /*
-             * THE BUG THE OWNER FOUND (2026-08-07): one track, played to five minutes in
+             * THE BUG THIS PINS: one track, played to five minutes in
              * with a few pauses, recorded FOUR plays — 18:48:15, 18:49:19, 19:13:49,
              * 20:06:52 against a 645-second track whose threshold is four minutes. A minute
              * apart is not four minutes of listening.

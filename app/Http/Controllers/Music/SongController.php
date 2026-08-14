@@ -193,8 +193,8 @@ class SongController extends Controller
      * "2/1" would be worse than a blank.
      *
      * Two aggregates on the `(collection_id, disc, track)` index rather than
-     * legacy's `$song->album->songs->filter(…)->count()`, which hydrated every
-     * sibling row just to count them.
+     * `$song->album->songs->filter(…)->count()`, which would hydrate every sibling
+     * row just to count them.
      *
      * @return array{tracks: int|null, discs: int|null}
      */

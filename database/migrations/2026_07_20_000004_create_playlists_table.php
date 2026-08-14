@@ -7,10 +7,10 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * `playlists` — first-class and user-owned (legacy playlists were global,
-     * denormalised afterthoughts). A user's own ordering of their playlists lives
+     * `playlists` — first-class and USER-OWNED, so your "Rock" is not mine. A user's
+     * own ordering of their playlists lives
      * in `position` (contiguous integers, renumbered in a txn on reorder —
-     * data-model.md → open decision #4).
+     * data-model.md → "Saved playlists").
      */
     public function up(): void
     {
@@ -19,7 +19,7 @@ return new class extends Migration
 
             // Ownership cascades: delete a user → delete their playlists (and, in
             // turn, their playlist_tracks). This is true ownership, so `cascade`
-            // is correct here (data-model.md → (b) #1).
+            // is correct here (data-model.md → "Foreign keys").
             $table->foreignUuid('user_id')->constrained()->cascadeOnDelete();
 
             $table->string('name', 255);
@@ -29,7 +29,7 @@ return new class extends Migration
 
             // "your Rock ≠ my Rock". This composite also serves every "a user's
             // playlists" lookup and the user-delete cascade check, so user_id needs
-            // no standalone index (data-model.md → (c)).
+            // no standalone index (data-model.md → "Indexes").
             $table->unique(['user_id', 'name']);
         });
     }

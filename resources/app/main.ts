@@ -70,9 +70,9 @@ createInertiaApp({
  * a completed prefetch. Both halves are argued where they are wired, with the
  * measured event sequences (armProgress, and the `navigate` note at the bottom).
  *
- * (The breadcrumb trail used to be cleared here on "start". It isn't any more —
- * it travels as an Inertia layout prop, which Inertia resets at the component
- * swap instead. See Composables/useBreadcrumbs.)
+ * (The breadcrumb trail is deliberately NOT cleared here on "start" — it travels
+ * as an Inertia layout prop, which Inertia resets at the component swap instead.
+ * See Composables/useBreadcrumbs for why the timing matters.)
  *****************************************************************************/
 let progressTimeout: ReturnType<typeof setTimeout> | undefined;
 
@@ -126,7 +126,7 @@ router.on("before", event => {
  * Arm the bar for a visit the reader is waiting on, after a 250ms grace period so a
  * fast one never flashes.
  *
- * ON `before` RATHER THAN ON `start`, AND THAT IS THE WHOLE FIX (2026-08-12). `start`
+ * ON `before` RATHER THAN ON `start`, AND THAT IS THE WHOLE FIX. `start`
  * does not fire for a visit that Inertia serves from a PREFETCH — and prefetching is
  * what most links in this app do on hover (LabelledLink, Breadcrumb, Discography). The
  * three cases, measured:

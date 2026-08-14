@@ -278,13 +278,13 @@ class ShareMediaTest extends TestCase
     }
 
     /**
-     * A BOOK'S HERO IS SERVED BY THE SAME ROUTE AS A RECORD'S, and was not until 2026-08-14:
-     * `ShareCoverController` matched Song and Album and let an audiobook fall to `default =>
-     * null`, so this 404'd. Nobody saw the 404, because `ShareArtwork` had the identical hole
-     * and so never pointed an `<img>` at it — the page just drew its placeholder glyph. Both
-     * arms are now the album's, which is right for the same reason `AudiobookCoverController`
-     * calls `albumPath()`: a book is a `collections` row whose Folder.jpg the scanner records
-     * exactly as it does a record's.
+     * A BOOK'S HERO IS SERVED BY THE SAME ROUTE AS A RECORD'S, and it takes an explicit arm to
+     * say so. Let `ShareCoverController` match Song and Album and drop an audiobook to
+     * `default => null` and this 404s — invisibly, because `ShareArtwork` has the identical hole
+     * and so never points an `<img>` at it; the page just draws its placeholder glyph. Both arms
+     * are the album's, which is right for the same reason `AudiobookCoverController` calls
+     * `albumPath()`: a book is a `collections` row whose Folder.jpg the scanner records exactly
+     * as it does a record's.
      */
     public function test_a_shared_book_serves_its_own_cover(): void
     {

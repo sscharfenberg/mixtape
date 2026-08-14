@@ -79,7 +79,7 @@ describe("NeighbourTrack", () => {
 
     it("makes the title a real heading, and keeps it out of the button", () => {
         /*
-         * Both halves are the fix (2026-08-10). A track title is what a reader navigating by
+         * Both halves are the fix. A track title is what a reader navigating by
          * headings should land on — and while the card WAS the `<button>`, it could not be one:
          * ARIA prunes a button's descendants ("children presentational"), so an `<h3>` in there
          * satisfies an audit tool and reaches no screen reader, and it is not valid HTML either.

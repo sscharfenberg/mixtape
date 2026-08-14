@@ -22,7 +22,7 @@ use Tests\TestCase;
  *     the reading the column deliberately commits to (the other count lives on the detail
  *     page, see ArtistPageTest);
  *   - the totals are scoped to MUSIC tracks, which nothing else in the app can catch
- *     today: since podcasts were dropped (2026-08-08) the only other kind is an
+ *     today: the only other track kind is an
  *     audiobook chapter, and the `tracks` CHECK forbids one of those an `artist_id` at
  *     all — so the scope is belt-and-braces until a kind that CAN carry one arrives.
  */

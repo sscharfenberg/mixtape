@@ -5,7 +5,7 @@ import { SEED_USER, SPEC_USERS } from "../support/environment";
 /*
  * What signing out does to the player, which nothing but a real browser can answer.
  *
- * THE BUG THIS PINS (2026-08-14). FullLayout is Inertia's persistent layout and logging out is
+ * THE BUG THIS PINS. FullLayout is Inertia's persistent layout and logging out is
  * a client-side visit, so `setup()` does not run again: the queue module is a singleton, its
  * one-shot `hydrate()` guard was still set, and the previous reader's tracks simply stayed in
  * memory. The player bar carried on offering them, the header carried on offering the queue

@@ -18,8 +18,8 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  * holds audiobook chapters, and this route is about music.
  *
  * HOW the bytes are sent — the `X-Accel-Redirect` hand-off, the direct path, Range, the
- * private caching — is {@see SendsTrackAudio}, shared with the audiobook chapter stream since
- * 2026-08-13. The two routes differ only in which guard admits the track.
+ * private caching — is {@see SendsTrackAudio}, shared with the audiobook chapter stream. The
+ * two routes differ only in which guard admits the track.
  */
 class SongStreamController extends Controller
 {

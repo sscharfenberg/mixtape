@@ -10,11 +10,11 @@
  * never has their audio routed, and the app's most important behaviour (screen-off playback) is
  * untouched for them.
  *
- * THE RISK WAS MEASURED, NOT ARGUED. `/dev/audio-probe` played a routed element on the owner's
- * Android with the screen locked: away 215s, audio advanced 215s. The context is not suspended
+ * THE RISK IS MEASURED, NOT ARGUED. `/dev/audio-probe` plays a routed element on a real Android
+ * phone with the screen locked: away 215s, audio advanced 215s. The context is not suspended
  * while the page is hidden, so a routed queue keeps playing. Had it stalled, the failure would
- * have been the worst kind — the element still reporting playing, the timeline still advancing,
- * the lock screen still saying playing, and no sound. docs/now-playing.md carries the numbers.
+ * be the worst kind — the element still reporting playing, the timeline still advancing, the
+ * lock screen still saying playing, and no sound. docs/now-playing.md carries the numbers.
  *
  * IT NEVER ROUTES INTO A DEAD CONTEXT, which is the one ordering that matters here. An
  * AudioContext starts SUSPENDED, and an element routed into a suspended graph is silent — so the
@@ -57,7 +57,7 @@ export type UseAudioAnalyserReturn = {
  * How many bands the levels are reduced to until a consumer asks for a different count — and
  * therefore how many bars are drawn where nothing has asked.
  *
- * THE TOP OF A LADDER, not a fixed number, since 2026-08-10: the widest row draws this many and a
+ * THE TOP OF A LADDER, not a fixed number: the widest row draws this many and a
  * phone draws half, because the bars get thinner rather than fewer as the row narrows and 48 across
  * a phone is a smear rather than a spectrum. {@link setAnalyserBands} is how the drawer says which
  * rung it is on.
@@ -76,7 +76,7 @@ export const ANALYSER_DEFAULT_BANDS = 48;
  *
  * THE TOP QUARTER IS DROPPED ON PURPOSE — it is the part of an FFT that is near-silent on almost
  * all music, which as bars means a stretch that never moves. It is a constant rather than a
- * consequence of the band count (it used to fall out of `floor(128 / 48)` = 2 bins a band) because
+ * consequence of the band count (which would make it fall out of `floor(128 / 48)` = 2 bins) because
  * the drawn spectrum must stay THE SAME at every count: 24 bars are a coarser reading of the same
  * 96 bins, not a wider one, so a phone does not grow a dead tail by asking for fewer.
  */

@@ -95,7 +95,7 @@ const KIND_ICONS: Record<SearchKind, string> = {
 };
 
 /**
- * WHICH FACTS EACH KIND SHOWS, in the order they are drawn (the owner's set, 2026-08-13):
+ * WHICH FACTS EACH KIND SHOWS, in the order they are drawn:
  *
  *   artist → albums, total runtime      album → artist, tracks
  *   song   → artist, runtime            genre → artists, songs
@@ -344,7 +344,7 @@ watch(
         max-height: var(--search-results-height, #{map.get(s.$c-search, "results-height")});
     }
 
-    /* NO GAP between the strip and its rows, and none between the rows (the owner's call). The
+    /* NO GAP between the strip and its rows, and none between the rows. The
        strip is a header attached to the set beneath it, and the zebra stripes only read as a rhythm
        if they actually touch — air between them turns a banded list back into a stack of separate
        blocks, which is what the strips were introduced to stop. */
@@ -407,7 +407,7 @@ watch(
        `<tr>` is positioned. The inline padding is the row's own, since the list around it has
        none; it is what lines the names up with the field above them. */
 
-    /* ONE LINE WHERE THERE IS ROOM, TWO WHERE THERE IS NOT (the owner's call), and flex wrapping
+    /* ONE LINE WHERE THERE IS ROOM, TWO WHERE THERE IS NOT, and flex wrapping
        gives exactly that for free — because of the thing that is usually a trap. A wrapping flex
        line is broken by each item's MAX-CONTENT width, not by the width it could shrink to, so a
        name longer than the row leaves has the pips wrap to a second line rather than squeezing them;
@@ -466,7 +466,7 @@ watch(
             background-color: map.get(c.$c-search, "see-all-background");
         }
 
-        /* FOCUS TAKES THE HOVER WASH (the owner's call), because a row is reachable two ways and
+        /* FOCUS TAKES THE HOVER WASH, because a row is reachable two ways and
            only one of them had any feedback. The arrow keys move a flag and leave the caret in the
            field (`--active` below), but TAB moves real focus through these links — and with nothing
            but the UA's ring to go on, a keyboard reader tabbing a five-group answer could not see
@@ -562,7 +562,7 @@ watch(
 
         border-radius: map.get(s.$c-search, "pip", "radius");
 
-        /* NO font-size, deliberately: a pip is the name's size (the owner's call, 2026-08-13). It
+        /* NO font-size, deliberately: a pip is the name's size. It
            went 0.7rem → 0.8rem → inherited over one afternoon, and each step was the same
            correction — a fact nobody can read is not a fact. What separates a pip from the name it
            sits with is its wash and its glyph, which is plenty; shrinking the text as well was

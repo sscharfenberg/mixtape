@@ -104,9 +104,9 @@ test.describe("the audiobooks entry page", () => {
     test("counts a book's tracks as CHAPTERS on the tile, not as songs", async ({ page }) => {
         /*
          * The cover grid is the shared `Discography`, whose default word is the one an album
-         * wants — so a book advertised itself as "6 Songs" until 2026-08-14. Asserted on the
-         * page rather than only in the component's own Vitest spec, because the thing that
-         * actually broke is the prop reaching all three grids on this page.
+         * wants, so without the count-key prop a book advertises itself as "6 Songs". Asserted on
+         * the page rather than only in the component's own Vitest spec, because what actually
+         * breaks is the prop reaching all three grids on this page.
          */
         const tile = page.getByRole("link", { name: /Necrophobia 1/ }).first();
         await expect(tile).toContainText(/\d+ (Kapitel|chapters?)/u);
@@ -142,7 +142,7 @@ test.describe("the audiobooks entry page", () => {
 
     test("drops the words from a credit's fact chips below 480px, keeping the numbers", async ({ page }) => {
         /*
-         * The owner's rule, 2026-08-14: a section header carries two chips — how many books and
+         * A section header carries two chips — how many books and
          * how long they run — and on a phone there is room for the credit's NAME and a number,
          * with the icon saying which number it is. 480px is `portrait`, the app's own first
          * breakpoint.
@@ -169,9 +169,8 @@ test.describe("the audiobooks entry page", () => {
 
     test("points the chevron down while a section is shut and up once it is open", async ({ page }) => {
         /*
-         * The one job a disclosure triangle has. It was `rotate(90deg)` until 2026-08-14 — the
-         * glyph turned sideways, matching neither state — and the comment beside it claimed it
-         * pointed down when open, which is how that survived. `chevron.svg` already points DOWN at
+         * The one job a disclosure triangle has, and easy to get subtly wrong: `rotate(90deg)`
+         * turns the glyph sideways, matching neither state. `chevron.svg` already points DOWN at
          * rest, so the closed state needs no transform and the open one needs half a turn.
          *
          * STILL BEFORE MEASURED. The rotation is a transition, so a transform read on the frame
@@ -256,7 +255,7 @@ test.describe("a book's page", () => {
         await page.waitForURL(/\/audiobooks\/[0-9a-f-]{36}$/u);
 
         /*
-         * POLLED, NOT READ ONCE, and that is a fix rather than a style (2026-08-14). This used
+         * POLLED, NOT READ ONCE, and that is a fix rather than a style. This used
          * `expect((await verbs()).map(…))`, which is a ONE-SHOT read: `allInnerTexts` resolves to
          * an array and `expect` on an array never retries, so nothing here waits for the panel to
          * exist. After the `reload()` below it read an empty page and failed with `[]` against

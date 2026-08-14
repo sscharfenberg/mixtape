@@ -4,10 +4,9 @@
  * The app wordmark in the header (Components/Landmarks/Header/AppHeaderTitle): how big it is at
  * each width, and every dimension of the chrome its letters are painted with.
  *
- * THE PAINTING NUMBERS CAME BACK HERE on 2026-08-10, from s.$c-text-chrome — see the colour
- * partial's banner for the whole story. Short version: they were shared while three components
- * wore one look, and both of the others have taken an outlined treatment of their own since,
- * which left a shared group with one consumer.
+ * THE PAINTING NUMBERS LIVE HERE rather than in a shared group — see the colour partial's
+ * banner. The wordmark is the only thing painted this way, and a token group belongs to a
+ * component.
  *
  * THE FONT SIZE IS IN `rem` AND EVERYTHING ELSE IN `em`, which is the seam that keeps one set of
  * numbers working across the ladder: the glow, the outline and the leading are all proportions of

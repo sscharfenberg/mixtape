@@ -26,12 +26,12 @@ class DataTableService
     /**
      * The value of `?searchIn=` that narrows a listing's search to the row's OWN NAME.
      *
-     * WHY A LISTING NEEDS TWO SEARCHES AT ALL (the owner's report, 2026-08-13). The Songs listing
-     * matches title, artist, album AND genre, which is the right default for somebody who has
-     * arrived to browse — but the cross-kind search dropdown matches a row's own name only, and its
-     * hand-off said "show all 70 songs" and then landed on a table of 2,000+: "godspeed you black
-     * emperor" and every band filed under Black Metal, none of which is a song called Black. Two
-     * numbers for one query, and the reader has no way to tell which is lying.
+     * WHY A LISTING NEEDS TWO SEARCHES AT ALL. The Songs listing matches title, artist, album AND
+     * genre, which is the right default for somebody who has arrived to browse — but the cross-kind
+     * search dropdown matches a row's own name only, so its hand-off says "show all 70 songs" and
+     * lands on a table of 2,000+: "godspeed you black emperor" and every band filed under Black
+     * Metal, none of which is a song called Black. Two numbers for one query, and the reader has no
+     * way to tell which is lying.
      *
      * So the mode travels in the URL beside the query. The dropdown links with it, the wide search
      * stays the default for anyone who came to the listing directly, and both remain bookmarkable —

@@ -13,14 +13,12 @@ use Symfony\Component\Finder\Finder;
  * `app:update`, before anything is analysed, so those files can't be mistaken
  * for media or dirty a directory listing.
  *
- * Ported from the legacy `app:clean`, with one deliberate hardening: legacy shell
- * out to `find … -iname <mask>` with the mask interpolated *unquoted* into a
- * `/bin/sh -c` string, so a mask like `._*` was subject to shell glob expansion
- * in the process CWD before find ever saw it. Here it is pure PHP (Finder), so
- * the masks match only inside the library roots and never touch the CWD. Only the share
- * junk is removed here — the derived cover cache legacy also wiped is swept by its owner
- * (CoverService::pruneCache, called alongside this), and legacy's download zips still
- * don't exist in v2.
+ * PURE PHP (Finder), NOT A SHELL OUT, and that is a hardening rather than a preference:
+ * `find … -iname <mask>` with the mask interpolated *unquoted* into a `/bin/sh -c` string
+ * leaves a mask like `._*` subject to shell glob expansion in the process CWD before find
+ * ever sees it. Through Finder the masks match only inside the library roots and never touch
+ * the CWD. Only the share junk is removed here; the derived cover cache is swept by the class
+ * that owns it (CoverService::pruneCache, called alongside this).
  */
 final class LibraryCleanupService
 {

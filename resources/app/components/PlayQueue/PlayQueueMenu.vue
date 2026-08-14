@@ -15,7 +15,7 @@
  * out of the panel leaves that file about *drawing the queue*, which is already
  * the longer job.
  *
- * VERBS ONLY, since 2026-08-06. Repeat lived here first and has moved to the
+ * VERBS ONLY. Repeat belongs in the
  * player bar's settings popover (Player/PlayerSettings), where it sits beside
  * shuffle as one of two play MODES. Two reasons it does not belong in this menu:
  * this panel is behind a toggle on a phone and gone entirely once the queue is
@@ -43,7 +43,7 @@ const { t } = useI18n();
 const { clear } = usePlayerQueue();
 const page = usePage();
 
-/** DOM id of this menu's popover — the handle used to close it by hand below. */
+/** DOM id of this menu's popover — the handle for closing it by hand below. */
 const REFERENCE = "playQueueActions";
 
 /** Whether the "add to playlist" modal is open. Mounted only while it is, like the export one. */

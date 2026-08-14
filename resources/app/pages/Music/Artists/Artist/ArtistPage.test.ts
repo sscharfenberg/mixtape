@@ -25,7 +25,7 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
  * missing-key warning.
  *
  * THE #cover SLOT HOLDS A FAN OF THEIR OWN SLEEVES. MixTape stores no artist images, so this
- * page used to omit the slot entirely — deliberately, since HeroSection draws its dashed "no
+ * page omits the slot entirely — deliberately, since HeroSection draws its dashed "no
  * artwork on file" placeholder when the slot EXISTS and holds no image, while omitting it says
  * "this kind of page has no artwork". Both were true and the trailing edge was empty. A few of
  * their records says more than either, and the layout half of that (a fan hard against the
@@ -110,7 +110,7 @@ describe("ArtistPage", () => {
     });
 
     it("heads the page with the artist's name", () => {
-        // In the <Headline> above the hero since 2026-08-11, not inside it — the level is
+        // In the <Headline> above the hero, not inside it — the level is
         // what stayed put, since the wordmark in the app header is the document's only h1.
         expect(page().find("h2").text()).toBe("Radiohead");
     });

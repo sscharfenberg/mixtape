@@ -131,7 +131,7 @@ const enableRepeat = (page: Page): Promise<void> => setMode(page, "playerRepeat"
  * still turning is a couple of pixels away from where it lands, and the reading changes
  * with nothing but machine speed. That made every geometry assertion here a coin flip
  * that happened to keep landing heads: "opens upward" failed by 1.3px on one run and
- * 2.9px on the next, both of them against unchanged positioning code (2026-08-07).
+ * 2.9px on the next, both of them against unchanged positioning code.
  * `:popover-open` and visibility are both true from the first frame, so neither is the
  * thing to wait for; two identical boxes in a row is.
  */
@@ -175,7 +175,7 @@ test.describe("the player", () => {
          * to carry, the engine answered that by range-hopping the file — front for the
          * Xing header, tail for ID3v1 — a NEW http request per range, each one a full PHP
          * request because the stream route is behind auth. Measured against the real
-         * collection (2026-08-08): FIVE requests and up to 13 MB per reload of an
+         * collection: FIVE requests and up to 13 MB per reload of an
          * 83-minute track, with nothing playing and nobody waiting for any of it.
          *
          * It cannot be a Vitest assertion: happy-dom has no network behind an <audio src>,
@@ -230,12 +230,11 @@ test.describe("the player", () => {
         expect((await audioState(page)).paused).toBe(false);
 
         /*
-         * ASSERTED ON THE RAIL'S OWN VALUE, NOT ON THE CLOCK BESIDE IT, and that is what
-         * this test used to get wrong. The readout is `m:ss`, so it says "0:00" for the
-         * whole of the fixture's ONE-SECOND file — the only window in which it says
-         * anything else is the sliver between 1.0s and the `ended` that wraps repeat back
-         * to zero. Polling for it was a coin flip that came up heads on an idle machine and
-         * tails under a full suite, roughly once in fifty runs.
+         * ASSERTED ON THE RAIL'S OWN VALUE, NOT ON THE CLOCK BESIDE IT. The readout is `m:ss`,
+         * so it says "0:00" for the whole of the fixture's ONE-SECOND file — the only window in
+         * which it says anything else is the sliver between 1.0s and the `ended` that wraps
+         * repeat back to zero. Polling for it is a coin flip that comes up heads on an idle
+         * machine and tails under a full suite, roughly once in fifty runs.
          *
          * The input carries the same number in seconds, unrounded, which is the honest way
          * to ask "does the UI follow the element" — and it is the value a screen reader is
@@ -357,9 +356,9 @@ test.describe("the player", () => {
 
     test("plays the track when the row BODY is clicked, not just a control", async ({ page }) => {
         /*
-         * The row's play target is an empty button stretched across the whole of it (it
-         * used to be a `::after` on a button wrapping the cover, until the cover became the
-         * drag grip). That is a HIT AREA, so this is the only layer that can check it —
+         * The row's play target is an empty button stretched across the whole of it — it cannot
+         * hang off the cover, which is the drag grip. That is a HIT AREA, so this is the only
+         * layer that can check it —
          * happy-dom has no layout, and a Vitest click on the <li> would reach the handler
          * through the DOM whether the overlay existed or not, asserting nothing.
          *
@@ -548,7 +547,7 @@ test.describe("the player", () => {
          *
          * Measured across the step DOWN FROM 100%, because that is where the character
          * count changes — four characters to three. Which value that lands on follows the
-         * slider's own `step`: 95% since it went to 5% (2026-08-07), 99% before. The same
+         * slider's own `step`: 95% since it went to 5%, 99% before. The same
          * jump exists at 5% → 10% and the reservation covers both.
          */
         await page.emulateMedia({ reducedMotion: "reduce" });
@@ -688,10 +687,10 @@ test.describe("the player's settings popover", () => {
 
     test("fits the settings panel on a phone, at both common widths", async ({ page }) => {
         /*
-         * THE BUG THIS PINS (reported from Android Chrome, 2026-08-07): the shared popover
-         * style capped every floating panel at `50dvw`, which is 206px on a Pixel 7 — and
-         * this panel needs 250px for a German label beside its bubbles. It clipped its own
-         * controls against the right edge and grew a horizontal scrollbar inside itself.
+         * THE BUG THIS PINS, measured on Android Chrome: cap every floating panel at `50dvw`
+         * and that is 206px on a Pixel 7 — where this panel needs 250px for a German label
+         * beside its bubbles. It clips its own controls against the right edge and grows a
+         * horizontal scrollbar inside itself.
          *
          * Only a browser can answer it: the panel is `width: auto` over `white-space:
          * nowrap` rows, so its natural width comes from real text measured in a real font,

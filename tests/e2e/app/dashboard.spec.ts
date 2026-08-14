@@ -40,7 +40,7 @@ test.describe("the settings dashboard", () => {
 
     test("gives every jump-link a section to land on", async ({ page }) => {
         /*
-         * IT COUNTS FIVE, NOT FOUR, since 2026-08-12: the four settings sections plus "your
+         * IT COUNTS FIVE, NOT FOUR: the four settings sections plus "your
          * shared content", which is drawn only for a reader who has shared something. The
          * seeded account has (E2ESeeder mints the two links the guest spec follows), so this
          * is the with-shares shape — and that the OTHER shape exists is asserted in
@@ -145,9 +145,9 @@ test.describe("the settings dashboard", () => {
          * this with fetch() rather than an Inertia visit, so the server's 422 has to arrive as
          * JSON — which depends on `shouldRenderJsonWhen` matching `Accept: application/json`
          * (bootstrap/app.php) — and its `errors.password[0]` has to reach the form row. The
-         * password check moved into DeleteAccountRequest on 2026-08-08, which means a
-         * ValidationException now produces that body where a hand-built `response()->json()`
-         * used to; the shapes agree, and this is what says so.
+         * password check lives in DeleteAccountRequest, so a ValidationException produces that
+         * body where a hand-built `response()->json()` otherwise would; the shapes agree, and
+         * this is what says so.
          *
          * The other half of the assertion is what must NOT happen: no navigation, no scroll,
          * no global error bag. That is the entire reason the modal uses fetch().

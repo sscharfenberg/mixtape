@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Move an audiobook's author from the BOOK to the CHAPTER (2026-08-13), mirroring
+     * Move an audiobook's author from the BOOK to the CHAPTER, mirroring
      * `narrator_id`, which was always per-track.
      *
      * WHY, measured on the real library rather than argued: TCOM is a per-file tag, and an
@@ -24,7 +24,7 @@ return new class extends Migration
      * guarded on what is actually there, so it is a no-op on a fresh database and idempotent
      * on a half-migrated one.
      *
-     * IT DOES NOT MERGE THE SPLIT BOOKS, deliberately (the owner's call): on an existing
+     * IT DOES NOT MERGE THE SPLIT BOOKS, deliberately: on an existing
      * database the new `(type, name, album_artist_id)` unique index will REFUSE to build while
      * the duplicate audiobook rows are still there, and the answer is `migrate:fresh` plus a
      * full `app:update` re-scan rather than a merge nobody will ever need again. There are no

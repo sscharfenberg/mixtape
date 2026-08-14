@@ -14,7 +14,7 @@ use App\Enums\TrackType;
  *  - deleted   — a row whose file vanished (relink-then-cascade, then removed)
  *
  * `errors` counts files skipped because they could not be read — non-fatal, so
- * one bad file never aborts the run (unlike the legacy scanner).
+ * one bad file never aborts the run.
  */
 final class ScanResult
 {

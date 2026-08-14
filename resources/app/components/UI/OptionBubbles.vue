@@ -156,9 +156,9 @@ function hasDescription(option: BubbleOption): boolean {
 /**
  * Id of an option's screen-reader description.
  *
- * The description exists because the hint used to be MOUSE-ONLY: hovering the system glyph
- * explained that the OS decides, while assistive tech heard "System" and had to guess — the
- * exact ambiguity the hint was written to remove. `aria-describedby` onto an `.sr-only` span
+ * The description exists because a hint alone is MOUSE-ONLY: hovering the system glyph
+ * explains that the OS decides, while assistive tech hears "System" and has to guess — the
+ * exact ambiguity the hint is written to remove. `aria-describedby` onto an `.sr-only` span
  * (the same helper DataTableHead uses for its sort announcements) gives both audiences the
  * same sentence, and because the span renders `tooltipFor`, it follows the selection the way
  * the tooltip does.

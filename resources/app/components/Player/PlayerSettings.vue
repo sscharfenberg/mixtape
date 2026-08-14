@@ -5,7 +5,7 @@
  * the two questions that are about the QUEUE as a whole rather than the track playing
  * — what order it plays in, and what happens when it runs out.
  *
- * IN THE BAR, not in the queue panel's menu, which is where repeat used to live. Two
+ * IN THE BAR, not in the queue panel's menu, which is the obvious place for repeat. Two
  * reasons, and the second is the load-bearing one. The panel is hidden behind a toggle
  * on a phone and absent entirely once the queue is emptied, so its menu is the wrong
  * home for a setting you want while listening; and repeat sitting in a menu next to

@@ -7,8 +7,8 @@
  * (external-link / mail) unless overridden.
  *
  * It does NOT warm its target on hover unless asked to — see the `prefetch`
- * prop, which used to be decided here and is now the caller's, because the
- * question is what the link LEADS TO rather than what the link is.
+ * prop, which is the CALLER's decision rather than this component's, because
+ * the question is what the link LEADS TO rather than what the link is.
  *****************************************************************************/
 import type { RequestPayload } from "@inertiajs/core";
 import { Link } from "@inertiajs/vue3";
@@ -28,7 +28,7 @@ const props = withDefaults(
         /**
          * Warm the target on hover (internal GET links only).
          *
-         * OFF BY DEFAULT, AND THAT WAS INVERTED ON PURPOSE (2026-08-11). It used to be
+         * OFF BY DEFAULT, AND THAT DEFAULT IS THE POINT. The tempting rule is
          * `:prefetch="method === 'get'"` — every GET link warmed — which decides from the LINK's
          * shape and never from what is at the other end. That is the wrong question: a prefetch
          * whose response lands after you have navigated to the same URL is applied to the page you

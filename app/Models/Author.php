@@ -15,9 +15,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * An audiobook author, reached through the CHAPTERS they wrote (`tracks.author_id`).
  * Scanner-managed; no timestamps; name unique + case-insensitive.
  *
- * IT HANGS OFF THE TRACK, NOT THE BOOK, since 2026-08-13 — the same grain as
- * `Narrator`. TCOM is a per-file tag and an anthology uses it per story, so a book-level
- * column both split those books in two and could not say who wrote one chapter. The
+ * IT HANGS OFF THE TRACK, NOT THE BOOK — the same grain as `Narrator`. TCOM is a per-file
+ * tag and an anthology uses it per story, so a book-level column both splits those books in
+ * two and cannot say who wrote one chapter. The
  * tracks CHECK pins `author_id` to `type = 'audiobook'`, so everything here is audiobooks.
  */
 #[Fillable(['name'])]
@@ -50,7 +50,7 @@ class Author extends Model
      * — since `tracks` is a table in the join with columns of its own. A bare `->count()`
      * rewrites the select to `count(*)`, leaving the `distinct()` nothing to apply to, so an
      * author's six books come back as their sixty chapters, and a bare `->pluck('name')` is an
-     * "ambiguous column name" error. Both measured 2026-08-13.
+     * "ambiguous column name" error. Both measured, both silent.
      *
      * @return BelongsToMany<Collection, $this>
      */

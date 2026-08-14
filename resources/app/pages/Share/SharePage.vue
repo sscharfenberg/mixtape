@@ -22,14 +22,13 @@
  * with the play queue in the mode that never writes itself down. That second half is the load
  * bearing one: see ShareLayout.
  *
- * THE LINK IS IN THE QUEUE BEFORE ANYTHING IS PRESSED (2026-08-12), which is what turned the
- * page from a listing into a player. It used to draw its own list of the granted tracks
- * (ShareTracks) with a play button per row, and that list existed only because the queue was
- * empty until somebody pressed one of them. Filling the queue on arrival makes the list a
- * duplicate of the queue below it — same tracks, same order, one of them live — so the list is
- * gone and NowPlayingSection stands in its place: the visualiser, what is either side, and the
- * queue itself. `enqueue` went with it, and had to: appending a link's tracks to a queue that
- * already holds exactly them is a way to hear everything twice.
+ * THE LINK IS IN THE QUEUE BEFORE ANYTHING IS PRESSED, which is what makes this a player rather
+ * than a listing. A list of the granted tracks with a play button per row only earns its place
+ * while the queue is empty; fill the queue on arrival and that list is a duplicate of the queue
+ * below it — same tracks, same order, one of them live. So NowPlayingSection stands in its
+ * place: the visualiser, what is either side, and the queue itself. There is no `enqueue` verb
+ * here either, and there cannot be: appending a link's tracks to a queue that already holds
+ * exactly them is a way to hear everything twice.
  *
  * WHAT THAT COSTS, and why it is worth it: a listener may now remove and reorder rows in a
  * share's queue, which the old list would not let them do. Nothing about it is written down

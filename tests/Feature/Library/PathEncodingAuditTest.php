@@ -20,7 +20,7 @@ use Tests\TestCase;
  * The Windows-1252 path audit — which files a car-stereo playlist cannot name.
  *
  * WHY THIS IS WORTH REAL TESTS. Every failure mode here is silent in both directions. Miss a
- * character and the owner exports a playlist with dead lines and finds out in the car; flag one
+ * character and a reader exports a playlist with dead lines and finds out in the car; flag one
  * that would have been fine and they rename a file for nothing. Neither shows up on screen, and
  * neither is visible in the report — a wrong report looks exactly like a right one.
  *

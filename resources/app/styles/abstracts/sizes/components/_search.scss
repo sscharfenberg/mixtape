@@ -58,7 +58,7 @@ $search: (
         // behind for a reader to wonder about.
         "heading-size": 0.8rem,
         // The heading strip's block padding. It was a third of this and read as a hairline rule
-        // with words crammed into it (the owner, 2026-08-13): a divider between two sets of rows
+        // with words crammed into it: a divider between two sets of rows
         // needs enough air to be a band rather than a line. The inline half comes from the panel's
         // own padding, so the label lines up with the names below it.
         "heading-padding": math.round(s.$base * 0.4)
@@ -81,7 +81,7 @@ $search: (
      * widgets' cards use (WidgetList).
      *
      * THERE IS NO `size` HERE, and that is the decision rather than an omission: a pip is drawn at
-     * the NAME's size (the owner's call). It went 0.7rem → 0.8rem → inherited over one afternoon,
+     * the NAME's size. It went 0.7rem → 0.8rem → inherited over one afternoon,
      * every step the same correction — a fact nobody can read is not a fact. The wash and the glyph
      * are what separate a pip from the name beside it, which is plenty; shrinking the text too was
      * saying "less important" twice and paying for it in legibility.

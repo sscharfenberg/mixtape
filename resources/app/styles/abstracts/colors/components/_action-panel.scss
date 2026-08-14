@@ -6,9 +6,9 @@
  * inside it — the select, the buttons, the sentence — is a shared component with its own
  * contextual tokens.
  *
- * It lived in `_add-to-playlist.scss` until 2026-08-10, when the song and album heroes
- * grew a download button that belongs in the same box: the box is the ACTION AREA, and
- * "add to playlist" is one of the things standing in it.
+ * ITS OWN GROUP RATHER THAN `_add-to-playlist.scss`'s, because the box is the ACTION AREA and
+ * "add to playlist" is only one of the things standing in it — the song and album heroes put a
+ * download button in the same box.
  * Consumed as c.$c-action-panel via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map

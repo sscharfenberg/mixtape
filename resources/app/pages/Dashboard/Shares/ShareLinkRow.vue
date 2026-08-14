@@ -4,7 +4,7 @@
  * One share link in the reader's list at /dashboard/shared — what was sent, how long it lives,
  * and the two things a reader does with a link they have already made.
  *
- * A COMPONENT BECAUSE THE PAGE DRAWS TWO LISTS (2026-08-13). The live links and the expired
+ * A COMPONENT BECAUSE THE PAGE DRAWS TWO LISTS. The live links and the expired
  * ones are now separate `<ul>`s under separate headings, and a row is a row in both: the only
  * differences are the two this takes as props. Written inline it would have been the same fifty
  * lines of markup twice, which is the shape a list that drifts in one half has.
@@ -22,9 +22,8 @@
  *
  * IT OWNS ITS OWN CLIPBOARD STATE, which is what the extraction bought. `useClipboard` hands
  * every consumer its own `copied` flag on purpose, and a flag per row is exactly the shape a
- * per-row acknowledgement needs — the page used to track "which id was copied last" beside a
- * single shared flag, because one page-level composable would otherwise have put a tick on
- * every row at once.
+ * per-row acknowledgement needs. One page-level composable instead means tracking "which id was
+ * copied last" beside a single shared flag, or putting a tick on every row at once.
  *****************************************************************************/
 import { useI18n } from "vue-i18n";
 import Icon from "Components/UI/Icon.vue";
@@ -228,7 +227,7 @@ const iconOf = (kind: ShareRow["kind"]): string =>
     white-space: nowrap;
 }
 
-/* THE DEAD ROW'S PIP, WHICH IS A BUTTON — and since 2026-08-13 (the owner's call) it wears the
+/* THE DEAD ROW'S PIP, WHICH IS A BUTTON — and it wears the
    REVOKE BUTTON'S BOX rather than the pip's: the same fill at rest, the same corners and the same
    height, so a dead row reads as two matched buttons with the subject between them rather than one
    button beside a chip that happens to be pressable.
@@ -304,7 +303,7 @@ const iconOf = (kind: ShareRow["kind"]): string =>
     gap: map.get(s.$c-shares, "chip-gap");
 }
 
-/* THE COPY BUTTON — the revoke button's box exactly, fill included (the owner's call,
+/* THE COPY BUTTON — the revoke button's box exactly, fill included (deliberately,
    2026-08-13). It rested TRANSPARENT until then, on the argument that two equally loud controls
    would make a reader read both before pressing either; what the finished row showed is the
    opposite — three controls in three different weights (a transparent glyph, a filled glyph, a

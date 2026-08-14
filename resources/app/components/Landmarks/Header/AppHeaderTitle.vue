@@ -4,7 +4,7 @@
  * The wordmark <h1> in the header (an Inertia <Link> home). Name comes from
  * VITE_APP_NAME (mirrors the backend APP_NAME — see below).
  *
- * THE SYNTHWAVE CHROME LIVES HERE NOW (2026-08-10), and this component is the
+ * THE SYNTHWAVE CHROME LIVES HERE NOW, and this component is the
  * only thing in the app wearing it. It was a global `.text-chrome` class, shared
  * with a detail page's hero title and a playlist entry's; both of those took an
  * outlined treatment of their own that day, which left a shared class with one
@@ -26,7 +26,7 @@
  * noise; and the clip plus the stroke that carry it chew up type that small — a
  * stroke is drawn centred on the glyph outline, so it eats into letters whose
  * fill is already coming from a clipped background, and the edges break up.
- * "Choppy" was the owner's word for it.
+ * "Choppy" is the word for it.
  *
  * THE WHOLE MACHINERY THEREFORE SITS INSIDE THE MEDIA QUERY rather than being
  * undone by it. That is not tidiness: `-webkit-text-stroke-color` defaults to

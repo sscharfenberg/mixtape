@@ -189,7 +189,7 @@ describe("StatsWidget", () => {
     });
 
     /*
-     * The field is optional since 2026-08-14, because the welcome page draws this card to a
+     * The field is optional, because the welcome page draws this card to a
      * visitor with no session and `/search` is inside the auth group — a box there would answer
      * 401 to everything typed into it.
      *

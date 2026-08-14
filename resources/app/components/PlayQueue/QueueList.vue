@@ -8,7 +8,7 @@
  * recording: the panel is 280px and its row is tuned for that width, so a second presentation
  * looked like the honest answer. What it actually produced was two rows that had to be kept in
  * step by hand, and they were not — the page's copy had a plain close glyph where the panel used
- * `playlist_remove`, which is the first thing the owner noticed. One row, two containers.
+ * `playlist_remove`, which is the first thing anybody notices. One row, two containers.
  *
  * THE CONTAINER IS THE ONLY DIFFERENCE, and it is a real one, which is why `layout` exists:
  *

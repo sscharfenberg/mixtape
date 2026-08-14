@@ -29,9 +29,9 @@
  * typing a song title while their music seeks around under them.
  *
  * ASKING FOR SEARCH ALWAYS PUTS THE CARET IN THE FIELD, even when the panel is already up — which
- * is why there is a nonce here beside the flag. Opening used to be the only signal, so the overlay
- * focused on the flag's false→true edge; press ⌘K after tabbing out of an open panel and nothing
- * happened at all (measured: focus stayed on a breadcrumb link). Every one of the three ways to ask
+ * is why there is a nonce here beside the flag. With opening as the only signal the overlay focuses
+ * on the flag's false→true edge — so pressing ⌘K after tabbing out of an open panel does nothing at
+ * all (measured: focus stays on a breadcrumb link). Every one of the three ways to ask
  * bumps `focusNonce`, and the overlay watches that as well as the flag. Same idea as the flash
  * `nonce` in the Inertia share: a value whose CHANGE is the message, for an event that has no state
  * of its own to watch.

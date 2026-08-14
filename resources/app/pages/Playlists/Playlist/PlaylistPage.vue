@@ -23,12 +23,10 @@
  * why SubjectActions is handed the tracks rather than left to go back for them, and why each
  * row can carry its own play button (PlaylistController says the same from its end).
  *
- * IT WEARS THE MUSIC DETAIL PAGES' SHAPE SINCE 2026-08-12, which it had been the last page to
- * be left out of: the name heads the page in the glowing <Headline> every listing and detail
- * page wears, the hero is left doing the one thing only it can — the sleeves and the facts —
- * and the two verbs that were behind a "…" popover are visible buttons in an ActionPanel. A
- * page's two most likely actions should not need discovering, which is the same argument the
- * four Music heroes were rebuilt on the day before.
+ * IT WEARS THE MUSIC DETAIL PAGES' SHAPE: the name heads the page in the glowing <Headline>
+ * every listing and detail page wears, the hero is left doing the one thing only it can — the
+ * sleeves and the facts — and the two verbs are visible buttons in an ActionPanel rather than
+ * entries behind a "…" popover. A page's two most likely actions should not need discovering.
  *****************************************************************************/
 import { Head } from "@inertiajs/vue3";
 import { computed, ref, useTemplateRef } from "vue";

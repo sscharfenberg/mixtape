@@ -18,7 +18,7 @@ use Symfony\Component\HttpFoundation\Response;
  * the only identity this request has.
  *
  * TWO FAILURE CODES, which is why `failedAuthorization` branches. A missing user is a 404 —
- * the link names a row that is gone, exactly what `findOrFail` used to answer. A mismatched
+ * the link names a row that is gone, exactly what `findOrFail` would answer. A mismatched
  * hash is a 403 — the link is genuine but no longer describes this address, and saying so is
  * not a disclosure, since the caller already holds a signed URL naming that user.
  *

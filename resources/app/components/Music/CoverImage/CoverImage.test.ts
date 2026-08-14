@@ -3,7 +3,7 @@ import { mountApp, translate } from "Testing/mount";
 import CoverImage from "./CoverImage.vue";
 
 /*
- * CoverImage exists to hold three decisions that used to be copy-pasted into every
+ * CoverImage exists to hold three decisions that would otherwise be copy-pasted into every
  * listing: the size triple, the MISSING case, and the FAILED case.
  *
  * The failed case is the one that earns the component. `coverUrl` rests on scan-time

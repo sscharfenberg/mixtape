@@ -22,7 +22,7 @@ use Symfony\Component\Finder\Finder;
  * is to rename the file, which is why this reports rather than repairs.
  *
  * The export modal already warns the reader per playlist
- * (`resources/app/utils/encoding.ts`). This is the other half: the owner's view of the WHOLE
+ * (`resources/app/utils/encoding.ts`). This is the other half: the view over the WHOLE
  * collection, so the offenders can be renamed once instead of being warned about forever.
  *
  * IT READS THE FILESYSTEM, NOT THE DATABASE — deliberately. Renaming files and re-scanning are

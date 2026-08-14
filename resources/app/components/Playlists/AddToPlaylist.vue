@@ -8,10 +8,10 @@
  *
  * AN AREA RATHER THAN THREE CONTROLS IN A ROW: the sentence and the two controls are one
  * offer, and on a hero panel they read as leftovers unless something holds them together.
- * That something is the TINTED BOX, which this component drew itself until 2026-08-10 and
- * which is now the shared ActionPanel the page wraps it in — because the song and album heroes
- * put a download button in the same box, and it has to be there for a reader who has no
- * playlists at all, i.e. exactly when this component renders nothing. What is left here is the
+ * That something is the TINTED BOX, and it is the shared ActionPanel the page wraps this in
+ * rather than something this component draws — because the song and album heroes put a
+ * download button in the same box, and it has to be there for a reader who has no playlists at
+ * all, i.e. exactly when this component renders nothing. What is left here is the
  * block: a sentence over its controls.
  *
  * ONE COMPONENT FOR ALL FOUR SUBJECTS (song, album, artist, genre), which the server side
@@ -130,7 +130,7 @@ const choices = computed(() => options.value.map(playlist => ({ value: playlist.
 @use "Abstracts/colors" as c;
 @use "Abstracts/sizes" as s;
 
-/* A sentence over its controls. What used to hold the two together — the tinted box — is the
+/* A sentence over its controls. What holds the two together — the tinted box — is the
    ActionPanel this now sits inside (see the banner), so all that is left here is the column
    and the gap down it.
 

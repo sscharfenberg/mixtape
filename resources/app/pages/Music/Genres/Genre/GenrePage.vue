@@ -10,12 +10,12 @@
  * hero holding the four numbers its listing row shows, and below them the genre's contents
  * across an ALBUMS, an ARTISTS and a SONGS tab.
  *
- * THE NAME MOVED OUT OF THE HERO on 2026-08-11, with the other three Music detail pages, and
- * the SubjectMenu popover in its heading became the visible SubjectActions row in #actions.
- * SongPage's banner carries the reasoning for both.
+ * THE NAME IS NOT IN THE HERO — it heads the page in a <Headline>, as on every Music detail
+ * page, and the hero's controls are the visible SubjectActions row in #actions rather than a
+ * popover. SongPage's banner carries the reasoning for both.
  *
- * THIS PAGE'S ROW HAS TWO BUTTONS WHERE THE OTHERS HAVE THREE: a genre cannot be shared
- * (the owner's call, same day). "Listen to this genre" is a different kind of act from
+ * THIS PAGE'S ROW HAS TWO BUTTONS WHERE THE OTHERS HAVE THREE: a genre cannot be shared.
+ * "Listen to this genre" is a different kind of act from
  * "listen to this" — a share hands over one thing somebody chose to send, and a genre is a
  * shelf. SubjectActions decides that from the subject rather than from a flag here, and
  * App\Enums\ShareSubject has no genre case at all, so nothing on the server could accept

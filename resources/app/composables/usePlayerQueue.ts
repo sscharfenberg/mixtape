@@ -10,22 +10,20 @@
  * reason is playback: auto-advance drives off the audio element's `ended` event,
  * which lives in the browser, and the player has to keep running while Inertia
  * swaps pages underneath it. A queue that needed a round-trip per track change
- * could not do either. See docs/data-model.md → "The play queue", where this was
- * settled on 2026-07-20.
+ * could not do either. See docs/data-model.md → "The play queue".
  *
- * PERSISTENCE, and what is deliberately missing. For now the queue survives in
- * `localStorage` only. The decided design also persists it server-side for a
- * logged-in user (the `player_states` table and its model already exist), so the
- * queue and your place in it resume on another device; that half is NOT built
- * yet. This module is shaped for it: everything goes through `commit()`, so the
- * debounced POST lands in one place, and the stored payload already carries the
- * `userId` it belongs to.
+ * PERSISTENCE IS TWO-LAYERED. The queue is written to `localStorage` — which is the only
+ * copy a guest has, and what the next load falls back on with no network — and, for a
+ * signed-in reader, synced to the `player_states` row so the queue and your place in it
+ * resume on another device. Both writes go through `commit()`, so the coalescing and the
+ * flush-on-hide cover them together, and the stored payload carries the `userId` it
+ * belongs to.
  *
  * IT IS STORED IN TWO PIECES, AND WRITTEN LATE, both for the same reason: a queue can
- * hold the whole library, and the naive version rewrote all of it every time a song
- * ended. The list and the pointer have their own keys (see POSITION_STORAGE_KEY), and
+ * hold the whole library, and writing all of it every time a song ends does not scale.
+ * The list and the pointer have their own keys (see POSITION_STORAGE_KEY), and
  * `commit` marks them dirty instead of writing (see WRITE_DELAY_MS), so the cost of an
- * auto-advance no longer scales with how much is queued. The price of writing late is
+ * auto-advance does not scale with how much is queued. The price of writing late is
  * that something has to guarantee the last write — `flushQueueWrites`, called when the
  * tab goes away.
  *
@@ -318,10 +316,10 @@ const shuffleCursor = ref<number>(NOTHING);
 /**
  * The row `next()` will take when it next has to DRAW one — decided ahead of the press.
  *
- * IT EXISTS SO THAT "WHAT PLAYS NEXT" CAN BE SHOWN. The draw used to happen inside the press,
- * which meant there was no next track until you asked for one, and a page promising one could
- * only have lied. Drawing it when the CURRENT row is recorded instead costs nothing and changes
- * no statistics: the same bag, the same single draw per step, just made earlier.
+ * IT EXISTS SO THAT "WHAT PLAYS NEXT" CAN BE SHOWN. Drawing inside the press means there is no
+ * next track until somebody asks for one, so a page promising one could only lie. Drawing it when
+ * the CURRENT row is recorded costs nothing and changes no statistics: the same bag, the same
+ * single draw per step, just made earlier.
  *
  * It is a promise, and {@link shuffledNext} keeps it — the row shown is the row that plays,
  * unless the queue changed underneath in a way that renumbered it, at which point the pick is
@@ -1413,7 +1411,7 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
          * won unconditionally — which loses a change made moments before a navigation, since
          * the PUT and the next page's HTML are two requests racing: enqueue, click a link,
          * and the page comes back holding the queue as it was BEFORE the enqueue. Found by
-         * the E2E suite doing exactly that (2026-08-07).
+         * the E2E suite doing exactly that.
          *
          * Both numbers are wall clocks, so a device with a badly wrong clock can win or lose
          * an argument it should not. That is the trade data-model.md accepted for this scale,

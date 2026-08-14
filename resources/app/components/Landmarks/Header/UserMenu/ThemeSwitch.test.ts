@@ -89,12 +89,11 @@ describe("ThemeSwitch", () => {
 
     it("moves the selection with the scheme, not just the tag", async () => {
         /*
-         * The regression this file exists to prevent, found by the Playwright spec after the
-         * migration to OptionBubbles. `theme` used to be a computed whose getter read
-         * `localStorage` and an attribute — neither reactive — so it never re-evaluated. The
-         * old markup hid that: its pill was drawn from `:has(input:checked)`, the browser's
-         * own radio state. Draw the selection from component state instead and the staleness
-         * is immediate — the scheme changes and the control still shows the previous one.
+         * The regression this file exists to prevent. Make `theme` a computed whose getter reads
+         * `localStorage` and an attribute — neither reactive — and it never re-evaluates. Markup
+         * that draws its pill from `:has(input:checked)`, the browser's own radio state, hides
+         * that entirely. Draw the selection from component state instead and the staleness is
+         * immediate: the scheme changes and the control still shows the previous one.
          */
         const wrapper = mountApp(ThemeSwitch);
 

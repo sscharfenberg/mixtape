@@ -2,7 +2,7 @@
  * contextual size tokens — component:CoverSleeves.vue
  * @type {Sass}
  * The fanned stack of album sleeves, at its TWO scales. Lifted out of
- * `_genre-artists.scss` when the fan became a component of its own (2026-08-09), and
+ * `_genre-artists.scss` when the fan became a component of its own, and
  * split in two when a playlist's hero wanted a bigger one than an artist card does.
  *
  * WHY TWO SCALES AND NOT ONE NUMBER: `card` fans inside a grid column whose floor is
@@ -17,13 +17,12 @@
  * chosen. `box` and `extent` are then COMPUTED, because getting them by eye is how the fan
  * came to hang over its container's padding.
  *
- * THE ROTATION IS WHY. A square tipped by `a` no longer fits inside its own side: its
+ * THE ROTATION IS WHY. A square tipped by `a` does not fit inside its own side: its
  * axis-aligned extent is `size × (cos a + sin a)`, which at 9° is 14.4% more in BOTH
- * directions. The first version reserved `size` for the height and `size + 2 × offset` for
- * the width — the slide but not the tip — so every fan overflowed its box by about 7% of a
- * sleeve on each edge. In a genre card that landed invisibly in the card's padding; in a
- * playlist's hero, where the box hugs its content, the sleeves reached over the panel's
- * inset and read as a rendering fault.
+ * directions. Reserve `size` for the height and `size + 2 × offset` for the width — the slide
+ * but not the tip — and every fan overflows its box by about 7% of a sleeve on each edge. In a
+ * genre card that lands invisibly in the card's padding; in a playlist's hero, where the box
+ * hugs its content, the sleeves reach over the panel's inset and read as a rendering fault.
  *
  * So `$spread` is derived from `angle` and both measurements go through it. Change the tip
  * and the box follows on its own, which is the property that was missing.
@@ -74,9 +73,9 @@ $cover-sleeves: (
             "radius": map.get(s.$radius, "base")
         ),
     // A playlist's hero, half again as big: at the card's 96px the fan reads as an
-    // afterthought in a panel that wide. Box: 249 × 165 tipped, which is about what the
-    // hero's cover square used to reserve (220 / 200 / 240px per breakpoint) — so the panel
-    // is as wide as it always was, while now being only as TALL as the fan.
+    // afterthought in a panel that wide. Box: 249 × 165 tipped, which is about what a hero's
+    // cover square reserves in width (220 / 200 / 240px per breakpoint) — so the panel is as
+    // wide as one with artwork, while being only as TALL as the fan.
     "hero": (
             "size": 9rem,
             "offset": 2.625rem,

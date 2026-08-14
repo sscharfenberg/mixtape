@@ -10,7 +10,7 @@
  * It renders FactPairs, so drop it straight into a HeroSection's `#metadata` slot
  * beside the artist / album / year tiles it belongs with.
  *
- * A COUNT OF ZERO IS NOT SHOWN AT ALL — the owner's rule, and the right one: a page
+ * A COUNT OF ZERO IS NOT SHOWN AT ALL, which is the right rule rather than a tidy one: a page
  * full of "0×" on a fresh library would say only that the feature exists. Each half
  * appears on its own terms, so a record only the reader has heard shows one tile.
  *
@@ -35,7 +35,7 @@ import type { PlayCountSubject } from "Types/plays";
 import { formatTimesPlayed } from "Utils/formatting";
 
 // Re-exported so `import PlayCountFacts, { type PlayCountSubject }` keeps working for the pages
-// that pass the prop. The list itself moved to `Types/plays` on 2026-08-13, and had to:
+// that pass the prop. The list itself lives in `Types/plays`, and has to:
 // `<script setup>` may export types but not values, and it has to be a VALUE for the spec to loop
 // over — which is what keeps a new subject from shipping without its two sentences. That file
 // carries the story.

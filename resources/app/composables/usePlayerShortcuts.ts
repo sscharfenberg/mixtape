@@ -74,8 +74,8 @@ const SEEK_STEP_SECONDS = 5;
 /**
  * How much ↑/↓ move the output level, as a fraction of full scale.
  *
- * 5%, the owner's figure: twenty steps across the scale, which is about what a hardware
- * volume knob offers and more than the sixteen macOS gives its own.
+ * 5%: twenty steps across the scale, which is about what a hardware volume knob offers and
+ * more than the sixteen macOS gives its own.
  *
  * EXPORTED BECAUSE IT HAS A TWIN. This constant applies while focus is somewhere ELSE on
  * the page — the guards below deliberately stand aside for a focused range input, so an
@@ -83,8 +83,8 @@ const SEEK_STEP_SECONDS = 5;
  * the arrows itself and steps by THIS number, rather than by the input's own `step`, which
  * is a hundredth so that DRAGGING can land on any percent. One gesture, one answer,
  * whatever happens to have focus — and the two cannot drift, because there is only one of
- * them. (They did drift once: a 1% slider against a 5% shortcut, which the owner reported
- * as the arrows moving the level by 1%.)
+ * them. The failure when they drift is a listener finding the arrows move the level by 1%
+ * inside the popover and 5% everywhere else.
  */
 export const VOLUME_STEP = 0.05;
 
@@ -287,11 +287,10 @@ export function usePlayerShortcuts(): UsePlayerShortcutsReturn {
             // belongs in this keymap all the same — `N`/`P` are far more useful once you can see
             // what they are stepping through.
             //
-            // GUARDED SINCE 2026-08-12, because the sentence that used to sit here — "the panel
-            // exists exactly when the bar that binds these listeners does" — stopped being true
-            // the day the guest share space kept the bar and dropped the panel. Unguarded, `Q`
-            // there flips a flag nothing reads, which is invisible until something else starts
-            // reading it.
+            // GUARDED, because "the panel exists exactly when the bar that binds these listeners
+            // does" is NOT true: the guest share space keeps the bar and drops the panel.
+            // Unguarded, `Q` there flips a flag nothing reads, which is invisible until something
+            // else starts reading it.
             case "q":
                 if (panel.exists.value) panel.toggle();
                 break;

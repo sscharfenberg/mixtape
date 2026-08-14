@@ -30,7 +30,7 @@ use Inertia\Response;
  * actually do: rules and messages in ValidatesPlaylistMetadata, ownership in
  * AuthorizesPlaylistOwnership, and Precognition handled by the framework — a FormRequest
  * filters its own rules and short-circuits with a 204 on a validate-only request, so the
- * `precognitive()` wrapper these actions used to carry is gone.
+ * `precognitive()` wrapper is redundant here.
  *
  * A playlist starts EMPTY, and editing never touches its tracks. They are added from
  * wherever a listener already is — a song page, an album, the queue — so the form asks
@@ -107,7 +107,7 @@ class PlaylistMetadataController extends Controller
      * is not allowed with aggregate functions"). Production is Postgres and the PHP suite
      * runs on sqlite, where `for update` compiles to nothing at all — so the lock read as
      * a green safety measure locally while 500-ing every create on the real server. Found
-     * by asking the dev database, 2026-08-08.
+     * by asking a real Postgres.
      */
     private function insert(StorePlaylistRequest $request): Playlist
     {

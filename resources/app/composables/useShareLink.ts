@@ -16,7 +16,7 @@ export type ShareLink = {
  * What can be shared — `App\Enums\ShareSubject`, and nothing else.
  *
  * No `genre`, deliberately: a genre is a shelf rather than something somebody chose to send.
- * `playlist` joined the list on 2026-08-13 and is the one entry with an owner — the server
+ * `playlist` is the one entry with an owner — the server
  * refuses a playlist the reader does not own, so a page can only offer it for its own.
  */
 export type ShareableSubject = "song" | "album" | "artist" | "playlist" | "audiobook";

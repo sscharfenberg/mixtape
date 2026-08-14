@@ -18,7 +18,7 @@
 
 $footer: (
     "border": map.get(s.$border, "base"),
-    // ROOMIER THAN THE PLAYER BAR (the owner, 2026-08-14). It started at the bar's own
+    // ROOMIER THAN THE PLAYER BAR. It started at the bar's own
     // 0.5rem so the two shelves would match in height, and that was the wrong instinct: the
     // bar is dense because it is full of controls, while the footer holds one line and reads
     // cramped at the same number. They are the same OBJECT, not the same content.
@@ -26,7 +26,7 @@ $footer: (
     // Between the copyright line and the repository link when they share a row, and
     // what separates them once they stack on a narrow screen.
     //
-    // NO `font-size` HERE ANY MORE (the owner, 2026-08-14). It was 0.85rem — the reflex that
+    // NO `font-size` HERE ANY MORE. It was 0.85rem — the reflex that
     // a footer is small print — and this one is not: it carries the version somebody may want
     // to read out and the only link off the app. It takes the page's own size, so there is no
     // token because there is no decision.

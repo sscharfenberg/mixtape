@@ -4,7 +4,7 @@ namespace App\Enums;
 
 /**
  * The *container kind* of a collection — `collections` is the merged
- * albums+audiobooks table (data-model.md → (a), "collections half-step"), so a
+ * albums+audiobooks table (data-model.md → "One tracks table, one collections table"), so a
  * single table holds music albums and audiobooks.
  *
  * Parallel to TrackType (the *playable* kind): album↔music, audiobook↔audiobook,

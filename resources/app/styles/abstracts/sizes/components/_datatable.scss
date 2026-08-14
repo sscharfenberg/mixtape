@@ -25,10 +25,10 @@
 
 $datatable: (
     // A breakpoint NAME, not a width: `m.cq()` takes a key into $breakpoints and
-    // resolves it itself. It used to hold the resolved px value, which nothing
-    // could consume — the three container queries in DataTable / DataTableCards
-    // each passed the literal "desktop" instead, so the token documented a
-    // decision it did not actually make. They read this now.
+    // resolves it itself. A resolved px value here is a token nothing can consume:
+    // the three container queries in DataTable / DataTableCards would each pass a
+    // literal breakpoint name instead, and the token would document a decision it
+    // does not actually make.
     "breakpoint": "landscape",
     "border": map.get(s.$border, "base"),
     "radius": map.get(s.$radius, "base"),

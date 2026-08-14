@@ -10,8 +10,8 @@
  * on, so the caller sets `color` from its OWN background token and this group stays out of it.
  * The class's banner says the same to anyone reaching for it.
  *
- * It replaced c.$c-text-chrome as the shared treatment on 2026-08-10 — that chrome went home to
- * the app wordmark (c.$c-title), its only remaining wearer.
+ * This is the shared treatment for a heading; the app wordmark's chrome ramp is its own
+ * (c.$c-title) and is worn by nothing else.
  * Consumed as c.$c-text-outline via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
@@ -27,8 +27,8 @@ $text-outline: (
     // there: a coloured outline plus a coloured glow is two hues arguing over one edge, and the
     // glow is the one that should be doing the colouring.
     "stroke": light-dark(map.get(c.$grey, "ebony"), map.get(c.$grey, "astral")),
-    // The glow, and the only colour in the treatment: `c7`, the hue the synthwave chrome glowed
-    // with, so a title that used to be chrome keeps the light it had. Dialled back with an
+    // The glow, and the only colour in the treatment: `c7`, the same hue the wordmark's chrome
+    // glows with, so the app's headings share one light. Dialled back with an
     // opacity-only adjust — the one colour operation the token rules allow outside the palette.
     //
     // HEAVIER ON LIGHT than on dark, which is upside-down from "keep the two in step" and is what

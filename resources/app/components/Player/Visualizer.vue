@@ -71,7 +71,7 @@ const live = computed(() => mayAnimate.value && isAnalysing.value && isPlaying.v
 /**
  * How tall a bar stands with nothing to show, as a percentage of the row.
  *
- * IT WAS 2%, AND THAT WAS THE OWNER'S SECOND COMPLAINT (2026-08-10): 2% of a 56px strip is one pixel,
+ * IT WAS 2%, AND THAT WAS THE OWNER'S SECOND COMPLAINT: 2% of a 56px strip is one pixel,
  * so "always shown" delivered an empty-looking box with a grey hairline in it — present in the DOM
  * and absent to the eye, which is the whole thing the baseline exists to avoid. A sixth of the row is
  * unmistakably a row of bars at rest, and still obviously not a reading: nothing music does holds
@@ -112,7 +112,7 @@ const heights = computed<number[]>(() =>
  * the SCSS breakpoints and JavaScript cannot see them: writing 768 and 1440 into TypeScript would be
  * a second copy of a token to keep in step. So `sizes/components/_visualizer.scss` holds the three
  * counts, the stylesheet below publishes the one for this width as `--visualizer-bars`, and this
- * reads the computed value. The owner's brief — the widest row keeps 48, landscape 65%, portrait 50%
+ * reads the computed value. The ladder — the widest row keeps 48, landscape 65%, portrait 50%
  * — therefore lives entirely in the token.
  *
  * WHERE NO STYLESHEET HAS BEEN APPLIED the default count draws instead of nothing, which is exactly
@@ -133,7 +133,7 @@ function readBarCount(): void {
 /*
  * THE ANALYSER FOLLOWS PLAYBACK, NOT THE MOUNT, and that is a measurement rather than a preference.
  * When the row was mounted only while playing, "mount" and "playing" were the same event; making it
- * permanent (2026-08-10) silently moved the first `createMediaElementSource` to the moment the page
+ * permanent silently moved the first `createMediaElementSource` to the moment the page
  * OPENED — which, with no gesture yet in the document, means the resume is refused and the routing
  * is deferred onto the element's next `play`, i.e. into the very press that starts the music. That
  * cost showed up as a real flake: `now-playing.spec.ts`'s "says PAUSED at the last track" went from
@@ -253,7 +253,7 @@ onBeforeUnmount(() => {
     background: map.get(c.$c-visualizer, "idle");
 }
 
-/* NO GLOW UNDER THE ROW, removed 2026-08-10 at the owner's call. There was one — a single
+/* NO GLOW UNDER THE ROW, deliberately. One is easy to add — a single
    `drop-shadow` over the finished row rather than per-bar shadows, which was the right way to draw
    it — and it still read as a haze the bars sat in rather than as light coming off them. The ramp
    already says everything about level that the row has to say. Recorded rather than left silent so

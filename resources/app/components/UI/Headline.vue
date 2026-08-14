@@ -13,7 +13,7 @@
  *
  * THE DEFAULT SLOT IS WRAPPED IN ONE ELEMENT (`.headline__content`), which is
  * not tidiness — it is the fix for a long title dropping BELOW its own icon
- * (2026-08-11, found on a song whose name runs to four slash-separated clauses).
+ * (found on a song whose name runs to four slash-separated clauses).
  * The heading is a WRAPPING flex row, and flex collects items into lines by
  * their max-content size: an unwrapped title is an anonymous flex item, so a
  * name wider than the row was pushed onto a line of its own before it ever got

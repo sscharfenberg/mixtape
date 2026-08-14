@@ -3,19 +3,16 @@
  * PlayQueueToggle
  * The header button that shows and hides the play queue — at EVERY width.
  *
- * It used to hide itself from `landscape` up, because up there the panel stood
- * permanently open and a button flipping a flag nothing read would have been worse
- * than no button. That arrangement is gone (see PlayQueue's banner: the dashboard's
- * right-aligned headings left no room to inset), so the panel is now opened the same
- * way on a desktop as on a phone, and this is the control that does it everywhere.
- * One consequence worth naming: there is no longer any "which layout am I in"
- * question here, so nothing needs a media query or a matchMedia listener.
+ * The panel is opened the same way on a desktop as on a phone (see PlayQueue's banner for
+ * why it is never a permanent column), and this is the control that does it everywhere. One
+ * consequence worth naming: there is no "which layout am I in" question here at all, so
+ * nothing needs a media query or a matchMedia listener.
  *
  * It disappears when the queue is EMPTY, at any width. An empty queue draws
  * no panel at all, so the button would open nothing; worse, it would be a control
  * that appears to do something and does not.
  *
- * AND IT DISAPPEARS WHERE NO PANEL IS RENDERED AT ALL (2026-08-12), which is the same rule
+ * AND IT DISAPPEARS WHERE NO PANEL IS RENDERED AT ALL, which is the same rule
  * applied one level up: the guest share space has its queue on the page and deliberately mounts
  * no panel, so there is nothing here to open. The condition is not "am I on a share page" or
  * "is anybody signed in" — it is the panel itself saying it exists (`notePlayQueuePanel`),

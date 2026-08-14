@@ -22,7 +22,7 @@
  * ON A PAGE DIRECTLY UNDER THE ROOT, home IS that parent. `/music` and
  * `/now-playing` declare one crumb — themselves — so the second-to-last crumb
  * does not exist, and marking nothing left every chip hidden below `landscape`:
- * an empty <nav> holding its own margin, which is what the owner reported. The
+ * an empty <nav> holding its own margin. The
  * home chip takes the parent role in that case, so the trail always offers the
  * one thing it is for at that width.
  *

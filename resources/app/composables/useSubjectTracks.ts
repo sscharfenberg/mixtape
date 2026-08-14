@@ -26,7 +26,7 @@ export type UseSubjectTracksReturn = {
  * "Play this" and "queue this" for the subject of a detail page — the two verbs a hero
  * offers, and the fetch that has to happen before either can act.
  *
- * EXTRACTED FROM SubjectMenu (2026-08-11), when the four Music heroes swapped that popover
+ * EXTRACTED FROM SubjectMenu, when the four Music heroes swapped that popover
  * for a row of buttons and the playlist page kept it. The two components differ in nothing
  * but their shape: the same round trip, the same "a subject with no tracks is a toast, not
  * an error", the same rule about what play MEANS. Leaving a copy in each is how they would

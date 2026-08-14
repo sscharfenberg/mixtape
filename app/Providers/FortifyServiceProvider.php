@@ -178,10 +178,10 @@ class FortifyServiceProvider extends ServiceProvider
         // SIX SENDS A MINUTE PER IP, and that number is the anti-abuse gate that
         // stops someone flooding a victim's inbox — it is not to be loosened.
         //
-        // It says nothing about Precognition any more, and used to: those forms
-        // validate-on-blur against this same route, so live validation shared the
-        // send budget and an honest reader's typing earned them a 429. The fix
-        // written here — `isPrecognitive() ? perMinute(30) : perMinute(6)` — did
+        // It says nothing about Precognition, deliberately, even though these forms
+        // validate-on-blur against this same route — so without help, live validation
+        // shares the send budget and an honest reader's typing earns them a 429. The
+        // obvious fix here — `isPrecognitive() ? perMinute(30) : perMinute(6)` — does
         // not work, twice over, and both reasons are worth knowing. A named
         // limiter's counter is keyed `md5($name . $limit->key)`, so two arms
         // passing the same `by($request->ip())` are ONE bucket with two ceilings:

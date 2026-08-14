@@ -41,7 +41,7 @@ class MusicPageTest extends TestCase
                 ->has('songs.popular')
                 ->has('artists.popular')
                 ->has('genres.popular')
-                // …never for albums (the owner scoped it out).
+                // …never for albums, which are deliberately out of scope for it.
                 ->missing('albums.popular')
                 // the stats widget's collection totals.
                 ->has('stats', fn (Assert $stats) => $stats->hasAll([
@@ -195,9 +195,9 @@ class MusicPageTest extends TestCase
         Play::factory()->count(2)->create(['track_id' => $warm->id, 'user_id' => $user->id]);
         Play::factory()->count(1)->create(['track_id' => $cold->id, 'user_id' => $user->id]);
 
-        // Ranked by play count, and the SINGLE-play track is in it: the set was gated at >1
-        // until 2026-08-08, which hid the answer on a library with three played songs. What
-        // stays out is the song nobody has played — there is no ranking to put it in.
+        // Ranked by play count, and the SINGLE-play track is in it: gating at >1 hides the
+        // answer on a library with three played songs. What stays out is the song nobody has
+        // played — there is no ranking to put it in.
         $this->actingAs($user)
             ->get('/music')
             ->assertInertia(fn (Assert $page) => $page
@@ -236,8 +236,8 @@ class MusicPageTest extends TestCase
 
     public function test_a_played_artist_outranks_a_bigger_unplayed_one(): void
     {
-        // The bug this order exists to fix, reported 2026-08-08: the widget showed unplayed
-        // entries above played ones, which beside a visible play pip reads as a broken sort.
+        // The bug this order exists to fix: minutes alone puts unplayed entries above played
+        // ones, which beside a visible play pip reads as a broken sort.
         $reader = User::factory()->create();
         $played = Artist::factory()->create(['name' => 'Played Artist']);
         $bigger = Artist::factory()->create(['name' => 'Bigger Artist']);
@@ -299,8 +299,8 @@ class MusicPageTest extends TestCase
 
     public function test_songs_popular_ranks_by_the_viewers_own_listening_too(): void
     {
-        // Same rule for the songs card, which ranked the household until 2026-08-08. A song
-        // only the housemate has played is not in the reader's popular set at all.
+        // Same rule for the songs card: it ranks the READER, not the household. A song only
+        // the housemate has played is not in the reader's popular set at all.
         $reader = User::factory()->create();
         $housemate = User::factory()->create();
         $mine = Track::factory()->create(['name' => 'Mine']);

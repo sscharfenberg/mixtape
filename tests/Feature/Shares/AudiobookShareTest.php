@@ -118,11 +118,11 @@ class AudiobookShareTest extends TestCase
     public function test_the_guest_page_points_at_the_books_own_cover(): void
     {
         /*
-         * A BOOK IS A `collections` ROW LIKE AN ALBUM, and ShareArtwork::hero() matched only
-         * Song and Album — so every shared audiobook fell to `default => false` and the hero
-         * drew CoverImage's placeholder glyph beside a book that has a perfectly good
-         * Folder.jpg (reported 2026-08-14). The social card had the same hole, through the
-         * same method.
+         * A BOOK IS A `collections` ROW LIKE AN ALBUM, so it needs its own arm in
+         * ShareArtwork::hero(). Matching only Song and Album lets every shared audiobook fall
+         * to `default => false`, and the hero draws CoverImage's placeholder glyph beside a
+         * book that has a perfectly good Folder.jpg. The social card has the same hole, through
+         * the same method.
          *
          * `cover_path` rather than a file on disk: what is asserted here is which URL the page
          * is given, and `existsForAlbum` answers off the column. The bytes at the other end are

@@ -17,15 +17,13 @@ use Tests\TestCase;
  * Play counts for a SUBJECT — an artist, a genre, an album — on their own pages and as the
  * listings' column. The single-track half lives in PlayHistoryTest beside the beacon.
  *
- * ONE COUNTING RULE, SHARED WITH THE SONG PAGE since 2026-08-08: listening EVENTS by
- * `track_id`. Every play row belongs to exactly one track and so to exactly one artist,
- * which makes a straight join already exact — and which is what lets the figures add up, an
- * album's count being the sum of its tracks'. The song page counted by `content_hash` until
- * that date and was the one place in the app that did (MusicController's most-played always
- * ranked by id); data-model.md decision #5 was re-decided to match, and PlayCounts' docblock
- * has the argument and what the change costs.
+ * ONE COUNTING RULE, SHARED WITH THE SONG PAGE: listening EVENTS by `track_id`. Every play row
+ * belongs to exactly one track and so to exactly one artist, which makes a straight join
+ * already exact — and which is what lets the figures add up, an album's count being the sum of
+ * its tracks'. Counting by `content_hash` instead breaks that; PlayCounts' docblock has the
+ * argument and what each reading costs.
  *
- * THE LISTINGS SHOW ONLY THE READER'S OWN listens (the owner's call, 2026-08-08): this
+ * THE LISTINGS SHOW ONLY THE READER'S OWN listens: this
  * instance is shared with family and friends, so a browse list sorts usefully on what YOU
  * have played, and the yours/others split belongs on the detail page where a tile can label
  * it. That makes it the only per-viewer column in the app, which is what the housemate test

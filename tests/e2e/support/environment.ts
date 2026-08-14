@@ -29,10 +29,9 @@ const DATABASE = path.join(repoRoot, "storage", "e2e.sqlite");
 /**
  * The throwaway media area, rebuilt at the start of every run.
  *
- * The fixture used to be rows only, with no file anywhere on disk — which was right
- * while nothing played audio, and is not any more: the player specs have to stream
- * through the real route, and a 404 there proves nothing about playback. `seedMediaFiles`
- * fills this with a copy of the committed one-second mp3 at every path E2ESeeder claims.
+ * Rows alone are not enough: the player specs stream through the real route, and a 404
+ * there proves nothing about playback. `seedMediaFiles` fills this with a copy of the
+ * committed one-second mp3 at every path E2ESeeder claims.
  *
  * COVER art is deliberately still missing (the mp3 carries none, and no folder image is
  * written), because several specs depend on a cover request 404-ing to exercise
@@ -78,8 +77,8 @@ export const serverEnv: Record<string, string> = {
      * creating a playlist, syncing a queue, logging a play — can still meet a concurrent
      * read, and sqlite's default is to fail that write immediately with "database is
      * locked". It surfaces as a 500 on a page that is entirely correct, on a different spec
-     * each run, which is the worst kind of intermittent (it cost a full-suite run to
-     * diagnose, 2026-08-08).
+     * each run, which is the worst kind of intermittent — and it costs a full-suite run to
+     * diagnose.
      *
      * `busy_timeout` makes a blocked writer WAIT rather than throw; WAL lets readers carry
      * on while it holds the lock, so the wait is rarely needed at all. `synchronous=off` is
@@ -205,8 +204,8 @@ export const resetDatabase = (): void => {
      * The WAL sidecars go with it. Truncating the main file alone leaves a write-ahead log
      * and shared-memory index describing a database that no longer exists, and sqlite's
      * first act on opening the fresh file is to replay them — so a run could start against
-     * the tail of the previous one's writes, or simply refuse to open. Harmless when they
-     * are absent (`force`), which is every run before WAL was switched on.
+     * the tail of the previous one's writes, or simply refuse to open. `force`, because they
+     * are legitimately absent after a clean shutdown.
      */
     rmSync(`${DATABASE}-wal`, { force: true });
     rmSync(`${DATABASE}-shm`, { force: true });
@@ -286,10 +285,10 @@ export const SEED_USER = { name: "Ashaltiriak", password: "passwort" } as const;
 /**
  * One account per spec file that leaves a PLAY QUEUE behind (E2ESeeder creates them).
  *
- * The queue became server state when `player_states` sync landed, and that retired an
- * assumption this suite was built on: a fresh browser context is no longer a fresh player,
- * because a queue follows the USER. With one shared account, a spec in one worker restores
- * a queue another worker just left — and it fails two files away from the cause.
+ * The queue is server state (`player_states`), which breaks the assumption a browser test
+ * naturally makes: a fresh browser context is NOT a fresh player, because a queue follows the
+ * USER. With one shared account, a spec in one worker restores a queue another worker just
+ * left — and it fails two files away from the cause.
  *
  * Playwright never splits a FILE across workers, so a file with its own account has the
  * account to itself. What tests inside one file still owe each other is a reset, which is
@@ -299,10 +298,10 @@ export const SPEC_USERS = {
     queue: "spec-queue",
     player: "spec-player",
     /*
-     * Now Playing SHARED `player` until 2026-08-10, which was a straight violation of the rule
-     * above and failed exactly as advertised: `player.spec.ts` in another worker left a track
-     * behind, and the queue spec here counted eleven rows where it had queued ten. The rule is
-     * per FILE, not per feature — two files about the player are still two files.
+     * Its own account rather than sharing `player`, because the rule above is per FILE, not per
+     * feature — two files about the player are still two files. Sharing one fails exactly as
+     * advertised: the spec in another worker leaves a track behind, and this one counts eleven
+     * rows where it queued ten.
      */
     nowPlaying: "spec-now-playing",
     shortcuts: "spec-shortcuts",
@@ -317,27 +316,25 @@ export const SPEC_USERS = {
      * It is not about the queue, unlike the four above. Adding rows to the shared account's
      * playlist listing broke `playlists.spec.ts`'s DRAG test — that one scrolls three of its
      * own rows into view and computes pointer coordinates from them, and every extra row
-     * above pushes those coordinates somewhere the drag no longer lands. The failure appeared
-     * in a file this one never touches, which is the exact shape of problem an account per
-     * spec exists to prevent.
+     * above pushes those coordinates somewhere the drag does not land. The failure appears in a
+     * file this one never touches, which is the exact shape of problem an account per spec
+     * exists to prevent.
      */
     addToPlaylist: "spec-add-to-playlist",
     /*
-     * The account that made the rule above necessary, and did not get one until 2026-08-12.
-     *
      * IT IS HERE FOR THE SESSION, not for the rows — which is a different reason from every
-     * entry above it, and the reason took a while to find. Inertia carries validation errors
+     * entry above it, and the hardest of the three to find. Inertia carries validation errors
      * and flash messages in the SESSION, and Laravel does not lock sessions: it reads the
      * whole payload at the start of a request and writes the whole payload at the end. Two
      * concurrent requests sharing one cookie therefore lose one of the two writes, and what
      * gets lost is whichever flash was written first.
      *
-     * This is the only spec on the shared account that writes through the app and then
-     * asserts what the flash said, so it is the only one that could see it — as "will not
-     * submit a nameless playlist" finding no error message, and "edits a playlist's metadata"
-     * finding no toast, roughly one full run in five between them, each pointing at the
-     * feature rather than at the harness. Measured 2026-08-12: 10/10 green on one worker,
-     * 2-in-14 red on three, 42/42 green on three once each worker had a session of its own.
+     * This spec writes through the app and then asserts what the flash said, which is what
+     * makes it the one that can see this at all — as "will not submit a nameless playlist"
+     * finding no error message, and "edits a playlist's metadata" finding no toast, roughly one
+     * full run in five between them, each pointing at the feature rather than at the harness.
+     * Measured: 10/10 green on one worker, 2-in-14 red on three, 42/42 green on three once each
+     * worker had a session of its own.
      *
      * AN ACCOUNT ALONE IS NOT ENOUGH, which is why the spec is also `mode: "serial"` — with
      * `fullyParallel`, its own tests would race each other on this one session just as
@@ -382,18 +379,18 @@ export const specStorageState = (spec: keyof typeof SPEC_USERS): string =>
 /**
  * Drop a spec account's stored play queue, straight in the database.
  *
- * WHY EVERY QUEUE SPEC NEEDS IT: the queue is server state now, so a fresh browser context
- * is no longer a fresh player — the next test signs in as the same account and its first
- * page load restores whatever the last test left. Specs that assert "nothing is queued yet"
- * would inherit a queue nobody in that test ever built.
+ * WHY EVERY QUEUE SPEC NEEDS IT: the queue is server state, so a fresh browser context is not
+ * a fresh player — the next test signs in as the same account and its first page load restores
+ * whatever the last test left. Specs that assert "nothing is queued yet" would inherit a queue
+ * nobody in that test ever built.
  *
- * STRAIGHT TO SQLITE RATHER THAN THROUGH THE APP'S OWN PUT, which is what this did first
- * and which cost an hour: an out-of-band request has to carry a session cookie AND a CSRF
- * token that still matches it, and a stored session that authenticates by remember-me gets
- * a fresh session — and with it a token the parked `XSRF-TOKEN` no longer matches. The
- * request is then bounced through a redirect chain and answers 405, from a URL that has
- * nothing to do with the queue. None of that is a fact about the app worth reproducing in a
- * fixture; a DELETE is one statement and cannot be redirected.
+ * STRAIGHT TO SQLITE RATHER THAN THROUGH THE APP'S OWN PUT, which is worth an hour of anyone's
+ * time to know: an out-of-band request has to carry a session cookie AND a CSRF token that
+ * still matches it, and a stored session that authenticates by remember-me gets a fresh
+ * session — and with it a token the parked `XSRF-TOKEN` does not match. The request is then
+ * bounced through a redirect chain and answers 405, from a URL that has nothing to do with the
+ * queue. None of that is a fact about the app worth reproducing in a fixture; a DELETE is one
+ * statement and cannot be redirected.
  *
  * `busy_timeout` because the running app holds the same file open: a reset that collided
  * with a request mid-flight would otherwise throw SQLITE_BUSY rather than wait the
@@ -461,11 +458,11 @@ export const clearServerQueue = async (spec: keyof typeof SPEC_USERS): Promise<v
          * enough for anything fired at the previous context's death, and costs the suite
          * under three seconds in total.
          *
-         * IT REALLY IS TWO READS as of 2026-08-11 — until then this returned on the FIRST
-         * clean one, which is a single 40ms window and not what the paragraph above claims.
-         * The leak that exposed the gap is closed at its source in `stopQueueSync` (the
-         * dying tab no longer flushes at all); this is the belt to that pair of braces,
-         * because the one write the server cannot refuse is one stamped after this reset.
+         * IT REALLY IS TWO READS. Returning on the first clean one is a single 40ms window,
+         * which is not what the paragraph above claims. The leak is closed at its source in
+         * `stopQueueSync` (a dying tab does not flush at all); this is the belt to that pair
+         * of braces, because the one write the server cannot refuse is one stamped after
+         * this reset.
          */
         for (let attempt = 0; attempt < 6; attempt += 1) {
             write.run(SPEC_USERS[spec], JSON.stringify({

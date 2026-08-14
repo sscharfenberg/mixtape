@@ -14,7 +14,7 @@
  * audiobooks alone — a box on the Audiobooks page returning songs would send a reader
  * somewhere they were not browsing. The header's overlay is the one that searches both.
  *
- * AND IT IS OPTIONAL (`searchable`, 2026-08-14), for the reason StatsWidget's banner spells
+ * AND IT IS OPTIONAL (`searchable`), for the reason StatsWidget's banner spells
  * out: the welcome page draws this card to a visitor with no session, and `/search` is inside
  * the auth group, so a field there would answer 401 to everything typed into it.
  *
@@ -55,7 +55,7 @@ const props = withDefaults(defineProps<Props>(), { searchable: true, wide: true 
 const { t, locale } = useI18n();
 
 /**
- * The one kind this card's field may answer with (the owner's call): audiobooks, never music.
+ * The one kind this card's field may answer with: audiobooks, never music.
  * It sits on the Audiobooks page, and the header's overlay is the box that searches both.
  */
 const AUDIOBOOK_KINDS: SearchKind[] = ["audiobook"];

@@ -348,7 +348,7 @@ onUnmounted(() => {
         grid-area: volume;
     }
 
-    /* Last thing before the transport, and closest to it (the owner's placement): the two
+    /* Last thing before the transport, and closest to it: the two
        settings in it — what order the queue plays in, what happens at its end — are about
        what the skip buttons beside them will DO, so they sit next to those rather than out by
        the timeline. Reading order across the bar: position → level → order → the buttons. */

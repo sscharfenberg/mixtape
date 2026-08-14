@@ -34,10 +34,9 @@
 
     padding-inline: var(--container-padding-inline);
 
-    /* NO trailing exception for the play queue any more. This used to add a
-       `--content-inset-end` published by FullLayout, so the page's trailing column stayed
-       clear of a panel that stood permanently open from `landscape` up. The panel is an
-       overlay at every width now (PlayQueue's banner says why the dashboard settled that),
-       so there is nothing to clear and every page's box is symmetrical again. */
+    /* NO trailing exception for the play queue. A `--content-inset-end` here would keep the
+       page's trailing column clear of a panel standing permanently open — but the panel is an
+       overlay at every width (PlayQueue's banner says why), so there is nothing to clear and
+       every page's box stays symmetrical. */
 }
 </style>

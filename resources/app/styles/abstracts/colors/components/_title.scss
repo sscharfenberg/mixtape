@@ -5,16 +5,12 @@
  * its letters are painted with, the flat tint they wear below `landscape`, the outline, the glow
  * chain, and the twinkle in the corner of the lockup.
  *
- * IT HOLDS THE WHOLE TREATMENT AGAIN, as of 2026-08-10. These entries spent two days in
- * c.$c-text-chrome, a group made when the wordmark, a hero title and a playlist entry all wore
- * one shared `.text-chrome` class — made precisely to stop copies of one look drifting, having
- * been retuned in two files twice, the second time only because someone remembered the other
- * file existed. The hero and the playlist entry have since taken an OUTLINED treatment of their
- * own, which left a shared class and a shared token group with a single consumer. So both came
- * back to the component.
+ * IT HOLDS THE WHOLE TREATMENT, rather than sharing it. The wordmark is the only thing in the
+ * app painted this way — a hero title and a playlist entry take the OUTLINED treatment
+ * (c.$c-text-outline) instead — so the chrome belongs here.
  *
- * The rule that keeps this straight: a token group belongs to a component. While three
- * components wore one look, that look WAS a component and had its own group; now that only the
+ * The rule that keeps this straight: a token group belongs to a component. Were three components
+ * to wear one look, that look WOULD be a component and would have its own group; while only the
  * wordmark wears it, it is the wordmark's.
  * Consumed as c.$c-title via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
@@ -25,7 +21,7 @@ $title: (
     // The flat tint the SMALL sizes get. The chrome waits for `landscape`, because the ramp
     // splits at its own midline and a 1.2rem lockup is not tall enough for that split to read as
     // anything but noise — and because the clip and the stroke that carry it chew up type that
-    // small (the choppiness the owner reported).
+    // small, which reads as choppy.
     "flat": light-dark(map.get(c.$retro, "c5", "light"), map.get(c.$retro, "c6", "dark")),
     // Dark blue → blue → a white specular line at the midline → violet → purple → pink: chrome
     // lettering, which is why the stops double up at 50%.
@@ -48,11 +44,11 @@ $title: (
     // near-black outline reads heavier and dirtier against the chrome. It only works at the
     // wider width; a hairline this pale would be invisible.
     //
-    // Dark mode: WHITE, which reversed an earlier judgement (2026-08-08). It used to be a mid
-    // grey hairline, on the theory that "the neon fill separates from a dark surface on its own"
-    // — it does not. The ramp's upper third is a DARK blue, so the tops of the letters sank in
-    // and the name read as smudged. Rendered side by side: black at 0.03em and 0.05em both made
-    // it WORSE (the stroke consumed the glyph and merged with the background), while white at
+    // Dark mode: WHITE, against the intuition that "the neon fill separates from a dark surface
+    // on its own" — it does not. The ramp's upper third is a DARK blue, so with a mid-grey
+    // hairline the tops of the letters sink in and the name reads as smudged. Rendered side by
+    // side: black at 0.03em and 0.05em both make it WORSE (the stroke consumes the glyph and
+    // merges with the background), while white at
     // 0.02em was immediately legible. Past roughly 0.03em the outline starts to dominate the
     // chrome it frames, so the width settled just under that.
     //

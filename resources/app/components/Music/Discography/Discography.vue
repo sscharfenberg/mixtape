@@ -163,7 +163,7 @@ watch(
  * for an audiobook, depending on `countKey`.
  *
  * Its own chip rather than part of a joined sentence: each fact is a separate pill, so the
- * separator that used to hold "4 Songs · 26:23" together is the chip boundary now.
+ * separator that would hold "4 Songs · 26:23" together is the chip boundary instead.
  */
 const songCount = (album: DiscographyAlbum): string => t(props.countKey, album.songs);
 </script>

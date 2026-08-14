@@ -36,9 +36,9 @@ export type UseAudiobookBookmarkReturn = {
  * exactly the tab somebody left a book playing in. Writes are spaced by
  * `mixtape.player.position_heartbeat` seconds of PLAYBACK, so a paused player writes nothing.
  *
- * IT ONLY EVER WRITES THIS BOOK'S OWN CHAPTERS. The queue is shared with music (the owner's
- * call), so what is loaded may be a song, or a chapter of a different book, and neither has
- * any business moving this page's bookmark.
+ * IT ONLY EVER WRITES THIS BOOK'S OWN CHAPTERS. There is ONE queue, shared with music, so what
+ * is loaded may be a song or a chapter of a different book — and neither has any business
+ * moving this page's bookmark.
  *
  * @param audiobookId the book this page is about
  * @param initial     the bookmark the server sent with the page, or null

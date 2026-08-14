@@ -15,10 +15,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A container of tracks — the merged albums + audiobooks table (data-model.md →
- * (a), "the collections half-step"). `type` says which container kind it is and
+ * "One tracks table, one collections table"). `type` says which container kind it is and
  * a DB CHECK ties the owner FK to it: `album_artist` only on albums.
  *
- * AN AUDIOBOOK HAS NO OWNER COLUMN (2026-08-13). Its author is a property of each
+ * AN AUDIOBOOK HAS NO OWNER COLUMN. Its author is a property of each
  * chapter (`tracks.author_id`), because an anthology names a different one per story —
  * so a book's authors are read through its tracks, and it dedupes on its title alone.
  */
@@ -67,7 +67,7 @@ class Collection extends Model
      * `->count('authors.id')` and `->pluck('authors.name')`. A bare `->count()` rewrites the
      * select to `count(*)`, leaving the `distinct()` nothing to apply to, so an author with
      * nine chapters in one book counts nine times; a bare `->pluck('name')` is an outright
-     * "ambiguous column name" error. Both measured 2026-08-13.
+     * "ambiguous column name" error. Both measured, both silent.
      *
      * @return BelongsToMany<Author, $this>
      */

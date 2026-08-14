@@ -126,7 +126,7 @@ test.describe("a playlist's detail page", () => {
 
     test("carries the playlist's blurb and facts in the hero", async ({ page }) => {
         // The four facts the listing's row shows, so a playlist reads the same in both places,
-        // over the owner's own words. The fixture's playlist was changed after it was made, so
+        // over the maker's own words. The fixture's playlist was changed after it was made, so
         // all four render.
         await openFromListing(page, POPULATED);
 
@@ -189,8 +189,8 @@ test.describe("a playlist's detail page", () => {
     test("opens the song from anywhere else in the row, including its padding", async ({ page }) => {
         /*
          * The row lights up along its whole width, so it has to BE a target along its whole
-         * width — it promised one and did not have it, which is how the owner found this:
-         * outside the words there was no pointer cursor and nothing to click.
+         * width. Promising one without having it is what a reader finds by hovering: outside the
+         * words there is no pointer cursor and nothing to click.
          *
          * Aimed at the row's trailing padding, a few pixels inside its edge and clear of every
          * child, so this fails if the stretched overlay is missing rather than passing on some

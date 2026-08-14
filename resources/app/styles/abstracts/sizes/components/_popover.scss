@@ -12,15 +12,15 @@
  * How much of the viewport a floating panel may take: all of it bar a gutter on each
  * side, in both directions.
  *
- * The width used to be a flat `50dvw`, and "never more than half the screen" is a rule
- * that only makes sense on a screen with halves to spare. On a phone it is the panel
- * that loses: 50dvw is 206px on a Pixel 7, where the player's settings panel needs 250px
- * for a German label and its bubbles — so it clipped its own controls against the right
- * edge and grew an internal horizontal scrollbar (reported on Android Chrome and
- * reproduced in Chrome's Pixel 7 emulation, 2026-08-07). Every popover with a `ch` width
- * was one notch behind it: 24ch is wider than 50dvw on anything under ~400px.
+ * NOT a flat `50dvw`: "never more than half the screen" is a rule that only makes sense on a
+ * screen with halves to spare. On a phone it is the panel that loses — 50dvw is 206px on a
+ * Pixel 7, where the player's settings panel needs 250px for a German label and its bubbles,
+ * so it clips its own controls against the right edge and grows an internal horizontal
+ * scrollbar (measured on Android Chrome and in Chrome's Pixel 7 emulation). Every popover with
+ * a `ch` width is one notch behind the same problem: 24ch is wider than 50dvw on anything
+ * under ~400px.
  *
- * Nothing was lost by dropping the half-screen cap. It only ever bound a popover whose
+ * Nothing is lost by having no half-screen cap. It would only ever bind a popover whose
  * `width` is `auto` — the player's settings and volume panels, both of which size
  * themselves from a handful of fixed controls — because the other three declare a `ch`
  * width that already caps them. A future panel with sprawling content should say so in

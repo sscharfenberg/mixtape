@@ -179,14 +179,13 @@ test.describe("the document outline", () => {
     /*
      * ONE <h1> PER PAGE, and it is the wordmark in the header.
      *
-     * Added 2026-08-06, when the owner noticed the artist page carried two: the hero passed an
-     * `<h1>` for the artist's name while the header's wordmark — which every page renders — was
-     * already one. Every page title is an `<h2>` now, and this is what keeps it that way.
+     * The easy way to get two is a hero passing an `<h1>` for its subject's name while the
+     * header's wordmark — which every page renders — is already one. Every page title is an
+     * `<h2>`, and this is what keeps it that way.
      *
-     * IT IS ALSO WHAT `pageHeading` STANDS ON as of 2026-08-11: that helper matches the first
-     * `<h2>` inside <main>, which is only "the page's own title" for as long as the wordmark
-     * remains the document's sole `<h1>`. It used to key off the hero's title wrapper — until
-     * the four Music detail pages moved their titles out of the hero into a <Headline>.
+     * IT IS ALSO WHAT `pageHeading` STANDS ON: that helper matches the first `<h2>` inside
+     * <main>, which is only "the page's own title" for as long as the wordmark remains the
+     * document's sole `<h1>`.
      *
      * Detail pages are reached by clicking a row rather than by hardcoding a seeded id, so the
      * fixture stays free to change ids.
@@ -227,7 +226,7 @@ test.describe("the document outline", () => {
             expect(detail.count).toBe(1);
             expect(detail.inHeader).toBe(true);
             // The page's own title is still a heading, one level down — in the <Headline>
-            // above the hero since 2026-08-11, which is what `pageHeading` finds.
+            // above the hero, which is what `pageHeading` finds.
             await expect(pageHeading(page)).toHaveJSProperty("tagName", "H2");
         });
     }
@@ -273,11 +272,11 @@ test.describe("the detail hero", () => {
 
     test("leaves no phantom column on a hero with no cover", async ({ page }) => {
         /*
-         * A genre has no artwork of any kind, so it slots nothing into `#cover` — and the grid
-         * used to declare its second column anyway. The track then resolved to zero width while
-         * the COLUMN GAP between the two did not go away, so the panel carried a stripe of dead
-         * space inside its trailing padding: a stray margin nobody had written, and invisible to
-         * every assertion that only reads the DOM.
+         * A genre has no artwork of any kind, so it slots nothing into `#cover` — and a grid that
+         * declares its second column anyway resolves that track to zero width while the COLUMN GAP
+         * between the two does not go away. The panel then carries a stripe of dead space inside
+         * its trailing padding: a stray margin nobody wrote, and invisible to every assertion that
+         * only reads the DOM.
          *
          * What is left over past the text column must therefore be the padding and nothing else.
          * Compared against the panel's OWN padding rather than a literal, so the number cannot go
@@ -320,7 +319,7 @@ test.describe("a page heading too long for its line", () => {
      * max-content size — so an unwrapped title is an anonymous flex item that gets pushed onto
      * a line of its own BEFORE it is ever given the chance to shrink and wrap inside one. The
      * icon was then left sitting alone above it. Reported on a song whose name runs to four
-     * slash-separated clauses (2026-08-11); fixed by holding the whole default slot in one
+     * slash-separated clauses; fixed by holding the whole default slot in one
      * flex item with a zero basis (Headline).
      *
      * happy-dom cannot see any of it — there is no layout there, so a unit test asserting

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useClipboard } from "Composables/useClipboard";
 
 /*
- * useClipboard has two paths — the modern async Clipboard API and the legacy
+ * useClipboard has two paths — the modern async Clipboard API and the deprecated
  * execCommand fallback for restricted WebViews — plus a rule that matters to the UI:
  * clipboard failures are SWALLOWED. A denied permission (common on mobile, entirely
  * outside our control) must not throw into a click handler and break the page.

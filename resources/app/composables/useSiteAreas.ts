@@ -5,7 +5,7 @@
  * the list can't drift between them. Labels are computed from the i18n catalog so
  * they follow a runtime locale switch.
  *
- * EVERY AREA IS CONDITIONAL, since 2026-08-08, and each on a different fact:
+ * EVERY AREA IS CONDITIONAL, and each on a different fact:
  *
  *   - MUSIC and AUDIOBOOKS on whether the library holds any. An empty area is a
  *     link to a page that says nothing, and this instance can legitimately hold one
@@ -22,8 +22,8 @@
  * It sits LAST for that reason. A link that comes and goes shifts whatever follows
  * it, so the one entry that does is the one with nothing after it.
  *
- * Podcasts were the third area until 2026-08-08 and are gone entirely: a podcast is
- * something you listen to on the service that publishes it, not a folder of mp3s.
+ * There is deliberately no podcast area: a podcast is something you listen to on the
+ * service that publishes it, not a folder of mp3s.
  *****************************************************************************/
 import { usePage } from "@inertiajs/vue3";
 import { computed } from "vue";
