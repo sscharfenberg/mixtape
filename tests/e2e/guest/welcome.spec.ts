@@ -148,15 +148,19 @@ test("stacks them into one column well before the cards get cramped", async ({ p
 });
 
 /*
- * THE TWO CARDS' TILE ROWS LINE UP, which is a `WidgetGroup --pair`
- * decision and only observable in a browser.
+ * THE TWO CARDS' TILE ROWS LINE UP AND END FLUSH, which is a `WidgetGroup --pair` decision and
+ * only observable in a browser.
  *
  * A wrapping tile grid shares its card's SPARE height between its own lines, and the two cards
  * never have the same amount spare: the real library's playtime runs to "2 Monate, 17 Tage, …"
- * and wraps to two lines where the audiobook card's fits on one. So each card divided what it had
- * across its own three rows and every tile came out a different height to its opposite number —
- * measured at 1440px before the fix: row 1 drawn 72px tall on the left and 83px on the right, the
- * years row starting 10px lower and the playtime row 22px lower on the right.
+ * and wraps to two lines where the audiobook card's fits on one. Divide what each card has across
+ * its own three rows and every tile comes out a different height to its opposite number —
+ * measured at 1440px: row 1 drawn 72px tall on the left and 83px on the right, the years row
+ * starting 10px lower and the playtime row 22px lower on the right.
+ *
+ * TWO CLAIMS, AND THE SECOND IS THE ONE A PER-LINE RULE CANNOT MAKE. Rows at their natural height
+ * line up, but that leaves the shorter card 32px short at the bottom — a strip of nothing under
+ * its playtime. So the BOTTOM row grows instead, and both cards' last tiles end on the same y.
  *
  * THE LONG PLAYTIME IS INJECTED, and that needs justifying. The E2E library is a handful of
  * files, so both playtimes fit on one line here and the rows line up whatever `align-content`
@@ -186,26 +190,44 @@ test("keeps both cards' tile rows aligned when one playtime wraps", async ({ pag
         // Force layout, then read every tile's top edge per card.
         void (cards[0] as HTMLElement).offsetHeight;
 
-        return cards.map(card => [...card.querySelectorAll(".widget-stats__cell")].map(cell => {
-            const box = cell.getBoundingClientRect();
+        return cards.map(card => {
+            const cells = [...card.querySelectorAll(".widget-stats__cell")];
+            const last = cells[cells.length - 1];
 
-            return { top: Math.round(box.top), height: Math.round(box.height) };
-        }));
+            return {
+                tiles: cells.map(cell => {
+                    const box = cell.getBoundingClientRect();
+
+                    return { top: Math.round(box.top), height: Math.round(box.height) };
+                }),
+                lastBottom: Math.round(last.getBoundingClientRect().bottom),
+                // The VALUE's own box, which is where "did it wrap?" is legible: the tile it sits
+                // in is sized by the layout under test, so asking the tile would be circular.
+                lastValueHeight: Math.round(last.querySelector(".widget-stats__value")!.getBoundingClientRect().height)
+            };
+        });
     });
 
     const [music, books] = rows;
 
     // Same number of tiles on both cards here (six facts plus a year range), so the tops compare
-    // one for one. Every row starts at the same y; only the wrapped playtime's own HEIGHT differs,
-    // and it may, because it is the last row and grows downward.
-    expect(books).toHaveLength(music.length);
-    music.forEach((cell, index) => expect(Math.abs(cell.top - books[index].top)).toBeLessThanOrEqual(1));
+    // one for one.
+    expect(books.tiles).toHaveLength(music.tiles.length);
+    music.tiles.forEach((cell, index) =>
+        expect(Math.abs(cell.top - books.tiles[index].top)).toBeLessThanOrEqual(1));
 
     // THE PREMISE OF THE CASE, asserted rather than assumed: the injected value really did wrap,
-    // so the tops above line up in spite of unequal content and not because there was none. This
-    // is the assertion that would have failed before the fix — with the tiles stretching, the
-    // taller playtime is exactly what pulled every row above it out of step.
-    const lastMusic = music[music.length - 1];
-    const lastBooks = books[books.length - 1];
-    expect(lastMusic.height).toBeGreaterThan(lastBooks.height);
+    // so everything below holds in spite of unequal CONTENT and not because there was none.
+    // Measured on the value rather than on its tile — 63px against 32px — because the tile's
+    // height is the thing under test.
+    expect(music.lastValueHeight).toBeGreaterThan(books.lastValueHeight);
+
+    // …and the bottom row absorbed the difference, so the two cards agree all the way down. Both
+    // assertions matter: equal heights alone would pass if both tiles were short and the cards
+    // ended in matching strips of nothing, and a shared bottom edge is what says the leftover
+    // actually went into the tile.
+    const lastMusic = music.tiles[music.tiles.length - 1];
+    const lastBooks = books.tiles[books.tiles.length - 1];
+    expect(Math.abs(lastMusic.height - lastBooks.height)).toBeLessThanOrEqual(1);
+    expect(Math.abs(music.lastBottom - books.lastBottom)).toBeLessThanOrEqual(1);
 });

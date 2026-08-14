@@ -12,6 +12,7 @@
  *
  * A card supplies the tiles; this owns how they are laid out and how a value may break.
  *****************************************************************************/
+import { computed } from "vue";
 import Icon from "Components/UI/Icon.vue";
 import Tooltip from "Components/UI/Tooltip/Tooltip.vue";
 
@@ -36,38 +37,65 @@ export interface StatTile {
     wide?: boolean;
 }
 
-defineProps<{
+const props = defineProps<{
     /** The tiles to draw, in order. */
     tiles: StatTile[];
 }>();
+
+/**
+ * The tiles cut into consecutive runs of the same width, each drawn as its own row group.
+ *
+ * IT EXISTS SO THAT ONE ROW CAN BE GIVEN THE CARD'S LEFTOVER HEIGHT — see the grid's style rule,
+ * which is where that leftover comes from and why the bottom row is the right place for it. A
+ * single wrapping container has no way to hand its spare cross space to one line rather than
+ * sharing it between all of them, so the rows have to be real boxes for the pair case; the groups
+ * collapse to `display: contents` everywhere else, which puts every tile back in one wrapping
+ * container and leaves that case untouched.
+ *
+ * RUNS RATHER THAN "the narrow ones, then the wide ones", so the order a card declares is the
+ * order drawn. Splitting by width alone would silently move a wide tile to the end — no consumer
+ * puts one anywhere but last, which is exactly why that would go unnoticed.
+ */
+const groups = computed<StatTile[][]>(() =>
+    props.tiles.reduce<StatTile[][]>((rows, tile) => {
+        const current = rows[rows.length - 1];
+
+        if (current && (current[0].wide === true) === (tile.wide === true)) current.push(tile);
+        else rows.push([tile]);
+
+        return rows;
+    }, [])
+);
 </script>
 
 <template>
     <div class="widget-stats__grid">
-        <tooltip
-            v-for="tile in tiles"
-            :key="tile.key"
-            :text="tile.hint"
-            class="widget-stats__cell"
-            :class="{ 'widget-stats__cell--wide': tile.wide }"
-        >
-            <span class="widget-stats__head">
-                <icon :name="tile.icon" :size="1" />
-                <span class="widget-stats__label">{{ tile.label }}</span>
-            </span>
-            <!-- One span per unbreakable piece, with the separating SPACE as a text node
-                 outside them: that space is the only place the value may break, which is what
-                 keeps "96,00 GB" and "21 Stunden" whole.
+        <div v-for="group in groups" :key="group[0].key" class="widget-stats__lines">
+            <tooltip
+                v-for="tile in group"
+                :key="tile.key"
+                :text="tile.hint"
+                class="widget-stats__cell"
+                :class="{ 'widget-stats__cell--wide': tile.wide }"
+            >
+                <span class="widget-stats__head">
+                    <icon :name="tile.icon" :size="1" />
+                    <span class="widget-stats__label">{{ tile.label }}</span>
+                </span>
+                <!-- One span per unbreakable piece, with the separating SPACE as a text node
+                     outside them: that space is the only place the value may break, which is what
+                     keeps "96,00 GB" and "21 Stunden" whole.
 
-                 ALL ON ONE LINE, and the space written as an interpolation rather than as
-                 markup, because both halves of that are load-bearing. A newline between the
-                 pieces would put a whitespace text node INSIDE the run and Vue's `condense`
-                 would drop it; a `<span> </span>` separator loses its space the same way
-                 (measured — the tests caught it). An interpolation is a real expression node,
-                 so nothing may collapse it. Lose the space and the value still looks right at
-                 a glance while reading and copying as "2 Tage,3 Stunden". -->
-            <span class="widget-stats__value"><template v-for="(part, index) in tile.value" :key="part">{{ index > 0 ? " " : "" }}<span class="widget-stats__part">{{ part }}</span></template></span>
-        </tooltip>
+                     ALL ON ONE LINE, and the space written as an interpolation rather than as
+                     markup, because both halves of that are load-bearing. A newline between the
+                     pieces would put a whitespace text node INSIDE the run and Vue's `condense`
+                     would drop it; a `<span> </span>` separator loses its space the same way
+                     (measured — the tests caught it). An interpolation is a real expression node,
+                     so nothing may collapse it. Lose the space and the value still looks right at
+                     a glance while reading and copying as "2 Tage,3 Stunden". -->
+                <span class="widget-stats__value"><template v-for="(part, index) in tile.value" :key="part">{{ index > 0 ? " " : "" }}<span class="widget-stats__part">{{ part }}</span></template></span>
+            </tooltip>
+        </div>
     </div>
 </template>
 
@@ -89,38 +117,72 @@ defineProps<{
    across, or three and two, always flush to both edges. The cost is that tiles on different
    lines can differ in width, which for independent facts reads as fine and never as ragged.
 
-   `flex: 1` on the container is what hands the card's spare height to the tiles;
-   `align-content` decides what happens to it, and the default `stretch` shares it between the
-   lines rather than pooling it under the last one.
+   `flex: 1` on the container is what hands the card's spare height to the tiles, and where that
+   height GOES is the one thing this file cannot decide for itself — see the row groups below.
 
-   THAT DEFAULT IS ALSO WHY TWO CARDS SIDE BY SIDE CANNOT LINE UP, which is what
-   `--stat-tiles-align` exists for (2026-08-14, the owner). Stretching is a per-card decision
-   made from that card's OWN spare height: on the welcome page the music card's playtime runs to
-   "2 Monate, 17 Tage, …" and wraps to two lines, so it has ~30px less to give away than the
-   audiobook card beside it — and each card shared what it had across its own three lines.
-   Measured at 1440px: identical row 1 in both, drawn 72px tall in one and 83px in the other, so
-   the years row started 10px lower on the right and the playtime row 22px lower. Every tile a
-   different size to its opposite number.
-
-   `flex-start` is the fix, and the cost is explicit rather than hidden: lines take their natural
-   height, so all three rows start at the same y in both cards (485 / 570 / 654, measured) and
-   only the playtime's own box is taller — which is fine, because it is last and grows downward.
-   The shorter card then leaves its slack as a strip at the bottom, the very thing `stretch` was
-   added to remove. So this is a CHOICE BETWEEN TWO COSTS, not a bug fix, and which one is right
-   depends on the neighbours: a card alone beside four browse widgets has a lot of spare height
-   and should absorb it, while a matched pair should agree with each other.
-
-   WHICH IS WHY THE GROUP DECIDES, NOT THIS FILE. A custom property inherits, so
-   `WidgetGroup --pair` publishes `flex-start` and this reads it — no prop threaded down through
-   Widget and the two consumer cards to reach a layout question none of them asks. */
+   NOT A SUBGRID, which is the obvious way to make two cards' rows agree and cannot work here: a
+   subgrid spans a DECLARED number of tracks, and the number of tile rows is a wrapping outcome
+   rather than a constant. It is three at the pair's two-up width, fewer once the group collapses
+   to one column, more on a phone. Pinning it would mean going back to a fixed column count —
+   the arrangement the paragraph above measures the cost of. */
 .widget-stats__grid {
     display: flex;
-    align-content: var(--stat-tiles-align, stretch);
-    flex-wrap: wrap;
+    align-content: stretch;
+
+    /* A COLUMN OF ROW GROUPS, but only where those groups are boxes at all (below). */
+    flex-flow: var(--stat-tiles-flow, row) wrap;
 
     flex: 1;
 
     gap: map.get(s.$c-widget, "cell-gap");
+}
+
+/* One run of same-width tiles. `display: contents` BY DEFAULT, so it has no box and every tile is
+   a direct item of the one wrapping container above — which is the whole of the ordinary case, and
+   why a card that is not one of a matched pair is completely unaffected by any of this.
+
+   WHY THE GROUPS BECOME BOXES FOR A PAIR. Spare height is shared by `align-content`, which works
+   per LINE and cannot favour one — and each card computes its share from its OWN leftover. On the
+   welcome page the music card's playtime runs to "2 Monate, 17 Tage, …" and wraps to two lines,
+   so it has ~30px less to give away than the audiobook card beside it, and every row ended up a
+   different height to its opposite number: measured at 1440px, an identical first row drawn 72px
+   tall in one card and 83px in the other, so the years row started 10px lower on the right and
+   the playtime row 22px lower.
+
+   As real boxes the rows take their natural height, so all three start at the same y in both
+   cards (485 / 570 / 654, measured) — and the LAST group grows, which is where the leftover goes.
+   That is the half a per-line rule cannot express: the shorter card's 32px lands under its
+   playtime, so both cards' bottom tiles end flush (104px tall, bottom 758) instead of one being
+   72px with a 32px strip of nothing beneath it.
+
+   IT IS THE BOTTOM ROW BECAUSE IT IS THE ONE THAT CAN ABSORB HEIGHT HONESTLY. A tile is a glyph,
+   a label and a value centred in whatever box it gets, so a taller box reads as air rather than
+   as a mistake — and being last, it grows downward into space no other row wants. Sharing the
+   leftover between all the rows instead is what pulls them out of step, and giving it to a row
+   with a row beneath it would just move the problem up.
+
+   WHY THE GROUP DECIDES AND NOT THIS FILE: a card alone beside four browse widgets has real
+   spare height to absorb — 89px on the Music page, measured, which `stretch` spreads over three
+   lines to draw every tile 102px instead of 72px. Route that to the bottom row instead and the
+   playtime tile is ~22px taller than the five above it, for no reason a reader could see. So
+   "which row takes the slack" is a question about a card's NEIGHBOURS, and `WidgetGroup --pair`
+   answers it. Custom properties inherit, so it reaches here with no prop threaded through Widget
+   and the two consumer cards to carry an answer neither of them knows. */
+.widget-stats__lines {
+    display: var(--stat-tiles-rows, contents);
+    align-content: stretch;
+
+    /* Natural height, so the rows of two cards in a pair agree — except the last, which takes
+       what is left over. Inert under `display: contents`, which is what keeps the ordinary case
+       exactly as it was. */
+    flex-grow: 0;
+    flex-wrap: wrap;
+
+    gap: map.get(s.$c-widget, "cell-gap");
+
+    &:last-child {
+        flex-grow: 1;
+    }
 }
 
 /* Each tile is the Tooltip's root span (class merged onto it); as a flex item its inline-flex

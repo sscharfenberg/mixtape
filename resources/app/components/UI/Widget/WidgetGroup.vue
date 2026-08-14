@@ -11,9 +11,10 @@
  *     steps DOWN on small viewports — so it shrinks precisely where a dense card can least
  *     afford it, and the pair stayed two-up at widths where a written-out playtime wrapped to
  *     three lines. See the `pair-min` token.
- *   - the tiles stop stretching, so the two cards' rows line up rather than each sharing its own
- *     spare height across its own lines. The rule lives here and is read below via
- *     `--stat-tiles-align`; StatTiles carries the measurements.
+ *   - the tile rows become real boxes at their natural height, so the two cards' rows line up
+ *     rather than each sharing its own spare height across its own lines — and the BOTTOM row
+ *     takes what is left over, so neither card ends in a strip of nothing. The rule lives here
+ *     and is read below; StatTiles carries the measurements.
  *****************************************************************************/
 withDefaults(
     defineProps<{
@@ -51,16 +52,24 @@ withDefaults(
 
 /* The same grid on a wider floor — see the component banner and the token.
 
-   AND THE PAIR'S TILES STOP STRETCHING, which is the second half of "these two are a matched
-   set". A wrapping tile grid defaults to sharing its card's spare height between its own lines,
-   and the two cards never have the same amount to share — the music card's playtime wraps to
-   two lines where the audiobook card's does not — so every row ended up a different height to
-   its opposite number. Published as a custom property because it inherits: StatTiles reads
-   `--stat-tiles-align` several components below, with no prop threaded through Widget and the
-   consumer cards to carry an answer neither of them knows. StatTiles carries the measurements
-   and the cost. */
+   AND THE PAIR'S SPARE HEIGHT GOES TO THE BOTTOM ROW, which is the second half of "these two are
+   a matched set". A wrapping tile grid shares its card's spare height between its own lines, and
+   the two cards never have the same amount to share — the music card's playtime wraps to two
+   lines where the audiobook card's does not — so every row ends up a different height to its
+   opposite number. Making the tile rows real boxes at their natural height lines them up, and
+   letting the LAST one grow puts the leftover somewhere a reader reads as air rather than as a
+   32px strip of nothing under the shorter card.
+
+   TWO DECLARATIONS, ONE DECISION, so they belong together: the rows have to be boxes to be
+   sizeable at all (`--stat-tiles-rows`), and the container has to stack them (`--stat-tiles-flow`).
+   Set one without the other and the tiles lay out sideways. Published as custom properties
+   because they inherit — StatTiles reads them several components below, with no prop threaded
+   through Widget and the consumer cards to carry an answer neither of them knows. StatTiles
+   carries the measurements, and why this is a question about a card's NEIGHBOURS rather than
+   about the card. */
 .widget-group--pair {
-    --stat-tiles-align: flex-start;
+    --stat-tiles-rows: flex;
+    --stat-tiles-flow: column;
 
     grid-template-columns: repeat(auto-fit, minmax(min(#{map.get(s.$c-widget, "pair-min")}, 100%), 1fr));
 }
