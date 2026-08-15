@@ -66,6 +66,9 @@ function onChange(event: Event): void {
     .form-radio {
         display: flex;
 
+        // containing block for the clipped input below, so focusing it cannot scroll the page.
+        position: relative;
+
         border: map.get(s.$c-input, "border") solid map.get(c.$c-input, "border");
 
         background-color: map.get(c.$c-input, "background");
@@ -114,12 +117,24 @@ function onChange(event: Event): void {
             gap: 1ch;
         }
 
+        /* CLIPPED, NEVER `visibility: hidden` OR `display: none` — the input is what carries
+           focus, the arrow-key walk between options and the group semantics, and all three are
+           removed along with the element. The same visually-hidden recipe OptionBubbles and
+           Checkbox use, for the same reason. */
         input[type="radio"] {
             $inset: #{map.get(s.$c-input, "border") * 2};
-            visibility: hidden;
+            position: absolute;
 
-            width: 0;
-            height: 0;
+            overflow: hidden;
+
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            border: 0;
+            margin: -1px;
+            clip-path: inset(50%);
+
+            white-space: nowrap;
 
             + .form-radio__button::after {
                 display: block;
@@ -157,6 +172,13 @@ function onChange(event: Event): void {
         &:hover {
             background-color: map.get(c.$c-input, "background-focus");
             color: map.get(c.$c-input, "surface-focus");
+        }
+
+        /* The input is clipped, so keyboard focus has to be surfaced on the option itself —
+           the whole label is what a reader sees as the control, not just the box. */
+        &:has(input[type="radio"]:focus-visible) {
+            outline: map.get(s.$c-input, "border") solid map.get(c.$c-input, "border-focus");
+            outline-offset: 2px;
         }
 
         &:has(input[type="radio"]:checked) {

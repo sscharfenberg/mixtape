@@ -71,7 +71,7 @@ async function enqueue(): Promise<void> {
         icon="more"
         :reference="REFERENCE"
         class-string="popover-button--rounded popover-button--subtle"
-        :aria-label="t('music.subjectMenu.actions', { subject: subjectLabel })"
+        :ariaLabel="t('music.subjectMenu.actions', { subject: subjectLabel })"
         width="24ch"
     >
         <ul class="popover-list">

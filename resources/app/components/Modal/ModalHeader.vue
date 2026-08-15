@@ -7,13 +7,21 @@
 import { useI18n } from "vue-i18n";
 import Icon from "Components/UI/Icon.vue";
 
+defineProps<{
+    /** Id put on the heading so the parent <dialog> can name itself with `aria-labelledby`. */
+    titleId: string;
+}>();
+
 const { t } = useI18n();
 </script>
 
 <template>
     <div class="modal-dialog__header">
-        <h3 class="modal-dialog__title"><slot /></h3>
-        <button type="button" class="btn-close" @click="$emit('close')" :aria-label="t('common.close')" tabindex="-1">
+        <h3 :id="titleId" class="modal-dialog__title"><slot /></h3>
+        <!-- Focusable: this is the only visible dismiss control in the modal, and while Escape
+             also closes, a control that looks pressable and cannot be tabbed to is a dead end
+             for a keyboard reader — it is also what the `:focus-visible` style below is for. -->
+        <button type="button" class="btn-close" @click="$emit('close')" :aria-label="t('common.close')">
             <span>{{ t("common.close") }}</span>
             <icon name="close" :size="1" />
         </button>

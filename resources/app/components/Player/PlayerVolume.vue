@@ -112,7 +112,7 @@ const onKeydown = (event: KeyboardEvent): void => {
             :icon="triggerGlyph"
             reference="playerVolume"
             class-string="popover-button--rounded popover-button--subtle player-volume__trigger"
-            :aria-label="t('player.bar.volume')"
+            :ariaLabel="t('player.bar.volume')"
             width="auto"
         >
             <div class="player-volume__panel">

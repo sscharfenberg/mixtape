@@ -26,8 +26,6 @@
  * The hero's controls are SubjectActions in its #actions row: play, enqueue, share — visible
  * buttons rather than a popover, because a page's two most likely actions should not be hidden
  * behind a "…".
- * Play history and the clone list ("also appears in N other places") are still to come —
- * see docs/architecture.md.
  *****************************************************************************/
 import { Head } from "@inertiajs/vue3";
 import { computed } from "vue";

@@ -34,7 +34,7 @@ const toggleEvent = (newState: "open" | "closed"): Event =>
 /** Mount a popover, defaulting the id so assertions can address the dialog. */
 const popover = (props: Record<string, unknown> = {}) =>
     mount(PopOver, {
-        props: { icon: "more", reference: "testMenu", ...props },
+        props: { icon: "more", reference: "testMenu", ariaLabel: "Menü öffnen", ...props },
         slots: { default: '<ul class="popover-list"><li>an item</li></ul>' },
         attachTo: document.body
     });
@@ -60,8 +60,8 @@ describe("PopOver", () => {
     it("gives two popovers different ids when neither was named", () => {
         // The default is random for exactly this reason: two menus sharing an id would toggle
         // each other, and the app now renders five popovers on one page.
-        const first = mount(PopOver, { props: { icon: "more" } });
-        const second = mount(PopOver, { props: { icon: "more" } });
+        const first = mount(PopOver, { props: { icon: "more", ariaLabel: "erstes Menü" } });
+        const second = mount(PopOver, { props: { icon: "more", ariaLabel: "zweites Menü" } });
 
         expect(first.find("dialog").attributes("id")).not.toBe(second.find("dialog").attributes("id"));
     });
@@ -107,12 +107,18 @@ describe("PopOver", () => {
         expect(remove).toHaveBeenCalledWith("toggle", expect.any(Function));
     });
 
-    it("names the trigger, falling back rather than leaving it unnamed", () => {
-        // Every trigger is icon-only, so the accessible name is the only name it has.
+    it("names the trigger with the caller's label and nothing else", () => {
+        /*
+         * Every trigger is icon-only, so the accessible name is the only name it has — which is
+         * why `ariaLabel` is required rather than defaulted. A fallback would be a hardcoded
+         * string in one language on a bilingual app, quietly correct-looking in the other.
+         */
         expect(popover({ ariaLabel: "Warteschlangen-Aktionen" }).find("button").attributes("aria-label")).toBe(
             "Warteschlangen-Aktionen"
         );
-        expect(popover().find("button").attributes("aria-label")).toBe("Open menu");
+        // The label is the button's whole content: nothing visible sits beside the icon, so a
+        // reader with sight and a reader with a screen reader are told the same thing.
+        expect(popover({ ariaLabel: "Menü" }).find("button").text()).toBe("");
     });
 
     it("merges a caller's modifiers without dropping its own", async () => {

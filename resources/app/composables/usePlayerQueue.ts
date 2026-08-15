@@ -259,6 +259,13 @@ export type UsePlayerQueueReturn = {
     clear: () => void;
     /** Restore from storage. Called once, by FullLayout — see the function's own note. */
     hydrate: () => void;
+    /**
+     * Counts restores, so a watcher can tell one from an enqueue.
+     *
+     * Both take the queue's length up in a single step, and a consumer that reacts to "the
+     * queue grew" has no other way to know the reader did not do it — see the ref's own note.
+     */
+    restoreNonce: Ref<number>;
 };
 
 // Module-level state — every consumer shares this one queue.
@@ -332,6 +339,17 @@ const shufflePick = ref<number>(NOTHING);
 
 /** Guards `hydrate()` against a second run, since FullLayout is mounted once but tests mount it repeatedly. */
 let hydrated = false;
+
+/**
+ * Bumped every time the queue is REPOPULATED FROM STORAGE rather than added to.
+ *
+ * A restore takes the length from 0 to N in one synchronous step, which is indistinguishable
+ * from an enqueue if all you watch is the length — and PlayQueue watches exactly that, to peek
+ * the panel open when something is added. Signing in with a stored queue therefore slid the
+ * panel open unasked. The counter lets a watcher tell the two apart without the composable
+ * knowing a panel exists.
+ */
+const restoreNonce = ref(0);
 
 /**
  * Whether the queue is running WITHOUT persistence — the share page's mode, and the only
@@ -1420,6 +1438,7 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
          */
         if (payload.updatedAt <= localStamp) return false;
 
+        restoreNonce.value++;
         tracks.value = payload.tracks;
         currentIndex.value = payload.currentIndex;
         repeat.value = payload.repeat === true;
@@ -1492,6 +1511,7 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
         if (payload.userId !== currentUserId()) return;
         if (!Array.isArray(payload.tracks)) return;
 
+        restoreNonce.value++;
         tracks.value = payload.tracks.filter(isPersistedTrack).map(fromPersisted);
         currentIndex.value = tracks.value.length > 0 ? 0 : NOTHING;
         repeat.value = false;
@@ -1527,7 +1547,8 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
         toggleRepeat,
         toggleShuffle,
         clear,
-        hydrate
+        hydrate,
+        restoreNonce
     };
 }
 

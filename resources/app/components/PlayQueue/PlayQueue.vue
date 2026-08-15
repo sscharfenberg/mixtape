@@ -77,7 +77,7 @@ import { notePlayQueuePanel, usePlayQueuePanel } from "Composables/usePlayQueueP
 import { formatClock } from "Utils/formatting";
 
 const { t } = useI18n();
-const { tracks, isEmpty, totalDuration } = usePlayerQueue();
+const { tracks, isEmpty, totalDuration, restoreNonce } = usePlayerQueue();
 const { isOpen, open, close, setOpen } = usePlayQueuePanel();
 
 // TELL THE HEADER THERE IS SOMETHING TO OPEN. The toggle and the `Q` shortcut are both hidden
@@ -164,10 +164,20 @@ function keepOpen(): void {
  * A panel the reader opened themselves is LEFT ALONE: the timer's own existence is the test
  * for whether the panel is open because of a peek, so an enqueue while it is deliberately open
  * neither restarts nor schedules an auto-close. Enqueueing again mid-peek does restart it.
+ *
+ * A RESTORE IS NOT A GROWTH, even though the length says otherwise. Signing in repopulates the
+ * queue from storage in one step under a layout that never unmounts, so 0 → N reaches this
+ * watcher looking exactly like an enqueue — and the panel slid open at every sign-in,
+ * announcing something nobody had just done. `restoreNonce` is what separates the two.
  */
+let seenRestore = restoreNonce.value;
 watch(
     () => tracks.value.length,
     (now, before) => {
+        if (restoreNonce.value !== seenRestore) {
+            seenRestore = restoreNonce.value;
+            return;
+        }
         if (now <= before) return;
         if (isOpen.value && peekTimer === undefined) return;
 

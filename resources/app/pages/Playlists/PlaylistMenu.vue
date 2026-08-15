@@ -49,7 +49,7 @@ const reference = computed<string>(() => `playlist-menu-${props.playlist.id}`);
         icon="more"
         :reference="reference"
         class-string="popover-button--rounded popover-button--subtle"
-        :aria-label="t('playlists.menu.actions', { name: playlist.name })"
+        :ariaLabel="t('playlists.menu.actions', { name: playlist.name })"
         width="20ch"
     >
         <ul class="popover-list">

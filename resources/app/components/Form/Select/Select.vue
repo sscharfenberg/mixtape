@@ -49,6 +49,15 @@ const props = withDefaults(
         clearable?: boolean;
         /** Disable the trigger + clear buttons. */
         disabled?: boolean;
+        /**
+         * Accessible name for the TRIGGER button.
+         *
+         * Declared as a prop rather than left to fall through: an undeclared `aria-label` lands
+         * on the root <div>, which exposes no name, so the button is announced as nothing but
+         * whichever value happens to be selected ("25"). Only needed where no `placeholder`
+         * carries the meaning — a placeholder is already the trigger's text.
+         */
+        ariaLabel?: string;
     }>(),
     { sort: true, max: "100%", clearable: true, disabled: false }
 );
@@ -131,9 +140,47 @@ watch(
  */
 let typeaheadBuffer = "";
 let typeaheadTimer: ReturnType<typeof setTimeout> | null = null;
+/** The option buttons in render order — the only things focus walks between while open. */
+const optionButtons = (): HTMLButtonElement[] => [
+    ...(listbox.value?.querySelectorAll<HTMLButtonElement>("button[data-value]") ?? [])
+];
+/**
+ * Close the panel and put focus back where it came from.
+ *
+ * Returning focus is the half that is easy to leave out and the half a keyboard reader
+ * notices: focus is inside a panel that is about to be removed, so without this it falls to
+ * <body> and the next Tab restarts from the top of the document.
+ */
+const closeMenu = () => {
+    menuOpen.value = false;
+    document.getElementById(buttonId)?.focus();
+};
 const onListboxKeydown = (event: KeyboardEvent) => {
     if (!menuOpen.value) return;
-    if (event.key.length !== 1) return; // skip Tab, Enter, Arrow*, etc.
+    /*
+     * ESCAPE AND THE ARROWS ARE HANDLED BEFORE the printable-key guard below, because that
+     * guard returns for every key whose name is longer than one character — which is all of
+     * them. Without this the panel could only be left by clicking outside it or picking
+     * something, and the options could not be reached from the keyboard at all.
+     */
+    if (event.key === "Escape") {
+        event.preventDefault();
+        closeMenu();
+        return;
+    }
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        const buttons = optionButtons();
+        if (buttons.length === 0) return;
+        event.preventDefault();
+        const here = buttons.indexOf(document.activeElement as HTMLButtonElement);
+        const step = event.key === "ArrowDown" ? 1 : -1;
+        // From outside the list (nothing focused yet) Down opens at the top and Up at the end.
+        const next = here === -1 ? (step === 1 ? 0 : buttons.length - 1) : (here + step + buttons.length) % buttons.length;
+        buttons[next].scrollIntoView({ block: "nearest" });
+        buttons[next].focus();
+        return;
+    }
+    if (event.key.length !== 1) return; // skip Tab, Enter, etc.
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     typeaheadBuffer += event.key.toLowerCase();
     if (typeaheadTimer !== null) clearTimeout(typeaheadTimer);
@@ -235,6 +282,7 @@ onUnmounted(() => {
                 'form-select__button--down': menuOpen && !flippedUp
             }"
             :style="{ 'anchor-name': buttonAnchorName }"
+            :aria-label="ariaLabel"
             :aria-expanded="menuOpen"
             :aria-controls="listboxId"
             aria-haspopup="listbox"
@@ -269,7 +317,9 @@ onUnmounted(() => {
             :class="{ 'form-select__options--up': flippedUp }"
             :style="{ 'position-anchor': anchorName }"
         >
-            <div class="form-select__scroll">
+            <!-- `presentation` because a listbox must OWN its options: a generic element
+                 between them severs that relationship, and the options stop being counted. -->
+            <div class="form-select__scroll" role="presentation">
                 <button
                     v-for="option in effectiveOptions"
                     :key="option.value"

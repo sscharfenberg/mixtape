@@ -56,7 +56,7 @@ function handleLogout(): void {
     <nav class="user-menu" :aria-label="t('header.userMenu.nav')">
         <pop-over
             icon="account"
-            :aria-label="t('header.userMenu.open')"
+            :ariaLabel="t('header.userMenu.open')"
             reference="userMenu"
             :class-string="triggerClass"
             width="20ch"
@@ -111,7 +111,9 @@ function handleLogout(): void {
                         {{ t("header.userMenu.logout") }}
                     </Link>
                 </li>
-                <li class="popover-list__divider" />
+                <!-- `aria-hidden` because it is a rule, not an entry: without it the list
+                     announces one more item than the menu actually offers. -->
+                <li class="popover-list__divider" aria-hidden="true" />
                 <language-switch @close="closePopover" />
                 <li><theme-switch /></li>
             </ul>

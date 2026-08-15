@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import type { Component } from "vue";
-import { emitRouterEvent, resetInertia, routerCalls } from "Testing/inertia";
+import { emitRouterEvent, resetInertia, routerCalls, routerListenerCount } from "Testing/inertia";
 import { mountApp, translate } from "Testing/mount";
 import type { ColumnDef, TableResponse } from "Types/dataTable";
 import DataTable from "./DataTable.vue";
@@ -222,6 +222,25 @@ describe("DataTable loading overlay", () => {
         await nextTick();
 
         expect(hasOverlay(wrapper)).toBe(false);
+    });
+
+    it("unsubscribes from the router when it goes away", () => {
+        /*
+         * `router.on` registers on the GLOBAL router, which outlives this component — and a
+         * DataTable unmounts on every navigation away from a listing. Dropping the returned
+         * unsubscribe therefore leaks a pair of handlers per visit, each still writing to a
+         * dead ref, and nothing on screen ever says so.
+         */
+        const before = { start: routerListenerCount("start"), finish: routerListenerCount("finish") };
+
+        const wrapper = table();
+        expect(routerListenerCount("start")).toBe(before.start + 1);
+        expect(routerListenerCount("finish")).toBe(before.finish + 1);
+
+        wrapper.unmount();
+
+        expect(routerListenerCount("start")).toBe(before.start);
+        expect(routerListenerCount("finish")).toBe(before.finish);
     });
 })
 

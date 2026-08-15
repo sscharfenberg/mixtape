@@ -49,16 +49,23 @@ const props = withDefaults(
     }
 );
 /**
- * Auto-focuses the OTP input on mount when `autofocus` is true.
- * Tries multiple selectors as fallbacks because the underlying `vue-input-otp`
- * library renders a hidden native input whose DOM position varies.
+ * Auto-focus the OTP field on mount when `autofocus` is asked for.
+ *
+ * `vue-input-otp` renders one hidden native input and does not promise where in its tree it
+ * sits, so the component's OWN root is asked first (`otpInputRef`) and the document only as a
+ * last resort — a bare `[data-input-otp]` query would find another OTP field on the same page.
+ * The id-based lookups are guarded on `props.id` being present: `input#` with nothing after it
+ * is not a valid selector, and `querySelector` answers a thrown SyntaxError rather than null.
  */
 onMounted(async () => {
     if (!props.autofocus) return;
     await nextTick();
+    const byId = props.id
+        ? (document.getElementById(props.id)?.closest("input") ??
+          document.querySelector<HTMLInputElement>(`input#${CSS.escape(props.id)}`))
+        : null;
     const input =
-        (props.id ? document.getElementById(props.id) : null)?.closest("input") ||
-        document.querySelector<HTMLInputElement>(`input#${props.id ?? ""}`) ||
+        byId ||
         otpInputRef.value?.$el?.querySelector<HTMLInputElement>("[data-input-otp]") ||
         document.querySelector<HTMLInputElement>("[data-input-otp]");
     input?.focus();

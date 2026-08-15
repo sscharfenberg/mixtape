@@ -6,16 +6,20 @@
  * @/styles/components/popover; only the anchor custom properties are set here
  * (v-bind only resolves inside an SFC's scoped style).
  *****************************************************************************/
-import { onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import Icon from "Components/UI/Icon.vue";
 const props = withDefaults(
     defineProps<{
         /** Icon name shown on the trigger button. */
         icon: string;
-        /** Optional visible text label beside the trigger icon. */
-        label?: string;
-        /** Accessible name for the trigger button (falls back to "Open menu"). */
-        ariaLabel?: string;
+        /**
+         * Accessible name for the trigger button.
+         *
+         * Required, and the ONLY label this component takes: an icon-only button has no name
+         * without one, and a second visible-text prop beside it would let a caller give the
+         * button a word its accessible name does not contain (WCAG 2.5.3, "Label in Name").
+         */
+        ariaLabel: string;
         /** Extra modifier(s) merged onto the trigger's class list (e.g. a future "logged in" state). */
         classString?: string;
         /** Shared id tying the trigger to its dialog and the CSS anchor name; defaults to a random string so multiple PopOvers don't collide. */
@@ -28,8 +32,15 @@ const props = withDefaults(
         width: "25ch"
     }
 );
-// The CSS anchor-name form of `reference`: an anchor-name must be a dashed-ident, hence the "--" prefix; bound into the scoped style.
-const reference = ref("--" + props.reference);
+/**
+ * The CSS anchor-name form of `reference`, bound into the scoped style below.
+ *
+ * An anchor-name must be a dashed-ident, hence the "--" prefix. A `computed` rather than a
+ * `ref` seeded once in `setup()`, which would keep the first `reference` a caller passed
+ * however many times they changed it — a ref that nothing ever writes to is a const wearing
+ * a reactive coat.
+ */
+const reference = computed(() => "--" + props.reference);
 
 /** Whether the popover is open — drives the `--open` neon glow modifier on the trigger. */
 const isOpen = ref(false);
@@ -77,13 +88,12 @@ onBeforeUnmount(() => {
     <div class="popover">
         <button
             :popovertarget="props.reference"
-            :aria-label="ariaLabel || 'Open menu'"
+            :aria-label="ariaLabel"
             class="popover-button"
             :class="[classString, { 'popover-button--open': isOpen }]"
             @click.stop.prevent="toggle"
         >
             <icon :name="icon" />
-            {{ label }}
         </button>
         <dialog :id="props.reference" popover class="popover-content">
             <slot />

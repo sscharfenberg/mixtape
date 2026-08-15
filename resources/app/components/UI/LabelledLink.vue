@@ -34,9 +34,9 @@ const props = withDefaults(
          * whose response lands after you have navigated to the same URL is applied to the page you
          * are now on, re-creating its component, and on a form that silently discards what the
          * reader has typed and saves the value the server sent (CLAUDE.md → the prefetch rule; it
-         * cost one E2E run in five for weeks). Every internal link this component renders today
-         * points at a form — `/forgot`, `/resend-verification` — so the safe default is also the
-         * one nothing has to opt out of.
+         * cost one E2E run in five for weeks). Several of this component's links do point at a
+         * form — `/forgot`, `/resend-verification` — and a link cannot tell from its own shape
+         * that it does, so the caller who knows the target is the one that opts in.
          *
          * Turn it on where the target is a page a reader only reads: a listing, a detail page.
          */

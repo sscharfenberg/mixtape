@@ -479,10 +479,10 @@ li.playlist {
        what makes it findable — an icon with nothing beside it is a 16px target otherwise,
        which is the problem the play queue's grip solved by widening its own strip.
 
-       Not `disabled` while reordering is unbuilt: a disabled button leaves the tab order and
-       stops being announced, so the affordance would vanish entirely for the readers most
-       likely to need telling it is there. It is a normal, focusable button that does nothing
-       when pressed — the play queue's grip, again. */
+       Never `disabled`, not even in a list of one where there is nothing to reorder: a disabled
+       button leaves the tab order and stops being announced, so the affordance would vanish for
+       exactly the readers who need telling it is there. It stays a normal, focusable button that
+       simply has nowhere to move the row — the play queue's grip, again. */
     &__handle {
         display: grid;
         align-self: center;

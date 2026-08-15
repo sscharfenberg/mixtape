@@ -283,6 +283,33 @@ describe("PlayQueue", () => {
             vi.useRealTimers();
         });
 
+        it("does not open when the queue is merely restored from storage", async () => {
+            /*
+             * A RESTORE LOOKS EXACTLY LIKE AN ENQUEUE from here: signing in repopulates the
+             * queue in one synchronous step under a layout that never unmounts, so the length
+             * goes 0 → N and the peek would announce something nobody had just done.
+             * `restoreNonce` is what tells them apart — driven here directly, because the real
+             * trigger is `hydrate()` reading localStorage under an Inertia page.
+             */
+            vi.useFakeTimers();
+            const queue = usePlayerQueue();
+            await mounted();
+
+            queue.restoreNonce.value++;
+            queue.enqueue([track("1", "Airbag"), track("2", "Avalon")]);
+            await nextTick();
+
+            expect(usePlayQueuePanel().isOpen.value).toBe(false);
+
+            // ...and the NEXT addition is a real one again — the suppression is not sticky.
+            queue.enqueue([track("3", "Bodysnatchers")]);
+            await nextTick();
+            expect(usePlayQueuePanel().isOpen.value).toBe(true);
+
+            vi.advanceTimersByTime(3000);
+            vi.useRealTimers();
+        });
+
         it("does not open for a removal", async () => {
             vi.useFakeTimers();
             await mounted();

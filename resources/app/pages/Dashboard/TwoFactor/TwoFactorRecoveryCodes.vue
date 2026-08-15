@@ -13,6 +13,7 @@ import Button from "Components/Form/Button.vue";
 import FormInput from "Components/Form/FormInput.vue";
 import FormLegend from "Components/Form/FormLegend.vue";
 import FormRow from "Components/Form/FormRow.vue";
+import FormTextarea from "Components/Form/FormTextarea.vue";
 import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
 import { useTwoFactorAuth } from "Composables/useTwoFactorAuth";
@@ -125,7 +126,16 @@ const onSubmit = (e: SubmitEvent): void => {
 
         <template v-if="isRecoveryCodesVisible">
             <form-row :label="t('dashboard.twoFactor.recoveryCodes.headline')">
-                <textarea class="recovery-codes" :value="recoveryCodesString" readonly rows="8" aria-readonly="true" />
+                <!-- The shared field, not a raw <textarea>: FormTextarea already carries the
+                     input tokens, the focus ink and the readonly state, and a second copy of
+                     them here is one that drifts. Only the mono face is local. -->
+                <form-textarea
+                    class="recovery-codes"
+                    :model-value="recoveryCodesString"
+                    readonly
+                    rows="8"
+                    aria-readonly="true"
+                />
             </form-row>
 
             <form-row>
@@ -140,25 +150,18 @@ const onSubmit = (e: SubmitEvent): void => {
 
 <style scoped lang="scss">
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
-@use "Abstracts/colors" as c;
-@use "Abstracts/sizes" as s;
+@use "Abstracts/typography" as t;
 
 @layer components {
-    // The revealed codes sit in a readonly textarea framed like a form-input
-    // (tokens, not the global palette), in a monospace face so the codes align.
-    .recovery-codes {
-        width: 100%;
-        padding: 0.75ex 2ch;
-        border: map.get(s.$c-input, "border") solid map.get(c.$c-input, "border");
-
-        background-color: map.get(c.$c-input, "background");
-        color: map.get(c.$c-input, "surface");
-        border-radius: map.get(s.$c-input, "radius");
-
-        font-family: monospace;
+    /* Everything but the face comes from FormTextarea. A recovery code is a string a reader
+       compares character by character, so it is set in the same mono the file-fact rows use —
+       read from that component's token rather than a fresh `monospace` literal.
+       Qualified with `.form-textarea` deliberately: that rule sets `font: inherit`, a shorthand
+       that includes the family, and it is in this same cascade layer at the same specificity —
+       so on one class alone the winner would be whichever block the bundler emitted last. */
+    .form-textarea.recovery-codes {
+        font-family: map.get(t.$c-facts, "mono");
         line-height: 1.6;
-
-        resize: vertical;
     }
 }
 </style>

@@ -1,5 +1,5 @@
-import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
+import { mountApp } from "Testing/mount";
 import FormRow from "./FormRow.vue";
 
 /*
@@ -18,7 +18,7 @@ import FormRow from "./FormRow.vue";
 
 /** Mount a row with a field in it, as every caller does. */
 const row = (props: Record<string, unknown> = {}, slots: Record<string, string> = {}) =>
-    mount(FormRow, {
+    mountApp(FormRow, {
         props,
         slots: { default: '<input id="name" type="text" />', ...slots }
     });
@@ -80,7 +80,7 @@ describe("FormRow", () => {
          * calls both produce `v-0` and would pass a comparison that proves nothing. A form is one
          * app, so that is the scope the invariant actually has to hold in.
          */
-        const form = mount(
+        const form = mountApp(
             {
                 components: { FormRow },
                 template: '<div><FormRow validated><input /></FormRow><FormRow validated><input /></FormRow></div>'

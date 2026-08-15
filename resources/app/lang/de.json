@@ -19,7 +19,9 @@
         "passwordStrength": "Passwortstärke",
         "loadingProgress": "Ladefortschritt",
         "loading": "Wird geladen",
-        "requiredFieldsHint": "Felder, die mit einem {icon} gekennzeichnet sind, müssen ausgefüllt werden."
+        "requiredFieldsHint": "Felder, die mit einem {icon} gekennzeichnet sind, müssen ausgefüllt werden.",
+        "fieldValid": "Feld ist gültig",
+        "jumpNav": "Sprungnavigation"
     },
     "breadcrumb": {
         "nav": "Brotkrumen-Navigation",

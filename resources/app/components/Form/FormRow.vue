@@ -8,8 +8,11 @@
  * styles are global (resources/app/styles/components/form/**).
  *****************************************************************************/
 import { useId } from "vue";
+import { useI18n } from "vue-i18n";
 import Icon from "Components/UI/Icon.vue";
 import LoadingSpinner from "Components/UI/LoadingSpinner.vue";
+
+const { t } = useI18n();
 
 withDefaults(
     defineProps<{
@@ -71,11 +74,14 @@ const anchorName = `--frf-${useId().replace(/[^a-z0-9_-]/gi, "")}`;
                 <div v-if="$slots.button" class="form-row__button">
                     <slot name="button" />
                 </div>
+                <!-- `role="img"` so the label is announced at all: an `aria-label` on a bare
+                     <div> names nothing, because a generic element exposes no name. -->
                 <div
                     v-if="!validating && validated"
                     class="form-row--valid"
                     :style="`position-anchor: ${anchorName}`"
-                    aria-label="This field is valid."
+                    role="img"
+                    :aria-label="t('common.fieldValid')"
                 >
                     <icon name="check" :size="1" />
                 </div>

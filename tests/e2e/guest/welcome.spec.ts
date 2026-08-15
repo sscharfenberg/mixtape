@@ -113,15 +113,25 @@ test("stands the two cards side by side, at equal width", async ({ page }) => {
     const cards = page.locator(".widget");
     await expect(cards).toHaveCount(2);
 
-    const music = (await cards.nth(0).boundingBox())!;
-    const books = (await cards.nth(1).boundingBox())!;
+    /*
+     * MEASURED UNDER `toPass`, because the elements existing is not the same as the page being
+     * laid out. `goto` resolves on load and `toHaveCount` waits only for the nodes, so on a
+     * loaded machine the read can land while the stylesheet is still arriving — at which point
+     * the two cards are ordinary stacked block elements and the geometry below describes a
+     * page that was not ready rather than a broken one. Retrying reads the settled layout; a
+     * real regression still fails, it just takes the timeout to say so.
+     */
+    await expect(async () => {
+        const music = (await cards.nth(0).boundingBox())!;
+        const books = (await cards.nth(1).boundingBox())!;
 
-    // One row: same top edge, and the second starts to the right of where the first ends.
-    expect(Math.abs(music.y - books.y)).toBeLessThanOrEqual(1);
-    expect(books.x).toBeGreaterThan(music.x + music.width - 1);
+        // One row: same top edge, and the second starts to the right of where the first ends.
+        expect(Math.abs(music.y - books.y)).toBeLessThanOrEqual(1);
+        expect(books.x).toBeGreaterThan(music.x + music.width - 1);
 
-    // Equal to the pixel, give or take the sub-pixel a fractional `1fr` split leaves behind.
-    expect(Math.abs(music.width - books.width)).toBeLessThanOrEqual(1);
+        // Equal to the pixel, give or take the sub-pixel a fractional `1fr` split leaves behind.
+        expect(Math.abs(music.width - books.width)).toBeLessThanOrEqual(1);
+    }).toPass();
 });
 
 /*

@@ -7,7 +7,7 @@
  * allowed. Slots: #header (title), default (body), #footer (optional — the
  * body drops its bottom radius padding when there's no footer).
  *****************************************************************************/
-import { onMounted, ref } from "vue";
+import { onMounted, ref, useId } from "vue";
 import ModalBody from "./ModalBody.vue";
 import ModalFooter from "./ModalFooter.vue";
 import ModalHeader from "./ModalHeader.vue";
@@ -16,6 +16,16 @@ const emit = defineEmits<{ close: [] }>();
 const modalRef = ref<HTMLDialogElement | null>(null);
 const contentRef = ref<HTMLDivElement | null>(null);
 const isClosing = ref(false);
+
+/*
+ * GENERATED, not the fixed "modal" / "modal-body" these were: an id must be unique in the
+ * document, and a page that mounts two modal-holding components (the shares page does) would
+ * otherwise put two elements under one id, at which point `aria-labelledby` names whichever
+ * the browser resolves first. `useId` is per-instance and stable across SSR.
+ */
+const dialogId = useId();
+const titleId = useId();
+const bodyId = useId();
 
 /**
  * Open the native dialog via `showModal()`.
@@ -97,18 +107,24 @@ onMounted(() => {
         click "inside" that ancestor.
     -->
     <Teleport to="body">
+<!--
+            `aria-labelledby` points at the header's own <h3>. `showModal()` gives the element
+            role="dialog", and a dialog with no accessible name is announced as just "dialog" —
+            the title is on screen either way, so nothing but a screen reader notices it missing.
+        -->
         <dialog
-            id="modal"
+            :id="dialogId"
             ref="modalRef"
             class="modal-dialog"
             :class="{ 'is-closing': isClosing }"
             closedby="closerequest"
+            :aria-labelledby="titleId"
             @cancel="onDialogCancel"
             @click="onDialogClick"
         >
             <div ref="contentRef" class="modal-dialog__content">
-                <modal-header @close="closeModal"><slot name="header" /></modal-header>
-                <modal-body :has-footer="!!$slots.footer"><slot /></modal-body>
+                <modal-header :title-id="titleId" @close="closeModal"><slot name="header" /></modal-header>
+                <modal-body :id="bodyId" :has-footer="!!$slots.footer"><slot /></modal-body>
                 <modal-footer v-if="$slots.footer"><slot name="footer" /></modal-footer>
             </div>
         </dialog>

@@ -93,11 +93,11 @@ describe("Modal", () => {
 
     it("tells the body to round its own bottom edge when nothing follows it", () => {
         modal();
-        expect(document.querySelector("#modal-body")!.className).toContain("modal-dialog__body--no-footer");
+        expect(document.querySelector(".modal-dialog__body")!.className).toContain("modal-dialog__body--no-footer");
 
         document.body.innerHTML = "";
         modal(true);
-        expect(document.querySelector("#modal-body")!.className).not.toContain("modal-dialog__body--no-footer");
+        expect(document.querySelector(".modal-dialog__body")!.className).not.toContain("modal-dialog__body--no-footer");
     });
 
     it("closes at once for a reader who asked for less motion", async () => {

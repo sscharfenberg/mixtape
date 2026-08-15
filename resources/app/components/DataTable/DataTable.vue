@@ -181,10 +181,15 @@ const isLoading = ref(false);
  */
 const isNavigation = (event: { detail: { visit: { prefetch: boolean } } }): boolean =>
     !event.detail.visit.prefetch;
-router.on("start", event => {
+/*
+ * BOTH UNSUBSCRIBES ARE KEPT, because `router.on` registers on the global router, which
+ * outlives this component. A DataTable unmounts on every navigation away from a listing, so
+ * dropping the return value leaves a pair of handlers per visit writing to a dead `isLoading`.
+ */
+const offStart = router.on("start", event => {
     if (isNavigation(event)) isLoading.value = true;
 });
-router.on("finish", event => {
+const offFinish = router.on("finish", event => {
     if (isNavigation(event)) isLoading.value = false;
 });
 /** Screen reader announcement text, updated on sort and page changes. */
@@ -341,6 +346,8 @@ onMounted(() => {
 });
 onBeforeUnmount(() => {
     observer?.disconnect();
+    offStart();
+    offFinish();
 });
 </script>
 

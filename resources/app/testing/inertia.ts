@@ -134,6 +134,15 @@ export const emitRouterEvent = (event: RouterEvent, payload?: unknown): void => 
 };
 
 /**
+ * How many handlers are currently subscribed to `event`.
+ *
+ * `router.on` registers on the global router, which outlives any component, so a subscription
+ * a component forgets to drop on unmount is a leak that nothing else in a test can see — the
+ * handler keeps running against dead state and the only symptom is a growing count.
+ */
+export const routerListenerCount = (event: RouterEvent): number => listeners.get(event)?.size ?? 0;
+
+/**
  * Record a router call and hand back a resolved promise, matching the real API's shape.
  *
  * `data` is left OFF the record when the call carried none, rather than stored as undefined:

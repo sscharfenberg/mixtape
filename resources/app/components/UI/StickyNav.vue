@@ -10,7 +10,10 @@
  * sync with the page.
  *****************************************************************************/
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { useStickyNav } from "Composables/useStickyNav";
+
+const { t } = useI18n();
 
 /** One jump-link: `id` is the target section's element id, `label` its visible text. */
 export type StickyNavItem = {
@@ -21,12 +24,17 @@ export type StickyNavItem = {
 const props = defineProps<{
     /** Sections to link to, in order — one `#id` anchor is rendered per item. */
     items: StickyNavItem[];
-    /** Accessible name for the <nav> landmark. Defaults to a German label. */
+    /** Accessible name for the <nav> landmark. Localised generically when omitted. */
     label?: string;
 }>();
 
-/** Accessible <nav> name — the `label` prop, or the default German "Sprungnavigation". */
-const navLabel = computed(() => props.label ?? "Sprungnavigation");
+/**
+ * Accessible <nav> name — the caller's `label`, else a generic one from the catalog.
+ *
+ * Read through `t()` rather than defaulted to a literal, because a landmark name is read out
+ * and a hardcoded one ships one language's word to every reader of the other.
+ */
+const navLabel = computed(() => props.label ?? t("common.jumpNav"));
 const { sentinel, isStuck, activeSection } = useStickyNav(props.items.map(i => i.id));
 </script>
 

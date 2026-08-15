@@ -297,8 +297,9 @@ const columns = computed<ColumnDef<ChapterRow>[]>(() => [
                 </template>
             </hero-section>
 
-            <!-- `has-actions` for the play column; the rows carry no `href`, so the DataTable
-                 renders them as plain rows rather than making the whole row clickable. -->
+            <!-- No actions column, because there is no per-row control to put in one: the ROW
+                 is the control (`row-clickable`), and pressing it plays the book from that
+                 chapter on rather than opening a page about it. -->
             <data-table
                 :columns="columns"
                 :response="table"

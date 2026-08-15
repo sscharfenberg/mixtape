@@ -119,7 +119,7 @@ const speedValue = computed<string>({
             icon="settings"
             reference="playerSettings"
             class-string="popover-button--rounded popover-button--subtle player-settings__trigger"
-            :aria-label="t('player.bar.settings')"
+            :ariaLabel="t('player.bar.settings')"
             width="auto"
         >
             <ul class="player-settings__panel">

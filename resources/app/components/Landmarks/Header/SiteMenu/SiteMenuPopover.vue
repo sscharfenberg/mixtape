@@ -34,7 +34,7 @@ function closePopover(): void {
     <nav class="site-menu-popover" :aria-label="t('header.siteMenu.nav')">
         <pop-over
             icon="navigation"
-            :aria-label="t('header.siteMenu.open')"
+            :ariaLabel="t('header.siteMenu.open')"
             reference="siteMenu"
             class-string="popover-button--rounded"
             width="20ch"

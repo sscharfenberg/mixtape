@@ -78,7 +78,7 @@ function openPlaylistModal(): void {
         icon="more"
         :reference="REFERENCE"
         class-string="popover-button--rounded popover-button--subtle"
-        :aria-label="t('player.queue.actions')"
+        :ariaLabel="t('player.queue.actions')"
         width="26ch"
     >
         <ul class="popover-list">

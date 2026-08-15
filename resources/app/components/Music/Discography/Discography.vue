@@ -174,6 +174,11 @@ const songCount = (album: DiscographyAlbum): string => t(props.countKey, album.s
          else here says worse. -->
     <ul v-if="props.albums.length > 0" ref="list" class="discography">
         <li v-for="album in visibleAlbums" :key="album.id" class="discography__item">
+            <!-- `prefetch` is safe here and deliberately kept: every target is an album detail
+                 page a reader only reads, so the re-created-page hazard that bans prefetch on a
+                 form link does not apply. At `landscape` and up this list is a card grid, where
+                 a diagonal sweep crosses far more targets than a table's rows do — Inertia's own
+                 75ms hover-intent delay is what keeps that from warming the whole grid. -->
             <Link :href="album.href" class="discography__link" prefetch>
                 <!-- The artwork twice, one per layout, with the OTHER one display:none at any
                      given width. Not a duplicate render for its own sake: a size in CoverImage

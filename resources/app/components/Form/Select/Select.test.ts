@@ -163,15 +163,53 @@ describe("Select", () => {
         }
     });
 
-    it("ignores keys that are not single printable characters", async () => {
-        // Tab, Enter and the arrows have to keep their own meanings.
+    it("leaves the typeahead out of keys that carry their own meaning", async () => {
+        // Tab moves on and must not be swallowed by the buffer that "T" would fill.
         const wrapper = select();
         await open(wrapper);
         const listbox = wrapper.find("[role='listbox']");
 
         await listbox.trigger("keydown", { key: "Tab" });
-        await listbox.trigger("keydown", { key: "ArrowDown" });
 
         expect(document.activeElement?.getAttribute("data-value")).toBeFalsy();
+    });
+
+    it("walks the options with the arrow keys, wrapping at both ends", async () => {
+        /*
+         * The panel's only other way out is a click, so without this the options cannot be
+         * reached from a keyboard at all — the whole control would be pointer-only.
+         */
+        const wrapper = select();
+        await open(wrapper);
+        const listbox = wrapper.find("[role='listbox']");
+        const order = wrapper.findAll("button[data-value]").map(node => node.attributes("data-value"));
+
+        // From nothing focused, Down opens at the top of the list...
+        await listbox.trigger("keydown", { key: "ArrowDown" });
+        expect(document.activeElement?.getAttribute("data-value")).toBe(order[0]);
+
+        await listbox.trigger("keydown", { key: "ArrowDown" });
+        expect(document.activeElement?.getAttribute("data-value")).toBe(order[1]);
+
+        // ...and Up from the first wraps to the last rather than falling out of the panel.
+        await listbox.trigger("keydown", { key: "ArrowUp" });
+        await listbox.trigger("keydown", { key: "ArrowUp" });
+        expect(document.activeElement?.getAttribute("data-value")).toBe(order[order.length - 1]);
+    });
+
+    it("closes on Escape and hands focus back to the trigger", async () => {
+        /*
+         * Returning focus is the half worth asserting: the panel it was inside is gone, so
+         * without it focus falls to <body> and the reader's next Tab restarts at the top of
+         * the document, nowhere near the control they were using.
+         */
+        const wrapper = select();
+        await open(wrapper);
+        const listbox = wrapper.find("[role='listbox']");
+
+        await listbox.trigger("keydown", { key: "Escape" });
+
+        expect(wrapper.find("[role='listbox']").exists()).toBe(false);
+        expect(document.activeElement).toBe(wrapper.find(".form-select__button").element);
     });
 });

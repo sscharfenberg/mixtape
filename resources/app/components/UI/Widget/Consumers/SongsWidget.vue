@@ -31,7 +31,6 @@ const mode = useWidgetMode("songs", "latest", modes);
 /** The active mode's raw set, falling back to `latest` if a mode's set is absent. */
 const active = computed(() => props[mode.value] ?? props.latest);
 
-/** Active-mode songs mapped to the shared list shape (meta = performing artist). */
 /**
  * Active-mode songs as list entries. A pip is dropped rather than shown empty when the tag
  * is missing — a file crediting nobody has no artist, and "—" says less than no chip.

@@ -6,9 +6,17 @@
  * component only wires the per-instance size into the `--pixel-size` custom
  * property. Pass the `colored` class to tint it with the pending state.
  *****************************************************************************/
+import { computed } from "vue";
+
 /** Size multiplier — the spinner's `--pixel-size` is `size * 12px` (default 4 → 48px). */
 const props = withDefaults(defineProps<{ size?: number }>(), { size: 4 });
-const pixelSize = `${props.size * 12}px`;
+/**
+ * The size as a CSS length, bound into the scoped style below.
+ *
+ * A `computed` rather than a plain const: a const is evaluated once in `setup()`, so a caller
+ * binding `:size` to something that changes would keep the spinner it was first given.
+ */
+const pixelSize = computed(() => `${props.size * 12}px`);
 </script>
 
 <template>

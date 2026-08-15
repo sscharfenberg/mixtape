@@ -154,8 +154,7 @@ const { tab: openTab } = useTabParam();
  * behind each before opening it. A `computed` so the labels re-evaluate on a locale switch.
  *
  * Albums leads because it is the smaller, structural view of the same catalogue — the shape
- * of an artist's work before its contents, where
- * this page's tabs were Alben then Songs.
+ * of an artist's work before its contents.
  */
 const tabs = computed<TabDefinition[]>(() => [
     { id: "albums", label: t("music.columns.albums"), icon: "album", count: props.artist.albums },

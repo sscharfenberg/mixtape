@@ -130,7 +130,7 @@ const pageSizeOptions = [25, 50, 100].map(s => ({ value: String(s), label: Strin
                 :options="pageSizeOptions"
                 :selected="String(pageSize)"
                 :sort="false"
-                :aria-label="$t('components.datatable.page_size')"
+                :ariaLabel="$t('components.datatable.page_size')"
                 @change="emit('pageSizeChange', Number($event))"
                 :clearable="false"
                 max="6rem"

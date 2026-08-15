@@ -19,7 +19,9 @@
         "passwordStrength": "Password strength",
         "loadingProgress": "Loading progress",
         "loading": "Loading",
-        "requiredFieldsHint": "Fields marked with {icon} are required."
+        "requiredFieldsHint": "Fields marked with {icon} are required.",
+        "fieldValid": "This field is valid",
+        "jumpNav": "Jump navigation"
     },
     "breadcrumb": {
         "nav": "Breadcrumb navigation",
