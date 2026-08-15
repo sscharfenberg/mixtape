@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
+use ZipArchive;
 
 /**
  * The audiobook media routes — a chapter's audio and cover, a book's cover and .zip.
@@ -190,10 +191,27 @@ class ChapterMediaTest extends TestCase
             ->assertOk()
             ->assertHeader('content-type', 'application/zip');
 
-        // Streamed, with an exact length known before a byte is written — which is what
-        // gives the browser a progress bar rather than a spinner on a 673-chapter book.
-        $this->assertNotEmpty($response->headers->get('content-length'));
+        $body = $response->streamedContent();
+
+        // Streamed, with an exact length known before a byte is written — which is what gives the
+        // browser a progress bar rather than a spinner on a 673-chapter book. Asserted AGAINST THE
+        // BODY rather than merely non-empty: if the arithmetic and the writer disagree, what the
+        // browser sees is a truncated download.
+        $this->assertSame((string) strlen($body), $response->headers->get('content-length'));
         $this->assertStringContainsString('Necrophobia', (string) $response->headers->get('content-disposition'));
+
+        // THE ARCHIVE IS OPENED, which is the whole point of the test: a writer emitting a corrupt
+        // central directory, the wrong file or no entries at all passes every header check above.
+        // `CHECKCONS` is what makes the read a verification rather than a formality.
+        $file = tempnam(sys_get_temp_dir(), 'mixtape-zip-');
+        File::put($file, $body);
+
+        $zip = new ZipArchive;
+        $this->assertTrue($zip->open($file, ZipArchive::CHECKCONS) === true, 'The archive did not open.');
+        $this->assertSame(1, $zip->numFiles);
+        $this->assertSame('chapter-one', $zip->getFromIndex(0));
+        $zip->close();
+        File::delete($file);
     }
 
     public function test_a_book_with_no_files_left_is_a_404_rather_than_an_empty_zip(): void

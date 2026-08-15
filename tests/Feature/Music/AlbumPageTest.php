@@ -8,6 +8,7 @@ use App\Models\Genre;
 use App\Models\Track;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\File;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -25,6 +26,30 @@ use Tests\TestCase;
 class AlbumPageTest extends TestCase
 {
     use RefreshDatabase;
+
+    /**
+     * Clear the cover cache around every test, because one assertion here is about its ABSENCE.
+     *
+     * `storage_path('app/private/covers')` is the real application directory, not a sandbox, so
+     * without this the "the page extracted no cover" assertion below is really measuring whatever
+     * else has run recently — five sibling files clear it in their own teardown, and this one was
+     * free-riding on them. Serve a single cover from a local dev server and it fails, pointing at
+     * the album page when nothing of the sort happened.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        File::deleteDirectory(storage_path('app/private/covers'));
+    }
+
+    /** Leave no cached cover behind for the next file, for the reason setUp gives. */
+    protected function tearDown(): void
+    {
+        File::deleteDirectory(storage_path('app/private/covers'));
+
+        parent::tearDown();
+    }
 
     public function test_guests_are_redirected_to_login(): void
     {

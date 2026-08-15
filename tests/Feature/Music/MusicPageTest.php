@@ -372,12 +372,16 @@ class MusicPageTest extends TestCase
             );
     }
 
-    public function test_the_songs_pip_counts_the_reader_where_popular_ranks_the_household(): void
+    public function test_the_songs_card_ranks_and_counts_the_readers_own_listening(): void
     {
-        // Two counts in one query, and they legitimately disagree on screen: `popular` ranks
-        // by everybody's listens — that is what makes it a shared "what gets played here"
-        // set — while the pip is the reader's own, like every play figure the app shows a
-        // viewer. So the song leading the popular set can carry a pip of 1.
+        // BOTH HALVES ARE THE READER'S — the ranking and the pip beside it. That is the whole
+        // point: a household ranking would put a card showing "1×" above one showing "5×", with
+        // nothing on screen to explain the order, and an order that contradicts the number
+        // printed on it reads as a broken sort.
+        //
+        // The fixture is built so the two readings DISAGREE: the housemate has played `other`
+        // twice and `loved` twenty times, so a household ranking returns both songs. Only a
+        // reader-scoped one returns the single song this reader has actually played.
         $reader = User::factory()->create();
         $housemate = User::factory()->create();
         $loved = Track::factory()->create();
@@ -390,6 +394,8 @@ class MusicPageTest extends TestCase
         $this->actingAs($reader)
             ->get('/music')
             ->assertInertia(fn (Assert $page) => $page
+                // ONE row, not two — the assertion that tells the two readings apart.
+                ->has('songs.popular', 1)
                 ->where('songs.popular.0.id', $loved->id)
                 ->where('songs.popular.0.plays', 1)
             );

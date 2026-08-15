@@ -172,21 +172,29 @@ class SearchTest extends TestCase
     /**
      * Exact, then starts-with, then word-start, then anywhere else. Every one of these five
      * contains "black", so nothing but the tiers can be putting them in this order.
+     *
+     * THE TWO STARTS-WITH TITLES DIVERGE AT A LETTER, never at a space, and that is deliberate.
+     * The tier's A→Z tie-break is the database's own ORDER BY, and engines disagree about where a
+     * space sorts: byte order puts it below every letter, while a locale-aware collation treats it
+     * as variable and weighs the letters either side of it first. "Black Dog" against "Blackberry
+     * Way" therefore answers one way on the sqlite the suite connects to and possibly the other on
+     * the Postgres this runs against, which would leave the assertion pinning the wrong engine's
+     * opinion. "Blackberry" before "Blackwater" splits on b-vs-w, which every collation agrees on.
      */
     public function test_the_four_ranking_tiers_order_the_matches(): void
     {
-        foreach (['Blackberry Way', 'Back in Black', 'Black', 'Unblackened', 'Black Dog'] as $name) {
+        foreach (['Blackwater Park', 'Back in Black', 'Black', 'Unblackened', 'Blackberry Way'] as $name) {
             Track::factory()->create(['name' => $name]);
         }
 
         $this->actingAs(User::factory()->create())
             ->getJson('/search?q=black&kinds=song')
             ->assertOk()
-            ->assertJsonPath('groups.0.rows.0.name', 'Black')          // exact
-            ->assertJsonPath('groups.0.rows.1.name', 'Black Dog')      // starts with, then A→Z
-            ->assertJsonPath('groups.0.rows.2.name', 'Blackberry Way') // starts with
-            ->assertJsonPath('groups.0.rows.3.name', 'Back in Black')  // word start
-            ->assertJsonPath('groups.0.rows.4.name', 'Unblackened');   // anywhere else
+            ->assertJsonPath('groups.0.rows.0.name', 'Black')           // exact
+            ->assertJsonPath('groups.0.rows.1.name', 'Blackberry Way')  // starts with, then A→Z
+            ->assertJsonPath('groups.0.rows.2.name', 'Blackwater Park') // starts with
+            ->assertJsonPath('groups.0.rows.3.name', 'Back in Black')   // word start
+            ->assertJsonPath('groups.0.rows.4.name', 'Unblackened');    // anywhere else
     }
 
     /**

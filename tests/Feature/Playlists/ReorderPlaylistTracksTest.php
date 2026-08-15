@@ -115,11 +115,16 @@ class ReorderPlaylistTracksTest extends TestCase
 
         $this->actingAs($reader)
             ->put("/playlists/{$playlist->id}/tracks/order", [
-                'ids' => [$entries[0]->id, $foreign->id],
+                'ids' => [$entries[1]->id, $foreign->id],
             ])
             ->assertSessionHasErrors('ids.1');
 
-        $this->assertSame(0, PlaylistTrack::query()->findOrFail($entries[0]->id)->position);
+        // NOTHING WAS RENUMBERED, and the row asserted on has to be one the rejected order would
+        // have MOVED: `$entries[1]` is sent first, so a request that got through would put it at
+        // position 0. Asserting on a row the order leaves where it already was proves nothing.
+        $this->assertSame(1, PlaylistTrack::query()->findOrFail($entries[1]->id)->position);
+        // …and the foreign entry keeps its own playlist's numbering.
+        $this->assertSame($foreign->position, $foreign->fresh()->position);
     }
 
     public function test_a_partial_ordering_is_rejected(): void

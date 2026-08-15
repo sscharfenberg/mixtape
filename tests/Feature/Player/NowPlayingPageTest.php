@@ -63,10 +63,10 @@ class NowPlayingPageTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->where('facts.'.$one->id.'.genre', 'Alternative Rock')
                 ->where('facts.'.$two->id.'.genre', 'Jazz')
+                // THE THIRD TRACK IS ABSENT, which is the point of asking for exactly what is
+                // drawn: the endpoint answers about the ids it was given, never about the library.
+                ->missing('facts.'.$unasked->id)
                 ->etc());
-
-        // Named nothing about the third, which is the point of asking for exactly what is drawn.
-        $this->assertNotSame($one->id, $unasked->id);
     }
 
     public function test_a_track_with_no_genre_comes_back_as_null_rather_than_missing(): void

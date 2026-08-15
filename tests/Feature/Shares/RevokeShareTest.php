@@ -44,7 +44,7 @@ class RevokeShareTest extends TestCase
         $album = Collection::factory()->create(['name' => 'OK Computer']);
         Track::factory()->create(['collection_id' => $album->id]);
 
-        return [$owner, Share::factory()->create(['user_id' => $owner->id, 'collection_id' => $album->id])];
+        return [$owner, Share::factory()->ofAlbum($album)->create(['user_id' => $owner->id])];
     }
 
     public function test_the_reader_sees_their_own_links_with_what_each_one_is(): void

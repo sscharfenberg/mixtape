@@ -158,7 +158,10 @@ class SongController extends Controller
                 // picture nor a Folder.jpg exists — decided HERE (one cheap stat,
                 // no extraction) so the page can render its placeholder instead
                 // of pointing an <img> at a 404.
-                'coverUrl' => $covers->exists($song) ? route('music.songs.cover', $song) : null,
+                // `absolute: false` like every other URL prop in the app — this one shipped a
+                // host-qualified URL, which survives a reverse proxy or a changed APP_URL less
+                // well and reads as a different kind of value beside `streamUrl` next to it.
+                'coverUrl' => $covers->exists($song) ? route('music.songs.cover', $song, absolute: false) : null,
 
                 // Where the player loads the audio from. Unconditional, unlike
                 // `coverUrl`: a track always HAS bytes, and proving it by stat-ing the

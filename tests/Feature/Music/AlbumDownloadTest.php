@@ -281,6 +281,11 @@ class AlbumDownloadTest extends TestCase
          *
          * Eleven song downloads stand in for that traffic — one past this route's own
          * ceiling, so a shared counter would have to answer 429.
+         *
+         * ASSERTED ON THE RATE-LIMIT HEADERS, not merely on a 200, because they distinguish more
+         * states: a shared bucket that eleven requests had not yet exhausted would still answer
+         * `assertOk()` while reading a `Remaining` far below the album route's own. The pair is
+         * the same signal PrecognitionThrottleTest relies on for the same kind of claim.
          */
         $user = User::factory()->create();
 
@@ -297,7 +302,12 @@ class AlbumDownloadTest extends TestCase
             'path' => $this->mediaFile('Someone/Else/02 - Another.mp3', 'y'),
         ]);
 
-        $this->actingAs($user)->get("/music/albums/{$album->id}/download")->assertOk();
+        $this->actingAs($user)
+            ->get("/music/albums/{$album->id}/download")
+            ->assertOk()
+            // This route's own ceiling, untouched by the eleven requests above it.
+            ->assertHeader('X-RateLimit-Limit', '10')
+            ->assertHeader('X-RateLimit-Remaining', '9');
     }
 
     public function test_the_page_hands_the_download_url_to_the_hero(): void

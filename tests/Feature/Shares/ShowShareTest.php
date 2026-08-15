@@ -2,8 +2,6 @@
 
 namespace Tests\Feature\Shares;
 
-use App\Enums\CollectionType;
-use App\Enums\TrackType;
 use App\Models\Artist;
 use App\Models\Collection;
 use App\Models\Genre;
@@ -216,8 +214,6 @@ class ShowShareTest extends TestCase
             // Null rather than a URL that would 404: the page draws a placeholder for it, and
             // an <img> pointed at a missing cover is a broken picture on every row.
             ->assertInertia(fn (AssertableInertia $page) => $page->where('tracks.0.coverUrl', null));
-
-        $this->assertNotNull($song->id);
     }
 
     public function test_an_expired_link_still_says_what_it_was_for_but_plays_nothing(): void
@@ -279,7 +275,7 @@ class ShowShareTest extends TestCase
         PlaylistTrack::factory()->create(['playlist_id' => $playlist->id, 'track_id' => $last->id, 'position' => 1]);
         PlaylistTrack::factory()->create(['playlist_id' => $playlist->id, 'track_id' => $first->id, 'position' => 2]);
 
-        $share = Share::factory()->create(['playlist_id' => $playlist->id]);
+        $share = Share::factory()->ofPlaylist($playlist)->create();
 
         $this->get("/s/{$share->id}")
             ->assertOk()
@@ -307,7 +303,7 @@ class ShowShareTest extends TestCase
             'playlist_id' => $playlist->id, 'track_id' => $original->id, 'position' => 1,
         ]);
 
-        $share = Share::factory()->create(['playlist_id' => $playlist->id]);
+        $share = Share::factory()->ofPlaylist($playlist)->create();
 
         $this->get("/s/{$share->id}")
             ->assertInertia(fn (AssertableInertia $page) => $page->has('tracks', 1)->where('subject.songs', 1));
@@ -343,7 +339,7 @@ class ShowShareTest extends TestCase
         PlaylistTrack::factory()->create(['playlist_id' => $playlist->id, 'track_id' => $song->id, 'position' => 1]);
         PlaylistTrack::factory()->create(['playlist_id' => $playlist->id, 'track_id' => $chapter->id, 'position' => 2]);
 
-        $share = Share::factory()->create(['playlist_id' => $playlist->id]);
+        $share = Share::factory()->ofPlaylist($playlist)->create();
 
         $this->get("/s/{$share->id}")
             ->assertOk()
@@ -351,8 +347,6 @@ class ShowShareTest extends TestCase
                 ->has('tracks', 2)
                 ->where('tracks.1.id', $chapter->id)
             );
-
-        $this->assertSame(TrackType::Audiobook, $chapter->type);
     }
 
     public function test_a_playlist_share_fans_sleeves_rather_than_claiming_one_cover(): void
@@ -364,7 +358,7 @@ class ShowShareTest extends TestCase
 
         PlaylistTrack::factory()->create(['playlist_id' => $playlist->id, 'track_id' => $withArt->id, 'position' => 1]);
 
-        $share = Share::factory()->create(['playlist_id' => $playlist->id]);
+        $share = Share::factory()->ofPlaylist($playlist)->create();
 
         $this->get("/s/{$share->id}")
             ->assertOk()
@@ -389,9 +383,6 @@ class ShowShareTest extends TestCase
         $chapter = Track::factory()->audiobook()->create(['collection_id' => $audiobook->id]);
 
         $share = Share::factory()->ofAlbum($audiobook)->create();
-
-        $this->assertSame(CollectionType::Audiobook, $audiobook->type);
-        $this->assertSame(TrackType::Audiobook, $chapter->type);
 
         $this->get("/s/{$share->id}")
             ->assertOk()

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Player;
 
-use App\Enums\TrackType;
 use App\Models\Artist;
 use App\Models\Collection;
 use App\Models\Genre;
@@ -91,7 +90,7 @@ class PlayHistoryTest extends TestCase
         // knows nothing about the type. A guard here would silently drop every listen the
         // day audiobooks become playable — the worst of the three possible behaviours.
         $user = User::factory()->create();
-        $chapter = $this->track(['type' => TrackType::Audiobook]);
+        $chapter = Track::factory()->audiobook()->create();
 
         $this->actingAs($user)
             ->postJson('/player/plays', ['trackId' => $chapter->id])

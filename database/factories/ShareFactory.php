@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Models\Artist;
 use App\Models\Collection;
+use App\Models\Playlist;
 use App\Models\Share;
 use App\Models\Track;
 use App\Models\User;
@@ -15,7 +16,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  * NO SUBJECT BY DEFAULT, which is the one thing worth knowing about this factory: the table
  * takes exactly one of four FKs (a CHECK enforces it on Postgres), so a default would have
  * to pick a kind — and every caller then has to remember to unset it before choosing its
- * own. The three states below are the honest way to say "a share OF something", and a bare
+ * own. The four states below are the honest way to say "a share OF something", and a bare
  * `Share::factory()->create()` is deliberately a row Postgres refuses.
  */
 class ShareFactory extends Factory
@@ -45,6 +46,15 @@ class ShareFactory extends Factory
     public function ofArtist(?Artist $artist = null): static
     {
         return $this->state(fn (): array => ['artist_id' => $artist?->id ?? Artist::factory()]);
+    }
+
+    /**
+     * A share of one playlist — the only subject with an owner, and the only one whose tracks are
+     * a pivot rather than a column, so several tests need it built rather than hand-written.
+     */
+    public function ofPlaylist(?Playlist $playlist = null): static
+    {
+        return $this->state(fn (): array => ['playlist_id' => $playlist?->id ?? Playlist::factory()]);
     }
 
     /**

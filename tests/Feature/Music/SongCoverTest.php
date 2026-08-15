@@ -212,7 +212,7 @@ class SongCoverTest extends TestCase
         // for a cover it only links to.
         $this->actingAs($user)
             ->get("/music/songs/{$withCover->id}")
-            ->assertInertia(fn ($page) => $page->where('song.coverUrl', route('music.songs.cover', $withCover)));
+            ->assertInertia(fn ($page) => $page->where('song.coverUrl', route('music.songs.cover', $withCover, absolute: false)));
         $this->assertFileDoesNotExist(storage_path('app/private/covers/'.$withCover->id.'.jpg'));
 
         $this->actingAs($user)

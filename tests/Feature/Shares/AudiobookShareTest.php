@@ -97,7 +97,7 @@ class AudiobookShareTest extends TestCase
          * every guest who opens it — in German, with the wrong article.
          */
         $book = $this->book();
-        $share = Share::factory()->create(['collection_id' => $book->id]);
+        $share = Share::factory()->ofAlbum($book)->create();
 
         $this->get("/s/{$share->id}")
             ->assertOk()
@@ -130,7 +130,7 @@ class AudiobookShareTest extends TestCase
          */
         $book = $this->book();
         $book->update(['cover_path' => 'Necrophobia 1/Folder.jpg']);
-        $share = Share::factory()->create(['collection_id' => $book->id]);
+        $share = Share::factory()->ofAlbum($book)->create();
 
         $this->get("/s/{$share->id}")
             ->assertOk()
@@ -152,7 +152,7 @@ class AudiobookShareTest extends TestCase
         // think to look at.
         $book = $this->book();
         $book->tracks()->update(['cover' => false]);
-        $share = Share::factory()->create(['collection_id' => $book->id]);
+        $share = Share::factory()->ofAlbum($book)->create();
 
         $this->get("/s/{$share->id}")
             ->assertOk()
@@ -164,7 +164,7 @@ class AudiobookShareTest extends TestCase
         // The control for the case above — telling the two apart must not have moved albums.
         $album = Collection::factory()->create(['name' => 'OK Computer']);
         Track::factory()->create(['collection_id' => $album->id]);
-        $share = Share::factory()->create(['collection_id' => $album->id]);
+        $share = Share::factory()->ofAlbum($album)->create();
 
         $this->get("/s/{$share->id}")
             ->assertOk()
@@ -176,7 +176,7 @@ class AudiobookShareTest extends TestCase
         // The grant itself, which was type-blind long before this: a collection share grants
         // that collection's tracks, whatever kind of collection it is.
         $book = $this->book();
-        $share = Share::factory()->create(['collection_id' => $book->id]);
+        $share = Share::factory()->ofAlbum($book)->create();
 
         $this->get("/s/{$share->id}")
             ->assertOk()
@@ -187,7 +187,7 @@ class AudiobookShareTest extends TestCase
     {
         $user = User::factory()->create();
         $book = $this->book();
-        Share::factory()->create(['user_id' => $user->id, 'collection_id' => $book->id]);
+        Share::factory()->ofAlbum($book)->create(['user_id' => $user->id]);
 
         $this->actingAs($user)
             ->get('/dashboard/shared')

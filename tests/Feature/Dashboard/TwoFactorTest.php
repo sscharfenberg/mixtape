@@ -212,7 +212,11 @@ class TwoFactorTest extends TestCase
         $this->actingAs($user)
             ->postJson('/confirm-password', ['password' => 'wrong-password'])
             ->assertStatus(422)
-            ->assertJsonPath('errors.password.0', 'Das angegebene Passwort ist falsch.');
+            // Through the catalog rather than as a German literal: this passes only because
+            // `users.locale` defaults to `de` and the user arm of ConfigureLocale outranks the
+            // test client's own `Accept-Language: en` — a coupling two layers away that would
+            // turn a default change into a failure about two-factor auth.
+            ->assertJsonPath('errors.password.0', __('auth.password'));
     }
 
     public function test_confirm_password_accepts_the_correct_password(): void

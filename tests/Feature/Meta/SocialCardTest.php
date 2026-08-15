@@ -90,7 +90,7 @@ class SocialCardTest extends TestCase
     {
         $album = Collection::factory()->create(['name' => 'OK Computer']);
         Track::factory()->count(3)->create(['collection_id' => $album->id, 'duration' => 260]);
-        $share = Share::factory()->create(['collection_id' => $album->id]);
+        $share = Share::factory()->ofAlbum($album)->create();
 
         $response = $this->visit("/s/{$share->id}");
 
@@ -105,7 +105,7 @@ class SocialCardTest extends TestCase
     {
         $album = Collection::factory()->create();
         Track::factory()->create(['collection_id' => $album->id, 'cover' => true]);
-        $share = Share::factory()->create(['collection_id' => $album->id]);
+        $share = Share::factory()->ofAlbum($album)->create();
 
         $response = $this->visit("/s/{$share->id}");
 
@@ -128,7 +128,7 @@ class SocialCardTest extends TestCase
             'cover' => true,
         ]);
 
-        $share = Share::factory()->create(['artist_id' => $artist->id]);
+        $share = Share::factory()->ofArtist($artist)->create();
         $response = $this->visit("/s/{$share->id}");
 
         // The PAGE fans three sleeves at random, on purpose. The CARD cannot: a preview that
@@ -164,7 +164,7 @@ class SocialCardTest extends TestCase
         PlaylistTrack::factory()->create(['playlist_id' => $playlist->id, 'track_id' => $opener->id, 'position' => 1]);
         PlaylistTrack::factory()->create(['playlist_id' => $playlist->id, 'track_id' => $newer->id, 'position' => 2]);
 
-        $share = Share::factory()->create(['playlist_id' => $playlist->id]);
+        $share = Share::factory()->ofPlaylist($playlist)->create();
         $response = $this->visit("/s/{$share->id}");
 
         $this->assertTag($response, 'og:title', 'MixTape-Link: Freitagabend');
@@ -234,7 +234,7 @@ class SocialCardTest extends TestCase
     {
         $album = Collection::factory()->create(['name' => 'OK Computer']);
         Track::factory()->create(['collection_id' => $album->id, 'duration' => 260]);
-        $share = Share::factory()->create(['collection_id' => $album->id]);
+        $share = Share::factory()->ofAlbum($album)->create();
 
         $response = $this->visit("/s/{$share->id}", 'en');
 
@@ -250,7 +250,7 @@ class SocialCardTest extends TestCase
     {
         $album = Collection::factory()->create();
         Track::factory()->create(['collection_id' => $album->id, 'cover' => true]);
-        $share = Share::factory()->create(['collection_id' => $album->id]);
+        $share = Share::factory()->ofAlbum($album)->create();
 
         // `summary_large_image` crops to roughly 2:1, and the image here is almost always a
         // record sleeve — the top and bottom of the artwork would simply be gone.

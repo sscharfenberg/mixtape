@@ -49,8 +49,9 @@ class AddablePlaylistsPropTest extends TestCase
         $reader = User::factory()->create();
         Playlist::factory()->for($reader)->create(['name' => 'Later', 'position' => 2]);
         Playlist::factory()->for($reader)->create(['name' => 'First', 'position' => 1]);
-        // Same position as "First": `position` defaults to 0 for everything made before anyone
-        // reorders, so the name is what breaks the tie — exactly as the listing page sorts.
+        // Both pinned to the same position, so the NAME is what breaks the tie — exactly as the
+        // listing page sorts. Pinned rather than left to the factory, which randomises `position`
+        // (see ReorderPlaylistsTest, where not pinning it cost two failures).
         Playlist::factory()->for($reader)->create(['name' => 'Also first', 'position' => 1]);
         Playlist::factory()->create(['name' => 'Somebody else’s', 'position' => 0]);
 
