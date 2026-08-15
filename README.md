@@ -2,7 +2,8 @@
 
 **MixTape is a self-hosted web app that organises a personal MP3 and audiobook collection and plays it
 in the browser.** It runs on one always-on machine you own, and it is deliberately reachable from the
-internet, so you can send someone a link to a song without giving them an account.
+internet, so you can play your music wherever you have an internet connection - or send someone a link
+to a song without giving them an account.
 
 ## Why it exists
 
