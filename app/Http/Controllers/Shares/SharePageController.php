@@ -7,10 +7,13 @@ namespace App\Http\Controllers\Shares;
 use App\Enums\ShareSubject;
 use App\Http\Controllers\Controller;
 use App\Models\Share;
+use App\Models\User;
 use App\Services\Music\DominantGenre;
 use App\Services\Shares\ShareArtwork;
 use App\Services\Shares\ShareGrant;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
@@ -41,6 +44,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * "Anna sent you this" — and it would publish a login identifier on a page reachable by
  * anyone holding a forwarded link, since this app logs in by `users.name`. Half a credential
  * pair is too much to pay for a nicety, and the recipient already knows who sent it.
+ *
+ * A SIGNED-IN READER NEVER GETS THIS PAGE — they are redirected to the subject's own one
+ * ({@see ShareSubject::route()}). Whoever pastes a link into a chat cannot know
+ * which kind of reader will open it, so the same URL has to serve both: a guest needs the
+ * page, and somebody with an account would be handed a worse copy of a page they already
+ * have, with a player whose URLs expire in seven days. The redirect also happens to retire
+ * the case `usePlayerQueue`'s ephemeral mode was written for — an owner opening their own
+ * link and overwriting their real queue with `/s/…` URLs — though that mode stays, because
+ * the guest page is still reachable by a signed-in reader in the one case below.
  */
 class SharePageController extends Controller
 {
@@ -57,7 +69,7 @@ class SharePageController extends Controller
      * this route: the page's job when a link has died is to say so. The routes that answer
      * with bytes do treat it as a permission, and they each have a request class.
      */
-    public function __invoke(Share $share): Response
+    public function __invoke(Request $request, Share $share): Response|RedirectResponse
     {
         $grant = ShareGrant::for($share);
         $subject = $grant->subject();
@@ -68,6 +80,12 @@ class SharePageController extends Controller
         // page to build for it, so it is a 404 rather than an empty one: the link names
         // something this instance does not serve.
         abort_if($subject === null, HttpResponse::HTTP_NOT_FOUND);
+
+        $canonical = $this->canonical($request->user(), $share, $grant);
+
+        if ($canonical !== null) {
+            return redirect()->to($canonical);
+        }
 
         $live = $share->isLive();
 
@@ -86,6 +104,42 @@ class SharePageController extends Controller
             // that matters: an artist share can be a few hundred entries.
             'tracks' => $live ? $grant->tracks() : [],
         ]);
+    }
+
+    /**
+     * The subject's own page for a reader who can open it, or null to render the guest page.
+     *
+     * NULL FOR A GUEST, which is the ordinary case and the reason this page exists.
+     *
+     * NULL FOR SOMEBODY ELSE'S PLAYLIST, which is the case that makes this a method rather
+     * than one line at the call site. A playlist is the only subject with an owner, and
+     * `playlists.show` answers 404 to everybody else — so redirecting every signed-in reader
+     * would take a link that WORKS, hand it to the friend it was sent to, and turn it into a
+     * "not found" for the one person the sender meant it for. Their account is beside the
+     * point: what the link grants is this playlist, and the guest page is the only page in
+     * the app that will show it to them.
+     *
+     * EXPIRY IS NOT CONSULTED, deliberately. A dead link still redirects a signed-in reader,
+     * because for them it was never the link that granted anything — the library is already
+     * theirs, and being told "this expired" about a song they can simply open is a dead end
+     * where the redirect is a working page. The owner who wants to renew it does that from
+     * `/dashboard/shared`, which is where the link's own state belongs.
+     */
+    private function canonical(?User $reader, Share $share, ShareGrant $grant): ?string
+    {
+        $subject = $grant->subject();
+
+        if ($reader === null || $subject === null) {
+            return null;
+        }
+
+        if ($subject === ShareSubject::Playlist && $share->playlist?->user_id !== $reader->id) {
+            return null;
+        }
+
+        // The grant answers "which id", as it answers every other question about what this
+        // link names — re-reading the FK here would be a second copy of `subjectId()`.
+        return route($subject->route(), $grant->subjectId());
     }
 
     /**

@@ -61,7 +61,15 @@ class RenewShareTest extends TestCase
             ->assertRedirect()
             ->assertSessionHas('message');
 
-        // The SAME url, for a caller with no session — which is the whole feature.
+        /*
+         * The SAME url, for a caller with no session — which is the whole feature, and the
+         * session has to be genuinely dropped to test it. `actingAs` sets the user on the
+         * guard for the REST OF THE TEST, not for one request, so without this the "guest"
+         * below is still the owner who just pressed renew — and a signed-in reader is now
+         * redirected to the album rather than shown the page.
+         */
+        $this->app->make('auth')->forgetGuards();
+
         $this->get("/s/{$share->id}")
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page->where('share.expired', false)->has('tracks', 1));

@@ -81,6 +81,23 @@ class E2ESeeder extends Seeder
     public const RENEWABLE_SHARE = '019e0007-0000-7000-8000-000000000003';
 
     /**
+     * A share of a playlist belonging to SOMEBODY ELSE — the only link a signed-in reader can
+     * still open as a guest.
+     *
+     * `/s/` redirects a reader with an account to the subject's own page, so the guest page is
+     * unreachable while signed in for every library subject: any account may open any song,
+     * album, artist or audiobook. A playlist is the exception, because `playlists.show` answers
+     * 404 to everybody but its owner — so the share page is the ONLY page that will show it to
+     * the person it was sent to (SharePageController::canonical).
+     *
+     * That makes this row the fixture for the owner's round trip through ShareLayout and back,
+     * which is a Vue lifecycle fact no unit test can reach and which the guest project cannot
+     * test either, having no session to return into the app with. It belongs to
+     * `spec-playlist-detail` precisely so the canonical reader is NOT its owner.
+     */
+    public const FOREIGN_PLAYLIST_SHARE = '019e0007-0000-7000-8000-000000000004';
+
+    /**
      * Album title, year, artist key, genre key, bit rate, and the real track listing.
      *
      * Real track titles rather than generated ones, because the specs read better and
@@ -359,6 +376,23 @@ class E2ESeeder extends Seeder
             'user_id' => $userId,
             'collection_id' => Collection::query()->where('name', 'The Bends')->value('id'),
             'valid_until' => now()->subDays(4),
+        ]);
+
+        /*
+         * Owned by another account, and pointing at THAT account's playlist — see the constant.
+         * Found by query rather than by {@see id()} arithmetic, so it keeps naming the right row
+         * if a playlist is ever added to the loop that seeds them.
+         */
+        $otherId = User::query()->where('name', 'spec-playlist-detail')->value('id');
+
+        Share::query()->create([
+            'id' => self::FOREIGN_PLAYLIST_SHARE,
+            'user_id' => $otherId,
+            'playlist_id' => Playlist::query()
+                ->where('user_id', $otherId)
+                ->where('name', 'Roadtrip')
+                ->value('id'),
+            'valid_until' => now()->addYears(5),
         ]);
     }
 

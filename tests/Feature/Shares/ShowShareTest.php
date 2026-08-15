@@ -9,7 +9,6 @@ use App\Models\Playlist;
 use App\Models\PlaylistTrack;
 use App\Models\Share;
 use App\Models\Track;
-use App\Models\User;
 use App\Services\Shares\ShareGrant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection as Support;
@@ -387,20 +386,5 @@ class ShowShareTest extends TestCase
         $this->get("/s/{$share->id}")
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page->has('tracks', 1)->where('tracks.0.id', $chapter->id));
-    }
-
-    public function test_a_signed_in_reader_opening_their_own_link_gets_the_same_page(): void
-    {
-        $user = User::factory()->create();
-        $song = Track::factory()->create();
-        $share = Share::factory()->ofSong($song)->create(['user_id' => $user->id]);
-
-        // Nothing about this page is gated, so being signed in changes only the header. What
-        // it must NOT do is redirect: a reader testing their own link before sending it is
-        // the most common first visit any share gets.
-        $this->actingAs($user)
-            ->get("/s/{$share->id}")
-            ->assertOk()
-            ->assertInertia(fn (AssertableInertia $page) => $page->component('Share/SharePage'));
     }
 }

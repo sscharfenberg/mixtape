@@ -85,6 +85,36 @@ enum ShareSubject: string
     }
 
     /**
+     * The subject's own page inside the app — where a SIGNED-IN reader is sent instead of the
+     * guest page.
+     *
+     * THE `/s/` PAGE EXISTS FOR PEOPLE WITHOUT AN ACCOUNT, and gives a reader who has one
+     * strictly less than the real page does: no breadcrumb, no search, no play queue, no way
+     * on to the rest of the album in front of them, and a player whose URLs stop working in
+     * seven days. Somebody pasting a link into a chat cannot know which kind of reader will
+     * open it, so the link has to work for both — the redirect is what makes one URL mean
+     * "this song" rather than "this song, in the stripped-down copy".
+     *
+     * ALBUM AND AUDIOBOOK PART COMPANY HERE despite sharing a column and a grant: they are two
+     * different pages over one table, which is the distinction `collections.type` exists to
+     * draw.
+     *
+     * NOT A URL, deliberately — the route NAME. A share stores a bare id, so building the path
+     * here would mean restating five routes that already exist and re-deriving them whenever
+     * one moves.
+     */
+    public function route(): string
+    {
+        return match ($this) {
+            self::Song => 'music.songs.show',
+            self::Album => 'music.albums.show',
+            self::Artist => 'music.artists.show',
+            self::Playlist => 'playlists.show',
+            self::Audiobook => 'audiobooks.show',
+        };
+    }
+
+    /**
      * The table the subject id must be found in, for the mint request's `exists` rule.
      *
      * `collections` holds audiobooks as well as albums, which is why the rule that uses

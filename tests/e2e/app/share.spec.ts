@@ -46,10 +46,16 @@ const openFirstRow = async (page: Page, listing: string): Promise<void> => {
 const linkField = (page: Page) => page.locator(".share-modal__link");
 
 /**
- * A seeded link (E2ESeeder → LIVE_SHARE), for the one test here that FOLLOWS one rather than
- * mints it. A literal, like the guest spec's: a spec cannot call PHP for a constant.
+ * A seeded link to a playlist belonging to ANOTHER account (E2ESeeder → FOREIGN_PLAYLIST_SHARE),
+ * for the one test here that FOLLOWS a link rather than minting one. A literal, like the guest
+ * spec's: a spec cannot call PHP for a constant.
+ *
+ * IT HAS TO BE SOMEBODY ELSE'S PLAYLIST. `/s/` redirects a signed-in reader to the subject's own
+ * page, so a link to any library subject never renders the guest page for this account — and a
+ * playlist is the one thing `playlists.show` will not show them, which leaves the share page as
+ * the only page that can. That is what keeps the layout round trip below reachable at all.
  */
-const LIVE_SHARE = "019e0007-0000-7000-8000-000000000001";
+const FOREIGN_PLAYLIST_SHARE = "019e0007-0000-7000-8000-000000000004";
 
 /**
  * The seeded DEAD link this file re-activates (E2ESeeder → RENEWABLE_SHARE), a literal for the
@@ -252,21 +258,25 @@ test.describe("sharing", () => {
         await guest.close();
     });
 
-    test("gives the owner their queue panel back when they leave their own link", async ({ page }) => {
+    test("gives a signed-in reader their queue panel back when they leave a share link", async ({ page }) => {
         /*
-         * THE OWNER'S ROUND TRIP, which is the one journey neither guest/share.spec.ts nor any
+         * THE SIGNED-IN ROUND TRIP, which is the one journey neither guest/share.spec.ts nor any
          * unit test can make: the guest project has no session to come back into the app with,
          * and the panel's presence is a Vue lifecycle fact rather than a flag anything renders.
          *
          * It is a LAYOUT SWAP in both directions, and Vue mounts the incoming layout before
          * unmounting the outgoing one — so a naive registration would land the wrong way up
          * exactly once, on the way back. That is what this asserts (notePlayQueuePanel).
+         *
+         * THE LINK IS TO ANOTHER ACCOUNT'S PLAYLIST, and it has to be — see the constant. Every
+         * other kind of share redirects this reader to the subject's own page, and there is then
+         * no ShareLayout to swap into.
          */
         await openFirstRow(page, "/music/albums");
         await page.locator(".subject-actions__play").click();
         await expect(page.locator(".play-queue-toggle")).toBeVisible();
 
-        await page.goto(`/s/${LIVE_SHARE}`);
+        await page.goto(`/s/${FOREIGN_PLAYLIST_SHARE}`);
 
         // The share space keeps the player and drops the panel: the queue is on the page there.
         await expect(page.locator(".play-queue-toggle")).toHaveCount(0);
