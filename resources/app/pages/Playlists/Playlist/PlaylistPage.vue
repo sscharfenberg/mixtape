@@ -222,8 +222,7 @@ function sort(): void {
                     <action-panel>
                         <subject-actions :tracks="tracks" />
                     </action-panel>
-                    <!-- BOTH LOWER BUTTONS CARRY A TOOLTIP (the owner's call, 2026-08-13),
-                         because both labels name a verb whose meaning is a decision the reader
+                    <!-- BOTH LOWER BUTTONS CARRY A TOOLTIP, because both labels name a verb whose meaning is a decision the reader
                          cannot see: "export" says nothing about .m3u, about which of the two
                          shapes it can write, or about the device it is for, and "sort" does not
                          say by WHAT — and sorting a hand-made list by the wrong key is the one
@@ -255,8 +254,8 @@ function sort(): void {
                         <icon name="sort" :size="1" />
                         <span>{{ t("playlists.sort.open") }}</span>
                     </Button>
-                    <!-- SHARE IT, exactly as an album or an artist is shared (the owner's call,
-                         2026-08-13) — the same button, the same modal, the same `/s/` link. It
+                    <!-- SHARE IT, exactly as an album or an artist is shared — the same button,
+                         the same modal, the same `/s/` link. It
                          belongs in this lower row rather than in the panel above for the reason
                          the Music heroes put it there: the panel holds what a reader came to do
                          with the music, and these three take the playlist somewhere else.

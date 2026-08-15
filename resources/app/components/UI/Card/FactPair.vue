@@ -4,11 +4,11 @@
  * One labelled value, drawn as a washed tile: a small capped label (with an optional
  * icon for the KIND of fact) above the value it names.
  *
- * Extracted from Facts so the HERO can use the same tile — a song's artist / album /
- * year appear both in the hero's metadata row and in the facts cards below it, and two
- * implementations of one tile is how the two drift apart. Facts renders these for the
- * pairs it was handed; a caller can also place them itself, which is what the hero's
- * `#metadata` slot takes.
+ * Its own component rather than something Facts draws internally, because the HERO uses the
+ * same tile — a song's artist / album / year appear both in the hero's metadata row and in the
+ * facts cards below it, and two implementations of one tile is how the two drift apart. Facts
+ * renders these for the pairs it was handed; a caller can also place them itself, which is what
+ * the hero's `#metadata` slot takes.
  *
  * Renders an <li>: a set of labelled values is a list, and both hosts wrap it in one.
  * Its width is left to the parent — Facts lets the tiles grow to fill a card's line,

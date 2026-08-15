@@ -153,8 +153,9 @@ const facts = computed(() =>
 
    HOVER AND FOCUS ARE READ OFF THE BUTTON, not off the card, and the two are asked differently on
    purpose: hover bubbles, so hovering anywhere over the card is the card's own `:hover` — but
-   focus lands on the button alone, which is what `:has()` is for. `.neighbour--empty` stands in
-   for what used to be `:disabled` here, the card no longer being the control. */
+   focus lands on the button alone, which is what `:has()` is for. `.neighbour--empty` carries the
+   dimmed state, because the card is not the control and so cannot be `:disabled` — the button
+   inside it is. */
 .neighbour {
     display: flex;
     position: relative;

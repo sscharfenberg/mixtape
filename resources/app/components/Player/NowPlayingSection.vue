@@ -80,11 +80,11 @@ const genreOf = (id: string | undefined): string | null => (id === undefined ? n
 
 <template>
     <div class="now-playing-section">
-        <!-- WHAT IT SOUNDS LIKE, ALWAYS (the owner's call, 2026-08-10). It used to be mounted
-             only while something was playing, on the argument that a paused EQ is a row of flat
-             bars in an empty box; what that actually produced was a page whose four rows became
-             three every time you pressed pause, with everything below jumping up a row and back
-             down again. A quiet baseline holding its place says "nothing to hear right now",
+        <!-- WHAT IT SOUNDS LIKE, ALWAYS — mounted whether or not anything is playing. Mounting
+             it only during playback is the tempting alternative, on the argument that a paused EQ
+             is a row of flat bars in an empty box; what it produces is a page whose four rows
+             become three every time you press pause, with everything below jumping up a row and
+             back down again. A quiet baseline holding its place says "nothing to hear right now",
              which is both true and stationary. The reading itself costs nothing while paused —
              the analyser reads zeros, and `requestAnimationFrame` stops dead as soon as the page
              is hidden. -->
@@ -129,12 +129,11 @@ const genreOf = (id: string | undefined): string | null => (id === undefined ? n
    cards stay the same width whatever their titles are — a "next" card that grew because its track
    has a long name would make the pair read as a hierarchy.
 
-   AND `minmax(0, …)` IS WHAT MAKES THAT TRUE, rather than the `1fr` this said until 2026-08-10, which
-   promised equal columns and did not deliver them. `1fr` is `minmax(auto, 1fr)`, and the `auto` floor
-   is min-content — which for `.neighbour__title` (`white-space: nowrap`) is the WHOLE title, however
-   long. Measured with a 78-character title: 452px beside 765px at a 1280px window, and 247px of the
-   row hanging outside the page at 640px. The queue's own grid carries the same note; the owner found
-   it there first, on Burzum's *Filosofem*. */
+   AND `minmax(0, …)` IS WHAT MAKES THAT TRUE — a bare `1fr` promises equal columns and does not
+   deliver them. `1fr` is `minmax(auto, 1fr)`, and the `auto` floor is min-content, which for
+   `.neighbour__title` (`white-space: nowrap`) is the WHOLE title however long. Measured with a
+   78-character title: 452px beside 765px at a 1280px window, and 247px of the row hanging outside
+   the page at 640px. The queue's own grid carries the same note. */
 .now-playing-section__neighbours {
     display: grid;
 

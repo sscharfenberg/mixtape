@@ -247,11 +247,6 @@ const playable = computed<boolean>(() => props.tracks.length > 0);
             </card>
 
             <template v-else>
-                <!-- This hero carried `grow-metadata` from 2026-08-13 until 2026-08-14, when
-                     filling the row became every hero's behaviour and the prop went with it.
-                     The argument for it here was the strongest case rather than a special one:
-                     the fewest facts and ONE button, so the chips left a bare stripe beside
-                     them on the one page that has to look deliberate to a stranger. -->
                 <hero-section :unframed-cover="fanned">
                     <!-- The artwork. An artist fans up to three of their own sleeves in place
                          of the photograph this app does not store; the other two kinds show
@@ -271,8 +266,8 @@ const playable = computed<boolean>(() => props.tracks.length > 0);
                          that they can simply press play, or that no account is involved — the
                          header above looks exactly like an app they have never signed into.
 
-                         It also fills the hero, which is what prompted it (the owner, 2026-08-13):
-                         with five chips and one button the text column ran out ~123px before the
+                         It also fills the hero, which is half of why it is here: with five chips
+                         and one button the text column ran out ~123px before the
                          240px cover square did, and the panel opened on a band of empty space.
                          Prose was the right filler rather than more facts, because the gap was
                          under a sentence that was missing anyway.
@@ -307,8 +302,8 @@ const playable = computed<boolean>(() => props.tracks.length > 0);
                                 }}</span>
                             </template>
                         </i18n-t>
-                        <!-- WHAT THIS PAGE WILL NOT REMEMBER, and what to do about it (the
-                             owner, 2026-08-14). ShareLayout runs the queue in ephemeral mode, so
+                        <!-- WHAT THIS PAGE WILL NOT REMEMBER, and what to do about it.
+                             ShareLayout runs the queue in ephemeral mode, so
                              a reader who closes the tab and comes back starts at the top — and
                              with no sentence saying so that reads as the page having forgotten
                              rather than never having been asked to remember. It doubles as the
@@ -346,8 +341,7 @@ const playable = computed<boolean>(() => props.tracks.length > 0);
                         />
                         <!-- WHAT KIND OF MUSIC IT IS, which is the fact that means most to
                              somebody who does not know the band — and the one the album page
-                             carries that this hero was missing (the owner, 2026-08-13). Sits
-                             where the album page puts it, after the year.
+                             page carries too. Sits where the album page puts it, after the year.
 
                              NO `href`, unlike every other page that draws it: a genre's page
                              lives under `/music`, and a guest following that link would land on
@@ -429,8 +423,7 @@ const playable = computed<boolean>(() => props.tracks.length > 0);
 }
 
 /* THE NOUN IN THE INTRO, drawn as a chip with the app's own glyph for that kind of thing —
-   what the reader is holding a link to, said once in a form they can see rather than read
-   (the owner's call, 2026-08-13).
+   what the reader is holding a link to, said once in a form they can see rather than read.
 
    IT WEARS THE FACT TILE'S OWN FILL AND CORNERS (s./c.$c-facts), read across rather than
    re-picked: it stands among the metadata tiles on the same panel, so it is the same object in
@@ -441,11 +434,11 @@ const playable = computed<boolean>(() => props.tracks.length > 0);
    The PADDING is its own, and small: this chip sits inside a running sentence, so the tile's
    own block padding would push the line it is on apart from the line above.
 
-   `display: inline`, NOT `inline-flex`, and that is the fix for the chip's word sitting off the
-   sentence's baseline (the owner spotted it, 2026-08-13). An inline-FLEX box has no text
-   baseline of its own: it takes the baseline of its first flex item, which here is the icon —
-   and an <svg> is a replaced element whose baseline is its bottom edge, so the whole chip was
-   hung from the icon's bottom rather than sitting on the line. Plain `inline` puts the chip's
+   `display: inline`, NOT `inline-flex`, and that is what keeps the chip's word ON the sentence's
+   baseline. An inline-FLEX box has no text baseline of its own: it takes the baseline of its
+   first flex item, which here is the icon — and an <svg> is a replaced element whose baseline is
+   its bottom edge, so the whole chip hangs from the icon's bottom rather than sitting on the
+   line. Plain `inline` puts the chip's
    text in the parent's own line box, where it cannot be anywhere but on the baseline, and the
    icon keeps the `vertical-align: middle` it already carries (Icon.vue). The vertical padding
    does not grow the line box in this mode, which is the right trade here: a sentence whose

@@ -208,8 +208,8 @@ const columns = computed<ColumnDef<TrackRow>[]>(() => [
                     <cover-image :src="album.coverUrl" :title="album.name" size="xlarge" />
                 </template>
                 <!-- No #title and no #menu: the name heads the page in the <Headline> above,
-                     and the two verbs that were behind the menu are visible buttons in
-                     #actions now (2026-08-11 — see the banner). -->
+                     and the hero's verbs are visible buttons in #actions rather than
+                     entries in a popover — see the banner for why. -->
                 <!-- The facts that belong to the album as a whole. Each is skipped
                      when there is nothing to say: a compilation has no album-artist,
                      an untagged rip no year. The counts always exist.

@@ -120,10 +120,10 @@ const expiries = computed<Record<string, string>>(() =>
          both what the app does with a run of headings down a page (the tabs alternate) and what
          says at a glance that this is the lesser half — the live links are the page. -->
     <template v-if="expiredShares.length">
-        <!-- `share_off` — the page's own `share` glyph, crossed out (the owner's call,
-             2026-08-13). It was `calendar`, which said "this section is about dates" where what
-             the section is actually about is links that have stopped working. The icon is new,
-             so a deploy needs `npm run icons` (the sprite is built, not committed). -->
+        <!-- `share_off` — the page's own `share` glyph, crossed out. Not `calendar`, which
+             would say "this section is about dates" where what it is actually about is links
+             that have stopped working. Adding an icon means a deploy needs `npm run icons`,
+             since the sprite is built rather than committed. -->
         <headline glow align="right">
             <icon name="share_off" :size="3" />
             {{ t("dashboard.shares.expiredHeadline") }}

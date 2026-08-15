@@ -130,11 +130,11 @@ watch(userId, now => {
    the screen, and a <main> that stops short leaves that opening in plain view on all 21
    pages that use one.
 
-   THIS USED TO PUBLISH `--content-inset-end` from `landscape` up, so Container could
-   keep the page's trailing column clear of a permanently-open panel — and it widened at
-   `full` to match the panel's own step, two files holding one decision. All of it is
-   gone with the panel becoming an overlay everywhere (PlayQueue's banner says why), and
-   with it the class of bug where the two numbers drift: there is no number. */
+   NOTHING IS PUBLISHED FOR THE QUEUE PANEL, and that is the arrangement rather than an
+   omission. A panel that took a column of the page would need its width shared with
+   Container through a custom property, at every breakpoint the panel steps at — two files
+   holding one decision, which is a number waiting to drift. The panel is an overlay at every
+   width instead (PlayQueue's banner says why), so there is no number to keep in step. */
 .app-body {
     flex: 1 1 auto;
 }

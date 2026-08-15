@@ -4,11 +4,10 @@
  * The grid of stat tiles a stats card is made of — a glyph, a label and a big value each,
  * every tile explained by a tooltip.
  *
- * EXTRACTED FROM StatsWidget when the Audiobooks area wanted the same card. What
- * moved with it is not really the markup, it is the MEASUREMENTS: the wrapping-flex-lines
- * decision, the `min-content` floor, and the unbreakable value pieces are each the answer to
- * a bug that was found by looking at a browser, and a second copy of them would be the copy
- * that quietly stops matching.
+ * SHARED BY THE MUSIC AND AUDIOBOOK CARDS, and what is worth sharing is not really the markup,
+ * it is the MEASUREMENTS: the wrapping-flex-lines decision, the `min-content` floor and the
+ * unbreakable value pieces are each the answer to a bug found by looking at a browser, and a
+ * second copy of them would be the copy that quietly stops matching.
  *
  * A card supplies the tiles; this owns how they are laid out and how a value may break.
  *****************************************************************************/
@@ -188,7 +187,7 @@ const groups = computed<StatTile[][]>(() =>
 /* Each tile is the Tooltip's root span (class merged onto it); as a flex item its inline-flex
    is blockified, so we only set the direction and the alignment.
 
-   CENTRED BOTH WAYS (the owner's call, 2026-08-13). It takes three properties, not one,
+   CENTRED BOTH WAYS, which takes three properties rather than one,
    because a column flex box centres along each axis by a different name: `justify-content`
    centres the head-and-value PAIR in the tile's height, `align-items` centres each of those
    two boxes across its width, and `text-align` centres the lines INSIDE a box that wrapped —

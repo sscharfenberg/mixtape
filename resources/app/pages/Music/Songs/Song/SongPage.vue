@@ -314,8 +314,8 @@ const songFacts = computed<Fact[]>(() => {
                     <cover-image :src="song.coverUrl" :title="coverAlt" size="xlarge" />
                 </template>
                 <!-- No #title and no #menu: the name heads the page in the <Headline> above,
-                     and the two verbs that were behind the menu are visible buttons in
-                     #actions now (2026-08-11 — see the banner). -->
+                     and the hero's verbs are visible buttons in #actions rather than
+                     entries in a popover — see the banner for why. -->
                 <!-- The same three facts the cards below repeat, as the hero's own tiles:
                      up here they are what identifies the song, down there they are part of
                      its full tag set. FactPair is the facts' own tile, so the two agree by

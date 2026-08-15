@@ -279,7 +279,7 @@ watch(
                     </span>
                 </Link>
 
-                <!-- A LabelledLink rather than a bare row (the owner's call): the way OUT of a
+                <!-- A LabelledLink rather than a bare row: the way OUT of a
                      group is an action, so it wears the app's link treatment — underline and a
                      leading glyph — over a band of its own. Its attributes fall through to the
                      `<a>` LabelledLink renders, which is what keeps it a walkable option with the
@@ -424,9 +424,9 @@ watch(
         align-items: center;
 
         /* TRAILING ON EITHER LINE — see `__pips`, which owns the placing with an auto margin.
-           This was `justify-content: space-between` until 2026-08-14, which put a wrapped pips
-           line flush LEFT under the name; the owner reversed that call, so the row now only
-           decides the flow and the gaps. */
+           NOT `justify-content: space-between` here: that packs a line holding a single item to
+           the main-START edge, so a pips line that wrapped would sit flush LEFT under the name.
+           This row decides only the flow and the gaps. */
         flex-flow: row wrap;
 
         // Inline from the PANEL's padding rather than the row's own, for the reason the strip
@@ -497,12 +497,11 @@ watch(
         /* The hand-off reads as an action rather than as a result: one line, a size down, and no
            pips to leave a gap where a row's facts would be.
 
-           IT USED TO UNDO THE ROW'S `space-between`, which mattered: LabelledLink's two children are
-           a glyph and its label, and pushing those to opposite ends of the panel read as two
-           unrelated things rather than as one labelled link. That override is gone with the
-           `space-between` it existed for (2026-08-14) — the trailing edge is now an auto margin on
-           `__pips`, which this row has none of, so nothing here has to be undone. The tighter gap
-           is the same thought as before — 8px reads as two objects side by side, 4px as one. */
+           NOTHING TO UNDO HERE, because the trailing edge is an auto margin on `__pips` and this
+           row has no pips. Were the row using `space-between` instead, this would have to override
+           it: LabelledLink's two children are a glyph and its label, and pushing those to opposite
+           ends of the panel reads as two unrelated things rather than as one labelled link. The
+           tighter gap is its own decision — 8px reads as two objects side by side, 4px as one. */
         &--all {
             align-items: center;
             flex-direction: row;
@@ -527,12 +526,11 @@ watch(
        are resolved BEFORE `justify-content` and absorb all the free space on their own flex LINE,
        so the pips sit flush right whether they share the name's line or have one to themselves.
 
-       WHICH IS A REVERSAL, and worth recording as one. The row used to say `space-between` and this
-       comment used to say "no auto margin, deliberately" — because `space-between` packs a line
-       holding a single item to the main-START edge, which put a wrapped pips line left underneath
-       the name, lined up with it. The owner called it the other way on 2026-08-14: a fact belongs
-       at the trailing edge on every row, so the eye finds it in one column down a list of nine.
-       The mechanism that was removed to get the old behaviour is the mechanism that gets this one.
+       `justify-content: space-between` is the alternative and does NOT do the same job: it packs
+       a line holding a single item to the main-START edge, so a pips line with the name above it
+       lands flush left, lined up under the name. The requirement is the opposite — a fact sits at
+       the trailing edge on every row, so the eye finds it in one column down a list of nine — and
+       an auto margin is what holds on both the shared line and the wrapped one.
 
        `nowrap` keeps the pips ONE item as far as the wrapping row above is concerned, so they move
        down together instead of one at a time. */

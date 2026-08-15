@@ -443,13 +443,13 @@ $bleed: map.get(s.$c-play-queue, "padding");
 /* The panel itself, pinned to the layer's trailing edge, and FULL HEIGHT AT EVERY
    WIDTH — header to player bar, which is the span the layer already describes.
 
-   It used to be only as tall as its contents from `landscape` up. That reads fine
-   for two or three tracks and steadily worse as the queue grows: the bottom edge
-   lands at whatever height the list happens to reach, so it moves every time
-   something is queued or removed, and the panel stops looking like a fixture of
-   the layout and starts looking like a dropdown that failed to close. A constant
-   edge is worth more than the strip of page a short queue gave back — nothing is
-   behind it anyway, since Container already insets content for the full height. */
+   Sizing it to its contents is the alternative, and it reads fine for two or three
+   tracks and steadily worse as the queue grows: the bottom edge lands at whatever
+   height the list happens to reach, so it moves every time something is queued or
+   removed, and the panel stops looking like a fixture of the layout and starts
+   looking like a dropdown that failed to close. A constant edge is worth more than
+   the strip of page a short queue would give back — nothing is behind it anyway,
+   since Container already insets content for the full height. */
 .play-queue {
     display: flex;
     position: absolute;

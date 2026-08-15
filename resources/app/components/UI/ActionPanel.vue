@@ -11,10 +11,10 @@
  * fill, no border and no heading — enough to group them, not enough to compete with the
  * facts above.
  *
- * IT USED TO BE AddToPlaylist's OWN BOX, and moving it out is the whole point of this
- * component. Whatever stands beside those controls must appear whether or not
- * the reader has any playlists, which a box owned by AddToPlaylist could not manage — that
- * component renders NOTHING for a reader with none.
+ * THE BOX CANNOT BELONG TO AddToPlaylist, which is the whole reason this component exists.
+ * Whatever stands beside those controls must appear whether or not the reader has any
+ * playlists — and AddToPlaylist renders NOTHING for a reader with none, taking the box and
+ * everything in it with it.
  *
  * WHAT IT HOLDS is "what a reader is most likely to press": play, queue, and add to a
  * playlist. NOT the download button, which sits on the row below beside share: those two are

@@ -168,8 +168,8 @@ const tabs = computed<TabDefinition[]>(() => [
         <div class="genre">
             <hero-section>
                 <!-- No #title and no #menu: the name heads the page in the <Headline> above,
-                     and the two verbs that were behind the menu are visible buttons in
-                     #actions now (2026-08-11 — see the banner). -->
+                     and the hero's verbs are visible buttons in #actions rather than
+                     entries in a popover — see the banner for why. -->
                 <!-- The facts about the genre as a whole. None can be absent — the server
                      sends 0 rather than null for all four — so every tile always renders,
                      and 0 is an answer here rather than missing data. -->

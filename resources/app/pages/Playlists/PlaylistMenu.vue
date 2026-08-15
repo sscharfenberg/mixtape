@@ -57,21 +57,19 @@ const reference = computed<string>(() => `playlist-menu-${props.playlist.id}`);
                 <!-- The metadata form, over this playlist. A real Inertia <Link>, so the visit is
                      client-side like every other navigation.
 
-                     NO `prefetch`, AND THAT IS MEASURED (2026-08-10). It had one, on the fair
-                     argument that warming two fields and no query is cheap. What it actually
-                     bought was the flakiest failure in the suite: a click that outruns the hover
-                     timer sends its own request, so the prefetch is neither cached nor consumed —
-                     and when its response lands, Inertia applies it to the page you are NOW on
-                     (`Response.handlePrefetch()` calls `handle()` whenever the URL matches the
-                     current location), which RE-CREATES the page component. Caught at 10ms
-                     resolution: the `<form>` element was replaced 20ms after a field had been
-                     typed into, and the save then wrote the value the server had sent.
+                     NO `prefetch`, AND THAT IS MEASURED. Warming two fields and no query looks
+                     cheap, and it buys the flakiest failure this suite has had: a click that
+                     outruns the hover timer sends its own request, so the prefetch is neither
+                     cached nor consumed — and when its response lands, Inertia applies it to the
+                     page you are NOW on (`Response.handlePrefetch()` calls `handle()` whenever
+                     the URL matches the current location), which RE-CREATES the page component.
+                     Caught at 10ms resolution: the `<form>` element replaced 20ms after a field
+                     had been typed into, and the save then writing the value the server sent.
 
                      A form is the worst place to buy 150ms that way — the reader is about to sit
                      there for seconds, and the page being rebuilt underneath them costs their
-                     caret and (before PlaylistMetadataPage started remembering its fields) their
-                     typing. That `useRemember` stays as the belt to this braces: a swap from
-                     anywhere else is then harmless too. -->
+                     caret and their typing. PlaylistMetadataPage's `useRemember` is the belt to
+                     this braces — with it, a swap arriving from anywhere else is harmless too. -->
                 <Link class="popover-list-item" :href="`/playlists/${playlist.id}/edit`">
                     <icon name="settings" :size="1" />
                     {{ t("playlists.menu.editMetadata") }}

@@ -75,7 +75,7 @@ const appName = import.meta.env.VITE_APP_NAME;
                         ? t("footer.copyrightPlain", { appName, date: copyrightDate })
                         : t("footer.copyright", { appName, date: copyrightDate, version })
                 }}</span>
-                <!-- THE MARK ALONE (the owner, 2026-08-14): no word, and not LabelledLink's
+                <!-- THE MARK ALONE: no word, and not LabelledLink's
                      external-link glyph either. GitHub's own logo is the most recognisable
                      label this link could carry, and two icons plus a noun for one
                      destination was three ways of saying it.

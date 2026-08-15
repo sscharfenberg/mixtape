@@ -178,8 +178,8 @@ const tabs = computed<TabDefinition[]>(() => [
                 <!-- Not a photograph, but where one would be — see the banner. -->
                 <template #cover><cover-sleeves :covers="covers" :title="artist.name" scale="hero" /></template>
                 <!-- No #title and no #menu: the name heads the page in the <Headline> above,
-                     and the two verbs that were behind the menu are visible buttons in
-                     #actions now (2026-08-11 — see the banner). -->
+                     and the hero's verbs are visible buttons in #actions rather than
+                     entries in a popover — see the banner for why. -->
                 <!-- The facts about the catalogue rather than about any one file. Only the
                      genre can be absent, and then its tile is skipped rather than reading
                      "unknown" — the counts always exist, 0 included, because 0 is an

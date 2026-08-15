@@ -152,11 +152,11 @@ describe("PlayQueue", () => {
     });
 
     it("gives the title no link, so aiming at it cannot navigate away", async () => {
-        // It WAS a <Link> to the song's page. In a panel where every other pixel plays
-        // the track, the title is the one spot a listener aims at — and it was the one
-        // spot that left the page. Now it is plain text under the row's play overlay.
-        // The hit area itself is layout, so that half is a Playwright spec; what this
-        // guards is the regression that would re-introduce an anchor here.
+        // A <Link> to the song's page is the obvious thing for a title to be, and in a panel
+        // where every other pixel plays the track it is a trap: the title is the one spot a
+        // listener aims at, so it would be the one spot that leaves the page. It is plain text
+        // under the row's play overlay. The hit area itself is layout, so that half is a
+        // Playwright spec; this guards the regression that would re-introduce an anchor.
         const wrapper = await panel([track("a", "Airbag")]);
         const name = wrapper.find(".play-queue__name");
 

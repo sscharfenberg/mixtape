@@ -268,8 +268,8 @@ const columns = computed<ColumnDef<ChapterRow>[]>(() => [
                         <!-- THREE VERBS, WRITTEN OUT HERE RATHER THAN `SubjectActions`, which
                              every Music hero uses. That component pairs play + enqueue, and its
                              play always starts at the beginning — beside a resume button it read
-                             as two play buttons, and the plainer-looking one silently restarted
-                             a book you were forty chapters into (the owner spotted it).
+                             as two play buttons, and the plainer-looking one would silently
+                             restart a book you were forty chapters into.
 
                              Play RESUMES, with a separate way back to the start beside it: on a
                              book part-way through, resuming is what the obvious big button
@@ -280,7 +280,7 @@ const columns = computed<ColumnDef<ChapterRow>[]>(() => [
                             <icon :name="busy ? 'refresh' : 'playlist'" :size="1" :rotate="busy" />
                             <span>{{ t(bookmark ? "audiobooks.actions.resume" : "audiobooks.actions.play") }}</span>
                         </Button>
-                        <!-- `default`, not primary (the owner's call): starting a book over is
+                        <!-- `default`, not primary: starting a book over is
                              the rarer of the two ways to press play, and the outline look says
                              so beside the filled one that resumes. -->
                         <Button v-if="bookmark" no-halo :disabled="busy" @click="restart">
@@ -368,8 +368,8 @@ const columns = computed<ColumnDef<ChapterRow>[]>(() => [
 }
 
 /* THE CHAPTER YOU LEFT OFF AT, wearing the site menu's CURRENT-ITEM colours: dark green with
-   yellow ink in dark mode, and the inverse in light (the owner's call). Measured against the
-   header's own pill afterwards — both `rgb(22, 50, 27)` on `rgb(255, 230, 77)` — because
+   yellow ink in dark mode, and the inverse in light. Measured against the header's own pill —
+   both `rgb(22, 50, 27)` on `rgb(255, 230, 77)` — because
    reading `$c-site-menu-links` rather than restating the values is what keeps them in step if
    either is ever retuned. A page reads the token of the component that already defines a
    value; it does not mint a duplicate (CLAUDE.md → tokens).

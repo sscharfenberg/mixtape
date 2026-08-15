@@ -179,11 +179,11 @@ defineExpose({ scrollCurrentIntoView });
                 <icon name="drag" :size="0" />
             </button>
             <span class="play-queue__meta">
-                <!-- Both lines are plain text, deliberately. The title used to be a real <Link> to
-                     the song's page, and in a list whose every other pixel plays the track that is
-                     a trap: the one spot a listener actually aims for was the one spot that
-                     navigated away instead. So it stays under the load button's overlay and plays
-                     like the rest of the row. -->
+                <!-- Both lines are plain text, deliberately. A real <Link> to the song's page is
+                     the obvious thing to make the title, and in a list whose every other pixel
+                     plays the track it is a trap: the one spot a listener actually aims for would
+                     be the one spot that navigates away instead. It stays under the load button's
+                     overlay and plays like the rest of the row. -->
                 <span class="play-queue__name">{{ track.name }}</span>
                 <span v-if="track.artist" class="play-queue__artist">{{ track.artist }}</span>
             </span>
@@ -281,9 +281,9 @@ $two-columns: map.get(s.$c-play-queue, "width") * 2;
    "there is room for two at the panel's own width" — which is also the fallback to one column on
    anything narrower, since below that threshold this rule is all there is.
 
-   THE TWO COLUMNS ARE READ DOWN, NOT ACROSS (2026-08-10). A grid deals items across its columns by
-   default, so tracks 1 and 2 were neighbours and the running order zig-zagged — the owner's words
-   were that it "reads weird", and a numbered list you have to zig-zag to follow is exactly that.
+   THE TWO COLUMNS ARE READ DOWN, NOT ACROSS. A grid deals items across its columns by default,
+   which would put tracks 1 and 2 side by side and make the running order zig-zag — and a numbered
+   list you have to zig-zag to follow is not a running order at all.
    `grid-auto-flow: column` over an explicit row count fills the left column with the first half and
    the right with the second; the count comes from the component (`rowsPerColumn`), because CSS
    cannot count children. `repeat(var(…))` is substituted before the value is parsed, so this is a

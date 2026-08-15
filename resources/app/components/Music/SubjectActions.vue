@@ -62,7 +62,7 @@ const { busy, playSubject, enqueueSubject } = useSubjectTracks(() => props.track
         <Button variant="primary" no-halo class="subject-actions__play" :disabled="busy" @click="playSubject">
             <!-- `playlist`, not `play`: what this does is fill the QUEUE and start it, which
                  is a list operation — a bare play triangle reads as "play this one thing"
-                 (the owner's call, carried over from SubjectMenu). The spinner replaces the
+                 rather than a list. The spinner replaces the
                  glyph rather than sitting beside it, so the button keeps its width while a
                  big subject loads. -->
             <icon :name="busy ? 'refresh' : 'playlist'" :size="1" :rotate="busy" />

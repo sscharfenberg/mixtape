@@ -27,15 +27,15 @@ return new class extends Migration
      * The sqlite connection used by the test suite doesn't understand the ICU DDL, so it gets
      * `nocase` — sqlite's own case-insensitive collation, which folds ASCII only.
      *
-     * THAT USED TO BE `null`, AND THE COMMENT HERE CLAIMED SQLITE'S DEFAULT WAS "already
-     * case-folding". It is not: the default is `BINARY`, which is case-SENSITIVE — so for two
-     * names differing only in case the suite would do the exact OPPOSITE of production, and
-     * neither behaviour is wrong-looking on its own. Postgres finds the existing row (and unless
-     * the scanner rewrites its spelling, a case-only rename then does nothing at all); sqlite
-     * creates a second row and prunes the first, so the name looks right and the ID silently
-     * changes. A test cannot catch either, because it is asserting the wrong engine's answer.
-     * Both dedupe case-insensitively; Postgres additionally does it for
-     * every script rather than for ASCII, which is a difference the fixtures never reach.
+     * NAMING A COLLATION THERE IS NOT OPTIONAL. Sqlite's default is `BINARY`, which is
+     * case-SENSITIVE — so left unset, the suite does the exact OPPOSITE of production for two
+     * names differing only in case, and neither behaviour looks wrong on its own. Postgres finds
+     * the existing row (and unless the scanner rewrites its spelling, a case-only rename then
+     * does nothing at all); sqlite creates a second row and prunes the first, so the name looks
+     * right and the id silently changes. No test can catch that, because it would be asserting
+     * the wrong engine's answer. With `nocase` both dedupe case-insensitively; Postgres
+     * additionally does it for every script rather than for ASCII alone, which is a difference
+     * the fixtures never reach.
      */
     public function up(): void
     {

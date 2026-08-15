@@ -167,8 +167,8 @@ watch(focusNonce, focusField, { flush: "post" });
                  are a row of noise in a panel nobody has typed into yet, and narrowing is only a
                  question once there is something to narrow.
 
-                 The same control the Music page mounts (the owner's call, 2026-08-13 — the two
-                 surfaces are one feature and had no business behaving differently), with a `name`
+                 The same control the Music page mounts — the two surfaces are one feature and
+                 have no business behaving differently — with a `name`
                  of its own: two radiogroups sharing one would form a single group, and choosing in
                  the second would silently clear the first. Both can be on the page at once, since
                  the overlay is mounted on /music too. -->

@@ -89,7 +89,7 @@ const iconOf = (kind: ShareRow["kind"]): string =>
              one says so in words instead of printing a date that has quietly passed — the same
              date read two ways is exactly what a reader misreads.
 
-             ON A DEAD ROW THE PIP IS A BUTTON (the owner's call, 2026-08-13), and it is the one
+             ON A DEAD ROW THE PIP IS A BUTTON, and it is the one
              control in this list that reads as a fact until you point at it. That is deliberate:
              the word a reader is looking for is "abgelaufen", so hanging the remedy off that word
              puts it exactly where they are already looking, rather than adding a fourth control
@@ -303,13 +303,13 @@ const iconOf = (kind: ShareRow["kind"]): string =>
     gap: map.get(s.$c-shares, "chip-gap");
 }
 
-/* THE COPY BUTTON — the revoke button's box exactly, fill included (deliberately,
-   2026-08-13). It rested TRANSPARENT until then, on the argument that two equally loud controls
-   would make a reader read both before pressing either; what the finished row showed is the
-   opposite — three controls in three different weights (a transparent glyph, a filled glyph, a
-   pressable word) read as three kinds of thing, and a reader has to work out which. Uniform
-   surfaces say "these are the buttons" once, and the difference that actually matters is still
-   there in the GLYPHS: a copy sheet, a bin, a word. */
+/* THE COPY BUTTON — the revoke button's box exactly, fill included. Leaving it transparent is
+   the tempting alternative, on the argument that two equally loud controls make a reader read
+   both before pressing either; what a finished row shows is the opposite — three controls in
+   three different weights (a transparent glyph, a filled glyph, a pressable word) read as three
+   kinds of thing, and a reader has to work out which. Uniform surfaces say "these are the
+   buttons" once, and the difference that matters is still there in the GLYPHS: a copy sheet, a
+   bin, a word. */
 .shares__copy {
     display: inline-flex;
     align-items: center;
@@ -337,8 +337,8 @@ const iconOf = (kind: ShareRow["kind"]): string =>
 }
 
 /* IT CARRIES A FILL AT REST, which is where this row parts company with every other per-row
-   control in the app (the owner's call, 2026-08-12, and since 2026-08-13 it is the rule for all
-   three of this row's controls rather than for this one alone — see the copy button above).
+   control in the app — and it is the rule for all three of this row's controls, not for this
+   one alone (see the copy button above).
    The queue's and the playlist's stay transparent until aimed at, because those rows hold
    several controls and a list of lit glyphs reads as a row of warnings. These are different:
    one of them is the only control in the app whose consequence lands in somebody else's hands,

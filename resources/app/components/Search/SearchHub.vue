@@ -2,10 +2,9 @@
 /******************************************************************************
  * SearchHub
  * A search field with its results floating over the card it sits on — the block a stats card
- * hosts, extracted from StatsWidget when the Audiobooks card wanted the same thing scoped to
- * its own area.
+ * hosts, shared by the Music and Audiobooks cards, each scoped to its own area.
  *
- * WHAT MOVED IS THE AWKWARD HALF, which is why it moved rather than being copied: the panel is
+ * IT IS THE AWKWARD HALF, which is why it is one component rather than one per card: the panel is
  * a native `[popover]` in the browser's TOP LAYER, anchored to the field with CSS anchor
  * positioning, shown and hidden by a watcher that has to guard on the element's own
  * `:popover-open` because `showPopover()` on one already showing THROWS. A second copy of that

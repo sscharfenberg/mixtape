@@ -9,10 +9,10 @@ use Illuminate\Foundation\Http\FormRequest;
 /**
  * The play queue, synced up from the browser (`PUT /player/state`).
  *
- * THE CAP IS ABOVE THE WHOLE LIBRARY (12,058 tracks at the time of writing), deliberately:
- * a listener can queue a genre of several thousand in one press, and a sync that silently
- * refused the queue they can see would be worse than a large row. It exists to bound what a
- * hand-written request can put in the database, not to police ordinary use.
+ * THE CAP IS ABOVE THE WHOLE LIBRARY, deliberately, and must stay there: a listener can queue
+ * a genre of several thousand in one press, and a sync that silently refused the queue they can
+ * see would be worse than a large row. It exists to bound what a hand-written request can put in
+ * the database, not to police ordinary use — so raise it if the collection ever approaches it.
  *
  * No `authorize()`: the queue is stored against `$request->user()`, so a caller can only
  * overwrite their own.

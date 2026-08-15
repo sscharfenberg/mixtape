@@ -261,10 +261,10 @@ const panelId = (id: string): string => `${props.name}-accordion-panel-${id}`;
 /* DOWN WHEN CLOSED, UP WHEN OPEN — "there is more below" turning into "put it away", which is
    the one thing a disclosure triangle is for.
 
-   180°, because the sprite already points DOWN at rest (`chevron.svg`'s apex is its lowest
-   point), so the closed state needs no transform at all. It was `rotate(90deg)` until
-   2026-08-14, which pointed the glyph sideways and matched neither state — and the comment here
-   claimed it pointed down when open, which is how it went unnoticed.
+   180°, and the number matters: the sprite already points DOWN at rest (`chevron.svg`'s apex is
+   its lowest point), so the closed state needs no transform at all and the open one needs a half
+   turn. A quarter turn points the glyph sideways, which matches neither state — and a chevron
+   that is merely at an angle looks deliberate enough that nobody reports it.
 
    The rotation is the only motion here and takes the guard every transition in this app does. */
 .accordion__chevron {
@@ -291,12 +291,11 @@ const panelId = (id: string): string => `${props.name}-accordion-panel-${id}`;
        puts the BLOCK at the trailing edge of the header, and this puts each of its own wrapped
        LINES there too.
 
-       PRE-EMPTIVE rather than a fix — the two chips have not been made to stack yet, since the
-       words go at 480px and what is left is an icon and a number. It is here because `flex-wrap`
-       is, and because the search rows had exactly this defect for real: a wrapped line of facts
-       flush left under a block sitting on the right. The owner's call there (2026-08-14) is that
-       facts belong at the trailing edge on every line, and this is that rule wherever this
-       component's row does wrap. */
+       PRE-EMPTIVE rather than a fix — the two chips do not stack at any width this component is
+       used at, since the words go at 480px and what is left is an icon and a number. It is here
+       because `flex-wrap` is, and because the search rows meet the same case for real: without it
+       a wrapped line of facts lands flush left under a block sitting on the right. Facts belong at
+       the trailing edge on every line, and this is that rule wherever this row does wrap. */
     justify-content: flex-end;
 
     flex-wrap: wrap;

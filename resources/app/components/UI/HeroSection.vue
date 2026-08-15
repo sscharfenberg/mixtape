@@ -198,7 +198,7 @@ defineProps<{
     gap: map.get(s.$c-hero-section, "gap");
 
     /* The panel surface, ramped across the diagonal — the same quiet grey gradient the welcome
-       page's intro panel wears (the owner, 2026-08-14), so the landing page's opening block and
+       page's intro panel wears, so the landing page's opening block and
        a detail page's loudest element read as one surface treatment.
 
        THE FLAT COLOUR STAYS UNDERNEATH, and it is not belt-and-braces: `background` is what the
@@ -439,13 +439,13 @@ defineProps<{
        The caller picks the ELEMENT (which level belongs in the document outline) and the hero
        decides how it looks.
 
-       OUTLINED LETTERING as of 2026-08-10, where this wore the synthwave `.text-chrome` ramp:
-       the glyphs are filled with the PANEL'S OWN colour and drawn round with a line, so they read
+       OUTLINED LETTERING, not the synthwave chrome ramp the app wordmark wears: the glyphs are
+       filled with the PANEL'S OWN colour and drawn round with a line, so they read
        as cut out of the hero rather than printed on it, with one soft glow behind them. How that
        is drawn — the line and its paint order, the glow, the weight, the leading — is the shared
        `.text-outline` class (styles/components/_text-outline.scss), which this element carries in
-       the template alongside its own; a playlist entry's title wears the same one. The chrome went
-       home to the app wordmark, now its only wearer (AppHeaderTitle owns those styles outright).
+       the template alongside its own; a playlist entry's title wears the same one. The chrome ramp
+       belongs to the wordmark alone, and AppHeaderTitle owns those styles outright.
 
        WHAT IS LEFT HERE IS THE FILL, which is the one thing that class cannot supply: the effect is
        letters knocked out of THIS panel, so the colour has to be the panel's own token. Reading
@@ -495,21 +495,20 @@ defineProps<{
            inside a facts card anyway, so this is the tile's own default being allowed rather
            than a look invented here.
 
-           It used to be `flex-grow: 0` on the argument that a few chips stretched across a
-           wide panel read as a table nobody asked for, with the share page opting back in
-           through a `growMetadata` prop. The owner settled it the other way on 2026-08-14:
-           every hero fills its row, and the prop is gone rather than left with no callers.
-           What the old default actually produced was a row of chips ending in a bare stripe,
-           which is the thing the share page was given an opt-out to escape.
+           `flex-grow: 0` is the alternative, on the argument that a few chips stretched across
+           a wide panel read as a table nobody asked for. What it actually produces is a row of
+           chips ending in a bare stripe of panel, which looks like something failed to load.
+           EVERY hero fills its row, with no per-page opt-out — a prop that let one page differ
+           would be a second answer to a question that has one.
 
            The halo is the hero's own addition to a tile that is flat everywhere else — see
            c.$c-hero-section "metadata-halo" for why it belongs here and not in the card.
 
-           `:deep(.fact-pair)`, NOT `:slotted(*)`, AND THAT IS A BUG FIX (2026-08-14). Vue puts
+           `:deep(.fact-pair)`, NOT `:slotted(*)`, AND THE DIFFERENCE IS LOAD-BEARING. Vue puts
            the slotted marker (`data-v-…-s`) on the ROOT of what it was handed, and
            `PlayCountFacts` is a MULTI-ROOT component — two `FactPair`s in a fragment — so its
-           tiles never carried the marker and `:slotted` could not see them. Measured: the two
-           "Von dir" / "Von anderen" tiles had `box-shadow: none` while every tile written
+           tiles never carry the marker and `:slotted` cannot see them. Measured: the two
+           "Von dir" / "Von anderen" tiles computed `box-shadow: none` while every tile written
            straight into the slot glowed, on all seven pages that show play counts. Naming the
            class instead reaches a tile however deeply the thing that rendered it is nested.
            Every `#metadata` slot in the app holds FactPairs and nothing else, so the class is
