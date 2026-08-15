@@ -76,7 +76,14 @@ export default defineConfig({
     timeout: 60_000,
     expect: { timeout: 15_000 },
 
-    reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : [["list"], ["html", { open: "never" }]],
+    /*
+     * The JUnit file is CI-only and exists for ONE reader: resources/build/testBadges.ts, which
+     * turns each suite's totals into the README's badge. It is written even when the run fails,
+     * which is the point — a red badge has to be able to say how many failed.
+     */
+    reporter: process.env.CI
+        ? [["github"], ["junit", { outputFile: "reports/playwright.xml" }], ["html", { open: "never" }]]
+        : [["list"], ["html", { open: "never" }]],
 
     use: {
         baseURL: BASE_URL,

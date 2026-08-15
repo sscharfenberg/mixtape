@@ -1,5 +1,10 @@
 # MixTape
 
+[![CI](https://github.com/sscharfenberg/mixtape/actions/workflows/ci.yml/badge.svg)](https://github.com/sscharfenberg/mixtape/actions/workflows/ci.yml)
+[![PHPUnit](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsscharfenberg%2Fmixtape%2Fbadges%2Fphpunit.json)](https://github.com/sscharfenberg/mixtape/actions/workflows/ci.yml)
+[![Vitest](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsscharfenberg%2Fmixtape%2Fbadges%2Fvitest.json)](https://github.com/sscharfenberg/mixtape/actions/workflows/ci.yml)
+[![Playwright](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsscharfenberg%2Fmixtape%2Fbadges%2Fplaywright.json)](https://github.com/sscharfenberg/mixtape/actions/workflows/ci.yml)
+
 **MixTape is a self-hosted web app that organises a personal MP3 and audiobook collection and plays it
 in the browser.** It runs on one always-on machine you own, and it is deliberately reachable from the
 internet, so you can play your music wherever you have an internet connection - or send someone a link

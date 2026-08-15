@@ -54,7 +54,21 @@ jobs:
       - name: Fail if lint --fix changed committed files
         run: git diff --exit-code
 
-      - run: npm run test:unit
+      # `--reporter=default` is named explicitly because a lone `--reporter=junit` REPLACES the
+      # console output, which would leave a failing run with nothing readable in the log. The
+      # XML is for the badge job and nothing else.
+      - name: Unit tests
+        run: npm run test:unit -- --reporter=default --reporter=junit --outputFile.junit=reports/vitest.xml
+
+      # `!cancelled()` rather than the default `success()`: a RED suite's count is exactly what
+      # the badge has to show, so the XML must survive a failing step above.
+      - name: Keep the count for the badge
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: junit-vitest
+          path: reports/vitest.xml
+          retention-days: 1
 
   # The server suite, and PHP formatting. Deliberately NOT in the browser job: neither
   # needs Chromium, so putting them here means a failing test or a badly formatted file is
@@ -111,7 +125,16 @@ jobs:
         run: npm run build-only
 
       - name: Server tests
-        run: php artisan test
+        run: php artisan test --log-junit reports/phpunit.xml
+
+      # See the note in the `checks` job for why this is `!cancelled()`.
+      - name: Keep the count for the badge
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: junit-phpunit
+          path: reports/phpunit.xml
+          retention-days: 1
 
   # The browser suite. It needs the whole stack — PHP to serve the app, Node to build its
   # assets, Chromium to drive it — which is why it is the expensive job.
@@ -208,6 +231,16 @@ jobs:
       - name: End-to-end tests
         run: npm run test:e2e
 
+      # The path is set in playwright.config.ts, which only asks for JUnit under CI. See the
+      # note in the `checks` job for why this is `!cancelled()`.
+      - name: Keep the count for the badge
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: junit-playwright
+          path: reports/playwright.xml
+          retention-days: 1
+
       # The report carries a trace per failed test — a DOM snapshot at every step, which
       # is the difference between "a selector timed out" and knowing why.
       - name: Upload Playwright report
@@ -217,3 +250,55 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  # The numbers behind the README's badges. A job of its own because each suite's count comes
+  # from a different one above, and three jobs writing one branch would race.
+  badges:
+    name: Publish test badges
+    needs: [checks, server, e2e]
+    # `always()` so a RED suite still publishes its count — a badge that only updates when
+    # everything passed is a badge that lies by omission, and "3 failed" is the case it is most
+    # worth showing. Pushes to main only: a pull request must not rewrite what the README of
+    # the default branch reports, and a fork's PR has no write token anyway.
+    if: ${{ always() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Overrides the workflow-wide `contents: read`, and is the only job here that can write.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      # No `npm ci` anywhere in this job: testBadges.ts deliberately imports nothing but Node
+      # built-ins, so the install would cost more than everything else here put together.
+      - uses: actions/download-artifact@v7
+        with:
+          path: reports
+          pattern: junit-*
+          merge-multiple: true
+
+      # A suite whose job died before running leaves no XML, and renders grey rather than
+      # inheriting the previous run's colour.
+      - name: Render the badge documents
+        run: >
+          node ./resources/build/testBadges.ts
+          vitest=reports/vitest.xml
+          phpunit=reports/phpunit.xml
+          playwright=reports/playwright.xml
+
+      # PINNED TO A COMMIT, NOT A TAG. A tag is a movable pointer, and whoever can move it
+      # would be running their code in a job holding `contents: write` on this repository.
+      # The comment is the human-readable half; only the SHA is enforced.
+      #
+      # `single-commit` keeps the branch one commit deep: it holds three small documents that
+      # are true right now, and their history is the CI log's job, not a branch's.
+      - name: Publish to the badges branch
+        uses: JamesIves/github-pages-deploy-action@fa24774553152dd7873cd16ebd8d959b010c5445 # v4.9.0
+        with:
+          branch: badges
+          folder: badges
+          single-commit: true

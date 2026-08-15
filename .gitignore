@@ -82,6 +82,17 @@ docs/host.local/
 # (CLAUDE.md -> "DOCUMENTATION IS NOT AGENT MEMORY").
 docs/review.local/
 
+# Test-count plumbing for the README's badges, both machine-written and both regenerated
+# on every CI run. `reports/` is the JUnit XML each suite is told to emit; `badges/` is what
+# resources/build/testBadges.ts renders from it.
+#
+# The badge documents are PUBLISHED, but to a branch of their own rather than from here — a
+# count committed onto main would put a number in the tree that every test run invalidates,
+# which is the staleness the badges exist to remove. CI pushes the folder to `badges`, and
+# shields.io reads it from there.
+/reports
+/badges
+
 # `php artisan app:encoding` writes its report next to wherever it was run, which is
 # usually here. It is a throwaway working file — a list of paths to rename, re-generated
 # whenever you want it — and it would otherwise show up as an untracked file in the
