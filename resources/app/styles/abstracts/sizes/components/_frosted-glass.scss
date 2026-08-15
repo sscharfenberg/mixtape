@@ -6,5 +6,11 @@
 @use "../global-size-tokens" as s;
 
 $frosted-glass: (
-    "border": map.get(s.$border, "base")
-);
+    "border": map.get(s.$border, "base"),
+    // How far behind the pane is smeared, and the ONE number every frosted surface in the app
+    // reads: the header, the toast, the popover panel, the badge, the jump-nav and the player
+    // bar all frost the same page and would read as different materials if they differed.
+    // Two surfaces deliberately do not use it — the modal blurs harder (its backdrop is meant
+    // to recede) and the widget loader barely at all (it hides content it is about to reveal).
+    "blur": 12px
+) !default;

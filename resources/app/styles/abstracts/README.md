@@ -6,18 +6,18 @@ How design tokens are organised under `abstracts/`, and the one rule that keeps 
 > **global tokens** (the raw palette/scale) **→ contextual tokens** (per-component partials, plus any
 > shared cross-cutting tokens) **→ consumed** by a component's own SCSS or a `.vue <style>` block.
 
-The shape is identical across groups. It applies **today** to `colors/`, `sizes/`, and `z-indexes/`, and
-will apply **unchanged** to any future group (`typography/`, `shadows/`, …). Learn it once here — the
-examples use `colors/`, but every group reads the same. Where a group differs only in surface detail
-(whether it has shared tokens, whether a partial's token is a map or a scalar) is spelled out in
-[What varies between groups](#what-varies-between-groups).
+The shape is identical across groups. It applies **today** to `colors/`, `sizes/`, `z-indexes/`,
+`typography/` and `timings/`, and will apply **unchanged** to any future group (`shadows/`, …). Learn it
+once here — the examples use `colors/`, but every group reads the same. Where a group differs only in
+surface detail (whether it has shared tokens, whether a partial's token is a map or a scalar) is spelled
+out in [What varies between groups](#what-varies-between-groups).
 
 ## Three layers
 
 ```
 abstracts/colors/
   _global-color-tokens.scss   1. GLOBAL   raw palette — $grey, $brand, $state, …
-  _index.scss                 2a. ENTRYPOINT + shared contextual tokens ($glass, $shadows)
+  _index.scss                 2a. ENTRYPOINT — a barrel of @forward lines
   components/
     _index.scss               2b. barrel — one @forward per component partial
     _button.scss              2c. CONTEXTUAL partial — $button, derived from globals
@@ -27,8 +27,8 @@ abstracts/colors/
 
 1. **Global tokens** (`_global-<group>-tokens.scss`) — the raw, meaningless palette/scale
    (`$grey`, `$brand`, `$radius`, `$padding`, …). Values, no intent.
-2. **Contextual partials** (`components/_*.scss`, plus the shared `$glass`/`$shadows`
-   in `_index.scss`) — semantic tokens that **pick and theme** the globals (`light-dark()`, `map.get()`,
+2. **Contextual partials** (`components/_*.scss`, plus any shared token a group's `_index.scss`
+   declares) — semantic tokens that **pick and theme** the globals (`light-dark()`, `map.get()`,
    opacity-only `color.adjust()`, `math.round()` off a scale). One file per component. They pick
    globals — they don't mint new colours; see [the second hard rule](#the-second-hard-rule-contextual-tokens-pick-they-dont-compute).
 3. **Consumers** — a component's own SCSS or a `.vue <style>` block. These read **only** contextual
@@ -48,8 +48,15 @@ defines that rhythm (`s.$c-card "gap"`) rather than minting a second one that ha
 
 Globals are consumed in exactly two places, both _inside_ the token group:
 
-- the group's `_index.scss` — for cross-cutting tokens not tied to one component (`$glass`, `$shadows`);
-- a `components/` partial — for that one component's tokens.
+- a `components/` partial — for that one component's tokens. This is where every token in the app
+  lives today; no group's `_index.scss` declares anything of its own.
+
+**One deliberate exception, and it is the only one in the tree:** `mixins/_mq.scss` and
+`mixins/_cq.scss` read `$breakpoints` out of `sizes/_global-size-tokens.scss`. A breakpoint map is
+infrastructure rather than a token — it belongs to no component, so there is nothing for a contextual
+layer above it to be *about* — and both files live inside `abstracts/`, where globals already do. Do
+not "fix" this by inventing `s.$c-breakpoints`; the ceremony would buy nothing and would make the
+mixins depend on the whole `sizes/` entrypoint.
 
 To give a component a colour or size you therefore **create (or edit) its contextual partial** — you
 never reach for `$grey` from a `.vue` file. Why this matters:
@@ -142,13 +149,12 @@ The entrypoint re-exports each partial with a prefix, so the partial named `$car
 `c.$c-card`. The prefix is **stamped centrally** by a single `@forward … as` line in `_index.scss` —
 leaf partials stay prefix-free (`$card`, not `$c-card`).
 
-| origin                                  | colors (`as c`) | sizes (`as s`) | z-indexes (`as z`) |
-| --------------------------------------- | --------------- | -------------- | ------------------ |
-| component partial (`$button` / `$main`) | `c.$c-button`   | `s.$c-button`  | `z.$c-main`        |
-| shared (in `_index.scss`) `$glass`      | `c.$glass`      | `s.$glass`     | (none)             |
+| origin                                  | colors (`as c`) | sizes (`as s`) | z-indexes (`as z`) | typography (`as t`) | timings (`as ti`) |
+| --------------------------------------- | --------------- | -------------- | ------------------ | ------------------- | ----------------- |
+| component partial (`$button` / `$main`) | `c.$c-button`   | `s.$c-button`  | `z.$c-main`        | `t.$c-facts`        | `ti.$c-button`    |
 
 `c-` = component — the prefix means the same thing in every group; only the namespace (`c.` / `s.` /
-`z.`) changes. A `p-` prefix is still stamped on the (empty) `pages/` layer, so the mechanism is there
+`z.` / `t.` / `ti.`) changes. A `p-` prefix is still stamped on the (empty) `pages/` layer, so the mechanism is there
 if a genuinely page-only token ever turns up.
 
 ## What varies between groups
@@ -156,11 +162,19 @@ if a genuinely page-only token ever turns up.
 The pipeline (**global → contextual partial → consumer**) and the one hard rule are identical in every
 group. Only two surface details differ, both by group:
 
-- **Shared tokens in `_index.scss` are optional.** Cross-cutting tokens not owned by any single
-  component/page live inline in the entrypoint — `colors/` and `sizes/` have `$glass` / `$shadows`
-  (and `sizes/` also `$app`). `z-indexes/` has **none**: every rung belongs to a specific landmark, so
-  the entrypoint is a pure barrel and each z-index lives in its own partial. A group may have shared
-  tokens or not — the module graph is the same either way.
+- **Shared tokens in `_index.scss` are possible, and unused.** The mechanism is there — a group's
+  entrypoint may declare a cross-cutting token owned by no single component — but no group does
+  today. All five entrypoints are pure barrels, and every value lives in the partial of the component
+  it is about, including the stacking rungs: "above the header" turned out to always be one
+  component's claim, so it belongs in that component's partial rather than in a shared ladder. Reach
+  for a shared token only when a value is genuinely about no component at all.
+
+- **A contextual partial may read a SIBLING partial in the same group, when the two values must not
+  drift.** `sizes/components/_player-bar.scss` derives its `height` from `s.$c-cover-image` for a
+  measured reason recorded there: a bar shorter than the artwork it holds clips it. That is the test —
+  read a sibling when one value is *defined as* another, re-pick from globals when the two merely
+  happen to match today. Most repeated `light-dark(…)` pairs across partials are the second case and
+  are correct as duplicates.
 - **A partial's token is a map _or_ a scalar.** `colors/`/`sizes/` tokens are maps with several
   sub-values (`$button: ("background": …, "border": …)`), read with `map.get(c.$c-button, "background")`.
   A `z-indexes/` token is a single rung, so it's a plain scalar (`$main: map.get(z.$scale, "raised")`)
@@ -168,8 +182,8 @@ group. Only two surface details differ, both by group:
   several related values, a scalar when one value says it all.
 
 Everything else — the three layers, the `c-*` prefix, "never read a global outside its
-group", one `@forward` line per partial — carries over unchanged. A future `typography/` or `shadows/`
-group is created by copying any existing group's folder shape; no new concepts.
+group", one `@forward` line per partial — carries over unchanged. A future `shadows/` group is created
+by copying any existing group's folder shape; no new concepts.
 
 ## Why `@forward … as`, not `@use`
 

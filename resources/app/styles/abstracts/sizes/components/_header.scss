@@ -40,8 +40,10 @@ $header: (
      * middle of the three and the only one whose number falls out of the parts rather than out
      * of a font metric: a `medium` icon (24) + the button's padding (4 a side) + the
      * `--highlighted` border (2 a side) = 36. That derivation is why this is a literal rather
-     * than a sum — the padding and the border live in `$c-popover`, and a token partial reading
-     * another partial's map would put a load order between two files that have none today.
+     * than a sum: the padding and the border live in `$c-popover`, and the header's row height
+     * is not DEFINED as the popover button's — it merely happens to have been measured off it.
+     * A sibling read is for the first case (see s.$c-player-bar, whose height is defined as the
+     * cover it holds); writing the number here keeps the two free to move apart.
      *
      * WHO READS IT, AND WHO DOES NOT. SiteMenuLinks reads it, because its height comes from a
      * 22.4px line box that no padding can turn into exactly 36 (4.8px a side lands on 35.99, and
@@ -51,4 +53,4 @@ $header: (
      * would have made a 32×36 ellipse of every one of them.
      */
     "control-height": 36px
-);
+) !default;

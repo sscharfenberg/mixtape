@@ -2,8 +2,8 @@
  * main timings file — contextual timing tokens
  * @type {Sass}
  * the public entrypoint for timings, consumed by other scss files / .vue
- * components. the raw scale (_global-timing-tokens.scss) is @used locally but
- * intentionally NOT forwarded — consume only the contextual tokens below:
+ * components. the raw scale lives beside this file (_global-timing-tokens.scss) and is
+ * deliberately NOT forwarded — consume only the contextual tokens below:
  * @use "Abstracts/timings" as ti;
  *****************************************************************************/
 

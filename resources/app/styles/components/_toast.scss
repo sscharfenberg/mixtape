@@ -43,7 +43,7 @@
         border: map.get(s.$c-toast, "border") solid transparent;
         gap: 1ch;
 
-        backdrop-filter: blur(12px);
+        backdrop-filter: blur(map.get(s.$c-frosted-glass, "blur"));
         border-radius: map.get(s.$c-toast, "radius");
 
         pointer-events: all;

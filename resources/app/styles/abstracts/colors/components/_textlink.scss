@@ -9,7 +9,7 @@
 
 $textlink: (
     "surface": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "fog")),
-    "surface-hover": light-dark(#000, #fff),
+    "surface-hover": light-dark(map.get(c.$grey, "black"), map.get(c.$grey, "white")),
     "decoration": light-dark(map.get(c.$grey, "abbey"), map.get(c.$grey, "infra")),
     "decoration-hover": light-dark(map.get(c.$grey, "charcoal"), map.get(c.$grey, "iron"))
 ) !default;

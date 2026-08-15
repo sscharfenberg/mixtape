@@ -2,9 +2,9 @@
  * main typography file — contextual typography tokens
  * @type {Sass}
  * the public entrypoint for typography, consumed by other scss files / .vue
- * components. the raw families (_global-typography-tokens.scss) are @used
- * locally but intentionally NOT forwarded — consume only the contextual
- * tokens below:
+ * components. the raw families live beside this file
+ * (_global-typography-tokens.scss) and are deliberately NOT forwarded —
+ * consume only the contextual tokens below:
  * @use "Abstracts/typography" as t;
  *****************************************************************************/
 

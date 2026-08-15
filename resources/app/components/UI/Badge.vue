@@ -35,7 +35,7 @@ withDefaults(
         border: map.get(s.$c-badge, "border") solid transparent;
         gap: 0.5ch;
 
-        backdrop-filter: blur(12px);
+        backdrop-filter: blur(map.get(s.$c-frosted-glass, "blur"));
         border-radius: map.get(s.$c-badge, "radius");
 
         font-weight: 700;

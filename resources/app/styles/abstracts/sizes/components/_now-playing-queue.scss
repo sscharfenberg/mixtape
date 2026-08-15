@@ -1,23 +1,23 @@
 /******************************************************************************
  * contextual size tokens — component:now-playing-queue
  * @type {Sass}
- * The queue as a PAGE draws it (Components/PlayQueue/NowPlayingQueue): the row's inset, the gap
- * between its parts, the size of its secondary type, and the stripe marking the loaded row.
+ * The queue as a PAGE draws it (Components/PlayQueue/NowPlayingQueue): the gap between its blocks,
+ * the size of its secondary type, and its heading.
+ *
+ * THE ROWS ARE NOT THIS COMPONENT'S — it delegates them to `<queue-list layout="page">`, which
+ * sizes every one of them from s.$c-play-queue. Nothing here describes a row.
  * Consumed as s.$c-now-playing-queue via `@use "Abstracts/sizes" as s;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "../global-size-tokens" as s;
 
 $now-playing-queue: (
-    // Row inset and the gap between its four parts, on the shared `$padding` ladder so the list
-    // breathes like the rest of the page.
+    // The gap between the heading, the list and the totals, on the shared `$padding` ladder so
+    // this block breathes like the rest of the page.
     "gap": map.get(s.$padding, "base"),
-    // The artist / album / runtime lines, a step below body copy: they annotate the title rather
-    // than competing with it, which is what lets a reader scan the titles alone.
+    // The totals under the list, a step below body copy: they annotate the queue rather than
+    // competing with it.
     "font-size": 0.9rem,
-    // The stripe down the loaded row. Thin enough to read as a mark rather than as a border, which
-    // is the difference between "this one" and "this list is boxed".
-    "current-edge": 2px,
     // The heading over the list. One step above body copy — it names a section of a page whose
     // real heading is the track in the hero, so it must not compete with that.
     "title-font-size": 1.1rem

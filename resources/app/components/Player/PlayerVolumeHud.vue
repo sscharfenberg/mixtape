@@ -12,7 +12,7 @@
  * nothing: the popover's own readout is there, but the pointer is usually on top of it.
  *
  * TELEPORTED TO <body>, AND THAT IS NOT TIDINESS. `PlayerBar` — the obvious parent, and
- * where this is written — carries `backdrop-filter: blur(12px)` to frost itself, and a
+ * where this is written — carries the shared `backdrop-filter` blur to frost itself, and a
  * filtered element becomes the CONTAINING BLOCK for its `position: fixed` descendants.
  * Left in the bar, "the middle of the viewport" would resolve to the middle of a 60px
  * strip along the bottom edge. The same trap catches anything else fixed that the bar

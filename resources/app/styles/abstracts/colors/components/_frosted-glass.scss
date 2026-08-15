@@ -1,5 +1,5 @@
 /******************************************************************************
- * contextual color tokens — component:header
+ * contextual color tokens — component:frosted-glass
  * @type {Sass}
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
@@ -8,7 +8,7 @@
 
 $frosted-glass: (
     "background": hsl(from light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "black")) h s l / 25%),
-    "surface": light-dark(#000, #fff),
+    "surface": light-dark(map.get(c.$grey, "black"), map.get(c.$grey, "white")),
     "border-from": light-dark(map.get(c.$grey, "iron"), map.get(c.$grey, "asher")),
     "border-to": light-dark(map.get(c.$grey, "fog"), map.get(c.$grey, "abbey"))
-);
+) !default;

@@ -2,20 +2,20 @@
  * contextual color tokens — component:now-playing-queue
  * @type {Sass}
  * The queue as a PAGE draws it (Components/PlayQueue/NowPlayingQueue): the quiet ink of its
- * secondary lines, and the mark on the row that is loaded.
+ * secondary lines, and nothing else.
  *
- * The row's SURFACE comes from c.$c-card — the list sits on the page's own card fill rather than
- * inventing a second one. Only what this list decides for itself is here.
+ * THE ROWS THEMSELVES ARE NOT THIS COMPONENT'S. It delegates them to `<queue-list layout="page">`,
+ * which paints every one of them — the loaded row's mark included — from c/s/ti.$c-play-queue, so
+ * that is where a row's colours live. The surface under the list is c.$c-card, the page's own card
+ * fill rather than a second one invented here. Only what this component decides for itself is
+ * here: the heading over the list, and the muted ink of the totals beneath it.
  * Consumed as c.$c-now-playing-queue via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "../global-color-tokens" as c;
 
 $now-playing-queue: (
-    // The artist, album, runtime and totals — everything that is not the title. The same muted
-    // pair the rest of this page uses, re-picked from the globals per the token rules.
-    "muted": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
-    // The loaded row's edge and title. The app's control neon: down a long list a coloured edge is
-    // findable at a glance where a glyph in one cell is not.
-    "current": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark"))
+    // The totals under the list. The same muted pair the rest of this page uses, re-picked
+    // from the globals per the token rules rather than read off a sibling partial.
+    "muted": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron"))
 ) !default;

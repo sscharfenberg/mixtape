@@ -20,10 +20,10 @@
  * @usage
  * @include m.mqset(
  *    "margin-bottom",
- *    map.get(s.$app, "padding", "base"),
- *    map.get(s.$app, "padding", "portrait"),
- *    map.get(s.$app, "padding", "landscape"),
- *    map.get(s.$app, "padding", "desktop")
+ *    map.get(s.$c-app, "padding", "base"),
+ *    map.get(s.$c-app, "padding", "portrait"),
+ *    map.get(s.$c-app, "padding", "landscape"),
+ *    map.get(s.$c-app, "padding", "desktop")
  * );
  *
  */

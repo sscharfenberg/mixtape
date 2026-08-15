@@ -16,12 +16,17 @@
  * consumed as c.$c-button via `@use "Abstracts/colors" as c;`.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
 @use "../global-color-tokens" as c;
 
 $button: (
     "neon": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
     "contrast": light-dark(map.get(c.$grey, "white"), map.get(c.$retro, "c4", "dark")),
     "background-default": light-dark(map.get(c.$grey, "mystic"), map.get(c.$grey, "ebony")),
+    // The near-white halo directly on the glyphs, under the wider neon spread — it is what
+    // keeps the label legible against its own glow. Alpha-only off the palette's white, which
+    // is all Rule 2 allows a contextual partial to do to a global.
+    "text-halo": color.adjust(map.get(c.$grey, "white"), $alpha: -0.7),
     "background-disabled": light-dark(map.get(c.$grey, "infra"), map.get(c.$grey, "abbey")),
     "surface-disabled": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "fog"))
 ) !default;

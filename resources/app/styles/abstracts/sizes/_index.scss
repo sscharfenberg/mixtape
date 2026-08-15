@@ -2,13 +2,10 @@
  * main size file — contextual size tokens
  * @type {Sass}
  * the public entrypoint for sizes, consumed by other scss files / .vue
- * components. the raw scale (_global-size-tokens.scss) is @used locally but
- * intentionally NOT forwarded — consume only the contextual tokens below:
+ * components. the raw scale lives beside this file (_global-size-tokens.scss) and is
+ * deliberately NOT forwarded — consume only the contextual tokens below:
  * @use "Abstracts/sizes" as s;
  *****************************************************************************/
-@use "sass:math"; // https://sass-lang.com/documentation/modules/math/
-@use "sass:map"; // https://sass-lang.com/documentation/modules/map
-@use "global-size-tokens" as s;
 
 // per-component token partials, re-exported transparently: the "c-*" prefix
 // namespaces them, so $button (components/_button.scss) is consumed as s.$c-button.

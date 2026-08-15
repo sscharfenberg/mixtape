@@ -29,7 +29,7 @@
 
     background-color: map.get(c.$c-popover, "background");
 
-    backdrop-filter: blur(12px);
+    backdrop-filter: blur(map.get(s.$c-frosted-glass, "blur"));
     border-radius: map.get(s.$c-popover, "radius");
 
     // the same layered neon halo the open trigger wears, so the floating content

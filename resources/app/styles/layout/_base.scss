@@ -47,9 +47,9 @@
    after a few theme switches (each one another chance to land in that band) and only with
    the player bar up, whose 66px of `AppMain` padding is what pushes the page to the edge.
 
-   The cost, and it is the owner's explicit call (2026-08-06, after 40 switches with no flicker):
-   on a setup with classic scrollbars a short page shows an inert scrollbar track, and that is
-   preferred to the flicker. So do NOT relax this to `auto` to get rid of the track — that
+   The cost, accepted deliberately after forty theme switches with no flicker: on a setup with
+   classic scrollbars a short page shows an inert scrollbar track, and that is preferred to the
+   flicker. So do NOT relax this to `auto` to get rid of the track — that
    trade has been made, in this direction, deliberately. With overlay scrollbars — the macOS
    default — nothing is visible either way.
    That is the whole fix: rounding the heights AppHeader and PlayerBar publish was tried

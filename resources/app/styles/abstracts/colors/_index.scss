@@ -2,13 +2,10 @@
  * main color file — contextual color tokens
  * @type {Sass}
  * the public entrypoint for colors, consumed by other scss files / .vue
- * components. the raw palette (_global-color-tokens.scss) is @used locally but
- * intentionally NOT forwarded — consume only the contextual tokens below:
+ * components. the raw palette lives beside this file (_global-color-tokens.scss) and is
+ * deliberately NOT forwarded — consume only the contextual tokens below:
  * @use "Abstracts/colors" as c;
  *****************************************************************************/
-@use "sass:map"; // https://sass-lang.com/documentation/modules/map
-@use "sass:color"; // https://sass-lang.com/documentation/modules/color
-@use "global-color-tokens" as c;
 
 // per-component token partials, re-exported transparently: the "c-*" prefix
 // namespaces them, so $button (components/_button.scss) is consumed as c.$c-button.

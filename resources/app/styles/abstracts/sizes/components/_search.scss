@@ -32,12 +32,6 @@ $search: (
     "panel-max": math.round(s.$base * 36),
     // How tall the scrolling result area may get before it scrolls — see the note above.
     "results-height": 60dvh,
-    // …and the Music page's ceiling, which is lower and is a fixed length rather than a share of
-    // the screen. That block lives in a widget inside a grid, where the tiles it replaces are
-    // roughly 190px: 320px lets a group and a half show while keeping the four browse widgets on
-    // the fold, which is the whole reason the results REPLACE the tiles rather than push them
-    // down. Read through `--search-results-height` (see SearchResults).
-    "results-height-inline": math.round(s.$base * 20),
     /*
      * The trailing slot's width inside the field — the spinner and the clear button, plus the air
      * either side of them.

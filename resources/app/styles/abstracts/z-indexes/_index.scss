@@ -2,35 +2,22 @@
  * main z-index file — contextual z-index tokens
  * @type {Sass}
  * the public entrypoint for z-indexes, consumed by other scss files / .vue
- * components. the raw scale (_global-z-index-tokens.scss) is @used locally but
- * intentionally NOT forwarded — consume only the contextual tokens below:
+ * components. the raw scale lives beside this file (_global-z-index-tokens.scss)
+ * and is deliberately NOT forwarded — consume only the contextual tokens below:
  * @use "Abstracts/z-indexes" as z;
+ *
+ * A PURE BARREL, like every other group's entrypoint: there is no app-wide ladder
+ * here, because a rung is only ever meaningful as one component's claim about
+ * where it sits. `$scale` is that ladder, and it stays global — a partial names
+ * the rung it wants (`map.get(z.$scale, "sticky")`) and the retune happens once,
+ * in the scale, moving everything mapped to it together.
+ *
+ * NEVER WRITE A BARE z-index THAT HAS TO BE REASONED ABOUT AGAINST ANOTHER
+ * COMPONENT'S — that number belongs in a partial with a sentence saying what it
+ * is above and why. A LOCAL rung is different: `z-index: -1` on a ::before that
+ * paints inside its own element's stacking context is answering "behind my own
+ * text", not "behind the header", and a token there would add a lookup without
+ * adding a fact (see _glowing-border, _button, popover/_content).
  *****************************************************************************/
-@use "sass:map"; // https://sass-lang.com/documentation/modules/map
-@use "global-z-index-tokens" as z;
-
-// per-component token partials, re-exported transparently: the "c-*" prefix
-// namespaces them, so $main (components/_main.scss) is consumed as z.$c-main.
-// the "pages" layer stays wired up but is empty — a token belongs to the component
-// that consumes it, so there is nothing a page could own on its own (see pages/_index).
 @forward "components" as c-*;
 @forward "pages" as p-*;
-
-// app-wide semantic layers -> raw rungs. several layers may share a rung (header
-// + footer both "sticky"); retune the rung once in the global $scale and every
-// layer mapped to it moves together. this is the single source of truth for
-// "what sits above what" — never write a bare z-index in a component. a layer
-// scoped to a single component/page lives in its own partial instead (see the
-// app <main> in components/_main.scss, consumed as z.$c-main).
-$index: (
-    "background": map.get(z.$scale, "below"),
-    "default": map.get(z.$scale, "base"),
-    "header": map.get(z.$scale, "sticky"),
-    "footer": map.get(z.$scale, "sticky"),
-    "form": map.get(z.$scale, "elevated"),
-    "select": map.get(z.$scale, "popout"),
-    "dropdown": map.get(z.$scale, "dropdown"),
-    "overlay": map.get(z.$scale, "overlay"),
-    "progress": map.get(z.$scale, "progress"),
-    "modal": map.get(z.$scale, "modal")
-) !default;

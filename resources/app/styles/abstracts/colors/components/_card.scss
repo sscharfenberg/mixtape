@@ -6,10 +6,11 @@
  *
  * The surface picks MIRROR the Widget's (c.$c-widget "background" / "surface" /
  * "border"), because a detail page should read as the same app as the listing it was
- * reached from — but they are re-picked from the global palette rather than read off
- * the Widget's token: a contextual partial consumes globals, never another partial's
- * tokens (and `components/_card` cannot reach `components/_widget` through the module
- * graph anyway). If the card surface is retuned, both files move together.
+ * reached from — but they are RE-PICKED from the global palette rather than read off the
+ * Widget's token. Reading a sibling partial is allowed in this group (s.$c-player-bar does
+ * it, for a value that is defined as another), and this is the other case: the two merely
+ * happen to agree today, and a card is not a widget. Retuning one is a decision about that
+ * one. If both are meant to move, both files are edited.
  *
  * The title is bare type on that surface — no filled strip, no rule under it — so its
  * ink is the pair the shared <Headline> gives an h2 (c.$c-headline "h2" "surface"):

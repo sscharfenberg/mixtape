@@ -2,8 +2,9 @@
  * contextual size tokens — component:input
  * @type {Sass}
  * ported from cantrip.me's $components.input. consumed as s.$c-input via
- * `@use "Abstracts/sizes" as s;`. `radius: 100vw` gives pill-shaped inputs;
- * `radius-px` is the concrete corner value the addon/button use to join cleanly.
+ * `@use "Abstracts/sizes" as s;`. `radius` is the scale's `featured` step (12px) —
+ * the same corner an addon or a trailing button squares off against so the two
+ * halves join cleanly (see components/form/row/_addon.scss).
  *
  * `padding` is the text inset of the field itself, shared by the single-line
  * FormInput and the multi-line FormTextarea so the two never sit in one form with
@@ -18,7 +19,6 @@
 
 $input: (
     "radius": map.get(s.$radius, "featured"),
-    "radius-px": 20px,
     "border": map.get(s.$border, "base"),
     "padding": 0.75ex 4ch 0.75ex 2ch,
     "line-height": map.get(s.$icons, "medium"),

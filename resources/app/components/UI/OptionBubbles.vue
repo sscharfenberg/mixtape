@@ -239,7 +239,7 @@ function optionId(value: string): string {
         position: absolute;
         top: 0;
         left: calc(var(--selected) * 100% / var(--count));
-        z-index: map.get(z.$index, "background");
+        z-index: z.$c-option-bubbles;
 
         width: calc(100% / var(--count));
         height: 100%;

@@ -65,6 +65,6 @@ $shares: (
     // light lifts, dark sinks, there being no headroom on a near-black row
     "control-background-active": light-dark(
             color.adjust(map.get(c.$grey, "iron"), $alpha: -0.15),
-            color.adjust(map.get(c.$grey, "black"), $alpha: 0)
+            map.get(c.$grey, "black")
         )
 ) !default;

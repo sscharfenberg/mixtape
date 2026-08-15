@@ -6,11 +6,13 @@
  * `--app-header-height`), so <main> can reserve room for a bar that is fixed to
  * the viewport and would otherwise sit on top of the end of the page.
  *
- * `height` is DERIVED from CoverImage's `small` step plus the padding either side,
- * not written as a round number. It was `4rem` first, and that was wrong: this app
- * sets a root font-size of ~13.6px, so 4rem is 54px — narrower than the 48px cover
- * the bar has to hold, which pushed the artwork out through the bar's own edges.
- * Reading the cover token means the two can never drift again.
+ * `height` is DERIVED from CoverImage's `small` step plus the padding either side, by
+ * reading that SIBLING PARTIAL rather than restating its number. That is the one case the
+ * token rules allow a sibling read for: the bar's height is not a value that happens to match
+ * the cover's, it is DEFINED as the cover plus its padding, and a bar shorter than the artwork
+ * it holds pushes the artwork out through its own edges — which is what a round `4rem` did,
+ * since this app sets a root font-size of ~13.6px and 4rem is 54px against a 48px cover.
+ * Where two values merely agree today, re-pick from the globals instead (see c.$c-card).
  *
  * The cover itself is not a token here — CoverImage owns its sizes, and picking one
  * of its steps is the contract its README asks for. Consumed as s.$c-player-bar via
@@ -29,7 +31,6 @@ $player-bar: (
     "border": map.get(s.$border, "base"),
     "padding": $padding,
     "gap": 0.75rem,
-    "radius": map.get(s.$radius, "base"),
     // The pill each enabled control sits in. Deliberately the same number the popover
     // gives its own trigger button (`popover.button-padding`), because the volume control
     // in this bar IS one of those and the four buttons have to read as one set — but

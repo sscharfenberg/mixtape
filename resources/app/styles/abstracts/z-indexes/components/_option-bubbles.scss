@@ -1,0 +1,14 @@
+/******************************************************************************
+ * contextual z-index token — component:option-bubbles
+ * @type {Sass}
+ * the sliding pill behind the selected option. it sits BELOW the labels rather
+ * than above them, so the pill reads as a highlight moving under the text and
+ * not as a lozenge covering it — which is the whole illusion the component is.
+ * a local rung inside the group's own stacking context, not a claim about where
+ * this component sits against any other. consumed as z.$c-option-bubbles via
+ * `@use "Abstracts/z-indexes" as z;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-z-index-tokens" as z;
+
+$option-bubbles: map.get(z.$scale, "below") !default;

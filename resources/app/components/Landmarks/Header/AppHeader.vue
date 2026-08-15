@@ -79,7 +79,7 @@ onMounted(() => {
     z-index: z.$c-header;
 
     background-color: map.get(c.$c-frosted-glass, "background");
-    backdrop-filter: blur(12px);
+    backdrop-filter: blur(map.get(s.$c-frosted-glass, "blur"));
     color: map.get(c.$c-frosted-glass, "surface");
 
     // Only the block (vertical) padding lives here; the inline padding comes from the inner

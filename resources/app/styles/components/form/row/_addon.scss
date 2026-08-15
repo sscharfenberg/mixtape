@@ -97,7 +97,6 @@
        and a rounded corner would sit on top of a square edge.
 
        The row's addon is outside `.form-select`, so the panel starts at the trigger's left
-       edge and there is nothing beneath the addon at all. Squaring it there cut the corner off
-       against the modal's own background — a clipped box rather than a welded one. Tried,
-       looked wrong, removed (2026-08-09). */
+       edge and there is nothing beneath the addon at all. Squaring it there cuts the corner off
+       against the modal's own background — a clipped box rather than a welded one. */
 }

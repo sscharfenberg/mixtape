@@ -25,7 +25,7 @@
     color: var(--btn-neon);
 
     text-shadow:
-        0 0 0.125em hsl(0deg 0% 100% / 30%),
+        0 0 0.125em map.get(c.$c-button, "text-halo"),
         0 0 0.45em currentcolor;
 
     &::before {

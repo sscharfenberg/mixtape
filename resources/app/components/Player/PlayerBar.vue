@@ -282,7 +282,7 @@ onUnmounted(() => {
     gap: map.get(s.$c-player-bar, "gap");
 
     background-color: map.get(c.$c-player-bar, "background");
-    backdrop-filter: blur(12px);
+    backdrop-filter: blur(map.get(s.$c-frosted-glass, "blur"));
     color: map.get(c.$c-player-bar, "surface");
 
     @include m.mq("landscape") {

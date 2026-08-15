@@ -66,4 +66,4 @@ $title: (
     // as a glint on a bright header; on dark, `asher` rather than white, a full-strength sparkle
     // over a near-black header being a hotspot. It should catch the eye only after the name has.
     "twinkle": light-dark(map.get(c.$grey, "white"), map.get(c.$grey, "asher"))
-);
+) !default;

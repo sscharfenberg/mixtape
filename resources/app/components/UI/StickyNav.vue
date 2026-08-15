@@ -72,7 +72,7 @@ const { sentinel, isStuck, activeSection } = useStickyNav(props.items.map(i => i
     gap: 1ch;
 
     background-color: map.get(c.$c-sticky-nav, "background");
-    backdrop-filter: blur(12px);
+    backdrop-filter: blur(map.get(s.$c-frosted-glass, "blur"));
     color: map.get(c.$c-sticky-nav, "surface");
     border-radius: map.get(s.$c-sticky-nav, "radius");
 
