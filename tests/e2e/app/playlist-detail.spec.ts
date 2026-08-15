@@ -450,20 +450,57 @@ test.describe("a playlist's detail page", () => {
              * again; `hover()` stays because it is the better tool regardless. It resolves and
              * scrolls to the element and re-checks that the element is what receives the press,
              * where a replayed rectangle only hopes so.
+             *
+             * TWO moves, not one, and the first lands INSIDE the destination row rather than at
+             * its edge: Sortable decides where to insert from where the pointer sits within the
+             * row it is over, and only ever sees positions the pointer actually visits.
              */
-            await rows.nth(2).locator(".playlist-tracks__handle").hover();
-            await page.mouse.down();
+            const dragToTop = async (title: string): Promise<void> => {
+                const index = (await rowTitles(page)).indexOf(title);
+                if (index <= 0) return;
 
-            // TWO moves, not one, and the first lands INSIDE the destination row rather than at
-            // its edge: Sortable decides where to insert from where the pointer sits within the
-            // row it is over, and only ever sees positions the pointer actually visits.
-            const target = (await rows.first().boundingBox())!;
-            await page.mouse.move(target.x + target.width / 2, target.y + target.height * 0.6, { steps: 10 });
-            await page.mouse.move(target.x + target.width / 2, target.y + target.height * 0.2, { steps: 10 });
-            await page.mouse.up();
+                await rows.nth(index).locator(".playlist-tracks__handle").hover();
+                await page.mouse.down();
+
+                const target = (await rows.first().boundingBox())!;
+                const x = target.x + target.width / 2;
+                await page.mouse.move(x, target.y + target.height * 0.6, { steps: 10 });
+                await page.mouse.move(x, target.y + target.height * 0.2, { steps: 10 });
+                await page.mouse.up();
+            };
 
             const expected = [before[2], before[0], before[1], ...before.slice(3)];
-            await expect.poll(() => rowTitles(page)).toStrictEqual(expected);
+
+            /*
+             * THE GESTURE IS REPEATED, NEVER SLOWED — and the difference is not a style
+             * preference, it is the only direction that works. A fixed pair of moves is a race:
+             * against a renderer throttled 8x the last move is often never processed and the row
+             * stops ONE PLACE SHORT, which is how this reads when it fails.
+             *
+             * The instinct is to give it more time, and that is measurably worse. Sortable
+             * autoscrolls (`scroll: true`, `scrollSensitivity: 64`), so a pointer that LINGERS
+             * near the top of the list has the list scrolled out from under it and drops the row
+             * near the BOTTOM — 6 runs out of 6 with a 60ms pause between increments, where the
+             * unpaused version at least usually lands. Pausing between the two moves scattered
+             * results across the whole list the same way. So waiting is not available, and what
+             * is left is to grab the row again, which is what a hand does when a drag falls
+             * short.
+             *
+             * It converges on the SAME expected order from wherever a partial drag left the row,
+             * including an overshoot to the bottom, because lifting one row out and putting it
+             * back on top never reorders the others. And it still fails if dragging is genuinely
+             * broken: every attempt has to miss, not just the first.
+             */
+            await expect
+                .poll(
+                    async () => {
+                        await dragToTop(before[2]);
+
+                        return rowTitles(page);
+                    },
+                    { timeout: 20_000 }
+                )
+                .toStrictEqual(expected);
 
             // And it is the SERVER's order now, not a local splice.
             await page.reload();
