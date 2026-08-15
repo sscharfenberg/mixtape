@@ -24,11 +24,22 @@ return new class extends Migration
      * guarded on what is actually there, so it is a no-op on a fresh database and idempotent
      * on a half-migrated one.
      *
-     * IT DOES NOT MERGE THE SPLIT BOOKS, deliberately: on an existing
-     * database the new `(type, name, album_artist_id)` unique index will REFUSE to build while
-     * the duplicate audiobook rows are still there, and the answer is `migrate:fresh` plus a
-     * full `app:update` re-scan rather than a merge nobody will ever need again. There are no
-     * real users yet. If that index creation fails, that is what it is telling you.
+     * IT MERGES THE SPLIT BOOKS, because the alternative is telling somebody to destroy their
+     * data. The new `(type, name, album_artist_id)` unique index cannot build while the
+     * duplicates are there, so the choice is to merge them or to fail — and failing means the
+     * migration's advice is `migrate:fresh`, which on a live instance costs every account,
+     * playlist, listen and SHARE LINK already handed to somebody. The library is the only part
+     * a re-scan can rebuild.
+     *
+     * The merge is safe because the duplicate rows are the same book: the old scanner keyed
+     * `firstOrCreate` on `(type, name, album_artist_id, author_id)`, so the ONLY thing that
+     * differed between them was the author — which step 1 above has already moved onto the
+     * chapters by the time this runs. Whichever row is kept, nothing is lost with the others.
+     *
+     * Everything pointing at a losing row is moved first: chapters, share links, and reading
+     * positions. Bookmarks need more than a repoint — their primary key is (user, book), so a
+     * reader holding a position in two halves of one split book would collide — and the newest
+     * of theirs is kept, which is the one they would expect to come back to.
      *
      * Postgres carries the CHECK rewrites alone, for the reason the podcast migration records:
      * sqlite keeps a table's CHECKs inside its definition, so narrowing one means rebuilding a
@@ -74,6 +85,10 @@ return new class extends Migration
                 DB::statement('ALTER TABLE collections DROP CONSTRAINT IF EXISTS collections_owner_type_ck');
             }
 
+            // BEFORE the narrower unique below, either driver's version of it: it cannot build
+            // over the rows the old scanner split, and the merge is what makes them one book.
+            $this->mergeSplitAudiobooks();
+
             Schema::table('collections', function (Blueprint $table) use ($pgsql) {
                 if (! $pgsql) {
                     $table->dropUnique(['type', 'name', 'album_artist_id', 'author_id']);
@@ -97,6 +112,93 @@ return new class extends Migration
                     .'(type, name, album_artist_id) NULLS NOT DISTINCT'
                 );
             }
+        }
+    }
+
+    /**
+     * Fold each audiobook the old scanner split by author back into one row.
+     *
+     * `firstOrCreate` keyed on `(type, name, album_artist_id, author_id)`, so an anthology
+     * naming four authors across its chapters became four collection rows sharing one name.
+     * Step 1 has already copied the author onto the chapters, so the rows now differ in
+     * nothing — any of them can be the keeper.
+     *
+     * Deterministic rather than arbitrary: the lowest id wins, so a re-run and a restore of
+     * the same backup make the same choice, and a half-applied migration resumes rather than
+     * shuffling rows about.
+     */
+    private function mergeSplitAudiobooks(): void
+    {
+        $groups = DB::table('collections')
+            ->where('type', 'audiobook')
+            ->select('name', 'album_artist_id')
+            ->groupBy('name', 'album_artist_id')
+            ->havingRaw('count(*) > 1')
+            ->get();
+
+        foreach ($groups as $group) {
+            $ids = DB::table('collections')
+                ->where('type', 'audiobook')
+                ->where('name', $group->name)
+                ->when(
+                    $group->album_artist_id === null,
+                    fn ($query) => $query->whereNull('album_artist_id'),
+                    fn ($query) => $query->where('album_artist_id', $group->album_artist_id)
+                )
+                ->orderBy('id')
+                ->pluck('id')
+                ->all();
+
+            $keeper = array_shift($ids);
+
+            if ($keeper === null || $ids === []) {
+                continue;
+            }
+
+            DB::table('tracks')->whereIn('collection_id', $ids)->update(['collection_id' => $keeper]);
+            DB::table('shares')->whereIn('collection_id', $ids)->update(['collection_id' => $keeper]);
+
+            $this->mergeBookmarks([...$ids, $keeper], $keeper);
+
+            DB::table('collections')->whereIn('id', $ids)->delete();
+        }
+    }
+
+    /**
+     * Leave one reading position per reader across a merged book, keeping their newest.
+     *
+     * A plain repoint would violate the bookmarks table's (user, collection) primary key for
+     * anybody who had listened to two halves of the same split book — so the surviving rows
+     * are chosen first, the whole group is cleared, and the survivors written back against the
+     * keeper. The newest is the one a reader expects to return to.
+     *
+     * Guarded on the table existing: this migration runs BEFORE the one that creates it on a
+     * database migrating in order, and only meets it on one already carrying both.
+     *
+     * @param  list<string>  $groupIds  every collection id in the group, keeper included
+     */
+    private function mergeBookmarks(array $groupIds, string $keeper): void
+    {
+        if (! Schema::hasTable('audiobook_bookmarks')) {
+            return;
+        }
+
+        $survivors = DB::table('audiobook_bookmarks')
+            ->whereIn('collection_id', $groupIds)
+            ->orderByDesc('updated_at')
+            ->get()
+            ->unique('user_id');
+
+        DB::table('audiobook_bookmarks')->whereIn('collection_id', $groupIds)->delete();
+
+        foreach ($survivors as $bookmark) {
+            DB::table('audiobook_bookmarks')->insert([
+                'user_id' => $bookmark->user_id,
+                'collection_id' => $keeper,
+                'track_id' => $bookmark->track_id,
+                'position_ms' => $bookmark->position_ms,
+                'updated_at' => $bookmark->updated_at,
+            ]);
         }
     }
 
