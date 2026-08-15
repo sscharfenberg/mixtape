@@ -10,9 +10,12 @@
 # There is deliberately NO OnFailure= reporter here (unlike the media backup,
 # which is a bare shell script with no alerting of its own). app:update does its
 # OWN alerting: it e-mails MIXTAPE_SCAN_ALERT_EMAIL on a fatal error, a
-# suspiciously-empty area, or skipped files, and exits non-zero. A crash that
-# beats even that still lands in the journal (systemctl status / journalctl -u
-# mixtape-library-scan). Add an OnFailure= hook if you want a second channel.
+# suspiciously-empty area, or skipped files. Note the exit code does NOT track all
+# three — only a fatal error and an empty area return failure; SKIPPED FILES E-MAIL
+# AND EXIT ZERO, because a handful of unreadable files is not a failed scan. So the
+# mail is the channel that carries everything and the journal is the backstop
+# (systemctl status / journalctl -u mixtape-library-scan). Add an OnFailure= hook if
+# you want a second one.
 
 [Unit]
 Description=MixTape library scan (app:update — cleanup + content-hash diff)
@@ -27,12 +30,25 @@ User=www-data
 Group=www-data
 WorkingDirectory=/var/www/mixtape.prod
 ExecStart=/usr/bin/php /var/www/mixtape.prod/artisan app:update
+# Sandboxing. These four are the ones that cost nothing here: this job reads and
+# writes only the paths named above and touches nothing in /home or /usr. Left at
+# `full` rather than `strict` deliberately — `strict` makes the whole filesystem
+# read-only and would need every writable path enumerated in ReadWritePaths=.
+# Check the result with `systemd-analyze security <unit>`.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
 
 # Be gentle: the FIRST scan hashes the whole collection (minutes of disk I/O);
 # steady-state runs are near-instant (the path/size/mtime fast-path).
 Nice=10
 IOSchedulingClass=idle
 
-# CRITICAL: a oneshot's default start timeout (~90s) would KILL the first,
-# full-hash scan mid-run. Give it a generous ceiling instead.
+# A CEILING, NOT A RESCUE. `Type=oneshot` disables TimeoutStartSec by default
+# (systemd.service(5)), so this INTRODUCES a limit rather than raising one — and the run it
+# limits is the first, full-hash scan of the whole collection, at Nice=10 and idle I/O, i.e.
+# deliberately yielding to everything else on the box. Half an hour is ample for ~100 GB on
+# any sane drive, and a scan still running after that is stuck rather than slow. Delete the
+# line if you would rather it never be killed; the media backup takes that view.
 TimeoutStartSec=1800

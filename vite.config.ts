@@ -1,5 +1,3 @@
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { default as vitePluginVue } from "@vitejs/plugin-vue";
 import laravelPlugin from "laravel-vite-plugin";
 import { Features } from "lightningcss";
@@ -7,9 +5,6 @@ import { defineConfig, loadEnv } from "vite";
 import { ViteImageOptimizer } from "vite-plugin-image-optimizer";
 import vitePluginVueDevtools from "vite-plugin-vue-devtools";
 import { aliases } from "./resources/build/aliases.ts";
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 /*
  * https://vite.dev/config/
  */
@@ -136,12 +131,21 @@ export default defineConfig(({ mode }) => {
             alias: aliases
         },
 
-        optimizeDeps: {
-            exclude: ["js-big-decimal"]
-        },
-
         /*
-         * https://vite.dev/config/build-options.html
+         * LOAD-BEARING, NOT DECORATION — the whole themed palette depends on it.
+         *
+         * lightningcss IS the CSS transformer in this build, and left to itself it downlevels
+         * `light-dark()` into a pair of custom properties. It emits them JUXTAPOSED with no
+         * separator — `linear-gradient(…, var(--lightningcss-light,#02233e)var(--lightningcss-dark,#032d50), …)` —
+         * which is not a valid colour, so the browser drops the ENTIRE declaration and computes
+         * `background-image: none`. Every `light-dark()` in resources/app/styles/abstracts is
+         * exposed to this, which is nearly every colour in the app.
+         *
+         * The failure is invisible in the build: it compiles clean, and the CSS is only wrong at
+         * the point a browser parses it. What catches it is the E2E suite reading a computed
+         * style (guest/header-controls.spec.ts asserts this exact gradient). Do not remove this
+         * block on the grounds that Vite "only reads it under css.transformer" — measured, it
+         * reads it here.
          */
         css: {
             lightningcss: {

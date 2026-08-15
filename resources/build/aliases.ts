@@ -21,7 +21,6 @@ const root = path.resolve(__dirname, "../..");
 
 /** Alias → absolute path, for a Vite `resolve.alias` block. */
 export const aliases: Record<string, string> = {
-    "~": path.resolve(root, "node_modules"),
     "@": path.resolve(root, "resources/app"),
     Assets: path.resolve(root, "resources/app/assets"),
     Components: path.resolve(root, "resources/app/components"),

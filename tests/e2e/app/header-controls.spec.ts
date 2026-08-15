@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 /*
  * The header's round triggers, signed in — where all three ring variants are on screen at
@@ -23,7 +24,7 @@ import { expect, test } from "@playwright/test";
 test.use({ viewport: { width: 620, height: 700 } });
 
 /** Read the three facts that decide how a trigger's ring is painted. */
-const ring = (page: import("@playwright/test").Page, selector: string) =>
+const ring = (page: Page, selector: string) =>
     page.locator(selector).evaluate(el => {
         const computed = getComputedStyle(el);
 

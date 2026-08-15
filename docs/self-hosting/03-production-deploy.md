@@ -687,7 +687,13 @@ Then install the units (as root):
 | File | Destination | Purpose |
 | --- | --- | --- |
 | [`files/mixtape-library-scan.service`](files/mixtape-library-scan.service) | `/etc/systemd/system/…` | the oneshot unit (www-data, `TimeoutStartSec=1800`) |
-| [`files/mixtape-library-scan.timer`](files/mixtape-library-scan.timer) | `/etc/systemd/system/…` | daily `04:00`, `Persistent=true` |
+| [`files/mixtape-library-scan.timer`](files/mixtape-library-scan.timer) | `/etc/systemd/system/…` | daily `05:30`, `Persistent=true` |
+
+> **Keep this timer clear of the media backup.** The scan's first act is to delete junk files
+> inside `/var/media`, and GNU tar exits non-zero when a file disappears from under it — which
+> aborts the backup, fires its failure alert, and leaves that Sunday with no snapshot. The backup
+> starts at 03:00–03:15 and reads the whole collection twice, so on a slow drive it is still
+> running long after 04:00.
 
 ```bash
 sudo install -m 0644 -o root -g root mixtape-library-scan.service mixtape-library-scan.timer /etc/systemd/system/

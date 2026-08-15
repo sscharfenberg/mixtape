@@ -1,13 +1,20 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/laravel",
+    "name": "sscharfenberg/mixtape",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
+    "description": "A self-hosted web app that organises a personal mp3 / audiobook collection and plays it in the browser.",
+    "keywords": [
+        "music",
+        "audiobooks",
+        "self-hosted",
+        "laravel",
+        "inertia"
+    ],
     "license": "MIT",
     "require": {
         "php": "^8.3",
         "bjeavons/zxcvbn-php": "^1.4",
+        "ext-intl": "*",
         "inertiajs/inertia-laravel": "^3.1",
         "james-heinrich/getid3": "^1.9",
         "laravel/fortify": "^1.34",
@@ -42,7 +49,8 @@
             "@php artisan key:generate",
             "@php artisan migrate --force",
             "npm install --ignore-scripts",
-            "npm run build"
+            "npm run build",
+            "npm run icons"
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",

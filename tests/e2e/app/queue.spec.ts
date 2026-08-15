@@ -50,7 +50,7 @@ test.afterEach(async ({ page }) => {
 });
 
 /** Open a song's page and put it in the queue. Returns the song's title. */
-const enqueueFirstSong = async (page: import("@playwright/test").Page): Promise<string> => {
+const enqueueFirstSong = async (page: Page): Promise<string> => {
     await page.goto("/music/songs");
     await page.locator("tbody tr").first().click();
     await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
@@ -506,7 +506,7 @@ test.describe("the play queue on a narrow screen", () => {
     test.use({ viewport: { width: 420, height: 850 } });
 
     /** Queue a song from its page. At this width the listing is a card grid, not a table. */
-    const enqueueFromCard = async (page: import("@playwright/test").Page): Promise<void> => {
+    const enqueueFromCard = async (page: Page): Promise<void> => {
         await page.goto("/music/songs");
         await page.locator(".dt-cards a").first().click();
         await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
@@ -623,7 +623,7 @@ test.describe("reordering the play queue", () => {
      */
 
     /** Queue `count` songs off the listing, in listing order, and return their titles. */
-    const enqueueSongs = async (page: import("@playwright/test").Page, count: number): Promise<string[]> => {
+    const enqueueSongs = async (page: Page, count: number): Promise<string[]> => {
         const titles: string[] = [];
 
         for (let row = 0; row < count; row += 1) {
@@ -653,7 +653,7 @@ test.describe("reordering the play queue", () => {
      * worked and the order read `["(Nice Dream)", "", ""]`. `textContent` is parsed text and
      * owes nothing to layout, which is exactly what an ordering assertion wants.
      */
-    const order = async (page: import("@playwright/test").Page): Promise<string[]> =>
+    const order = async (page: Page): Promise<string[]> =>
         (await page.locator(".play-queue__name").allTextContents()).map(text => text.trim());
 
     /**
@@ -663,7 +663,7 @@ test.describe("reordering the play queue", () => {
      * decides where to insert from where the pointer sits inside the row it is over, and
      * it only sees positions the pointer actually visits.
      */
-    const dragRow = async (page: import("@playwright/test").Page, from: number, to: number): Promise<void> => {
+    const dragRow = async (page: Page, from: number, to: number): Promise<void> => {
         const grip = (await page.locator(".play-queue__grip").nth(from).boundingBox())!;
         const target = (await page.locator(".play-queue__row").nth(to).boundingBox())!;
         const downwards = to > from;

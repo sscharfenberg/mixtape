@@ -56,9 +56,14 @@ server, all in one command. See [`docker/README.md`](docker/README.md).
 ```bash
 composer install
 npm install
+npm run icons             # the SVG sprite — gitignored, and no build step makes it
 php artisan migrate       # against a configured database
 npm run dev               # Vite dev server
 ```
+
+`npm run icons` is not optional and not part of `npm run build`: the sprite it writes is
+gitignored, and the layout inlines it behind an existence check — so without it every icon in
+the app renders as nothing at all, silently. Re-run it after adding an icon.
 
 **On your own server** — the whole path from bare hardware to a public, TLS-secured, invite-only
 instance is [`docs/self-hosting/README.md`](docs/self-hosting/README.md).

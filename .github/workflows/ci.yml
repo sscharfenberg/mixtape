@@ -68,11 +68,12 @@ jobs:
 
       - uses: shivammathur/setup-php@v2
         with:
-          # Matches the server (composer.json allows ^8.3). No ext-* is declared and the
-          # app uses no PHP intl — the Intl formatting is Node-side — so this is the
-          # plain Laravel set plus sqlite, which is the whole database here.
+          # Matches the server. The plain Laravel set, plus sqlite (which is the whole
+          # database here) and intl — `PathEncodingReport` uses `IntlChar` directly to
+          # name and classify the bytes in a mis-encoded path, and two feature tests
+          # exercise it, so a runner without the extension fatals rather than skipping.
           php-version: '8.4'
-          extensions: mbstring, dom, fileinfo, tokenizer, xml, curl, pdo_sqlite, sqlite3
+          extensions: mbstring, dom, fileinfo, tokenizer, xml, curl, intl, pdo_sqlite, sqlite3
           coverage: none
 
       - uses: actions/setup-node@v7
@@ -110,18 +111,37 @@ jobs:
       - name: Build assets
         run: npm run build-only
 
+      # THE SPRITE IS GITIGNORED AND `npm run build` DOES NOT MAKE IT, so without this
+      # every `<Icon>` renders empty — app.blade.php inlines the file behind an `exists`
+      # check, so its absence is silent rather than fatal. That would leave the whole
+      # Playwright suite driving an app with no icons, where an icon-only control can
+      # never be caught missing. Both deploy scripts run this for the same reason.
+      - name: Build the icon sprite
+        run: npm run icons
+
+      # A GATE FOR PHP TO MATCH THE TWO THE FRONTEND HAS. Pint is a declared dependency
+      # that nothing was running, which matters beyond symmetry: its default preset PRUNES
+      # docblock tags it considers superfluous, and CLAUDE.md's comment convention is
+      # written around that. `--test` only reports, so this can never rewrite the tree.
+      - name: PHP formatting
+        run: vendor/bin/pint --test
+
       # Before the browser download, so a server-side failure does not first pay for
       # 100 MB of Chromium.
       - name: Server tests
         run: php artisan test
 
-      # ~100 MB of browser. Keyed on the lockfile so it is re-fetched only when the
-      # Playwright version actually moves.
+      # ~100 MB of browser, keyed on the WHOLE lockfile — there is no finer-grained
+      # hash available, so any dependency bump misses. `restore-keys` is what stops that
+      # costing a full re-download: a miss falls back to the newest previous entry, and
+      # `playwright install` then fetches only what is genuinely absent.
       - name: Cache Playwright browsers
         uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
 
       # --with-deps also installs the system libraries headless Chromium needs, which
       # the runner does not ship and which the cache above cannot supply.

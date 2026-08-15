@@ -4,16 +4,24 @@
 # mixtape-share-prune.timer.
 #
 # WHAT IT DELETES: `shares` rows whose valid_until passed more than
-# App\Models\Share::PRUNE_AFTER_DAYS ago (30 at the time of writing). Expired
+# App\Models\Share::PRUNE_AFTER_DAYS ago. Expired
 # links linger on purpose before that — the owner's list at /dashboard/shared
 # shows them, so a link a friend opens on day nine is a row its minter can see
 # and re-send rather than one that vanished. This only sweeps what nobody is
 # plausibly still asking about.
 #
-# IT CANNOT DELETE A LIVE LINK. The window is a column comparison against a
-# fixed grace period, and `--model` pins it to this one model — so the blast
-# radius is one table and one WHERE clause. `--pretend` prints the count without
-# deleting, which is the way to check it before enabling the timer.
+# IT CANNOT DELETE A LIVE LINK. The window is a column comparison against a fixed
+# grace period, so the blast radius is one table and one WHERE clause. `--pretend`
+# prints the count without deleting, which is the way to check it before enabling
+# the timer.
+#
+# NO `--model`, deliberately. Passing a class name through a unit file means passing
+# a backslashed FQCN through systemd's own unescaping, and `model:prune` filters
+# `--model` by `class_exists` alone — so a name that fails to survive that round trip
+# yields "No prunable models found." and EXIT 0: a green weekly timer that prunes
+# nothing, forever, while expired shares accumulate. Discovery finds every model using
+# Prunable/MassPrunable, and `Share` is the only one, so naming it buys nothing and
+# costs a silent failure mode.
 #
 # Runs as www-data — the same user as php-fpm — so it reads the app's .env and
 # reaches the DB exactly as a web request would.
@@ -34,7 +42,16 @@ Type=oneshot
 User=www-data
 Group=www-data
 WorkingDirectory=/var/www/mixtape.prod
-ExecStart=/usr/bin/php /var/www/mixtape.prod/artisan model:prune --model="App\\Models\\Share"
+ExecStart=/usr/bin/php /var/www/mixtape.prod/artisan model:prune
+# Sandboxing. These four are the ones that cost nothing here: this job reads and
+# writes only the paths named above and touches nothing in /home or /usr. Left at
+# `full` rather than `strict` deliberately — `strict` makes the whole filesystem
+# read-only and would need every writable path enumerated in ReadWritePaths=.
+# Check the result with `systemd-analyze security <unit>`.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
 
 # One indexed DELETE over a table that holds a household's worth of links. The
 # default oneshot timeout is ample; it is stated so a hung database surfaces as

@@ -6,8 +6,15 @@
 Description=Daily MixTape library scan
 
 [Timer]
-# Daily, after the weekly Sunday 03:00 backup window so the two never contend.
-OnCalendar=*-*-* 04:00:00
+# WELL CLEAR OF THE SUNDAY BACKUP, and this gap is a correctness requirement rather than
+# politeness. The scan's first action is to DELETE files inside /var/media (cleanup_masks),
+# and GNU tar exits non-zero on "file removed before we read it" — under the backup script's
+# `set -euo pipefail` that aborts the run, fires the failure alert, and leaves that Sunday with
+# no snapshot at all. The backup starts 03:00-03:15 and reads the whole collection TWICE (once
+# to write the tar, once to verify the hash), so on a slow drive it is still going well past
+# 04:00. Do not move this earlier; if anything, add `Conflicts=mixtape-media-backup.service`
+# and `After=` to the service unit to make the ordering structural rather than arithmetic.
+OnCalendar=*-*-* 05:30:00
 
 # Persistent: a home server is often asleep at 04:00. Without this a missed scan
 # waits a whole day; with it, systemd runs the one missed scan shortly after the

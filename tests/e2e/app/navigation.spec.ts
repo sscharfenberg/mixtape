@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 /*
  * How a navigation FEELS, which is the one thing only a real browser can answer.
@@ -24,7 +25,7 @@ import { expect, test } from "@playwright/test";
 type Frame = { crumbs: number; overlay: number; bar: number };
 
 /** Count what is on screen every animation frame, and count view transitions. */
-const instrument = (page: import("@playwright/test").Page) =>
+const instrument = (page: Page) =>
     page.addInitScript(() => {
         const w = window as unknown as { __vt: number; __frames: Record<string, number>[] };
         w.__vt = 0;
@@ -49,7 +50,7 @@ const instrument = (page: import("@playwright/test").Page) =>
     });
 
 /** Read the instrumentation back, and reset it so a sample covers one interaction only. */
-const samples = async (page: import("@playwright/test").Page) => {
+const samples = async (page: Page) => {
     const taken = await page.evaluate(() => {
         const w = window as unknown as { __vt: number; __frames: Frame[] };
         const snapshot = { vt: w.__vt, frames: [...w.__frames] };

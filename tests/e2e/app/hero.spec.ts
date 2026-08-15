@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { settled } from "../support/actions";
 
 /*
@@ -26,7 +27,7 @@ import { settled } from "../support/actions";
 test.use({ viewport: { width: 1440, height: 900 } });
 
 /** Every metadata tile's paint and flex behaviour, with enough text to name it in a failure. */
-const tiles = (page: import("@playwright/test").Page) =>
+const tiles = (page: Page) =>
     page.locator(".hero-section__metadata .fact-pair").evaluateAll(nodes =>
         nodes.map(node => ({
             label: (node.textContent ?? "").replace(/\s+/gu, " ").trim().slice(0, 24),

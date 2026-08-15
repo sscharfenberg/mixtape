@@ -22,3 +22,15 @@ Type=oneshot
 Nice=10
 IOSchedulingClass=idle
 ExecStart=/usr/local/sbin/mixtape-media-backup.sh
+
+# Runs as root, because it reads every file in /var/media whatever its owner and
+# writes to a mount only root touches.
+# Sandboxing. These four are the ones that cost nothing here: this job reads and
+# writes only the paths named above and touches nothing in /home or /usr. Left at
+# `full` rather than `strict` deliberately — `strict` makes the whole filesystem
+# read-only and would need every writable path enumerated in ReadWritePaths=.
+# Check the result with `systemd-analyze security <unit>`.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full

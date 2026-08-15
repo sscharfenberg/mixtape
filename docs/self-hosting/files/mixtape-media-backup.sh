@@ -19,8 +19,16 @@
 # by hand you are watching the output.
 set -euo pipefail
 
+# The snapshot IS the collection, in one file. Root's default 022 would leave every
+# media-*.tar 0644 — the whole library readable by any local account that can traverse
+# the backup mount. Nothing but this script (and `sha256sum -c` inside it) ever reads them.
+umask 077
+
 SRC=/var/media
 DST=/mnt/usb/snapshots
+# Snapshots to keep. Peak usage on the drive is KEEP + 1, not KEEP: the new snapshot is
+# written and verified BEFORE the old ones are pruned, deliberately, so a failed write never
+# costs a good copy. Size the drive for five.
 KEEP=4
 
 # --- Dead-man's-switch ---------------------------------------------------
@@ -51,7 +59,20 @@ mountpoint -q "$SRC" || { echo "ERROR: $SRC not mounted"; exit 1; }
 mountpoint -q /mnt/usb || { echo "ERROR: /mnt/usb not mounted (USB unplugged?)"; exit 1; }
 mkdir -p "$DST"
 
-SIG=$(find "$SRC/music" "$SRC/audiobooks" -type f -printf '%s\t%p\n' | LC_ALL=C sort | sha256sum | cut -d' ' -f1)
+# A run that dies mid-tar leaves a FULL-SIZE .partial behind, and the rotation glob below
+# matches only `media-*.tar`, so nothing ever reclaims it — on the one drive whose free space
+# this job depends on. Safe to clear here: the timer serialises runs, so no live .partial can
+# exist at this point.
+rm -f "$DST"/media-*.tar.partial
+
+# PATH, SIZE **AND MTIME**. Size alone cannot see the most common edit this collection gets:
+# re-tagging an mp3 in place, which ID3v2 padding is specifically designed to absorb without
+# moving the audio — so the file size very often does not change either. The signature would
+# match, the run would skip, and with KEEP rotating, enough skipped weeks age out every copy
+# that had the old tags without ever storing the new ones. A backup reporting success while
+# silently not capturing a change is the one failure mode it must not have. (The app's own
+# scanner uses the same three fields as its fast path, for the same reason.)
+SIG=$(find "$SRC/music" "$SRC/audiobooks" -type f -printf '%s\t%T@\t%p\n' | LC_ALL=C sort | sha256sum | cut -d' ' -f1)
 LAST=$(cat "$DST/.last-signature" 2>/dev/null || true)
 if [ "$SIG" = "$LAST" ] && ls "$DST"/media-*.tar >/dev/null 2>&1; then
   echo "no changes since last snapshot — skipping ($(date -u +%FT%TZ))"; exit 0

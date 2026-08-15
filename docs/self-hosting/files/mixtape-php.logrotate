@@ -6,13 +6,15 @@
 # unbounded. On a public-facing box the slow log is the dangerous one: a single
 # pathological request pattern can fill a partition overnight.
 #
-# Two details that are easy to get wrong:
+# Three details that are easy to get wrong:
 #
-#   * An `su` line is required, not cosmetic. /var/log/php is 0750 www-data:www-data,
-#     and logrotate refuses to act on a directory writable by a non-root user unless
-#     told whose privileges to use. Omit it and logrotate skips this entry, reporting
-#     the error only in its own output, which nobody reads either.
-#   * That `su` must name **root**, not www-data — `su root www-data`, the same shape
+#   * The `su` line is here for consistency rather than necessity. logrotate's refusal
+#     to act on a directory keys on the GROUP-write bit with a non-root gid, or on the
+#     other-write bit; /var/log/php is 0750 www-data:www-data, which is neither, so this
+#     entry would run without it. (The auth log's directory, at 2770, is the one where
+#     `su` genuinely is mandatory — see mixtape-auth-log.logrotate.) It is kept because
+#     the next bullet is a real constraint and stating it needs the line to exist.
+#   * If an `su` line is present it must name **root**, not www-data — `su root www-data`, the same shape
 #     as Debian's stock nginx entry (`su root adm`). The privileges apply to the
 #     postrotate script too, and the slow log is opened by the fpm *master*, which
 #     runs as root: dropping to www-data means the `kill -USR1` below fails with

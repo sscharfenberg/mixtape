@@ -9,6 +9,15 @@ Description=Report a failed MixTape media backup (dead-man's-switch + push)
 [Service]
 Type=oneshot
 ExecStart=/usr/local/sbin/mixtape-backup-alert.sh
+# Sandboxing. These four are the ones that cost nothing here: this job reads and
+# writes only the paths named above and touches nothing in /home or /usr. Left at
+# `full` rather than `strict` deliberately — `strict` makes the whole filesystem
+# read-only and would need every writable path enumerated in ReadWritePaths=.
+# Check the result with `systemd-analyze security <unit>`.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
 
 # The secrets are read by the script itself rather than injected here, so that
 # exactly one file needs protecting and `systemctl cat` does not print the ping

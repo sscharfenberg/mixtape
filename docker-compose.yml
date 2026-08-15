@@ -22,8 +22,11 @@ services:
             POSTGRES_USER: mixtape
             POSTGRES_PASSWORD: mixtape
         ports:
+            # BOUND TO LOOPBACK, not to every interface, and that prefix is the whole point:
+            # this stack exists for working away from home, which means café and hotel networks
+            # where an open Postgres on mixtape/mixtape is found by a subnet scan in seconds.
             # host:container — change the host side if 5432 is already taken.
-            - "5432:5432"
+            - "127.0.0.1:5432:5432"
         volumes:
             - pgdata:/var/lib/postgresql/data
         healthcheck:
@@ -59,7 +62,8 @@ services:
         depends_on:
             - app
         ports:
-            - "8080:80"
+            # Loopback, like the database — every documented workflow uses localhost:8080.
+            - "127.0.0.1:8080:80"
         volumes:
             - .:/var/www:ro
             - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
@@ -71,9 +75,15 @@ services:
         working_dir: /var/www
         env_file:
             - docker/app.env
-        command: sh -c "npm install && npm run dev"
+        # `npm run icons` between the two, because the sprite is gitignored and no build step
+        # makes it: without it every icon renders empty on first boot, which is the first thing
+        # a new reader sees. app.blade.php inlines the file behind an `exists` check, so its
+        # absence is silent rather than an error anyone could act on.
+        command: sh -c "npm install && npm run icons && npm run dev"
         ports:
-            - "5173:5173"
+            # Loopback: a Vite dev server on an untrusted network is the same class of exposure
+            # as the database above, and this one has a history of arbitrary-file-read CVEs.
+            - "127.0.0.1:5173:5173"
         volumes:
             - .:/var/www
             - node_modules:/var/www/node_modules

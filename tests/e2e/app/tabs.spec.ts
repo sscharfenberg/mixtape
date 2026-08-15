@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { columnValues, countDocumentRequests, pageHeading } from "../support/actions";
 
 /*
@@ -15,7 +16,7 @@ import { columnValues, countDocumentRequests, pageHeading } from "../support/act
  */
 
 /** Open the first genre's detail page. */
-const openFirstGenre = async (page: import("@playwright/test").Page): Promise<void> => {
+const openFirstGenre = async (page: Page): Promise<void> => {
     await page.goto("/music/genres");
     await expect(page.locator("tbody tr").first()).toBeVisible();
     await page.locator("tbody tr").first().click();

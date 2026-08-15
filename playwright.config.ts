@@ -8,7 +8,7 @@ import { BASE_URL, PORT, serverEnv } from "./tests/e2e/support/environment.ts";
  * has no layout, no real navigation and no CSP, so anything that depends on the browser
  * actually being a browser lands here: that a page really boots with its assets, that
  * the server-driven DataTable's state survives a reload, that auth genuinely gates a
- * route, and — once the player is built — that audio plays under the production CSP.
+ * route, and that audio plays under the production CSP.
  *
  * It drives the REAL app: Laravel over a throwaway sqlite, seeded fresh each run. See
  * tests/e2e/support/environment.ts for why the environment is overridden rather than
@@ -49,7 +49,7 @@ export default defineConfig({
      * day — a different test every time, all green in isolation.
      *
      * WHAT IS ACTUALLY HAPPENING. `artisan serve` is PHP's built-in server: strictly SERIAL, one
-     * connection at a time, for all three workers. Polling `/up` — Laravel's health route, which
+     * connection at a time, however many workers ask. Polling `/up` — Laravel's health route, which
      * touches nothing — every 200ms through a whole run puts the median at 20ms and the p99 at
      * 1.2s, with a worst case of 3.8s. A trace of a real failure showed the same thing from the
      * browser's side: 5.6s and 9.0s of `wait` (time to first byte) on a static font and a 404,
