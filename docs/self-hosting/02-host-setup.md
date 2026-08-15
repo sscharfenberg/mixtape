@@ -155,6 +155,41 @@ first migration fails:
 psql -h 127.0.0.1 -U <role> -d <database> -c 'SELECT current_user, current_database()'
 ```
 
+### The `en_GB.UTF-8` locale is a requirement, not a preference
+
+**Generate it before the first migration.** One migration pins the collation of every column the
+app sorts by to `en_GB.utf8`, and that is a **libc** collation — it exists in PostgreSQL only if
+the operating system has the locale generated. Without it the migration refuses, by design, with a
+message naming this section.
+
+```bash
+sudo sed -i 's/^# *en_GB.UTF-8 UTF-8/en_GB.UTF-8 UTF-8/' /etc/locale.gen
+sudo locale-gen
+sudo systemctl restart postgresql
+psql -h 127.0.0.1 -U <role> -d <database> \
+  -c "SELECT 1 FROM pg_collation WHERE collname = 'en_GB.utf8'"
+```
+
+**Why it is pinned at all**, rather than left to the database default: a database created without
+an explicit `LOCALE` inherits whatever `template1` has, which is an install-time accident. Two
+databases on one cluster can therefore sort the same library differently — measured on the
+reference box, where dev was `C.UTF-8` and production `en_GB.UTF-8`:
+
+```
+C.UTF-8       A Beast Am I | A Beautiful Song | A Boy Named Sue | A Broken Man…
+en_GB.UTF-8   Aaj | Aaskereia | Abandoned | Abandoned | Abandoned (Live)…
+```
+
+A space sorts below every letter in byte order and is ignored at the primary level in a
+locale-aware one. Four in five track titles contain a space, so this is the whole first page of
+the Songs listing rather than a corner case. Pinning it in a migration means the ordering a reader
+sees is a decision in the repo instead of a side effect of how somebody ran `createdb`.
+
+**Prefer a different order?** `en_GB.utf8` sorts dictionary-style, ignoring spaces. The ICU
+collations (`en-GB-x-icu`, `und-x-icu`) sort word-by-word, putting `A Beast Am I` before `Aaj`,
+and are bundled with PostgreSQL so they need no OS locale at all. Changing the constant in
+`database/migrations/*_pin_the_sort_collation.php` is the whole change.
+
 ## 2.7 PHP and nginx
 
 ```bash

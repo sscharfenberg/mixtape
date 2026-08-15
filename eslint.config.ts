@@ -16,7 +16,28 @@ export default defineConfigWithVueTs(
     {
         files: ["**/*.{ts,mts,tsx,vue}"]
     },
-    globalIgnores(["**/dist/**", "**/dist-ssr/**", "**/coverage/**"]),
+    /*
+     * The server-side trees, so nothing in them is ever linted. Note this does NOT stop ESLint
+     * READING them: `@vue/eslint-config-typescript` globs the whole project for `.vue` files
+     * (it must read each one to learn whether its script block is TypeScript), and it resolves
+     * these ignore patterns to ABSOLUTE paths before handing them to fast-glob — which matches
+     * `ignore` against entries RELATIVE to its cwd, so an absolute pattern matches nothing.
+     * Verified by calling fast-glob directly with both forms.
+     *
+     * The consequence is a real one on a deployed host, where `storage` belongs to www-data:
+     * `npm run build` dies with `EACCES: permission denied, scandir` before it lints anything.
+     * That is why both deploy scripts run `build-only` — see docs/self-hosting. Do not add
+     * patterns here expecting them to fix it; they cannot.
+     */
+    globalIgnores([
+        "**/dist/**",
+        "**/dist-ssr/**",
+        "**/coverage/**",
+        "**/storage/**",
+        "bootstrap/cache/**",
+        "vendor/**",
+        "public/build/**"
+    ]),
     pluginVue.configs["flat/essential"],
     vueTsConfigs.recommended,
     skipFormatting,

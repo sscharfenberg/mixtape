@@ -300,6 +300,19 @@ This takes several minutes: composer, `npm ci`, type-check, Vite build, icon spr
 > build. The deploy script runs `npm run icons` for exactly this reason — skip it and every icon in
 > the app renders empty, with no error anywhere.
 
+> ⚠️ **On a server, build with `npm run build-only`, never `npm run build`.** Both deploy scripts
+> already do, for two independent reasons. `build` runs the linters with `--fix`, which MUTATES
+> tracked source on the deployed copy. And it cannot finish anyway:
+> `@vue/eslint-config-typescript` globs the entire project for `.vue` files — it has to read each
+> one to learn whether its script block is TypeScript — so it walks into `storage`, which belongs
+> to www-data, and the run dies with
+> `EACCES: permission denied, scandir …/storage/inertia-devtools` before linting a single file.
+>
+> ESLint's own `ignores` cannot prevent that walk: the package resolves those patterns to
+> absolute paths, and fast-glob matches its `ignore` list against entries relative to its cwd, so
+> they never match. Lint on a workstation and in CI, where the whole tree is readable; the server
+> only needs the compiled assets.
+
 Create yourself an account (registration is invite-only):
 
 ```bash
