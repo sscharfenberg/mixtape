@@ -2,6 +2,22 @@ import { expect } from "@playwright/test";
 import type { Page, Request, Response } from "@playwright/test";
 import { SEED_USER } from "./environment";
 
+/******************************************************************************
+ * Actions and readers shared across the E2E specs.
+ *
+ * WHAT BELONGS HERE IS TRAP KNOWLEDGE, not merely anything used twice. `pageHeading`'s hero
+ * scope, `settled`'s polling on the symptom rather than `:active-view-transition`,
+ * `settledValue`'s two-identical-reads rule, `isWrite`'s Precognition filter, `audioState`
+ * reading the element rather than the UI — each encodes something that cost a debugging
+ * session, and a second copy of any of them is a copy that quietly stops matching.
+ *
+ * TWO HELPERS ARE DELIBERATELY LEFT LOCAL, so the duplication reads as a choice: `enqueueSongs`
+ * (queue.spec, player.spec) and `openFirstRow` (share.spec, download.spec, browse.spec). They
+ * are plain navigation with nothing subtle in them, and their callers differ in small ways that
+ * are load-bearing — how many rows, whether the panel is opened afterwards, which listing.
+ * Lifting them would mean an options bag per call site to serve no one.
+ *****************************************************************************/
+
 /**
  * Fill in and submit the login form.
  *
