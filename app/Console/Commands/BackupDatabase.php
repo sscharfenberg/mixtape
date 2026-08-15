@@ -208,11 +208,14 @@ class BackupDatabase extends Command
     /** Bytes as something a human reads in a journal line. */
     private function human(int $bytes): string
     {
+        $size = (float) $bytes;
+
         foreach (['B', 'KB', 'MB', 'GB'] as $unit) {
-            if ($bytes < 1024 || $unit === 'GB') {
-                return round($bytes, 1).' '.$unit;
+            if ($size < 1024 || $unit === 'GB') {
+                return round($size, 1).' '.$unit;
             }
-            $bytes = intdiv($bytes, 1024);
+
+            $size /= 1024;
         }
 
         return $bytes.' B';
