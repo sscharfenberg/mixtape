@@ -80,11 +80,6 @@ export interface SortEntry {
     direction: "asc" | "desc";
 }
 
-/** Selection state managed by DataTable. */
-export interface SelectionState {
-    ids: string[];
-}
-
 /** Shape provided by DataTable to child components. */
 export interface DataTableProvide {
     /** Currently selected row IDs. */

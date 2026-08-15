@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import { resetPlayerQueueForTests, usePlayerQueue } from "Composables/usePlayerQueue";
-import { useToast } from "Composables/useToast";
+import { resetToastsForTests, useToast } from "Composables/useToast";
 import { resetInertia, routerCalls, setPage } from "Testing/inertia";
 import { mountApp } from "Testing/mount";
 import SubjectMenu from "./SubjectMenu.vue";
@@ -54,18 +54,13 @@ const menu = (subject: "artist" | "album" | "genre" | "song" = "artist", queueTr
 /** The menu's two items, in order: play, then enqueue. */
 const items = (wrapper: ReturnType<typeof mountApp>) => wrapper.findAll(".popover-list-item");
 
-/** Drain the toast singleton, which outlives a test. */
-const drainToasts = (): void => {
-    const { activeToasts, removeToast } = useToast();
-    while (activeToasts.value.length > 0) activeToasts.value.forEach(toast => removeToast(toast.id));
-};
 
 describe("SubjectMenu", () => {
     beforeEach(() => {
         resetInertia();
         resetPlayerQueueForTests();
         window.localStorage.clear();
-        drainToasts();
+        resetToastsForTests();
     });
 
     it("offers exactly two verbs", () => {

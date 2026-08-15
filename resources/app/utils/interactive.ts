@@ -8,9 +8,8 @@
  * control"). Getting either wrong is the same bug: a gesture is claimed by the page when
  * it was meant for the thing under the cursor or the caret.
  *
- * It lives here rather than in either caller because the two lists MUST NOT DRIFT. They
- * were one copy in rowNavigation until the shortcuts needed it; a second copy
- * would have been correct on the day it was written and wrong the first time a control was
+ * It lives here rather than in either caller because the two lists MUST NOT DRIFT. A copy in
+ * each would be correct on the day it was written and wrong the first time a control was
  * added to only one of them.
  *
  * The role selectors matter as much as the tag names: this app's Select is a <button>

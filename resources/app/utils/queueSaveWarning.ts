@@ -6,12 +6,11 @@
  * A MODULE OF FUNCTIONS beside mediaSession, playbackError and playBeacon: one-way
  * output with a latch, no reactive state, nothing that knows what a queue is.
  *
- * THE FAILURES IT REPORTS WERE DELIBERATELY SILENT, and staying silent was the
- * wrong half of a right decision. A full storage or a refused sync must never take
- * the player down with it — that part stands, and playback is untouched — but the
- * consequence is real and invisible: the queue on screen is no longer the queue
- * that will come back. A listener who drags twenty tracks into order and finds them
- * gone tomorrow deserves to have been told today.
+ * THE FAILURES IT REPORTS WOULD OTHERWISE BE INVISIBLE, and that is the whole reason it
+ * exists. A full storage or a refused sync must never take the player down with it, so
+ * playback is untouched and nothing on screen changes — but the consequence is real: the
+ * queue on screen is no longer the queue that will come back. A listener who drags twenty
+ * tracks into order and finds them gone tomorrow deserves to have been told today.
  *
  * A WARNING, NOT AN ERROR, and the distinction is the whole tone of it. The music
  * is still playing and the queue on screen is still correct; what is at risk is

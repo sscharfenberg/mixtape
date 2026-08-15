@@ -56,6 +56,14 @@ declare module "@inertiajs/core" {
             // entry) only ask whether to draw a way in; the list belongs to the page
             // at the other end. False for a guest.
             shares: boolean;
+            // The reader's own playlists, names only, in the order they arranged them —
+            // whatever "add to playlist" is on screen picks from this one list. Shared rather
+            // than a page prop because one consumer (the queue's "add everything") lives in
+            // the layout and can be opened from a page that knows nothing about playlists.
+            // Empty for a guest, never absent. The shape is inlined for the same reason
+            // `player` inlines its own: importing the app's PlaylistOption from a .d.ts that
+            // the app's own modules depend on would tie the two together backwards.
+            playlists: { id: string; name: string }[];
             // Player settings the client honours but the server owns
             // (config/mixtape.php → the player). `positionHeartbeat` is in seconds of
             // PLAYBACK, and 0 turns the heartbeat off.

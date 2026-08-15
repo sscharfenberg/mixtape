@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useToast } from "Composables/useToast";
+import { resetToastsForTests, useToast } from "Composables/useToast";
 
 /*
  * useToast is a MODULE singleton — the no-Pinia shared store. That is the thing worth
@@ -12,21 +12,15 @@ import { useToast } from "Composables/useToast";
  * actually visible, or a burst of 10 would silently expire half of them unseen.
  */
 
-/** Drain the singleton so each test starts from an empty list. */
-const drain = (): void => {
-    const { activeToasts, removeToast } = useToast();
-    // removeToast promotes from the queue, so keep going until nothing is left.
-    while (activeToasts.value.length > 0) activeToasts.value.forEach(toast => removeToast(toast.id));
-};
 
 describe("useToast", () => {
     beforeEach(() => {
         vi.useFakeTimers();
-        drain();
+        resetToastsForTests();
     });
 
     afterEach(() => {
-        drain();
+        resetToastsForTests();
         vi.useRealTimers();
     });
 

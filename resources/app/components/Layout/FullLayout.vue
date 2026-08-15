@@ -49,6 +49,7 @@ import ToastContainer from "Components/UI/ToastContainer.vue";
 import TooltipLayer from "Components/UI/Tooltip/TooltipLayer.vue";
 import type { BreadcrumbItem } from "Composables/useBreadcrumbs";
 import { abandonQueue, usePlayerQueue } from "Composables/usePlayerQueue";
+import { forgetTwoFactorState } from "Composables/useTwoFactorAuth";
 
 defineProps<{
     /** The current page's breadcrumb trail, or undefined on a page that declares none. */
@@ -86,9 +87,17 @@ const userId = computed(() => page.props.auth.user?.id ?? null);
  * Signing in is a visit as well, so without this the queue would not come back until the
  * next full page load. `playerState` only rides down on one of those, but the reader's
  * localStorage copy was left untouched and is what answers here.
+ *
+ * THIS IS THE REGISTER OF USER-SCOPED MODULE STATE, and anything module-level that belongs to
+ * one reader has to be listed here — there is no other hook for "the reader changed". The 2FA
+ * module is the second entry: it holds revealed RECOVERY CODES and a flag that renders them on
+ * mount without a fetch, so a reader who reveals them and hands the tab on leaves them for the
+ * next person. Both of these forget rather than clear: writing anything at the moment a
+ * session ends is what `abandonQueue`'s own note exists to rule out.
  */
 watch(userId, now => {
     abandonQueue();
+    forgetTwoFactorState();
 
     if (now !== null) hydrate();
 });

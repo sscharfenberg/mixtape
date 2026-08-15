@@ -118,7 +118,6 @@ describe("usePasswordEntropy", () => {
         onPasswordChange();
         await vi.advanceTimersByTimeAsync(750);
 
-        vi.spyOn(console, "error").mockImplementation(() => {});
         mockFetch({}, false);
         password.value = "gut genug";
         onPasswordChange();
@@ -126,6 +125,66 @@ describe("usePasswordEntropy", () => {
 
         // A failed check must not read as "your password got weaker".
         expect(score.value).toBe(3);
+    });
+
+    it("ignores a score that answers a password already typed past", async () => {
+        /*
+         * TWO RUNS ARE GENUINELY IN FLIGHT AT ONCE here — the max-wait fires mid-typing and
+         * the trailing run follows it — so without an identity check the slower answer paints
+         * last. A reader watching the meter would see it fall back to the strength of what
+         * they had a moment ago, on a password that is now longer.
+         */
+        let releaseStale: ((value: unknown) => void) | undefined;
+        const fetchMock = vi
+            .fn()
+            .mockImplementationOnce(
+                () => new Promise(resolve => { releaseStale = resolve; })
+            )
+            .mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({ score: 4 }) });
+        vi.stubGlobal("fetch", fetchMock);
+
+        const { password, score, onPasswordChange } = usePasswordEntropy();
+
+        password.value = "geheim";
+        onPasswordChange();
+        await vi.advanceTimersByTimeAsync(750);
+
+        // The reader keeps typing, and the second answer lands first.
+        password.value = "geheim123";
+        onPasswordChange();
+        await vi.advanceTimersByTimeAsync(750);
+        expect(score.value).toBe(4);
+
+        // Now the older one comes back. It is about a password that is no longer on screen.
+        releaseStale!({ ok: true, status: 200, json: () => Promise.resolve({ score: 0 }) });
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(score.value).toBe(4);
+    });
+
+    it("aborts the request it supersedes rather than leaving it on the wire", async () => {
+        const signals: AbortSignal[] = [];
+        const fetchMock = vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+            signals.push(init.signal!);
+
+            return new Promise(() => {
+                // Never settles: what is under test is the signal, not the answer.
+            });
+        });
+        vi.stubGlobal("fetch", fetchMock);
+
+        const { password, onPasswordChange } = usePasswordEntropy();
+        password.value = "geheim";
+        onPasswordChange();
+        await vi.advanceTimersByTimeAsync(750);
+
+        password.value = "geheim123";
+        onPasswordChange();
+        await vi.advanceTimersByTimeAsync(750);
+
+        expect(signals).toHaveLength(2);
+        expect(signals[0].aborted).toBe(true);
+        expect(signals[1].aborted).toBe(false);
     });
 
     it("reset() clears the field, the score, and any pending request", async () => {

@@ -108,6 +108,17 @@ let element: HTMLAudioElement | null = null;
 /** The element that has actually been routed — routing one twice throws. */
 let routed: HTMLAudioElement | null = null;
 
+/**
+ * The routing already under way, so a second caller joins it rather than starting its own.
+ *
+ * `routed` alone cannot do this, because it is only set AFTER `context.resume()` is awaited —
+ * and two calls that overlap that await both pass its guard and both reach
+ * `createMediaElementSource`, which throws on the second. Both callers are real: Visualizer
+ * activates on mount for a page entered mid-track and again when playback starts, with a
+ * suspended context in between on a fresh load where nothing has been clicked yet.
+ */
+let routing: Promise<void> | null = null;
+
 let context: AudioContext | null = null;
 let analyser: AnalyserNode | null = null;
 let frame: number | null = null;
@@ -122,8 +133,20 @@ let unbindRetry: (() => void) | null = null;
  * why the order matters — and binds a one-shot retry to the element's next `play`, which is as
  * close to a user gesture as this module can get.
  */
-async function route(): Promise<void> {
-    if (element === null || routed === element) return;
+function route(): Promise<void> {
+    if (element === null || routed === element) return Promise.resolve();
+    if (routing !== null) return routing;
+
+    routing = routeOnce();
+
+    return routing.finally(() => {
+        routing = null;
+    });
+}
+
+/** The body of {@link route}, entered by one caller at a time — see `routing` on why. */
+async function routeOnce(): Promise<void> {
+    if (element === null) return;
 
     /*
      * NO WEB AUDIO, NO VISUALISER — and nothing else changes. The bars fall back to their idle
@@ -310,6 +333,7 @@ export function resetAudioAnalyserForTests(): void {
     bands = ANALYSER_DEFAULT_BANDS;
     element = null;
     routed = null;
+    routing = null;
     analyser = null;
     void context?.close();
     context = null;

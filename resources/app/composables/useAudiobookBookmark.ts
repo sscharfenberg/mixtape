@@ -34,7 +34,9 @@ export type UseAudiobookBookmarkReturn = {
  * already updates `currentTime` off the audio element's `timeupdate`, which keeps counting in
  * a backgrounded tab where a `setInterval` would be throttled to once a minute — which is
  * exactly the tab somebody left a book playing in. Writes are spaced by
- * `mixtape.player.position_heartbeat` seconds of PLAYBACK, so a paused player writes nothing.
+ * `mixtape.player.position_heartbeat` seconds of PLAYBACK — the same operator setting the live
+ * player's own writes are spaced by, read from the same shared prop — so a paused player writes
+ * nothing, and an operator who turns the setting off gets no periodic writes here either.
  *
  * IT ONLY EVER WRITES THIS BOOK'S OWN CHAPTERS. There is ONE queue, shared with music, so what
  * is loaded may be a song or a chapter of a different book — and neither has any business
@@ -59,8 +61,16 @@ export const useAudiobookBookmark = (
     /** Seconds of playback at the last write, so the heartbeat can be measured against it. */
     let writtenAt = 0;
 
-    /** How often to store the position, in seconds of playback. Mirrors the queue's own step. */
-    const HEARTBEAT_SECONDS = 30;
+    /**
+     * How often to store the position, in seconds of playback — the operator's own setting.
+     *
+     * Read per call rather than captured, because the props arrive with the page. Zero or
+     * absent means no periodic write at all, matching what the config note promises: a
+     * chapter change still stores immediately, which is the fact a reader most wants kept.
+     * Never used as a bare comparison against zero — `< 0` is true of nothing, so a naive
+     * read would turn "off" into a write on every `timeupdate`.
+     */
+    const heartbeatSeconds = (): number => usePage().props.player?.positionHeartbeat ?? 0;
 
     /**
      * Store where the reader has got to.
@@ -111,7 +121,7 @@ export const useAudiobookBookmark = (
         if (track === null || !chapterIds().includes(track.id)) return;
 
         // A new chapter is worth storing immediately — that is the fact a reader most wants
-        // remembered, and waiting 30 seconds to record it loses it to a closed tab.
+        // remembered, and waiting out a whole heartbeat to record it loses it to a closed tab.
         if (bookmark.value?.trackId !== track.id) {
             writtenAt = seconds;
             store(track.id, Math.round(seconds * 1000));
@@ -119,7 +129,10 @@ export const useAudiobookBookmark = (
             return;
         }
 
-        if (Math.abs(seconds - writtenAt) < HEARTBEAT_SECONDS) return;
+        const heartbeat = heartbeatSeconds();
+
+        if (heartbeat <= 0) return;
+        if (Math.abs(seconds - writtenAt) < heartbeat) return;
 
         writtenAt = seconds;
         store(track.id, Math.round(seconds * 1000));

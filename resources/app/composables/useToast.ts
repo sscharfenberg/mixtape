@@ -119,3 +119,20 @@ export function useToast(): UseToastReturn {
 
     return { activeToasts, addToast, removeToast };
 }
+
+/**
+ * Reset the singleton — tests only.
+ *
+ * The three pieces of module state above outlive a test file, so a spec that raises a toast
+ * leaks it into the next one. Exported rather than drained by hand in each spec, which is what
+ * was happening: a hand-rolled `while (activeToasts.length) removeToast(...)` loop empties the
+ * visible list but leaves `queue` untouched, so anything past {@link MAX_VISIBLE} survives the
+ * "reset" and appears in whichever spec runs next — the exact invisible leak this pattern
+ * exists to prevent. The timers go too, or a pending removal fires during another spec.
+ */
+export function resetToastsForTests(): void {
+    for (const timer of timers.values()) clearTimeout(timer);
+    timers.clear();
+    activeToasts.value = [];
+    queue.value = [];
+}

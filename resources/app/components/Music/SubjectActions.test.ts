@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import { resetPlayerQueueForTests, usePlayerQueue } from "Composables/usePlayerQueue";
-import { useToast } from "Composables/useToast";
+import { resetToastsForTests } from "Composables/useToast";
 import { resetInertia, routerCalls, setPage } from "Testing/inertia";
 import { mountApp } from "Testing/mount";
 import SubjectActions from "./SubjectActions.vue";
@@ -57,18 +57,13 @@ const actions = (queueTracks?: unknown) => {
     return mountApp(SubjectActions);
 };
 
-/** Drain the toast singleton, which outlives a test. */
-const drainToasts = (): void => {
-    const { activeToasts, removeToast } = useToast();
-    while (activeToasts.value.length > 0) activeToasts.value.forEach(toast => removeToast(toast.id));
-};
 
 describe("SubjectActions", () => {
     beforeEach(() => {
         resetInertia();
         resetPlayerQueueForTests();
         window.localStorage.clear();
-        drainToasts();
+        resetToastsForTests();
     });
 
     it("offers exactly two verbs, labelled by what they do", () => {

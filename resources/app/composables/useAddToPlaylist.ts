@@ -83,11 +83,11 @@ export function useAddToPlaylist(
     /**
      * The offerable playlists: the shared list, narrowed by the caller's ids when it has any.
      *
-     * Read tolerantly — a response that omits the prop leaves the select empty rather than
-     * throwing, the same way useSiteAreas reads `library`.
+     * Read tolerantly — a partial reload that does not carry the prop leaves the select empty
+     * rather than throwing, the same way useSiteAreas reads `library`.
      */
     const options = computed<PlaylistOption[]>(() => {
-        const all = (page.props.playlists as PlaylistOption[] | undefined) ?? [];
+        const all = page.props.playlists ?? [];
         const allowed = offered?.();
 
         return allowed === undefined ? all : all.filter(playlist => allowed.includes(playlist.id));

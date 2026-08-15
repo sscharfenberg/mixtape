@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
-import { useToast } from "Composables/useToast";
+import { resetToastsForTests, useToast } from "Composables/useToast";
 import { resetInertia, setPage } from "Testing/inertia";
 import { mountApp } from "Testing/mount";
 import type { UseShareLinkReturn } from "./useShareLink";
@@ -58,16 +58,11 @@ const respond = (status: number, body: unknown = {}): void => {
     );
 };
 
-/** Drain the toast singleton, which outlives a test. */
-const drainToasts = (): void => {
-    const { activeToasts, removeToast } = useToast();
-    while (activeToasts.value.length > 0) activeToasts.value.forEach(toast => removeToast(toast.id));
-};
 
 describe("useShareLink", () => {
     beforeEach(() => {
         resetInertia();
-        drainToasts();
+        resetToastsForTests();
     });
 
     afterEach(() => {

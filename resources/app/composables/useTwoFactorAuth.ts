@@ -77,6 +77,29 @@ const showSetupModal = ref(false);
 const hasSetupData = computed<boolean>(() => qrCodeSvg.value !== null && manualSetupKey.value !== null);
 
 /**
+ * Drop every piece of 2FA state this module is holding.
+ *
+ * EXPORTED BECAUSE SIGNING OUT MUST CALL IT, and nothing else can. Logging out is an Inertia
+ * visit under a layout that never unmounts, so `setup()` does not run again and everything
+ * above — including `recoveryCodesList`, which holds codes a reader has just revealed, and
+ * `isRecoveryCodesVisible`, which makes the panel render them on mount without a fetch —
+ * would otherwise still be here for whoever signs in next on a shared browser. That is the
+ * same hazard `abandonQueue` exists for, and it is called from the same watcher.
+ *
+ * Reset state, never a request: this runs at the moment the session ends, when a fetch to
+ * Fortify would be answered 401 or, worse, by the next reader's session.
+ */
+export const forgetTwoFactorState = (): void => {
+    errors.value = [];
+    validationErrors.value = {};
+    manualSetupKey.value = null;
+    qrCodeSvg.value = null;
+    recoveryCodesList.value = [];
+    isRecoveryCodesVisible.value = false;
+    showSetupModal.value = false;
+};
+
+/**
  * Composable that manages two-factor authentication setup and recovery codes
  * (ported from cantrip.me).
  *
@@ -152,13 +175,7 @@ export const useTwoFactorAuth = (): UseTwoFactorAuthReturn => {
      * Intended to be called after 2FA has been fully disabled so the UI
      * no longer displays stale data from a previous enrollment.
      */
-    const clearTwoFactorAuthData = (): void => {
-        clearSetupData();
-        clearErrors();
-        recoveryCodesList.value = [];
-        isRecoveryCodesVisible.value = false;
-        showSetupModal.value = false;
-    };
+    const clearTwoFactorAuthData = (): void => forgetTwoFactorState();
 
     /**
      * Fetch the current set of one-time-use recovery codes from Fortify.

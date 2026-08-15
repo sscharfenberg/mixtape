@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
-import { useToast } from "Composables/useToast";
+import { resetToastsForTests, useToast } from "Composables/useToast";
 import { resetInertia, setPage } from "Testing/inertia";
 import { mountApp, translate } from "Testing/mount";
 import ToastContainer from "./ToastContainer.vue";
@@ -23,21 +23,16 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
 /** Everything currently rendered in the teleported stack. */
 const toastsInDocument = (): Element[] => [...document.querySelectorAll(".toast-container__item")];
 
-/** Drain the toast singleton between tests. */
-const drain = (): void => {
-    const { activeToasts, removeToast } = useToast();
-    while (activeToasts.value.length > 0) activeToasts.value.forEach(toast => removeToast(toast.id));
-};
 
 describe("ToastContainer", () => {
     beforeEach(() => {
         resetInertia();
-        drain();
+        resetToastsForTests();
         document.body.innerHTML = "";
     });
 
     afterEach(() => {
-        drain();
+        resetToastsForTests();
         document.body.innerHTML = "";
     });
 

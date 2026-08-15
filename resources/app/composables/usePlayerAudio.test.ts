@@ -5,7 +5,7 @@ import de from "@/lang/de.json";
 import { resetPlayerAudioForTests, usePlayerAudio } from "Composables/usePlayerAudio";
 import type { QueueTrack } from "Composables/usePlayerQueue";
 import { resetPlayerQueueForTests, usePlayerQueue } from "Composables/usePlayerQueue";
-import { useToast } from "Composables/useToast";
+import { resetToastsForTests, useToast } from "Composables/useToast";
 import { resetInertia, setPage } from "Testing/inertia";
 
 vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
@@ -101,11 +101,6 @@ const storedPositionMs = (): number =>
 /** The toasts on screen — a failed stream is announced through the singleton. */
 const toasts = () => useToast().activeToasts.value;
 
-/** Empty the toast singleton, which is module state and outlives a test. */
-const drainToasts = (): void => {
-    const { activeToasts, removeToast } = useToast();
-    while (activeToasts.value.length > 0) activeToasts.value.forEach(toast => removeToast(toast.id));
-};
 
 describe("usePlayerAudio", () => {
     beforeEach(() => {
@@ -125,7 +120,7 @@ describe("usePlayerAudio", () => {
         });
         resetPlayerAudioForTests();
         resetPlayerQueueForTests();
-        drainToasts();
+        resetToastsForTests();
         window.localStorage.clear();
     });
 
@@ -332,7 +327,7 @@ describe("usePlayerAudio", () => {
             const failure = { code: 4 };
             Object.defineProperty(element, "error", { configurable: true, value: failure });
             element.dispatchEvent(new Event("error"));
-            drainToasts();
+            resetToastsForTests();
 
             // happy-dom's play() resolves, so the refusal a dead source produces is stubbed.
             element.play = () => Promise.reject(new Error("NotSupportedError"));

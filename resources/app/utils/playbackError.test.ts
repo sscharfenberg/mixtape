@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { setupI18n } from "@/i18n";
 import de from "@/lang/de.json";
 import type { QueueTrack } from "Composables/usePlayerQueue";
-import { useToast } from "Composables/useToast";
+import { resetToastsForTests, useToast } from "Composables/useToast";
 import { announcePlaybackFailure, forgetPlaybackFailure } from "Utils/playbackError";
 
 /*
@@ -19,11 +19,6 @@ import { announcePlaybackFailure, forgetPlaybackFailure } from "Utils/playbackEr
  * a renamed or dropped key should fail a test rather than render as its own name.
  */
 
-/** Drain the toast singleton — it is module state and outlives a test. */
-const drain = (): void => {
-    const { activeToasts, removeToast } = useToast();
-    while (activeToasts.value.length > 0) activeToasts.value.forEach(toast => removeToast(toast.id));
-};
 
 /** What is on screen right now, as plain strings. */
 const messages = (): string[] => useToast().activeToasts.value.map(toast => toast.message);
@@ -39,7 +34,7 @@ describe("announcePlaybackFailure", () => {
         // The composable translates through the i18n SINGLETON (it runs inside a media
         // event handler, where useI18n() is not available), so the singleton has to exist.
         setupI18n({ legacy: false, locale: "de", messages: { de } });
-        drain();
+        resetToastsForTests();
         forgetPlaybackFailure();
     });
 

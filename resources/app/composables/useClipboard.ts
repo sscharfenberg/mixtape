@@ -1,5 +1,5 @@
 import type { Ref } from "vue";
-import { ref } from "vue";
+import { onScopeDispose, ref } from "vue";
 
 /** Return type of the {@link useClipboard} composable. */
 export type UseClipboardReturn = {
@@ -22,6 +22,17 @@ export const useClipboard = (): UseClipboardReturn => {
     // Per-component — each consumer gets its own `copied` state so that
     // multiple copy buttons on the same page do not interfere with each other.
     const copied = ref(false);
+
+    /** The pending reset, so a consumer that goes away first does not leave it running. */
+    let resetTimer: ReturnType<typeof setTimeout> | undefined;
+
+    /*
+     * The share modal CLOSES ON COPY, well inside the two seconds below, so without this the
+     * timer outlives its component and fires against a ref nothing reads. Harmless in itself —
+     * it is the only timer in the app with no cancellation, which is the reason to close it
+     * rather than the reason it matters.
+     */
+    onScopeDispose(() => clearTimeout(resetTimer));
 
     /**
      * Copy the given string to the system clipboard.
@@ -59,7 +70,8 @@ export const useClipboard = (): UseClipboardReturn => {
             }
 
             copied.value = true;
-            setTimeout(() => {
+            clearTimeout(resetTimer);
+            resetTimer = setTimeout(() => {
                 copied.value = false;
             }, 2000);
         } catch {

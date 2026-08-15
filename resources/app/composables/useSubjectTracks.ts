@@ -26,11 +26,10 @@ export type UseSubjectTracksReturn = {
  * "Play this" and "queue this" for the subject of a detail page — the two verbs a hero
  * offers, and the fetch that has to happen before either can act.
  *
- * EXTRACTED FROM SubjectMenu, when the four Music heroes swapped that popover
- * for a row of buttons and the playlist page kept it. The two components differ in nothing
+ * SHARED BY THE HERO'S BUTTON ROW AND THE PLAYLIST PAGE'S POPOVER, which differ in nothing
  * but their shape: the same round trip, the same "a subject with no tracks is a toast, not
- * an error", the same rule about what play MEANS. Leaving a copy in each is how they would
- * come to disagree.
+ * an error", the same rule about what play MEANS. A copy in each is how the two would come
+ * to disagree.
  *
  * PLAY MEANS REPLACE. "Play this artist" empties the queue and puts their records in it,
  * which is what a listener means by it and what every player does; "enqueue" appends and

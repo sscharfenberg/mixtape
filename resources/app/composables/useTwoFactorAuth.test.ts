@@ -1,7 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { setupI18n } from "@/i18n";
 import de from "@/lang/de.json";
-import { useTwoFactorAuth } from "Composables/useTwoFactorAuth";
+import { forgetTwoFactorState, useTwoFactorAuth } from "Composables/useTwoFactorAuth";
 import { resetInertia, routerCalls, setPage } from "Testing/inertia";
 import { translate } from "Testing/mount";
 
@@ -338,6 +338,30 @@ describe("useTwoFactorAuth", () => {
         await modal.fetchQrCode();
 
         expect(panel.qrCodeSvg.value).toBe("<svg>qr</svg>");
+    });
+
+    it("forgets revealed recovery codes, so the next reader on the browser cannot see them", async () => {
+        /*
+         * THE SHARED-BROWSER CASE, and the reason this state cannot simply be left where it is:
+         * logging out is an Inertia visit under a layout that never unmounts, so `setup()` does
+         * not run again and every module ref above survives it. A reader who reveals their codes
+         * and hands the tab on would leave `isRecoveryCodesVisible` true with the codes still in
+         * memory — and the panel renders them on mount without asking the server for anything.
+         * FullLayout's `auth.user` watcher is what calls this, beside `abandonQueue`.
+         */
+        mockFetchSequence([{ status: 200, body: ["code-eins", "code-zwei"] }]);
+        const { recoveryCodesList, isRecoveryCodesVisible, qrCodeSvg, fetchRecoveryCodes } = useTwoFactorAuth();
+
+        await fetchRecoveryCodes();
+        isRecoveryCodesVisible.value = true;
+        qrCodeSvg.value = "<svg>qr</svg>";
+        expect(recoveryCodesList.value).toHaveLength(2);
+
+        forgetTwoFactorState();
+
+        expect(recoveryCodesList.value).toStrictEqual([]);
+        expect(isRecoveryCodesVisible.value).toBe(false);
+        expect(qrCodeSvg.value).toBeNull();
     });
 
     it("keeps processing per consumer, so one form does not disable another", () => {

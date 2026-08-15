@@ -45,9 +45,10 @@
  * ones above.
  *
  * That scoping is also what lets `Q` live here rather than in a keymap of its own. It shows
- * and hides the QUEUE PANEL — no audio moves — and the panel is drawn only for a queue with
- * something in it, which is the same condition that mounts the bar. So the one key that is
- * not about playback is still bound exactly when it has something to do.
+ * and hides the QUEUE PANEL — no audio moves — so it is BOUND with the bar and GUARDED on the
+ * panel having registered itself. The two are not the same condition: the guest share space
+ * keeps the player bar and drops the panel, so a key bound with one has to ask about the other
+ * before it does anything (see the guard on `panel.exists` where `Q` is handled).
  *****************************************************************************/
 import type { Ref } from "vue";
 import { ref } from "vue";

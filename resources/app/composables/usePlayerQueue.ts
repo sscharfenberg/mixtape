@@ -51,25 +51,22 @@ import { computed, ref } from "vue";
 import { announceQueueSaveFailure, noteQueueSaveSucceeded } from "Utils/queueSaveWarning";
 
 /**
- * Storage key — deliberately NOT versioned, unlike the two keys before it
- * (`mixtape.queue.v1`, `.v2`). The version lives in the payload instead, and a shape
- * change still bumps it rather than trying to migrate.
+ * Storage key — DELIBERATELY UNVERSIONED. The version lives in the payload
+ * ({@link PERSISTED_VERSION}) instead, and a shape change bumps that rather than
+ * migrating anything.
  *
- * Putting it in the KEY is what made the two dead ones dead: a rejected payload under
- * an abandoned name is an orphan that nothing ever deletes, and it keeps its share of
- * the origin's few megabytes for as long as the browser profile lives. Under one
- * stable key the same rejection self-heals — `hydrate` refuses the old shape and the
- * next `commit` overwrites it.
+ * Versioning the KEY is the option this rejects, and the reason is orphans: a payload
+ * written under a name nothing reads any more is never deleted, and it keeps its share of
+ * the origin's few megabytes for as long as the browser profile lives. Under one stable key
+ * a rejection self-heals — `hydrate` refuses a shape it does not know and the next `commit`
+ * overwrites it.
  *
- * SHAPE 3 shrank the stored track: the three URLs are rebuilt from the id on the way
- * back in (see {@link toPersisted}), which takes a typical track from ~374 stored
- * characters to ~164. That is worth doing because the budget is small and counted
- * differently per browser — the floor is 5 MB per origin, and WebKit has counted it
- * in UTF-16 code units, i.e. ~2.5 M characters — so the trim moves the tightest
- * browser's ceiling from roughly 7,000 queued tracks to roughly 16,000, past the size
- * of the whole library. Shape 2 had added `streamUrl` per track and `repeat` to the
- * payload; a shape-1 track had no stream URL at all, which is why adopting one would
- * have put a row in the panel that looked playable and did nothing.
+ * The stored track is TRIMMED for the same budget: the three URLs are rebuilt from the id on
+ * the way back in (see {@link toPersisted}), taking a typical track from ~374 stored
+ * characters to ~164. Worth doing because the budget is small and counted differently per
+ * browser — the floor is 5 MB per origin, and WebKit has counted it in UTF-16 code units,
+ * i.e. ~2.5 M characters — so the trim moves the tightest browser's ceiling from roughly
+ * 7,000 queued tracks to roughly 16,000, past the size of the whole library.
  */
 const STORAGE_KEY = "mixtape.queue";
 
@@ -292,7 +289,7 @@ const repeat = ref<boolean>(false);
 const shuffle = ref<boolean>(false);
 
 /**
- * The ids played since shuffle last started over, in the order they were played, and
+ * The rows played since shuffle last started over, in the order they were played, and
  * where in that walk the loaded track sits.
  *
  * A BAG rather than a die roll per track: rolling at random plays the same song twice
@@ -301,9 +298,6 @@ const shuffle = ref<boolean>(false);
  * mean "the track I heard before this one" under shuffle instead of "the row above",
  * and it lets forward retrace the same path after walking back, the way every music
  * player behaves.
- *
- * Ids rather than indices, because the list is editable underneath it: a remove or a
- * drag renumbers every index in the walk, while an id keeps pointing at its track.
  *
  * INDICES, not ids: the same song may legitimately be queued twice, and an id-keyed
  * walk would treat the two rows as one — marking the second copy played without
@@ -942,10 +936,10 @@ function bindFlushOnHide(): void {
 /**
  * Note what a mutation changed, and make sure it reaches storage eventually.
  *
- * Still the single choke point for persistence, and now the throttle too: it records
- * which key is behind instead of writing, so a mutation costs a set insert and the
- * write happens once, later. That is what makes a long queue cheap to operate — the
- * cost of `next()` no longer scales with how much is queued.
+ * THE SINGLE CHOKE POINT FOR PERSISTENCE, and the throttle with it: it records which key is
+ * behind instead of writing, so a mutation costs a set insert and the write happens once,
+ * later. That is what makes a long queue cheap to operate — the cost of `next()` does not
+ * scale with how much is queued.
  *
  * Callers say what they touched, and getting it wrong yields silent staleness rather
  * than a crash, so the rule is blunt: anything that changes the LIST passes "tracks",

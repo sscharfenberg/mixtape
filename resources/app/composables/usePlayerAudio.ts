@@ -44,7 +44,7 @@
  * or an auto-advance that follows one, so hydrating a stored queue at page load leaves
  * a paused player rather than a browser blocking it (or, worse, not blocking it).
  *
- * TWO THINGS DELIBERATELY LIVE ELSEWHERE, because they shared nothing with the above:
+ * THREE THINGS DELIBERATELY LIVE ELSEWHERE, because they shared nothing with the above:
  *
  *   - **The output level** — `Composables/usePlayerVolume`. It touches two element
  *     properties and one storage key and never sees the intent flag, the queue pointer
@@ -754,15 +754,19 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
     /**
      * Drop every listener and forget the element.
      *
-     * The volume module is told too, so it is not left holding a node that has left the
-     * document — but the LEVEL itself survives, because unmounting the bar when the queue
-     * empties must not forget a preference.
+     * EVERY MODULE HOLDING THE ELEMENT IS TOLD, not just the ones this function grew up with:
+     * volume, speed, the analyser and the queue's position source each keep their own
+     * reference, and one left un-nulled is a module pointing at a node that has left the
+     * document until something happens to bind the next one. The volume LEVEL and the speed
+     * both survive as values, because unmounting the bar when the queue empties must not
+     * forget a preference — it is the node that is dropped, not the setting.
      */
     function detach(): void {
         for (const undo of teardown) undo();
         teardown = [];
         element = null;
         bindVolumeElement(null);
+        bindSpeedElement(null);
         bindAnalyserElement(null);
         // The queue must not keep a closure over an element that has left the document.
         bindPositionSource(null);
