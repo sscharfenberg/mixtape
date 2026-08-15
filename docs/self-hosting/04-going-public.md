@@ -487,6 +487,20 @@ Then confirm the check on the dashboard went red, and green again after a real r
 - [ ] The invite flow works end to end, and a share link plays without login, **refuses both download
       routes**, and stops working once revoked or expired.
 - [ ] A password reset arrives, and SPF/DKIM/DMARC pass.
+- [ ] **The bootstrap logging window is closed** — the one step in this guide that is silent when
+      skipped. `MAIL_MAILER=log` needs `LOG_LEVEL=debug` to work at all, which means every rendered
+      email is written to `storage/logs`, signed reset links included; both flip together at Step 6
+      and nothing complains if only one of them does. A password reset that arrives (above) proves
+      the mailer moved. This proves the log level followed it:
+
+      ```bash
+      grep -E '^(LOG_LEVEL|MAIL_MAILER|LOG_DAILY_DAYS)=' /var/www/mixtape.prod/.env
+      # want: LOG_LEVEL=warning, MAIL_MAILER=smtp, LOG_DAILY_DAYS set
+      sudo grep -rl 'Subject:' /var/www/mixtape.prod/storage/logs || echo 'no mail bodies on disk'
+      ```
+
+      If the second command finds anything, those files hold reset links: rotate them out
+      (`sudo rm`) once the level is raised, rather than leaving them to age.
 - [ ] `certbot renew --dry-run` is clean and the renewal timer is active.
 - [ ] A deliberately failed backup produces an actual notification.
 
