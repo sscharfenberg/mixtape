@@ -140,9 +140,12 @@ test.describe("browsing the library", () => {
          * mode being guarded is a card full of "0:00", "null" and empty labels, which is
          * what every one of those fields renders as if the guard is dropped.
          */
-        await page.goto("/music/songs");
-        await page.getByRole("searchbox").fill("Fitter Happier");
-        await page.waitForURL(/search=/u);
+        // ?search= IN THE URL rather than typed, which sidesteps the whole race: the page
+        // arrives already filtered, so there is no window in which the first row is still the
+        // pre-filter one. Typing it and clicking straight after `waitForURL` is the trap —
+        // the address changes before the rows do, and a stale row is a legal click target.
+        await page.goto("/music/songs?search=Fitter+Happier");
+        await expect(page.locator("tbody tr")).toHaveCount(1);
         await page.locator("tbody tr").first().click();
         await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
 
@@ -332,9 +335,9 @@ test.describe("a page heading too long for its line", () => {
      * `landscape`, so a spec that starts narrow has no `tbody tr` to click.
      */
     test("keeps the icon beside a title that wraps, not above it", async ({ page }) => {
-        await page.goto("/music/artists");
-        await page.getByRole("searchbox").fill("Jóhann");
-        await page.waitForURL(/search=/u);
+        // Filtered by URL rather than by typing — see the note on the songs test above.
+        await page.goto("/music/artists?search=J%C3%B3hann");
+        await expect(page.locator("tbody tr")).toHaveCount(1);
         await page.locator("tbody tr").first().click();
         await page.waitForURL(/\/music\/artists\/[0-9a-f-]{36}/u);
         await expect(page.locator(".hero-section")).toBeVisible();

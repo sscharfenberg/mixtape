@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { settledValue } from "../support/actions";
 
 /*
  * The user menu's colour-scheme switch, in a real engine.
@@ -22,17 +23,9 @@ const openMenu = async (page: Page): Promise<void> => {
     await page.locator(".user-menu .popover-button").click();
     await expect(page.locator(".user-menu .option-bubbles")).toBeVisible();
 
-    const width = () => page.evaluate(() => document.querySelector(".user-menu .option-bubbles")!.getBoundingClientRect().width);
-    let previous = -1;
-    await expect
-        .poll(async () => {
-            const current = await width();
-            const settled = current === previous;
-            previous = current;
-
-            return settled;
-        })
-        .toBe(true);
+    await settledValue(() =>
+        page.evaluate(() => document.querySelector(".user-menu .option-bubbles")!.getBoundingClientRect().width)
+    );
 };
 
 /** The pill's box and every option's box, relative to the group. */

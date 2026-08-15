@@ -194,8 +194,8 @@ class AlbumsPageTest extends TestCase
             // The two orders must be mirror images. (`name` sorts Long before Short
             // alphabetically, `songs`/`duration` sort Short first — asserting they
             // REVERSE avoids hard-coding which, while still proving the sort ran.)
-            $first = $ascending->viewData('page')['props']['table']['rows'][0]['id'];
-            $last = $descending->viewData('page')['props']['table']['rows'][1]['id'];
+            $first = $this->inertiaProp($ascending, 'table.rows.0.id');
+            $last = $this->inertiaProp($descending, 'table.rows.1.id');
 
             $this->assertSame($first, $last, "sorting by {$key} did not reverse");
             $this->assertContains($first, [$short->id, $long->id]);

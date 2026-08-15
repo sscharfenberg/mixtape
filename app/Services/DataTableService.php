@@ -108,7 +108,20 @@ class DataTableService
 
         $pageSize = self::pageSizeFor($request);
 
+        /*
+         * NORMALISED, NOT VALIDATED, like the three parameters above it — and `search` is the
+         * one that was neither. `?search[]=a` arrives as an ARRAY and went straight to the
+         * caller's callback, which hands it to `FoldedSearch::fold(?string)`: a TypeError, i.e.
+         * a 500 on six listings from a hand-written URL.
+         *
+         * A FormRequest is the house rule for input (CLAUDE.md), and it is deliberately not
+         * used here: these four parameters answer a bad value by FALLING BACK, not by refusing.
+         * A shared `/music/songs?sort=bogus` should render the default sort, not a 422 — the URL
+         * is the table's state and readers pass it around. Validation that rejected would turn
+         * every stale or hand-edited link into an error page.
+         */
         $search = $request->input('search');
+        $search = is_string($search) ? $search : null;
 
         /*
          * Which of the two searches this request wants — see SEARCH_IN_NAME for why there are two.

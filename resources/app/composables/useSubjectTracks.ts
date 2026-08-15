@@ -72,6 +72,9 @@ export const useSubjectTracks = (provided?: () => QueueTrack[] | undefined): Use
 
     const busy = ref(false);
 
+    /** The reload already on the wire, so a second press joins it — see `loadTracks`. */
+    let inFlight: Promise<QueueTrack[]> | null = null;
+
     /**
      * The tracks, fetched once per page and remembered.
      *
@@ -87,9 +90,22 @@ export const useSubjectTracks = (provided?: () => QueueTrack[] | undefined): Use
         const alreadyThere = page.props.queueTracks as QueueTrack[] | undefined;
         if (alreadyThere) return alreadyThere;
 
+        /*
+         * THE IN-FLIGHT REQUEST IS SHARED, not started twice. `busy` disables the controls, but
+         * it is a flag rather than a lock: two presses in the same tick — play then enqueue, a
+         * keyboard repeat, or the audiobook page where several controls sit together — each
+         * started their own `router.reload`, and INERTIA CANCELS THE FIRST. A cancelled visit
+         * never fires `onSuccess`, so that promise settled through nothing at all and the verb
+         * waiting on it silently did nothing, with no error anywhere.
+         *
+         * Returning the same promise means the second caller waits on the first request rather
+         * than replacing it, and both verbs act on the one payload.
+         */
+        if (inFlight !== null) return inFlight;
+
         busy.value = true;
 
-        return new Promise<QueueTrack[]>(resolve => {
+        inFlight = new Promise<QueueTrack[]>(resolve => {
             router.reload({
                 only: ["queueTracks"],
                 onSuccess: () => resolve((page.props.queueTracks as QueueTrack[] | undefined) ?? []),
@@ -101,6 +117,14 @@ export const useSubjectTracks = (provided?: () => QueueTrack[] | undefined): Use
                 }
             });
         });
+
+        try {
+            return await inFlight;
+        } finally {
+            // Cleared however it settled, so a later press starts a fresh request rather than
+            // being handed a resolved promise from a page the reader has since navigated past.
+            inFlight = null;
+        }
     };
 
     /**

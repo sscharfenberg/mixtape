@@ -1,6 +1,5 @@
 import { expect, test } from "@playwright/test";
-import type { Page } from "@playwright/test";
-import { pageHeading } from "../support/actions";
+import { audioState, pageHeading } from "../support/actions";
 
 /*
  * A SHARE LINK OPENED BY SOMEBODY WITH NO ACCOUNT — the feature the whole app is
@@ -40,13 +39,6 @@ const LIVE = "019e0007-0000-7000-8000-000000000001";
 const EXPIRED = "019e0007-0000-7000-8000-000000000002";
 
 /** The <audio> element's own state, read out of the page rather than from what the UI claims. */
-const audioState = (page: Page): Promise<{ paused: boolean; currentTime: number; src: string }> =>
-    page.evaluate(() => {
-        const audio = document.querySelector("audio") as HTMLAudioElement;
-
-        return { paused: audio.paused, currentTime: audio.currentTime, src: audio.getAttribute("src") ?? "" };
-    });
-
 test.describe("a share link, with no account", () => {
     test("opens the page and says what it is", async ({ page }) => {
         await page.goto(`/s/${LIVE}`);

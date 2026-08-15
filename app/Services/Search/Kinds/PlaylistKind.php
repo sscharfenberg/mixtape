@@ -6,7 +6,6 @@ namespace App\Services\Search\Kinds;
 
 use App\Enums\SearchKind;
 use App\Models\Playlist;
-use App\Models\PlaylistTrack;
 use App\Models\User;
 use App\Services\Search\SearchHit;
 use Illuminate\Database\Eloquent\Builder;
@@ -53,24 +52,19 @@ final class PlaylistKind extends DatabaseKind
      * count twice: a LISTEN is an event that happened once, while a track sitting in a
      * list twice really is played twice. Same table, two questions.
      *
-     * The runtime is a correlated sub-select rather than a `withSum` through the relation, because
-     * the relation is a `belongsToMany` carrying an ORDER BY for the playlist's running order —
-     * which an aggregate has no use for. Null when the playlist is empty, so the client draws no
-     * pip rather than "0:00".
+     * `withSum` through the `tracks` relation, which is the same idiom the playlists listing
+     * uses — one answer to "how long does this run", written once. The relation carries an
+     * ORDER BY for the playlist's running order and that is harmless here: `withAggregate`
+     * nulls a sub-query's orders before it runs (QueriesRelationships), so the aggregate never
+     * sees it. Null when the playlist is empty, so the client draws no pip rather than "0:00".
      */
     protected function query(User $reader): Builder
     {
-        $runtime = PlaylistTrack::query()
-            ->join('tracks', 'tracks.id', '=', 'playlist_tracks.track_id')
-            ->whereColumn('playlist_tracks.playlist_id', 'playlists.id')
-            ->selectRaw('sum(tracks.duration)')
-            ->toBase();
-
         return Playlist::query()
             ->where('playlists.user_id', $reader->id)
             ->select(['playlists.id', 'playlists.name'])
             ->withCount('playlistTracks as tracks_count')
-            ->addSelect(['total_duration' => $runtime]);
+            ->withSum('tracks as total_duration', 'duration');
     }
 
     /** @return list<string> */

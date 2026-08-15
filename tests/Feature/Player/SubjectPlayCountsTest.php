@@ -160,7 +160,7 @@ class SubjectPlayCountsTest extends TestCase
 
         foreach ([$first, $second] as $song) {
             $response = $this->actingAs($reader)->get("/music/songs/{$song->id}");
-            $songTotal += $response->viewData('page')['props']['plays']['own'];
+            $songTotal += $this->inertiaProp($response, 'plays.own');
         }
 
         $this->actingAs($reader)
@@ -210,7 +210,7 @@ class SubjectPlayCountsTest extends TestCase
         // sorts (most audio, newest file), and the factories mint empty subjects along the
         // way whose place in that order is not this test's subject.
         $playsFor = function (string $listing, User $viewer, string $id): int {
-            $rows = $this->actingAs($viewer)->get($listing)->viewData('page')['props']['table']['rows'];
+            $rows = $this->inertiaProp($this->actingAs($viewer)->get($listing), 'table.rows');
             $row = collect($rows)->firstWhere('id', $id);
 
             $this->assertNotNull($row, "{$listing} did not list {$id}");
@@ -273,7 +273,7 @@ class SubjectPlayCountsTest extends TestCase
             // of these under an ascending sort. Asserting row 0 would be asserting the
             // fixture's noise. What has to hold is that the pair comes back reversed — which
             // is what fails if ORDER BY cannot see the joined alias.
-            $ranking = fn ($response): array => array_column($response->viewData('page')['props']['table']['rows'], 'id');
+            $ranking = fn ($response): array => array_column($this->inertiaProp($response, 'table.rows'), 'id');
 
             $this->assertLessThan(
                 array_search($least, $ranking($descending), true),

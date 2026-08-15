@@ -312,3 +312,71 @@ export const settled = async (page: Page): Promise<void> => {
  */
 export const isWrite = (response: Response, method: "POST" | "PUT" | "PATCH" | "DELETE"): boolean =>
     response.request().method() === method && response.request().headers().precognition === undefined;
+
+
+/** Everything a spec asks the `<audio>` element about. Field names are the element's own. */
+export type AudioState = {
+    paused: boolean;
+    currentTime: number;
+    playbackRate: number;
+    volume: number;
+    src: string;
+    /** How far the browser has actually buffered, in seconds; 0 when nothing has loaded. */
+    buffered: number;
+};
+
+/**
+ * Read the real <audio> element rather than what the UI claims about it.
+ *
+ * ONE COPY, because three specs had their own and no two agreed: different field names for the
+ * same property (`rate` / `time`), different subsets, and a `!` in one where another had a
+ * cast. A spec that wants a field the local copy happened to omit then grows a fourth. The
+ * element is the source of truth for every one of these, so there is nothing per-spec to vary.
+ */
+export const audioState = (page: Page): Promise<AudioState> =>
+    page.evaluate(() => {
+        const audio = document.querySelector("audio") as HTMLAudioElement;
+
+        return {
+            paused: audio.paused,
+            currentTime: audio.currentTime,
+            playbackRate: audio.playbackRate,
+            volume: audio.volume,
+            src: audio.getAttribute("src") ?? "",
+            buffered: audio.buffered.length > 0 ? audio.buffered.end(audio.buffered.length - 1) : 0
+        };
+    });
+
+
+/**
+ * Wait until a value read off the page stops changing, then return it.
+ *
+ * THE RULE IS "TWO IDENTICAL READS IN A ROW", not "one read that looks right": an element
+ * mid-transition has a perfectly plausible width, position or colour at every frame, so a
+ * single sample can be taken at any point along the way and nothing about it looks wrong. The
+ * assertion built on it then fails for a reason that has nothing to do with what it is
+ * testing, and typically only in a full-file run where the machine is busy enough to change
+ * the timing.
+ *
+ * Named `settledValue` rather than `settled`, deliberately: this file already exports
+ * `settled`, which waits out a VIEW TRANSITION and answers a different question. Three specs
+ * each had a private copy of this loop and one of them called it `settled`, shadowing the
+ * import — so the same word meant two things depending on which file you were reading.
+ *
+ * @param read the value to sample; anything `===`-comparable, so JSON.stringify a box first
+ */
+export const settledValue = async <T>(read: () => Promise<T>): Promise<T> => {
+    let previous: T | undefined;
+
+    await expect
+        .poll(async () => {
+            const current = await read();
+            const stable = current === previous;
+            previous = current;
+
+            return stable;
+        })
+        .toBe(true);
+
+    return read();
+};

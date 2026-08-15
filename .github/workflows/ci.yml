@@ -56,22 +56,87 @@ jobs:
 
       - run: npm run test:unit
 
-  # The server suite and the browser suite. Together because the end-to-end run needs
-  # the whole stack anyway — PHP to serve the app, Node to build its assets, and
-  # Chromium to drive it.
-  tests:
-    name: PHPUnit & end-to-end
+  # The server suite, and PHP formatting. Deliberately NOT in the browser job: neither
+  # needs Chromium, so putting them here means a failing test or a badly formatted file is
+  # reported without first paying for the browser.
+  server:
+    name: PHPUnit & Pint
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
 
       - uses: shivammathur/setup-php@v2
         with:
-          # Matches the server. The plain Laravel set, plus sqlite (which is the whole
-          # database here) and intl — `PathEncodingReport` uses `IntlChar` directly to
-          # name and classify the bytes in a mis-encoded path, and two feature tests
-          # exercise it, so a runner without the extension fatals rather than skipping.
+          # The same set the browser job uses; see the note there for why `intl` is named.
+          php-version: '8.4'
+          extensions: mbstring, dom, fileinfo, tokenizer, xml, curl, intl, pdo_sqlite, sqlite3
+          coverage: none
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Cache Composer packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/composer/files
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - run: composer install --no-interaction --no-progress --prefer-dist
+
+      # A GATE FOR PHP TO MATCH THE TWO THE FRONTEND HAS, and the cheapest step here, so it
+      # runs before anything is installed for the tests. Pint's default preset PRUNES
+      # docblock tags it considers superfluous, and CLAUDE.md's comment convention is
+      # written around that. `--test` only reports, so this can never rewrite the tree.
+      - name: PHP formatting
+        run: vendor/bin/pint --test
+
+      - run: npm ci
+
+      # APP_KEY is the one that bites: .env is gitignored, and without a key the app
+      # answers 500 on every request and PHPUnit cannot boot either (phpunit.xml sets
+      # the database and mailer, but no key).
+      - name: Create .env and app key
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      # STILL NEEDED HERE despite there being no browser: the feature tests render real
+      # Inertia pages through app.blade.php, which calls @vite() and dies with "Vite
+      # manifest not found" on a runner that has never built.
+      - name: Build assets
+        run: npm run build-only
+
+      - name: Server tests
+        run: php artisan test
+
+  # The browser suite. It needs the whole stack — PHP to serve the app, Node to build its
+  # assets, Chromium to drive it — which is why it is the expensive job.
+  #
+  # SPLIT FROM PHPUnit, which used to run here too. Measured at 10m32s against a 15-minute
+  # cap with the two together, and every spec added spends that budget: Playwright runs at
+  # `workers: 1` against `artisan serve`, whose p99 is 1.2s per request and worst case 3.8s
+  # (playwright.config.ts records the measurement). The server job still pays for a Vite
+  # build — feature tests render Inertia pages through `@vite()` — but not for a 100 MB
+  # browser download or the browser run, so a server-side failure arrives minutes earlier.
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          # Matches the server and composer.json's floor (^8.4) — nothing is tested on 8.3,
+          # so the declared range says what is actually verified. Extensions are the plain
+          # Laravel set, plus sqlite (the whole database here) and intl: `PathEncodingReport`
+          # uses `IntlChar` directly to name and classify the bytes in a mis-encoded path,
+          # and two feature tests exercise it, so a runner without it fatals rather than
+          # skipping.
           php-version: '8.4'
           extensions: mbstring, dom, fileinfo, tokenizer, xml, curl, intl, pdo_sqlite, sqlite3
           coverage: none
@@ -118,18 +183,6 @@ jobs:
       # never be caught missing. Both deploy scripts run this for the same reason.
       - name: Build the icon sprite
         run: npm run icons
-
-      # A GATE FOR PHP TO MATCH THE TWO THE FRONTEND HAS. Pint is a declared dependency
-      # that nothing was running, which matters beyond symmetry: its default preset PRUNES
-      # docblock tags it considers superfluous, and CLAUDE.md's comment convention is
-      # written around that. `--test` only reports, so this can never rewrite the tree.
-      - name: PHP formatting
-        run: vendor/bin/pint --test
-
-      # Before the browser download, so a server-side failure does not first pay for
-      # 100 MB of Chromium.
-      - name: Server tests
-        run: php artisan test
 
       # ~100 MB of browser, keyed on the WHOLE lockfile — there is no finer-grained
       # hash available, so any dependency bump misses. `restore-keys` is what stops that

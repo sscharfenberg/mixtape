@@ -80,10 +80,12 @@ test.describe("a genre's tabs", () => {
          *
          * The fixture carries one deliberately long collaboration credit for this.
          */
-        await page.goto("/music/genres");
-        await expect(page.locator("tbody tr").first()).toBeVisible();
-        await page.getByRole("searchbox").fill("Modern Classical");
-        await page.waitForURL(/search=/u);
+        // Filtered by URL rather than by typing: `waitForURL` returns when the address
+        // changes, which is before the rows swap, so clicking straight after it can land on
+        // the row that was there BEFORE the filter — and the failure then surfaces two steps
+        // later as `pageHeading` naming the wrong subject.
+        await page.goto("/music/genres?search=Modern+Classical");
+        await expect(page.locator("tbody tr")).toHaveCount(1);
         await page.locator("tbody tr").first().click();
         await page.waitForURL(/\/music\/genres\/[0-9a-f-]{36}/u);
         await page.getByRole("tab", { name: /Künstler/u }).click();

@@ -18,7 +18,13 @@
     display: flex;
 
     width: 100%;
-    padding: 0.5ex 4ch 0.5ex 2ch;
+
+    /* The input's own inset, read rather than restated — the banner above says this container
+       mirrors `.form-input`'s frame, and a hand-copied `0.5ex 4ch 0.5ex 2ch` had already
+       drifted 0.25ex from it on the vertical. The digit boxes inside carry their own border
+       and line-height, so the container's height is theirs plus this; taking the number from
+       the token is what keeps the two fields sitting at the same height in one form. */
+    padding: map.get(s.$c-input, "padding");
     border: map.get(s.$c-input, "border") solid map.get(c.$c-input, "border");
     gap: 0.5ch;
 

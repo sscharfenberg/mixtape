@@ -1,6 +1,13 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { enqueueFromHero, openQueuePanel, pageHeading, stopQueueSync } from "../support/actions";
+import {
+    audioState,
+    enqueueFromHero,
+    openQueuePanel,
+    pageHeading,
+    settledValue,
+    stopQueueSync
+} from "../support/actions";
 import { clearServerQueue, specStorageState } from "../support/environment";
 
 /*
@@ -60,22 +67,6 @@ test.beforeEach(async () => {
 test.afterEach(async ({ page }) => {
     await stopQueueSync(page);
 });
-
-/** The <audio> element's own state, read out of the page. */
-type AudioState = { paused: boolean; currentTime: number; src: string; buffered: number };
-
-/** Read the real element rather than what the UI claims about it. */
-const audioState = (page: Page): Promise<AudioState> =>
-    page.evaluate(() => {
-        const audio = document.querySelector("audio") as HTMLAudioElement;
-
-        return {
-            paused: audio.paused,
-            currentTime: audio.currentTime,
-            src: audio.getAttribute("src") ?? "",
-            buffered: audio.buffered.length > 0 ? audio.buffered.end(audio.buffered.length - 1) : 0
-        };
-    });
 
 /**
  * Queue `count` songs off the listing, one after another, and return their titles.
@@ -141,16 +132,7 @@ const openPopover = async (page: Page, root: string) => {
     const panel = page.locator(`${root} .popover-content`);
     await expect(panel).toBeVisible();
 
-    let previous = "";
-    await expect
-        .poll(async () => {
-            const box = JSON.stringify(await panel.boundingBox());
-            const settled = box === previous;
-            previous = box;
-
-            return settled;
-        })
-        .toBe(true);
+    await settledValue(async () => JSON.stringify(await panel.boundingBox()));
 
     return panel;
 };

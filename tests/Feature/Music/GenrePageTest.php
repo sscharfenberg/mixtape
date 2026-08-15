@@ -110,12 +110,10 @@ class GenrePageTest extends TestCase
 
         $user = User::factory()->create();
 
-        $listingRows = $this->actingAs($user)->get('/music/genres')
-            ->viewData('page')['props']['table']['rows'];
-        $row = collect($listingRows)->firstWhere('id', $ambient->id);
+        $listing = $this->actingAs($user)->get('/music/genres');
+        $row = collect($this->inertiaProp($listing, 'table.rows'))->firstWhere('id', $ambient->id);
 
-        $detail = $this->actingAs($user)->get($row['href'])
-            ->viewData('page')['props']['genre'];
+        $detail = $this->inertiaProp($this->actingAs($user)->get($row['href']), 'genre');
 
         $this->assertSame($row['artists'], $detail['artists'], 'artist counts disagree');
         $this->assertSame($row['songs'], $detail['songs'], 'song counts disagree');
@@ -414,7 +412,7 @@ class GenrePageTest extends TestCase
 
         // Whichever three were drawn, each must be one of this artist's own albums and each
         // must be distinct — a repeated sleeve would read as a bug.
-        $drawn = $response->viewData('page')['props']['artists'][0]['covers'];
+        $drawn = $this->inertiaProp($response, 'artists.0.covers');
 
         $this->assertSame(array_values(array_unique($drawn)), $drawn, 'the fan must not repeat a cover');
         foreach ($drawn as $cover) {

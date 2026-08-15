@@ -193,8 +193,8 @@ class GenresPageTest extends TestCase
         $listing = $this->actingAs($user)->get('/music/genres?sort=artists&dir=desc');
         $detail = $this->actingAs($user)->get("/music/artists/{$artist->id}");
 
-        $countedUnder = $listing->viewData('page')['props']['table']['rows'][0];
-        $shownOnTheArtistsPage = $detail->viewData('page')['props']['artist']['genre'];
+        $countedUnder = $this->inertiaProp($listing, 'table.rows.0');
+        $shownOnTheArtistsPage = $this->inertiaProp($detail, 'artist.genre');
 
         $this->assertSame(1, $countedUnder['artists'], 'the artist should be counted exactly once');
         $this->assertSame(
@@ -292,8 +292,8 @@ class GenresPageTest extends TestCase
                 ->where('table.sort.direction', 'asc')
             );
 
-            $first = $ascending->viewData('page')['props']['table']['rows'][0]['id'];
-            $last = $descending->viewData('page')['props']['table']['rows'][1]['id'];
+            $first = $this->inertiaProp($ascending, 'table.rows.0.id');
+            $last = $this->inertiaProp($descending, 'table.rows.1.id');
 
             $this->assertSame($first, $last, "sorting by {$key} did not reverse");
             $this->assertContains($first, [$small->id, $large->id]);

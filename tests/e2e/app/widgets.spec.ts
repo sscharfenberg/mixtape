@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { pageHeading, stopQueueSync } from "../support/actions";
-import { clearServerQueue, specStorageState } from "../support/environment";
+import { pageHeading } from "../support/actions";
+import { specStorageState } from "../support/environment";
 
 /*
  * The Music page's browse widgets: four cards of entries, each a link to the thing it
@@ -15,32 +15,25 @@ import { clearServerQueue, specStorageState } from "../support/environment";
  */
 
 /*
- * ITS OWN ACCOUNT, AND A CLEAN QUEUE PER TEST. The play queue is server state since the
- * `player_states` sync landed, so a fresh browser context is no longer a fresh player: a
- * queue follows the USER. Sharing one account across files let a spec in one worker restore
- * a queue another worker had just left, and sharing it across tests in this file let each
- * test inherit the last one's. The account is this file's alone (E2ESeeder seeds it,
- * auth.setup mints its session) and the reset below is what tests here owe each other.
+ * ITS OWN ACCOUNT, AND NO QUEUE RESET — because nothing in this file builds a queue. Every
+ * test here reads a widget; the only button pressed is a widget's own refresh. The play-queue
+ * isolation the queue-touching specs owe each other (a reset before, a `stopQueueSync` after)
+ * is documented at length in queue.spec.ts, which is where it earns its keep.
+ *
+ * The account is still this file's alone. Widgets read what the READER has been listening to
+ * — "most played", "recently added" — so a spec sharing an account with one that plays things
+ * would see counts move under it. E2ESeeder seeds this account and auth.setup mints its
+ * session; per-account limiter buckets mean the extra login costs the shared seed user's
+ * 5/min budget nothing.
  */
 test.use({ storageState: specStorageState("widgets") });
 
 /*
- * SEQUENTIAL, IN ONE WORKER, which the account above is worthless without. `fullyParallel`
- * parallelises at the TEST level, not the file level — so without this the tests in this
- * file run CONCURRENTLY against the one account they share, and each sees the others'
- * queues. That failed as a count one too high, on a different test every run.
+ * SEQUENTIAL, IN ONE WORKER, which the account above is worthless without: `fullyParallel`
+ * parallelises at the TEST level, so without this the tests here run concurrently against the
+ * one account they share.
  */
 test.describe.configure({ mode: "default" });
-
-test.beforeEach(async () => {
-    await clearServerQueue("widgets");
-});
-
-// The other half of the isolation: a tab flushes its queue as it closes, with `keepalive`,
-// so that request can outlive the test and land after the NEXT one has reset the account.
-test.afterEach(async ({ page }) => {
-    await stopQueueSync(page);
-});
 
 test.describe("the music widgets", () => {
     test.beforeEach(async ({ page }) => {

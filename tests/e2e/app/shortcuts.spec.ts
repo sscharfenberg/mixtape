@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { enqueueFromHero, openQueuePanel, stopQueueSync } from "../support/actions";
+import { audioState, enqueueFromHero, openQueuePanel, settledValue, stopQueueSync } from "../support/actions";
 import { clearServerQueue, specStorageState } from "../support/environment";
 
 /*
@@ -65,13 +65,6 @@ const queueASong = async (page: Page): Promise<void> => {
 };
 
 /** What the one <audio> element currently reports. */
-const audioState = (page: Page) =>
-    page.evaluate(() => {
-        const audio = document.querySelector("audio")!;
-
-        return { paused: audio.paused, rate: audio.playbackRate, time: audio.currentTime, volume: audio.volume };
-    });
-
 test.describe("the player's keyboard shortcuts", () => {
     test.beforeEach(async ({ page }) => {
         await queueASong(page);
@@ -97,11 +90,11 @@ test.describe("the player's keyboard shortcuts", () => {
         await expect.poll(async () => (await audioState(page)).paused).toBe(false);
 
         await page.keyboard.down("Space");
-        await expect.poll(async () => (await audioState(page)).rate).toBe(2);
+        await expect.poll(async () => (await audioState(page)).playbackRate).toBe(2);
         await expect(page.locator(".player-bar__rate")).toBeVisible();
 
         await page.keyboard.up("Space");
-        await expect.poll(async () => (await audioState(page)).rate).toBe(1);
+        await expect.poll(async () => (await audioState(page)).playbackRate).toBe(1);
         await expect(page.locator(".player-bar__rate")).toBeHidden();
     });
 
@@ -112,7 +105,7 @@ test.describe("the player's keyboard shortcuts", () => {
         await expect.poll(async () => (await audioState(page)).paused).toBe(false);
 
         await page.keyboard.down("Space");
-        await expect.poll(async () => (await audioState(page)).rate).toBe(2);
+        await expect.poll(async () => (await audioState(page)).playbackRate).toBe(2);
         await page.keyboard.up("Space");
 
         await expect.poll(async () => (await audioState(page)).paused).toBe(false);
@@ -123,7 +116,7 @@ test.describe("the player's keyboard shortcuts", () => {
         await expect.poll(async () => (await audioState(page)).paused).toBe(false);
 
         await page.keyboard.down("Space");
-        await expect.poll(async () => (await audioState(page)).rate).toBe(2);
+        await expect.poll(async () => (await audioState(page)).playbackRate).toBe(2);
 
         expect(await page.evaluate(() => document.querySelector("audio")!.preservesPitch)).toBe(true);
         await page.keyboard.up("Space");
@@ -131,10 +124,10 @@ test.describe("the player's keyboard shortcuts", () => {
 
     test("seeks with the arrows and steps the queue with Shift", async ({ page }) => {
         await page.keyboard.press("ArrowRight");
-        await expect.poll(async () => (await audioState(page)).time).toBeGreaterThan(0);
+        await expect.poll(async () => (await audioState(page)).currentTime).toBeGreaterThan(0);
 
         await page.keyboard.press("ArrowLeft");
-        await expect.poll(async () => (await audioState(page)).time).toBe(0);
+        await expect.poll(async () => (await audioState(page)).currentTime).toBe(0);
 
         // One track queued, so a forward step has nowhere to go and must not crash or empty
         // the queue — the ends of the queue are as much a case as the middle.
@@ -257,7 +250,7 @@ test.describe("the player's keyboard shortcuts", () => {
 
         await expect(page.locator("#current_password")).toHaveValue("mein pass wort");
         await expect.poll(async () => (await audioState(page)).paused).toBe(false);
-        await expect.poll(async () => (await audioState(page)).rate).toBe(1);
+        await expect.poll(async () => (await audioState(page)).playbackRate).toBe(1);
     });
 
     test("leaves Space to a focused button, which is what Space is for there", async ({ page }) => {
@@ -289,7 +282,7 @@ test.describe("the player's keyboard shortcuts", () => {
         // see. The same target preferences.spec.ts uses for the colour-scheme picker.
         await page.locator('label[for="playerSpeed-3"]').click();
 
-        await expect.poll(async () => (await audioState(page)).rate).toBe(3);
+        await expect.poll(async () => (await audioState(page)).playbackRate).toBe(3);
         // The VISIBLE half only: the badge also carries an `.sr-only` phrase, which
         // `toHaveText` on the wrapper would concatenate into "3×3-fache Geschwindigkeit".
         await expect(page.locator('.player-bar__rate [aria-hidden="true"]')).toHaveText("3×");
@@ -299,7 +292,7 @@ test.describe("the player's keyboard shortcuts", () => {
         await page.reload();
         await expect(page.locator(".player-bar")).toBeVisible();
 
-        await expect.poll(async () => (await audioState(page)).rate).toBe(3);
+        await expect.poll(async () => (await audioState(page)).playbackRate).toBe(3);
     });
 
     test("skims at double whatever is set, not at an absolute 2x", async ({ page }) => {
@@ -314,11 +307,11 @@ test.describe("the player's keyboard shortcuts", () => {
         await expect.poll(async () => (await audioState(page)).paused).toBe(false);
 
         await page.keyboard.down("Space");
-        await expect.poll(async () => (await audioState(page)).rate).toBe(6);
+        await expect.poll(async () => (await audioState(page)).playbackRate).toBe(6);
         await expect(page.locator('.player-bar__rate [aria-hidden="true"]')).toHaveText("6×");
 
         await page.keyboard.up("Space");
-        await expect.poll(async () => (await audioState(page)).rate).toBe(3);
+        await expect.poll(async () => (await audioState(page)).playbackRate).toBe(3);
     });
 
     test("shows the live rate in the settings row while the skim is on", async ({ page }) => {
@@ -349,20 +342,7 @@ test.describe("the player's keyboard shortcuts", () => {
          * trap preferences.spec.ts documents for the colour-scheme pill; it only showed up in
          * the full-file run, where the machine is busy enough to change the timing.
          */
-        const settled = async (): Promise<number> => {
-            let previous = -1;
-            await expect
-                .poll(async () => {
-                    const current = await widthOf();
-                    const stable = current === previous;
-                    previous = current;
-
-                    return stable;
-                })
-                .toBe(true);
-
-            return widthOf();
-        };
+        const settled = (): Promise<number> => settledValue(widthOf);
 
         await expect(live).toBeHidden();
         const restingWidth = await settled();

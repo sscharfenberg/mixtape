@@ -19,7 +19,7 @@ import { clearBookmarks, clearServerQueue, specStorageState } from "../support/e
  * has to place under every contributor.
  */
 
-// Its own account and a clean queue per test, for the reason widgets.spec.ts documents at
+// Its own account and a clean queue per test, for the reason queue.spec.ts documents at
 // length: the play queue is server state, so it follows a USER rather than a browser context.
 test.use({ storageState: specStorageState("audiobooks") });
 

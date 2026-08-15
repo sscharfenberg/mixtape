@@ -99,9 +99,8 @@ class MusicPageTest extends TestCase
             'duration' => 50.0,
         ]);
 
-        $entry = collect($this->actingAs(User::factory()->create())->get('/music')
-            ->viewData('page')['props']['artists']['latest'])
-            ->firstWhere('id', $artist->id);
+        $response = $this->actingAs(User::factory()->create())->get('/music');
+        $entry = collect($this->inertiaProp($response, 'artists.latest'))->firstWhere('id', $artist->id);
 
         $this->assertSame(1, $entry['albums'], 'the compilation is not their album');
         $this->assertSame(3, $entry['songs'], 'but all three tracks are their songs');
@@ -133,9 +132,8 @@ class MusicPageTest extends TestCase
         Track::factory()->create(['artist_id' => $dabbler->id, 'genre_id' => $genre->id, 'collection_id' => null]);
         Track::factory()->count(4)->create(['artist_id' => $dabbler->id, 'genre_id' => $other->id, 'collection_id' => null]);
 
-        $entry = collect($this->actingAs(User::factory()->create())->get('/music')
-            ->viewData('page')['props']['genres']['latest'])
-            ->firstWhere('id', $genre->id);
+        $response = $this->actingAs(User::factory()->create())->get('/music');
+        $entry = collect($this->inertiaProp($response, 'genres.latest'))->firstWhere('id', $genre->id);
 
         $this->assertSame(1, $entry['artists'], 'the dabbler is not one of this genre\'s artists');
         $this->assertSame(1, $entry['albums']);
@@ -154,9 +152,8 @@ class MusicPageTest extends TestCase
         Track::factory()->create(['artist_id' => $artist->id, 'genre_id' => $genre->id, 'collection_id' => null]);
         Track::factory()->count(5)->create(['artist_id' => $artist->id, 'genre_id' => $other->id, 'collection_id' => null]);
 
-        $entry = collect($this->actingAs(User::factory()->create())->get('/music')
-            ->viewData('page')['props']['genres']['latest'])
-            ->firstWhere('id', $genre->id);
+        $response = $this->actingAs(User::factory()->create())->get('/music');
+        $entry = collect($this->inertiaProp($response, 'genres.latest'))->firstWhere('id', $genre->id);
 
         $this->assertSame(0, $entry['artists']);
         $this->assertSame(0, $entry['albums']);

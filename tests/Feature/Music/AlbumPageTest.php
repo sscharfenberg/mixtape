@@ -188,9 +188,8 @@ class AlbumPageTest extends TestCase
         Track::factory()->count(3)->create(['collection_id' => $album->id, 'disc' => 1]);
         Track::factory()->count(2)->create(['collection_id' => $album->id, 'disc' => 2]);
 
-        $rows = collect($this->actingAs(User::factory()->create())
-            ->get("/music/albums/{$album->id}")
-            ->viewData('page')['props']['table']['rows']);
+        $response = $this->actingAs(User::factory()->create())->get("/music/albums/{$album->id}");
+        $rows = collect($this->inertiaProp($response, 'table.rows'));
 
         $this->assertSame(2, $rows->first()['discTotal'], 'the album has two discs');
         $this->assertSame(3, $rows->firstWhere('disc', 1)['trackTotal'], 'disc one holds three');
@@ -205,9 +204,8 @@ class AlbumPageTest extends TestCase
         $album = Collection::factory()->create();
         Track::factory()->count(3)->create(['collection_id' => $album->id, 'disc' => null]);
 
-        $rows = collect($this->actingAs(User::factory()->create())
-            ->get("/music/albums/{$album->id}")
-            ->viewData('page')['props']['table']['rows']);
+        $response = $this->actingAs(User::factory()->create())->get("/music/albums/{$album->id}");
+        $rows = collect($this->inertiaProp($response, 'table.rows'));
 
         $this->assertSame(3, $rows->first()['trackTotal']);
     }
