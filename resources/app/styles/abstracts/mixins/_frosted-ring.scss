@@ -1,0 +1,53 @@
+/******************************************************************************
+ * frosted-ring — the soft gradient border a frosted surface wears
+ * @type {Sass}
+ * consume via:  @use "Abstracts/mixins" as m;  →  @include m.frosted-ring;
+ *
+ * THE RECIPE, ONCE. A gradient cannot be a border-colour, so the ring is drawn as a ::before
+ * filled with the gradient over the BORDER-box and masked back out over the PADDING-box, which
+ * leaves only the ring — and it follows the host's own `border-radius: inherit` without the
+ * host needing a solid border colour.
+ *
+ * It exists as a mixin rather than only as the `.frosted-glass` class because the two surfaces
+ * that draw it want different EDGES and different LAYERING: the class rings all four sides
+ * above the host's content, while the site header rings only its bottom edge and sits behind
+ * its own content. Those are real differences, not drift — but the masking recipe underneath
+ * them is not, and two copies of a `mask-composite` trick is how one of them quietly stops
+ * matching the other.
+ *
+ * @param {List} $width  border-width shorthand for the ring — all four sides by default
+ * @param {Number} $layer  z-index for the ring; negative puts it behind the host's content
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../colors" as c;
+@use "../sizes" as s;
+
+@mixin frosted-ring($width: null, $layer: 1) {
+    &::before {
+        position: absolute;
+        inset: 0;
+        z-index: $layer;
+
+        border: if($width, $width, map.get(s.$c-frosted-glass, "border")) solid transparent;
+
+        background: linear-gradient(
+                to bottom right,
+                map.get(c.$c-frosted-glass, "border-from"),
+                map.get(c.$c-frosted-glass, "border-to")
+            )
+            border-box;
+
+        border-radius: inherit;
+
+        /* The whole trick: paint the gradient over the border-box, then subtract the
+           padding-box so only the ring survives. */
+        mask:
+            linear-gradient(black, black) border-box,
+            linear-gradient(black, black) padding-box;
+        mask-composite: subtract;
+
+        content: "";
+
+        pointer-events: none;
+    }
+}

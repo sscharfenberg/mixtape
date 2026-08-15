@@ -11,9 +11,26 @@
  * The element isolates its own stacking context, so the border ring (z-index 1,
  * above the host's content edges) and any positioned overlay a host stacks on
  * top stay contained to the panel.
+ *
+ * WHAT ELSE IS FROSTED AND WHY IT DOES NOT WEAR THIS. Six other surfaces blur what is behind
+ * them, and only one of them is this material:
+ *
+ *   - The site HEADER is — same fill, same surface, same ring — and shares the ring recipe
+ *     through `m.frosted-ring`, differing only in the two things that are genuinely its own:
+ *     a bottom edge rather than four, and sitting behind its own content.
+ *   - The TOAST, the POPOVER panel, the sticky nav, the badge and the player bar share only
+ *     the BLUR, which is one token (`s.$c-frosted-glass "blur"`). Their fills are not this
+ *     one and must not become it: a toast's whole signal is its per-variant colour and the
+ *     matching border that goes with it, and the popover's is the neon halo tying it to the
+ *     trigger that opened it. Giving either this grey fill and this grey ring would cost the
+ *     meaning to gain a resemblance.
+ *
+ * So this is a shared MATERIAL, not a shared blur. Reach for it when a surface should look
+ * like the header; reach for the blur token when it merely needs to be see-through.
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "Abstracts/colors" as c;
+@use "Abstracts/mixins" as m;
 @use "Abstracts/sizes" as s;
 
 .frosted-glass {
@@ -24,32 +41,7 @@
     backdrop-filter: blur(map.get(s.$c-frosted-glass, "blur"));
     color: map.get(c.$c-frosted-glass, "surface");
 
-    // Gradient border: fill the ::before with the gradient over the border-box,
-    // then mask out the padding-box so only the border ring remains. Sits above
-    // the host's content edges (pointer-events: none) so it reads all the way
-    // around, even over a full-bleed child.
-    &::before {
-        position: absolute;
-        inset: 0;
-        z-index: 1;
-
-        border: map.get(s.$c-frosted-glass, "border") solid transparent;
-
-        background: linear-gradient(
-                to bottom right,
-                map.get(c.$c-frosted-glass, "border-from"),
-                map.get(c.$c-frosted-glass, "border-to")
-            )
-            border-box;
-
-        border-radius: inherit;
-        mask:
-            linear-gradient(black, black) border-box,
-            linear-gradient(black, black) padding-box;
-        mask-composite: subtract;
-
-        content: "";
-
-        pointer-events: none;
-    }
+    /* All four sides, above the host's content edges, so the ring reads the whole way round
+       even over a full-bleed child. The recipe itself is shared — see the mixin. */
+    @include m.frosted-ring;
 }

@@ -94,28 +94,13 @@ onMounted(() => {
         #{map.get(s.$c-header, "padding", "desktop")}
     );
 
-    &::before {
-        position: absolute;
-        inset: 0;
-        z-index: -1;
-
-        border-bottom: map.get(s.$c-frosted-glass, "border") solid transparent;
-
-        background: linear-gradient(
-                to bottom right,
-                map.get(c.$c-frosted-glass, "border-from"),
-                map.get(c.$c-frosted-glass, "border-to")
-            )
-            border-box;
-
-        border-radius: inherit;
-        mask:
-            linear-gradient(black, black) border-box,
-            linear-gradient(black, black) padding-box;
-        mask-composite: subtract;
-
-        content: "";
-    }
+    /* THE BOTTOM EDGE ONLY, AND BEHIND THE HEADER'S OWN CONTENT — the two things that make
+       this ring the header's rather than the shared surface's. A bar spanning the viewport has
+       no left, right or top edge worth drawing, and the ring has to sit under the logo and the
+       controls rather than over them. The masking recipe itself is shared with `.frosted-glass`
+       (see the mixin), because two copies of a `mask-composite` trick is how one of them
+       quietly stops matching. */
+    @include m.frosted-ring($width: 0 0 map.get(s.$c-frosted-glass, "border"), $layer: -1);
 
     // the Container (max-width cage + margin auto + inline padding) is applied
     // via the component; here we only add the header's flex row + gap.
