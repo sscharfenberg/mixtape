@@ -144,6 +144,13 @@ export const useAudiobookBookmark = (
      * The seek happens AFTER the chapter is loaded and only if it really is the bookmarked
      * one: `playFrom` resolves false when the payload and the page have gone out of step, and
      * seeking a track that never started would move whatever was playing before.
+     *
+     * IT DOES NOT WAIT FOR METADATA, and does not need to. A `currentTime` written while the
+     * element is still at HAVE_NOTHING becomes its default playback start position and
+     * survives loading — measured, and pinned in the player's own spec. The queue's restored
+     * position is applied on `loadedmetadata` instead, but for a different reason: its
+     * near-the-end guard needs a total that a file with no scanned duration only has once
+     * metadata arrives. A chapter always carries one, so there is nothing here to wait for.
      */
     const resume = async (): Promise<void> => {
         const mark = bookmark.value;

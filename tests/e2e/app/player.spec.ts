@@ -310,6 +310,52 @@ test.describe("the player", () => {
         expect((await audioState(page)).src).toContain("/stream");
     });
 
+    test("keeps a position written BEFORE the element has any metadata", async ({ page }) => {
+        /*
+         * A BROWSER FACT, pinned because the code twice reasoned from the opposite of it and
+         * the two halves of the app disagreed as a result. Assigning `currentTime` while
+         * `readyState` is HAVE_NOTHING is NOT ignored: it becomes the element's DEFAULT
+         * PLAYBACK START POSITION and survives loading.
+         *
+         * `usePlayerAudio` applies the queue's restored position on `loadedmetadata` — for a
+         * good reason, its near-the-end guard needs a total — but its comment used to give the
+         * wrong one, claiming an early write "silently does nothing". `useAudiobookBookmark`
+         * seeks immediately and is correct to. Only an engine can say which belief is true, so
+         * it is asserted here rather than argued anywhere.
+         *
+         * Measured on a DETACHED element rather than the player's, so this is the browser's
+         * behaviour and not the app's handling of it.
+         */
+        await enqueueSongs(page, 1);
+        const streamUrl = (await audioState(page)).src;
+        expect(streamUrl).toContain("/stream");
+
+        const probe = await page.evaluate(async (src: string) => {
+            const audio = document.createElement("audio");
+            audio.preload = "none";
+            document.body.appendChild(audio);
+
+            audio.src = src;
+            const readyStateAtWrite = audio.readyState;
+            audio.currentTime = 0.5;
+
+            await new Promise<void>(resolve => {
+                audio.addEventListener("loadedmetadata", () => resolve(), { once: true });
+                audio.load();
+                setTimeout(resolve, 5000);
+            });
+
+            const afterMetadata = audio.currentTime;
+            audio.remove();
+
+            return { readyStateAtWrite, afterMetadata };
+        }, streamUrl);
+
+        // 0 is HAVE_NOTHING — without this the test could pass by having waited by accident.
+        expect(probe.readyStateAtWrite).toBe(0);
+        expect(probe.afterMetadata).toBeCloseTo(0.5, 2);
+    });
+
     /*
      * TWO THINGS THIS FILE DELIBERATELY DOES NOT TEST, both because the harness cannot reach
      * them honestly — recorded here so the gaps are known rather than merely absent.
@@ -330,6 +376,11 @@ test.describe("the player", () => {
      * `Content-Range` for a closed range, an open-ended one, and an unsatisfiable one. Making
      * this drivable needs a minutes-long fixture, which would slow every spec in the suite for
      * one assertion.
+     *
+     * WHAT A LONGER FIXTURE WOULD NOT BUY is the audiobook resume, which used to be listed
+     * here as needing one. The doubt was whether a seek issued the moment a chapter loads
+     * survives — and that is a browser fact, settled above on a one-second file, not something
+     * only a long one could show.
      */
 
     test("stops at the end of the queue with repeat off", async ({ page }) => {

@@ -847,6 +847,26 @@ describe("usePlayerAudio", () => {
             expect(element.currentTime).toBe(200);
         });
 
+        it("still seeks when the track carries no duration at all", () => {
+            /*
+             * THE CEILING IS ONLY A CEILING WHEN THERE IS ONE. `duration` prefers the queue's
+             * figure and falls back to the element's, so a track whose payload carried none —
+             * a file the scanner could not measure — has zero until metadata arrives. Clamping
+             * to that turns every seek into a jump to the START, silently: the caller asked for
+             * 0:42, the cursor sits at 0:00, and nothing reports a failure.
+             *
+             * The audiobook resume is the caller that meets it, seeking the moment its chapter
+             * is loaded rather than waiting for metadata.
+             */
+            usePlayerQueue().enqueue(track("a", null));
+            const element = attachElement();
+
+            usePlayerAudio().seek(42);
+
+            expect(element.currentTime).toBe(42);
+            expect(usePlayerAudio().currentTime.value).toBe(42);
+        });
+
         it("clamps a negative seek", () => {
             usePlayerQueue().enqueue(track("a", 200));
             const element = attachElement();

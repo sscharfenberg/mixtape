@@ -465,11 +465,20 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
      * timeline would snap back to where the drag started for a frame or two, which
      * reads as a failed seek. Clamped because a click at the very end of the track
      * rounds past the duration, and assigning that throws in some engines.
+     *
+     * THE CEILING IS ONLY APPLIED WHEN THERE IS ONE. `duration` is the queue's figure with the
+     * element's as fallback, so it is zero for a track whose payload carried no duration and
+     * whose metadata has not arrived — and clamping to zero there turns every seek into a jump
+     * to the start. That is silent: the caller asked for 0:42, the cursor sits at 0:00, and
+     * nothing reports a failure. The audiobook resume is the caller that would meet it, since
+     * it seeks the moment the chapter is loaded.
      */
     function seek(seconds: number): void {
         if (!element) return;
 
-        const target = Math.min(Math.max(seconds, 0), duration.value || 0);
+        const known = duration.value;
+        const wanted = Math.max(seconds, 0);
+        const target = known > 0 ? Math.min(wanted, known) : wanted;
         currentTime.value = target;
         element.currentTime = target;
         // Same reason as the resume: the mark moves with the cursor, whatever order the
@@ -575,9 +584,18 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
         });
 
         /*
-         * WHERE A RESTORED POSITION IS APPLIED, and it has to be here rather than in
-         * `load()`: `currentTime` is ignored until the element knows how long the media is,
-         * so a seek written the instant the src is set silently does nothing.
+         * WHERE A RESTORED POSITION IS APPLIED, and NOT because an early write would be lost.
+         * That is worth stating plainly, because it is the obvious explanation and it is
+         * wrong: a `currentTime` assigned while `readyState` is HAVE_NOTHING becomes the
+         * element's DEFAULT PLAYBACK START POSITION and survives metadata loading. Measured in
+         * the engine this app runs in — written at readyState 0, read back unchanged after
+         * `loadedmetadata` — and pinned by a spec so the myth cannot come back.
+         *
+         * It is here for the GUARDS BELOW, which need a total to compare against. `duration`
+         * prefers the queue's figure, but a track whose payload carried none has only the
+         * element's, and that does not exist until metadata does. Applying the resume here
+         * means one path that is correct for both, rather than one that works until somebody
+         * queues a file the scanner could not measure.
          *
          * The value is consumed once (see the queue's `takeRestoredPosition`), so only the
          * track a page load came back holding is ever resumed — every later track starts
