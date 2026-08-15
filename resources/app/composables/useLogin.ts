@@ -48,7 +48,9 @@ export const useLogin = (): UseLoginWithTwoFactorReturn => {
      * @param response - Failed HTTP response containing an `errors` payload.
      */
     const mapErrors = async (response: Response): Promise<void> => {
-        const data = await response.json();
+        // Fortify's shape, named rather than left as `any` — `errors` is the only field read,
+        // and it is a map of field name to the messages for that field.
+        const data = (await response.json()) as { errors?: Record<string, unknown> };
         errors.value = Object.fromEntries(
             Object.entries(data.errors ?? {}).map(([key, messages]) => [
                 key,

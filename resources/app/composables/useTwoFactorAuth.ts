@@ -12,31 +12,81 @@ import { getI18n } from "@/i18n";
  */
 const translate = (key: string): string => (getI18n().global as unknown as Composer).t(key);
 
-/** Return type of the {@link useTwoFactorAuth} composable. */
+/**
+ * The three flags a page must send for the 2FA panel to know what to draw.
+ *
+ * `DashboardController` is the only thing that sends them, and they are PAGE data rather than
+ * shared data: whether this reader has 2FA on, and whether the Fortify features that gate
+ * enrollment are enabled. Named here, beside the composable that reads them, so a page adding
+ * the panel has one place to look for what it owes.
+ */
+export type TwoFactorPageProps = {
+    /** Whether this reader has completed enrollment. */
+    twoFactorEnabled: boolean;
+    /** Fortify's `confirm` option — enrollment ends with a code rather than at the QR step. */
+    requiresConfirmation: boolean;
+    /** Fortify's `confirmPassword` option — a sensitive action asks for the password first. */
+    requiresPasswordConfirmation: boolean;
+};
+
+/**
+ * Return type of the {@link useTwoFactorAuth} composable.
+ *
+ * MOST OF THIS IS SHARED, and which parts are is the thing to know before using it: every
+ * `Ref` below except `processing` is MODULE state, so two components calling the composable
+ * see one QR code, one set of recovery codes and one error list. That is deliberate — the
+ * panel and the modal are two views of one enrollment — and it is why signing out has to
+ * forget it (see `forgetTwoFactorState`). `processing` is per-consumer, so one form's spinner
+ * does not disable another's button.
+ */
 export type UseTwoFactorAuthReturn = {
+    /** The enrollment QR as raw SVG, or null before it is fetched or after a failure. */
     qrCodeSvg: Ref<string | null>;
+    /** The TOTP secret in typeable form, for an authenticator that cannot scan. */
     manualSetupKey: Ref<string | null>;
+    /** The one-time backup codes. Populated only while the reader has asked to see them. */
     recoveryCodesList: Ref<string[]>;
+    /** Messages for things that went wrong out of band — a failed fetch, a refused action. */
     errors: Ref<string[]>;
+    /** Field-keyed messages from a rejected form, e.g. a wrong confirmation code. */
     validationErrors: Ref<Record<string, string>>;
+    /** PER CONSUMER, not shared: this form's request is in flight. */
     processing: Ref<boolean>;
+    /** Whether the codes are on screen — the flag that renders them without a re-fetch. */
     isRecoveryCodesVisible: Ref<boolean>;
+    /** Whether the enrollment modal is open. */
     showSetupModal: Ref<boolean>;
+    /** Fortify's `confirm` option: enrollment ends with a code rather than at the QR step. */
     requiresConfirmation: ComputedRef<boolean>;
+    /** Fortify's `confirmPassword` option: a sensitive action asks for the password first. */
     requiresPasswordConfirmation: ComputedRef<boolean>;
+    /** Whether this reader has completed enrollment. */
     twoFactorEnabled: ComputedRef<boolean>;
+    /** Both halves of the setup screen have arrived, so it can be drawn. */
     hasSetupData: ComputedRef<boolean>;
+    /** Forget the QR and key — for a cancelled enrollment, so a reopen starts clean. */
     clearSetupData: () => void;
+    /** Empty the out-of-band error list. */
     clearErrors: () => void;
+    /** Forget everything, for when 2FA has been disabled outright. */
     clearTwoFactorAuthData: () => void;
+    /** Confirm the password against Fortify, so the next sensitive call is allowed through. */
     confirmPassword: (pw: string) => Promise<boolean>;
+    /** Begin enrollment; the QR and key follow. */
     enableTwoFactor: (pw: string) => Promise<void>;
+    /** End enrollment and forget everything it produced. */
     disableTwoFactor: (pw: string) => Promise<void>;
+    /** Reveal the existing recovery codes, asking for a password first when Fortify wants one. */
     handleShowRecoveryCodes: (pw: string) => Promise<void>;
+    /** Mint a fresh set, retrying once if the session's password confirmation has expired. */
     handleRegenerateRecoveryCodes: (pw: string) => Promise<void>;
+    /** Fetch the QR alone. Reports its own failure rather than throwing. */
     fetchQrCode: () => Promise<void>;
+    /** Fetch the manual key alone. Reports its own failure rather than throwing. */
     fetchSetupKey: () => Promise<void>;
+    /** Both of the above together, which is what the setup screen needs. */
     fetchSetupData: () => Promise<void>;
+    /** Fetch the recovery codes. */
     fetchRecoveryCodes: () => Promise<void>;
 };
 
@@ -60,7 +110,9 @@ const fetchJson = async <T>(url: string): Promise<T> => {
         throw new Error(`Failed to fetch: ${response.status}`);
     }
 
-    return response.json();
+    // The cast is the honest one: `json()` is `any`, and the caller names the shape it expects.
+    // Nothing here can verify that, so it is stated rather than implied.
+    return (await response.json()) as T;
 };
 
 // Shared reactive state — declared outside the composable so that every
@@ -201,19 +253,32 @@ export const useTwoFactorAuth = (): UseTwoFactorAuthReturn => {
      * data the setup screen needs in a single call.
      */
     const fetchSetupData = async (): Promise<void> => {
-        try {
-            clearErrors();
-            await Promise.all([fetchQrCode(), fetchSetupKey()]);
-        } catch {
-            qrCodeSvg.value = null;
-            manualSetupKey.value = null;
-        }
+        /*
+         * NO try/catch, because there is nothing here that can reject. Both calls handle their
+         * own failure — each pushes its own message and nulls its own ref — so a `Promise.all`
+         * over them always resolves, and a catch around it is dead code that reads like a
+         * safety net. If either is ever changed to rethrow, the handling belongs where the
+         * message is chosen, not here where it could only say something vaguer.
+         */
+        clearErrors();
+        await Promise.all([fetchQrCode(), fetchSetupKey()]);
     };
 
-    const page = usePage();
-    const requiresConfirmation = computed(() => page.props.requiresConfirmation as boolean);
-    const requiresPasswordConfirmation = computed(() => page.props.requiresPasswordConfirmation as boolean);
-    const twoFactorEnabled = computed(() => page.props.twoFactorEnabled as boolean);
+    /*
+     * THE THREE FLAGS ARE PAGE PROPS, NOT SHARED ONES, so they are declared as a page shape
+     * rather than added to the app-wide augmentation: only DashboardController sends them, and
+     * putting them in `sharedPageProps` would claim every response in the app carries them.
+     *
+     * Typed through `usePage`'s generic rather than cast. `as boolean` on an absent prop
+     * produces `undefined` wearing a boolean's type, which then reads as false everywhere
+     * except a strict comparison — so a page that forgot to send one would render the
+     * "two-factor is off" branch rather than failing. `Partial` plus an explicit `?? false`
+     * says the same thing out loud and means the type matches what actually arrives.
+     */
+    const page = usePage<Partial<TwoFactorPageProps>>();
+    const requiresConfirmation = computed(() => page.props.requiresConfirmation ?? false);
+    const requiresPasswordConfirmation = computed(() => page.props.requiresPasswordConfirmation ?? false);
+    const twoFactorEnabled = computed(() => page.props.twoFactorEnabled ?? false);
 
     /**
      * Validate the user's password against the backend and mark it as confirmed
