@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
-import type { Page, Response } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { isWrite } from "../support/actions";
 import { specStorageState } from "../support/environment";
 
 /*
@@ -74,27 +75,21 @@ import { specStorageState } from "../support/environment";
  * three, this file's tests being short and its per-worker setup not being — and it hands the
  * other two workers back to the rest of the run.
  *
- * It also finally makes the ordering real. This said `mode: "default"` and a comment claiming
- * that kept the tests in order, which `fullyParallel: true` had quietly overridden: "default"
- * restores the PROJECT default, and the project default is parallel. Nothing here relied on
- * the ordering — every test builds its own fixture — so the note was harmless, but it was
- * wrong.
+ * `serial` RATHER THAN `default`, which is the stronger of two modes that would both group
+ * this file onto one worker. Playwright looks for the outermost ancestor suite whose mode is
+ * `serial` OR `default` and, finding either, runs everything under it in one worker in
+ * declaration order — so `default` is what the seven other specs here use to buy exactly that.
+ * What `serial` adds is that a failure SKIPS the rest of the file, which is what this one
+ * wants: these tests write through the app, and a run continuing past a failed write reports
+ * a cascade of consequences rather than the cause.
+ *
+ * Assertions here inherit the configured 15s budget (playwright.config.ts → `expect.timeout`),
+ * which is wide on purpose: the E2E sqlite gives a blocked writer a 5s busy timeout, and an
+ * assertion made after a contended write must not expire while the write is still legitimately
+ * queueing for its lock. One number, in one place — do not re-state it per assertion.
  */
 test.use({ storageState: specStorageState("playlists") });
 test.describe.configure({ mode: "serial" });
-
-/**
- * Assertions in this file, with a window wide enough for a contended write.
- *
- * The suite default is 5000ms, which is exactly the busy timeout the E2E sqlite gives a
- * blocked writer (tests/e2e/support/environment.ts). This is the only spec that writes
- * through the app on nearly every test, and the run puts three workers on that one file —
- * so an assertion made after a write could time out while the write was still legitimately
- * waiting for its lock, and it failed on a different test each time (roughly one full run in
- * six). The number is a property of the environment, not of any one assertion, which is why
- * it is set once here rather than sprinkled over the individual calls.
- */
-const expectSlow = expect.configure({ timeout: 15_000 });
 
 /**
  * Suffix making every name in this run unique.
@@ -115,26 +110,10 @@ const SORTED = `E2E Sortiert ${STAMP}`;
 const EDITED = `E2E Bearbeitet ${STAMP}`;
 
 /**
- * A response to the WRITE, not to a live-validation request that happens to share its verb.
- *
- * BOTH FORMS ON THIS PAGE VALIDATE THROUGH PRECOGNITION, and a precognitive request goes to the
- * same URL with the same method — measured: `PUT /playlists/{id}` with
- * `Precognition: true` and `Precognition-Validate-Only: description`, fired by the `change` event
- * that `fill()` dispatches. So a matcher on url + method alone resolves on the VALIDATION and says
- * the save landed when nothing has been saved at all. That is not hypothetical tidying: it is why
- * "edits a playlist's metadata" could reach its final assertion with the write still in the air, or
- * never sent, and then fail on a stale listing several steps away from the cause.
- *
- * The real write is the one Inertia sends: `X-Inertia`, and no Precognition header.
- */
-const isWrite = (response: Response, method: "POST" | "PUT"): boolean =>
-    response.request().method() === method && response.request().headers().precognition === undefined;
-
-/**
  * Press "create" and wait for the POST itself to come back.
  *
  * Awaiting the RESPONSE rather than clicking and asserting on what renders: a write here can
- * spend seconds waiting for its lock (see `expectSlow` above), and this bounds that wait by
+ * spend seconds waiting for its lock (see `expect` above), and this bounds that wait by
  * the test timeout instead of by an assertion's. The two together are what made this spec
  * stop failing on a different test each run.
  */
@@ -184,7 +163,7 @@ test.describe("the playlists area", () => {
         await page.getByRole("link", { name: /Neue Wiedergabeliste anlegen/u }).click();
 
         await page.waitForURL(/\/playlists\/create$/u);
-        await expectSlow(page.locator("#name")).toBeVisible();
+        await expect(page.locator("#name")).toBeVisible();
     });
 
     test("creates a playlist, lands back on the listing and says it did", async ({ page }) => {
@@ -211,14 +190,14 @@ test.describe("the playlists area", () => {
 
         // And the playlist is on the page, with the zero tracks a new one has.
         const row = page.locator("li.playlist", { hasText: NIGHT_DRIVE });
-        await expectSlow(row).toBeVisible();
-        await expectSlow(row.locator(".playlist__title")).toHaveText(NIGHT_DRIVE);
-        await expectSlow(row.locator(".playlist__description")).toHaveText("Für die Autobahn um zwei.");
-        await expectSlow(row.getByText("Titel", { exact: true })).toBeVisible();
+        await expect(row).toBeVisible();
+        await expect(row.locator(".playlist__title")).toHaveText(NIGHT_DRIVE);
+        await expect(row.locator(".playlist__description")).toHaveText("Für die Autobahn um zwei.");
+        await expect(row.getByText("Titel", { exact: true })).toBeVisible();
 
         // A brand-new playlist has neither a playtime nor a change to report.
-        await expectSlow(row.getByText("Dauer", { exact: true })).toHaveCount(0);
-        await expectSlow(row.getByText("Geändert", { exact: true })).toHaveCount(0);
+        await expect(row.getByText("Dauer", { exact: true })).toHaveCount(0);
+        await expect(row.getByText("Geändert", { exact: true })).toHaveCount(0);
     });
 
     test("lights an entry under the pointer: the fill shifts and a halo comes up", async ({ page }) => {
@@ -252,12 +231,12 @@ test.describe("the playlists area", () => {
          * before calling it rest.
          */
         await page.mouse.move(5, 5);
-        await expectSlow.poll(async () => (await paint()).shadow).toBe("none");
+        await expect.poll(async () => (await paint()).shadow).toBe("none");
         const rest = await paint();
 
         await row.hover();
-        await expectSlow.poll(async () => (await paint()).background).not.toBe(rest.background);
-        await expectSlow.poll(async () => (await paint()).shadow).not.toBe("none");
+        await expect.poll(async () => (await paint()).background).not.toBe(rest.background);
+        await expect.poll(async () => (await paint()).shadow).not.toBe("none");
     });
 
     test("does not let the entry's own styles leak onto the page's icons", async ({ page }) => {
@@ -276,7 +255,7 @@ test.describe("the playlists area", () => {
 
         for (const selector of ["h2 svg.icon.playlist", ".playlists__actions svg.icon.playlist"]) {
             const icon = page.locator(selector).first();
-            await expectSlow(icon).toBeVisible();
+            await expect(icon).toBeVisible();
 
             const styles = await icon.evaluate(el => {
                 const cs = getComputedStyle(el);
@@ -285,9 +264,9 @@ test.describe("the playlists area", () => {
             });
 
             // A glyph, not a panel: the entry's rule set all three of these.
-            expectSlow(styles.display).not.toBe("grid");
-            expectSlow(styles.background).toBe("rgba(0, 0, 0, 0)");
-            expectSlow(styles.padding).toBe("0px");
+            expect(styles.display).not.toBe("grid");
+            expect(styles.background).toBe("rgba(0, 0, 0, 0)");
+            expect(styles.padding).toBe("0px");
         }
     });
 
@@ -307,7 +286,7 @@ test.describe("the playlists area", () => {
         await createPlaylist(page, `${STAGGERED} A`);
         await createPlaylist(page, `${STAGGERED} B`);
 
-        await expectSlow(page.locator("li.playlist").nth(1)).toBeVisible();
+        await expect(page.locator("li.playlist").nth(1)).toBeVisible();
 
         const ringStyles = () =>
             page.evaluate(() =>
@@ -319,21 +298,21 @@ test.describe("the playlists area", () => {
             );
 
         const moving = await ringStyles();
-        expectSlow(moving.length).toBeGreaterThan(1);
+        expect(moving.length).toBeGreaterThan(1);
         // Prefix, not the literal name: Vue's scoped-style transform HASHES @keyframes
         // identifiers (`playlist-border-rotate-3e76980c`) and rewrites the animation-name
         // that references them. Asserting the exact string pins a build hash, not behaviour.
-        for (const ring of moving) expectSlow(ring.name).toMatch(/^playlist-border-rotate/u);
+        for (const ring of moving) expect(ring.name).toMatch(/^playlist-border-rotate/u);
         // Every entry at its own point in the turn — no two neighbours share an angle.
-        expectSlow(new Set(moving.map(ring => ring.delay)).size).toBe(moving.length);
+        expect(new Set(moving.map(ring => ring.delay)).size).toBe(moving.length);
 
         // And with the preference set, no motion at all: the ring holds the angle its
         // @property registration starts it at. The app-wide rule, per CLAUDE.md → Motion.
         await page.emulateMedia({ reducedMotion: "reduce" });
         await page.reload();
-        await expectSlow(page.locator("li.playlist").first()).toBeVisible();
+        await expect(page.locator("li.playlist").first()).toBeVisible();
 
-        for (const ring of await ringStyles()) expectSlow(ring.name).toBe("none");
+        for (const ring of await ringStyles()) expect(ring.name).toBe("none");
     });
 
     test("opens the row's menu, which the row's own link must not swallow", async ({ page }) => {
@@ -345,8 +324,8 @@ test.describe("the playlists area", () => {
 
         await row.locator(".popover button").click();
 
-        await expectSlow(row.getByRole("link", { name: /^Metadaten bearbeiten$/u })).toBeVisible();
-        await expectSlow(page).toHaveURL(/\/playlists$/u);
+        await expect(row.getByRole("link", { name: /^Metadaten bearbeiten$/u })).toBeVisible();
+        await expect(page).toHaveURL(/\/playlists$/u);
     });
 
     test("edits a playlist's metadata through the menu, and says it did", async ({ page }) => {
@@ -371,8 +350,8 @@ test.describe("the playlists area", () => {
         await row.getByRole("link", { name: /^Metadaten bearbeiten$/u }).click();
 
         await page.waitForURL(/\/playlists\/[0-9a-f-]+\/edit$/u);
-        await expectSlow(page.locator("#name")).toHaveValue(EDITED);
-        await expectSlow(page.locator("#description")).toHaveValue("Erste Fassung.");
+        await expect(page.locator("#name")).toHaveValue(EDITED);
+        await expect(page.locator("#description")).toHaveValue("Erste Fassung.");
 
         await page.locator("#description").fill("Zweite Fassung.");
         const saved = page.waitForResponse(
@@ -406,9 +385,9 @@ test.describe("the playlists area", () => {
          */
         await page.reload();
         const edited = page.locator("li.playlist", { hasText: EDITED });
-        await expectSlow(edited.locator(".playlist__description")).toHaveText("Zweite Fassung.");
+        await expect(edited.locator(".playlist__description")).toHaveText("Zweite Fassung.");
         // An edit is a change, so the listing now has something to say about one.
-        await expectSlow(edited.getByText("Geändert", { exact: true })).toBeVisible();
+        await expect(edited.getByText("Geändert", { exact: true })).toBeVisible();
     });
 
     test("keeps what the reader typed when the page is rebuilt underneath them", async ({ page }) => {
@@ -437,7 +416,7 @@ test.describe("the playlists area", () => {
         await row.locator(".popover button").click();
         await row.getByRole("link", { name: /^Metadaten bearbeiten$/u }).click();
         await page.waitForURL(/\/playlists\/[0-9a-f-]+\/edit$/u);
-        await expectSlow(page.locator("#description")).toHaveValue("Erste Fassung.");
+        await expect(page.locator("#description")).toHaveValue("Erste Fassung.");
 
         await page.locator("#description").fill("Halb getippt.");
 
@@ -446,7 +425,7 @@ test.describe("the playlists area", () => {
         await page.goForward();
         await page.waitForURL(/\/playlists\/[0-9a-f-]+\/edit$/u);
 
-        await expectSlow(page.locator("#description")).toHaveValue("Halb getippt.");
+        await expect(page.locator("#description")).toHaveValue("Halb getippt.");
     });
 
     test("re-saving a playlist without renaming it is not a clash with itself", async ({ page }) => {
@@ -462,13 +441,13 @@ test.describe("the playlists area", () => {
         await page.waitForURL(/\/playlists\/[0-9a-f-]+\/edit$/u);
 
         const saved = page.waitForResponse(
-            response => /\/playlists\/[0-9a-f-]+$/u.test(response.url()) && response.request().method() === "PUT"
+            response => /\/playlists\/[0-9a-f-]+$/u.test(response.url()) && isWrite(response, "PUT")
         );
         await page.getByRole("button", { name: /^Änderungen speichern$/u }).click();
         await saved;
 
         await page.waitForURL(/\/playlists$/u);
-        await expectSlow(page.getByText("Du hast bereits eine Wiedergabeliste mit diesem Namen.")).toHaveCount(0);
+        await expect(page.getByText("Du hast bereits eine Wiedergabeliste mit diesem Namen.")).toHaveCount(0);
     });
 
     test("says a name is taken while the reader is still in the field", async ({ page }) => {
@@ -490,17 +469,17 @@ test.describe("the playlists area", () => {
         await page.locator("#description").focus();
         await checked;
 
-        await expectSlow(page.getByText("Du hast bereits eine Wiedergabeliste mit diesem Namen.")).toBeVisible();
+        await expect(page.getByText("Du hast bereits eine Wiedergabeliste mit diesem Namen.")).toBeVisible();
         // Still on the form, with nothing posted for real.
-        await expectSlow(page).toHaveURL(/\/playlists\/create$/u);
+        await expect(page).toHaveURL(/\/playlists\/create$/u);
     });
 
     test("will not submit a nameless playlist", async ({ page }) => {
         await page.goto("/playlists/create");
         await submitPlaylistForm(page);
 
-        await expectSlow(page.getByText("Bitte gib der Wiedergabeliste einen Namen.")).toBeVisible();
-        await expectSlow(page).toHaveURL(/\/playlists\/create$/u);
+        await expect(page.getByText("Bitte gib der Wiedergabeliste einen Namen.")).toBeVisible();
+        await expect(page).toHaveURL(/\/playlists\/create$/u);
     });
 
     test("caps both fields in the browser, so the server's length rules are never met", async ({ page }) => {
@@ -510,8 +489,8 @@ test.describe("the playlists area", () => {
         await page.locator("#name").fill("x".repeat(300));
         await page.locator("#description").fill("y".repeat(1200));
 
-        await expectSlow(page.locator("#name")).toHaveValue("x".repeat(255));
-        await expectSlow(page.locator("#description")).toHaveValue("y".repeat(1000));
+        await expect(page.locator("#name")).toHaveValue("x".repeat(255));
+        await expect(page.locator("#description")).toHaveValue("y".repeat(1000));
     });
 
     test("reorders the listing by dragging a grip, and keeps the new order", async ({ page }) => {
@@ -535,7 +514,7 @@ test.describe("the playlists area", () => {
                 .map(text => text.trim())
                 .filter(title => title.startsWith(SORTED));
 
-        await expectSlow.poll(order).toStrictEqual(names);
+        await expect.poll(order).toStrictEqual(names);
 
         // Drag the LAST of the three onto the first, by its grip.
         const rows = page.locator("li.playlist", { hasText: SORTED });
@@ -560,11 +539,11 @@ test.describe("the playlists area", () => {
         await page.mouse.move(target.x + target.width / 2, target.y + target.height * 0.2, { steps: 20 });
         await page.mouse.up();
 
-        await expectSlow.poll(order).toStrictEqual([names[2], names[0], names[1]]);
+        await expect.poll(order).toStrictEqual([names[2], names[0], names[1]]);
 
         // And it is the SERVER's order now, not a local splice.
         await page.reload();
-        await expectSlow.poll(order).toStrictEqual([names[2], names[0], names[1]]);
+        await expect.poll(order).toStrictEqual([names[2], names[0], names[1]]);
     });
 
     test("lets the reader back out to the listing without creating anything", async ({ page }) => {
@@ -574,6 +553,6 @@ test.describe("the playlists area", () => {
         await page.getByRole("link", { name: /^Abbrechen$/u }).click();
         await page.waitForURL(/\/playlists$/u);
 
-        await expectSlow(page.locator("li.playlist", { hasText: DISCARDED })).toHaveCount(0);
+        await expect(page.locator("li.playlist", { hasText: DISCARDED })).toHaveCount(0);
     });
 });

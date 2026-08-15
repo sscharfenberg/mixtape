@@ -389,10 +389,17 @@ the record of *why* that code exists.
   broken feature, not as a harness problem. Measured on the playlists spec: 10/10 green on one worker, 2-in-14
   red on three, 42/42 green on three once each worker had a session of its own.
 
-  **A spec that writes through the app and then reads the flash needs an account of its own AND
-  `mode: "serial"`.** The account removes the other specs; `serial` removes its own tests, which under
-  `fullyParallel: true` race each other just as happily. Note that `mode: "default"` does *not* give you
-  ordering here — it restores the project default, and the project default is parallel.
+  **A spec that writes through the app and then reads the flash needs an account of its own AND a
+  file-scope mode.** The account removes the other specs; the mode removes its own tests, which under
+  `fullyParallel: true` race each other just as happily.
+
+  **Either mode groups the file onto one worker.** Playwright walks a test's ancestor suites for the
+  outermost one whose mode is `serial` *or* `default`, and when it finds either, every test beneath it
+  runs in a single worker in declaration order — the project being marked parallel for `fullyParallel`
+  does not override that. So `mode: "default"` *is* enough to stop a file racing itself. What `serial`
+  adds on top is that a failure **skips the rest of the file**: choose it where a failed write would
+  make every later test in the file report a consequence rather than a cause (`playlists.spec.ts`),
+  and `default` where the tests merely need not to overlap.
 - **A fresh browser context is no longer a fresh PLAYER.** The queue syncs to `player_states`, so it follows
   the *user*, and a spec inherits whatever queue another one left. A spec that touches the queue needs all
   four of these, and each was found by the failure the last one left behind:

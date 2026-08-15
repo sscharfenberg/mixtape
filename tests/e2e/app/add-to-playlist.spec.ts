@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { enqueueFromHero, openQueuePanel, stopQueueSync } from "../support/actions";
+import { enqueueFromHero, isWrite, openQueuePanel, stopQueueSync } from "../support/actions";
 import { clearServerQueue, specStorageState } from "../support/environment";
 
 /*
@@ -57,9 +57,6 @@ test.afterEach(async ({ page }) => {
     await stopQueueSync(page);
 });
 
-/** Wide enough for a write contended by three workers on one sqlite file — see playlists.spec.ts. */
-const expectSlow = expect.configure({ timeout: 15_000 });
-
 /** Suffix making every name in this run unique, since a server may outlive the run. */
 const STAMP = Date.now().toString(36);
 const TARGET = `E2E Ziel ${STAMP}`;
@@ -68,7 +65,7 @@ const OTHER = `E2E Andere ${STAMP}`;
 /** Create a playlist through the form, ending up back on the listing. */
 const createPlaylist = async (page: Page, name: string): Promise<void> => {
     const posted = page.waitForResponse(
-        response => response.url().endsWith("/playlists") && response.request().method() === "POST"
+        response => response.url().endsWith("/playlists") && isWrite(response, "POST")
     );
 
     await page.goto("/playlists/create");
@@ -110,7 +107,7 @@ test.describe("adding a song to a playlist from its hero", () => {
         await openASong(page);
 
         const block = page.locator(".add-to-playlist");
-        await expectSlow(block).toBeVisible();
+        await expect(block).toBeVisible();
         expect(await offered(page)).toEqual(expect.arrayContaining([TARGET, OTHER]));
 
         // Pick the playlist by name rather than by position: the account may hold others.
@@ -130,14 +127,14 @@ test.describe("adding a song to a playlist from its hero", () => {
          * response to the write — nothing in the browser removed the option. The other playlist
          * is still there, which is what proves the list was recomputed rather than emptied.
          */
-        await expect.poll(() => offered(page), { timeout: 15_000 }).not.toContain(TARGET);
+        await expect.poll(() => offered(page)).not.toContain(TARGET);
         expect(await offered(page)).toContain(OTHER);
 
         // And it really landed: the listing counts one track where a new playlist has none.
         await page.goto("/playlists");
         const row = page.locator("li.playlist", { hasText: TARGET });
-        await expectSlow(row).toBeVisible();
-        await expectSlow(row.getByText("Titel", { exact: true })).toBeVisible();
+        await expect(row).toBeVisible();
+        await expect(row.getByText("Titel", { exact: true })).toBeVisible();
     });
 
     test("keeps save disabled until a playlist is chosen", async ({ page }) => {
@@ -146,7 +143,7 @@ test.describe("adding a song to a playlist from its hero", () => {
         await createPlaylist(page, `E2E Ungewählt ${STAMP}`);
         await openASong(page);
 
-        await expectSlow(page.locator(".add-to-playlist button.btn")).toBeDisabled();
+        await expect(page.locator(".add-to-playlist button.btn")).toBeDisabled();
     });
 
     test("welds the queue modal's select to its addon as one control, not two", async ({ page }) => {
@@ -170,7 +167,7 @@ test.describe("adding a song to a playlist from its hero", () => {
 
         await page.locator(".play-queue__header .popover-button").click();
         await page.getByRole("button", { name: /Zu Wiedergabeliste hinzufügen/u }).click();
-        await expectSlow(page.locator("#queue-playlist-form")).toBeVisible();
+        await expect(page.locator("#queue-playlist-form")).toBeVisible();
 
         const seam = await page.evaluate(() => {
             const read = (selector: string) => {

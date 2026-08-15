@@ -183,6 +183,6 @@ test.describe("a genre's tabs", () => {
         // throw the reader back to the first one.
         await expect(page).toHaveURL(/tab=songs/u);
         await expect(page.getByRole("tab", { name: /Songs/u })).toHaveAttribute("aria-selected", "true");
-        expect(await columnValues(page, "Titel")).not.toEqual(before);
+        await expect.poll(() => columnValues(page, "Titel")).not.toEqual(before);
     });
 });

@@ -24,9 +24,16 @@ import { pageHeading } from "../support/actions";
  * about minting — the seven days, the reuse of a live link, what may be shared at all — is in
  * tests/Feature/Shares/CreateShareTest.php, where it is cheap.
  *
- * Minting writes a row, but shares belong to whoever made them and nothing else in the suite
- * reads them, so this shares the default account rather than owning one.
+ * ONE WORKER, because this file races ITSELF. Two of its tests reach the same album by the same
+ * route — the first row of `/music/albums` on the default sort — on the same signed-in account:
+ * one asserts that pressing share twice hands back the SAME link, the other revokes that album's
+ * link and asserts it then 404s. Under `fullyParallel: true` a revoke landing between the first
+ * press and the second makes the second mint a fresh id, and the reuse assertion fails on an app
+ * behaving exactly as designed. `dashboard.spec.ts` also reads `/dashboard/shared` for this
+ * account, which is why the file's rows are not private to it either.
  */
+
+test.describe.configure({ mode: "default" });
 
 /** Open the first row of a listing, which is how every detail page here is reached. */
 const openFirstRow = async (page: Page, listing: string): Promise<void> => {

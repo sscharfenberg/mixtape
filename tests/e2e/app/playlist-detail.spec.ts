@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { settled } from "../support/actions";
-import { specStorageState } from "../support/environment";
+import { settled, stopQueueSync } from "../support/actions";
+import { clearServerQueue, specStorageState } from "../support/environment";
 
 /*
  * One playlist's detail page, in a real engine.
@@ -48,6 +48,22 @@ import { specStorageState } from "../support/environment";
 test.describe.configure({ mode: "default" });
 
 test.use({ storageState: specStorageState("playlistDetail") });
+
+/*
+ * THE QUEUE IS SERVER STATE, so a fresh context is not a fresh player: two tests here press
+ * play, and one then counts `.play-queue__row`. It is benign today only because "play" REPLACES
+ * the queue and both press it on the same seven rows — which is a property of the fixture, not
+ * of the tests, and the count assertion would inherit whatever another run left behind the day
+ * that changes. Both halves are needed: the reset before, and the close-without-flushing after,
+ * since a tab sends its queue with `keepalive` as it goes and that request outlives the test.
+ */
+test.beforeEach(async () => {
+    await clearServerQueue("playlistDetail");
+});
+
+test.afterEach(async ({ page }) => {
+    await stopQueueSync(page);
+});
 
 /** The fixture's playlists, by the names E2ESeeder gives them. */
 const POPULATED = "Roadtrip";
@@ -219,8 +235,14 @@ test.describe("a playlist's detail page", () => {
         await openFromListing(page, POPULATED);
         const url = page.url();
 
+        /*
+         * POLLED, because an Inertia visit changes the address ASYNCHRONOUSLY: read straight
+         * after the click, `page.url()` is still this page whether or not the overlay swallowed
+         * the press, and the assertion passes on the bug it exists to catch. `toPass` gives the
+         * navigation that would be the failure every chance to happen first.
+         */
         await page.locator(".playlist-tracks__handle").first().click();
-        expect(page.url()).toBe(url);
+        await expect(async () => expect(page.url()).toBe(url)).toPass();
 
         await page.locator(".playlist-tracks__play").first().click();
         await expect(page.locator(".player-bar")).toBeVisible();

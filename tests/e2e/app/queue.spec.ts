@@ -167,7 +167,7 @@ test.describe("the play queue", () => {
         await page.mouse.move(10, 400);
         await page.locator(".play-queue-toggle").hover();
 
-        await expect(page.locator("[role='tooltip']")).toHaveText(/\(Q\)/u, { timeout: 10_000 });
+        await expect(page.locator("[role='tooltip']")).toHaveText(/\(Q\)/u);
     });
 
     test("shows nothing until something is queued", async ({ page }) => {
@@ -641,7 +641,6 @@ test.describe("reordering the play queue", () => {
         return titles;
     };
 
-    /** The queue's titles, in the order the panel shows them. */
     /**
      * The queue's titles in DOM order.
      *
@@ -723,7 +722,7 @@ test.describe("reordering the play queue", () => {
         await page.goto("/music/albums");
         await expect(page.locator("tbody tr").first()).toBeVisible();
 
-        expect(await order(page)).toStrictEqual([second, first]);
+        await expect.poll(() => order(page)).toStrictEqual([second, first]);
     });
 
     test("moves a row with Alt+↑/↓ after the grip is clicked, and follows it with focus", async ({ page }) => {
@@ -955,10 +954,9 @@ test.describe("the hero's play and enqueue buttons", () => {
         const songs = await openArtist(page);
         await page.locator(".subject-actions__play").click();
 
-        await expect(page.locator(".play-queue__row")).toHaveCount(songs, { timeout: 15_000 });
+        await expect(page.locator(".play-queue__row")).toHaveCount(songs);
         await expect
             .poll(() => page.evaluate(() => (document.querySelector("audio") as HTMLAudioElement).paused), {
-                timeout: 10_000
             })
             .toBe(false);
         // The transport agrees, which is what a reader actually looks at.
@@ -978,12 +976,11 @@ test.describe("the hero's play and enqueue buttons", () => {
         await page.locator(".subject-actions__play").click();
 
         // Every track of theirs, and not the 25 the table shows.
-        await expect(page.locator(".play-queue__row")).toHaveCount(songs, { timeout: 15_000 });
+        await expect(page.locator(".play-queue__row")).toHaveCount(songs);
         await expect(page.locator(".play-queue__name").filter({ hasText: dropped })).toHaveCount(0);
         // Playing, because "play" means play — the click is the gesture a browser requires.
         await expect
             .poll(() => page.evaluate(() => (document.querySelector("audio") as HTMLAudioElement).paused), {
-                timeout: 10_000
             })
             .toBe(false);
     });
@@ -999,7 +996,7 @@ test.describe("the hero's play and enqueue buttons", () => {
         const songs = await openArtist(page);
         await page.locator(".subject-actions__enqueue").click();
 
-        await expect(page.locator(".play-queue__row")).toHaveCount(songs + 1, { timeout: 15_000 });
+        await expect(page.locator(".play-queue__row")).toHaveCount(songs + 1);
         // The loaded track is untouched — enqueue must not steal the player.
         await expect(page.locator(".player-bar__name")).toHaveText(kept);
     });

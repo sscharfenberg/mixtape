@@ -70,10 +70,16 @@ test.describe("the Now Playing page", () => {
 
         // And the next card names the track the queue will actually load — as a level-3 heading,
         // which is the half of that fix only an engine can confirm: it is the accessibility tree,
-        // not the markup, that decides whether a heading exists.
-        const promised = await page.getByRole("heading", { level: 3 }).last().textContent();
+        // not the markup, that decides whether a heading exists. Asserted on the TITLE's own role
+        // rather than by matching it against "the last h3", which the title is — that comparison
+        // holds however the element is marked up, including not as a heading at all.
+        const title = page.locator(".neighbour--next .neighbour__title");
+        await expect(title).toHaveRole("heading");
+        // The LEVEL through the role query, not an attribute: it is implicit in the tag, so a
+        // real <h3> carries no `aria-level` to read and only the a11y tree can answer.
+        await expect(page.locator(".neighbour--next").getByRole("heading", { level: 3 })).toHaveCount(1);
+        const promised = await title.textContent();
         expect(promised).toBeTruthy();
-        await expect(page.locator(".neighbour--next .neighbour__title")).toHaveText(promised!);
 
         await page.locator(".neighbour--next").click();
         await expect(page.locator(".hero-section h2")).toHaveText(promised!);
@@ -112,7 +118,7 @@ test.describe("the Now Playing page", () => {
         // `--live` is set only once `createMediaElementSource` has run against a RUNNING context,
         // which is the one thing about this component that needs an engine. See the file note for
         // why the bars themselves cannot be asserted.
-        await expect(page.locator(".visualizer--live")).toBeVisible({ timeout: 10_000 });
+        await expect(page.locator(".visualizer--live")).toBeVisible();
 
         // THE STAGGERED COUNT, at the one width this project runs at: `devices["Desktop Chrome"]`
         // is 1280px, which is the `landscape` rung (768–1439) and therefore 32 of the 48 the widest
@@ -124,7 +130,7 @@ test.describe("the Now Playing page", () => {
 
         // And the audio is unharmed by being routed — the risk the whole design turns on.
         await expect
-            .poll(() => page.evaluate(() => document.querySelector("audio")?.paused), { timeout: 10_000 })
+            .poll(() => page.evaluate(() => document.querySelector("audio")?.paused))
             .toBe(false);
     });
 
@@ -253,7 +259,13 @@ test.describe("the Now Playing page", () => {
         await expect(page.locator(".player-bar__artist")).toBeVisible();
 
         for (const scheme of ["light", "dark"] as const) {
-            await page.emulateMedia({ colorScheme: scheme });
+            /*
+             * `reducedMotion` alongside the scheme, and it is not decoration: surfaces here
+             * transition `background-color`, so a `light-dark()` value is still interpolating for
+             * the first ~150ms after the switch and the read below would measure a colour that
+             * exists only mid-transition. Turning motion off makes the first read the settled one.
+             */
+            await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
 
             const measured = await page.evaluate(() => {
                 const channels = (value: string): number[] => (value.match(/[\d.]+/gu) ?? []).map(Number).slice(0, 3);

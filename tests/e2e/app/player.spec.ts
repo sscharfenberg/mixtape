@@ -321,7 +321,7 @@ test.describe("the player", () => {
         await expect(page.locator(".player-bar__name")).toHaveText(first);
         await playButton(page).click();
 
-        await expect(page.locator(".player-bar__name")).toHaveText(second, { timeout: 10_000 });
+        await expect(page.locator(".player-bar__name")).toHaveText(second);
         // Still playing, which is the half a naive implementation loses: browsers fire
         // `pause` immediately before `ended`.
         expect((await audioState(page)).paused).toBe(false);
@@ -333,7 +333,7 @@ test.describe("the player", () => {
 
         await playButton(page).click();
         await expect
-            .poll(async () => (await audioState(page)).paused, { timeout: 10_000 })
+            .poll(async () => (await audioState(page)).paused)
             .toBe(true);
 
         // The bar stays, on the last track, offering to play it again — it must not
@@ -350,7 +350,7 @@ test.describe("the player", () => {
         await expect(page.locator(".player-bar__name")).toHaveText(second);
 
         // Already playing — the row click is a gesture, and the panel's label says "play".
-        await expect(page.locator(".player-bar__name")).toHaveText(first, { timeout: 10_000 });
+        await expect(page.locator(".player-bar__name")).toHaveText(first);
         expect((await audioState(page)).paused).toBe(false);
     });
 
@@ -796,6 +796,10 @@ test.describe("the player's settings popover", () => {
 
                     return (await audioState(page)).paused && heard.size === 3;
                 },
+                // A DELIBERATE RAISE above the configured budget, and the only one in the suite:
+                // this waits out three whole tracks rather than one event, so it is measuring
+                // playback time and not responsiveness. `intervals` polls fast enough to catch a
+                // title between two tracks.
                 { timeout: 20_000, intervals: [100] }
             )
             .toBe(true);

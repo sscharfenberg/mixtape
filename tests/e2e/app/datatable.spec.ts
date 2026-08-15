@@ -43,8 +43,14 @@ test.describe("the songs table", () => {
 
         await page.getByRole("button", { name: /Titel/u }).first().click();
 
+        /*
+         * POLLED, not read once. `waitForURL` returns when Inertia updates the ADDRESS, which is
+         * before the component swaps — and `columnValues` resolves its whole array before `expect`
+         * sees it, so a one-shot read can compare `before` against itself and fail on an app that
+         * sorted perfectly. Every read after a navigation in this file has the same shape.
+         */
         await page.waitForURL(/sort=name/u);
-        expect(await columnValues(page, "Titel")).not.toEqual(before);
+        await expect.poll(() => columnValues(page, "Titel")).not.toEqual(before);
     });
 
     test("actually orders the rows by the sorted column", async ({ page }) => {
@@ -53,9 +59,13 @@ test.describe("the songs table", () => {
 
         // Untagged tracks render an empty duration cell; NaN would silently break the
         // comparison rather than fail it, so they are dropped first.
-        const seconds = (await columnValues(page, "Dauer")).filter(Boolean).map(clockToSeconds);
+        await expect
+            .poll(async () => {
+                const seconds = (await columnValues(page, "Dauer")).filter(Boolean).map(clockToSeconds);
 
-        expect(seconds).toEqual([...seconds].sort((a, b) => a - b));
+                return seconds.join() === [...seconds].sort((a, b) => a - b).join();
+            })
+            .toBe(true);
     });
 
     test("reverses the order on a second click", async ({ page }) => {
@@ -67,8 +77,13 @@ test.describe("the songs table", () => {
         await header.click();
         await page.waitForURL(/dir=desc/u);
 
-        const seconds = (await columnValues(page, "Dauer")).filter(Boolean).map(clockToSeconds);
-        expect(seconds).toEqual([...seconds].sort((a, b) => b - a));
+        await expect
+            .poll(async () => {
+                const seconds = (await columnValues(page, "Dauer")).filter(Boolean).map(clockToSeconds);
+
+                return seconds.join() === [...seconds].sort((a, b) => b - a).join();
+            })
+            .toBe(true);
     });
 
     test("survives a reload, because the state is in the URL and not in memory", async ({ page }) => {
@@ -79,14 +94,14 @@ test.describe("the songs table", () => {
         await page.reload();
 
         await expect(page.locator("tbody tr").first()).toBeVisible();
-        expect(await columnValues(page, "Titel")).toEqual(sorted);
+        await expect.poll(() => columnValues(page, "Titel")).toEqual(sorted);
     });
 
     test("narrows to the one row a unique term matches", async ({ page }) => {
         await page.getByRole("searchbox").fill("Paranoid");
         await page.waitForURL(/search=/u);
 
-        expect(await columnValues(page, "Titel")).toStrictEqual([LIBRARY.uniqueTitle]);
+        await expect.poll(() => columnValues(page, "Titel")).toStrictEqual([LIBRARY.uniqueTitle]);
     });
 
     test("searches across the other columns, not just the title", async ({ page }) => {
@@ -141,7 +156,7 @@ test.describe("the songs table", () => {
         // Wait on the pager itself: "a row is visible" is already true of the page-2 rows
         // still on screen, so it races and compares the wrong page.
         await expectOnTablePage(page, 1);
-        expect(await columnValues(page, "Titel")).toEqual(firstPage);
+        await expect.poll(() => columnValues(page, "Titel")).toEqual(firstPage);
     });
 
     test("keeps the sort when paging, rather than resetting it", async ({ page }) => {
@@ -169,7 +184,7 @@ test.describe("the songs table", () => {
         await page.goBack();
 
         await page.waitForURL(/sort=name/u);
-        expect(await columnValues(page, "Titel")).toEqual(sorted);
+        await expect.poll(() => columnValues(page, "Titel")).toEqual(sorted);
     });
 
     test("opens a song's page from its row", async ({ page }) => {

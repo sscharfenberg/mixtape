@@ -47,19 +47,10 @@ test.afterEach(async ({ page }) => {
  */
 const waitForPlayback = async (page: Page): Promise<void> => {
     await expect
-        .poll(() => page.evaluate(() => document.querySelector("audio")?.currentTime ?? 0), { timeout: 10_000 })
+        .poll(() => page.evaluate(() => document.querySelector("audio")?.currentTime ?? 0))
         .toBeGreaterThan(0);
 };
 
-/**
- * Play a chapter and wait until its bookmark has actually been STORED.
- *
- * The write is fire-and-forget by design — a player must not stall on a bookmark — so a test
- * that navigated away as soon as the audio moved raced the request it depends on. The row did
- * land, a moment after the next page had already been rendered without it, which reads exactly
- * like the feature not working. Waiting on the response is the only honest fix; a timeout here
- * would just move the flake.
- */
 /**
  * THE LAST CHAPTER, always, and it is not an arbitrary choice.
  *
@@ -71,6 +62,15 @@ const waitForPlayback = async (page: Page): Promise<void> => {
  */
 const LAST_CHAPTER = 4;
 
+/**
+ * Play a chapter and wait until its bookmark has actually been STORED.
+ *
+ * The write is fire-and-forget by design — a player must not stall on a bookmark — so a test
+ * that navigated away as soon as the audio moved raced the request it depends on. The row did
+ * land, a moment after the next page had already been rendered without it, which reads exactly
+ * like the feature not working. Waiting on the response is the only honest fix; a timeout here
+ * would just move the flake.
+ */
 const playChapterAndStore = async (page: Page, row: number): Promise<void> => {
     const stored = page.waitForResponse(
         response => response.url().includes("/bookmark") && response.request().method() === "PUT"
@@ -91,10 +91,15 @@ test.describe("the audiobooks entry page", () => {
     });
 
     test("counts the collection and opens on the books", async ({ page }) => {
-        // Two books, eleven chapters, three authors, two narrators — the fixture, read back
-        // through the stats card.
+        /*
+         * Two books, eleven chapters, three authors, two narrators — the fixture, read back
+         * through the stats card. Asserted on the LABELLED tile rather than on the card's text:
+         * "2" appears somewhere in a card that also counts chapters, authors and narrators, so a
+         * containment check passes whatever the books count actually says.
+         */
         const card = page.locator(".widget-stats").first();
-        await expect(card).toContainText("2");
+        const books = card.locator(".widget-stats__cell", { hasText: /^Hörbücher/u });
+        await expect(books.locator(".widget-stats__value")).toHaveText("2");
 
         // The Books tab is first, so its grid is what a reader meets.
         await expect(page.getByRole("link", { name: /Necrophobia 1/ })).toBeVisible();

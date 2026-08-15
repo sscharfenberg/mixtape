@@ -99,7 +99,7 @@ test.describe("a share link, with no account", () => {
         await page.locator(".share__play").click();
 
         await expect.poll(async () => (await audioState(page)).src).toContain(`/s/${LIVE}/tracks/`);
-        await expect.poll(async () => (await audioState(page)).paused, { timeout: 5000 }).toBe(false);
+        await expect.poll(async () => (await audioState(page)).paused).toBe(false);
     });
 
     test("starts at the row a guest presses, and keeps the rest", async ({ page }) => {

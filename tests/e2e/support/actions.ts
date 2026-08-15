@@ -1,5 +1,5 @@
 import { expect } from "@playwright/test";
-import type { Page, Request } from "@playwright/test";
+import type { Page, Request, Response } from "@playwright/test";
 import { SEED_USER } from "./environment";
 
 /**
@@ -297,3 +297,18 @@ export const settled = async (page: Page): Promise<void> => {
         .poll(() => page.evaluate(() => document.elementFromPoint(4, 4)?.tagName ?? "NONE"))
         .not.toBe("HTML");
 };
+
+/**
+ * A response to the WRITE, not to a live-validation request that happens to share its verb.
+ *
+ * EVERY PRECOGNITION FORM IN THIS APP VALIDATES AGAINST THE ROUTE IT SUBMITS TO, WITH THE SAME
+ * METHOD — measured: `PUT /playlists/{id}` carrying `Precognition: true` and
+ * `Precognition-Validate-Only: description`, fired by the `change` event that Playwright's
+ * `fill()` dispatches. So a matcher on url + method alone resolves on the VALIDATION and reports
+ * that the save landed when nothing has been saved. The symptom is never at the cause: a later
+ * assertion reads a stale listing, several steps away.
+ *
+ * The real write is the one Inertia sends: `X-Inertia`, and no Precognition header.
+ */
+export const isWrite = (response: Response, method: "POST" | "PUT" | "PATCH" | "DELETE"): boolean =>
+    response.request().method() === method && response.request().headers().precognition === undefined;

@@ -288,8 +288,15 @@ test.describe("the header search overlay", () => {
         await expect(page.locator(".search-results__kind")).toHaveCount(1);
         await expect(page.locator(".search-results__kind")).toHaveText("Alben");
 
-        // The two mountings hold their own question: the widget's chips are untouched by this one.
-        await page.goto("/music");
+        /*
+         * The two mountings hold their own question — and this has to be reached by a CLIENT-SIDE
+         * visit to mean anything. `page.goto` is a full document load: the JS context is thrown
+         * away, so no state could survive it and the assertion would hold against an
+         * implementation that shared one module-level box between both search fields. Following a
+         * link keeps the context, which is the only way the leak could show.
+         */
+        await page.getByRole("link", { name: /^Musik$/u }).first().click();
+        await page.waitForURL(/\/music$/u);
         await expect(page.locator(".widget-stats__results")).toHaveCount(0);
     });
 

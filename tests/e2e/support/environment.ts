@@ -377,26 +377,6 @@ export const specStorageState = (spec: keyof typeof SPEC_USERS): string =>
     path.join(repoRoot, `tests/e2e/.auth/${SPEC_USERS[spec]}.json`);
 
 /**
- * Drop a spec account's stored play queue, straight in the database.
- *
- * WHY EVERY QUEUE SPEC NEEDS IT: the queue is server state, so a fresh browser context is not
- * a fresh player — the next test signs in as the same account and its first page load restores
- * whatever the last test left. Specs that assert "nothing is queued yet" would inherit a queue
- * nobody in that test ever built.
- *
- * STRAIGHT TO SQLITE RATHER THAN THROUGH THE APP'S OWN PUT, which is worth an hour of anyone's
- * time to know: an out-of-band request has to carry a session cookie AND a CSRF token that
- * still matches it, and a stored session that authenticates by remember-me gets a fresh
- * session — and with it a token the parked `XSRF-TOKEN` does not match. The request is then
- * bounced through a redirect chain and answers 405, from a URL that has nothing to do with the
- * queue. None of that is a fact about the app worth reproducing in a fixture; a DELETE is one
- * statement and cannot be redirected.
- *
- * `busy_timeout` because the running app holds the same file open: a reset that collided
- * with a request mid-flight would otherwise throw SQLITE_BUSY rather than wait the
- * millisecond out.
- */
-/**
  * Forget a spec account's audiobook bookmarks, straight in the database.
  *
  * WHY A RESET IS NEEDED AT ALL, and it is not the queue's reason: a bookmark is per (reader,
@@ -421,6 +401,26 @@ export const clearBookmarks = (spec: keyof typeof SPEC_USERS): void => {
     }
 };
 
+/**
+ * Drop a spec account's stored play queue, straight in the database.
+ *
+ * WHY EVERY QUEUE SPEC NEEDS IT: the queue is server state, so a fresh browser context is not
+ * a fresh player — the next test signs in as the same account and its first page load restores
+ * whatever the last test left. Specs that assert "nothing is queued yet" would inherit a queue
+ * nobody in that test ever built.
+ *
+ * STRAIGHT TO SQLITE RATHER THAN THROUGH THE APP'S OWN PUT, which is worth an hour of anyone's
+ * time to know: an out-of-band request has to carry a session cookie AND a CSRF token that
+ * still matches it, and a stored session that authenticates by remember-me gets a fresh
+ * session — and with it a token the parked `XSRF-TOKEN` does not match. The request is then
+ * bounced through a redirect chain and answers 405, from a URL that has nothing to do with the
+ * queue. None of that is a fact about the app worth reproducing in a fixture; a DELETE is one
+ * statement and cannot be redirected.
+ *
+ * `busy_timeout` because the running app holds the same file open: a reset that collided
+ * with a request mid-flight would otherwise throw SQLITE_BUSY rather than wait the
+ * millisecond out.
+ */
 export const clearServerQueue = async (spec: keyof typeof SPEC_USERS): Promise<void> => {
     const database = new DatabaseSync(path.join(repoRoot, "storage/e2e.sqlite"));
     // BEFORE ANYTHING ELSE, including the prepares: the app holds the same file open, and

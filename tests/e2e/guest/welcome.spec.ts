@@ -39,11 +39,16 @@ test("shows both collections' totals to a browser with no session", async ({ pag
     await expect(cards.nth(0).locator(".widget__title")).toHaveText(/Alle Musik/u);
     await expect(cards.nth(1).locator(".widget__title")).toHaveText(/Alle Hörbücher/u);
 
-    // Both cards are six tiles plus a year range, and the range is dropped when nothing on that
-    // shelf carries a year — which the randomly re-seeded E2E library cannot promise. So both
-    // are asserted as a floor rather than pinned to a number this suite does not control.
-    expect(await cards.nth(0).locator(".widget-stats__cell").count()).toBeGreaterThanOrEqual(6);
-    expect(await cards.nth(1).locator(".widget-stats__cell").count()).toBeGreaterThanOrEqual(6);
+    /*
+     * EXACT COUNTS, because the E2E fixture is deterministic (E2ESeeder: fixed ids, names and
+     * durations, no `fake()` and no `now()`) — a floor would pass on a card that had lost a tile.
+     * Six tiles each plus a year range, which both shelves earn because the year lives on the
+     * COLLECTION and the seeder gives one to every album and every book. The range is the tile
+     * that disappears on its own — it is dropped when nothing on a shelf carries a year — so it
+     * is the one worth counting rather than assuming.
+     */
+    await expect(cards.nth(0).locator(".widget-stats__cell")).toHaveCount(7);
+    await expect(cards.nth(1).locator(".widget-stats__cell")).toHaveCount(7);
 });
 
 test("explains itself before it starts counting, and hands the visitor a way in", async ({ page }) => {
