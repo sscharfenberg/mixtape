@@ -128,6 +128,17 @@ npm run test:e2e      # end-to-end suite
 | [`Music/CoverImage/README.md`](resources/app/components/Music/CoverImage/README.md) | All artwork goes through it — never hand-roll an `<img>` for a cover |
 | [`Music/Discography/README.md`](resources/app/components/Music/Discography/README.md) | A short, unpaginated cover grid for a block inside a page |
 
+## Dependency updates
+
+Dependabot opens weekly PRs for composer and npm, and monthly ones for the workflow actions
+([`.github/dependabot.yml`](.github/dependabot.yml)). Security advisories arrive the same way.
+
+Deliberately **not** a CI gate: `composer audit` / `npm audit` fail a build for something the
+build did not break, so a fresh advisory turns the next unrelated push red — and on a Vite tree
+most `npm audit` findings are transitive devDependencies that never reach a browser. A gate that
+cries wolf gets switched off. The trade is that nothing stops a vulnerable dependency shipping,
+which is the right way round for one household's server.
+
 ## Licence
 
 [MIT](LICENSE) — for the source code. Fork it, run it, change it.

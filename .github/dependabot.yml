@@ -1,0 +1,54 @@
+# Dependency updates and security advisories, as pull requests.
+#
+# WHY THIS RATHER THAN AN AUDIT STEP IN CI. `composer audit` and `npm audit` fail a build for
+# something the build did not break, on a schedule nobody chose — a fresh advisory turns the
+# next unrelated push red. Worse, `npm audit` is famously noisy on a Vite/ESLint tree, where
+# most findings sit in transitive devDependencies that never reach a browser, and the usual
+# response to a gate that cries wolf is to switch it off. Dependabot puts the same information
+# where it can be judged: a PR, with the changelog and the CI run attached.
+#
+# The trade is that nothing STOPS a vulnerable dependency shipping. That is the right way round
+# here — this instance is deliberately internet-facing, but it is one household's server, and a
+# blocked deploy on a Sunday is a worse failure than a day's delay patching a transitive dev
+# dependency.
+version: 2
+
+updates:
+    # The runtime code that actually faces the internet: Laravel, Fortify, Inertia, getID3.
+    # Eight direct requirements, so the volume here is low and every PR is worth reading.
+    - package-ecosystem: composer
+      directory: /
+      schedule:
+          interval: weekly
+          day: sunday
+      open-pull-requests-limit: 5
+      groups:
+          # Laravel's own packages move together; separate PRs for framework, fortify and
+          # tinker would conflict with each other on composer.lock.
+          laravel:
+              patterns:
+                  - "laravel/*"
+
+    - package-ecosystem: npm
+      directory: /
+      schedule:
+          interval: weekly
+          day: sunday
+      open-pull-requests-limit: 5
+      groups:
+          # FORTY dev dependencies against seven runtime ones, and a bump to any of eslint,
+          # vite, vitest or playwright usually drags its plugins with it. Grouped so the
+          # tooling arrives as one reviewable PR rather than a dozen that each fail until the
+          # others land.
+          dev-tooling:
+              dependency-type: development
+              update-types:
+                  - minor
+                  - patch
+
+    # The workflow actions themselves. Pinned by major tag, so this is how a deprecated runner
+    # image or a retired action version gets noticed before it stops working.
+    - package-ecosystem: github-actions
+      directory: /
+      schedule:
+          interval: monthly
