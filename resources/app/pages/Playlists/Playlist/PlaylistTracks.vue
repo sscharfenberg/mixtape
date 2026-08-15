@@ -22,12 +22,26 @@
  * `portrait` adds the artist, `landscape` the album and the artwork, `desktop` the runtime,
  * and `full` the year. The order is by how much each one tells you apart from the title.
  *
- * ONE BUTTON, AND IT MEANS THE PLAYLIST. Pressing play on the fourth row queues the WHOLE
+ * PLAY MEANS THE PLAYLIST, NOT THE ROW. Pressing play on the fourth row queues the WHOLE
  * playlist and starts at that row — which is what a running order is for, and what every
- * player does. It replaced a play/enqueue pair that both acted on the single track: "play
- * this one song" throws away the list you are looking at, and per-row enqueue is what the
- * hero's menu already does for the whole playlist. The tooltip says which of the two it is,
- * because "play" alone cannot.
+ * player does. It is not a play/enqueue pair acting on the single track: "play this one song"
+ * throws away the list you are looking at, and per-row enqueue is what the hero's menu already
+ * does for the whole playlist. The tooltip says which of the two it is, because "play" alone
+ * cannot.
+ *
+ * REMOVE SITS BEFORE IT, AND HAS NO CONFIRMATION (owner's call). The two are deliberately
+ * unalike to look at — play wears the header's current-area colour, remove stays as quiet as
+ * the grip — because a destructive control that looks like the one beside it is a control
+ * people press by accident. What makes going without a dialog reasonable is that this is
+ * cheap to undo by hand: the track, the file and every other playlist holding it are all
+ * untouched, and putting it back is the "add to playlist" the reader already has. The flash
+ * names what went, since the row that would have answered "which one?" is the row that just
+ * disappeared. Deleting the PLAYLIST is the opposite case and does get a dialog — see
+ * PlaylistDeleteModal.
+ *
+ * IT SENDS THE ENTRY ID, not the track's: the same track may sit in a playlist twice, so a
+ * track id would not say which of the two rows to take out. That is the same id a reorder
+ * sends, and the same one this list is keyed by.
  *
  * NOTHING HERE COSTS A REQUEST. Each row already IS a queue entry (PlaylistController sends
  * the whole playlist as one, since every entry of it is on screen anyway), so the button acts
@@ -53,8 +67,8 @@
  * REORDERING lives in usePlaylistTrackReorder, which owns the optimistic local order and the
  * PUT that persists it; this file supplies the grip, the keyboard handler and the classes.
  *****************************************************************************/
-import { Link } from "@inertiajs/vue3";
-import { useTemplateRef } from "vue";
+import { Link, router } from "@inertiajs/vue3";
+import { ref, useTemplateRef } from "vue";
 import { useI18n } from "vue-i18n";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import Icon from "Components/UI/Icon.vue";
@@ -149,6 +163,33 @@ function playFrom(index: number): void {
     playNow(entries.value, index);
     play();
 }
+
+/**
+ * Which entry has a DELETE in flight, so its own button can be disabled for the round trip.
+ *
+ * One id rather than a boolean: the rows share this component, so a flag would grey out all
+ * of them for a request about one.
+ */
+const removing = ref<string | null>(null);
+
+/**
+ * Take this entry out of the playlist.
+ *
+ * NOT OPTIMISTIC, unlike the drag beside it, and the asymmetry is deliberate. A reorder has
+ * to paint before the server answers — a row that snapped back under the pointer would make
+ * the list feel broken — and it can afford to, because the worst case is an order that
+ * reverts. A removal that painted first would take the row out of a list the server may then
+ * refuse, and the reader would have watched something be deleted that still exists. So the
+ * row goes when the server says it went, and `preserveScroll` keeps the page where it was
+ * while that happens.
+ */
+function remove(track: PlaylistTrackRow): void {
+    removing.value = track.entryId;
+    router.delete(`/playlists/${props.playlistId}/tracks/${track.entryId}`, {
+        preserveScroll: true,
+        onFinish: () => (removing.value = null)
+    });
+}
 </script>
 
 <template>
@@ -213,6 +254,21 @@ function playFrom(index: number): void {
                     <icon name="calendar" :size="1" />{{ track.year }}
                 </span>
             </span>
+
+            <!-- Take it out of the list. `playlist_remove` rather than the bare `delete` bin
+                 the hero's button wears, because the two acts are different sizes and the
+                 glyphs should say so: this one takes a track OUT OF A LIST, the other ends
+                 the list. `disabled` only for its own round trip — see `remove()`. -->
+            <button
+                type="button"
+                class="playlist-tracks__remove"
+                v-tooltip="t('playlists.detail.removeHint')"
+                :aria-label="t('playlists.detail.remove', { name: track.name })"
+                :disabled="removing === track.entryId"
+                @click="remove(track)"
+            >
+                <icon name="playlist_remove" :size="1" />
+            </button>
 
             <!-- Icon only. What it does is carried by the tooltip on hover and by `aria-label`
                  for everyone who never sees one — and both say "from here", because a bare play
@@ -327,12 +383,13 @@ function playFrom(index: number): void {
     }
 }
 
-/* …and the two real controls are lifted back above the overlay. A POSITION IS REQUIRED, not
-   just a z-index: the overlay is positioned, so it paints above every non-positioned
-   descendant of the same stacking context regardless of DOM order, and without this it would
-   silently swallow both — the row would navigate while neither control could be pressed.
-   Exactly the trap the playlists listing and the play queue's row both document. */
+/* …and the real controls are lifted back above the overlay. A POSITION IS REQUIRED, not just
+   a z-index: the overlay is positioned, so it paints above every non-positioned descendant of
+   the same stacking context regardless of DOM order, and without this it would silently
+   swallow all three — the row would navigate while none of them could be pressed. Exactly the
+   trap the playlists listing and the play queue's row both document. */
 .playlist-tracks__handle,
+.playlist-tracks__remove,
 .playlist-tracks__play {
     position: relative;
     z-index: z.$c-playlist-tracks;
@@ -521,16 +578,16 @@ function playFrom(index: number): void {
     }
 }
 
-/* The play button, holding the trailing edge. `margin-inline-start: auto` is what keeps it
-   there at every width, and it is not redundant with the title's `flex: 1` — that only absorbs
-   the slack while everything shares one line; where the facts fill the line and the button
-   wraps onto its own, it is the only item there and would otherwise sit at its leading edge,
-   under the title.
+/* THE PAIR THAT ENDS THE ROW, and the trailing edge is held by the FIRST of them:
+   `margin-inline-start: auto` on the remove button pushes both against it, and it is not
+   redundant with the title's `flex: 1` — that only absorbs the slack while everything shares
+   one line; where the facts fill the line and the buttons wrap onto their own, they would
+   otherwise sit at its leading edge, under the title.
 
-   A SUBTLE FILL AT REST rather than a bare glyph (owner's call), so the target is visible
-   rather than implied — the same wash the grip carries, and the same argument the listing's
-   handle makes. It lights to the control neon under the pointer or on focus, which is also
-   where the row's own halo appears: one moment, two signals, saying "this row is live". */
+   Shape only here — the two are deliberately coloured differently, which is the next two
+   rules. Sharing the box and not the paint is the whole point: they must be the same size to
+   sit as a pair, and must not read as the same control. */
+.playlist-tracks__remove,
 .playlist-tracks__play {
     display: inline-flex;
     align-items: center;
@@ -538,10 +595,6 @@ function playFrom(index: number): void {
     flex: 0 0 auto;
     padding: map.get(s.$c-playlist-tracks, "control-padding");
     border: 0;
-    margin-inline-start: auto;
-
-    background-color: map.get(c.$c-playlist-tracks, "control-background");
-    color: map.get(c.$c-playlist-tracks, "control");
 
     border-radius: map.get(s.$c-playlist-tracks, "control-radius");
 
@@ -553,17 +606,58 @@ function playFrom(index: number): void {
             background-color ti.$c-playlist-tracks linear;
     }
 
+    /* `:focus-visible` rather than `:focus`, so a pointer click doesn't leave the button lit
+       after the pointer has gone. The outline is what a keyboard user gets on top of the fill,
+       since the row's own halo says "somewhere in here" and cannot say which control. */
+    &:focus-visible {
+        outline: 2px solid currentcolor;
+    }
+}
+
+/* REMOVE — as quiet as the grip, and that is a safety decision rather than a visual one: it
+   is the destructive control of the two, so it must not compete for the press that the
+   coloured button beside it is asking for.
+
+   A SUBTLE FILL AT REST rather than a bare glyph (owner's call), so the target is visible
+   rather than implied — the same wash the grip carries, and the same argument the listing's
+   handle makes. It comes up to the control neon under the pointer or on focus, which is also
+   where the row's own halo appears: one moment, two signals, saying "this row is live".
+
+   `margin-inline-start: auto` — see the shared rule above; it holds the trailing edge for the
+   pair. */
+.playlist-tracks__remove {
+    margin-inline-start: auto;
+
+    background-color: map.get(c.$c-playlist-tracks, "control-background");
+    color: map.get(c.$c-playlist-tracks, "control");
+
     &:hover,
     &:focus-visible {
         background-color: map.get(c.$c-playlist-tracks, "control-background-active");
         color: map.get(c.$c-playlist-tracks, "control-active");
     }
 
-    /* `:focus-visible` rather than `:focus`, so a pointer click doesn't leave the button lit
-       after the pointer has gone. The outline is what a keyboard user gets on top of the wash,
-       since the row's own halo says "somewhere in here" and cannot say which control. */
+    /* Only for its own request (see `remove()`), so this is a brief state rather than a
+       resting one — dimmed and inert, with the pointer saying the press will do nothing. */
+    &:disabled {
+        opacity: 0.5;
+
+        cursor: default;
+    }
+}
+
+/* PLAY — the coloured one, wearing the header's current-area pill (owner's call). It is what
+   a reader opened the playlist to press, and the one control here that says so at rest rather
+   than on hover. Inverting on hover and focus is the same fill↔ink flip the header's pill
+   performs, so the two read as the same object in two places. */
+.playlist-tracks__play {
+    background-color: map.get(c.$c-playlist-tracks, "play-background");
+    color: map.get(c.$c-playlist-tracks, "play");
+
+    &:hover,
     &:focus-visible {
-        outline: 2px solid currentcolor;
+        background-color: map.get(c.$c-playlist-tracks, "play-background-active");
+        color: map.get(c.$c-playlist-tracks, "play-active");
     }
 }
 </style>

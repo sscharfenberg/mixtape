@@ -31,9 +31,11 @@ use App\Http\Controllers\NowPlayingController;
 use App\Http\Controllers\Player\PlayController;
 use App\Http\Controllers\Player\PlayerStateController;
 use App\Http\Controllers\Playlists\PlaylistController;
+use App\Http\Controllers\Playlists\PlaylistDeleteController;
 use App\Http\Controllers\Playlists\PlaylistExportController;
 use App\Http\Controllers\Playlists\PlaylistMetadataController;
 use App\Http\Controllers\Playlists\PlaylistOrderController;
+use App\Http\Controllers\Playlists\PlaylistTrackDeleteController;
 use App\Http\Controllers\Playlists\PlaylistTrackOrderController;
 use App\Http\Controllers\Playlists\PlaylistTracksController;
 use App\Http\Controllers\PlaylistsController;
@@ -190,6 +192,34 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
             ->whereUuid('playlist')
             ->middleware(['throttle:30,1,playlist-update', HandlePrecognitiveRequests::class])
             ->name('playlists.update');
+
+        // One entry out of one playlist, pressed straight from its row. The ENTRY id, not the
+        // track's: the same track may sit in a playlist twice, so a track id would not say
+        // which of the two to remove (DeletePlaylistTrackRequest carries the whole argument).
+        //
+        // Registered ahead of the playlist DELETE below only for readability — the two cannot
+        // be confused, since this one has two more segments.
+        //
+        // A LOOSER BOUND THAN THE WRITES ABOVE, at the reorder's 60 rather than the update's
+        // 30: tidying a playlist is a burst — a reader prunes six entries in the time it takes
+        // to read them — where a rename is one considered save. Its own bucket per the rule at
+        // the top of this file.
+        Route::delete('/playlists/{playlist}/tracks/{entry}', PlaylistTrackDeleteController::class)
+            ->whereUuid(['playlist', 'entry'])
+            ->middleware('throttle:60,1,playlist-track-delete')
+            ->name('playlists.tracks.destroy');
+
+        // The playlist itself, behind a confirmation dialog on its detail page. The database
+        // cascades from here into `playlist_tracks` AND `shares`, so this also revokes every
+        // link minted from the playlist — see DeletePlaylistRequest.
+        //
+        // 10/min, the tightest write here, and deliberately: this is the one act on a playlist
+        // that cannot be undone by doing the opposite, so there is no reader-facing reason to
+        // want it in a burst.
+        Route::delete('/playlists/{playlist}', PlaylistDeleteController::class)
+            ->whereUuid('playlist')
+            ->middleware('throttle:10,1,playlist-delete')
+            ->name('playlists.destroy');
 
         // What is playing right now. Offered by the header only while the queue holds
         // something (useSiteAreas), but reachable regardless: the queue is client state,

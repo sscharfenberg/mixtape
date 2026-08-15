@@ -522,7 +522,9 @@
             "play": "Wiedergabeliste ab „{name}“ abspielen",
             "playHint": "Wiedergabeliste ab hier abspielen",
             "reorder": "„{name}“ verschieben",
-            "reorderHint": "Ziehen zum Umsortieren – oder anklicken, dann {keys}"
+            "reorderHint": "Ziehen zum Umsortieren – oder anklicken, dann {keys}",
+            "remove": "„{name}“ aus der Wiedergabeliste entfernen",
+            "removeHint": "Entfernt diesen Titel aus der Wiedergabeliste — ohne Nachfrage. Die Datei selbst bleibt erhalten."
         },
         "export": {
             "open": "Playlist-Datei exportieren",
@@ -550,6 +552,14 @@
             "tooltip": "Sortiert die Titel nach Dateipfad — also nach Ordner und Dateiname, so wie sie auf der Platte liegen. Bringt ein Album wieder in seine Reihenfolge.",
             "done": "Playlist nach Dateipfad sortiert.",
             "already": "Die Playlist ist bereits nach Dateipfad sortiert."
+        },
+        "delete": {
+            "open": "Löschen",
+            "tooltip": "Löscht diese Wiedergabeliste endgültig — samt aller Links, die daraus geteilt wurden.",
+            "header": "Wiedergabeliste löschen",
+            "body": "„{name}“ wird endgültig gelöscht. Die Titel selbst bleiben unangetastet — nur diese Zusammenstellung verschwindet.",
+            "warning": "Bereits verschickte Links auf diese Wiedergabeliste hören sofort auf zu funktionieren und lassen sich nicht wiederherstellen.",
+            "confirm": "Endgültig löschen"
         },
         "empty": {
             "headline": "Noch keine Wiedergabeliste",

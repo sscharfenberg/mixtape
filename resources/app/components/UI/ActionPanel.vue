@@ -20,6 +20,12 @@
  * playlist. NOT the download button, which sits on the row below beside share: those two are
  * the pair that take the subject somewhere else entirely.
  *
+ * A page may add a verb of its OWN alongside those — the playlist page puts Delete here — and
+ * the test is the same one that keeps download out: does this act on the subject in front of
+ * the reader, or does it send the subject somewhere? Deleting acts on it, so it belongs with
+ * the controls rather than in the quieter row beneath, where the most consequential button on
+ * the page would be the least visible.
+ *
  * NOT the hero's `__actions` row itself, deliberately: the playlist page and Now Playing
  * both slot plain buttons and a link in there, untinted, and a box drawn by HeroSection
  * would give them one they never asked for. A page opts in by wrapping. That is also what

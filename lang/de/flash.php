@@ -58,6 +58,13 @@ return [
         'tracks_added' => ':count Titel wurden zu ":playlist" hinzugefügt.',
         // Kein Fehler, sondern eine Antwort: die Wiedergabeliste enthält bereits alles davon.
         'tracks_already' => '":playlist" enthält bereits alle diese Titel.',
+        // Benennt die Liste, weil diese Meldung auf der ÜBERSICHT gelesen wird: die Seite, die
+        // gesagt hätte, um welche es geht, ist gerade verschwunden.
+        'deleted' => 'Die Wiedergabeliste ":name" wurde gelöscht.',
+        // Benennt den Titel aus demselben Grund wie eine Zeile darüber — die Zeile, die die
+        // Frage "welcher?" beantwortet hätte, ist eben verschwunden — und die Liste, weil ein
+        // Titel in mehreren stehen kann.
+        'track_removed' => '":name" wurde aus ":playlist" entfernt.',
     ],
 
     'share' => [

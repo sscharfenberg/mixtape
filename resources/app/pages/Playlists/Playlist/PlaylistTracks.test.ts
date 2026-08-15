@@ -289,7 +289,8 @@ describe("PlaylistTracks", () => {
         });
 
         it("names each chip with an icon, so a value reads without a label", () => {
-            // Grip and artwork lead the row, the four chips follow, the play button ends it.
+            // Grip and artwork lead the row, the four chips follow, and the two controls end
+            // it — remove before play, which is the order they are read and pressed in.
             expect(iconNames(list([track()]))).toStrictEqual([
                 "drag",
                 "music",
@@ -297,6 +298,7 @@ describe("PlaylistTracks", () => {
                 "album",
                 "duration",
                 "calendar",
+                "playlist_remove",
                 "play"
             ]);
         });
@@ -317,14 +319,15 @@ describe("PlaylistTracks", () => {
             expect(title.attributes("href")).toBe("/music/songs/track-9");
         });
 
-        it("keeps both controls OUT of that link", () => {
+        it("keeps all three controls OUT of that link", () => {
             // Nesting a button in an anchor renders perfectly and misbehaves: the press would
             // follow the link as well as run the handler, and assistive tech announces one
-            // control where there are two.
+            // control where there are three. The count is asserted so a control added later
+            // has to come past this test rather than quietly landing inside the anchor.
             const wrapper = list([track()]);
 
             expect(wrapper.find("a.playlist-tracks__name button").exists()).toBe(false);
-            expect(wrapper.findAll(".playlist-tracks__item button")).toHaveLength(2);
+            expect(wrapper.findAll(".playlist-tracks__item button")).toHaveLength(3);
         });
 
         it("carries the track's artwork", () => {
@@ -366,6 +369,78 @@ describe("PlaylistTracks", () => {
 
             expect(wrapper.find("ul").exists()).toBe(false);
             expect(wrapper.text()).toBe(translate("playlists.detail.empty"));
+        });
+    });
+
+    /*
+     * The remove button. What is worth testing here is WHICH id it sends and that a second
+     * press cannot follow the first — the server-side guards are
+     * tests/Feature/Playlists/DeletePlaylistTrackTest.php's, and the colour that keeps it from
+     * being mistaken for the play button beside it is CSS, so Playwright's.
+     */
+    describe("removing an entry", () => {
+        it("sends the ENTRY id, not the track's", async () => {
+            /*
+             * The one that matters: the same track can sit in a playlist twice, so a track id
+             * would not say which row to take out — and both rows here share `id` precisely so
+             * a mix-up cannot pass.
+             */
+            const wrapper = list([
+                track({ entryId: "entry-a", id: "same-track" }),
+                track({ entryId: "entry-b", id: "same-track" })
+            ]);
+
+            await wrapper.findAll("button.playlist-tracks__remove")[1].trigger("click");
+
+            expect(routerCalls).toHaveLength(1);
+            expect(routerCalls[0].method).toBe("delete");
+            expect(routerCalls[0].url).toBe("/playlists/playlist-1/tracks/entry-b");
+        });
+
+        it("keeps the page where it is", async () => {
+            // A row vanishing from the middle of a long list would otherwise take the reader's
+            // scroll position with it.
+            const wrapper = list([track()]);
+
+            await wrapper.find("button.playlist-tracks__remove").trigger("click");
+
+            expect(routerCalls[0].options?.preserveScroll).toBe(true);
+        });
+
+        it("disables only its own button while the request is in flight", async () => {
+            /*
+             * Per-row rather than a shared flag: a boolean would grey out every row in the
+             * list for a request about one of them, and the reader would read that as the
+             * whole playlist having gone inert.
+             */
+            const wrapper = list([track({ entryId: "entry-a" }), track({ entryId: "entry-b" })]);
+
+            await wrapper.findAll("button.playlist-tracks__remove")[0].trigger("click");
+
+            const buttons = wrapper.findAll("button.playlist-tracks__remove");
+            expect(buttons[0].attributes("disabled")).toBeDefined();
+            expect(buttons[1].attributes("disabled")).toBeUndefined();
+        });
+
+        it("names the track it would remove, for anyone who never sees a tooltip", () => {
+            // `translate` looks a key up, it does not interpolate — the placeholder is filled
+            // in here so the assertion still fails if the KEY changes.
+            const wrapper = list([track({ name: "Airbag" })]);
+
+            expect(wrapper.find("button.playlist-tracks__remove").attributes("aria-label")).toBe(
+                translate("playlists.detail.remove").replace("{name}", "Airbag")
+            );
+        });
+
+        it("does not touch the play queue", async () => {
+            // Removing an entry is a library edit, not a playback command — and the row it
+            // sits in is the one whose other button explicitly does queue the playlist.
+            const wrapper = list([track()]);
+            const { tracks: queued } = usePlayerQueue();
+
+            await wrapper.find("button.playlist-tracks__remove").trigger("click");
+
+            expect(queued.value).toHaveLength(0);
         });
     });
 });

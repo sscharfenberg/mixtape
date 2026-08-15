@@ -522,7 +522,9 @@
             "play": "Play the playlist from “{name}”",
             "playHint": "Play the playlist from here",
             "reorder": "Move “{name}”",
-            "reorderHint": "Drag to reorder – or click it, then {keys}"
+            "reorderHint": "Drag to reorder – or click it, then {keys}",
+            "remove": "Remove “{name}” from the playlist",
+            "removeHint": "Removes this track from the playlist — with no confirmation. The file itself is untouched."
         },
         "export": {
             "open": "Export playlist file",
@@ -550,6 +552,14 @@
             "tooltip": "Sorts the tracks by file path — by folder and file name, the way they sit on the disk. Puts an album back into its own order.",
             "done": "Playlist sorted by file path.",
             "already": "The playlist is already sorted by file path."
+        },
+        "delete": {
+            "open": "Delete",
+            "tooltip": "Deletes this playlist for good — along with every link shared from it.",
+            "header": "Delete playlist",
+            "body": "“{name}” will be deleted for good. The tracks themselves are untouched — only this compilation goes.",
+            "warning": "Links to this playlist that you have already sent stop working immediately, and cannot be restored.",
+            "confirm": "Delete for good"
         },
         "empty": {
             "headline": "No playlists yet",

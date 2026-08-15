@@ -45,6 +45,7 @@ import Icon from "Components/UI/Icon.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import { useToast } from "Composables/useToast";
 import { formatDateTime, formatDuration } from "Utils/formatting";
+import PlaylistDeleteModal from "./PlaylistDeleteModal.vue";
 import PlaylistExportModal from "./PlaylistExportModal.vue";
 import PlaylistTracks, { type PlaylistTrackRow } from "./PlaylistTracks.vue";
 
@@ -124,6 +125,9 @@ const dateOf = (iso: string | null): string => formatDateTime(iso, locale.value)
 
 /** Whether the export modal is open. Mounted only while it is, like the dashboard's. */
 const exporting = ref(false);
+
+/** Whether the delete confirmation is open. Mounted only while it is, like the export one. */
+const deleting = ref(false);
 
 /**
  * The list, so the hero's Sort button can reach the verb it exposes.
@@ -221,6 +225,25 @@ function sort(): void {
                 <template #actions>
                     <action-panel>
                         <subject-actions :tracks="tracks" />
+                        <!-- THE ONE DESTRUCTIVE VERB, and it sits in the panel rather than on
+                             the row below (owner's call) — which is a deliberate exception to
+                             what ActionPanel's banner says it holds. The lower row is for the
+                             actions that take the playlist somewhere ELSE: export it, share
+                             it. Deleting does not take it anywhere, it ends it, and grouping
+                             that with "share" would put the most consequential button on the
+                             page in the quietest row.
+                             `no-halo` like every other button standing on the hero's own
+                             surface, per Button.vue. -->
+                        <Button
+                            variant="default"
+                            no-halo
+                            type="button"
+                            v-tooltip="t('playlists.delete.tooltip')"
+                            @click="deleting = true"
+                        >
+                            <icon name="delete" :size="1" />
+                            <span>{{ t("playlists.delete.open") }}</span>
+                        </Button>
                     </action-panel>
                     <!-- BOTH LOWER BUTTONS CARRY A TOOLTIP, because both labels name a verb whose meaning is a decision the reader
                          cannot see: "export" says nothing about .m3u, about which of the two
@@ -281,6 +304,16 @@ function sort(): void {
         :default-prefix="exportPrefix"
         :tracks="tracks"
         @close="exporting = false"
+    />
+
+    <!-- Same treatment, and for a sharper reason than the export's: a confirmation that
+         remembered it had been opened before would be a dialog whose button is already
+         one press closer than the reader left it. -->
+    <playlist-delete-modal
+        v-if="deleting"
+        :id="playlist.id"
+        :name="playlist.name"
+        @close="deleting = false"
     />
 </template>
 

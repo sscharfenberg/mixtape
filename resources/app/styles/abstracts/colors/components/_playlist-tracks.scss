@@ -11,12 +11,18 @@
  * looks like. The halo is the app's control neon, which the DataTable's clickable rows and
  * the open popover also light up with, because it means the same thing everywhere.
  *
- * The two controls — the grip that leads a row and the play button that ends it — stay QUIET
- * AT REST, like the play queue's per-row grip and remove buttons: they are the same glyph on
- * every row, so at full contrast a list of thirty entries is sixty competing marks and the
- * titles stop being what you read first. They come up to the control neon under the pointer
- * or on focus, which is also where the row's own halo appears — one moment, two signals,
- * saying "this row is live".
+ * THE GRIP AND THE REMOVE BUTTON stay QUIET AT REST, like the play queue's per-row pair: they
+ * are the same glyph on every row, so at full contrast a list of thirty entries is a wall of
+ * competing marks and the titles stop being what you read first. They come up to the control
+ * neon under the pointer or on focus, which is also where the row's own halo appears — one
+ * moment, two signals, saying "this row is live".
+ *
+ * THE PLAY BUTTON IS THE EXCEPTION AND IS COLOURED (owner's call). It is the one thing a
+ * reader comes to a playlist to press, and it wears the header's CURRENT-AREA pill — the same
+ * fill and ink the site menu gives the section you are in, re-picked from the globals here
+ * rather than read across from that partial. Two controls that look alike invite the wrong
+ * one; the destructive neighbour is deliberately the quiet one, so the eye lands on play.
+ * It inverts on hover and focus, which is the same fill↔ink flip the header's pill performs.
  *
  * Both carry a WASH EVEN AT REST, though, which is the listing's handle finding: a control
  * whose edges you cannot see is one you aim at by guesswork, on a phone especially. It is
@@ -58,9 +64,18 @@ $playlist-tracks: (
             color.adjust(map.get(c.$grey, "iron"), $alpha: -0.6),
             color.adjust(map.get(c.$grey, "asher"), $alpha: -0.5)
         ),
-    // the grip and the play button: quiet at rest (see above), neon when live
+    // the grip and the remove button: quiet at rest (see above), neon when live
     "control": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
     "control-active": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
+    // …and the play button, which is not quiet: the header's current-area pill, picked from
+    // the same globals SiteMenuLinks picks its `active-*` set from. Dark mode swaps which of
+    // the two brand pairs reads as "current", which is why this is a light-dark of two
+    // different families rather than one family's two ends.
+    "play": light-dark(map.get(c.$retro, "c4", "light"), map.get(c.$brand, "dark2", "contrast")),
+    "play-background": light-dark(map.get(c.$brand, "light2", "color"), map.get(c.$brand, "dark2", "color")),
+    // the same pair inverted, so pressing-ward motion reads as the pill lighting up
+    "play-active": light-dark(map.get(c.$brand, "light2", "color"), map.get(c.$brand, "dark2", "color")),
+    "play-background-active": light-dark(map.get(c.$retro, "c4", "light"), map.get(c.$brand, "dark2", "contrast")),
     // The wash under one at rest, so its edges are visible rather than implied.
     //
     // THE TWO THEMES GO OPPOSITE WAYS, and the dark side is the one that had to be fixed:

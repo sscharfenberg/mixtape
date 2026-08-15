@@ -21,12 +21,13 @@ import { clearServerQueue, specStorageState } from "../support/environment";
  *   - THE DRAG, which is a stream of pointer events over elements with real geometry.
  *   - THE EMPTY STATE, which is the one a new account meets first.
  *
- * BOTH PLAYLISTS COME FROM THE FIXTURE (E2ESeeder::seedPlaylists), which is also why that
- * fixture exists: with no "add to playlist" UI there is nothing to drive, and the first
- * version of this file INSERTED its own rows straight into sqlite to get a populated page.
- * Seeding them instead makes the shape a property of the fixture — where the deliberately
- * non-alphabetical order, the untagged track and the three same-album-free covers are
- * documented — rather than of this file. The REORDER specs use a third playlist of their own,
+ * BOTH PLAYLISTS COME FROM THE FIXTURE (E2ESeeder::seedPlaylists), which is what makes their
+ * SHAPE a property of the fixture rather than of this file: the deliberately non-alphabetical
+ * order, the untagged track and the three same-album-free covers are documented there, and
+ * nearly every assertion below leans on one of them. Building the same shape through the
+ * "add to playlist" UI would spend a page load per track restating what the seeder already
+ * guarantees — and would make a fault in THAT feature surface as a failure in whichever
+ * assertion here happened to run first. The REORDER specs use a third playlist of their own,
  * because they write: sharing one with the tests that assert the reader's order would leave
  * those passing or failing on which ran first.
  *
@@ -225,7 +226,7 @@ test.describe("a playlist's detail page", () => {
         await expect(page.getByRole("heading", { level: 2, name: "Karma Police" })).toBeVisible();
     });
 
-    test("keeps the two controls out of that overlay", async ({ page }) => {
+    test("keeps all three controls out of that overlay", async ({ page }) => {
         /*
          * The other half of a stretched link, and the one that breaks silently: the overlay is
          * positioned, so it paints above every non-positioned descendant whatever the DOM
@@ -247,6 +248,45 @@ test.describe("a playlist's detail page", () => {
         await page.locator(".playlist-tracks__play").first().click();
         await expect(page.locator(".player-bar")).toBeVisible();
         expect(page.url()).toBe(url);
+
+        /*
+         * The remove button is asked the same question WITHOUT being pressed, because pressing
+         * it would delete a row the rest of this file reads. `elementFromPoint` answers what
+         * would actually receive the click, which is the whole thing the rung decides — the
+         * two clicks above only observe it indirectly, through what they set off.
+         */
+        const box = (await page.locator(".playlist-tracks__remove").first().boundingBox())!;
+        const hit = await page.evaluate(
+            ([x, y]) => document.elementFromPoint(x, y)?.closest(".playlist-tracks__remove") !== null,
+            [box.x + box.width / 2, box.y + box.height / 2]
+        );
+
+        expect(hit).toBe(true);
+    });
+
+    test("colours the play button and leaves its destructive neighbour quiet", async ({ page }) => {
+        /*
+         * PLAYWRIGHT IS THE ONLY LAYER THAT CAN SEE THIS. The two buttons share a shape rule
+         * and differ only in paint, so a computed style is the assertion — Vitest compiles no
+         * styles at all.
+         *
+         * It also guards a failure mode this project has already been bitten by: both colours
+         * come from `light-dark()` tokens, and a CSS pipeline that cannot express that drops
+         * the whole declaration rather than erroring. The button would then inherit a
+         * transparent background, the build would stay green, and the only symptom would be a
+         * control that quietly stopped standing out. Hence the explicit "not transparent"
+         * rather than only "not equal to each other".
+         */
+        await openFromListing(page, POPULATED);
+
+        const background = (selector: string): Promise<string> =>
+            page.locator(selector).first().evaluate(node => getComputedStyle(node).backgroundColor);
+
+        const play = await background(".playlist-tracks__play");
+        const remove = await background(".playlist-tracks__remove");
+
+        expect(play).not.toBe("rgba(0, 0, 0, 0)");
+        expect(play).not.toBe(remove);
     });
 
     test("says so when the playlist is empty, and still stands the hero up", async ({ page }) => {

@@ -58,6 +58,13 @@ return [
         'tracks_added' => ':count tracks were added to ":playlist".',
         // Not a failure but an answer: the playlist already holds all of it.
         'tracks_already' => '":playlist" already holds all of those tracks.',
+        // Names the playlist, because this message is read on the LISTING: the page that
+        // would have said which one is the page that has just gone.
+        'deleted' => 'The playlist ":name" has been deleted.',
+        // Names the track for the same reason one row up — the row that would have answered
+        // "which one?" is the row that just disappeared — and the playlist because a track
+        // can sit in several.
+        'track_removed' => '":name" was removed from ":playlist".',
     ],
 
     'share' => [
