@@ -237,6 +237,19 @@ test.describe("a playlist's detail page", () => {
         const url = page.url();
 
         /*
+         * REMOVE IS ASKED FIRST, and that ordering is the whole reason this passes. It cannot
+         * be PRESSED — that would delete a row the rest of this file reads — so it is asked
+         * with `trial`, which runs every actionability check including "does this element
+         * receive the pointer" and then performs no action.
+         *
+         * It has to come before the play click below, because playing OPENS THE QUEUE PANEL,
+         * which lies over the right-hand edge of the page — exactly where a row's trailing
+         * controls are. A hit test after that press reports the panel and looks like the
+         * overlay bug this test exists to catch, when nothing is wrong at all.
+         */
+        await page.locator(".playlist-tracks__remove").first().click({ trial: true });
+
+        /*
          * POLLED, because an Inertia visit changes the address ASYNCHRONOUSLY: read straight
          * after the click, `page.url()` is still this page whether or not the overlay swallowed
          * the press, and the assertion passes on the bug it exists to catch. `toPass` gives the
@@ -248,20 +261,6 @@ test.describe("a playlist's detail page", () => {
         await page.locator(".playlist-tracks__play").first().click();
         await expect(page.locator(".player-bar")).toBeVisible();
         expect(page.url()).toBe(url);
-
-        /*
-         * The remove button is asked the same question WITHOUT being pressed, because pressing
-         * it would delete a row the rest of this file reads. `elementFromPoint` answers what
-         * would actually receive the click, which is the whole thing the rung decides — the
-         * two clicks above only observe it indirectly, through what they set off.
-         */
-        const box = (await page.locator(".playlist-tracks__remove").first().boundingBox())!;
-        const hit = await page.evaluate(
-            ([x, y]) => document.elementFromPoint(x, y)?.closest(".playlist-tracks__remove") !== null,
-            [box.x + box.width / 2, box.y + box.height / 2]
-        );
-
-        expect(hit).toBe(true);
     });
 
     test("colours the play button and leaves its destructive neighbour quiet", async ({ page }) => {
