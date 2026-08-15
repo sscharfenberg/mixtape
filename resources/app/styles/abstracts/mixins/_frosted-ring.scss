@@ -15,20 +15,23 @@
  * them is not, and two copies of a `mask-composite` trick is how one of them quietly stops
  * matching the other.
  *
- * @param {List} $width  border-width shorthand for the ring — all four sides by default
+ * @param {List} $width  border-width shorthand for the ring; defaults to all four sides.
+ *   A DEFAULT VALUE rather than `if($width, …)` inside the body — Sass deprecated the `if()`
+ *   function, and a default that names the token is clearer anyway: the fallback is visible in
+ *   the signature instead of buried in a declaration.
  * @param {Number} $layer  z-index for the ring; negative puts it behind the host's content
  *****************************************************************************/
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "../colors" as c;
 @use "../sizes" as s;
 
-@mixin frosted-ring($width: null, $layer: 1) {
+@mixin frosted-ring($width: map.get(s.$c-frosted-glass, "border"), $layer: 1) {
     &::before {
         position: absolute;
         inset: 0;
         z-index: $layer;
 
-        border: if($width, $width, map.get(s.$c-frosted-glass, "border")) solid transparent;
+        border: $width solid transparent;
 
         background: linear-gradient(
                 to bottom right,
