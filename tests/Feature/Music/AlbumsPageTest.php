@@ -8,6 +8,7 @@ use App\Models\Track;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
+use Tests\Feature\Music\Concerns\SortsAListing;
 use Tests\TestCase;
 
 /**
@@ -24,6 +25,7 @@ use Tests\TestCase;
 class AlbumsPageTest extends TestCase
 {
     use RefreshDatabase;
+    use SortsAListing;
 
     /**
      * An album with $tracks tracks, each of the given duration, all on one disc
@@ -168,38 +170,17 @@ class AlbumsPageTest extends TestCase
 
     public function test_every_aggregate_column_can_be_sorted_by(): void
     {
-        // Short album, long album — then ask for each aggregate in both directions
-        // and check the pair comes back the right way round. This is the test that
-        // would catch ORDER BY on a subquery alias failing.
-        //
-        // Every sorted-on value has to DIFFER between the two, including the two that
-        // are easy to leave equal: the discs (one disc vs two) and the file dates. A
-        // tie sorts stably, so a tied column would "not reverse" and read as a broken
-        // sort when it is really a broken fixture.
+        // A short album and a long one. EVERY sorted-on value differs between them,
+        // including the two easiest to leave equal here — the disc count and the file
+        // date — because a tie sorts stably, so a tied column would "not reverse" and
+        // read as a broken sort when it is really a broken fixture. What the reversal
+        // proves, and why it is asserted that way, is in the trait.
         $short = $this->album('Short', 'A Artist', ['year' => 1999], tracks: 1, duration: 60.0, discs: 1, modifiedAt: '2019-01-02 03:04:05');
         $long = $this->album('Long', 'B Artist', ['year' => 2020], tracks: 5, duration: 300.0, discs: 2, modifiedAt: '2024-06-07 08:09:10');
 
         $user = User::factory()->create();
 
-        foreach (['songs', 'duration', 'year', 'name', 'artist', 'modifiedAt', 'discs'] as $key) {
-            $ascending = $this->actingAs($user)->get("/music/albums?sort={$key}&dir=asc");
-            $descending = $this->actingAs($user)->get("/music/albums?sort={$key}&dir=desc");
-
-            $ascending->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->has('table.rows', 2)
-                ->where('table.sort.key', $key)
-                ->where('table.sort.direction', 'asc')
-            );
-
-            // The two orders must be mirror images. (`name` sorts Long before Short
-            // alphabetically, `songs`/`duration` sort Short first — asserting they
-            // REVERSE avoids hard-coding which, while still proving the sort ran.)
-            $first = $this->inertiaProp($ascending, 'table.rows.0.id');
-            $last = $this->inertiaProp($descending, 'table.rows.1.id');
-
-            $this->assertSame($first, $last, "sorting by {$key} did not reverse");
-            $this->assertContains($first, [$short->id, $long->id]);
-        }
+        $this->assertEverySortableColumnReverses($user, '/music/albums', ['songs', 'duration', 'year', 'name', 'artist', 'modifiedAt', 'discs'], [$short->id, $long->id]);
     }
 
     public function test_search_covers_the_album_and_the_artist_and_ignores_accents(): void

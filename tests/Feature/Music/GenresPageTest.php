@@ -8,6 +8,7 @@ use App\Models\Track;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
+use Tests\Feature\Music\Concerns\SortsAListing;
 use Tests\TestCase;
 
 /**
@@ -25,6 +26,7 @@ use Tests\TestCase;
 class GenresPageTest extends TestCase
 {
     use RefreshDatabase;
+    use SortsAListing;
 
     /**
      * $count music tracks by $artist in $genre, with duration and size pinned — the sums
@@ -265,11 +267,9 @@ class GenresPageTest extends TestCase
 
     public function test_every_column_can_be_sorted_by(): void
     {
-        // A small genre and a large one, then each column in both directions: the pair
-        // must come back reversed. Every sorted-on value differs between the two — a tie
-        // sorts stably, so a tied column would read as a broken sort when it is really a
-        // broken fixture. The names run OPPOSITE to the numbers so no column can pass by
-        // accidentally agreeing with another.
+        // A small genre and a large one, with every sorted-on value differing and the
+        // names running OPPOSITE to the numbers, so no column can pass by accidentally
+        // agreeing with another. See the trait for what the reversal proves.
         $small = Genre::factory()->create(['name' => 'Zeuhl']);
         $large = Genre::factory()->create(['name' => 'Ambient']);
 
@@ -282,22 +282,7 @@ class GenresPageTest extends TestCase
 
         $user = User::factory()->create();
 
-        foreach (['name', 'artists', 'songs', 'duration', 'size'] as $key) {
-            $ascending = $this->actingAs($user)->get("/music/genres?sort={$key}&dir=asc");
-            $descending = $this->actingAs($user)->get("/music/genres?sort={$key}&dir=desc");
-
-            $ascending->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->has('table.rows', 2)
-                ->where('table.sort.key', $key)
-                ->where('table.sort.direction', 'asc')
-            );
-
-            $first = $this->inertiaProp($ascending, 'table.rows.0.id');
-            $last = $this->inertiaProp($descending, 'table.rows.1.id');
-
-            $this->assertSame($first, $last, "sorting by {$key} did not reverse");
-            $this->assertContains($first, [$small->id, $large->id]);
-        }
+        $this->assertEverySortableColumnReverses($user, '/music/genres', ['name', 'artists', 'songs', 'duration', 'size'], [$small->id, $large->id]);
     }
 
     public function test_search_matches_a_genre_name_and_ignores_accents(): void

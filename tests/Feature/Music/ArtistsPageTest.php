@@ -8,6 +8,7 @@ use App\Models\Track;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
+use Tests\Feature\Music\Concerns\SortsAListing;
 use Tests\TestCase;
 
 /**
@@ -29,6 +30,7 @@ use Tests\TestCase;
 class ArtistsPageTest extends TestCase
 {
     use RefreshDatabase;
+    use SortsAListing;
 
     /**
      * One music track by $artist, on $album, with everything the aggregates read made
@@ -183,15 +185,10 @@ class ArtistsPageTest extends TestCase
 
     public function test_every_aggregate_column_can_be_sorted_by(): void
     {
-        // A small artist and a large one, then each column asked for in both directions:
-        // the pair must come back reversed. This is the test that would catch ORDER BY on
-        // a subquery alias failing.
-        //
-        // Every sorted-on value DIFFERS between the two, including the ones easy to leave
-        // equal — a tie sorts stably, so a tied column would "not reverse" and read as a
-        // broken sort when it is really a broken fixture. The names run OPPOSITE to the
-        // numbers ("Zeta" is the small one) so no column can pass by accidentally
-        // agreeing with another.
+        // A small artist and a large one, with every sorted-on value differing. The names
+        // run OPPOSITE to the numbers ("Zeta" is the small one) so no column can pass by
+        // accidentally agreeing with another — a tie sorts stably and would read as a
+        // broken sort rather than a broken fixture. See the trait for what is asserted.
         $small = Artist::factory()->create(['name' => 'Zeta']);
         $large = Artist::factory()->create(['name' => 'Alpha']);
 
@@ -204,22 +201,7 @@ class ArtistsPageTest extends TestCase
 
         $user = User::factory()->create();
 
-        foreach (['name', 'albums', 'songs', 'duration', 'size'] as $key) {
-            $ascending = $this->actingAs($user)->get("/music/artists?sort={$key}&dir=asc");
-            $descending = $this->actingAs($user)->get("/music/artists?sort={$key}&dir=desc");
-
-            $ascending->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->has('table.rows', 2)
-                ->where('table.sort.key', $key)
-                ->where('table.sort.direction', 'asc')
-            );
-
-            $first = $this->inertiaProp($ascending, 'table.rows.0.id');
-            $last = $this->inertiaProp($descending, 'table.rows.1.id');
-
-            $this->assertSame($first, $last, "sorting by {$key} did not reverse");
-            $this->assertContains($first, [$small->id, $large->id]);
-        }
+        $this->assertEverySortableColumnReverses($user, '/music/artists', ['name', 'albums', 'songs', 'duration', 'size'], [$small->id, $large->id]);
     }
 
     public function test_search_matches_an_artist_name_and_ignores_accents(): void
