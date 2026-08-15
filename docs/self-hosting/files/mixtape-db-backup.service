@@ -1,0 +1,90 @@
+# /etc/systemd/system/mixtape-db-backup.service
+#
+# Daily dump of the application database to the backup drive
+# (php artisan app:db-backup). Paired with mixtape-db-backup.timer.
+#
+# WHAT IT PROTECTS is the half of the database nothing can rebuild: accounts and
+# their 2FA enrolment, invites, playlists, listening history, player state,
+# audiobook bookmarks, and SHARE LINKS. The library — tracks, albums, artists,
+# genres, authors, narrators — is derived from /var/media and comes back from
+# `app:update` in under a minute, so it is not what this is for. That is also why
+# the dumps are small enough to keep a month of.
+#
+# WHY THE SHARES MATTER MOST: a share id IS the capability, so a link already
+# handed to somebody cannot be reissued. Restoring an account is inconvenient;
+# losing the shares means links in other people's chat windows stop working with
+# no way to tell them.
+#
+# RequiresMountsFor=/mnt/usb IS LOAD-BEARING. Without the drive mounted, the
+# command's own guard refuses — but this stops the unit before PHP starts, and
+# both exist because the failure mode is a GREEN LIGHT: `mkdir -p` on an
+# unmounted path happily creates the directory on the root filesystem, and the
+# backup then runs successfully for months onto the disk it exists to survive.
+#
+# IT RUNS AS ROOT, unlike the library scan and the share prune, and that is forced
+# by the drive rather than chosen. The backup disk is exFAT, mounted with fixed
+# ownership (uid=1000,gid=1000,umask=022) because exFAT carries no Unix permissions
+# — so www-data cannot write to it at all, and root is the only user that can
+# without remounting a disk that also holds the owner's own data. The media backup
+# runs as root for exactly the same reason.
+#
+# LOG_CHANNEL=stderr IS WHAT MAKES THAT SAFE, and it is not a tidiness preference.
+# The `daily` channel writes storage/logs/laravel-YYYY-MM-DD.log and CREATES that
+# file if it is missing — and a job at 02:30 is very often the first thing to log on
+# a new day. As root that leaves a root-owned log file which php-fpm then cannot
+# write, so the app silently stops logging until somebody notices. Sending this
+# unit's log to stderr means no file is opened at all, and everything lands in
+# `journalctl -u mixtape-db-backup` where an operator is already looking.
+#
+# IT HAS AN OnFailure= REPORTER, unlike the library scan and the share prune. A
+# failed scan leaves stale rows and the next run fixes it; a failed backup leaves
+# nothing, and you find out when you need it. Same argument as the media backup.
+#
+# THE SUCCESS PING IS WHAT MAKES IT A DEAD-MAN'S SWITCH, and it is worth the one
+# extra line: OnFailure= only reports a run that RAN and failed. A timer that never
+# fires — a disabled unit, a box that was off all week, a typo in OnCalendar= — is
+# silent, and silence is indistinguishable from success without something that has
+# to keep saying "still here".
+#
+# `-` PREFIX so a failed ping cannot fail the backup: the alarm is not the job, and
+# a unit that goes red because healthchecks.io was briefly down would train you to
+# ignore it. Unset HC_DB_PING_URL simply skips, so a box that has not configured
+# one is not an error.
+[Unit]
+Description=MixTape database backup (pg_dump to the backup drive, verified, 30-day retention)
+RequiresMountsFor=/mnt/usb
+After=postgresql.service
+Wants=postgresql.service
+OnFailure=mixtape-db-backup-failed.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/var/www/mixtape.prod
+Environment=LOG_CHANNEL=stderr
+ExecStart=/usr/bin/php /var/www/mixtape.prod/artisan app:db-backup
+ExecStartPost=-/bin/sh -c '. /etc/mixtape/backup-alerts.env 2>/dev/null; [ -n "$HC_DB_PING_URL" ] && exec curl -fsS -m 10 --retry 3 -o /dev/null "$HC_DB_PING_URL"; exit 0'
+
+# Yield to anything a listener is doing. A dump of this size is seconds of work,
+# but it runs while the house may still be playing something.
+Nice=10
+IOSchedulingClass=idle
+
+# Sandboxing. These four are the ones that cost nothing here: this job reads and
+# writes only the paths named above and touches nothing in /home or /usr. Left at
+# `full` rather than `strict` deliberately — `strict` makes the whole filesystem
+# read-only and would need every writable path enumerated in ReadWritePaths=.
+# Check the result with `systemd-analyze security <unit>`.
+#
+# PrivateTmp= is doing real work here rather than being boilerplate: the command
+# writes the database password to a 0600 file in /tmp for the duration of the
+# dump, and a private /tmp puts that where no other service can see it at all.
+# It matters more for a unit running as root than it would for one that is not.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+
+# Generous, because it bounds a dump whose size grows with the household's
+# listening history — but finite, so a database that has stopped answering
+# surfaces as a failed unit rather than a job that sits there until the next one.
+TimeoutStartSec=900

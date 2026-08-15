@@ -1,0 +1,28 @@
+# /etc/systemd/system/mixtape-db-backup.timer
+#
+# Enable with: sudo systemctl enable --now mixtape-db-backup.timer
+[Unit]
+Description=Daily MixTape database backup
+
+[Timer]
+# DAILY, unlike the weekly media backup, and the asymmetry is about what each one
+# costs. A media snapshot is most of a terabyte and its content changes when
+# somebody rips a record; a database dump is megabytes and its content changes
+# every time anyone plays a song, makes a playlist or sends a link. Daily also
+# sets the worst case for how much listening history a restore can cost: one day.
+#
+# 02:30 is clear of everything else on this box — the Sunday 03:00 media backup,
+# the nightly 04:00 library scan, the Monday 05:30 share prune — so a slow night
+# never has two of them contending for the same disk.
+OnCalendar=*-*-* 02:30:00
+
+# Persistent: a home server is often asleep at 02:30, and without this a missed
+# night simply does not happen. It matters more here than for the prune, because
+# what a skipped run costs is a day of history that no later run can recover.
+Persistent=true
+
+# Don't fire exactly on the half-hour alongside everything else.
+RandomizedDelaySec=10m
+
+[Install]
+WantedBy=timers.target

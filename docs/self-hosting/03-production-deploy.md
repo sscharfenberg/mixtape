@@ -811,6 +811,116 @@ backup, and the next week's run picks them up.
 > radius is one table and one `WHERE` clause. `PruneSharesTest` asserts both edges
 > of that window and that a live link survives.
 
+## Scheduled database backup
+
+The media library is the only thing whose loss is permanent — but it is not the only
+thing that cannot be rebuilt. The database splits cleanly in two:
+
+- **Derived**, and free to lose: tracks, albums, artists, genres, authors, narrators.
+  `app:update` reconstructs all of it from the files in well under a minute.
+- **Not derived, and gone forever**: accounts and their 2FA enrolment, invites,
+  playlists, listening history, player state, audiobook bookmarks, and **share links**.
+
+The last of those is the sharpest. A share id *is* the capability, so a link already
+sent to somebody cannot be reissued — restoring an account is an inconvenience, but
+losing the `shares` table means links in other people's chat windows stop working and
+there is no way to tell them.
+
+A **daily** timer dumps the database to the same drive the media snapshots go to:
+
+```
+php artisan app:db-backup
+```
+
+**Daily rather than weekly**, unlike the media backup, because the two cost different
+things. A media snapshot is most of a terabyte and only changes when somebody rips a
+record; a database dump is megabytes and changes every time anyone plays a song. Daily
+also sets the worst case for a restore: one day of listening history.
+
+**It writes to the backup drive, not to `storage/`.** A dump that only exists on the
+system disk is no use against the failure it is there for. The unit names the mount in
+`RequiresMountsFor=` and the command refuses if the parent directory is missing —
+belt and braces, because the failure mode here is a *green light*: `mkdir -p` on an
+unmounted path cheerfully creates the directory on the root filesystem, and the backup
+then succeeds for months onto exactly the disk it was supposed to survive.
+
+**The dump is verified, not just written.** `pg_dump --format=custom` writes to a
+`.partial` name, `pg_restore --list` then reads its table of contents back, and only
+then is it renamed into place. So a name in that directory means "this one restored",
+not "this one finished writing" — the same distinction the media backup's hash check
+makes, and the reason a dump interrupted by a full disk or a pulled cable is discarded
+rather than kept.
+
+Retention is 30 days (`MIXTAPE_DB_BACKUP_RETENTION_DAYS`), pruned by the date in the
+filename rather than by mtime — a file copied or restored carries a new mtime, where
+the name still carries the date of the data.
+
+| File | Destination | Purpose |
+| --- | --- | --- |
+| [`files/mixtape-db-backup.service`](files/mixtape-db-backup.service) | `/etc/systemd/system/…` | the oneshot unit (www-data) |
+| [`files/mixtape-db-backup.timer`](files/mixtape-db-backup.timer) | `/etc/systemd/system/…` | daily `02:30`, `Persistent=true` |
+| [`files/mixtape-db-backup-failed.service`](files/mixtape-db-backup-failed.service) | `/etc/systemd/system/…` | the `OnFailure=` reporter |
+
+```bash
+sudo systemctl enable --now mixtape-db-backup.timer
+systemctl list-timers mixtape-db-backup.timer
+```
+
+**Check it by hand first**, which costs one dump:
+
+```bash
+sudo -u www-data /usr/bin/php /var/www/mixtape.prod/artisan app:db-backup
+ls -lh /mnt/usb/db-backups
+```
+
+Unlike the library scan and the share prune, this one **does** have an `OnFailure=`
+reporter, for the same reason the media backup does: a failed scan leaves stale rows
+and the next run fixes them, where a failed backup leaves nothing and you find out when
+you need it. It reuses `mixtape-backup-alert.sh`, told which job it is reporting, so the
+push names the database and marks that job's own dead-man's switch rather than the
+media backup's.
+
+**It runs as root**, unlike the library scan and the share prune — forced by the
+drive, not chosen. The backup disk is exFAT, which carries no Unix permissions and is
+therefore mounted with fixed ownership (`uid=1000,gid=1000,umask=022`), so `www-data`
+cannot write to it at all. `Environment=LOG_CHANNEL=stderr` is what makes that safe:
+Laravel's `daily` channel *creates* `storage/logs/laravel-YYYY-MM-DD.log`, and a job
+at 02:30 is often the first thing to log on a new day — as root that would leave a
+root-owned log file php-fpm cannot write, and the app would silently stop logging.
+Sending this unit's output to stderr opens no file at all and puts everything in the
+journal.
+
+**It is a full dead-man's switch** if you set `HC_DB_PING_URL` in
+`/etc/mixtape/backup-alerts.env`: `OnFailure=` reports a run that ran and failed,
+while the success ping is what catches a timer that never fired at all. Give it a
+check of its **own** — sharing the media backup's URL means a failed dump marks that
+period red and sends you to the wrong drive. Both are optional; unset, they skip.
+
+### Restoring
+
+```bash
+sudo -u www-data /usr/bin/php /var/www/mixtape.prod/artisan app:db-restore
+```
+
+Interactive: it lists the dumps newest-first, verifies the one chosen **before**
+anything is dropped, and then asks you to **type the database name** — not to answer
+yes. The mistake worth guarding against is not doubt, it is restoring the right dump
+into the wrong database, and a yes/no question never asks which.
+
+`--force` skips the typed confirmation and is **refused outright when
+`APP_ENV=production`**. It exists so a development box can be reset from a script; on
+the live instance an unattended restore is precisely the thing that should not be
+possible.
+
+> **Put the site in maintenance first** (`mt artisan down --prod`). Not enforced — a
+> restore is also how you recover an instance that is already down — but `pg_restore
+> --clean` drops each object before recreating it, and it will fight open connections
+> over the objects it is dropping.
+
+Everything written since the chosen dump is gone when this finishes, share links
+included. Run `app:update` afterwards if the media library has changed since, since the
+derived half will describe files as they were.
+
 ## Not needed yet
 
 - **Queue worker** — nothing implements `ShouldQueue`; mail is sent synchronously. Add a systemd unit

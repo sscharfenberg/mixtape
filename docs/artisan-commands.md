@@ -16,6 +16,8 @@ and package commands (`migrate`, `queue:work`, …) are not listed here — run
 | [`app:clean`](#appclean) | Delete OS/Samba junk files from the library shares (the cleanup step, standalone) |
 | [`app:encoding`](#appencoding) | Report the library paths a Windows-1252 playlist export cannot name |
 | [`app:playlist`](#appplaylist) | Fill a playlist with random tracks from the scanned library |
+| [`app:db-backup`](#appdb-backup) | Dump the database to the backup drive, verify it, prune old dumps |
+| [`app:db-restore`](#appdb-restore) | Restore the database from one of those dumps (interactive, destructive) |
 
 ---
 
@@ -425,3 +427,130 @@ requested kind; `0` otherwise.
 - `lang/{de,en}/playlist_command.php` — its console strings.
 - `database/seeders/LibrarySeeder.php` — the seeder this exists instead of, and
   why it is switched off.
+
+## `app:db-backup`
+
+```
+php artisan app:db-backup {--path=} {--retention-days=} {--keep-all}
+```
+
+### Why it exists
+
+Half of this database is disposable and half of it is irreplaceable, and only one
+command can tell them apart.
+
+**Disposable:** tracks, albums, artists, genres, authors, narrators. All of it is
+derived from the files under `/var/media`, and [`app:update`](#appupdate) rebuilds it
+in under a minute. Losing it costs a scan.
+
+**Irreplaceable:** accounts and their 2FA enrolment, invites, playlists, listening
+history, player state, audiobook bookmarks, and **share links**. Nothing reconstructs
+any of it from disk.
+
+The share links are the sharpest of those. A share id *is* the capability, so a link
+already sent cannot be reissued — losing that table means links sitting in other
+people's chat windows stop working, with no way to reach whoever is holding them.
+
+Because the derived half dominates the row count and the irreplaceable half is small,
+these dumps are megabytes rather than gigabytes, which is what makes a 30-day window
+affordable.
+
+### What it does
+
+1. Refuses if the backup drive is not mounted — see the trap below.
+2. `pg_dump --format=custom --no-owner --no-privileges` to a `.partial` file.
+3. Reads the archive's table of contents back with `pg_restore --list`.
+4. Renames it into place only if that succeeded.
+5. Deletes dumps older than the retention window, and any stale `.partial`.
+
+**The verify step is the point.** "The file is 4 MB" and "Postgres can read this back"
+are different claims, and only the second one is a backup. A name in the backup
+directory therefore means *this one restored*, not *this one finished writing* — a dump
+cut short by a full disk or a pulled cable is discarded rather than kept.
+
+**Custom format, not `.sql`.** It is compressed already, so there is no second pass to
+compress yesterday's dump, and it is the only format `pg_restore` can restore
+selectively or in parallel from.
+
+**The password never appears in `ps`.** It goes in a 0600 `PGPASSFILE`, not in
+`PGPASSWORD` (readable from `/proc/<pid>/environ` by anything else running as the same
+user) and never on the command line.
+
+### Arguments & options
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `--path=` | `config('mixtape.backup.path')` | Where to write. |
+| `--retention-days=` | `config('mixtape.backup.retention_days')` (30) | Delete dumps older than this. |
+| `--keep-all` | off | Write the dump and prune nothing. |
+
+### The trap it guards
+
+> **An unmounted backup drive fails silently upward, not downward.** `mkdir -p
+> /mnt/usb/db-backups` on an unmounted path succeeds — against the *root* filesystem —
+> so the backup runs green for months onto exactly the disk it exists to survive the
+> loss of. The command refuses when the parent directory is missing, and the systemd
+> unit names the mount in `RequiresMountsFor=`. Both, deliberately.
+
+### Related code
+
+- `app/Console/Commands/BackupDatabase.php` — the command.
+- `app/Console/Commands/Concerns/RunsPostgresTools.php` — the `PGPASSFILE` handling,
+  shared with the restore.
+- `config/mixtape.php` → `backup` — path and retention.
+- `docs/self-hosting/03-production-deploy.md` → *Scheduled database backup* — the timer.
+
+## `app:db-restore`
+
+```
+php artisan app:db-restore {--file=} {--path=} {--force}
+```
+
+### Why it exists
+
+To put one of those dumps back. It is the most destructive command in this project and
+the only one that can undo work nobody can redo.
+
+### What it does
+
+1. Lists the dumps newest-first and asks which, unless `--file=` names one.
+2. Verifies the archive **before anything is dropped**.
+3. Makes you type the database name.
+4. `pg_restore --clean --if-exists --single-transaction`.
+
+**Verifying first is the whole design.** `--clean` drops each object before recreating
+it, so a truncated dump discovered halfway through would leave a database holding
+neither the old data nor the new. The `--list` pass costs milliseconds and turns that
+into a refusal that changes nothing.
+
+**Typing the name, not answering a prompt.** "Are you sure? [y/N]" is answered yes by
+reflex, and the mistake being guarded against is not doubt — it is restoring the right
+dump into the wrong database, which a yes/no question cannot catch because it never
+asks *which*.
+
+### Arguments & options
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `--file=` | — | Restore this dump instead of choosing one. |
+| `--path=` | `config('mixtape.backup.path')` | Where to look for dumps. |
+| `--force` | off | Skip the typed confirmation. **Refused when `APP_ENV=production`.** |
+
+`--force` exists so a development box can be reset from a script. On the live instance
+an unattended restore is precisely what must not be possible, so there is no flag for
+it — a person reads the name and types it, or it does not happen.
+
+### Notes
+
+> **Put the site in maintenance first** (`mt artisan down --prod`). Not enforced, since
+> a restore is also how you recover an instance that is already down — but
+> `pg_restore --clean` will fight open connections over the objects it drops.
+
+Run [`app:update`](#appupdate) afterwards if the library has changed since the dump,
+since the derived half will describe the files as they were.
+
+### Related code
+
+- `app/Console/Commands/RestoreDatabase.php` — the command.
+- `tests/Feature/Console/DatabaseBackupTest.php` — the refusals, which is what is
+  testable without a PostgreSQL server.

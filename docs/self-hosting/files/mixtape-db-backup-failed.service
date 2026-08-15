@@ -1,0 +1,33 @@
+# /etc/systemd/system/mixtape-db-backup-failed.service
+#
+# Triggered by OnFailure= in mixtape-db-backup.service. Not enabled, not timed —
+# systemd starts it only when the backup unit enters a failed state.
+#
+# THE SAME SCRIPT THE MEDIA BACKUP USES, told which job it is reporting. Two
+# copies of an alarm is how one of them quietly stops matching the other, and the
+# only things that differ between them are the words in the push and which
+# dead-man's-switch gets marked failed — both of which are arguments.
+#
+# NO User=, so this runs as root and can read /etc/mixtape/backup-alerts.env.
+# That is the whole reason the failure path can reach the secrets while the
+# backup unit itself — which runs as www-data — deliberately cannot.
+[Unit]
+Description=Report a failed MixTape database backup (dead-man's-switch + push)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/mixtape-backup-alert.sh database mixtape-db-backup
+
+# Sandboxing. These four are the ones that cost nothing here: this job reads and
+# writes only the paths named above and touches nothing in /home or /usr. Left at
+# `full` rather than `strict` deliberately — `strict` makes the whole filesystem
+# read-only and would need every writable path enumerated in ReadWritePaths=.
+# Check the result with `systemd-analyze security <unit>`.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+
+# The secrets are read by the script itself rather than injected here, so that
+# exactly one file needs protecting and `systemctl cat` does not print the ping
+# URL and topic to anyone who can read unit files.
