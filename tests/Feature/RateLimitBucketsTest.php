@@ -49,4 +49,83 @@ class RateLimitBucketsTest extends TestCase
             ...$unprefixed,
         ]));
     }
+
+    /**
+     * Every throttled route, and the ceiling it carries.
+     *
+     * THE WALK ABOVE CANNOT SEE A THROTTLE THAT IS SIMPLY GONE. Delete
+     * `->middleware('throttle:10,1,album-download')` and it stays green — the route just
+     * becomes unlimited, which on a box reachable from the internet is the opposite of what
+     * anybody wanted. A gigabyte-a-request download, a search running five ranked queries per
+     * keystroke and the queue's write endpoint are exactly the places where an ABSENCE is
+     * invisible.
+     *
+     * So this is an exact map rather than a rule: a new throttled route fails until it is
+     * listed, a removed throttle fails, and a retuned ceiling fails until the number here is
+     * changed to match. That last one is friction on purpose — the list doubles as the only
+     * place every limit in the app can be read at once, and a ceiling worth changing is worth
+     * seeing next to its neighbours while you change it.
+     *
+     * Named limiters (`login`, `auth-mail`, `two-factor`) appear by name: their numbers live
+     * in FortifyServiceProvider, keyed by the limiter name plus whatever the callback returns,
+     * so they have buckets of their own and nothing to prefix.
+     */
+    public function test_every_throttled_route_carries_the_ceiling_it_is_supposed_to(): void
+    {
+        $expected = [
+            'audiobooks.bookmark' => 'throttle:120,1,audiobook-bookmark',
+            'audiobooks.download' => 'throttle:10,1,audiobook-download',
+            'forgot.store' => 'throttle:auth-mail',
+            'locale' => 'throttle:30,1,locale',
+            'login.store' => 'throttle:login',
+            'music.albums.download' => 'throttle:10,1,album-download',
+            'music.songs.download' => 'throttle:30,1,song-download',
+            'password.confirm' => 'throttle:6,1,password-confirm',
+            'password.entropy' => 'throttle:60,1,password-entropy',
+            'password.reset.store' => 'throttle:30,1,password-reset',
+            'player.plays.store' => 'throttle:60,1,player-plays',
+            'player.state.update' => 'throttle:60,1,player-state',
+            'playlists.export' => 'throttle:30,1,playlist-export',
+            'playlists.order' => 'throttle:60,1,playlist-order',
+            'playlists.store' => 'throttle:30,1,playlist-create',
+            'playlists.tracks.order' => 'throttle:60,1,playlist-track-order',
+            'playlists.tracks.store' => 'throttle:30,1,playlist-tracks',
+            'playlists.update' => 'throttle:30,1,playlist-update',
+            'register.store' => 'throttle:30,1,register',
+            'search' => 'throttle:60,1,search',
+            'shares.cover' => 'throttle:60,1,share-cover',
+            'shares.destroy' => 'throttle:30,1,share-revoke',
+            'shares.renew' => 'throttle:20,1,share-renew',
+            'shares.show' => 'throttle:60,1,share-page',
+            'shares.store' => 'throttle:20,1,share-create',
+            'shares.tracks.cover' => 'throttle:240,1,share-track-cover',
+            'shares.tracks.stream' => 'throttle:120,1,share-stream',
+            'two-factor.login.store' => 'throttle:two-factor',
+            'user-password.update' => 'throttle:30,1,password-update',
+            'user-profile-information.update' => 'throttle:30,1,profile-update',
+            'user.delete' => 'throttle:6,1,account-delete',
+            'verification.resend.store' => 'throttle:auth-mail',
+            'verify-email' => 'throttle:6,1,verify-email',
+        ];
+
+        $actual = [];
+
+        foreach (Route::getRoutes() as $route) {
+            foreach ($route->gatherMiddleware() as $middleware) {
+                if (is_string($middleware) && str_starts_with($middleware, 'throttle:')) {
+                    $actual[$route->getName() ?? $route->uri()] = $middleware;
+                }
+            }
+        }
+
+        ksort($expected);
+        ksort($actual);
+
+        $this->assertSame($expected, $actual, implode("\n", [
+            'The set of throttled routes, or one of their ceilings, has changed.',
+            'Left = what this test expects, right = what the route table says.',
+            'A route that GAINED a throttle: add it here. A route that LOST one: put it back,',
+            'or delete the entry deliberately. A retuned ceiling: update the number here too.',
+        ]));
+    }
 }

@@ -93,6 +93,34 @@ test.describe("the play queue", () => {
         expect(wiring.panel).toContain("clip-path");
     });
 
+    test("gives the popover layer real height, so it cannot clip its own panel", async ({ page }) => {
+        /*
+         * THE TRAP THIS EXISTS TO NAME. A `[popover]` layer that measures zero high is clipped
+         * by the UA's own `overflow: auto`, and the panel inside keeps a bounding box — so
+         * `toBeVisible()` PASSES and every click fails with "…intercepts pointer events",
+         * which is one of the least helpful messages Playwright produces and points at the
+         * wrong element entirely.
+         *
+         * Asserted on the computed values rather than by clicking, because a click failure is
+         * exactly the symptom that does not say what is wrong. With this here, a regression
+         * reads as "the layer is 0px high" instead.
+         */
+        await enqueueFirstSong(page);
+        await openQueuePanel(page);
+
+        const layer = await page.evaluate(() => {
+            const element = document.querySelector(".play-queue-layer")!;
+            const style = getComputedStyle(element);
+
+            return { height: element.getBoundingClientRect().height, overflow: style.overflow };
+        });
+
+        expect(layer.height).toBeGreaterThan(100);
+        // `visible`, never the UA default: `auto` on a layer spanning the viewport still clips
+        // a panel that overflows it, which is the same failure one step later.
+        expect(layer.overflow).toContain("visible");
+    });
+
     test("lights its edge on a peek, and not when the reader asked for it", async ({ page }) => {
         /*
          * THE TWO ENTRANCES. A peek is an announcement — nobody asked, the panel appeared to say

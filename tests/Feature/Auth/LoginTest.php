@@ -112,6 +112,114 @@ class LoginTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_a_wrong_password_never_reveals_that_an_account_is_unverified(): void
+    {
+        /*
+         * THE LOGIN FORM MUST NOT BE AN ACCOUNT ORACLE. This instance logs in BY NAME, so a
+         * response that distinguishes "unverified" from "credentials incorrect" hands a
+         * stranger half a credential pair for any name they care to try — the same disclosure
+         * ForgotController goes to deliberate lengths to avoid on its own form.
+         *
+         * Asserted as "the two failures are INDISTINGUISHABLE", not merely as "it is refused":
+         * a refusal carrying a different message is exactly the leak.
+         */
+        User::factory()->unverified()->create([
+            'name' => 'Unverified User',
+            'password' => Hash::make('s3cret-pass'),
+        ]);
+
+        // Both must answer the GENERIC failure. Asserted against the literal message rather
+        // than against each other, so the test also fails if the shared answer were ever the
+        // verification one.
+        $this->from('/login')
+            ->post('/login', ['name' => 'Unverified User', 'password' => 'not-the-password'])
+            ->assertSessionHasErrors(['name' => __('auth.failed')]);
+
+        $this->from('/login')
+            ->post('/login', ['name' => 'Nobody At All', 'password' => 'not-the-password'])
+            ->assertSessionHasErrors(['name' => __('auth.failed')]);
+
+        $this->assertGuest();
+    }
+
+    public function test_the_unverified_gate_also_covers_an_account_holding_two_factor(): void
+    {
+        /*
+         * THE GATE HAS TO SIT IN FRONT OF BOTH LOGIN PATHS. `RedirectIfTwoFactorAuthenticatable`
+         * runs before `AttemptToAuthenticate` and short-circuits into the challenge, so a step
+         * placed after authentication would never see a user with 2FA — and that state is
+         * reachable, because changing an e-mail address clears `email_verified_at` while the
+         * second factor stays enabled. Such a reader must not be handed the challenge.
+         */
+        User::factory()->unverified()->create([
+            'name' => 'Unverified With 2FA',
+            'password' => Hash::make('s3cret-pass'),
+            'two_factor_secret' => encrypt('JBSWY3DPEHPK3PXP'),
+            'two_factor_confirmed_at' => now(),
+        ]);
+
+        $response = $this->from('/login')->post('/login', [
+            'name' => 'Unverified With 2FA',
+            'password' => 's3cret-pass',
+        ]);
+
+        $response->assertRedirect('/login');
+        $response->assertSessionHasErrors('name');
+        // Not sent to the challenge, and not signed in.
+        $this->assertGuest();
+        $this->assertNull(session('login.id'));
+    }
+
+    public function test_the_sixth_attempt_in_a_minute_is_refused(): void
+    {
+        /*
+         * THE BRUTE-FORCE GATE ON THE ONE INTERNET-FACING FORM THAT CARRIES A PASSWORD, and
+         * until now it was only ever mentioned as an E2E hazard ("keep real logins under five
+         * per run") rather than proven. Deleting `->middleware('throttle:login')` would leave
+         * every other test in this file green.
+         *
+         * CACHE_STORE=array (phpunit.xml), so each test starts with an empty limiter and this
+         * cannot leak into its neighbours.
+         */
+        User::factory()->create(['name' => 'Ashaltiriak', 'password' => Hash::make('s3cret-pass')]);
+
+        foreach (range(1, 5) as $ignored) {
+            $this->post('/login', ['name' => 'Ashaltiriak', 'password' => 'wrong'])
+                ->assertSessionHasErrors('name');
+        }
+
+        $this->post('/login', ['name' => 'Ashaltiriak', 'password' => 'wrong'])
+            ->assertStatus(429);
+
+        // ...and the ceiling is not a free pass afterwards: the RIGHT password is refused too,
+        // which is what makes it a lockout rather than a speed bump.
+        $this->post('/login', ['name' => 'Ashaltiriak', 'password' => 's3cret-pass'])
+            ->assertStatus(429);
+        $this->assertGuest();
+    }
+
+    public function test_the_login_lockout_is_keyed_on_the_name_as_well_as_the_ip(): void
+    {
+        /*
+         * TWO HOUSEMATES BEHIND ONE NAT MUST NOT LOCK EACH OTHER OUT. The limiter keys on
+         * `lower(username)|ip` (FortifyServiceProvider), so exhausting one account's five
+         * attempts leaves the other's untouched — from the same address, which is the whole
+         * point on a box a family shares.
+         */
+        User::factory()->create(['name' => 'Ashaltiriak', 'password' => Hash::make('s3cret-pass')]);
+        User::factory()->create(['name' => 'Housemate', 'password' => Hash::make('other-pass')]);
+
+        foreach (range(1, 6) as $ignored) {
+            $this->post('/login', ['name' => 'Ashaltiriak', 'password' => 'wrong']);
+        }
+        $this->post('/login', ['name' => 'Ashaltiriak', 'password' => 'wrong'])->assertStatus(429);
+
+        // Same IP, different name: still has its full allowance, and a correct password works.
+        $this->post('/login', ['name' => 'Housemate', 'password' => 'other-pass'])
+            ->assertRedirect('/dashboard');
+        $this->assertAuthenticated();
+    }
+
     public function test_login_requires_a_name_and_password(): void
     {
         $response = $this->from('/login')->post('/login', [

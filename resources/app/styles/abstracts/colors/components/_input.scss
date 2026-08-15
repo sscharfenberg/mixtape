@@ -19,6 +19,15 @@ $input: (
             color.adjust(map.get(c.$grey, "bunker"), $alpha: -0.5)
         ),
     "surface": light-dark(map.get(c.$grey, "abbey"), map.get(c.$grey, "fog")),
+    // MEASURED AT ~2.3:1 IN LIGHT AND ~3.3:1 IN DARK, and knowingly kept there. WCAG 1.4.3
+    // wants 4.5:1 and grants placeholders no exemption, so this is a shortfall rather than a
+    // permitted case. The ink is 50% alpha over a field fill that is itself 50% alpha over the
+    // page, which composites to about #9c9ea1 on #ededed (2.29:1) and #787874 on #292929
+    // (3.28:1). Raising the alpha to about -0.2 clears AA and makes an empty field read as a
+    // filled one — the thing the low alpha exists to avoid — and an opaque `asher` / `iron`
+    // (6.6:1 / 8.1:1) does the same more bluntly. A placeholder here never carries meaning a
+    // reader needs: every field has a real <label>, and the hint duplicates it. Revisit if a
+    // placeholder is ever the only name a control has.
     "placeholder": light-dark(
             color.adjust(map.get(c.$grey, "abbey"), $alpha: -0.5),
             color.adjust(map.get(c.$grey, "fog"), $alpha: -0.5)

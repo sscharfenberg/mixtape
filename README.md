@@ -127,3 +127,12 @@ npm run test:e2e      # end-to-end suite
 | [`UI/Tooltip/README.md`](resources/app/components/UI/Tooltip/README.md) | The `v-tooltip` directive and its single shared layer |
 | [`Music/CoverImage/README.md`](resources/app/components/Music/CoverImage/README.md) | All artwork goes through it — never hand-roll an `<img>` for a cover |
 | [`Music/Discography/README.md`](resources/app/components/Music/Discography/README.md) | A short, unpaginated cover grid for a block inside a page |
+
+## Licence
+
+[MIT](LICENSE) — for the source code. Fork it, run it, change it.
+
+That covers the code and nothing else: the music, audiobooks and cover art a running
+instance serves are the operator's own files, under whatever rights their own copyright
+holders attach to them. Self-hosting this for your own collection is the intended use;
+it is not a licence to redistribute somebody else's recordings.

@@ -328,6 +328,28 @@ test.describe("the player", () => {
         expect((await audioState(page)).src).toContain("/stream");
     });
 
+    /*
+     * TWO THINGS THIS FILE DELIBERATELY DOES NOT TEST, both because the harness cannot reach
+     * them honestly — recorded here so the gaps are known rather than merely absent.
+     *
+     * AUTO-ADVANCE IN A BACKGROUNDED TAB. This is the headline v2 feature, and the test above
+     * proves it only in a FOCUSED tab — where a `setTimeout` implementation would also pass.
+     * The distinction only shows when timers are throttled, i.e. when the tab is really hidden,
+     * and headless Chromium will not hide one: opening a second page in the same context and
+     * calling `bringToFront()` leaves the first page's `document.visibilityState` at "visible"
+     * (measured). Overriding `visibilityState` from the page would assert the override rather
+     * than the browser, which is the one thing docs/testing.md rules out. It is verified by hand
+     * on a real device instead — screen off, Android, audio kept going and advanced.
+     *
+     * A SEEK-DRIVEN `Range:` REQUEST. The E2E audio fixture is one second long, so the element
+     * has the whole file buffered before any seek can happen and never issues a second request
+     * — there is nothing for a browser-level assertion to catch. The route's half of it is
+     * pinned properly one layer down, on real bytes: SongStreamTest asserts 206 with a correct
+     * `Content-Range` for a closed range, an open-ended one, and an unsatisfiable one. Making
+     * this drivable needs a minutes-long fixture, which would slow every spec in the suite for
+     * one assertion.
+     */
+
     test("stops at the end of the queue with repeat off", async ({ page }) => {
         const [only] = await enqueueSongs(page, 1);
 

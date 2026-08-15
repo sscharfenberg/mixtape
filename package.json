@@ -1,7 +1,7 @@
 {
     "name": "mixtape",
     "description": "MixTape - self-hosted personal mp3 / audiobook collection player",
-    "license": "UNLICENSED",
+    "license": "MIT",
     "private": true,
     "version": "2.0.0",
     "type": "module",
