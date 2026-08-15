@@ -26,9 +26,22 @@ class UpdatePlayerStateRequest extends FormRequest
     public const MAX_POSITION_MS = 86_400_000;
 
     /**
-     * `currentIndex` accepts -1, which is the client's "nothing loaded" — an empty queue is
-     * a state worth syncing, since clearing the queue on one device should not leave the
-     * other restoring it forever.
+     * `currentIndex` accepts -1, which is the client's "nothing loaded": a queue that exists
+     * but has nothing selected in it, which happens between clearing the current track and
+     * choosing the next.
+     *
+     * AN EMPTY QUEUE IS ACCEPTED HERE AND NOT HANDED BACK. `tracks` may be `[]` — refusing it
+     * would make a reader who cleared their queue fail every sync until they queued something
+     * — but `PlayerStatePayload::forUser` answers null for a stored queue with no ids, so the
+     * other device sees "nothing on the server" rather than "the server says empty". A QUEUE
+     * IS THEREFORE REPLACED ACROSS DEVICES, NEVER EMPTIED: clear it on the phone, open the
+     * laptop, and the laptop's own copy is what comes back.
+     *
+     * That is the deliberate half of a trade. Distinguishing the two would let a clear
+     * propagate, and would equally let one device with an empty queue wipe another's good one
+     * on the strength of a stamp — and the stamps are wall clocks, so a device with a wrong
+     * one can win an argument it should lose. Losing a queue is the worse failure of the two,
+     * so the sync only ever carries content.
      *
      * @return array<string, array<int, mixed>>
      */

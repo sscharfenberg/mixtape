@@ -55,10 +55,16 @@ final class PlayerStatePayload
     /**
      * The queue to hand a page load, or null when there is nothing to restore.
      *
-     * Null rather than an empty queue for a reason the client depends on: "this user has no
-     * server queue" must be distinguishable from "this user's server queue is empty", or a
-     * browser holding a perfectly good local queue would have it wiped by the first page
-     * load after signing in on a second device.
+     * NULL FOR AN EMPTY STORED QUEUE AS WELL AS FOR NO ROW AT ALL, and the client cannot tell
+     * the two apart — which is the point. A browser holding a good local queue must not have
+     * it wiped by the first page load after signing in on a second device, and a stored queue
+     * that is empty carries nothing worth having, so both answer "there is nothing here" and
+     * the local copy survives.
+     *
+     * The consequence, stated where somebody reading this will need it: A QUEUE IS REPLACED
+     * ACROSS DEVICES, NEVER EMPTIED. Clearing on one device does not clear the other; the
+     * other keeps its own until something is queued over it. See UpdatePlayerStateRequest for
+     * why that trade is the right way round.
      *
      * @return array{tracks: list<array<string, mixed>>, currentIndex: int, repeat: bool, shuffle: bool, updatedAt: int, positionMs: int}|null
      */
@@ -172,11 +178,21 @@ final class PlayerStatePayload
      * count is exactly its new position; if it is gone, the pointer lands on whatever moved
      * up into its place, which is the next thing the listener would have heard anyway.
      *
+     * -1 IS CARRIED THROUGH RATHER THAN COUNTED. It is the client's "nothing loaded" (see
+     * UpdatePlayerStateRequest), and the loop below cannot express it: with a stored index of
+     * -1 the loop never runs and the sum is 0, so "nothing was playing" comes back as "track
+     * one is". On the next device that silently promotes the player bar over the footer and
+     * starts a queue the listener had deliberately left idle.
+     *
      * @param  list<string>  $ids  the stored order, including ids the library no longer has
      * @param  array<string, int>  $surviving  id => anything, for the ids that resolved
      */
     private static function survivingIndex(array $ids, array $surviving, int $storedIndex): int
     {
+        if ($storedIndex < 0) {
+            return -1;
+        }
+
         $index = 0;
 
         for ($position = 0; $position < $storedIndex && $position < count($ids); $position++) {

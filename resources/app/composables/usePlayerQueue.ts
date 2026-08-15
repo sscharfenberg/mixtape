@@ -965,6 +965,17 @@ function clampIndex(): void {
 
         return;
     }
+
+    /*
+     * NOTHING SURVIVES A CLAMP, because it is a state and not an out-of-range index. A queue
+     * with rows in it and nothing selected is ordinary — it is what a reader has between
+     * clearing the current track and choosing the next, and it is what the server sends back
+     * for a session that was left idle. Folding it to 0 would silently start that queue at
+     * track one on the next page load, promoting the player bar over the footer for somebody
+     * who had deliberately stopped.
+     */
+    if (currentIndex.value === NOTHING) return;
+
     currentIndex.value = Math.min(Math.max(currentIndex.value, 0), tracks.value.length - 1);
 }
 

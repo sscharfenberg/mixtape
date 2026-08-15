@@ -1211,6 +1211,31 @@ describe("usePlayerQueue", () => {
             expect(usePlayerQueue().shuffle.value).toBe(true);
         });
 
+        it("adopts a server queue with NOTHING loaded, without starting it at track one", () => {
+            /*
+             * -1 IS A STATE, NOT AN OUT-OF-RANGE INDEX. A queue with rows and nothing selected
+             * is what a reader has between clearing the current track and choosing the next,
+             * and it is what the server hands back for a session left idle. Clamping it to 0
+             * would silently start that queue at track one on the next page load — promoting
+             * the player bar over the footer for somebody who had deliberately stopped.
+             *
+             * The server carries -1 through for the same reason (PlayerStatePayload); this is
+             * the client half, and without it the server's half achieves nothing.
+             */
+            signedInAs("user-1", {
+                tracks: [track("server-1"), track("server-2")],
+                currentIndex: -1,
+                repeat: false,
+                shuffle: false,
+                updatedAt: Date.now() + 60_000
+            });
+            usePlayerQueue().hydrate();
+
+            expect(ids()).toStrictEqual(["server-1", "server-2"]);
+            expect(usePlayerQueue().currentIndex.value).toBe(-1);
+            expect(usePlayerQueue().current.value).toBeNull();
+        });
+
         it("writes the adopted queue to storage, so the next offline load still has it", () => {
             signedInAs("user-1", {
                 tracks: [track("server-1")],

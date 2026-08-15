@@ -121,10 +121,13 @@ class PlayerStateSyncTest extends TestCase
         $this->assertSame([$tracks[1]->id], PlayerState::query()->whereKey($user->id)->value('queue')['tracks']);
     }
 
-    public function test_an_emptied_queue_is_synced_as_empty(): void
+    public function test_an_emptied_queue_is_stored_rather_than_refused(): void
     {
-        // Clearing the queue on one device must not leave the other restoring it forever,
-        // so -1 ("nothing loaded") and an empty list are a legitimate state to store.
+        /*
+         * An empty list and -1 ("nothing loaded") are a legitimate state to STORE — refusing
+         * them would make a reader who cleared their queue fail every sync until they queued
+         * something again. What it is not is a state that propagates: see the test below.
+         */
         $user = User::factory()->create();
 
         $this->actingAs($user)
@@ -132,6 +135,51 @@ class PlayerStateSyncTest extends TestCase
             ->assertNoContent();
 
         $this->assertSame([], PlayerState::query()->whereKey($user->id)->value('queue')['tracks']);
+    }
+
+    public function test_an_empty_stored_queue_is_not_handed_back_to_another_device(): void
+    {
+        /*
+         * A QUEUE IS REPLACED ACROSS DEVICES, NEVER EMPTIED, and that is deliberate rather
+         * than an oversight — the docblocks on both sides now say so. `forUser` answers null
+         * for a stored queue with no ids, so the second device sees "nothing on the server"
+         * and keeps its own local copy instead of being wiped.
+         *
+         * The alternative would let a device with an empty queue clear another's good one on
+         * the strength of a wall-clock stamp, and losing a queue is the worse of the two
+         * failures. Asserted so the trade is visible rather than inferred from a null.
+         */
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->putJson('/player/state', $this->payload([], currentIndex: -1))
+            ->assertNoContent();
+
+        $this->actingAs($user)
+            ->get('/music')
+            ->assertInertia(fn (Assert $page) => $page->where('playerState', null));
+    }
+
+    public function test_nothing_loaded_comes_back_as_nothing_loaded(): void
+    {
+        /*
+         * -1 IS NOT AN INDEX AND MUST NOT BE COUNTED LIKE ONE. `survivingIndex` sums the
+         * surviving ids before the stored pointer; with -1 the loop never runs and the sum is
+         * 0, so "nothing was playing" would come back as "track one is" — silently promoting
+         * the player bar over the footer on the next device and starting a queue the listener
+         * had deliberately left idle.
+         */
+        $user = User::factory()->create();
+        $ids = collect($this->tracks(2))->pluck('id')->all();
+
+        $this->actingAs($user)->putJson('/player/state', $this->payload($ids, currentIndex: -1));
+
+        $this->actingAs($user)
+            ->get('/music')
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('playerState.tracks', 2)
+                ->where('playerState.currentIndex', -1)
+            );
     }
 
     public function test_it_rejects_a_queue_that_is_not_a_list_of_uuids(): void
