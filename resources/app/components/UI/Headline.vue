@@ -85,7 +85,16 @@ h4 {
     gap: 0.5ch;
 
     font-family: t.$c-headline;
-    font-weight: 200;
+
+    /* 400 BECAUSE IT IS THE LIGHTEST FACE THE FAMILY HAS. Google Sans ships 400/500/600/700
+       and nothing below, so a lighter request cannot be honoured — and it is not synthesised
+       either: CSS font matching searches DOWNWARD from the requested weight first, finds
+       nothing, then takes the nearest above, which is 400. Measured at 64px: the string
+       renders 799.17px wide at 200, at 300 and at 400, identical to the pixel, and only
+       widens at 500. So asking for 200 here was asking for something the reader never saw.
+       A genuinely thin heading would need a family that ships one; that is a design choice
+       rather than a value to edit. */
+    font-weight: 400;
 }
 
 /* The heading's own content — an icon and a title, or just a title — held as ONE flex item so
