@@ -71,8 +71,6 @@ class AlbumCoverTest extends TestCase
         imagejpeg($image, null, 90);
         $bytes = (string) ob_get_clean();
 
-        imagedestroy($image);
-
         return $bytes;
     }
 

@@ -309,6 +309,11 @@ final class CoverService
      * `$source` is named only for the log line — a track's stored path, or a folder
      * image's absolute one — so a warning says which file on the share is unreadable
      * rather than which cache key failed.
+     *
+     * Nothing frees the image by hand, deliberately: a `GdImage` is an ordinary
+     * refcounted object, so the scaled copy replacing the original releases it at the
+     * assignment and the last reference goes with the frame — on the exception path
+     * too. GD's explicit destructor is a no-op that only earns a deprecation notice.
      */
     private function writeCache(string $source, string $cached, string $sourceName): ?string
     {
@@ -320,31 +325,26 @@ final class CoverService
             return null;
         }
 
-        try {
-            $width = (int) config('mixtape.covers.width');
-            $longEdge = max(imagesx($image), imagesy($image));
+        $width = (int) config('mixtape.covers.width');
+        $longEdge = max(imagesx($image), imagesy($image));
 
-            // Only ever scale DOWN: upscaling a small embedded thumbnail just
-            // blurs it and costs more bytes than the original.
-            if ($longEdge > $width) {
-                $scaled = imagescale(
-                    $image,
-                    (int) round(imagesx($image) * $width / $longEdge),
-                    (int) round(imagesy($image) * $width / $longEdge)
-                );
+        // Only ever scale DOWN: upscaling a small embedded thumbnail just
+        // blurs it and costs more bytes than the original.
+        if ($longEdge > $width) {
+            $scaled = imagescale(
+                $image,
+                (int) round(imagesx($image) * $width / $longEdge),
+                (int) round(imagesy($image) * $width / $longEdge)
+            );
 
-                if ($scaled !== false) {
-                    imagedestroy($image);
-                    $image = $scaled;
-                }
+            if ($scaled !== false) {
+                $image = $scaled;
             }
-
-            $this->ensureCacheDirectory(dirname($cached));
-
-            imagejpeg($image, $cached, (int) config('mixtape.covers.quality'));
-        } finally {
-            imagedestroy($image);
         }
+
+        $this->ensureCacheDirectory(dirname($cached));
+
+        imagejpeg($image, $cached, (int) config('mixtape.covers.quality'));
 
         return is_file($cached) ? $cached : null;
     }
