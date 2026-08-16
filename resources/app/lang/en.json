@@ -743,7 +743,10 @@
                 "mute": "M",
                 "queue": "Q"
             },
-            "rate": "{rate}× speed"
+            "rate": "{rate}× speed",
+            "settingsSleeping": "Playback settings — sleep timer running",
+            "sleepCancel": "Cancel the sleep timer",
+            "sleepFading": "Sleep timer: playback is fading out and will stop in {minutes} minutes."
         },
         "settings": {
             "mode": "Order",
@@ -753,7 +756,15 @@
             "repeatOff": "Stop",
             "repeatOn": "Repeat endlessly",
             "speed": "Speed",
-            "speedOption": "{rate}× speed"
+            "speedOption": "{rate}× speed",
+            "sleep": "Sleep timer",
+            "sleepOff": "No sleep timer",
+            "sleepOffShort": "Off",
+            "sleepOffHint": "Keep playing, with no sleep timer",
+            "sleepMinutes": "{minutes} minutes",
+            "sleepMinutesHint": "Stop after {minutes} minutes, fading out over the last {fade}",
+            "sleepChapter": "End of chapter",
+            "sleepChapterHint": "Stop at the end of the chapter now playing"
         },
         "error": {
             "unavailable": "“{name}” cannot be played — the file is unavailable.",

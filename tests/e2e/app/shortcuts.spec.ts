@@ -331,7 +331,7 @@ test.describe("the player's keyboard shortcuts", () => {
         await page.locator('label[for="playerSpeed-2"]').click();
 
         const panel = page.locator(".player-settings__panel");
-        const live = page.locator(".player-settings__live");
+        const live = page.locator(".player-settings__rate");
         const widthOf = () => panel.evaluate(node => Math.round(node.getBoundingClientRect().width));
 
         /*

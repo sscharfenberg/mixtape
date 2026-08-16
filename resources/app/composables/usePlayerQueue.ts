@@ -125,6 +125,15 @@ export type QueueTrack = {
      * is what owns which URLs exist.
      */
     streamUrl: string;
+    /**
+     * True when this row is an audiobook CHAPTER rather than a song; absent otherwise.
+     *
+     * Carried rather than sniffed out of `streamUrl`, which would work today and break the
+     * moment a share link is what a row plays from. The one thing that reads it is the sleep
+     * timer's end-of-chapter option, which is offered only where a chapter boundary is a
+     * place somebody would want to stop — for a three-minute song it is just a short timer.
+     */
+    isChapter?: true;
 };
 
 /**
@@ -156,6 +165,8 @@ type PersistedTrack = {
     href?: string;
     /** Only written when the stream is not `/music/songs/{id}/stream` — a signed share link, say. */
     streamUrl?: string;
+    /** Only written for an audiobook chapter, matching `QueueTrack.isChapter`. */
+    isChapter?: true;
 };
 
 /** The stored list. Versioned and user-scoped; see the module note for both. */
@@ -529,6 +540,9 @@ function toPersisted(track: QueueTrack): PersistedTrack {
     }
     if (!isDerivable(track.href, hrefFor(track.id))) entry.href = track.href;
     if (!isDerivable(track.streamUrl, streamUrlFor(track.id))) entry.streamUrl = track.streamUrl;
+    // Stored only when true, like the cover flag above: "not a chapter" is what its absence
+    // already says, and this is written once per row in a queue that can hold thousands.
+    if (track.isChapter === true) entry.isChapter = true;
 
     return entry;
 }
@@ -551,7 +565,11 @@ function fromPersisted(entry: PersistedTrack): QueueTrack {
         coverUrl: entry.coverUrl ?? (entry.hasCover === true ? coverUrlFor(entry.id) : null),
         duration: entry.duration ?? null,
         href: entry.href ?? hrefFor(entry.id),
-        streamUrl: entry.streamUrl ?? streamUrlFor(entry.id)
+        streamUrl: entry.streamUrl ?? streamUrlFor(entry.id),
+        // Spread rather than `isChapter: entry.isChapter`, so a song comes back WITHOUT the
+        // key rather than with an explicit `undefined` — which `toPersisted` would then have
+        // to re-drop, and which reads as a third state in devtools.
+        ...(entry.isChapter === true ? { isChapter: true as const } : {})
     };
 }
 

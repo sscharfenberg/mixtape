@@ -1,8 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import { resetPlayerAudioForTests, usePlayerAudio } from "Composables/usePlayerAudio";
 import type { QueueTrack } from "Composables/usePlayerQueue";
 import { resetPlayerQueueForTests, usePlayerQueue } from "Composables/usePlayerQueue";
+import { resetPlayerSpeedForTests, usePlayerSpeed } from "Composables/usePlayerSpeed";
+import { noteSleepProgress, resetSleepTimerForTests, useSleepTimer } from "Composables/useSleepTimer";
 import { resetInertia, setPage } from "Testing/inertia";
 import { iconNames, mountApp, translate } from "Testing/mount";
 import PlayerBar from "./PlayerBar.vue";
@@ -58,6 +60,8 @@ describe("PlayerBar", () => {
         setPage({ props: { auth: { user: { id: "user-1", name: "Ash", email: "a@b.c" } } } });
         resetPlayerAudioForTests();
         resetPlayerQueueForTests();
+        resetPlayerSpeedForTests();
+        resetSleepTimerForTests();
         window.localStorage.clear();
     });
 
@@ -192,6 +196,110 @@ describe("PlayerBar", () => {
 
             expect(usePlayerAudio().currentTime.value).toBe(50);
             expect((wrapper.find("audio").element as HTMLAudioElement).currentTime).toBe(50);
+        });
+    });
+
+    describe("the sleep timer's pill", () => {
+        /*
+         * The bar shows a sleep timer for the LAST five minutes only. Before that it is a
+         * setting, marked on the gear that armed it (PlayerSettings' spec covers that half) —
+         * a countdown over the page for half an hour is the opposite of what a bedtime
+         * feature wants. Once the volume starts dropping on its own it becomes an event, and
+         * this is what says why and takes it back.
+         */
+
+        beforeEach(() => {
+            vi.useFakeTimers();
+            resetSleepTimerForTests();
+        });
+
+        afterEach(() => {
+            resetSleepTimerForTests();
+            vi.useRealTimers();
+        });
+
+        /**
+         * Arm a timer and walk the clock to a point inside the fade.
+         *
+         * The clock is MOVED and the tick called by hand rather than `advanceTimersByTime`,
+         * which would also run every other pending timer in the app — the queue's debounced
+         * server sync among them, which then fails to reach a server and reports it through
+         * an i18n instance no component spec sets up. Nothing here needs the interval to run:
+         * the timer reads the clock on every tick, whoever delivers it.
+         */
+        const fadeTo = async (secondsLeft: number) => {
+            useSleepTimer().arm("15");
+            vi.setSystemTime(Date.now() + (15 * 60 - secondsLeft) * 1000);
+            noteSleepProgress();
+            await nextTick();
+        };
+
+        it("stays away while the timer is merely running", async () => {
+            const wrapper = await bar([track("a")]);
+
+            useSleepTimer().arm("15");
+            await nextTick();
+
+            expect(wrapper.find(".player-bar__sleep").exists()).toBe(false);
+        });
+
+        it("appears once the fade begins, counting down beside the moon", async () => {
+            const wrapper = await bar([track("a")]);
+
+            await fadeTo(252);
+
+            expect(wrapper.find(".player-bar__sleep").exists()).toBe(true);
+            expect(wrapper.find(".player-bar__sleep use").attributes("href")).toBe("#dark");
+            expect(wrapper.find(".player-bar__sleep span").text()).toBe("4:12");
+        });
+
+        it("cancels the timer when pressed, which is the whole 'I am still awake' case", async () => {
+            const wrapper = await bar([track("a")]);
+            await fadeTo(120);
+
+            await wrapper.find(".player-bar__sleep").trigger("click");
+
+            expect(useSleepTimer().isArmed.value).toBe(false);
+            expect(wrapper.find(".player-bar__sleep").exists()).toBe(false);
+        });
+
+        it("announces the fade once, in a sentence that does not tick", async () => {
+            /*
+             * A live region speaks whenever its contents change, so a countdown in here would
+             * read the clock aloud every second for five minutes. The digits are `aria-hidden`
+             * and this says the two things that matter — the volume is going down on purpose,
+             * and there is a button that stops it.
+             */
+            const wrapper = await bar([track("a")]);
+            // The LAST status region in the bar: the rate badge is one too, and it renders
+            // before this one whenever the player is off normal speed.
+            const status = () => {
+                const regions = wrapper.findAll('[role="status"]');
+
+                return regions[regions.length - 1];
+            };
+
+            expect(status().text()).toBe("");
+
+            await fadeTo(280);
+            const first = status().text();
+
+            vi.setSystemTime(Date.now() + 30 * 1000);
+            noteSleepProgress();
+            await nextTick();
+
+            expect(first).toBe(translate("player.bar.sleepFading").replace("{minutes}", "5"));
+            expect(status().text()).toBe(first);
+        });
+
+        it("sits beside the speed badge rather than on top of it", async () => {
+            // A 3× audiobook with a sleep timer running is an ordinary Tuesday, and two badges
+            // pinned to the same corner would land on each other.
+            const wrapper = await bar([track("a")]);
+            usePlayerSpeed().setSpeed(3);
+            await fadeTo(60);
+
+            expect(wrapper.findAll(".player-bar__badges > *")).toHaveLength(2);
         });
     });
 });

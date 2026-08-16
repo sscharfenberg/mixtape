@@ -114,7 +114,11 @@ class SubjectQueueTest extends TestCase
                 // draws its placeholder instead of pointing an <img> at a 404.
             ->assertJsonPath('props.queueTracks.0.coverUrl', null)
             ->assertJsonPath('props.queueTracks.0.href', "/music/songs/{$song->id}")
-            ->assertJsonPath('props.queueTracks.0.streamUrl', "/music/songs/{$song->id}/stream");
+            ->assertJsonPath('props.queueTracks.0.streamUrl', "/music/songs/{$song->id}/stream")
+                // ABSENT on a song, rather than `false`. Its absence is what says "not a
+                // chapter", so the flag is one word on the rows that have it instead of a
+                // field on every row of a queue that can hold the library.
+            ->assertJsonMissingPath('props.queueTracks.0.isChapter');
     }
 
     public function test_a_cover_the_scan_found_becomes_a_url(): void

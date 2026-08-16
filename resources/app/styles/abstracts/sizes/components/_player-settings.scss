@@ -21,5 +21,13 @@ $player-settings: (
     // between the two rows, and between the panel and the trigger it opens from
     "gap": 0.5rem,
     // between a row's label and its bubbles
-    "row-gap": 1rem
+    "row-gap": 1rem,
+    // The moon marking a running sleep timer. A literal rather than a step off the icon
+    // scale, whose smallest entry ("tiny") is the full base size: this is a mark ON a
+    // control, so it has to be a fraction of the glyph it sits beside rather than a peer
+    // of it — at the scale's own floor the two crescent and gear read as one shape.
+    "mark": 0.7rem,
+    // How far the mark hangs off the trigger's corner, on both axes. Negative, so it clears
+    // the gear's teeth instead of crossing them.
+    "mark-offset": -0.15rem
 ) !default;

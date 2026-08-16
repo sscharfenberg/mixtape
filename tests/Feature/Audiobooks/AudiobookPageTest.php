@@ -189,7 +189,11 @@ class AudiobookPageTest extends TestCase
             ->get($url)
             ->assertJsonCount(3, 'props.queueTracks')
             // Addressed as chapters, which is the whole of what made a book playable.
-            ->assertJsonPath('props.queueTracks.0.href', "/audiobooks/{$book->id}");
+            ->assertJsonPath('props.queueTracks.0.href', "/audiobooks/{$book->id}")
+            // And MARKED as chapters, which is what lets the player offer to stop at the end
+            // of one. Carried on the row rather than sniffed out of the stream URL, which
+            // would work today and break the moment a row plays from a share link.
+            ->assertJsonPath('props.queueTracks.0.isChapter', true);
     }
 
     public function test_a_book_with_no_art_sends_a_null_cover_rather_than_a_url_that_404s(): void

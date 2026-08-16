@@ -24,18 +24,47 @@
  * The popover is deliberately NOT closed on a change: setting the play order is
  * something you do while looking at the queue, and both rows are things people flip
  * twice in a row before settling.
+ *
+ * IT IS ALSO WHERE THE SLEEP TIMER IS ARMED, and where a running one is shown. A
+ * fourth row of the same shape, rather than the modal that arming a timer suggests:
+ * every other setting here takes effect on the click that chooses it, so a row that
+ * instead opened a dialog with its own submit would be a different interaction wearing
+ * an identical row — and a dialog opened from inside a `[popover]` puts two top-layer
+ * surfaces on screen, where Escape and light-dismiss then argue about which one they
+ * close. Choosing a duration IS the confirmation.
+ *
+ * The trigger wears a MARK while a timer runs, which is the only ambient sign the app
+ * gives one. Deliberately not a countdown: this is a bedtime feature, and a clock
+ * ticking in the corner of the screen is a thing a listener lies there and watches. The
+ * numbers live where somebody has gone looking for them — this popover — until the fade
+ * begins, which is the point the bar puts a pill over the page (see PlayerBar).
  *****************************************************************************/
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import Icon from "Components/UI/Icon.vue";
 import OptionBubbles from "Components/UI/OptionBubbles.vue";
 import type { BubbleOption } from "Components/UI/OptionBubbles.vue";
 import PopOver from "Components/UI/PopOver.vue";
 import { usePlayerQueue } from "Composables/usePlayerQueue";
 import { PLAYER_SPEEDS, usePlayerSpeed } from "Composables/usePlayerSpeed";
+import { SLEEP_CHAPTER, SLEEP_FADE_MINUTES, SLEEP_MINUTES, SLEEP_OFF, useSleepTimer } from "Composables/useSleepTimer";
+import { formatClock } from "Utils/formatting";
 
 const { t } = useI18n();
-const { repeat, shuffle, toggleRepeat, toggleShuffle } = usePlayerQueue();
+const { current, repeat, shuffle, toggleRepeat, toggleShuffle } = usePlayerQueue();
 const { speed, setSpeed, isSkimming, effectiveRate } = usePlayerSpeed();
+const { arm, isArmed, remaining, selection } = useSleepTimer();
+
+/**
+ * The widest clock the countdown can show, used as the hidden row's placeholder.
+ *
+ * The readout below reserves its box at all times (see `player-settings__live`), so the
+ * width it reserves has to be the widest it will ever need — parked at "0:00" instead,
+ * the panel would grow by three characters the moment a 60-minute timer was armed.
+ * `formatClock` moves to `h:mm:ss` AT the hour, so this form is on screen for about one
+ * second of that timer's life and is still what has to be made room for.
+ */
+const WIDEST_COUNTDOWN = "1:00:00";
 
 /**
  * The play-order options. `off` first, so the pill's resting position is the plain
@@ -111,6 +140,82 @@ const speedValue = computed<string>({
     get: () => String(speed.value),
     set: value => setSpeed(Number(value))
 });
+
+/**
+ * The sleep-timer options: off, the offered durations, and — on an audiobook — the end
+ * of the chapter.
+ *
+ * TEXT for the durations, for the reason the speed row gives: a picture of "thirty
+ * minutes" would be less legible than the two characters it replaced. The chapter option
+ * is a GLYPH instead, and the area's own book at that: among four numbers, a number is
+ * what a reader takes any text for, and "Kap." is neither a number nor a word.
+ *
+ * The chapter option also stays while it is ARMED, even once the queue has moved on to
+ * something that is not a chapter. Removing it under a running timer would leave the pill
+ * with no option to sit on, so it would fall back to "off" — a control claiming the timer
+ * had been cancelled while it counted down behind it.
+ */
+const sleepOptions = computed<BubbleOption[]>(() => {
+    const options: BubbleOption[] = [
+        {
+            value: SLEEP_OFF,
+            text: t("player.settings.sleepOffShort"),
+            label: t("player.settings.sleepOff"),
+            hint: t("player.settings.sleepOffHint")
+        },
+        ...SLEEP_MINUTES.map(minutes => ({
+            value: String(minutes),
+            text: String(minutes),
+            label: t("player.settings.sleepMinutes", { minutes }),
+            // The hints carry what a modal would otherwise have explained — that a duration
+            // fades before it stops. This row has no other prose, and a tooltip a reader meets
+            // while deciding beats a paragraph they dismissed the first time. The fade's length
+            // is interpolated rather than written into the string: it is one constant, and a
+            // tooltip promising five minutes while the timer fades for three is a lie nothing
+            // would catch.
+            hint: t("player.settings.sleepMinutesHint", { minutes, fade: SLEEP_FADE_MINUTES })
+        }))
+    ];
+
+    if (current.value?.isChapter === true || selection.value === SLEEP_CHAPTER) {
+        options.push({
+            value: SLEEP_CHAPTER,
+            icon: "audiobook",
+            label: t("player.settings.sleepChapter"),
+            hint: t("player.settings.sleepChapterHint")
+        });
+    }
+
+    return options;
+});
+
+/**
+ * The armed option as the bubbles' value.
+ *
+ * No guard against re-selecting the current option, unlike the two mode rows: `arm()` is a
+ * restart rather than a toggle, so choosing thirty again is thirty more minutes — which is
+ * the useful reading of that gesture, not a bug to defend against.
+ */
+const sleepValue = computed<string>({
+    get: () => selection.value,
+    set: value => arm(value)
+});
+
+/** Whether there is a clock to show — false when off, and in chapter mode, which has none. */
+const hasCountdown = computed<boolean>(() => remaining.value > 0);
+
+/**
+ * What the row's readout says: the time left, or the widest placeholder while it is hidden.
+ *
+ * Rounded UP, so a timer armed for thirty minutes reads "30:00" rather than "29:59" for the
+ * first second of its life — the number a reader is checking against is the one they just
+ * chose.
+ */
+const sleepReadout = computed<string>(() => {
+    if (!hasCountdown.value) return WIDEST_COUNTDOWN;
+
+    return formatClock(Math.ceil(remaining.value)) ?? WIDEST_COUNTDOWN;
+});
 </script>
 
 <template>
@@ -119,7 +224,7 @@ const speedValue = computed<string>({
             icon="settings"
             reference="playerSettings"
             class-string="popover-button--rounded popover-button--subtle player-settings__trigger"
-            :ariaLabel="t('player.bar.settings')"
+            :ariaLabel="isArmed ? t('player.bar.settingsSleeping') : t('player.bar.settings')"
             width="auto"
         >
             <ul class="player-settings__panel">
@@ -165,8 +270,11 @@ const speedValue = computed<string>({
                          few characters of width at all times, which is the cheaper of the
                          two — and it is constant, since every rate is one digit and the
                          figures are tabular. -->
+                    <!-- `__live` is the shared box and voice both readouts wear; the second
+                         class says WHICH readout this is. Two rows now carry one of these, so
+                         a selector naming only the shared half addresses both of them. -->
                     <span
-                        class="player-settings__live"
+                        class="player-settings__live player-settings__rate"
                         :class="{ 'player-settings__live--on': isSkimming }"
                         aria-hidden="true"
                         >▸ {{ effectiveRate }}×</span
@@ -179,8 +287,55 @@ const speedValue = computed<string>({
                         :size="1"
                     />
                 </li>
+                <!-- The sleep timer, LAST because it is the only row here that ends the
+                     listening rather than shaping it — and because it is the one a reader
+                     comes to this popover for deliberately, rather than on the way past. -->
+                <li class="player-settings__row">
+                    <span class="player-settings__label">{{ t("player.settings.sleep") }}</span>
+                    <!-- How long is left, in the slot and the voice the speed row's live rate
+                         established: the bubbles say what was CHOSEN, this says what is
+                         happening. Always rendered and hidden by `visibility` for the reason
+                         given there — the popover is `width: auto`, and a readout that came
+                         and went would resize the panel under whoever is reading it.
+                         `aria-hidden`, because the trigger already renames itself while a
+                         timer runs and the bar announces the fade; a third voice for one fact
+                         is how a screen reader ends up saying it three times. -->
+                    <span
+                        class="player-settings__live player-settings__countdown"
+                        :class="{ 'player-settings__live--on': hasCountdown }"
+                        aria-hidden="true"
+                    >
+                        <!-- TWO SPANS, and the hidden one is what holds the width. Unlike the
+                             speed row's readout — which is always the same three characters —
+                             this one is four characters at "4:12" and seven at "1:00:00", so
+                             reserving a box is not enough on its own: the panel would resize
+                             every time the countdown crossed ten minutes, and again when it
+                             was armed. The sizer is always the longest form, and the value is
+                             laid over it. -->
+                        <span class="player-settings__countdown-sizer">▸ {{ WIDEST_COUNTDOWN }}</span>
+                        <span class="player-settings__countdown-value">▸ {{ sleepReadout }}</span>
+                    </span>
+                    <option-bubbles
+                        v-model="sleepValue"
+                        :options="sleepOptions"
+                        name="playerSleep"
+                        :label="t('player.settings.sleep')"
+                        :size="1"
+                    />
+                </li>
             </ul>
         </pop-over>
+
+        <!-- The one ambient sign that a timer is running: a moon on the corner of the gear.
+             AFTER the popover in source order so it paints over the trigger, and
+             `aria-hidden` because the trigger's own name already carries the state (a mark
+             assistive tech announced separately would be an unlabelled image beside a button).
+             The MOON IS THE THEME SWITCH'S GLYPH, reused rather than duplicated: the crescent
+             only ever renders inside the user menu's labelled light/dark/system group, so the
+             two never appear together without a label saying which is which. -->
+        <span v-if="isArmed" class="player-settings__mark" aria-hidden="true">
+            <icon name="dark" :size="0" />
+        </span>
     </div>
 </template>
 
@@ -191,6 +346,7 @@ const speedValue = computed<string>({
 
 .player-settings {
     display: inline-flex;
+    position: relative;
     align-items: center;
 
     /* Sizes the gear DOWN to match prev/next, exactly as PlayerVolume does and for the
@@ -270,6 +426,30 @@ const speedValue = computed<string>({
    It borrows the CHOSEN option's own ink (`c.$c-option-bubbles` "surface-selected") rather
    than minting a colour: this and the pill are the two things in the row saying "in force",
    and they should say it in the same voice. */
+
+/* The sleep-timer mark, on the top-right corner of the gear.
+   Pulled OUTSIDE the trigger's box on both axes rather than sitting within it: the button is
+   a small filled pill and a glyph laid over its corner would cross the gear's own teeth,
+   where two line drawings at this size become one smudge.
+   `pointer-events: none` because it is not a control — the trigger it sits on is, and a mark
+   that swallowed the click on its own corner would be its own small bug.
+   It borrows the CHOSEN option's ink, the same colour the readout above uses and for the same
+   reason: this and the lit bubble are the two things saying "in force", in one voice. */
+.player-settings__mark {
+    display: flex;
+    position: absolute;
+    inset-block-start: map.get(s.$c-player-settings, "mark-offset");
+    inset-inline-end: map.get(s.$c-player-settings, "mark-offset");
+
+    color: map.get(c.$c-option-bubbles, "surface-selected");
+
+    pointer-events: none;
+
+    .icon {
+        --icon-size: #{map.get(s.$c-player-settings, "mark")};
+    }
+}
+
 .player-settings__live {
     visibility: hidden;
 
@@ -282,5 +462,29 @@ const speedValue = computed<string>({
     &--on {
         visibility: visible;
     }
+}
+
+/* The sleep row's countdown, which needs one thing the speed row's readout does not: a width
+   that does not depend on what it currently says. "4:12" and "1:00:00" are three characters
+   apart, so a single span would resize the panel as the timer crossed ten minutes — under a
+   reader who is looking at it, which is the whole thing the reserved box exists to prevent.
+   So the hidden sizer holds the longest form open and the value is laid over it. The sizer
+   stays `visibility: hidden` in both states; when the parent is hidden the value inherits it,
+   and when the parent is shown only the value comes back. */
+.player-settings__countdown {
+    position: relative;
+}
+
+.player-settings__countdown-sizer {
+    visibility: hidden;
+}
+
+/* Right-aligned, so the clock stays flush against the bubbles as it shortens rather than
+   drifting away from them. */
+.player-settings__countdown-value {
+    position: absolute;
+    inset: 0;
+
+    text-align: end;
 }
 </style>

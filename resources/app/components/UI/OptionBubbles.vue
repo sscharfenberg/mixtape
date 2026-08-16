@@ -73,8 +73,9 @@ type BubbleOptionBase = {
  *
  * Text was added for the player's speed row ("1×", "2×", "3×"), where a glyph would be a
  * picture of a number: the sprite has nothing that means "three times as fast", and inventing
- * one would be less legible than the two characters it replaced. Keep it SHORT — the options
- * share the row equally (`flex-grow: 1`), so a long string widens every sibling with it.
+ * one would be less legible than the two characters it replaced. Keep it SHORT — every option
+ * is exactly one nth of the row (see `flex: 1 1 0` below, which is what makes the travelling
+ * pill land true), so the longest string sets the width of ALL of them.
  */
 export type BubbleOption = BubbleOptionBase &
     (
@@ -225,10 +226,26 @@ function optionId(value: string): string {
 @use "Abstracts/timings" as ti;
 @use "Abstracts/z-indexes" as z;
 
+/* A GRID, not a flex row, and the reason is the pill. It is drawn as an exact
+   `100% / var(--count)` slice at `--selected` slices along, so it only ever sits over the
+   option it marks if the options are genuinely equal — and flex cannot promise that. Flex
+   distributes FREE SPACE equally, never widths: with `flex-grow: 1` each item is its content
+   plus a share of the remainder, and even `flex: 1 1 0` is clamped back up by each item's
+   automatic minimum size, after which the container is sized as the plain sum. Measured on
+   the sleep row's "Aus · 15 · 30 · 60": 42.81px against 35.2px, which put the first option
+   2.9px off-centre inside its own pill and the last one true — the cumulative signature of
+   this rather than of an alignment bug.
+   `repeat(var(--count), …)` is the same number the pill divides by, so the two cannot drift.
+   `minmax(0, 1fr)` rather than a bare `1fr` for the reason this project keeps meeting: `1fr`
+   is `minmax(auto, 1fr)`, and that floor is min-content, which is exactly the clamp that
+   broke the flex version.
+   EVERYTHING ELSE IN HERE IS OUT OF FLOW — the pill, the clipped inputs and the `.sr-only`
+   descriptions are all absolutely positioned — so the labels are the only grid items. Anything
+   added here that is not positioned becomes a column and shifts the pill off every option. */
 .option-bubbles {
-    display: flex;
+    display: grid;
     position: relative;
-    justify-content: space-between;
+    grid-template-columns: repeat(var(--count), minmax(0, 1fr));
 
     /* The travelling pill. Behind the row (`z-index` "background") rather than inside the
        chosen option, so one element can move between them — see the component banner. Its
@@ -270,11 +287,12 @@ function optionId(value: string): string {
         white-space: nowrap;
     }
 
+    /* One grid column each (see the container above), so an option is always exactly the slice
+       the pill draws for it. Still a flex box ITSELF, to centre its glyph or its text. */
     &__item {
         display: flex;
         align-items: center;
         justify-content: center;
-        flex-grow: 1;
 
         padding: map.get(s.$c-option-bubbles, "padding");
 

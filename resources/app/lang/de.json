@@ -743,7 +743,10 @@
                 "mute": "M",
                 "queue": "Q"
             },
-            "rate": "{rate}-fache Geschwindigkeit"
+            "rate": "{rate}-fache Geschwindigkeit",
+            "settingsSleeping": "Wiedergabe-Einstellungen – Einschlaftimer läuft",
+            "sleepCancel": "Einschlaftimer abbrechen",
+            "sleepFading": "Einschlaftimer: die Wiedergabe wird jetzt leiser und endet in {minutes} Minuten."
         },
         "settings": {
             "mode": "Reihenfolge",
@@ -753,7 +756,15 @@
             "repeatOff": "Anhalten",
             "repeatOn": "Endlos wiederholen",
             "speed": "Geschwindigkeit",
-            "speedOption": "{rate}-fache Geschwindigkeit"
+            "speedOption": "{rate}-fache Geschwindigkeit",
+            "sleep": "Einschlafen",
+            "sleepOff": "Kein Einschlaftimer",
+            "sleepOffShort": "Aus",
+            "sleepOffHint": "Ohne Einschlaftimer weiterhören",
+            "sleepMinutes": "{minutes} Minuten",
+            "sleepMinutesHint": "Nach {minutes} Minuten anhalten – die letzten {fade} Minuten wird es leiser",
+            "sleepChapter": "Kapitelende",
+            "sleepChapterHint": "Am Ende des laufenden Kapitels anhalten"
         },
         "error": {
             "unavailable": "„{name}“ kann nicht abgespielt werden – die Datei ist nicht verfügbar.",

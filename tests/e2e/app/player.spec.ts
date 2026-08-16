@@ -779,8 +779,9 @@ test.describe("the player's settings popover", () => {
             expect(fit.clipped).toBe(false);
             expect(fit.left).toBeGreaterThanOrEqual(0);
             expect(fit.right).toBeLessThanOrEqual(fit.viewport);
-            // Every option still reachable, which is what the two above are really about.
-            await expect(page.locator(".player-settings .option-bubbles__item")).toHaveCount(7);
+            // Every option still reachable, which is what the two above are really about:
+            // two modes, three speeds and the sleep timer's four, across the four rows.
+            await expect(page.locator(".player-settings .option-bubbles__item")).toHaveCount(11);
 
             await page.keyboard.press("Escape");
         }
@@ -802,6 +803,107 @@ test.describe("the player's settings popover", () => {
         await page.locator('label[for="playerMode-on"]').click();
 
         await expect.poll(async () => (await at()) > resting).toBe(true);
+    });
+
+    test("lands the pill on the option it marks, even where the labels differ in width", async ({ page }) => {
+        /*
+         * THE PILL IS DRAWN, NOT MEASURED: it is a `100% / var(--count)` slice at `--selected`
+         * slices along, which is only over the right option if every option is genuinely one
+         * nth of the row. `flex-grow: 1` does not do that — with a content-sized basis each
+         * item is its own width plus an equal share of the remainder — so a row whose labels
+         * differ ("Aus" against "15") lays out unevenly under a pill that keeps slicing evenly.
+         *
+         * ONLY THIS LAYER CAN SEE IT. Both the pill's offset and the items' widths come out of
+         * the engine's layout; happy-dom reports the same DOM whether they agree or not. And
+         * only the sleep row can show it: every other group here is icons or "1× 2× 3×", all
+         * of them the same width, which is why it stayed hidden until a three-letter option
+         * arrived. The tell is that the error is cumulative and largest at the START of the
+         * row, so the first option is checked as well as the last.
+         */
+        await enqueueSongs(page, 1);
+        await openPopover(page, ".player-settings");
+
+        const row = page.locator(".player-settings__row").last();
+        const items = row.locator(".option-bubbles__item");
+        const pill = row.locator(".option-bubbles__pill");
+
+        for (const index of [0, 3]) {
+            await items.nth(index).click();
+            await settledValue(async () => JSON.stringify(await pill.boundingBox()));
+
+            const item = (await items.nth(index).boundingBox())!;
+            const marker = (await pill.boundingBox())!;
+
+            // Centres within half a pixel: a full slice of drift is what the reader sees as an
+            // option sitting off-centre in its own pill.
+            expect(Math.abs(item.x + item.width / 2 - (marker.x + marker.width / 2))).toBeLessThan(0.5);
+        }
+    });
+
+    test("keeps the settings panel one width, whatever the sleep timer says", async ({ page }) => {
+        /*
+         * The same claim the volume panel's spec makes, and this row is the harder case: its
+         * readout is four characters at "4:12" and seven at "1:00:00", against a `width: auto`
+         * panel that has to hold still under a reader who is looking at it. A hidden sizer
+         * holds the longest form open and the clock is laid over it.
+         *
+         * THIS LAYER, because the bug it guards is invisible to every other one: happy-dom has
+         * no layout, so a panel that narrows by 26px the moment a timer is armed — which is
+         * what a single span did — reports exactly the same DOM as one that does not.
+         */
+        await enqueueSongs(page, 1);
+
+        const panel = await openPopover(page, ".player-settings");
+        const before = await panel.boundingBox();
+
+        await page.locator('label[for="playerSleep-15"]').click();
+        await expect(page.locator("#playerSleep-15")).toBeChecked();
+        await settledValue(async () => JSON.stringify(await panel.boundingBox()));
+
+        expect(await panel.boundingBox()).toStrictEqual(before);
+
+        // And the gear wears its mark, which is the only ambient sign a timer is running.
+        await page.keyboard.press("Escape");
+        await expect(page.locator(".player-settings__mark")).toBeVisible();
+    });
+
+    test("floats the sleep timer's pill over the bar once it fades, without moving the transport", async ({
+        page
+    }) => {
+        /*
+         * `page.clock` is what makes a five-minute fade a test at all: the timer reads
+         * `Date.now()` on every tick precisely so a throttled tab cannot mislead it, and a
+         * mocked clock is the same question asked from the other side.
+         *
+         * What only a browser can answer is the LAYOUT. The pill and the speed badge share one
+         * absolutely-positioned row above the bar, so that neither lands on the other and
+         * neither is a grid item — a badge that took a column would shift the transport
+         * sideways under a finger that is about to press play again.
+         */
+        await page.clock.install();
+        await enqueueSongs(page, 1);
+
+        const transportBefore = await page.locator(".player-bar__transport").boundingBox();
+
+        await openPopover(page, ".player-settings");
+        await page.locator('label[for="playerSleep-15"]').click();
+        await page.keyboard.press("Escape");
+
+        // Eleven minutes in: four left, so the fade has begun.
+        await page.clock.fastForward("11:00");
+
+        const pill = page.locator(".player-bar__sleep");
+        await expect(pill).toBeVisible();
+        await expect(pill).toContainText("4:00");
+        expect(await page.locator(".player-bar__transport").boundingBox()).toStrictEqual(transportBefore);
+
+        // One press is the whole "no, I'm still awake" case: the timer goes, and so does the
+        // attenuation it had put on the element.
+        await pill.click();
+
+        await expect(pill).toBeHidden();
+        await expect(page.locator(".player-settings__mark")).toBeHidden();
+        expect(await audioState(page).then(state => state.volume)).toBe(1);
     });
 
     test("says which track failed when the stream does not answer", async ({ page }) => {

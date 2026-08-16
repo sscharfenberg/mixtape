@@ -22,6 +22,11 @@
  * back to 60%, and dragging to zero then un-muting has to arrive somewhere audible —
  * and `isSilent` is what collapses them for anything that only cares whether
  * something can be heard.
+ *
+ * THE ATTENUATION IS A THIRD STATE, and it is deliberately none of the above: it is a
+ * factor something else applies ON TOP of the level, without the level moving. The
+ * sleep timer's fade is the caller — see {@link setOutputAttenuation} for why a fade
+ * that simply turned the volume down would be a bug rather than a shortcut.
  *****************************************************************************/
 import type { ComputedRef, Ref } from "vue";
 import { computed, ref } from "vue";
@@ -97,6 +102,16 @@ const changes = ref<number>(0);
  */
 let levelBeforeMute = FULL_VOLUME;
 
+/**
+ * A factor applied to the level on its way to the element, 0–1. Not a level, not a mute.
+ *
+ * Its own variable rather than a ref because nothing draws it: the slider shows what the
+ * listener chose, and a fade is not a choice. Keeping it out of the reactive state is also
+ * what stops it reaching `isSilent` — a fade passing through zero must not flip the mute
+ * glyph, which is a claim about what the listener did.
+ */
+let attenuation = 1;
+
 /** Whether the stored level has been read yet — once per page, on the first bind. */
 let hydrated = false;
 
@@ -112,12 +127,34 @@ const isSilent = computed<boolean>(() => isMuted.value || volume.value === 0);
  * `volume` and `muted` are properties of the ELEMENT, not of its source, so they
  * survive every `src` change and this needs calling only when one of them changes or
  * a new element is bound — not per track.
+ *
+ * The attenuation is multiplied in HERE rather than at the one call site that sets it,
+ * because it has to survive every other write: turning the volume up during a fade
+ * would otherwise cancel the fade until its next tick, and a track change re-asserting
+ * the level would do the same.
  */
 function applyVolume(): void {
     if (!element) return;
 
-    element.volume = volume.value;
+    element.volume = volume.value * attenuation;
     element.muted = isMuted.value;
+}
+
+/**
+ * Attenuate output without moving the level — what the sleep timer's fade does.
+ *
+ * A FADE MUST NOT WRITE THE LEVEL, which is the whole reason this exists. `setVolume`
+ * persists, so a fade expressed as "turn it down every second" would store its way to
+ * near-silence and leave the listener waking up to a player at 2% with nothing to
+ * explain it; it would also bump `changes`, popping the volume HUD over the page once a
+ * second for five minutes. Clamped rather than trusted because the product is assigned
+ * to `element.volume`, which throws outside 0–1.
+ *
+ * @param factor 0–1, where 1 is "no attenuation" and what a cancelled fade restores
+ */
+export function setOutputAttenuation(factor: number): void {
+    attenuation = Math.min(Math.max(factor, 0), 1);
+    applyVolume();
 }
 
 /** Write the level down. Failure is silent: a working player matters more than a remembered level. */
@@ -254,5 +291,8 @@ export function resetPlayerVolumeForTests(): void {
     isMuted.value = false;
     changes.value = 0;
     levelBeforeMute = FULL_VOLUME;
+    // And the fade factor, which no gesture clears: a spec that leaves a sleep timer
+    // mid-fade would otherwise start the next one four fifths of the way to silence.
+    attenuation = 1;
     hydrated = false;
 }

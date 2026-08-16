@@ -71,6 +71,7 @@ import type { QueueTrack } from "Composables/usePlayerQueue";
 import { bindPositionSource, notePlaybackProgress, takeRestoredPosition, usePlayerQueue } from "Composables/usePlayerQueue";
 import { applyPlaybackRate, bindSpeedElement } from "Composables/usePlayerSpeed";
 import { bindVolumeElement } from "Composables/usePlayerVolume";
+import { bindSleepStop, consumeTrackEndStop, noteSleepProgress } from "Composables/useSleepTimer";
 import * as session from "Utils/mediaSession";
 import { announcePlaybackFailure, forgetPlaybackFailure } from "Utils/playbackError";
 import { reportPlay } from "Utils/playBeacon";
@@ -379,6 +380,38 @@ function stopAndUnload(audio: HTMLAudioElement): void {
 function handleEnded(): void {
     const before = queue.currentIndex.value;
 
+    /*
+     * THE SLEEP TIMER'S OTHER MODE, and it is asked here rather than anywhere else because
+     * this is the one moment "the end of the chapter" exists. Consumed rather than read, so
+     * the flag cannot stop the next track too.
+     *
+     * IT STILL ADVANCES THE POINTER — it simply does not play. Stopping ON the finished
+     * chapter looks like the more literal reading of "stop at the end of this one" and is the
+     * wrong behaviour twice over. The element is left in its `ended` state, and `play()` on an
+     * ended element seeks back to the start, so the press the next morning would REPLAY the
+     * chapter the listener had just finished. And nothing would record where they got to:
+     * `queue.next()` is what commits the pointer, and the `pause` handler that would otherwise
+     * store a position early-returns on `audio.ended`. Cueing the next chapter paused is what
+     * a press at the boundary would have done, and it is what leaves the bookmark on the
+     * chapter a reader wants to wake up to.
+     *
+     * The intent is cleared FIRST because the queue's watcher reads it: `load(track,
+     * isPlaying.value)` on the next tick is what decides whether the cued chapter also starts.
+     */
+    if (consumeTrackEndStop()) {
+        isPlaying.value = false;
+        /*
+         * `queueFinished` only where the book really ran out — the last chapter ending under a
+         * timer is both a deliberate stop and an exhausted queue, and the Now Playing badge
+         * should say so. Anywhere else it stays false: somebody asked to be left here, and
+         * "end of queue" over a book with 600 chapters left would be a lie.
+         */
+        queueFinished.value = !queue.next();
+        publishPlaybackState();
+
+        return;
+    }
+
     if (!queue.next()) {
         isPlaying.value = false;
         // THE QUEUE REALLY RAN OUT, which is the only place that can be known. A stopped player
@@ -530,6 +563,15 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
          * So it gets a getter, the same handshake the two modules above use in reverse.
          */
         bindPositionSource(() => audio.currentTime);
+
+        /*
+         * The sleep timer stops the music but does not own the element or the play intent,
+         * so it is handed the one function that does both. Same handshake as the position
+         * source above, and for the same reason — that module is imported by this one, so an
+         * import back would be a cycle.
+         */
+        bindSleepStop(pause);
+
         lastHeartbeatAt = 0;
         // Taken here, before the load below, and taken ONCE: this is the track a page load
         // came back holding, and it is the only one a stored position can belong to.
@@ -570,6 +612,16 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
             // The listen itself, measured on the same event and for the same reason it is
             // the right one: it keeps firing while the tab is hidden.
             countHeardTime(audio, queue.current.value);
+
+            /*
+             * The sleep timer's fade and its stop, driven from here rather than from a timer
+             * of its own — for the third time on this event, and for the same reason both
+             * times above give: a hidden tab throttles `setInterval` to roughly once a
+             * minute while media events keep arriving. A phone with the screen off is the
+             * case the whole feature exists for, and it is the case a timer would miss.
+             * The timer keeps an interval too, for a PAUSED player, where this never fires.
+             */
+            noteSleepProgress();
         });
 
         // `progress` is the download's own event, so the buffer indicator keeps
@@ -788,6 +840,9 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
         bindAnalyserElement(null);
         // The queue must not keep a closure over an element that has left the document.
         bindPositionSource(null);
+        // Which also CANCELS a running sleep timer, deliberately: the bar carrying its mark
+        // has gone, so a timer left counting would be state nothing on screen can show.
+        bindSleepStop(null);
         pendingResume = 0;
         lastHeartbeatAt = 0;
         heardSeconds = 0;
@@ -818,6 +873,10 @@ export function resetPlayerAudioForTests(): void {
     teardown = [];
     element = null;
     bindPositionSource(null);
+    // The stop closure would otherwise point at the previous spec's `pause`. Cancelling the
+    // timer with it is a side effect rather than the goal, and a welcome one here — a spec
+    // that armed a timer must not leave an interval ticking into the next file.
+    bindSleepStop(null);
     pendingResume = 0;
     lastHeartbeatAt = 0;
     heardSeconds = 0;

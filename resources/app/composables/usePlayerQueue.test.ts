@@ -910,6 +910,28 @@ describe("usePlayerQueue", () => {
             expect(usePlayerQueue().tracks.value[0].coverUrl).toBe(foreign);
         });
 
+        it("remembers that a row is a chapter, and says nothing at all for a song", () => {
+            /*
+             * The flag the sleep timer's end-of-chapter option is offered from. Stored only
+             * when true, like the cover flag: "not a chapter" is what its absence says, and
+             * this is written once per row in a queue that can hold thousands.
+             *
+             * Carried rather than sniffed out of `streamUrl` — which would work today and
+             * break the moment a row plays from a share link.
+             */
+            usePlayerQueue().enqueue([{ ...track("a") }, { ...track("b"), isChapter: true }]);
+            flushQueueWrites();
+
+            expect(stored().tracks[0]).not.toHaveProperty("isChapter");
+            expect(stored().tracks[1].isChapter).toBe(true);
+
+            closeTab();
+            usePlayerQueue().hydrate();
+
+            expect(usePlayerQueue().tracks.value[0]).not.toHaveProperty("isChapter");
+            expect(usePlayerQueue().tracks.value[1].isChapter).toBe(true);
+        });
+
         it("drops one unusable row rather than the whole queue", () => {
             // A row with no id cannot be rebuilt at all, but the 200 beside it can.
             window.localStorage.setItem(

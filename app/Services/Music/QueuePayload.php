@@ -166,6 +166,11 @@ final class QueuePayload
                     : route('audiobooks.show', $track->collection_id, absolute: false))
                 : route('music.songs.show', $track->id, absolute: false),
             'streamUrl' => route($audiobook ? 'audiobooks.chapters.stream' : 'music.songs.stream', $track->id, absolute: false),
+            // Present only on a chapter, because its absence is what says "song" — the same
+            // rule the client's stored form follows, and the reason it is a flag rather than
+            // the `type` string: the player asks one question of it (may this row offer to
+            // stop at the end of the chapter?), never which of several kinds it is.
+            ...($audiobook ? ['isChapter' => true] : []),
         ];
     }
 

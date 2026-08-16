@@ -185,6 +185,14 @@ sits.
   Material ships no `shuffle_off` / `repeat_off` — a straight arrow for "straight through", a line
   ending in a dot for "the line stops here".
 - **The panel opens upward** via the same anchor override `PlayerVolume` documents.
+- **The options are grid columns, not flex children**, because the pill is *drawn* rather than
+  measured — a `100% / var(--count)` slice at `--selected` slices along — so it only sits over the
+  option it marks if the options are genuinely equal. Flex shares out free space, never width: with
+  `flex-grow: 1` each option is its own content plus a share of the remainder, and even `flex: 1 1 0`
+  is clamped back up by each item's automatic minimum size. Measured on the sleep row's
+  "Aus · 15 · 30 · 60" — 42.81px against 35.2px, putting the first option 2.9px off-centre inside its
+  own pill and the last one true. Every group before that one was icons or "1× 2× 3×", all the same
+  width, which is why it stayed hidden.
 
 > **Popover width on a phone is a trap this panel found.** The shared popover style capped every
 > floating panel at `50dvw`. This panel is `width: auto` over `white-space: nowrap` rows and measures
@@ -318,6 +326,78 @@ the viewport *minus* the scrollbar, and this app reserves one on the root perman
 window the box centres on 632.5 — half of 1265, dead centre of everything the reader can see, and 7.5px
 off the window's middle. The end-to-end assertion subtracts the scrollbar rather than hard-coding it;
 measuring against `window.innerWidth` reports a correctly centred box as wrong.
+
+## The sleep timer
+
+`useSleepTimer`: stop the music after a while. A fourth row in the settings popover — **off, 15, 30, 60
+minutes**, plus **end of chapter** while an audiobook is playing — which fades the last five minutes to
+nothing and then pauses.
+
+**Choosing a duration IS the confirmation.** Arming a timer suggests a dialog with a submit, and it is
+the wrong shape twice over. Every other setting in that popover takes effect on the click that chooses
+it, so a row that instead opened one would be a different interaction wearing an identical row; and a
+dialog opened from inside a `[popover]` puts two top-layer surfaces on screen, where Escape and
+light-dismiss then argue about which of them they close. The tooltips carry what the dialog's prose
+would have — that a duration fades before it stops — where a reader meets it while deciding rather than
+in a paragraph they dismissed the first time.
+
+**Three surfaces, because a timer is two different things over its life.** For the first twenty-five
+minutes it is a *setting*, and the only sign of it is a **moon on the corner of the gear** — a bedtime
+feature must not put a ticking clock on screen, which is a thing a listener lies there and watches. The
+numbers live where somebody has gone looking for them: the row's own readout, in the slot and the voice
+the speed row's live rate established. Once the fade starts it becomes an *event* — something audible is
+changing that nobody just asked for — and the bar floats a **pill** with a real countdown, which is a
+**button**: one press cancels and gives the level back, the whole "no, I'm still awake" case. The pill
+is also the reason the badges above the bar are a flex row rather than each pinned to the corner; a 3×
+audiobook with a timer running is an ordinary Tuesday.
+
+> The moon is `dark.svg`, the theme switch's own glyph, rather than a second crescent in the sprite.
+> That icon only ever renders inside the user menu's labelled light/dark/system group, so the two never
+> appear together without a label saying which is which.
+
+**The fade must never write the level.** It is an *attenuation* — a separate factor `usePlayerVolume`
+multiplies in on the way to the element, so `volume` itself does not move. Expressed as "turn it down
+every second" instead, it would **persist** its way to near-silence (leaving a listener at 2% the next
+morning with nothing to explain it) and bump `changes`, popping the volume HUD over the page once a
+second for five minutes. It is multiplied inside `applyVolume` rather than at the one call site that
+sets it, so that turning the volume up mid-fade — or a track change re-asserting the level — cannot
+cancel it until the next tick.
+
+**The clock is the authority, never a count of ticks**, and this is the decision the whole module turns
+on. Both things that drive it are throttled in a backgrounded tab — `setInterval` to roughly once a
+minute, `timeupdate` to a trickle — and a phone with the screen off is precisely the case the feature
+exists for. Everything is therefore derived from a deadline compared against `Date.now()`: throttling
+costs granularity (the countdown stutters while hidden, the fade moves in steps) and nothing else.
+**Two tick sources**, because neither covers it alone: `timeupdate` keeps firing while the tab is hidden
+and the audio plays, which is when the fade and the stop have to be right, and the interval covers a
+*paused* player, where no media event fires at all and the countdown would otherwise freeze on screen
+and expire the instant somebody pressed play again.
+
+**The curve is squared, not linear.** Loudness tracks amplitude logarithmically, so a `volume` walked
+evenly to zero sounds like nothing happens for four minutes and then falls off a cliff. Squaring the
+remaining fraction spends the fade evenly in decibels — halfway through it is down about 12 dB. At
+expiry the player is **paused and then** the level restored, in that order: restoring first would play
+the last instant of a five-minute fade at full volume, which is the one sound the feature exists to
+prevent.
+
+**End of chapter is a different mode, not a duration in disguise.** It waits for the track to end and
+stops there, with **no fade at all** — a chapter can be three minutes long, so "the last five" would
+begin before it did, and a boundary is already the gentlest possible stop. `usePlayerAudio.handleEnded`
+asks for it exactly once per boundary (`consumeTrackEndStop`, consumed rather than read, or a flag left
+set would stop the queue again at the next chapter), and stops **without** setting `queueFinished`: the
+queue has not run out, somebody asked to be left here, and "end of queue" on a book with 600 chapters
+left is a lie the Now Playing badge would then repeat. It is offered only where a chapter boundary is
+somewhere worth stopping — for a three-minute song, "stop at the end of this track" is a short timer
+wearing a costume — which is what `QueueTrack.isChapter` is for. **Carried on the row rather than
+sniffed out of `streamUrl`**, which would work today and break the moment a row plays from a share link;
+stored only when true, like the cover flag beside it.
+
+**Nothing is persisted**, unlike the level and the speed. A restored queue comes back paused —
+playback never starts without a gesture — so a timer that survived a reload would count down against
+silence and either expire against nothing or stop the music seconds after it was asked to start. A
+sleep timer is a fact about tonight, not a preference. For the same reason it is **cancelled when the
+player lets go of the element**: the queue was emptied, the bar carrying its mark has gone, and a timer
+still counting would be invisible state with an interval behind it.
 
 ## Keyboard shortcuts
 
@@ -631,7 +711,16 @@ update, or a listener reporting silence.
   fresh answer after a fresh press — while `usePlayerAudio`'s own spec checks only the wiring.
   `PlayerVolumeHud`'s spec is about **when** the box is on screen, and three of its four cases are about
   silence (a page load must not raise it, a clamped press must not raise it, and it has to go away on
-  its own).
+  its own). The **sleep timer** is here in full, because everything it does is a number against a clock:
+  fake timers carry the system time, so a fifteen-minute countdown is one call. Its two headline claims
+  each have a test of their own — that the level is never written (the stored value and the gesture
+  counter are both asserted untouched mid-fade) and that a **jump** in the clock is read rather than
+  counted, which is the hidden-tab case no other assertion would notice.
+
+  > A spec that reaches a fade with `advanceTimersByTime` also runs **every other pending timer in the
+  > app** — the queue's debounced server sync among them, which then fails to reach a server and reports
+  > it through an i18n instance no component spec sets up. Move the clock and call the tick by hand
+  > instead; the timer reads `Date.now()` whoever delivers the tick.
 - **Playwright** (`tests/e2e/app/player.spec.ts`) — real playback, plus the things about the settings
   popover that need a browser: that the gear really lands **between** the timeline and the volume button
   (a grid area's box), that the panel opens **upward**, that the pill really **travels** (its offset is

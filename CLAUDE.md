@@ -279,12 +279,6 @@ Features the owner has asked for and wants kept. **This list lives HERE and not 
 the absence of code is what says a thing does not exist. Delete an entry when it ships; the
 code and its tests then say the rest.
 
-- **Sleep timer.** Stop after N minutes, or at the end of the current chapter. The app is
-  unusually well placed for it — per-book resume already exists, background playback with the
-  screen off is verified, and the player is a native `<audio>` we own — and the gap it closes is
-  real: falling asleep mid-chapter currently costs a listener their place across however many
-  chapters play on afterwards. The **end-of-chapter** variant is the one that pairs with
-  `audiobook_bookmarks`; a plain countdown does not.
 - **Listening history.** `plays` is already written and already read — the most-played widgets
   on the Music page come from it — so this is a **surface**, not a schema. What is missing is
   "what did we play, and when": a recently-played view, which is also the thing that makes a
@@ -333,6 +327,15 @@ instance, written for someone else's server.
 - [`docs/player.md`](docs/player.md) — the player (**built 2026-08-03**): why a native `<audio>`
   rather than vidstack, the stream route's Range + `X-Accel-Redirect` halves, the background-playback
   constraint no library removes, and the four things the build itself settled.
+
+  **The SLEEP TIMER lives here too** (built 2026-08-16): a fourth row in the settings popover rather
+  than a modal, three surfaces over its life (a moon on the gear while it is a *setting*, the row's
+  readout on demand, a cancel-pill over the bar once the fade makes it an *event*), and the two rules
+  it turns on — **the fade is an attenuation, never a write to the level** (`setOutputAttenuation`,
+  or it persists its way to silence and flashes the volume HUD every second), and **the clock is the
+  authority, never a count of ticks**, because the hidden tab it is built for throttles both of its
+  tick sources. End-of-chapter is a separate mode with no fade, read once per boundary and gated on
+  `QueueTrack.isChapter`.
 - [`docs/play-queue.md`](docs/play-queue.md) — the play queue (**split out of `player.md` 2026-08-06**):
   what it holds, the panel and reordering, **shuffle** (the bag, the walk, what resets it, why none of
   it is stored — and why a small queue looks deterministic), and its **storage** — the trimmed payload,

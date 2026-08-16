@@ -5,6 +5,7 @@ import de from "@/lang/de.json";
 import { resetPlayerAudioForTests, usePlayerAudio } from "Composables/usePlayerAudio";
 import type { QueueTrack } from "Composables/usePlayerQueue";
 import { resetPlayerQueueForTests, usePlayerQueue } from "Composables/usePlayerQueue";
+import { SLEEP_CHAPTER, resetSleepTimerForTests, useSleepTimer } from "Composables/useSleepTimer";
 import { resetToastsForTests, useToast } from "Composables/useToast";
 import { resetInertia, setPage } from "Testing/inertia";
 
@@ -120,6 +121,7 @@ describe("usePlayerAudio", () => {
         });
         resetPlayerAudioForTests();
         resetPlayerQueueForTests();
+        resetSleepTimerForTests();
         resetToastsForTests();
         window.localStorage.clear();
     });
@@ -699,6 +701,81 @@ describe("usePlayerAudio", () => {
 
             expect(player.isPlaying.value).toBe(true);
             expect(element.currentTime).toBe(0);
+        });
+
+        it("stops without playing on when the sleep timer is waiting for this boundary", async () => {
+            /*
+             * The end-of-chapter mode's one moment. It stops WITHOUT setting `queueFinished`:
+             * the queue has not run out, somebody asked to be left here, and "end of queue" on
+             * a book with 600 chapters left would be a lie the Now Playing badge then repeats.
+             */
+            usePlayerQueue().enqueue([track("a"), track("b")]);
+            const element = attachElement();
+            const player = usePlayerAudio();
+            player.play();
+            useSleepTimer().arm(SLEEP_CHAPTER);
+
+            finishTrack(element);
+            await nextTick();
+
+            expect(player.isPlaying.value).toBe(false);
+            expect(player.queueFinished.value).toBe(false);
+            // Consumed at the boundary, so the NEXT track ends normally rather than stopping
+            // the queue for the rest of the book.
+            expect(useSleepTimer().isArmed.value).toBe(false);
+        });
+
+        it("cues the next chapter rather than leaving the finished one loaded", async () => {
+            /*
+             * THE POINTER STILL MOVES, and both halves of that matter the next morning.
+             * `play()` on an ENDED element seeks back to the start, so a player left on the
+             * chapter that just finished replays it instead of going on; and `queue.next()` is
+             * what commits the position, while the `pause` handler that would otherwise store
+             * one early-returns on `audio.ended`. Cueing the next chapter paused is what a
+             * press at the boundary would have done.
+             */
+            usePlayerQueue().enqueue([track("a"), track("b")]);
+            const element = attachElement();
+            usePlayerAudio().play();
+            useSleepTimer().arm(SLEEP_CHAPTER);
+
+            finishTrack(element);
+            await nextTick();
+
+            expect(usePlayerQueue().current.value?.id).toBe("b");
+            expect(loadedUrl(element)).toBe("/music/songs/b/stream");
+            // Cued, NOT started: the listener asked to be stopped here.
+            expect(usePlayerAudio().isPlaying.value).toBe(false);
+        });
+
+        it("reports a finished queue when the timer stops it on the very last track", async () => {
+            // Both things are true there — a deliberate stop AND an exhausted queue — and the
+            // badge should say the honest one.
+            usePlayerQueue().enqueue([track("a")]);
+            const element = attachElement();
+            const player = usePlayerAudio();
+            player.play();
+            useSleepTimer().arm(SLEEP_CHAPTER);
+
+            finishTrack(element);
+            await nextTick();
+
+            expect(player.isPlaying.value).toBe(false);
+            expect(player.queueFinished.value).toBe(true);
+        });
+
+        it("advances normally at a boundary while a DURATION is counting down", () => {
+            // The two modes are separate: a 30-minute timer must not stop the player early
+            // just because a track happened to end inside it.
+            usePlayerQueue().enqueue([track("a"), track("b")]);
+            const element = attachElement();
+            usePlayerAudio().play();
+            useSleepTimer().arm("30");
+
+            finishTrack(element);
+
+            expect(usePlayerQueue().current.value?.id).toBe("b");
+            expect(useSleepTimer().isArmed.value).toBe(true);
         });
 
         it("advances only once per boundary, however often the bar remounts", () => {

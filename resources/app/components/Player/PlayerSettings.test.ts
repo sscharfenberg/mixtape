@@ -1,7 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
+import type { QueueTrack } from "Composables/usePlayerQueue";
 import { resetPlayerQueueForTests, usePlayerQueue } from "Composables/usePlayerQueue";
 import { resetPlayerSpeedForTests, usePlayerSpeed } from "Composables/usePlayerSpeed";
+import { resetSleepTimerForTests, useSleepTimer } from "Composables/useSleepTimer";
 import { resetInertia, setPage } from "Testing/inertia";
 import { mountApp, translate } from "Testing/mount";
 import PlayerSettings from "./PlayerSettings.vue";
@@ -22,7 +24,7 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
  * Both are layout, and belong to Playwright.
  */
 
-/** The three groups, in template order: play mode, repeat, speed. */
+/** The four groups, in template order: play mode, repeat, speed, sleep timer. */
 const groups = (wrapper: ReturnType<typeof mountApp>) => wrapper.findAll(".option-bubbles");
 
 /** Choose an option by index inside one group — what a click on a glyph does. */
@@ -36,15 +38,24 @@ describe("PlayerSettings", () => {
         resetInertia();
         resetPlayerQueueForTests();
         resetPlayerSpeedForTests();
+        resetSleepTimerForTests();
         window.localStorage.clear();
         setPage({ props: { auth: { user: null } } });
     });
 
-    it("offers three settings: two binary modes and the three speeds", () => {
+    // A timer armed by a spec keeps an interval running for the rest of the file, and its
+    // ticks would land inside whichever test came next.
+    afterEach(() => {
+        resetSleepTimerForTests();
+    });
+
+    it("offers four settings: two binary modes, the three speeds and the sleep timer", () => {
+        // The sleep row is four wide on a song — off plus three durations. Its fifth option
+        // exists only where a chapter boundary does; see the sleep-timer block below.
         const wrapper = mountApp(PlayerSettings);
 
-        expect(groups(wrapper)).toHaveLength(3);
-        expect(groups(wrapper).map(group => group.findAll("input").length)).toStrictEqual([2, 2, 3]);
+        expect(groups(wrapper)).toHaveLength(4);
+        expect(groups(wrapper).map(group => group.findAll("input").length)).toStrictEqual([2, 2, 3, 4]);
     });
 
     it("names the off state of each mode with its own glyph, not a dimmed one", () => {
@@ -65,10 +76,11 @@ describe("PlayerSettings", () => {
         expect(mountApp(PlayerSettings).find(".popover-button use").attributes("href")).toBe("#settings");
     });
 
-    it("starts with both modes off and normal speed, matching a fresh player", () => {
+    it("starts with both modes off, normal speed and no sleep timer, matching a fresh player", () => {
         const wrapper = mountApp(PlayerSettings);
 
         expect(groups(wrapper).map(group => group.attributes("style"))).toStrictEqual([
+            expect.stringContaining("--selected: 0"),
             expect.stringContaining("--selected: 0"),
             expect.stringContaining("--selected: 0"),
             expect.stringContaining("--selected: 0")
@@ -130,7 +142,7 @@ describe("PlayerSettings", () => {
         const wrapper = mountApp(PlayerSettings);
         const names = groups(wrapper).map(group => group.find("input").attributes("name"));
 
-        expect(new Set(names).size).toBe(3);
+        expect(new Set(names).size).toBe(4);
     });
 
     describe("the speed row", () => {
@@ -215,7 +227,7 @@ describe("PlayerSettings", () => {
 
         it("says what is actually playing beside the pill, and only while it differs", async () => {
             const wrapper = mountApp(PlayerSettings);
-            const live = () => wrapper.find(".player-settings__live");
+            const live = () => wrapper.find(".player-settings__rate");
 
             usePlayerSpeed().setSpeed(3);
             await nextTick();
@@ -243,14 +255,170 @@ describe("PlayerSettings", () => {
              */
             const wrapper = mountApp(PlayerSettings);
 
-            expect(wrapper.find(".player-settings__live").exists()).toBe(true);
+            expect(wrapper.find(".player-settings__rate").exists()).toBe(true);
         });
 
         it("does not announce the rate a second time, since the bar's badge already does", () => {
             // Two live regions for one change means hearing it twice.
             const wrapper = mountApp(PlayerSettings);
 
-            expect(wrapper.find(".player-settings__live").attributes("aria-hidden")).toBe("true");
+            expect(wrapper.find(".player-settings__rate").attributes("aria-hidden")).toBe("true");
+        });
+    });
+
+    describe("the sleep-timer row", () => {
+        /** A queue track, optionally an audiobook chapter — which is what grows the row. */
+        const track = (isChapter = false): QueueTrack => ({
+            id: "t1",
+            name: "Track",
+            artist: null,
+            album: null,
+            coverUrl: null,
+            duration: 200,
+            href: "/music/songs/t1",
+            streamUrl: "/music/songs/t1/stream",
+            ...(isChapter ? { isChapter: true as const } : {})
+        });
+
+        /** The sleep row's group and its readout — both the last of their kind in the panel. */
+        const sleepGroup = (wrapper: ReturnType<typeof mountApp>) => groups(wrapper)[3];
+        const readout = (wrapper: ReturnType<typeof mountApp>) => wrapper.find(".player-settings__countdown");
+        /** The clock itself, which is laid over a hidden sizer holding the width open. */
+        const clock = (wrapper: ReturnType<typeof mountApp>) => wrapper.find(".player-settings__countdown-value");
+
+        it("offers off and the three durations as text, since no glyph means 'half an hour'", () => {
+            const wrapper = mountApp(PlayerSettings);
+
+            expect(sleepGroup(wrapper).findAll(".option-bubbles__text").map(node => node.text())).toStrictEqual([
+                translate("player.settings.sleepOffShort"),
+                "15",
+                "30",
+                "60"
+            ]);
+        });
+
+        it("arms the timer from the row, and moves the pill onto the choice", async () => {
+            const wrapper = mountApp(PlayerSettings);
+
+            await choose(wrapper, 3, 2);
+
+            expect(useSleepTimer().selection.value).toBe("30");
+            expect(useSleepTimer().remaining.value).toBe(1800);
+            expect(sleepGroup(wrapper).attributes("style")).toContain("--selected: 2");
+        });
+
+        it("cancels from the off option", async () => {
+            const wrapper = mountApp(PlayerSettings);
+
+            await choose(wrapper, 3, 2);
+            await choose(wrapper, 3, 0);
+
+            expect(useSleepTimer().isArmed.value).toBe(false);
+            expect(sleepGroup(wrapper).attributes("style")).toContain("--selected: 0");
+        });
+
+        it("says how long is left, and only while a duration is running", async () => {
+            const wrapper = mountApp(PlayerSettings);
+
+            expect(readout(wrapper).classes()).not.toContain("player-settings__live--on");
+
+            await choose(wrapper, 3, 3);
+
+            expect(readout(wrapper).classes()).toContain("player-settings__live--on");
+            // The marker is part of the readout, as it is on the speed row: without it the
+            // clock reads as a fifth option rather than as an answer beside four.
+            expect(clock(wrapper).text()).toBe("▸ 1:00:00");
+        });
+
+        it("holds the readout's width open with the longest clock it can show", () => {
+            /*
+             * Same trap as the speed row's, one row down and one turn harder. That readout is
+             * always three characters, so reserving its box is enough; this one is four at
+             * "4:12" and seven at "1:00:00", so a single span would resize the `width: auto`
+             * panel when the timer was armed AND again as it crossed ten minutes — under a
+             * reader who is looking at it, which is the whole thing the reserved box prevents.
+             * A browser caught this: the panel narrowed by 26px the moment a 15-minute timer
+             * was armed. So the sizer holds the longest form open and the clock lies over it.
+             */
+            const wrapper = mountApp(PlayerSettings);
+
+            expect(readout(wrapper).exists()).toBe(true);
+            expect(wrapper.find(".player-settings__countdown-sizer").text()).toBe("▸ 1:00:00");
+        });
+
+        it("marks the trigger with the moon while a timer runs, and not before", async () => {
+            // The one ambient sign a timer exists. Deliberately not a countdown — see the
+            // component banner: a clock on screen is a thing a listener lies there and watches.
+            const wrapper = mountApp(PlayerSettings);
+
+            expect(wrapper.find(".player-settings__mark").exists()).toBe(false);
+
+            await choose(wrapper, 3, 1);
+
+            expect(wrapper.find(".player-settings__mark").exists()).toBe(true);
+            expect(wrapper.find(".player-settings__mark use").attributes("href")).toBe("#dark");
+        });
+
+        it("hides the mark from assistive tech, and renames the trigger instead", async () => {
+            // A mark announced separately would be an unlabelled image beside a button; the
+            // button saying what it now means is the same fact, in the place a name belongs.
+            const wrapper = mountApp(PlayerSettings);
+
+            expect(wrapper.find(".popover-button").attributes("aria-label")).toBe(translate("player.bar.settings"));
+
+            await choose(wrapper, 3, 1);
+
+            expect(wrapper.find(".player-settings__mark").attributes("aria-hidden")).toBe("true");
+            expect(wrapper.find(".popover-button").attributes("aria-label")).toBe(
+                translate("player.bar.settingsSleeping")
+            );
+        });
+
+        it("offers the end of the chapter only when a chapter is what is playing", async () => {
+            // For a three-minute song "stop at the end of this track" is a short timer wearing
+            // a costume; on a book it is the one boundary worth waiting for.
+            const wrapper = mountApp(PlayerSettings);
+            expect(sleepGroup(wrapper).findAll("input")).toHaveLength(4);
+
+            usePlayerQueue().enqueue([track(true)]);
+            await nextTick();
+
+            expect(sleepGroup(wrapper).findAll("input")).toHaveLength(5);
+            expect(sleepGroup(wrapper).find("use").attributes("href")).toBe("#audiobook");
+        });
+
+        it("keeps the chapter option while it is armed, even once the queue moves on", async () => {
+            /*
+             * Otherwise the option vanishes under a running timer, the pill has nowhere to sit
+             * and falls back to the first — a control reporting that the timer was cancelled
+             * while it counts down behind it.
+             */
+            usePlayerQueue().enqueue([track(true)]);
+            const wrapper = mountApp(PlayerSettings);
+            await nextTick();
+
+            await choose(wrapper, 3, 4);
+            expect(useSleepTimer().isArmed.value).toBe(true);
+
+            usePlayerQueue().clear();
+            usePlayerQueue().enqueue([track(false)]);
+            await nextTick();
+
+            expect(sleepGroup(wrapper).findAll("input")).toHaveLength(5);
+            expect(sleepGroup(wrapper).attributes("style")).toContain("--selected: 4");
+        });
+
+        it("follows the timer when it is cancelled from somewhere else", async () => {
+            // The bar's pill cancels the same singleton this row draws from, so the row has to
+            // come back to "off" without being told.
+            const wrapper = mountApp(PlayerSettings);
+
+            await choose(wrapper, 3, 1);
+            useSleepTimer().cancel();
+            await nextTick();
+
+            expect(sleepGroup(wrapper).attributes("style")).toContain("--selected: 0");
+            expect(wrapper.find(".player-settings__mark").exists()).toBe(false);
         });
     });
 });

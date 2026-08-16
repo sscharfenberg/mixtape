@@ -37,12 +37,16 @@ $player-bar: (
     // written from the same global rather than reaching into another component's map, so
     // each owns its own geometry. Move one and check the other.
     "control-padding": math.round(map.get(s.$border, "base") * 2),
-    // The 2× skim badge that floats ABOVE the bar while Space is held. Its own padding
-    // rather than the control pill's, because it is a readout and not a control: it is
-    // never pressed, so it needs no touch target and reads better tight.
-    "rate-padding": 0.2rem 0.6rem,
-    "rate-font-size": 0.75rem,
-    // How far clear of the bar's top edge the badge sits — enough to read as floating over
-    // the page rather than as a piece of the bar that just appeared.
-    "rate-offset": 0.5rem
+    // The badges that float ABOVE the bar rather than sitting in it: the skim's rate while
+    // Space is held, and the sleep timer's countdown once its fade begins. Their own padding
+    // rather than the control pill's, because they are readouts first — nothing here needs a
+    // touch target the size of a transport button, and they read better tight.
+    "badge-padding": 0.2rem 0.6rem,
+    "badge-font-size": 0.75rem,
+    // How far clear of the bar's top edge they sit — enough to read as floating over the page
+    // rather than as a piece of the bar that just appeared.
+    "badge-offset": 0.5rem,
+    // Between two badges when both are up. Tighter than anything in the bar itself: they are
+    // one row of asides, and the bar's own gap would read as two unrelated things.
+    "badge-gap": 0.4rem
 ) !default;

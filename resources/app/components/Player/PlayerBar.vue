@@ -31,7 +31,7 @@
  * off a token.
  *****************************************************************************/
 import { Link } from "@inertiajs/vue3";
-import { onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import PlayerSettings from "Components/Player/PlayerSettings.vue";
@@ -43,6 +43,8 @@ import { usePlayerAudio } from "Composables/usePlayerAudio";
 import { usePlayerQueue } from "Composables/usePlayerQueue";
 import { usePlayerShortcuts } from "Composables/usePlayerShortcuts";
 import { usePlayerSpeed } from "Composables/usePlayerSpeed";
+import { SLEEP_FADE_MINUTES, useSleepTimer } from "Composables/useSleepTimer";
+import { formatClock } from "Utils/formatting";
 import { withKey } from "Utils/platform";
 
 const { t } = useI18n();
@@ -61,6 +63,10 @@ const { bind: bindShortcuts, unbind: unbindShortcuts } = usePlayerShortcuts();
 // Which is the useful statement — "this is not playing at normal speed" — and the setting is
 // the case a reader is more likely to have forgotten about.
 const { effectiveRate } = usePlayerSpeed();
+// The sleep timer is armed in the settings popover and shown there while it counts. The bar
+// only takes over for the FADE, which is the part that happens TO a listener rather than
+// being asked for — see `sleepStatus` below.
+const { cancel: cancelSleep, isFading: isSleepFading, remaining: sleepRemaining } = useSleepTimer();
 
 /** The bar element, measured to publish its height. */
 const barRef = ref<HTMLElement | null>(null);
@@ -70,6 +76,22 @@ const audioRef = ref<HTMLAudioElement | null>(null);
 
 /** Last height published, so an observation that changes nothing writes nothing. */
 let publishedHeight = -1;
+
+/** The countdown on the pill — `m:ss`, rounded up so it never shows a second twice. */
+const sleepClock = computed<string>(() => formatClock(Math.ceil(sleepRemaining.value)) ?? "");
+
+/**
+ * What a screen reader is told when the fade begins, and nothing at all otherwise.
+ *
+ * The text is CONSTANT for the whole fade, which is what makes this announce once: a live
+ * region speaks when its contents change, so a countdown in here would read the clock aloud
+ * every second for five minutes. The pill's own digits are `aria-hidden` for that reason,
+ * and this sentence carries the two facts that matter — the volume is going down on
+ * purpose, and there is a button that stops it.
+ */
+const sleepStatus = computed<string>(() =>
+    isSleepFading.value ? t("player.bar.sleepFading", { minutes: SLEEP_FADE_MINUTES }) : ""
+);
 
 /**
  * Publish the bar's rendered height to the document as `--app-player-height`, and
@@ -182,19 +204,59 @@ onUnmounted(() => {
 
         <player-settings class="player-bar__settings" />
 
-        <!-- The speed readout, shown whenever the player is off normal speed — a setting
-             from the popover, or a held Space, or both at once (3× held reads 6×).
-             TWO WORDINGS, and the split is the point. On screen it is the bare multiplier,
-             because this is a glanceable badge over the page and a sentence at badge size
-             reads as an alert rather than a readout. Aloud it is the whole phrase: nothing
-             else announces the change at all — no focus moves, no control relabels — so a
-             screen-reader user would otherwise get silence and a track suddenly running
-             fast. `aria-live="polite"` rather than `assertive`: worth saying, not worth
-             interrupting. -->
-        <span v-if="effectiveRate !== 1" class="player-bar__rate" role="status" aria-live="polite">
-            <span aria-hidden="true">{{ effectiveRate }}×</span>
-            <span class="sr-only">{{ t("player.bar.rate", { rate: effectiveRate }) }}</span>
-        </span>
+        <!-- The two things that float ABOVE the bar rather than sitting in it, in one row so
+             they cannot land on top of each other. Absolutely positioned, which is the whole
+             design of it rather than a shortcut: both come and go several times in a session,
+             this grid is laid out with named areas (so an unplaced child lands in an implicit
+             row and grows the bar), and even placed they would shift the transport under a
+             finger that is about to press play again. Floating them clear costs the layout
+             nothing at all.
+             `pointer-events: none` on the row, restored on the pill: the rate is a readout and
+             must not swallow a click on the page behind it, while the pill is a button. -->
+        <div class="player-bar__badges">
+            <!-- The speed readout, shown whenever the player is off normal speed — a setting
+                 from the popover, or a held Space, or both at once (3× held reads 6×).
+                 TWO WORDINGS, and the split is the point. On screen it is the bare multiplier,
+                 because this is a glanceable badge over the page and a sentence at badge size
+                 reads as an alert rather than a readout. Aloud it is the whole phrase: nothing
+                 else announces the change at all — no focus moves, no control relabels — so a
+                 screen-reader user would otherwise get silence and a track suddenly running
+                 fast. `aria-live="polite"` rather than `assertive`: worth saying, not worth
+                 interrupting. -->
+            <span v-if="effectiveRate !== 1" class="player-bar__rate" role="status" aria-live="polite">
+                <span aria-hidden="true">{{ effectiveRate }}×</span>
+                <span class="sr-only">{{ t("player.bar.rate", { rate: effectiveRate }) }}</span>
+            </span>
+
+            <!-- The sleep timer, and ONLY while it is fading. For the twenty-five minutes
+                 before that it is a setting, shown as a mark on the gear where it was armed;
+                 a clock counting down over the page is the last thing a bedtime feature
+                 should put in front of somebody trying to fall asleep. Once the volume starts
+                 dropping on its own it stops being a setting and becomes an event: something
+                 audible is changing that the listener did not just ask for, and this is what
+                 says why and takes it back.
+                 A BUTTON, unlike the badge beside it — one press cancels the timer and returns
+                 the level the fade pulled down, which is the whole "no, I'm still awake" case.
+                 Its digits are `aria-hidden`; the status line below announces the fade once
+                 instead, because a live region holding a countdown speaks every second. -->
+            <button
+                v-if="isSleepFading"
+                v-tooltip="t('player.bar.sleepCancel')"
+                type="button"
+                class="player-bar__sleep"
+                :aria-label="t('player.bar.sleepCancel')"
+                @click="cancelSleep"
+            >
+                <icon name="dark" :size="0" />
+                <span aria-hidden="true">{{ sleepClock }}</span>
+            </button>
+        </div>
+
+        <!-- Said once, when the fade begins — see `sleepStatus` for why it holds no numbers
+             that move. Empty the rest of the time, so the region exists before it has
+             anything to say (a live region added to the DOM at the moment it fills is
+             routinely missed by the very software it is for). -->
+        <span class="sr-only" role="status">{{ sleepStatus }}</span>
 
         <div class="player-bar__transport">
             <!-- The tooltips name the key beside the label. `v-tooltip` directly on each
@@ -364,37 +426,74 @@ onUnmounted(() => {
         gap: map.get(s.$c-player-bar, "gap");
     }
 
-    /* The 2× skim readout, shown only while Space is held.
-       ABSOLUTELY POSITIONED, and that is the whole design of it rather than a shortcut. It
-       appears and disappears on a keypress, several times in a row while someone hunts
-       through a track — so it must not be a grid item. This grid is laid out with named
-       areas, so an unplaced child lands in an implicit row and grows the bar; even placed,
-       it would shift the transport under a finger that is about to press play again, which
-       is the same thing the play/pause button is one-button-for-both-states to avoid.
-       Floating it clear of the bar's top edge costs the layout nothing at all.
-       `pointer-events: none` because it is a readout: it sits over the page, and a badge
-       that swallowed a click on whatever is behind it would be its own small bug.
-       No transition on purpose — it is feedback for a key that is down RIGHT NOW, so it
-       has to be there the instant the speed changes and gone the instant it does not.
-       (Which also means no reduced-motion guard is needed.)
-       The colours are the play button's own measured pair, read from the same map rather
-       than minted here: the badge says the same thing that button does, and its fill was
-       already proven for contrast against its ink. */
-    &__rate {
+    /* The floating badges — the skim's rate, and the sleep timer's countdown while it fades.
+       ABSOLUTELY POSITIONED, and that is the whole design of it rather than a shortcut. They
+       appear and disappear repeatedly within a session — the rate on every keypress while
+       someone hunts through a track — so they must not be grid items. This grid is laid out
+       with named areas, so an unplaced child lands in an implicit row and grows the bar; even
+       placed, they would shift the transport under a finger that is about to press play
+       again, which is the same thing the play/pause button is one-button-for-both-states to
+       avoid. Floating them clear of the bar's top edge costs the layout nothing at all.
+       A ROW rather than each one positioning itself, because both can be up at once — a 3×
+       audiobook with a sleep timer running is an ordinary Tuesday — and two badges pinned to
+       the same corner would sit on top of each other.
+       `pointer-events: none` here and restored on the pill below: the rate is a readout over
+       the page, and a badge that swallowed a click on whatever is behind it would be its own
+       small bug. The one badge that IS a control takes its events back. */
+    &__badges {
+        display: flex;
         position: absolute;
-        inset-block-end: calc(100% + #{map.get(s.$c-player-bar, "rate-offset")});
+        inset-block-end: calc(100% + #{map.get(s.$c-player-bar, "badge-offset")});
         inset-inline-end: map.get(s.$c-player-bar, "padding");
+        align-items: center;
 
-        padding: map.get(s.$c-player-bar, "rate-padding");
+        gap: map.get(s.$c-player-bar, "badge-gap");
+
+        pointer-events: none;
+    }
+
+    /* What both badges look like: a small tight pill in the play button's own measured
+       colours, read from the same map rather than minted here — these say what that button
+       says, and its fill was already proven for contrast against its ink.
+       No transition on purpose — the rate is feedback for a key that is down RIGHT NOW, so it
+       has to be there the instant the speed changes and gone the instant it does not. (Which
+       also means no reduced-motion guard is needed.) */
+    &__rate,
+    &__sleep {
+        display: inline-flex;
+        align-items: center;
+
+        padding: map.get(s.$c-player-bar, "badge-padding");
 
         background-color: map.get(c.$c-player-bar, "play-background");
         color: map.get(c.$c-player-bar, "play-surface");
         border-radius: 100vw;
 
-        font-size: map.get(s.$c-player-bar, "rate-font-size");
+        font-size: map.get(s.$c-player-bar, "badge-font-size");
         font-variant-numeric: tabular-nums;
+    }
 
-        pointer-events: none;
+    /* The sleep timer's countdown, which is a BUTTON: pressing it cancels the timer and
+       gives back the volume the fade has taken. So it takes its pointer events back from the
+       row, wears a pointer cursor, and drops the border a <button> comes with — everything
+       else it shares with the readout beside it. */
+    &__sleep {
+        border: 0;
+        gap: map.get(s.$c-player-bar, "badge-gap");
+
+        cursor: pointer;
+
+        pointer-events: auto;
+
+        @media (prefers-reduced-motion: no-preference) {
+            transition: box-shadow ti.$c-player-bar linear;
+        }
+
+        &:hover {
+            box-shadow:
+                0 0 0.6em 0.1em map.get(c.$c-player-bar, "play-background"),
+                0 0 1.5em 0.25em map.get(c.$c-player-bar, "play-background");
+        }
     }
 
     /* Each ENABLED control sits in a filled pill, so the four buttons in this bar read as
