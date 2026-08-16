@@ -95,7 +95,7 @@ const emit = defineEmits<{
  */
 defineSlots<{
     actions(props: { row: T; close: () => void }): unknown;
-    "toolbar-actions"(props: { selectedIds: string[] }): unknown;
+    "toolbar-actions"(props: { selectedIds: string[]; clear: () => void }): unknown;
     empty(): unknown;
     // Catch-all for the column-driven cell-*/header-* slots (their prop shapes vary
     // per column). `any` is required, not `unknown`: the index signature must be
@@ -155,18 +155,40 @@ function togglePageSelection(ids: string[]) {
         selectedIds.value.push(...missing);
     }
 }
-/** Clear selection on sort/filter/search change, preserve it across page changes. */
+/**
+ * Drop the whole selection — what a bulk action calls once it has been carried out.
+ *
+ * Named rather than inlined because it is reached three ways: the watcher below, the
+ * `toolbar-actions` slot, and the provide. See DataTableProvide for why an action has to ask
+ * for it rather than relying on the watcher.
+ */
+function clearSelection() {
+    selectedIds.value = [];
+}
+/**
+ * Clear the selection when the QUESTION changes — a re-sort, a search, a filter — and keep it
+ * when only the page does.
+ *
+ * The distinction is the point: page two is the same question further down, so ticks made on
+ * page one still describe rows the reader meant. A re-sort is a different question, and the rows
+ * that were ticked may not even be on screen to untick.
+ *
+ * WATCHED AS A SERIALISED VALUE RATHER THAN `deep`. A deep watcher fires whenever its effect
+ * re-runs, not only when the value changes — and every visit here is `preserveState: true`, so a
+ * page change hands the component a fresh `response` object holding an identical sort. That
+ * re-run alone cleared the selection, which made paging behave like a re-sort and was invisible
+ * until something on screen depended on it. Comparing the serialised value is what makes "the
+ * question changed" mean what it says.
+ */
 watch(
-    () => [props.response.sort, props.response.search, props.response.filters],
-    () => {
-        selectedIds.value = [];
-    },
-    { deep: true }
+    () => JSON.stringify([props.response.sort, props.response.search, props.response.filters]),
+    clearSelection
 );
 provide(DATA_TABLE_KEY, {
     selectedIds,
     toggleSelection,
-    togglePageSelection
+    togglePageSelection,
+    clearSelection
 });
 /** All row IDs on the current page, used by the header select-all checkbox. */
 const rowIds = computed(() => props.response.rows.map(row => row.id));
@@ -361,7 +383,7 @@ onBeforeUnmount(() => {
             @widen="onWiden"
         >
             <template v-if="$slots['toolbar-actions']" #actions>
-                <slot name="toolbar-actions" :selected-ids="selectedIds" />
+                <slot name="toolbar-actions" :selected-ids="selectedIds" :clear="clearSelection" />
             </template>
         </data-table-toolbar>
 

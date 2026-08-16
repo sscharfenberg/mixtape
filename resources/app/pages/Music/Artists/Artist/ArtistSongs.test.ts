@@ -67,9 +67,9 @@ const tab = (overrides: Partial<SongRow> = {}, locale: "de" | "en" = "de") =>
 
 /** The cell under a given column header. */
 const cell = (wrapper: ReturnType<typeof tab>, header: string): string => {
-    const index = wrapper.findAll("th").findIndex(th => th.text() === header);
+    const index = wrapper.findAll("th:not(.dt-head__check)").findIndex(th => th.text() === header);
 
-    return wrapper.findAll("tbody td")[index].text();
+    return wrapper.findAll("tbody td:not(.dt-body__check)")[index].text();
 };
 
 describe("ArtistSongs", () => {
@@ -79,7 +79,7 @@ describe("ArtistSongs", () => {
 
     it("leaves out the artist column, since every row is by the same one", () => {
         const headers = tab()
-            .findAll("th")
+            .findAll("th:not(.dt-head__check)")
             .map(node => node.text());
 
         expect(headers).not.toContain(translate("music.columns.artist"));

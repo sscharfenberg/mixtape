@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { nextTick } from "vue";
+import { defineComponent, nextTick } from "vue";
+import type { AddToPlaylistBody, UseAddToPlaylistReturn } from "Composables/useAddToPlaylist";
 import { useAddToPlaylist } from "Composables/useAddToPlaylist";
-import type { AddToPlaylistBody } from "Composables/useAddToPlaylist";
+import { resetToastsForTests, useToast } from "Composables/useToast";
 import { resetInertia, routerCalls, setPage } from "Testing/inertia";
+import { mountApp } from "Testing/mount";
 
 vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
 
@@ -26,6 +28,33 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
  * test's to choose: `succeed()` and `finish()` below play the callbacks Inertia would.
  */
 
+/**
+ * Run the composable inside a mounted component, and hand back what it returns.
+ *
+ * A THROWAWAY COMPONENT RATHER THAN A BARE CALL, because this reports a rejected write through
+ * the toast bridge and so calls `useI18n()`, which vue-i18n refuses outside a setup scope
+ * ("Must be called at the top of a `setup` function"). The same helper useShareLink's spec
+ * uses, for the same reason.
+ */
+const addToPlaylist = (
+    body: () => AddToPlaylistBody,
+    offered?: () => string[] | undefined
+): UseAddToPlaylistReturn => {
+    let api!: UseAddToPlaylistReturn;
+
+    mountApp(
+        defineComponent({
+            setup() {
+                api = useAddToPlaylist(body, offered);
+
+                return () => null;
+            }
+        })
+    );
+
+    return api;
+};
+
 /** Two playlists, in the order the server sent them — the reader's own arrangement. */
 const playlists = [
     { id: "playlist-1", name: "Sunday morning" },
@@ -41,21 +70,25 @@ const succeed = (): void => (lastOptions().onSuccess as () => void)();
 /** Play Inertia's finish callback, which runs whatever the outcome was. */
 const finish = (): void => (lastOptions().onFinish as () => void)();
 
+/** The messages currently on screen, so a test can say which sentence a rejection raised. */
+const toastMessages = (): string[] => useToast().activeToasts.value.map(toast => toast.message);
+
 describe("useAddToPlaylist", () => {
     beforeEach(() => {
         resetInertia();
+        resetToastsForTests();
         setPage({ props: { playlists } });
     });
 
     describe("what it offers", () => {
         it("offers every playlist when the caller names no narrower set", () => {
-            const { options } = useAddToPlaylist(() => ({ tracks: [] }));
+            const { options } = addToPlaylist(() => ({ tracks: [] }));
 
             expect(options.value.map(playlist => playlist.name)).toEqual(["Sunday morning", "Loud"]);
         });
 
         it("keeps only the ids the page said may be offered, in the shared list's order", () => {
-            const { options } = useAddToPlaylist(() => ({ tracks: [] }), () => ["playlist-2"]);
+            const { options } = addToPlaylist(() => ({ tracks: [] }), () => ["playlist-2"]);
 
             expect(options.value).toEqual([{ id: "playlist-2", name: "Loud" }]);
         });
@@ -63,7 +96,7 @@ describe("useAddToPlaylist", () => {
         it("offers nothing rather than throwing when the response carried no playlists", () => {
             resetInertia();
 
-            const { options } = useAddToPlaylist(() => ({ tracks: [] }));
+            const { options } = addToPlaylist(() => ({ tracks: [] }));
 
             expect(options.value).toEqual([]);
         });
@@ -71,7 +104,7 @@ describe("useAddToPlaylist", () => {
 
     describe("when save may be pressed", () => {
         it("refuses until a playlist is chosen", () => {
-            const { selected, canSave } = useAddToPlaylist(() => ({ tracks: [] }));
+            const { selected, canSave } = addToPlaylist(() => ({ tracks: [] }));
 
             expect(canSave.value).toBe(false);
 
@@ -80,7 +113,7 @@ describe("useAddToPlaylist", () => {
         });
 
         it("refuses again while a write is in flight, so one press is one addition", () => {
-            const { selected, canSave, saving, save } = useAddToPlaylist(() => ({ tracks: ["track-1"] }));
+            const { selected, canSave, saving, save } = addToPlaylist(() => ({ tracks: ["track-1"] }));
 
             selected.value = "playlist-1";
             save();
@@ -95,7 +128,7 @@ describe("useAddToPlaylist", () => {
 
         it("sends nothing at all when nothing is chosen, however it is pressed", () => {
             // Reachable by submitting the form with Enter, which no `disabled` attribute stops.
-            const { save } = useAddToPlaylist(() => ({ tracks: ["track-1"] }));
+            const { save } = addToPlaylist(() => ({ tracks: ["track-1"] }));
 
             save();
 
@@ -105,18 +138,18 @@ describe("useAddToPlaylist", () => {
 
     describe("what it sends", () => {
         it("posts a subject to the chosen playlist, leaving the tracks to the server", () => {
-            const { selected, save } = useAddToPlaylist(() => ({ subject: "artist", id: "artist-1" }));
+            const { selected, save } = addToPlaylist(() => ({ subject: "artist", ids: ["artist-1"] }));
 
             selected.value = "playlist-2";
             save();
 
             expect(routerCalls[0].method).toBe("post");
             expect(routerCalls[0].url).toBe("/playlists/playlist-2/tracks");
-            expect(routerCalls[0].data).toEqual({ subject: "artist", id: "artist-1" });
+            expect(routerCalls[0].data).toEqual({ subject: "artist", ids: ["artist-1"] });
         });
 
         it("posts track ids for a queue, since only the browser knows what is in one", () => {
-            const { selected, save } = useAddToPlaylist(() => ({ tracks: ["track-2", "track-1"] }));
+            const { selected, save } = addToPlaylist(() => ({ tracks: ["track-2", "track-1"] }));
 
             selected.value = "playlist-1";
             save();
@@ -128,7 +161,7 @@ describe("useAddToPlaylist", () => {
             // The queue can grow while a modal sits open; what is added is what is queued NOW.
             let queued = ["track-1"];
             const body = (): AddToPlaylistBody => ({ tracks: queued });
-            const { selected, save } = useAddToPlaylist(body);
+            const { selected, save } = addToPlaylist(body);
 
             selected.value = "playlist-1";
             queued = ["track-1", "track-2"];
@@ -138,7 +171,7 @@ describe("useAddToPlaylist", () => {
         });
 
         it("keeps the page in place, so a table under the hero does not blink", () => {
-            const { selected, save } = useAddToPlaylist(() => ({ subject: "song", id: "song-1" }));
+            const { selected, save } = addToPlaylist(() => ({ subject: "song", ids: ["song-1"] }));
 
             selected.value = "playlist-1";
             save();
@@ -149,7 +182,7 @@ describe("useAddToPlaylist", () => {
 
     describe("after the write", () => {
         it("clears the choice and lets go of the button once it has landed", () => {
-            const { selected, saving, save } = useAddToPlaylist(() => ({ subject: "song", id: "song-1" }));
+            const { selected, saving, save } = addToPlaylist(() => ({ subject: "song", ids: ["song-1"] }));
 
             selected.value = "playlist-1";
             save();
@@ -162,7 +195,7 @@ describe("useAddToPlaylist", () => {
 
         it("closes what asked to be closed, but only on success", () => {
             const onSaved = vi.fn();
-            const { selected, save } = useAddToPlaylist(() => ({ tracks: ["track-1"] }));
+            const { selected, save } = addToPlaylist(() => ({ tracks: ["track-1"] }));
 
             selected.value = "playlist-1";
             save(onSaved);
@@ -179,9 +212,36 @@ describe("useAddToPlaylist", () => {
             expect(onSaved).toHaveBeenCalledTimes(1);
         });
 
+        it("SAYS SO when the write is rejected, rather than sitting there", () => {
+            /*
+             * A 422 carries its message in `errors`, and this form has nowhere to render one —
+             * its only field is a select whose value was never the problem. Silent, it is a
+             * dialog that stays open under a button that appears to do nothing. Reachable in
+             * practice: a table selection survives paging, so ticking past the request's
+             * ceiling is a few select-alls.
+             */
+            const { selected, save } = addToPlaylist(() => ({ subject: "genre", ids: ["genre-1"] }));
+
+            selected.value = "playlist-1";
+            save();
+            (lastOptions().onError as (errors: Record<string, string>) => void)({ ids: "too many" });
+
+            expect(toastMessages()).toEqual(["Diese Auswahl ist zu groß — bitte weniger auswählen."]);
+        });
+
+        it("has a different sentence for a rejection that is not about size", () => {
+            const { selected, save } = addToPlaylist(() => ({ tracks: ["track-1"] }));
+
+            selected.value = "playlist-1";
+            save();
+            (lastOptions().onError as (errors: Record<string, string>) => void)({ playlist: "gone" });
+
+            expect(toastMessages()).toEqual(["Das Hinzufügen hat nicht geklappt."]);
+        });
+
         it("drops a selection that has left the offer, so the button cannot arm at nothing", async () => {
             let offered = ["playlist-1", "playlist-2"];
-            const { selected } = useAddToPlaylist(() => ({ subject: "song", id: "song-1" }), () => offered);
+            const { selected } = addToPlaylist(() => ({ subject: "song", ids: ["song-1"] }), () => offered);
 
             selected.value = "playlist-1";
             // What a landed write looks like from here: the page comes back with the playlist

@@ -20,8 +20,11 @@
  * - **THE ROWS ARE NOT LINKS.** A chapter has no page of its own, and what a reader wants
  *   from a chapter row is to hear it — so each row carries a play button instead, and the
  *   name cell is plain text rather than an <A> to nowhere.
- * - **No genre, no add-to-playlist.** The tracks CHECK forbids an audiobook a genre, and
- *   `PlaylistAdditions` resolves a subject's tracks music-only on purpose.
+ * - **No genre, and no add-to-playlist for the BOOK.** The tracks CHECK forbids an audiobook a
+ *   genre, and `PlaylistAdditions` resolves a subject's tracks music-only on purpose — so there
+ *   is no id that names this book's tracks to a playlist. Ticked CHAPTERS are a different
+ *   matter and the table's bulk actions do offer it: those travel as track ids, the one shape
+ *   that can carry a chapter, and a playlist is allowed to hold one.
  *
  * PRESSING A CHAPTER QUEUES THE WHOLE BOOK and starts there (`playSubjectFrom`), rather than
  * playing that one chapter. Starting a single chapter would strand a listener at the end of
@@ -38,6 +41,7 @@ import Button from "Components/Form/Button.vue";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import DownloadButton from "Components/Music/DownloadButton.vue";
 import PlayCountFacts from "Components/Music/PlayCountFacts.vue";
+import SelectionActions from "Components/Music/SelectionActions.vue";
 import ShareButton from "Components/Music/ShareButton.vue";
 import ActionPanel from "Components/UI/ActionPanel.vue";
 import FactPair from "Components/UI/Card/FactPair.vue";
@@ -307,8 +311,16 @@ const columns = computed<ColumnDef<ChapterRow>[]>(() => [
                 :has-actions="false"
                 :row-class="rowClass"
                 row-clickable
+                selectable
                 @row-click="playChapter"
             >
+                <!-- Ticked chapters mean JUST THOSE CHAPTERS, which is deliberately not what a
+                     row press means one line below (that plays the whole book from there). A
+                     checkbox is an explicit act of picking, so it can carry the narrower reading
+                     the row itself must not. -->
+                <template #toolbar-actions>
+                    <selection-actions subject="song" />
+                </template>
                 <!-- THE TITLE IS THE CONTROL, and that is an accessibility decision rather
                      than a style one: the whole row is pressable for a pointer, but a row is
                      not focusable and announces nothing, so without a real control here the

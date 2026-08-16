@@ -40,32 +40,62 @@ final class PlaylistAdditions
     /**
      * How many entries one request may add.
      *
-     * A bound rather than a policy: the ceiling only applies to the ids shape (the play queue),
-     * since a subject resolves server-side and cannot be inflated by a caller. 10,000 is past
-     * the whole of this instance's library and about 370 kB of UUIDs — comfortably under the
-     * 1 MB body nginx accepts by default, which is the limit that would otherwise decide this
-     * for us with a 413 nobody could read.
+     * A bound rather than a policy: it applies to the ids shape (the play queue, and a track
+     * table's ticked rows), where the caller says every track by name. 10,000 is past the whole
+     * of this instance's library and about 370 kB of UUIDs — comfortably under the 1 MB body
+     * nginx accepts by default, which is the limit that would otherwise decide this for us with
+     * a 413 nobody could read.
      */
     public const MAX_TRACKS = 10_000;
 
     /**
-     * A query over `tracks` narrowed to one subject.
+     * How many SUBJECTS one request may name — the other shape's bound.
+     *
+     * The subject shape needs its own because what it expands to is unbounded: 10,000 genre ids
+     * is a small body that resolves to every track in the library several times over, so the
+     * ceiling that protects the ids shape protects nothing here. Five hundred is five full
+     * pages at the largest size a DataTable offers (DataTableService::ALLOWED_PAGE_SIZES tops
+     * out at 100), and a selection survives paging — so it is well past what ticking boxes can
+     * plausibly produce while still being a number.
+     */
+    public const MAX_SUBJECTS = 500;
+
+    /**
+     * A query over `tracks` narrowed to one or more subjects OF THE SAME KIND.
      *
      * THE SAME NARROWING THE FOUR DETAIL CONTROLLERS APPLY to build their optional
      * `queueTracks` prop, down to the music-only filter — so "add this artist to a playlist"
      * and "play this artist" can never come to mean different sets of songs. An audiobook
      * chapter is excluded for the reason QueuePayload gives: an artist's narration is not part
-     * of "this artist". A playlist may still hold one; it just cannot arrive through a subject.
+     * of "this artist".
+     *
+     * …EXCEPT FOR `song`, WHICH IS EXACT TRACK IDS AND THEREFORE UNFILTERED. Every other case
+     * names a container, where "which of its tracks do you mean" is a real question this app
+     * answers with "the music ones". A caller sending `song` has named each track individually;
+     * it already knows what it has, and filtering would make a ticked audiobook chapter vanish
+     * with nothing to explain it — a button that silently adds nothing on the one page where a
+     * chapter is all there is. App\Services\Player\QueueSelection states the identical rule for
+     * the play queue, and the two must agree: the same ticked rows feed both.
+     *
+     * PLURAL BECAUSE A LISTING'S CHECKBOXES NAME SEVERAL AT ONCE, and one kind rather than a
+     * mixed bag because that is all a checkbox column can produce: a table lists one kind of
+     * thing, so its ticked rows are three albums or three artists, never one of each. The
+     * single-subject callers pass a one-element array, which keeps ONE query shape here rather
+     * than a scalar path and a plural path that could narrow differently.
+     *
+     * @param  list<string>  $ids  subjects of the kind `$subject` names
      */
-    public static function subjectTracks(PlaylistSubject $subject, string $id): Builder
+    public static function subjectTracks(PlaylistSubject $subject, array $ids): Builder
     {
-        return DB::table('tracks')
-            ->where($subject->column(), $id)
-            ->where('tracks.type', TrackType::Music->value);
+        $tracks = DB::table('tracks')->whereIn($subject->column(), $ids);
+
+        return $subject === PlaylistSubject::Song
+            ? $tracks
+            : $tracks->where('tracks.type', TrackType::Music->value);
     }
 
     /**
-     * The subject's track ids, in the order the player would play them.
+     * The subjects' track ids, in the order the player would play them.
      *
      * Ordered rather than merely collected, because this order becomes the playlist's own: an
      * album arrives as an album, and an artist arrives as records rather than as an
@@ -73,11 +103,17 @@ final class PlaylistAdditions
      * repeated, so a playlist built from "add this artist" holds the tracks in the sequence
      * "play this artist" would have played them.
      *
+     * With several subjects that order runs ACROSS them rather than subject by subject: four
+     * ticked albums interleave by year, because the sort is one ORDER BY over the union and the
+     * reader's tick order is not sent (a checkbox is not a position). Adding albums one at a
+     * time is what puts them in the playlist one after another.
+     *
+     * @param  list<string>  $ids  subjects of the kind `$subject` names
      * @return list<string>
      */
-    public static function subjectTrackIds(PlaylistSubject $subject, string $id): array
+    public static function subjectTrackIds(PlaylistSubject $subject, array $ids): array
     {
-        $tracks = self::subjectTracks($subject, $id)
+        $tracks = self::subjectTracks($subject, $ids)
             // The playing order sorts by the album's year and name, so the join has to be here
             // even though nothing is selected from it.
             ->leftJoin('collections', 'tracks.collection_id', '=', 'collections.id')
@@ -107,7 +143,7 @@ final class PlaylistAdditions
      */
     public static function openTo(User $user, PlaylistSubject $subject, string $id): array
     {
-        $total = self::subjectTracks($subject, $id)->count();
+        $total = self::subjectTracks($subject, [$id])->count();
 
         // Nothing to add anywhere — an artist with only audiobook chapters, or an id whose rows
         // have been pruned. No playlist is "open" to a subject that is empty, which is what

@@ -18,6 +18,7 @@ import { Head, Link } from "@inertiajs/vue3";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import DataTable from "Components/DataTable/DataTable.vue";
+import SelectionActions from "Components/Music/SelectionActions.vue";
 import Container from "Components/UI/Container.vue";
 import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
@@ -71,7 +72,10 @@ const columns = computed<ColumnDef<SongRow>[]>(() => [
         {{ t("music.widgets.songs") }}
     </headline>
     <container>
-        <data-table :columns="columns" :response="table" base-url="/music/songs" :has-actions="false">
+        <data-table :columns="columns" :response="table" base-url="/music/songs" :has-actions="false" selectable>
+            <template #toolbar-actions>
+                <selection-actions subject="song" />
+            </template>
             <template #cell-name="{ row }">
                 <Link :href="row.href" class="songs__title">{{ row.name }}</Link>
             </template>

@@ -81,7 +81,7 @@ describe("AlbumsPage", () => {
 
     it("leads with artwork and then the rest of the columns in reading order", () => {
         const headers = page()
-            .findAll("th")
+            .findAll("th:not(.dt-head__check)")
             .map(node => node.text());
 
         expect(headers).toStrictEqual([

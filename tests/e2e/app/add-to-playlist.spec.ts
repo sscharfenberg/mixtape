@@ -167,7 +167,7 @@ test.describe("adding a song to a playlist from its hero", () => {
 
         await page.locator(".play-queue__header .popover-button").click();
         await page.getByRole("button", { name: /Zu Wiedergabeliste hinzufügen/u }).click();
-        await expect(page.locator("#queue-playlist-form")).toBeVisible();
+        await expect(page.locator("#add-to-playlist-form")).toBeVisible();
 
         const seam = await page.evaluate(() => {
             const read = (selector: string) => {
@@ -184,8 +184,8 @@ test.describe("adding a song to a playlist from its hero", () => {
             };
 
             return {
-                addon: read("#queue-playlist-form .form-row__addon"),
-                field: read("#queue-playlist-form .form-select__button")
+                addon: read("#add-to-playlist-form .form-row__addon"),
+                field: read("#add-to-playlist-form .form-select__button")
             };
         });
 

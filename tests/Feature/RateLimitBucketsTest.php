@@ -93,6 +93,7 @@ class RateLimitBucketsTest extends TestCase
             'playlists.tracks.order' => 'throttle:60,1,playlist-track-order',
             'playlists.tracks.store' => 'throttle:30,1,playlist-tracks',
             'playlists.update' => 'throttle:30,1,playlist-update',
+            'queue.tracks' => 'throttle:20,1,queue-tracks',
             'register.store' => 'throttle:30,1,register',
             'search' => 'throttle:60,1,search',
             'shares.cover' => 'throttle:60,1,share-cover',

@@ -80,6 +80,6 @@ describe("PlayQueueMenu", () => {
 
         expect(hidePopover).toHaveBeenCalledTimes(1);
         // The modal teleports to <body>, so it is found there rather than on the wrapper.
-        expect(document.querySelector("#queue-playlist-form")).not.toBeNull();
+        expect(document.querySelector("#add-to-playlist-form")).not.toBeNull();
     });
 });

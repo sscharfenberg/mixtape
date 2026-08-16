@@ -590,7 +590,9 @@
             "submit": "Add",
             "saving": "Adding …",
             "exhausted": "Already in every one of your playlists.",
-            "duplicatesHint": "Tracks already in there are skipped."
+            "duplicatesHint": "Tracks already in there are skipped.",
+            "failed": "That could not be added.",
+            "tooMany": "That selection is too large — pick fewer."
         }
     },
     "share": {
@@ -663,6 +665,17 @@
             "actions": "Actions",
             "row_actions": "Row actions",
             "items_selected": "{count} selected",
+            "selection": {
+                "actions": "Actions for {count} selected entries",
+                "play": "Play selection",
+                "enqueue": "Queue selection",
+                "addToPlaylist": "Add to playlist",
+                "modalTitle": "Add the selection to a playlist",
+                "intro": "1 selected entry will be added. | {count} selected entries will be added.",
+                "failed": "That selection could not be loaded.",
+                "tooMany": "That was a lot at once — give it a moment.",
+                "tooLarge": "That selection is too large — pick fewer."
+            },
             "pagination": "Pagination",
             "first": "First page",
             "previous": "Previous page",

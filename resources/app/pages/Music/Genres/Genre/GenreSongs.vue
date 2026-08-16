@@ -27,6 +27,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import DataTable from "Components/DataTable/DataTable.vue";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
+import SelectionActions from "Components/Music/SelectionActions.vue";
 import type { ColumnDef, TableResponse } from "Types/dataTable";
 import { formatClock, formatFileSize, formatPosition } from "Utils/formatting";
 
@@ -102,7 +103,10 @@ const columns = computed<ColumnDef<GenreSongRow>[]>(() => [
 </script>
 
 <template>
-    <data-table :columns="columns" :response="table" :base-url="baseUrl" :has-actions="false">
+    <data-table :columns="columns" :response="table" :base-url="baseUrl" :has-actions="false" selectable>
+        <template #toolbar-actions>
+            <selection-actions subject="song" />
+        </template>
         <!-- `decorative`: the title is in the next cell, so naming the art again makes a
              screen reader read every row twice. -->
         <template #cell-coverUrl="{ row }">

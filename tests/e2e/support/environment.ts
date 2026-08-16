@@ -359,6 +359,13 @@ export const SPEC_USERS = {
      */
     audiobooks: "spec-audiobooks",
     /*
+     * The bulk-actions spec, and the only entry here on TWO of the three counts at once: it
+     * plays what it ticks (a queue) and it adds what it ticks to a playlist of its own making
+     * (rows on the playlist listing). Either alone would have earned it an account; both
+     * together make sharing one indefensible.
+     */
+    selection: "spec-selection",
+    /*
      * The queue reason again, with a twist that makes this the only entry whose parked session
      * is never read: its spec SIGNS OUT, which kills the session it is using, so a stored
      * `storageState` would be dead for anything else that touched it. It therefore lives in the

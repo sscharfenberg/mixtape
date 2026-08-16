@@ -57,7 +57,7 @@ const columns: ColumnDef<SongRow>[] = [
 | `#header-{key}`    | `{ column: ColumnDef<T> }`      | Custom header content for a column. Fallback: `column.label` as text.         |
 | `#cell-{key}`      | `{ row: T }`                    | Custom renderer for a column. Fallback: raw `row[key]` as text.               |
 | `#actions`         | `{ row: T, close: () => void }` | Row-action popover content (only when `hasActions`). Render as `<li>` items.  |
-| `#toolbar-actions` | `{ selectedIds: string[] }`     | Toolbar buttons (e.g. bulk actions). Only rendered when the slot is provided. |
+| `#toolbar-actions` | `{ selectedIds, clear }`        | Toolbar buttons (e.g. bulk actions). Only rendered when the slot is provided. |
 | `#empty`           | —                               | Content shown when `rows` is empty and not loading.                           |
 
 ### Header Slots
@@ -114,14 +114,24 @@ navigate:
 
 ### Toolbar Actions
 
-Shown next to the search input. The slot exposes `selectedIds` for bulk actions
-(requires `selectable`):
+Shown next to the search input. The slot exposes `selectedIds` and `clear` for
+bulk actions (requires `selectable`):
 
 ```vue
-<template #toolbar-actions="{ selectedIds }">
-    <button v-if="selectedIds.length > 0" @click="move(selectedIds)">Move {{ selectedIds.length }}</button>
+<template #toolbar-actions="{ selectedIds, clear }">
+    <button v-if="selectedIds.length > 0" @click="move(selectedIds).then(clear)">
+        Move {{ selectedIds.length }}
+    </button>
 </template>
 ```
+
+Call `clear` once an action has been carried out: nothing else will, since the
+table only clears when the sort, search or filter changes. Clear on success
+only — keeping the ticks after a failure is what makes pressing again the retry.
+
+Mixtape's own bulk actions (play / enqueue / add to playlist) live in
+`Components/Music/SelectionActions.vue`, which injects the table rather than
+taking the slot props, so a page needs only `<selection-actions subject="…" />`.
 
 ## Column Definition
 
@@ -466,9 +476,12 @@ When `selectable` is enabled:
 - The header checkbox is three-state: unchecked (none) / checked (all on page) /
   indeterminate (some).
 - Selection **persists across page changes** (IDs in component state) and **clears
-  on sort / search / filter changes**.
+  on sort / search / filter changes** — page two is the same question further down,
+  a re-sort is a different one. Every visit is `preserveState`, so the distinction
+  is drawn by comparing the serialised sort/search/filters rather than by a `deep`
+  watcher, which fires on any re-run and so cleared on paging too.
 - Selected IDs are exposed via `#toolbar-actions` and via provide/inject
-  (`DATA_TABLE_KEY`).
+  (`DATA_TABLE_KEY`), alongside `clearSelection`.
 
 ## Accessibility
 

@@ -63,7 +63,7 @@ describe("ArtistsPage", () => {
 
     it("declares the six columns, with no artwork among them", () => {
         const headers = page()
-            .findAll("th")
+            .findAll("th:not(.dt-head__check)")
             .map(node => node.text());
 
         expect(headers).toStrictEqual([

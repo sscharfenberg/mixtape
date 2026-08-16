@@ -590,7 +590,9 @@
             "submit": "Hinzufügen",
             "saving": "Wird hinzugefügt …",
             "exhausted": "Schon in allen deinen Wiedergabelisten enthalten.",
-            "duplicatesHint": "Titel, die schon drin sind, werden übersprungen."
+            "duplicatesHint": "Titel, die schon drin sind, werden übersprungen.",
+            "failed": "Das Hinzufügen hat nicht geklappt.",
+            "tooMany": "Diese Auswahl ist zu groß — bitte weniger auswählen."
         }
     },
     "share": {
@@ -663,6 +665,17 @@
             "actions": "Aktionen",
             "row_actions": "Zeilenaktionen",
             "items_selected": "{count} ausgewählt",
+            "selection": {
+                "actions": "Aktionen für {count} ausgewählte Einträge",
+                "play": "Auswahl abspielen",
+                "enqueue": "Auswahl anhängen",
+                "addToPlaylist": "Zur Wiedergabeliste",
+                "modalTitle": "Auswahl zu einer Wiedergabeliste hinzufügen",
+                "intro": "1 ausgewählter Eintrag wird hinzugefügt. | {count} ausgewählte Einträge werden hinzugefügt.",
+                "failed": "Die Auswahl konnte nicht geladen werden.",
+                "tooMany": "Das war gerade sehr viel auf einmal — bitte einen Moment warten.",
+                "tooLarge": "Diese Auswahl ist zu groß — bitte weniger auswählen."
+            },
             "pagination": "Seitennavigation",
             "first": "Erste Seite",
             "previous": "Vorherige Seite",

@@ -26,6 +26,8 @@
 import { router, usePage } from "@inertiajs/vue3";
 import type { ComputedRef, Ref } from "vue";
 import { computed, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
+import { useToast } from "Composables/useToast";
 
 /** One entry of the shared `playlists` prop — the reader's own, in the order they arranged. */
 export type PlaylistOption = {
@@ -41,11 +43,19 @@ export type AddablePlaylistSubject = "song" | "album" | "artist" | "genre";
 /**
  * What is being added, in one of the two shapes the endpoint accepts.
  *
- * A SUBJECT when the server can work the tracks out from one id — which is every detail page,
- * and which is why a hero never has to hold a thousand track ids to offer this. TRACK IDS when
- * only the browser knows: the play queue is client state in an order the reader arranged.
+ * A SUBJECT when the server can work the tracks out from ids that are not track ids — a detail
+ * page's hero (one album), or a listing's ticked rows (eight artists). That is why a hero never
+ * has to hold a thousand track ids to offer this, and why ticking a screenful of artists costs
+ * eight ids rather than nine hundred.
+ *
+ * TRACK IDS when the browser is already looking at them: the play queue, in the order the reader
+ * arranged, and a TRACK table's ticked rows. It is also the only shape that can carry an
+ * audiobook chapter, since the subject query is music-only by design.
+ *
+ * The subject shape is plural even for one, so a hero sends `ids: [id]` — a scalar alternative
+ * would be a third shape that is a strict special case of this one.
  */
-export type AddToPlaylistBody = { subject: AddablePlaylistSubject; id: string } | { tracks: string[] };
+export type AddToPlaylistBody = { subject: AddablePlaylistSubject; ids: string[] } | { tracks: string[] };
 
 /** What {@link useAddToPlaylist} hands back. */
 export type UseAddToPlaylistReturn = {
@@ -77,6 +87,8 @@ export function useAddToPlaylist(
     offered?: () => string[] | undefined
 ): UseAddToPlaylistReturn {
     const page = usePage();
+    const { t } = useI18n();
+    const { addToast } = useToast();
     const selected = ref("");
     const saving = ref(false);
 
@@ -118,6 +130,13 @@ export function useAddToPlaylist(
      * `selected` is cleared on success only. A failed write leaves the choice standing, so
      * pressing save again is the retry — clearing it would make the reader re-pick a playlist
      * to repeat something they already asked for.
+     *
+     * A REJECTED WRITE HAS TO SAY SO, and nothing else here will. The success path reports
+     * itself through the server's flash (the toast bridge), but a 422 carries its message in
+     * `errors` — which this form has nowhere to render, since its only field is a select whose
+     * value was never the problem. Left silent it is the worst possible outcome: the dialog
+     * stays open under a button that appears to do nothing, forever. Reachable in practice —
+     * a selection survives paging, so ticking past the request's ceiling is a few select-alls.
      */
     function save(onSaved?: () => void): void {
         if (!canSave.value) return;
@@ -129,6 +148,13 @@ export function useAddToPlaylist(
             onSuccess: () => {
                 selected.value = "";
                 onSaved?.();
+            },
+            onError: errors => {
+                // The server's own words are not used — a message composed in PHP would be
+                // German on a page being read in English (the project's server-sends-raw rule).
+                // WHICH field failed is all that is read, and only to tell "too much at once"
+                // from anything else.
+                addToast(t(errors.ids || errors.tracks ? "playlists.add.tooMany" : "playlists.add.failed"), "error", 4000);
             },
             onFinish: () => {
                 saving.value = false;

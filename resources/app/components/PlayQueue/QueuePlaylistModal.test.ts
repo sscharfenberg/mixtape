@@ -54,7 +54,7 @@ const choose = async (index: number): Promise<void> => {
 /** Submit the teleported form. */
 const submit = (): void => {
     document
-        .querySelector("#queue-playlist-form")!
+        .querySelector("#add-to-playlist-form")!
         .dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
 };
 

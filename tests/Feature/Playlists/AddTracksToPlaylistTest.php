@@ -7,8 +7,10 @@ use App\Models\Playlist;
 use App\Models\PlaylistTrack;
 use App\Models\Track;
 use App\Models\User;
+use App\Services\Playlists\PlaylistAdditions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
@@ -16,11 +18,11 @@ use Tests\TestCase;
  * hero or from the play queue's menu.
  *
  * THE TWO BODY SHAPES are what most of this file is about, because they are the feature's one
- * structural decision: a hero sends `{ subject, id }` and the tracks are resolved here, while
- * the queue sends `{ tracks: [...] }` because it is client state the server has no live copy
- * of. Both end in the same append, so the tests that matter are the ones where the two shapes
- * could plausibly diverge — the ORDER entries land in, and what happens to ids that are
- * already there.
+ * structural decision: a hero or a listing's ticked rows send `{ subject, ids }` and the tracks
+ * are resolved here, while the queue — and a track table's ticked rows — send `{ tracks: [...] }`
+ * because those name every track already. Both end in the same append, so the tests that matter
+ * are the ones where the two shapes could plausibly diverge — the ORDER entries land in, and
+ * what happens to ids that are already there.
  *
  * WHAT A READER WOULD NOTICE GOING WRONG, and so what is pinned:
  *
@@ -70,7 +72,7 @@ class AddTracksToPlaylistTest extends TestCase
         $song = Track::factory()->create(['name' => 'Paranoid Android']);
 
         $this->actingAs($reader)
-            ->post("/playlists/{$playlist->id}/tracks", ['subject' => 'song', 'id' => $song->id])
+            ->post("/playlists/{$playlist->id}/tracks", ['subject' => 'song', 'ids' => [$song->id]])
             ->assertRedirect()
             ->assertSessionHas('type', 'success')
             ->assertSessionHas('message', fn (string $message): bool => str_contains($message, 'Paranoid Android'));
@@ -90,7 +92,7 @@ class AddTracksToPlaylistTest extends TestCase
         $second = Track::factory()->create(['collection_id' => $album->id, 'disc' => 1, 'track' => 2]);
 
         $this->actingAs($reader)
-            ->post("/playlists/{$playlist->id}/tracks", ['subject' => 'album', 'id' => $album->id])
+            ->post("/playlists/{$playlist->id}/tracks", ['subject' => 'album', 'ids' => [$album->id]])
             ->assertRedirect();
 
         $this->assertSame([$first->id, $second->id, $third->id], $this->trackIdsOf($playlist));
@@ -107,7 +109,7 @@ class AddTracksToPlaylistTest extends TestCase
         Track::factory()->audiobook()->create(['collection_id' => $album->id]);
 
         $this->actingAs($reader)
-            ->post("/playlists/{$playlist->id}/tracks", ['subject' => 'album', 'id' => $album->id])
+            ->post("/playlists/{$playlist->id}/tracks", ['subject' => 'album', 'ids' => [$album->id]])
             ->assertRedirect();
 
         $this->assertSame([$song->id], $this->trackIdsOf($playlist));
@@ -128,7 +130,7 @@ class AddTracksToPlaylistTest extends TestCase
             ->create(['collection_id' => $album->id]);
 
         $this->actingAs($reader)
-            ->post("/playlists/{$playlist->id}/tracks", ['subject' => 'album', 'id' => $album->id])
+            ->post("/playlists/{$playlist->id}/tracks", ['subject' => 'album', 'ids' => [$album->id]])
             ->assertRedirect();
 
         $positions = DB::table('playlist_tracks')
@@ -151,7 +153,7 @@ class AddTracksToPlaylistTest extends TestCase
         $this->travel(1)->minute();
 
         $this->actingAs($reader)
-            ->post("/playlists/{$playlist->id}/tracks", ['subject' => 'song', 'id' => $song->id])
+            ->post("/playlists/{$playlist->id}/tracks", ['subject' => 'song', 'ids' => [$song->id]])
             ->assertRedirect();
 
         $this->assertTrue($playlist->fresh()->updated_at->greaterThan($changedBefore));
@@ -172,7 +174,7 @@ class AddTracksToPlaylistTest extends TestCase
         ]);
 
         $this->actingAs($reader)
-            ->post("/playlists/{$playlist->id}/tracks", ['subject' => 'album', 'id' => $album->id])
+            ->post("/playlists/{$playlist->id}/tracks", ['subject' => 'album', 'ids' => [$album->id]])
             ->assertRedirect()
             ->assertSessionHas('type', 'success');
 
@@ -191,7 +193,7 @@ class AddTracksToPlaylistTest extends TestCase
         ]);
 
         $this->actingAs($reader)
-            ->post("/playlists/{$playlist->id}/tracks", ['subject' => 'song', 'id' => $song->id])
+            ->post("/playlists/{$playlist->id}/tracks", ['subject' => 'song', 'ids' => [$song->id]])
             ->assertRedirect()
             // `info`, not `success` and not an error: the playlist already holds it, which is
             // very often exactly what the reader wanted to know.
@@ -255,8 +257,162 @@ class AddTracksToPlaylistTest extends TestCase
         [$reader, $playlist] = $this->readerWithPlaylist();
 
         $this->actingAs($reader)
-            ->post("/playlists/{$playlist->id}/tracks", ['subject' => 'playlist', 'id' => $playlist->id])
+            ->post("/playlists/{$playlist->id}/tracks", ['subject' => 'playlist', 'ids' => [$playlist->id]])
             ->assertSessionHasErrors('subject');
+    }
+
+    public function test_several_subjects_arrive_in_one_playing_order_rather_than_album_by_album(): void
+    {
+        // What a listing's ticked checkboxes send. The ordering runs ACROSS the selection, so
+        // the newer album's tracks come first as a block — not "album A's tracks then album B's"
+        // in whatever order the ids happened to be listed, which is what a per-subject loop
+        // would produce. The ids are sent oldest-first so those two answers differ.
+        [$reader, $playlist] = $this->readerWithPlaylist();
+
+        $older = Collection::factory()->create(['year' => 1994]);
+        $newer = Collection::factory()->create(['year' => 2001]);
+
+        $olderTrack = Track::factory()->create(['collection_id' => $older->id, 'disc' => 1, 'track' => 1]);
+        $newerTrack = Track::factory()->create(['collection_id' => $newer->id, 'disc' => 1, 'track' => 1]);
+
+        $this->actingAs($reader)
+            ->post("/playlists/{$playlist->id}/tracks", [
+                'subject' => 'album',
+                'ids' => [$older->id, $newer->id],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('type', 'success');
+
+        $this->assertSame([$newerTrack->id, $olderTrack->id], $this->trackIdsOf($playlist));
+    }
+
+    public function test_the_track_ids_shape_carries_an_audiobook_chapter(): void
+    {
+        // A playlist is ALLOWED to hold a chapter; what it cannot do is acquire one through a
+        // CONTAINER subject, whose query is music-only so that "add this artist" and "play this
+        // artist" mean the same songs. This is the queue menu's shape.
+        [$reader, $playlist] = $this->readerWithPlaylist();
+        $chapter = Track::factory()->audiobook()->create();
+
+        $this->actingAs($reader)
+            ->post("/playlists/{$playlist->id}/tracks", ['tracks' => [$chapter->id]])
+            ->assertRedirect()
+            ->assertSessionHas('type', 'success');
+
+        $this->assertSame([$chapter->id], $this->trackIdsOf($playlist));
+    }
+
+    public function test_the_song_subject_carries_one_too_since_it_names_tracks_exactly(): void
+    {
+        /*
+         * THE PAIR WITH `test_a_subject_leaves_audiobook_chapters_out`, and the distinction is
+         * the whole rule: a CONTAINER subject asks "which of its tracks do you mean", answered
+         * here with "the music ones", while `song` has already named each track individually.
+         * Filtering the latter would empty an audiobook page's ticked chapters on their way to
+         * a playlist and report it as "already in there".
+         *
+         * App\Services\Player\QueueSelection states the identical exemption for the play queue,
+         * and the two must agree — the same ticked rows feed both buttons.
+         */
+        [$reader, $playlist] = $this->readerWithPlaylist();
+        $chapter = Track::factory()->audiobook()->create();
+
+        $this->actingAs($reader)
+            ->post("/playlists/{$playlist->id}/tracks", ['subject' => 'song', 'ids' => [$chapter->id]])
+            ->assertRedirect()
+            ->assertSessionHas('type', 'success');
+
+        $this->assertSame([$chapter->id], $this->trackIdsOf($playlist));
+    }
+
+    public function test_a_song_subject_arrives_in_playing_order_rather_than_in_the_order_ticked(): void
+    {
+        // A checkbox is not a position — PlaylistAdditions says so, and this is what holds it to
+        // it. Ticking track 2 before track 1 must still add them 1, 2, so that both buttons over
+        // a selection put the same rows in the same order.
+        [$reader, $playlist] = $this->readerWithPlaylist();
+        $album = Collection::factory()->create();
+
+        $first = Track::factory()->create(['collection_id' => $album->id, 'disc' => 1, 'track' => 1]);
+        $second = Track::factory()->create(['collection_id' => $album->id, 'disc' => 1, 'track' => 2]);
+
+        $this->actingAs($reader)
+            ->post("/playlists/{$playlist->id}/tracks", [
+                'subject' => 'song',
+                'ids' => [$second->id, $first->id],
+            ])
+            ->assertRedirect();
+
+        $this->assertSame([$first->id, $second->id], $this->trackIdsOf($playlist));
+    }
+
+    public function test_an_ordinary_subject_is_not_caught_by_the_expansion_ceiling(): void
+    {
+        /*
+         * The expansion guard's OTHER half — that it lets normal work through. A ceiling added
+         * to a hot path is as likely to be wrong by refusing everything as by refusing nothing,
+         * and this is the cheap half of that pair to test.
+         *
+         * The refusal itself needs a selection resolving to more than MAX_TRACKS, which is a
+         * database this suite has no business building for one assertion; what is checked
+         * instead is that its two references are real, below.
+         */
+        [$reader, $playlist] = $this->readerWithPlaylist();
+        $album = Collection::factory()->create();
+        Track::factory()->count(3)->create(['collection_id' => $album->id]);
+
+        $this->actingAs($reader)
+            ->post("/playlists/{$playlist->id}/tracks", ['subject' => 'album', 'ids' => [$album->id]])
+            ->assertRedirect()
+            ->assertSessionHas('type', 'success');
+
+        $this->assertCount(3, $this->trackIdsOf($playlist));
+    }
+
+    public function test_the_expansion_ceiling_is_wired_to_something_real(): void
+    {
+        /*
+         * The two ways the guard above could be silently broken and still read correctly:
+         * a ceiling naming a constant that has moved, and a message resolving to its own key —
+         * which would reach a reader as the literal string "ids.too_many_tracks".
+         *
+         * Its sibling on the play queue's endpoint (QueueTracksTest) is checked the same way
+         * and for the same reason.
+         */
+        $this->assertGreaterThan(0, PlaylistAdditions::MAX_TRACKS);
+        $this->assertGreaterThan(0, PlaylistAdditions::MAX_SUBJECTS);
+
+        $message = __('playlist.validation')['ids.too_many_tracks'];
+
+        $this->assertIsString($message);
+        $this->assertNotSame('ids.too_many_tracks', $message);
+    }
+
+    public function test_a_subject_with_an_empty_id_list_is_rejected(): void
+    {
+        // `required_with` passes for an empty array, so without the `min:1` this would be a
+        // successful request that adds nothing and flashes "already in there" — the message for
+        // a completely different situation.
+        [$reader, $playlist] = $this->readerWithPlaylist();
+
+        $this->actingAs($reader)
+            ->post("/playlists/{$playlist->id}/tracks", ['subject' => 'album', 'ids' => []])
+            ->assertSessionHasErrors('ids');
+    }
+
+    public function test_more_subjects_than_the_ceiling_are_rejected(): void
+    {
+        // The subject shape needs a bound of its own: what it expands to is unbounded, so the
+        // ids-shape ceiling protects nothing here (PlaylistAdditions::MAX_SUBJECTS).
+        [$reader, $playlist] = $this->readerWithPlaylist();
+
+        $ids = array_map(fn (): string => (string) Str::uuid(), range(1, PlaylistAdditions::MAX_SUBJECTS + 1));
+
+        $this->actingAs($reader)
+            ->post("/playlists/{$playlist->id}/tracks", ['subject' => 'album', 'ids' => $ids])
+            ->assertSessionHasErrors('ids');
+
+        $this->assertDatabaseCount('playlist_tracks', 0);
     }
 
     /**

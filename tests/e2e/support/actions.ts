@@ -210,11 +210,19 @@ export const openQueuePanel = async (page: Page): Promise<void> => {
  * Escape rather than waiting the peek out: it is instant, and it also CANCELS the pending
  * auto-close, so nothing left over from an enqueue can shut a panel the test later opens.
  *
- * Module-local on purpose. Every spec reaches it through `enqueueFromHero`, so the rule stays
- * one rule — "an enqueue leaves the panel shut; open it if you need it" — rather than something
- * each call site can forget.
+ * EXPORTED, because there is now more than one gesture that grows the queue. It was module-local
+ * while `enqueueFromHero` was the only way in, on the reasoning that one entry point keeps the
+ * rule from being forgotten; a listing's bulk "play selection" grows the queue too, from a
+ * control that has nothing to do with a hero. A spec that grows the queue by any other means has
+ * to dismiss the peek itself, and the alternative to exporting this is that it reinvents these
+ * three lines — the second of which (Escape, not a wait) is the one nobody guesses.
+ *
+ * The trap it exists for is not the panel being open, it is the panel closing ITSELF three
+ * seconds later: `openQueuePanel` sees the peek, skips its toggle, and then waits for a
+ * clip-path on an element that is disappearing underneath it. That reads as a hung queue panel
+ * and it only shows up under load, where the wait is slower than the peek is short.
  */
-const dismissQueuePeek = async (page: Page): Promise<void> => {
+export const dismissQueuePeek = async (page: Page): Promise<void> => {
     const panel = page.locator(".play-queue");
 
     await expect(panel).toBeVisible();

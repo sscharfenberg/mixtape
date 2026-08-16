@@ -43,7 +43,7 @@ class PlaylistTracksController extends Controller
         $data = $request->validated();
 
         $added = PlaylistAdditions::append($playlist, isset($data['subject'])
-            ? PlaylistAdditions::subjectTrackIds(PlaylistSubject::from($data['subject']), $data['id'])
+            ? PlaylistAdditions::subjectTrackIds(PlaylistSubject::from($data['subject']), array_values($data['ids']))
             : array_values($data['tracks'] ?? []));
 
         return back()->with($this->outcome($added, $playlist));

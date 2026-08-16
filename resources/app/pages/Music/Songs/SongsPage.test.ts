@@ -64,7 +64,7 @@ describe("SongsPage", () => {
 
     it("declares the five columns in reading order", () => {
         const headers = page()
-            .findAll("th")
+            .findAll("th:not(.dt-head__check)")
             .map(node => node.text());
 
         expect(headers).toStrictEqual([
@@ -114,6 +114,6 @@ describe("SongsPage", () => {
     it("renders in English when the locale says so", () => {
         const wrapper = mountApp(SongsPage, { props: { table: table() }, locale: "en" });
 
-        expect(wrapper.findAll("th")[0].text()).toBe(translate("music.columns.title", "en"));
+        expect(wrapper.findAll("th:not(.dt-head__check)")[0].text()).toBe(translate("music.columns.title", "en"));
     });
 });

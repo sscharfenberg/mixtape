@@ -23,6 +23,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import DataTable from "Components/DataTable/DataTable.vue";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
+import SelectionActions from "Components/Music/SelectionActions.vue";
 import Container from "Components/UI/Container.vue";
 import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
@@ -98,7 +99,10 @@ const columns = computed<ColumnDef<AlbumRow>[]>(() => [
         {{ t("music.widgets.albums") }}
     </headline>
     <container>
-        <data-table :columns="columns" :response="table" base-url="/music/albums" :has-actions="false">
+        <data-table :columns="columns" :response="table" base-url="/music/albums" :has-actions="false" selectable>
+            <template #toolbar-actions>
+                <selection-actions subject="album" />
+            </template>
             <!-- Artwork, or the music glyph when the album has none — and the same when an
                  advertised cover 404s, which happens because `coverUrl` rests on a scan-time
                  flag. CoverImage owns all three cases, the frame and the lazy loading.

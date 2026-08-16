@@ -30,6 +30,7 @@ use App\Http\Controllers\MusicController;
 use App\Http\Controllers\NowPlayingController;
 use App\Http\Controllers\Player\PlayController;
 use App\Http\Controllers\Player\PlayerStateController;
+use App\Http\Controllers\Player\QueueTracksController;
 use App\Http\Controllers\Playlists\PlaylistController;
 use App\Http\Controllers\Playlists\PlaylistDeleteController;
 use App\Http\Controllers\Playlists\PlaylistExportController;
@@ -429,6 +430,18 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         Route::post('/player/plays', PlayController::class)
             ->middleware('throttle:60,1,player-plays')
             ->name('player.plays.store');
+
+        // What a listing's ticked checkboxes mean, in queue entries. A POST for a READ, which
+        // the controller defends: a hundred UUIDs is a query string no reader should have in
+        // their history. It stands in for the `queueTracks` prop the detail pages fetch by
+        // partial reload — a listing has no subject to hang that prop on.
+        //
+        // Twenty a minute in a bucket of its own. This fires on a button press rather than on
+        // a keystroke, so it needs nothing like search's sixty, and one selection resolved per
+        // three seconds is already far past pressing play on purpose.
+        Route::post('/queue/tracks', QueueTracksController::class)
+            ->middleware('throttle:20,1,queue-tracks')
+            ->name('queue.tracks');
     });
 
 /******************************************************************************

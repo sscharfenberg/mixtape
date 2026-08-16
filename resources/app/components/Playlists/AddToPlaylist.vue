@@ -63,7 +63,7 @@ const { t } = useI18n();
 const page = usePage();
 
 const { options, selected, saving, canSave, save } = useAddToPlaylist(
-    () => ({ subject: props.subject, id: props.subjectId }),
+    () => ({ subject: props.subject, ids: [props.subjectId] }),
     () => props.addable
 );
 

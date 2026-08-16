@@ -88,6 +88,15 @@ export interface DataTableProvide {
     toggleSelection: (id: string) => void;
     /** Select/deselect all visible rows on the current page. */
     togglePageSelection: (ids: string[]) => void;
+    /**
+     * Drop the whole selection.
+     *
+     * Provided as well as passed to the `toolbar-actions` slot, because a bulk action needs it
+     * on the way OUT: ticks that have been acted on no longer describe anything a reader is
+     * asking for. Nothing else will do it — the watcher in DataTable clears only when the
+     * QUESTION changes (sort, search, filter), and a bulk action changes none of those.
+     */
+    clearSelection: () => void;
 }
 
 /** Injection key for the DataTable provide/inject pattern. */

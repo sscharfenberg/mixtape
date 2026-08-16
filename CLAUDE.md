@@ -274,7 +274,7 @@ after editing, re-check (grep `function ` and eyeball that the line above each h
 
 ## Agreed but not built
 
-Three features the owner has asked for and wants kept. **This list lives HERE and not in
+Features the owner has asked for and wants kept. **This list lives HERE and not in
 `docs/`** — a doc saying "still to come" is exactly the status-writing that section forbids, and
 the absence of code is what says a thing does not exist. Delete an entry when it ships; the
 code and its tests then say the rest.
@@ -285,10 +285,6 @@ code and its tests then say the rest.
   real: falling asleep mid-chapter currently costs a listener their place across however many
   chapters play on afterwards. The **end-of-chapter** variant is the one that pairs with
   `audiobook_bookmarks`; a plain countdown does not.
-- **Multi-select on the listings.** A checkbox column on the DataTable feeding "add selected
-  to playlist / queue". Highest convenience-per-line of anything outstanding: `useAddToPlaylist`
-  and the DataTable both already exist, and against a library this size building a playlist one
-  row at a time is the slow path.
 - **Listening history.** `plays` is already written and already read — the most-played widgets
   on the Music page come from it — so this is a **surface**, not a schema. What is missing is
   "what did we play, and when": a recently-played view, which is also the thing that makes a

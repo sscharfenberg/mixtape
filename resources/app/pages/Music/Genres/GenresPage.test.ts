@@ -60,7 +60,7 @@ describe("GenresPage", () => {
     it("declares the six columns in reading order", () => {
         expect(
             page()
-                .findAll("th")
+                .findAll("th:not(.dt-head__check)")
                 .map(node => node.text())
         ).toStrictEqual([
             translate("music.columns.genre"),

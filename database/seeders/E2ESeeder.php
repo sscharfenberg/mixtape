@@ -227,6 +227,9 @@ class E2ESeeder extends Seeder
      * - it leaves PLAYLISTS — `spec-playlist-detail`, `spec-add-to-playlist`;
      * - it needs a session nobody else writes — `spec-playlists`.
      *
+     * `spec-selection` is on the list twice over: its spec plays what it ticks and adds what it
+     * ticks to a playlist it created.
+     *
      * `spec-logout` leaves a queue AND does one thing nothing else here does: it SIGNS OUT,
      * which kills the session it is using. It is therefore the only one of these whose parked
      * session is never read — it lives in the guest project and signs in for real, because
@@ -237,7 +240,7 @@ class E2ESeeder extends Seeder
      */
     private function seedSpecUsers(): void
     {
-        $names = ['spec-queue', 'spec-player', 'spec-now-playing', 'spec-shortcuts', 'spec-widgets', 'spec-playlist-detail', 'spec-add-to-playlist', 'spec-playlists', 'spec-search', 'spec-audiobooks', 'spec-logout'];
+        $names = ['spec-queue', 'spec-player', 'spec-now-playing', 'spec-shortcuts', 'spec-widgets', 'spec-playlist-detail', 'spec-add-to-playlist', 'spec-playlists', 'spec-search', 'spec-audiobooks', 'spec-selection', 'spec-logout'];
 
         foreach ($names as $name) {
             User::factory()->create([

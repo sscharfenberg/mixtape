@@ -36,6 +36,7 @@ import DataTable from "Components/DataTable/DataTable.vue";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import DownloadButton from "Components/Music/DownloadButton.vue";
 import PlayCountFacts from "Components/Music/PlayCountFacts.vue";
+import SelectionActions from "Components/Music/SelectionActions.vue";
 import ShareButton from "Components/Music/ShareButton.vue";
 import SubjectActions from "Components/Music/SubjectActions.vue";
 import AddToPlaylist from "Components/Playlists/AddToPlaylist.vue";
@@ -283,7 +284,11 @@ const columns = computed<ColumnDef<TrackRow>[]>(() => [
                 :response="table"
                 :base-url="`/music/albums/${album.id}`"
                 :has-actions="false"
+                selectable
             >
+                <template #toolbar-actions>
+                    <selection-actions subject="song" />
+                </template>
                 <!-- The track's OWN artwork, or the glyph when the file carries none — on
                      an album whose art varies per song that difference is the informative
                      reading. `decorative`: the title is in the next cell, so naming the art

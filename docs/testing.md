@@ -439,6 +439,17 @@ the record of *why* that code exists.
 
 **Selectors, actions and timing**
 
+- **A `deep` watcher fires on every RE-RUN, not on a change** — and only this layer can see it. Vue's `deep`
+  flag sets `forceTrigger`, so `watch(getter, cb, { deep: true })` calls back whenever any dependency is
+  replaced, identical contents or not. The DataTable used one to "clear the selection on sort/search/filter,
+  preserve it across page changes"; since every visit is `preserveState: true` the component survived paging
+  but the fresh `response` prop re-ran the effect, so paging silently wiped the selection — the exact
+  opposite of the line above it. There is no navigation and no server in happy-dom, so the whole distinction
+  is unobservable there. **When the question is "did this value actually change?", compare a serialised
+  value; `deep` answers a different question.**
+- **A hidden input is not the control.** `Checkbox.vue` renders the native `<input>` at `opacity: 0` and zero
+  size and styles the adjacent `<label>` as the box, so clicking the input fails as "element is not visible"
+  — which reads as the column being absent rather than as the selector aiming one node off. Target the label.
 - **A selector that exists on BOTH pages resolves before the navigation finishes.** `waitForURL` returns when
   Inertia updates the address, which is *before* the component has swapped — so a locator matching something
   the old page also has answers with the old page's copy. A page-heading helper broadened from
