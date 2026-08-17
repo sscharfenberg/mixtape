@@ -118,6 +118,52 @@ describe("UserMenu", () => {
         }
     });
 
+    describe("the listening-history entry", () => {
+        /*
+         * Gated on the `hasPlays` shared prop, like the shares entry beside it and for the same
+         * reason: a menu item leading to a page that can only say "you have not listened to
+         * anything yet" is a promise the page cannot keep, and a fresh account would meet it
+         * before it ever met the music. Whether that prop is true is the server's answer and is
+         * pinned in tests/Feature/History/HistoryPageTest.php; what is here is what the menu
+         * does with it.
+         */
+
+        /** Every divider in the list — they are rules, not items, so they are counted apart. */
+        const dividers = (wrapper: ReturnType<typeof menu>) => wrapper.findAll(".popover-list__divider");
+
+        it("stays away until this reader has listened to something", () => {
+            expect(items(signedIn({ hasPlays: false }))).not.toContain(translate("header.userMenu.history"));
+        });
+
+        it("appears once they have, in a group of its own", () => {
+            // A rule above and a rule below: the entries above are about the ACCOUNT and logout
+            // is about neither, so three items in one run would read as three settings. The
+            // menu already draws one rule above its preference toggles, hence three in total.
+            const wrapper = signedIn({ hasPlays: true });
+
+            expect(items(wrapper)).toContain(translate("header.userMenu.history"));
+            expect(dividers(wrapper)).toHaveLength(3);
+        });
+
+        it("is never offered to a guest, whatever the prop says", () => {
+            // The prop is false for a guest without the database being asked, but the entry
+            // carries its own `user` check — a link to a page behind `auth` must not depend on
+            // one boolean being right.
+            expect(items(menu({ hasPlays: true }))).not.toContain(translate("header.userMenu.history"));
+        });
+
+        it("leads to the history page, warmed on hover", () => {
+            // Safe to prefetch, unlike the two auth forms above it: the far end is a page one
+            // only reads (CLAUDE.md → the prefetch rule).
+            const link = signedIn({ hasPlays: true })
+                .findAllComponents({ name: "InertiaLink" })
+                .find(candidate => candidate.props("href") === "/history")!;
+
+            expect(link).toBeDefined();
+            expect(link.props("prefetch")).toBe(true);
+        });
+    });
+
     it("names the nav landmark and the trigger, whose glyph carries no words", () => {
         const wrapper = menu();
 

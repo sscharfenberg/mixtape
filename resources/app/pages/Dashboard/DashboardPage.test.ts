@@ -39,7 +39,10 @@ const dashboard = (shares = false) => {
         props: {
             auth: { user: { name: "Ashaltiriak", email: "ash@example.test" } },
             csrfToken: "token",
-            shares,
+            // `hasShares`, not `shares`: a page's own props are merged OVER the shared ones, and
+            // `shares` is what Dashboard\SharesController calls its list — so the boolean is
+            // named for the question it answers. See HandleInertiaRequests.
+            hasShares: shares,
             twoFactorEnabled: false,
             requiresConfirmation: true,
             requiresPasswordConfirmation: false

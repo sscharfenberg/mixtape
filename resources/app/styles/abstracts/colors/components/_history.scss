@@ -1,0 +1,46 @@
+/******************************************************************************
+ * contextual color tokens — component:HistoryRow.vue
+ * @type {Sass}
+ * One listen in the listening history, as a row inside a day's accordion panel.
+ *
+ * THE PANEL AROUND THE STACK IS NOT HERE, deliberately: it is a `Card`, whose surface that
+ * component already owns. The audiobooks page's accordion gets the same surface from the
+ * tabbed-navigation frame it sits in — a stack of sections needs something to sit on, and
+ * neither page mints one.
+ *
+ * THE ROW IS DRAWN IN THE WIDGET CELL'S OWN BOX, which is not a colour this partial owns:
+ * a row sits inside the panel of an accordion whose headers are widget cells, and giving the
+ * two different fills would read as two kinds of thing stacked on each other. So the fill and
+ * the ink come from `c.$c-widget` at the component, and what is named here is only what the
+ * row adds — the states, and the quieter ink its facts wear.
+ *
+ * IT DOES LIGHT UP UNDER THE POINTER, unlike the shares list and like the playlist rows: the
+ * WHOLE row is a link here (a row is not a control panel, it is a way to the thing that was
+ * played), so a row that stayed flat would be hiding a target it actually has. The wash is a
+ * shift of the fill it already carries rather than a repaint, which is the same move
+ * PlaylistTracks makes for the same reason.
+ *
+ * THE HALO IS THE APP'S CONTROL NEON, re-picked from the globals rather than read across (a
+ * contextual partial consumes globals, never another partial's tokens) — the DataTable's
+ * clickable rows, an open popover and a playlist entry all light up with it, because it means
+ * the same thing everywhere.
+ *
+ * Rule 2-compliant: every entry picks a palette colour per theme, with only opacity adjusted.
+ * Consumed as c.$c-history via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$history: (
+    // hover — a shift of the widget cell's own fill rather than a repaint, since the row
+    // already carries one
+    "row-hover": light-dark(
+            color.adjust(map.get(c.$grey, "iron"), $alpha: -0.65),
+            color.adjust(map.get(c.$grey, "abbey"), $alpha: -0.4)
+        ),
+    // the ring on a row holding focus — the app's control neon, as everywhere else
+    "focus": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
+    // the facts and the clock, one step down from the title so the title reads first
+    "muted": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron"))
+) !default;

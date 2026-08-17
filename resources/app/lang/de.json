@@ -35,7 +35,8 @@
             "loginHelp": "Probleme beim Anmelden?",
             "dashboard": "Dashboard",
             "logout": "Abmelden",
-            "shares": "Geteilte Inhalte"
+            "shares": "Geteilte Inhalte",
+            "history": "Wiedergabeverlauf"
         },
         "siteMenu": {
             "nav": "Hauptnavigation",
@@ -772,6 +773,18 @@
         },
         "enqueue": "In die Warteschlange",
         "enqueued": "„{name}“ wurde in die Warteschlange gestellt."
+    },
+    "history": {
+        "title": "Wiedergabeverlauf",
+        "intro": "Was du gehört hast, Tag für Tag. Öffne einen Tag, um die Titel zu sehen — der neueste zuerst.",
+        "empty": "Bisher wurde nichts gehört. Sobald du einen Titel zu Ende hörst, taucht er hier auf.",
+        "playsUnit": "Titel | Titel",
+        "playsTitle": "1 Titel gehört | {n} Titel gehört",
+        "playedAt": "Gehört am {date}",
+        "kind": {
+            "music": "Song",
+            "audiobook": "Hörbuch"
+        }
     },
     "nowPlaying": {
         "previous": "Vorheriger Titel",

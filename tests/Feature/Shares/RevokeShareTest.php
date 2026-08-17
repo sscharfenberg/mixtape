@@ -178,13 +178,13 @@ class RevokeShareTest extends TestCase
         // this one boolean, so it has to agree with the page behind it.
         $this->actingAs($user)
             ->get('/dashboard')
-            ->assertInertia(fn (AssertableInertia $page) => $page->where('shares', true));
+            ->assertInertia(fn (AssertableInertia $page) => $page->where('hasShares', true));
 
         $share->delete();
 
         $this->actingAs($user)
             ->get('/dashboard')
-            ->assertInertia(fn (AssertableInertia $page) => $page->where('shares', false));
+            ->assertInertia(fn (AssertableInertia $page) => $page->where('hasShares', false));
     }
 
     public function test_an_expired_link_still_counts_as_something_to_manage(): void
@@ -195,6 +195,6 @@ class RevokeShareTest extends TestCase
         // Hiding the way in would leave a reader holding dead rows and no way to tidy them.
         $this->actingAs($user)
             ->get('/dashboard')
-            ->assertInertia(fn (AssertableInertia $page) => $page->where('shares', true));
+            ->assertInertia(fn (AssertableInertia $page) => $page->where('hasShares', true));
     }
 }

@@ -55,7 +55,12 @@ declare module "@inertiajs/core" {
             // because its two consumers (the dashboard's section and the user menu's
             // entry) only ask whether to draw a way in; the list belongs to the page
             // at the other end. False for a guest.
-            shares: boolean;
+            hasShares: boolean;
+            // Whether this reader has finished listening to anything at all — the same
+            // shape as `hasShares` above and read for the same reason: the user menu draws
+            // its way into /history only when there is a history to draw. False for a
+            // guest.
+            hasPlays: boolean;
             // The reader's own playlists, names only, in the order they arranged them —
             // whatever "add to playlist" is on screen picks from this one list. Shared rather
             // than a page prop because one consumer (the queue's "add everything") lives in

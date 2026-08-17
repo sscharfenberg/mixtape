@@ -35,7 +35,8 @@
             "loginHelp": "Trouble signing in?",
             "dashboard": "Dashboard",
             "logout": "Sign out",
-            "shares": "Shared content"
+            "shares": "Shared content",
+            "history": "Listening history"
         },
         "siteMenu": {
             "nav": "Main navigation",
@@ -772,6 +773,18 @@
         },
         "enqueue": "Add to queue",
         "enqueued": "“{name}” was added to the queue."
+    },
+    "history": {
+        "title": "Listening history",
+        "intro": "What you have listened to, day by day. Open a day to see its tracks — the most recent first.",
+        "empty": "Nothing listened to yet. As soon as you finish a track, it turns up here.",
+        "playsUnit": "track | tracks",
+        "playsTitle": "1 track played | {n} tracks played",
+        "playedAt": "Played on {date}",
+        "kind": {
+            "music": "Song",
+            "audiobook": "Audiobook"
+        }
     },
     "nowPlaying": {
         "previous": "Previous track",

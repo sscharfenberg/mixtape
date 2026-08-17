@@ -7,18 +7,35 @@
  * to DataTable, which owns the URL. The page-numbers and jump field only appear
  * when there's more than one page; the info + page-size Select always show.
  * Styling lives in the scoped block (c/s/ti.$c-datatable).
+ *
+ * `fixedPageSize` DROPS THE SELECT for a caller whose page size is not the reader's
+ * to choose — the listening history, which pages over DAYS at twenty-five a page.
+ * A prop rather than a second component, because everything else about the control
+ * is wanted there: the same buttons, the same window of numbers, the same "from–to
+ * / total" in the same place, so a reader meets one pager throughout the app. What
+ * a size Select would offer on a list with one column is a setting nobody came for.
  *****************************************************************************/
 import { computed, ref } from "vue";
 import Select from "Components/Form/Select/Select.vue";
 import Icon from "Components/UI/Icon.vue";
-const props = defineProps<{
-    /** Current page number (1-based). */
-    page: number;
-    /** Number of rows per page. */
-    pageSize: number;
-    /** Total number of rows across all pages. */
-    total: number;
-}>();
+const props = withDefaults(
+    defineProps<{
+        /** Current page number (1-based). */
+        page: number;
+        /** Number of rows per page. */
+        pageSize: number;
+        /** Total number of rows across all pages. */
+        total: number;
+        /**
+         * Hide the page-size Select, for a caller whose page size the server fixes.
+         *
+         * Defaults false, so every DataTable keeps the control it has always had; the one
+         * caller that passes it is the listening history (see the component banner).
+         */
+        fixedPageSize?: boolean;
+    }>(),
+    { fixedPageSize: false }
+);
 const emit = defineEmits<{
     /** Emitted when the user navigates to a different page. */
     navigate: [page: number];
@@ -127,6 +144,7 @@ const pageSizeOptions = [25, 50, 100].map(s => ({ value: String(s), label: Strin
         <div class="dt-pagination__col">
             <span class="dt-pagination__info">{{ from }}–{{ to }} / {{ total }}</span>
             <Select
+                v-if="!fixedPageSize"
                 :options="pageSizeOptions"
                 :selected="String(pageSize)"
                 :sort="false"

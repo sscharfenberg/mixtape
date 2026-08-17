@@ -3,11 +3,13 @@ import type { DurationUnit } from "Utils/formatting";
 import {
     formatClock,
     formatDateTime,
+    formatDay,
     formatDecimals,
     formatDuration,
     formatDurationParts,
     formatFileSize,
     formatPosition,
+    formatTimeOfDay,
     formatTimesPlayed,
     formatYearRange
 } from "Utils/formatting";
@@ -146,6 +148,53 @@ describe("formatDateTime", () => {
         expect(formatDateTime(null, "de")).toBeNull();
         expect(formatDateTime("", "de")).toBeNull();
         expect(formatDateTime("not a date", "de")).toBeNull();
+    });
+});
+
+describe("formatDay", () => {
+    it("renders a calendar day with its weekday, in the given locale", () => {
+        // The weekday is the half a reader recognises a day by — "last Saturday" is how anyone
+        // remembers an evening's listening, where a number is something they work out.
+        expect(formatDay("2026-08-16", "de")).toBe("Sonntag, 16. August 2026");
+        expect(formatDay("2026-08-16", "en")).toBe("Sunday, August 16, 2026");
+    });
+
+    it("treats a day as a DAY rather than as an instant", () => {
+        /*
+         * THE WHOLE REASON THIS IS NOT formatDateTime. `new Date("2026-01-01")` parses as UTC
+         * MIDNIGHT, so in any zone west of Greenwich it renders as the 31st of December — a
+         * heading naming the day before the rows underneath it. Splitting the string and handing
+         * the parts to the local-time constructor is what keeps the day the server grouped by.
+         * The suite's pinned zone is east of UTC, so this passes either way here; what it guards
+         * is the reader in New York, and the shape of the fix is what it pins.
+         */
+        expect(formatDay("2026-01-01", "de")).toBe("Donnerstag, 1. Januar 2026");
+        expect(formatDay("2026-12-31", "de")).toBe("Donnerstag, 31. Dezember 2026");
+    });
+
+    it("returns null for a missing or malformed day instead of 'Invalid Date'", () => {
+        expect(formatDay(null, "de")).toBeNull();
+        expect(formatDay("", "de")).toBeNull();
+        expect(formatDay("2026-08", "de")).toBeNull();
+        expect(formatDay("not a day", "de")).toBeNull();
+    });
+});
+
+describe("formatTimeOfDay", () => {
+    it("renders the clock alone, in the given locale", () => {
+        // The date is dropped on purpose: the one caller lists a single day under a heading that
+        // already says which, and it is the minutes that tell one listen from the next.
+        expect(formatTimeOfDay("2026-07-28T14:23:05+00:00", "de")).toBe("14:23");
+        expect(formatTimeOfDay("2026-07-28T14:23:05+00:00", "en")).toMatch(/^2:23\s?PM$/u);
+    });
+
+    it("converts the instant into the viewer's timezone", () => {
+        expect(formatTimeOfDay("2026-07-28T16:23:05+02:00", "de")).toBe("14:23");
+    });
+
+    it("returns null for a missing or unparseable value", () => {
+        expect(formatTimeOfDay(null, "de")).toBeNull();
+        expect(formatTimeOfDay("not a date", "de")).toBeNull();
     });
 });
 

@@ -32,7 +32,7 @@ setBreadcrumbs([{ labelKey: "dashboard.page.title", icon: "user-settings" }]);
  * A shared prop rather than one of this page's own, because the header's user menu needs the
  * same answer from every page in the app (HandleInertiaRequests explains the shape).
  */
-const hasShares = computed<boolean>(() => usePage().props.shares === true);
+const hasShares = computed<boolean>(() => usePage().props.hasShares === true);
 
 /**
  * StickyNav jump-links, one per section below (labels localised).

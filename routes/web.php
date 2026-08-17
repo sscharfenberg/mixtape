@@ -11,6 +11,7 @@ use App\Http\Controllers\Dashboard\DashboardController;
 use App\Http\Controllers\Dashboard\SharesController;
 use App\Http\Controllers\Dev\AudioProbeController;
 use App\Http\Controllers\Dev\IconsController;
+use App\Http\Controllers\History\HistoryController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\Music\AlbumController;
@@ -94,6 +95,13 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         // `shares` shared prop, so an account that has never shared anything never meets the
         // feature at all.
         Route::get('/dashboard/shared', SharesController::class)->name('dashboard.shares');
+
+        // What this reader has listened to, by day. NOT a dashboard subpage, unlike the share
+        // links above: the dashboard is where an account is administered, and this is about the
+        // music — the user menu draws it in a group of its own for the same reason. Its entry
+        // there is gated on the `hasPlays` shared prop, so an account that has never finished a
+        // track never meets a page that would only tell it so.
+        Route::get('/history', HistoryController::class)->name('history');
 
         // The cross-kind search (docs/search.md) — one engine behind the header overlay and
         // the Music page's field. JSON rather than an Inertia visit, which the controller

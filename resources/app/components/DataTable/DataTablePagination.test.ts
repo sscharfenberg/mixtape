@@ -164,4 +164,29 @@ describe("DataTablePagination", () => {
     it("labels the bar for assistive tech", () => {
         expect(paginate(1, 25, 500).find("nav").attributes("aria-label")).toBeTruthy();
     });
+
+    describe("a caller whose page size is not the reader's to choose", () => {
+        /*
+         * `fixedPageSize` — the listening history, which pages over DAYS at twenty-five a page.
+         * A prop rather than a second component, because everything else about the control is
+         * wanted there; what has to hold is that it drops ONLY the Select, since the count and
+         * the navigation are exactly why that page reuses this bar.
+         */
+
+        /** The same bar with the size control suppressed. */
+        const fixed = (page: number, pageSize: number, total: number) =>
+            mountApp(DataTablePagination, { props: { page, pageSize, total, fixedPageSize: true } });
+
+        it("keeps the size control by default, for every table that has always had one", () => {
+            expect(paginate(1, 25, 500).findComponent({ name: "Select" }).exists()).toBe(true);
+        });
+
+        it("drops it when asked, and nothing else with it", () => {
+            const wrapper = fixed(2, 25, 500);
+
+            expect(wrapper.findComponent({ name: "Select" }).exists()).toBe(false);
+            expect(wrapper.find(".dt-pagination__info").text()).toBe("26–50 / 500");
+            expect(wrapper.findAll(".dt-pagination__page").length).toBeGreaterThan(0);
+        });
+    });
 });

@@ -23,7 +23,17 @@ const user = computed(() => page.props.auth.user);
 /** Backend feature flags (e.g. `resetPasswords`) gating guest-only links. Placeholder until Fortify. */
 const features = computed(() => page.props.features);
 /** Whether this reader has share links to manage — gates the entry to /dashboard/shared. */
-const hasShares = computed(() => page.props.shares === true);
+const hasShares = computed(() => page.props.hasShares === true);
+
+/**
+ * Whether this reader has listened to anything — gates the entry to /history, and the two
+ * rules that set that entry apart from the account items above it.
+ *
+ * Same rule as `hasShares`, for the same reason: a menu entry leading to a page that can only
+ * say "you have not listened to anything yet" is a promise the page cannot keep, and a fresh
+ * account would meet it before it ever met the music.
+ */
+const hasPlays = computed(() => page.props.hasPlays === true);
 
 /** Trigger modifiers: always rounded, plus a lit-up highlight while a user is signed in. */
 const triggerClass = computed(() => `popover-button--rounded${user.value ? " popover-button--highlighted" : ""}`);
@@ -88,7 +98,7 @@ function handleLogout(): void {
                     </Link>
                 </li>
                 <!-- Below the dashboard, and only for a reader who has actually shared
-                     something (the `shares` shared prop): a menu entry leading to a list of
+                     something (the `hasShares` shared prop): a menu entry leading to a list of
                      nothing is a promise the page cannot keep. Warmed on hover for the same
                      reason the dashboard link above it is — a page one only reads, never a
                      form (CLAUDE.md → the prefetch rule). -->
@@ -98,6 +108,22 @@ function handleLogout(): void {
                         {{ t("header.userMenu.shares") }}
                     </Link>
                 </li>
+                <!-- THE LISTENING HISTORY, IN A GROUP OF ITS OWN — a rule above it and a rule
+                     below. The two entries above are about the ACCOUNT (its settings, the links
+                     it has sent); this one is about the music, and logout is about neither. The
+                     rules are what say so, since three items in one run read as three settings.
+                     Drawn only for a reader who has actually listened to something, off the
+                     `hasPlays` shared prop — the same gate the shares entry above it has. Warmed
+                     on hover like both of them: a page one only reads, never a form
+                     (CLAUDE.md → the prefetch rule). -->
+                <li v-if="user && hasPlays" class="popover-list__divider" aria-hidden="true" />
+                <li v-if="user && hasPlays">
+                    <Link class="popover-list-item" href="/history" prefetch @click="closePopover">
+                        <icon name="plays" :size="1" />
+                        {{ t("header.userMenu.history") }}
+                    </Link>
+                </li>
+                <li v-if="user && hasPlays" class="popover-list__divider" aria-hidden="true" />
                 <li v-if="user">
                     <Link
                         class="popover-list-item"

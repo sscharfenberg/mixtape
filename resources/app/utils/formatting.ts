@@ -96,6 +96,53 @@ export const formatDateTime = (iso: string | null, locale: string): string | nul
 };
 
 /**
+ * A CALENDAR DAY — `"2026-08-16"` — as a full locale date ("Sonntag, 16. August 2026").
+ *
+ * A separate helper from {@link formatDateTime} because a day is not an instant, and treating
+ * it as one is how a heading ends up naming the wrong date: `new Date("2026-08-16")` parses as
+ * UTC MIDNIGHT, which west of Greenwich is still the 15th, so the label would disagree with
+ * the rows underneath it for every reader in the Americas. Splitting the string and handing
+ * the parts to the local-time constructor keeps the day the server grouped by.
+ *
+ * `dateStyle: "full"` rather than "long": the weekday is the half a reader recognises a day
+ * by — "last Saturday" is how anyone remembers an evening's listening, where a number is
+ * something they have to work out.
+ *
+ * @param date   a calendar day as `YYYY-MM-DD`, or null
+ * @param locale BCP-47 locale tag (the app's active locale)
+ */
+export const formatDay = (date: string | null, locale: string): string | null => {
+    if (!date) return null;
+
+    const parts = date.split("-").map(Number);
+    if (parts.length !== 3 || parts.some(Number.isNaN)) return null;
+
+    const [year, month, day] = parts;
+
+    return new Intl.DateTimeFormat(locale, { dateStyle: "full" }).format(new Date(year, month - 1, day));
+};
+
+/**
+ * An ISO-8601 instant as a bare clock in the reader's own timezone ("21:34", "9:34 PM").
+ *
+ * The time WITHOUT the date, for a list that already says which day it is: repeating
+ * "16.08.2026" down forty rows under a heading that says the same thing is noise, and it is
+ * the minutes that tell one listen from the next. Callers that need the whole instant — a
+ * tooltip, an accessible name — ask {@link formatDateTime} for it instead.
+ *
+ * @param iso    ISO-8601 timestamp (with offset), or null
+ * @param locale BCP-47 locale tag (the app's active locale)
+ */
+export const formatTimeOfDay = (iso: string | null, locale: string): string | null => {
+    if (!iso) return null;
+
+    const parsed = new Date(iso);
+    if (Number.isNaN(parsed.getTime())) return null;
+
+    return new Intl.DateTimeFormat(locale, { timeStyle: "short" }).format(parsed);
+};
+
+/**
  * A total-seconds duration as its separate human parts — ["1 month", "4 days", "7 hours",
  * "12 minutes", "30 seconds"]. Uses flat 30-day months (a duration has no calendar), so the parts
  * always sum back to the exact total; leading zero units are dropped (everything from the first

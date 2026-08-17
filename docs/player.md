@@ -399,6 +399,51 @@ sleep timer is a fact about tonight, not a preference. For the same reason it is
 player lets go of the element**: the queue was emptied, the bar carrying its mark has gone, and a timer
 still counting would be invisible state with an interval behind it.
 
+## The listening history
+
+`GET /history` (route `history`, behind auth): the events in `plays`, which the app has been
+writing since the player was built and until now only ever read as an aggregate — the most-played
+widgets count these rows without ever saying what any of them were.
+
+**It pages over DAYS, not over plays**, and that is the whole shape of it. Read as a flat feed a
+history answers "what did I play recently" and nothing else; read as days it answers "what did I
+put on last Saturday", which is the question somebody arrives with. So the unit of the accordion,
+of the pager and of `LIMIT` is a day that had listening in it — **twenty-five of them a page,
+fixed** (`fixedPageSize` on the shared pager drops its size Select: a size control on a list with
+one column is a setting nobody came here to make). Every play on the page travels with it and the
+Accordion's panels are `v-if`, so nothing is built until a day is opened — one request per page
+rather than one per day, against a payload bounded by how much a person can physically listen to.
+
+**`date(played_at)` is portable**, which is why the grouping is spelled that way rather than with
+`to_char` or `strftime`: Postgres serves this app, sqlite serves its tests, and both answer
+`date(x)` with `YYYY-MM-DD`. Verified against both. The day boundary is the **application's**
+(`config('app.timezone')`), not the browser's — a per-reader boundary would mean sending a
+timezone up with the request, and the only listening it would move is between local midnight and
+the app's, where keeping an evening together in one section is arguably the better answer anyway.
+
+**Two queries, and the second is a range.** Having the page's days, their plays could be fetched
+with `whereIn(date(played_at), …)` — a scan, since no index serves an expression. But a page's days
+are *consecutive* in the descending sequence of days that have plays, so everything between the
+oldest and the newest of them belongs to one of them: a `BETWEEN` on `played_at` answers the same
+rows and rides `plays (user_id, played_at)`, the index the migration calls "a user's history feed".
+
+**A row is for reading, not for playing.** Every other listing of tracks in this app can start
+audio; this one deliberately cannot — a history that could add to itself would be the wrong page —
+so a row is a link, and it carries no stream URL, no cover and no duration. It carries one thing a
+queue entry has no use for: **a chapter's author** (an audiobook's author hangs off the chapter —
+[`audiobooks.md`](audiobooks.md)), which is the field the two shapes genuinely disagree about and
+exactly what a history row wants beside a title. `kind` travels with it, so one `creator` key
+serves both and the row's glyphs follow it.
+
+> **`Track::$type` is cast to the enum.** `QueuePayload::entry()`'s `TrackType::tryFrom((string)
+> $track->type)` looks like the line to copy and is not: that one shapes a raw query row where the
+> column is still text. Off a model it throws — "Object of class App\Enums\TrackType could not be
+> converted to string" — so compare the enum directly.
+
+**The way in is gated**, like the share links': a `hasPlays` shared boolean decides whether the user
+menu draws the entry at all, so an account that has never finished a track never meets a page that
+could only tell it so. The page itself still answers, with an empty state, for a typed URL.
+
 ## Keyboard shortcuts
 
 `usePlayerShortcuts`, bound on the document by `PlayerBar`.

@@ -46,7 +46,7 @@ const page = (shares: ShareRow[] = [share()], expiredShares: ShareRow[] = [], lo
 describe("SharesPage", () => {
     beforeEach(() => {
         resetInertia();
-        setPage({ props: { auth: { user: { id: "u1", name: "Ash", email: "a@b.c" } }, shares: true } });
+        setPage({ props: { auth: { user: { id: "u1", name: "Ash", email: "a@b.c" } }, hasShares: true } });
     });
 
     it("says when a link stops working, in the reader's own locale", () => {

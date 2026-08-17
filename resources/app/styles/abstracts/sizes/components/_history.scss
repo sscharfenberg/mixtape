@@ -1,0 +1,22 @@
+/******************************************************************************
+ * contextual size tokens — component:history
+ * @type {Sass}
+ * The listening history's rows: one listen each, inside a day's accordion panel.
+ *
+ * The row's PADDING and RADIUS are deliberately not here — a row is drawn in the widget
+ * cell's own box (`s.$c-widget`), which is what the accordion's headers above it use, so the
+ * rows a section opens onto sit in the same frame as the section itself. What this component
+ * owns is only the spacing BETWEEN its own parts.
+ *
+ * Consumed as s.$c-history via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+
+$history: (
+    // between the pip run, the name, the facts and the clock
+    "gap": 0.75rem,
+    // inside one fact: its glyph and its word
+    "fact-gap": 0.35rem,
+    // between two rows in one day's panel — tighter than the gap between DAYS, so a day reads
+    // as one block rather than as a run of separate cards
+    "row-gap": 0.25rem
+) !default;

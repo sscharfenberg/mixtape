@@ -279,10 +279,7 @@ Features the owner has asked for and wants kept. **This list lives HERE and not 
 the absence of code is what says a thing does not exist. Delete an entry when it ships; the
 code and its tests then say the rest.
 
-- **Listening history.** `plays` is already written and already read — the most-played widgets
-  on the Music page come from it — so this is a **surface**, not a schema. What is missing is
-  "what did we play, and when": a recently-played view, which is also the thing that makes a
-  half-finished evening easy to pick up again.
+_(Empty — everything on it has shipped.)_
 
 ## Docs
 
@@ -327,6 +324,20 @@ instance, written for someone else's server.
 - [`docs/player.md`](docs/player.md) — the player (**built 2026-08-03**): why a native `<audio>`
   rather than vidstack, the stream route's Range + `X-Accel-Redirect` halves, the background-playback
   constraint no library removes, and the four things the build itself settled.
+
+  **The LISTENING HISTORY lives here too** (`/history`, built 2026-08-16): the `plays` rows
+  themselves rather than a count of them. It **pages over DAYS** (25 a page, fixed) rather than
+  over plays, grouped with the deliberately portable `date(played_at)` and fetched with a
+  **range** rather than a `whereIn` on that expression. Its way in is the `hasPlays` shared boolean,
+  the same gate `hasShares` has — **and that `has` prefix is a RULE**: a page's own props are merged
+  OVER the shared ones, so a shared key any page also sends is silently replaced on exactly those
+  pages. `plays` is what six detail pages call their PlayCounts pair and `shares` what
+  `Dashboard\SharesController` calls its list, so both booleans are named for the QUESTION they
+  answer. The symptom is a menu entry that vanishes on some pages and comes back on others, with
+  nothing failing anywhere. A row is a LINK — nothing on the page starts audio — and it carries
+  a chapter's **author** where a queue entry carries an artist. **`Track::$type` is already the
+  enum off a model**; `QueuePayload`'s `(string) $track->type` is for a raw query row and throws
+  here.
 
   **The SLEEP TIMER lives here too** (built 2026-08-16): a fourth row in the settings popover rather
   than a modal, three surfaces over its life (a moon on the gear while it is a *setting*, the row's

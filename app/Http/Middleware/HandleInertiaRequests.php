@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Enums\Locale;
 use App\Enums\TrackType;
+use App\Models\Play;
 use App\Models\Playlist;
 use App\Models\Share;
 use App\Models\Track;
@@ -149,6 +150,15 @@ class HandleInertiaRequests extends Middleware
             // section and the user menu's link to it are both drawn only when it is true, so
             // an account that has never pressed "share" never meets the feature at all.
             //
+            // `hasShares`, NOT `shares`, AND THAT IS A RULE RATHER THAN A PREFERENCE. A page's
+            // own props are merged OVER these, so a shared key that any page also sends is
+            // silently replaced on exactly those pages — and `shares` is what
+            // Dashboard\SharesController calls its list, `plays` what six detail pages call
+            // their PlayCounts pair. The symptom is the nastiest kind: a menu entry that
+            // vanishes on some pages and comes back on others, with nothing failing anywhere.
+            // A shared boolean about the reader is therefore named for the QUESTION it answers
+            // (`hasX`), which no page has a reason to send.
+            //
             // A boolean rather than the list, deliberately. The list belongs to the page that
             // draws it (Dashboard\SharesController) and would otherwise ride on EVERY page
             // load in the app to decide the visibility of one menu item. `exists()` stops at
@@ -160,8 +170,23 @@ class HandleInertiaRequests extends Middleware
             //
             // Empty for a guest WITHOUT ASKING THE DATABASE, like `playlists` above and for
             // the same reason.
-            'shares' => fn (): bool => $request->user() !== null
+            'hasShares' => fn (): bool => $request->user() !== null
                 && Share::query()->where('user_id', $request->user()->id)->exists(),
+            // WHETHER THIS READER HAS LISTENED TO ANYTHING — the same shape as `hasShares`
+            // above and for the same reason: one boolean, read on every page load, deciding
+            // whether the user menu draws its way into /history at all. A menu entry leading to
+            // a page that can only say "you have not listened to anything yet" is a promise the
+            // page cannot keep, and a fresh account would meet it before it ever met the music.
+            //
+            // The `has` prefix is the shadowing rule above, and this is the key it was found
+            // on: `plays` is what SongController, AlbumController, ArtistController,
+            // GenreController, PlaylistController and AudiobookController all call their own
+            // `{own, others}` count.
+            //
+            // `exists()` stops at the first row and reads `plays (user_id, played_at)`, the
+            // index this table already carries for the history feed itself.
+            'hasPlays' => fn (): bool => $request->user() !== null
+                && Play::query()->where('user_id', $request->user()->id)->exists(),
             // Player settings the CLIENT has to honour but the server owns. Only the
             // position heartbeat so far: the browser runs the clock (it is the only thing
             // that knows whether audio is playing), and this is the operator's say in how
