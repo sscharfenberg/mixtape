@@ -256,11 +256,16 @@ jobs:
   badges:
     name: Publish test badges
     needs: [checks, server, e2e]
-    # `always()` so a RED suite still publishes its count — a badge that only updates when
+    # `!cancelled()` so a RED suite still publishes its count — a badge that only updates when
     # everything passed is a badge that lies by omission, and "3 failed" is the case it is most
-    # worth showing. Pushes to main only: a pull request must not rewrite what the README of
-    # the default branch reports, and a fork's PR has no write token anyway.
-    if: ${{ always() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    # worth showing — while a CANCELLED run publishes nothing at all. `always()` is the trap here,
+    # because it covers cancellation too: `cancel-in-progress` kills the previous run on the next
+    # push, the dying job never reaches its `!cancelled()` JUnit upload, and this job then renders
+    # whichever suite was still running as `unknown` — beside two real numbers from the jobs that
+    # had finished, which is what makes it read as one broken badge rather than as a killed run.
+    # Pushes to main only: a pull request must not rewrite what the README of the default branch
+    # reports, and a fork's PR has no write token anyway.
+    if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     # Overrides the workflow-wide `contents: read`, and is the only job here that can write.
