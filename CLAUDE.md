@@ -13,10 +13,10 @@ links to music with family and friends. Access is gated by auth.
 *(The host is referred to generically here. Its name, addresses, and everything else concrete live in
 the untracked `docs/host.local/` — see **Docs** below.)*
 
-**mixtape.v2** is a **ground-up rewrite** of the existing app. The legacy code is the sibling folder
-**`../MixTape`** (newer than the public GitHub repo) — read it for behaviour, the data model, artisan
-commands, and `config/collection.php`, then re-implement on the new stack. It is **reference only**;
-this repo starts clean.
+**MixTape v2** is a **ground-up rewrite** of the existing app, and is what this repo holds. The legacy
+code is the sibling folder **`../mixtape.v1.deprecated/`** (newer than the public GitHub repo) — read it
+for behaviour, the data model, artisan commands, and `config/collection.php`, then re-implement on the
+new stack. It is **reference only**; this repo starts clean.
 
 ## Two phases (Phase 1 first)
 
