@@ -279,6 +279,29 @@ Features the owner has asked for and wants kept. **This list lives HERE and not 
 the absence of code is what says a thing does not exist. Delete an entry when it ships; the
 code and its tests then say the rest.
 
+**Reframe `app:encoding` as `app:audit`** — one command that checks the library for everything that
+can be wrong with it, rather than one narrow question. It exists today to list the paths a
+Windows-1252 `.m3u` export cannot name ([`docs/artisan-commands.md`](docs/artisan-commands.md)), which
+is one check among many, and the name promises less than the job. The checks this session's audit
+turned up on the real library, each already expressible as a query:
+
+- **paths Windows-1252 cannot name** — what the command does now.
+- **albums missing a track** — the numbering reaches past the file count, per disc. Share the
+  predicate with `AlbumFilter::Incomplete` rather than writing it twice; 96 of 925 albums.
+- **split albums** — one directory, two collection rows, because one file's ALBUM or ALBUM ARTIST tag
+  differs from its siblings' (a truncated tag, `the` for `The`, *Jerry Goldsmith* against *Frank
+  Stallone*). Five of them, and each shows up TWICE in the listing with its tracks divided. The
+  detection is "distinct collection_id per directory > 1"; the cure is the reader's, in the tags.
+- **inconsistent disc tags** inside one album — some files carrying no disc and others disc 1, which
+  makes a complete album look short (UADA's *Djinn*: four files with no disc, two with disc 1).
+- **repeated track numbers** within a disc — four albums, the mirror of "missing a track".
+
+Two things to keep in mind when it is built. **A tile's count and an audit's count are the same
+question asked twice**, so any check that also exists as a listing filter should read the same
+predicate — the drift between them would be worse than either. And **an audit reports, it does not
+fix**: every one of these is a tagging decision the reader makes in their tagger, not something the
+app should guess at (the scanner's own year reconciliation refuses to guess for the same reason).
+
 **A stats strip for the ARTISTS and GENRES listings.** Songs and Albums have one
 ([`docs/browse-stats.md`](docs/browse-stats.md)); the other two browse listings still open straight
 onto their table. Same shape — an enum per listing, one predicate per question serving both the tile's
