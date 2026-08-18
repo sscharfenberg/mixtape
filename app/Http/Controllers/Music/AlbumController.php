@@ -181,6 +181,19 @@ class AlbumController extends Controller
                     ->selectRaw('count(*)')
                     ->whereColumn('sib.collection_id', 'tracks.collection_id')
                     ->whereRaw('(sib.disc = tracks.disc or (sib.disc is null and tracks.disc is null))'),
+                // AND THE HIGHEST NUMBER ON THAT DISC, because the count alone is not the total
+                // on an incomplete album. A rip missing one track of ten holds nine files, so a
+                // file-count denominator renders the last row as "10/9" — a fraction bigger than
+                // one, which reads as broken data and was reported as exactly that. Measured on
+                // the live library: 96 of 925 albums number higher than their file count.
+                //
+                // The two are combined in PHP rather than here, for the reason `discs` is floored
+                // there: the portable spelling differs per engine (Postgres GREATEST, SQLite MAX)
+                // and this query has to run on both.
+                'track_highest' => DB::table('tracks as sib')
+                    ->selectRaw('max(sib.track)')
+                    ->whereColumn('sib.collection_id', 'tracks.collection_id')
+                    ->whereRaw('(sib.disc = tracks.disc or (sib.disc is null and tracks.disc is null))'),
             ]);
 
         return DataTableService::buildResponse(
@@ -210,7 +223,12 @@ class AlbumController extends Controller
                 'disc' => $track->disc,
                 'discTotal' => (int) $track->disc_total,
                 'track' => $track->track,
-                'trackTotal' => (int) $track->track_total,
+                // The greater of "how many files are here" and "how high they number", so an
+                // album missing a track says 10/10 rather than 10/9 — and a complete one is
+                // unchanged, both being the same number. Which is also the honest reading: the
+                // tag's own "of N" total is not stored (Id3TagReader keeps the position alone),
+                // so the album's own numbering is the best evidence of its length there is.
+                'trackTotal' => max((int) $track->track_total, (int) $track->track_highest),
                 'name' => $track->name,
                 'artist' => $track->artist_name,
                 // Where the artist cell leads. A SECOND destination inside a row whose own

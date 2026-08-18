@@ -181,12 +181,22 @@ class AlbumPageTest extends TestCase
 
     public function test_a_track_row_carries_the_denominators_behind_its_disc_and_track(): void
     {
-        // What lets the listing print "1/2" and "3/12": how many discs the album has, and
-        // how many tracks share the row's own disc. Two discs of different lengths, so a
-        // single shared number could not satisfy both rows.
+        // What lets the listing print "1/2" and "3/12": how many discs the album has, and how
+        // long the row's OWN disc is. Two discs of different lengths, so a single shared number
+        // could not satisfy both rows.
+        //
+        // Numbered explicitly, because the factory numbers a track at random: the denominator is
+        // the greater of the file count and the highest number (see the next test), so a fixture
+        // of three files numbered 4, 9 and 12 would be asserting the random number rather than
+        // the per-disc grouping this test is about.
         $album = Collection::factory()->create();
-        Track::factory()->count(3)->create(['collection_id' => $album->id, 'disc' => 1]);
-        Track::factory()->count(2)->create(['collection_id' => $album->id, 'disc' => 2]);
+
+        foreach ([1, 2, 3] as $number) {
+            Track::factory()->create(['collection_id' => $album->id, 'disc' => 1, 'track' => $number]);
+        }
+        foreach ([1, 2] as $number) {
+            Track::factory()->create(['collection_id' => $album->id, 'disc' => 2, 'track' => $number]);
+        }
 
         $response = $this->actingAs(User::factory()->create())->get("/music/albums/{$album->id}");
         $rows = collect($this->inertiaProp($response, 'table.rows'));
@@ -196,13 +206,53 @@ class AlbumPageTest extends TestCase
         $this->assertSame(2, $rows->firstWhere('disc', 2)['trackTotal'], 'disc two holds two');
     }
 
+    public function test_an_album_missing_a_track_says_so_rather_than_printing_a_fraction_over_one(): void
+    {
+        // A rip missing one track of ten holds nine files, and a denominator that counts FILES
+        // renders its last row as "10/9" — a fraction bigger than one, which reads as broken data
+        // (it was reported as exactly that). The album's own numbering is the better evidence of
+        // how long it is: the tag's "of N" total is not stored at all (Id3TagReader keeps the
+        // position alone), so the highest number is all there is to go on.
+        $album = Collection::factory()->create();
+
+        foreach ([1, 2, 3, 5] as $number) {
+            Track::factory()->create(['collection_id' => $album->id, 'disc' => 1, 'track' => $number]);
+        }
+
+        $response = $this->actingAs(User::factory()->create())->get("/music/albums/{$album->id}");
+        $rows = collect($this->inertiaProp($response, 'table.rows'));
+
+        // Five, not four: four files that number up to five are four fifths of an album.
+        $this->assertSame(5, $rows->first()['trackTotal']);
+        $this->assertSame([1, 2, 3, 5], $rows->pluck('track')->all());
+    }
+
+    public function test_more_files_than_the_numbering_reaches_keeps_the_file_count(): void
+    {
+        // The other direction, and it must not go backwards: two files sharing track 1 number no
+        // higher than 2, so the denominator stays the count. Rare but real — a reissue whose
+        // bonus disc claims disc 1 (measured: four albums in the live library).
+        $album = Collection::factory()->create();
+
+        foreach ([1, 1, 2] as $number) {
+            Track::factory()->create(['collection_id' => $album->id, 'disc' => 1, 'track' => $number]);
+        }
+
+        $response = $this->actingAs(User::factory()->create())->get("/music/albums/{$album->id}");
+
+        $this->assertSame(3, collect($this->inertiaProp($response, 'table.rows'))->first()['trackTotal']);
+    }
+
     public function test_untagged_discs_are_counted_together_rather_than_as_none(): void
     {
         // The NULL-safe join in the track_total subquery. `sib.disc = tracks.disc` matches
         // nothing when both are NULL, which would report 0 tracks for a whole album of
         // untagged files — a denominator of 0 beside a real track number.
         $album = Collection::factory()->create();
-        Track::factory()->count(3)->create(['collection_id' => $album->id, 'disc' => null]);
+
+        foreach ([1, 2, 3] as $number) {
+            Track::factory()->create(['collection_id' => $album->id, 'disc' => null, 'track' => $number]);
+        }
 
         $response = $this->actingAs(User::factory()->create())->get("/music/albums/{$album->id}");
         $rows = collect($this->inertiaProp($response, 'table.rows'));
