@@ -279,7 +279,20 @@ Features the owner has asked for and wants kept. **This list lives HERE and not 
 the absence of code is what says a thing does not exist. Delete an entry when it ships; the
 code and its tests then say the rest.
 
-_(Empty — everything on it has shipped.)_
+**User-specific export presets.** The `.m3u` export's path prefix is one server-wide config
+value (`mixtape.playlists.export.path_prefix`, today the owner's `/Volumes/media/music` mount), so
+every export aimed anywhere else means retyping a path into the modal — and the prefix is the one
+option that decides whether the file plays at all, since it names the machine that will read it.
+Each user should keep their **own named presets** and pick one in the export modal: a Mac mount, a
+phone's internal storage (`/storage/emulated/0/Music`), an SD card (`/storage/XXXX-XXXX/…`), a car's
+USB stick, or empty for relative paths. Per-user because the targets are a person's devices, not the
+server's — which is what the current config default gets wrong, not the fact that there is a
+default. The config value stays as the seed for someone who has defined none.
+
+A second question rides along and is **not settled**: whether Android's stricter readers want the
+file named `.m3u8` when its bytes are UTF-8 (the convention) rather than the `.m3u` this always
+writes. It is a one-line change in `PlaylistExport::filename()` if a device actually needs it —
+don't build it on the convention alone.
 
 ## Docs
 
