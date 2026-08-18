@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetInertia } from "Testing/inertia";
-import { mountApp } from "Testing/mount";
+import { mountApp, translate } from "Testing/mount";
 import type { GenreEntry } from "Types/music";
 import GenresWidget from "./GenresWidget.vue";
 
@@ -60,5 +60,20 @@ describe("GenresWidget", () => {
             .map(node => node.attributes("href"));
 
         expect(symbols).toStrictEqual(["#artist", "#album", "#song"]);
+    });
+    it("says 'not enough data' for an empty popular set, which is the mode it opens on", () => {
+        // Same as the artists card, and for the same reason: popular is the default here too,
+        // so this is what a brand-new instance shows until something has been played.
+        localStorage.setItem("mixtape:widget-mode:genres", "popular");
+        const wrapper = mountApp(GenresWidget, { props: { latest: [], random: [], popular: [] } });
+
+        expect(wrapper.find(".widget-list__empty").text()).toBe(translate("music.notEnoughData"));
+    });
+
+    it("keeps the generic empty line for a mode that is not popular", () => {
+        localStorage.setItem("mixtape:widget-mode:genres", "latest");
+        const wrapper = mountApp(GenresWidget, { props: { latest: [], random: [], popular: [] } });
+
+        expect(wrapper.find(".widget-list__empty").text()).toBe(translate("music.empty"));
     });
 });

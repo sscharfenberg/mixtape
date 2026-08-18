@@ -68,7 +68,7 @@ const emptyText = computed(() =>
         <template #title>
             <icon name="song" />
             {{ t("music.widgets.songs") }}
-            <widget-mode-toggle v-model="mode" name="songs-mode" :modes="modes" popular-by="plays" />
+            <widget-mode-toggle v-model="mode" name="songs-mode" :modes="modes" />
         </template>
         <widget-list :items="items" :empty-text="emptyText" />
         <template #footer>

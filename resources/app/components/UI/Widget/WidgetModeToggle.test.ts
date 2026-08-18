@@ -12,10 +12,10 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
  *   - MODE → ICON is a single table so recent/hot/shuffle mean the same thing on all four
  *     browse widgets. Inline the glyphs at each call site instead and they drift one widget
  *     at a time, which nobody notices because each card looks fine on its own.
- *   - "POPULAR" MEANS TWO DIFFERENT THINGS. Songs rank by play count, artists and genres by
- *     total playing time, so the one segment needs two explanations and `popularBy` picks
- *     between them. Getting it wrong tells a reader the artists card is sorted by plays,
- *     which is a plausible sentence about a number that means something else.
+ *   - MODE → HINT is the same kind of table, and carries more: the icons have no words, so a
+ *     wrong or missing tip leaves a reader guessing what a glyph sorts by. One phrase per
+ *     mode with no per-card variant, because "popular" is the reader's own listens on all
+ *     four cards.
  *
  * The ids are namespaced by `name` because four of these live on the Music page at once:
  * shared ids would make the radios one group, so choosing a mode on the albums card would
@@ -75,21 +75,21 @@ describe("WidgetModeToggle", () => {
         ]);
     });
 
-    it("says popular means most-played, and names the second sort key where there is one", () => {
-        // Both variants describe the READER'S listening — the taxonomies just add a
-        // tie-break so their cards stay populated before much has been played.
-        expect(hints(toggle())[1]).toBe(translate("music.mode.tip.popular_plays"));
-        expect(hints(toggle({ popularBy: "playsThenDuration" }))[1]).toBe(
-            translate("music.mode.tip.popular_playsThenDuration")
-        );
-    });
-
     it("explains every mode, since the icons carry no words", () => {
         expect(hints(toggle())).toStrictEqual([
             translate("music.mode.tip.latest"),
-            translate("music.mode.tip.popular_plays"),
+            translate("music.mode.tip.popular"),
             translate("music.mode.tip.random")
         ]);
+    });
+
+    it("says the same thing about popular whichever card it sits on", () => {
+        // One phrase, not one per widget: every card ranks by the reader's own listens, and a
+        // segment explaining itself differently from card to card would describe a difference
+        // that is not there.
+        const cards = ["albums", "songs", "artists", "genres"].map(name => hints(toggle({ name }))[1]);
+
+        expect(new Set(cards)).toStrictEqual(new Set([translate("music.mode.tip.popular")]));
     });
 
     it("names the group and each segment for a screen reader", () => {

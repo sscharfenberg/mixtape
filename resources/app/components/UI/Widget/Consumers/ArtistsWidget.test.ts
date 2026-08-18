@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetInertia } from "Testing/inertia";
-import { mountApp } from "Testing/mount";
+import { mountApp, translate } from "Testing/mount";
 import type { ArtistEntry } from "Types/music";
 import ArtistsWidget from "./ArtistsWidget.vue";
 
@@ -79,5 +79,22 @@ describe("ArtistsWidget", () => {
             .map(node => node.attributes("href"));
 
         expect(symbols).toStrictEqual(["#album", "#song", "#duration"]);
+    });
+    it("says 'not enough data' for an empty popular set, which is the mode it opens on", () => {
+        // The card this matters most on: popular is its DEFAULT, so a library nobody has
+        // listened to yet opens on an empty list — and "no artists" would be a lie about a
+        // collection that has plenty. Only the widget can tell the two emptinesses apart; the
+        // server sends `[]` for both.
+        localStorage.setItem("mixtape:widget-mode:artists", "popular");
+        const wrapper = mountApp(ArtistsWidget, { props: { latest: [], random: [], popular: [] } });
+
+        expect(wrapper.find(".widget-list__empty").text()).toBe(translate("music.notEnoughData"));
+    });
+
+    it("keeps the generic empty line for a mode that is not popular", () => {
+        localStorage.setItem("mixtape:widget-mode:artists", "latest");
+        const wrapper = mountApp(ArtistsWidget, { props: { latest: [], random: [], popular: [] } });
+
+        expect(wrapper.find(".widget-list__empty").text()).toBe(translate("music.empty"));
     });
 });

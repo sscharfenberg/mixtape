@@ -193,6 +193,24 @@ final class PlayCounts
     }
 
     /**
+     * The reader's own listens per TRACK — what a most-played SONG list sorts and filters on.
+     *
+     * No join to `tracks`, unlike its three siblings: `plays.track_id` IS the key being
+     * grouped, so the tracks table has nothing to add. Which also means it takes no
+     * `musicOnly` narrowing — a chapter's plays group like any other row, and the caller's own
+     * `type` filter decides what those rows can join back to.
+     */
+    public static function ownPerTrack(?User $user): QueryBuilder
+    {
+        $query = DB::table('plays')
+            ->groupBy('plays.track_id')
+            ->selectRaw('plays.track_id as subject_id')
+            ->selectRaw('count(*) as plays');
+
+        return self::scopedToReader($query, $user);
+    }
+
+    /**
      * The reader's own listens for the artist an OUTER query is on, as a CORRELATED subquery
      * to drop into `addSelect(['plays_count' => …])`.
      *

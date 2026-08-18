@@ -2,8 +2,11 @@
 /******************************************************************************
  * AlbumsWidget
  * The Music page's "Albums" card — four albums, toggled between latest-added
- * (default) and a random pick via the header WidgetModeToggle. Both sets arrive as
- * Inertia props (see MusicController), so the toggle is instant.
+ * (default), the reader's most-played ("popular", by their own listens) and a random pick via
+ * the header WidgetModeToggle. All sets arrive as Inertia props (see MusicController), so the
+ * toggle is instant. "popular" holds only albums this reader has actually played; when they
+ * have played none, the set is empty and the list says "not enough data" rather than the
+ * generic "nothing here" — the same treatment the songs card gives it.
  *****************************************************************************/
 import { Link } from "@inertiajs/vue3";
 import { computed } from "vue";
@@ -21,19 +24,22 @@ const props = defineProps<WidgetModes<AlbumEntry>>();
 const { t } = useI18n();
 
 /** Modes this widget offers (shared with the toggle and the persisted mode). */
-const modes: WidgetMode[] = ["latest", "random"];
+const modes: WidgetMode[] = ["latest", "popular", "random"];
 
 /** Active mode — restored from localStorage, defaulting to latest. */
 const mode = useWidgetMode("albums", "latest", modes);
 
+/** The active mode's raw set, falling back to `latest` if a mode's set is absent. */
+const active = computed(() => props[mode.value] ?? props.latest);
+
 /**
- * Active-mode albums as list entries. Falls back to `latest` if a mode's set is absent.
+ * Active-mode albums as list entries.
  *
  * A pip is dropped rather than shown empty when the tag is missing: an untagged rip has no
  * year, and a chip reading "—" says less than no chip at all.
  */
 const items = computed<WidgetListItem[]>(() =>
-    (props[mode.value] ?? props.latest).map(album => ({
+    active.value.map(album => ({
         id: album.id,
         name: album.name,
         href: album.href,
@@ -48,6 +54,15 @@ const items = computed<WidgetListItem[]>(() =>
         ].filter(pip => pip !== null)
     }))
 );
+
+/**
+ * Empty-state line for the list. "popular" holds only albums the reader has played, so an
+ * empty set there means "nothing listened to yet" rather than "no albums" — a distinction
+ * worth drawing on a card whose other modes are full. The other modes take the generic empty.
+ */
+const emptyText = computed(() =>
+    mode.value === "popular" && active.value.length === 0 ? t("music.notEnoughData") : undefined
+);
 </script>
 
 <template>
@@ -57,7 +72,7 @@ const items = computed<WidgetListItem[]>(() =>
             {{ t("music.widgets.albums") }}
             <widget-mode-toggle v-model="mode" name="albums-mode" :modes="modes" />
         </template>
-        <widget-list :items="items" />
+        <widget-list :items="items" :empty-text="emptyText" />
         <template #footer>
             <Link href="/music/albums" class="btn btn-primary" prefetch>{{ t("music.seeAll") }}</Link>
         </template>

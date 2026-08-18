@@ -1,8 +1,8 @@
 /******************************************************************************
  * Music data — the Inertia prop shapes the Music controllers send: the browse
  * widgets on the Music page (MusicController) and one song's detail page
- * (SongController). Each widget receives BOTH its latest and a random set
- * (WidgetModes) so the header toggle can switch between them client-side.
+ * (SongController). Each widget receives every mode's set at once (WidgetModes)
+ * so the header toggle can switch between them client-side.
  *
  * Every value here is RAW — seconds, bytes, Hz, ISO-8601 instants — because
  * sizes, rates, durations and dates all read differently per language; the pages
@@ -10,16 +10,17 @@
  *****************************************************************************/
 
 /**
- * The active segment of a widget's mode toggle. `popular` exists only on the
- * widgets that support it (songs by plays, artists/genres by total file
- * duration) — never on albums.
+ * The active segment of a widget's mode toggle. Every music widget offers all
+ * three, and `popular` means the same thing on each: the entries THIS READER has
+ * played, most listens first. A widget whose popular set comes back empty says
+ * "not enough data" rather than showing the generic empty line.
  */
 export type WidgetMode = "latest" | "random" | "popular";
 
 /**
- * The per-mode entry sets one widget receives. `latest` and `random` are always
- * present; `popular` is sent only for songs/artists/genres (albums omit it), so
- * it's optional.
+ * The per-mode entry sets one widget receives. `popular` stays optional even
+ * though every widget is sent one: a card falls back to `latest` for a mode whose
+ * set is absent, which is what keeps it mountable from a partial prop.
  */
 export interface WidgetModes<T> {
     latest: T[];

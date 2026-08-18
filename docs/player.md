@@ -619,42 +619,48 @@ card is noise.
 
 ### `popular` means one thing everywhere: what you have played most
 
-Three widgets offer a `popular` mode, and two shapes of it are wrong once a play count is visible
-beside the rows:
+All four widgets offer a `popular` mode, it is **one query** in all four
+(`MusicController::mostPlayed`), and it answers one question: **what has this reader played most?**
+Nothing else rides behind it. Three shapes of it are wrong once a play count is visible beside the
+rows:
 
-| Widget | wrong | right |
-| --- | --- | --- |
-| Songs | most played **household-wide**, gated at **>1 play** | the reader's own listens, any song they have played |
-| Artists, genres | **most minutes of audio** | the reader's own listens, **then** minutes |
+| Instead of | the trouble with it |
+| --- | --- |
+| most played **household-wide** | the pip beside the row is the reader's OWN, so a household order puts "1×" above "5×" with nothing on screen to explain it |
+| gated at **more than one play** | a card saying "not enough data" while three songs have plays treats a single listen as noise, and hides the answer exactly when the data is thin enough to matter |
+| **most minutes of audio** as a second key | it ranks the biggest shelf, not the best-loved thing — and it puts unplayed rows above played ones, which is an order the numbers contradict |
 
-Two separate complaints, one cause. A genres card showing *"Heavy Metal 2×, Melodic Death Metal —,
-Progressive Metal 1×, Black Metal —"* is sorting by total duration (which tracks song count closely,
-hence "this looks like it sorts by number of songs"), and **an order that contradicts the numbers
-printed on it reads as a broken sort.** And a songs card saying "not enough data" while three songs
-have plays is a `>1` gate treating a single listen as noise — a theory that hides the answer exactly
-when the data is thin enough to matter.
+The third is the one that keeps suggesting itself, because the artists and genres cards **default** to
+`popular`: a second key on total duration would keep them populated on a library nobody has listened to
+yet. It buys that by ranking something the word does not mean. A genres card reading
+*"Heavy Metal 2×, Melodic Death Metal —, Progressive Metal 1×, Black Metal —"* is sorted by total
+duration, which tracks song count closely — hence the complaint that it "looks like it sorts by number
+of songs" — and **an order that contradicts the numbers printed on it reads as a broken sort.**
 
-**Ranked by the reader, not the household**, and that is a fix rather than a preference: the pip beside
-it is the reader's own, so a household ranking would keep putting a card showing "1×" above one showing
-"5×" with nothing on screen to explain it.
+So **an entry with no plays does not appear at all**, on any of the four cards, and a card with nothing
+to rank **says so**: an empty `popular` set renders as "not enough data" rather than as the generic
+empty line, which is a statement about listening and not about the collection. On the artists and genres
+cards, whose default mode this is, that is what a brand-new instance opens on — deliberately, over four
+rows in an order nobody asked for.
 
-**Minutes stay as the artists/genres second key**, which is what keeps those cards populated: they
-default to `popular`, and a strict play ranking would open both on a nearly empty card until a lot has
-been listened to. A played entry can never sit below an unplayed one; the unplayed tail keeps the
-useful "most audio" order. The songs card takes no such fallback — an unplayed song has no business in
-a most-played list — so its "not enough data" note survives for the one case that deserves it: nothing
-has been played at all.
+**The filter and the order are the same join**, which is what makes that structural rather than
+remembered: an INNER `joinSub` against the grouped set, which holds a row only for something the reader
+has played. There is nothing to `COALESCE` and no `NULL` to sort, so the trap below cannot reach this
+page — an unplayed artist has no row in the subquery, and **Postgres sorts NULLs FIRST under DESC**,
+which under a `LEFT` join would float exactly the artists nobody has played to the top of "most played".
+SQLite sorts them last, so a test suite on sqlite can never show it.
 
-**Both query shapes exist on purpose, and which is right depends on the row count.** The widgets use a
-**correlated** subquery (`PlayCounts::ownCountForArtist` and siblings) because they show four rows and
-order by something else, so the engine evaluates it four times. The listings use the **grouped** one
-(`ownPerArtist`) because they SORT by it, so every row must be counted before the sort can run. Using
-either in the other's place is the expensive mistake in one direction or the other.
+**The join key is also the tie-break**, and it has to be: equal counts are the normal case on a young
+`plays` table, and the card's refresh button re-runs the query, so under `LIMIT 4` a partial order can
+answer with a different four each press — which reads as the random mode leaking into this one.
+`SearchRanking` owes its tie-break to the same trap.
 
-The joined count is **COALESCEd** in the `ORDER BY`, which is load-bearing rather than tidy: an
-unplayed artist has no row in the subquery, and **Postgres sorts NULLs FIRST under DESC**, which would
-float exactly the artists nobody has played to the top of "most played". SQLite sorts them last, so a
-test suite on sqlite can never show it.
+**Both play-count query shapes exist on purpose, and which is right depends on the row count.** The pip
+is a **correlated** subquery (`PlayCounts::ownCountForArtist` and siblings), because a widget shows four
+rows and orders by something else, so the engine evaluates it four times. Anything that SORTS by the
+number — the listings, and every `popular` mode — takes the **grouped** one (`ownPerArtist`,
+`ownPerTrack`, …), since every candidate row must be counted before the sort can run. Using either in
+the other's place is the expensive mistake in one direction or the other.
 
 Measured against a synthetic 500k-row `plays` table on a dev box (12,074 tracks / 639 artists / 139
 genres / 955 albums):

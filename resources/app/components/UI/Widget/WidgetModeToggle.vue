@@ -21,19 +21,11 @@ import type { WidgetMode } from "Types/music";
 
 const { t } = useI18n();
 
-const props = defineProps<{
+defineProps<{
     /** Unique radio-group name — distinct per widget so the page's toggles don't collide. */
     name: string;
     /** Modes to render as segments, left-to-right (e.g. `['latest','popular','random']`); a widget passes only the ones it supports. */
     modes: WidgetMode[];
-    /**
-     * What the "popular" segment ranks by, so its tooltip can say which. `plays` (songs) is
-     * the reader's own listens and nothing else; `playsThenDuration` (artists/genres) is
-     * those listens with total file duration as the second key, which keeps those cards
-     * populated before much has been played. Both are the READER'S listening, not the
-     * household's — the order has to agree with the play pip printed beside it.
-     */
-    popularBy?: "plays" | "playsThenDuration";
 }>();
 
 const mode = defineModel<WidgetMode>({ required: true });
@@ -50,14 +42,14 @@ const ICONS: Record<WidgetMode, string> = {
 };
 
 /**
- * The explanatory tooltip text for a mode — a short phrase of what it ranks by,
- * since the icon alone doesn't convey it. "popular" branches on `popularBy` because the
- * taxonomies carry a second sort key that the songs card does not.
+ * The explanatory tooltip text for a mode — a short phrase of what it ranks by, since the
+ * icon alone doesn't convey it.
+ *
+ * One phrase per mode, with no per-widget variant: "popular" is the reader's own listens on
+ * all four cards and nothing else rides behind it, so a segment that explained itself
+ * differently from card to card would be describing a difference that is not there.
  */
-const tip = (m: WidgetMode): string => {
-    if (m === "popular") return t(`music.mode.tip.popular_${props.popularBy ?? "plays"}`);
-    return t(`music.mode.tip.${m}`);
-};
+const tip = (m: WidgetMode): string => t(`music.mode.tip.${m}`);
 </script>
 
 <template>

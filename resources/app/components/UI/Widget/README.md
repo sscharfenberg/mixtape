@@ -83,15 +83,17 @@ reshuffles, latest/popular re-read — and Inertia swaps the prop in place. `rel
 ## Mode toggle (music widgets)
 
 ```vue
-<widget-mode-toggle v-model="mode" name="artists-mode" :modes="modes" popular-by="duration" />
+<widget-mode-toggle v-model="mode" name="artists-mode" :modes="modes" />
 ```
 
-| Prop        | Type                        | Notes                                                                   |
-| ----------- | --------------------------- | ----------------------------------------------------------------------- |
-| `v-model`   | `WidgetMode` (**required**) | `"latest" \| "popular" \| "random"`.                                    |
-| `name`      | `string`                    | Radio-group name — **must be unique per page**, or two toggles collide. |
-| `modes`     | `WidgetMode[]`              | Segments in display order; pass only what the widget supports.          |
-| `popularBy` | `"plays" \| "duration"`     | What "popular" ranks by, so its tooltip can say which. Default `plays`. |
+| Prop       | Type                        | Notes                                                                   |
+| ---------- | --------------------------- | ----------------------------------------------------------------------- |
+| `v-model`  | `WidgetMode` (**required**) | `"latest" \| "popular" \| "random"`.                                    |
+| `name`     | `string`                    | Radio-group name — **must be unique per page**, or two toggles collide. |
+| `modes`    | `WidgetMode[]`              | Segments in display order; pass only what the widget supports.          |
+
+Each segment's tooltip comes from `music.mode.tip.<mode>` — one phrase per mode, the same on every
+card, because `popular` ranks by the reader's own play count wherever it appears.
 
 Pair it with **`useWidgetMode(widget, fallback, allowed)`** (`app/composables/`), which persists the
 choice in `localStorage` (`mixtape:widget-mode:<widget>`), validates a stored value against `allowed`,

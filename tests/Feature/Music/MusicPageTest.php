@@ -37,12 +37,12 @@ class MusicPageTest extends TestCase
                 ->has('artists.latest')->has('artists.random')
                 ->has('genres.latest')->has('genres.random')
                 ->has('songs.latest')->has('songs.random')
-                // "popular" ships only for the three widgets that support it…
+                // Every widget ships all three modes; what "popular" ranks by is what
+                // differs between them (MusicController).
+                ->has('albums.popular')
                 ->has('songs.popular')
                 ->has('artists.popular')
                 ->has('genres.popular')
-                // …never for albums, which are deliberately out of scope for it.
-                ->missing('albums.popular')
                 // the stats widget's collection totals.
                 ->has('stats', fn (Assert $stats) => $stats->hasAll([
                     'songs', 'sizeBytes', 'playtimeSeconds', 'albums', 'artists', 'genres',
@@ -57,14 +57,14 @@ class MusicPageTest extends TestCase
         // FKs, so every widget has more than four candidates to cap.
         $user = User::factory()->create();
         $tracks = Track::factory()->count(6)->create();
-        // Songs' "popular" only ranks songs that have been played, so give every track a
-        // listen or that set would be empty rather than capped.
+        // The songs and albums "popular" sets only rank what has been played, so give every
+        // track a listen or those two would be empty rather than capped.
         $tracks->each(fn (Track $t) => Play::factory()->create(['track_id' => $t->id, 'user_id' => $user->id]));
 
         $this->actingAs($user)
             ->get('/music')
             ->assertInertia(fn (Assert $page) => $page
-                ->has('albums.latest', 4)->has('albums.random', 4)
+                ->has('albums.latest', 4)->has('albums.random', 4)->has('albums.popular', 4)
                 ->has('artists.latest', 4)->has('artists.random', 4)->has('artists.popular', 4)
                 ->has('genres.latest', 4)->has('genres.random', 4)->has('genres.popular', 4)
                 ->has('songs.latest', 4)->has('songs.random', 4)->has('songs.popular', 4)
@@ -181,6 +181,68 @@ class MusicPageTest extends TestCase
             );
     }
 
+    public function test_albums_popular_ranks_the_readers_own_plays_and_leaves_out_everything_else(): void
+    {
+        // The albums card takes the SONGS rule rather than the taxonomies': an album nobody
+        // has played has no place in a most-played list, so there is no duration fall-back to
+        // keep the unplayed ones in. The fixture holds all three ways out of the set — never
+        // played at all, played only by the housemate, and having no tracks to play.
+        $reader = User::factory()->create();
+        $housemate = User::factory()->create();
+
+        $hot = Collection::factory()->create(['name' => 'Hot Album']);
+        $cold = Collection::factory()->create(['name' => 'Cold Album']);
+        $theirs = Collection::factory()->create(['name' => 'Housemate Album']);
+        $untouched = Collection::factory()->create(['name' => 'Untouched Album']);
+
+        $hotTrack = Track::factory()->create(['collection_id' => $hot->id]);
+        $coldTrack = Track::factory()->create(['collection_id' => $cold->id]);
+        $theirsTrack = Track::factory()->create(['collection_id' => $theirs->id]);
+        Track::factory()->create(['collection_id' => $untouched->id]);
+
+        Play::factory()->count(5)->create(['track_id' => $hotTrack->id, 'user_id' => $reader->id]);
+        Play::factory()->count(1)->create(['track_id' => $coldTrack->id, 'user_id' => $reader->id]);
+        Play::factory()->count(40)->create(['track_id' => $theirsTrack->id, 'user_id' => $housemate->id]);
+
+        $this->actingAs($reader)
+            ->get('/music')
+            ->assertInertia(fn (Assert $page) => $page
+                // TWO rows: the housemate's forty listens are not this reader's, and the
+                // ranking has to agree with the play pip printed beside it.
+                ->has('albums.popular', 2)
+                ->where('albums.popular.0.name', 'Hot Album')
+                ->where('albums.popular.0.plays', 5)
+                ->where('albums.popular.1.name', 'Cold Album')
+                ->where('albums.popular.1.plays', 1)
+            );
+    }
+
+    public function test_albums_popular_breaks_ties_totally_so_the_same_press_returns_the_same_order(): void
+    {
+        // Equal counts are the NORMAL case on a young `plays` table, and the card's refresh
+        // button re-runs this query. Without a total order the engine may answer with a
+        // different four each press — which a reader reads as the random mode leaking in.
+        $reader = User::factory()->create();
+        $albums = Collection::factory()->count(3)->create();
+
+        $albums->each(function (Collection $album) use ($reader) {
+            $track = Track::factory()->create(['collection_id' => $album->id]);
+            Play::factory()->create(['track_id' => $track->id, 'user_id' => $reader->id]);
+        });
+
+        // The tie-break is the id, and hex digits sort identically under every collation the
+        // two engines offer — which is what makes this assertable at all (see SearchRanking).
+        $expected = $albums->pluck('id')->sort()->values();
+
+        $this->actingAs($reader)
+            ->get('/music')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('albums.popular.0.id', $expected[0])
+                ->where('albums.popular.1.id', $expected[1])
+                ->where('albums.popular.2.id', $expected[2])
+            );
+    }
+
     public function test_songs_popular_ranks_by_plays_and_includes_a_single_play(): void
     {
         $user = User::factory()->create();
@@ -205,36 +267,12 @@ class MusicPageTest extends TestCase
             );
     }
 
-    public function test_songs_popular_is_empty_only_when_nothing_has_been_played(): void
+    public function test_the_artists_card_holds_only_artists_this_reader_has_played(): void
     {
-        // The one case where there is genuinely nothing to rank, and the only one the
-        // widget's "not enough data" note now covers.
-        Track::factory()->count(3)->create();
-
-        $this->actingAs(User::factory()->create())
-            ->get('/music')
-            ->assertInertia(fn (Assert $page) => $page->has('songs.popular', 0));
-    }
-
-    public function test_artists_popular_falls_back_to_file_duration_when_nothing_is_played(): void
-    {
-        $long = Artist::factory()->create(['name' => 'Long Artist']);
-        $short = Artist::factory()->create(['name' => 'Short Artist']);
-        Track::factory()->create(['artist_id' => $long->id, 'duration' => 500]);
-        Track::factory()->create(['artist_id' => $short->id, 'duration' => 100]);
-
-        // The second sort key, doing all the work: with every play count COALESCEd to 0 the
-        // order is the "most audio" one this widget had before plays existed. That fallback is
-        // what keeps the card's default view populated on a library nobody has listened to.
-        $this->actingAs(User::factory()->create())
-            ->get('/music')
-            ->assertInertia(fn (Assert $page) => $page->where('artists.popular.0.name', 'Long Artist'));
-    }
-
-    public function test_a_played_artist_outranks_a_bigger_unplayed_one(): void
-    {
-        // The bug this order exists to fix: minutes alone puts unplayed entries above played
-        // ones, which beside a visible play pip reads as a broken sort.
+        // However much audio the unplayed one has. Total file duration used to ride behind the
+        // play count as a second key, which kept this card populated — at the price of ranking
+        // artists nobody had listened to, in a list that says "popular", above nothing but each
+        // other, with a play pip beside them saying so.
         $reader = User::factory()->create();
         $played = Artist::factory()->create(['name' => 'Played Artist']);
         $bigger = Artist::factory()->create(['name' => 'Bigger Artist']);
@@ -246,12 +284,12 @@ class MusicPageTest extends TestCase
         $this->actingAs($reader)
             ->get('/music')
             ->assertInertia(fn (Assert $page) => $page
+                ->has('artists.popular', 1)
                 ->where('artists.popular.0.name', 'Played Artist')
-                ->where('artists.popular.1.name', 'Bigger Artist')
             );
     }
 
-    public function test_a_played_genre_outranks_a_bigger_unplayed_one(): void
+    public function test_the_genres_card_holds_only_genres_this_reader_has_played(): void
     {
         $reader = User::factory()->create();
         $played = Genre::factory()->create(['name' => 'Played Genre']);
@@ -264,8 +302,31 @@ class MusicPageTest extends TestCase
         $this->actingAs($reader)
             ->get('/music')
             ->assertInertia(fn (Assert $page) => $page
+                ->has('genres.popular', 1)
                 ->where('genres.popular.0.name', 'Played Genre')
-                ->where('genres.popular.1.name', 'Bigger Genre')
+            );
+    }
+
+    public function test_every_popular_set_is_empty_until_something_has_been_played(): void
+    {
+        // All four at once, because they are one query shape (MusicController::mostPlayed) and
+        // the answer has to be the same on every card: a library with plenty in it and no
+        // listening yet has nothing to rank, and each card says "not enough data" rather than
+        // ranking something else. The artists and genres cards OPEN on this mode, so this is
+        // what a brand-new instance shows — deliberately, over an order the word does not mean.
+        Track::factory()->count(4)->create();
+
+        $this->actingAs(User::factory()->create())
+            ->get('/music')
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('albums.popular', 0)
+                ->has('songs.popular', 0)
+                ->has('artists.popular', 0)
+                ->has('genres.popular', 0)
+                // …while the other two modes are full, which is what makes the empty one a
+                // statement about listening rather than about the collection.
+                ->has('albums.latest', 4)
+                ->has('artists.random', 4)
             );
     }
 

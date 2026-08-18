@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetInertia } from "Testing/inertia";
-import { mountApp } from "Testing/mount";
-import type { AlbumEntry } from "Types/music";
+import { mountApp, translate } from "Testing/mount";
+import type { AlbumEntry, WidgetModes } from "Types/music";
 import AlbumsWidget from "./AlbumsWidget.vue";
 
 vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
@@ -29,6 +29,19 @@ const album = (overrides: Partial<AlbumEntry> = {}): AlbumEntry => ({
 
 /** Mount the widget over one album. */
 const widget = (entry: AlbumEntry) => mountApp(AlbumsWidget, { props: { latest: [entry], random: [entry] } });
+
+/**
+ * Mount over explicit per-mode sets with a mode already stored.
+ *
+ * The stored key is what selects the mode rather than a click on the toggle: `useWidgetMode`
+ * reads localStorage synchronously, so this is the state a returning reader actually mounts
+ * in — and it exercises the persistence contract at the same time.
+ */
+const inMode = (mode: string, sets: Partial<WidgetModes<AlbumEntry>>) => {
+    localStorage.setItem("mixtape:widget-mode:albums", mode);
+
+    return mountApp(AlbumsWidget, { props: { latest: [], random: [], ...sets } });
+};
 
 /** The rendered pip values, in order. */
 const pips = (wrapper: ReturnType<typeof widget>): string[] =>
@@ -61,6 +74,31 @@ describe("AlbumsWidget", () => {
 
         expect(pips(wrapper)).toStrictEqual([]);
         expect(wrapper.find(".widget-list__name").text()).toBe("OK Computer");
+    });
+
+    it("shows the popular set when that is the stored mode", () => {
+        const wrapper = inMode("popular", {
+            latest: [album({ name: "Newest Rip" })],
+            popular: [album({ name: "Most Played" })]
+        });
+
+        expect(wrapper.find(".widget-list__name").text()).toBe("Most Played");
+    });
+
+    it("says 'not enough data' for an empty popular set rather than the generic empty line", () => {
+        // The two emptinesses mean different things and the card is the only place that can
+        // tell them apart: popular holds only albums the reader has played, so nothing there
+        // is "you have not listened yet" — while the same blank list under `latest` really
+        // would mean the collection is empty. The server sends both as `[]`.
+        const wrapper = inMode("popular", { popular: [] });
+
+        expect(wrapper.find(".widget-list__empty").text()).toBe(translate("music.notEnoughData"));
+    });
+
+    it("keeps the generic empty line for a mode that is not popular", () => {
+        const wrapper = inMode("latest", { latest: [] });
+
+        expect(wrapper.find(".widget-list__empty").text()).toBe(translate("music.empty"));
     });
 
     it("keeps a year of 0 rather than treating it as absent", () => {

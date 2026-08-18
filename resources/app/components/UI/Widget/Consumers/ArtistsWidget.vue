@@ -2,10 +2,12 @@
 /******************************************************************************
  * ArtistsWidget
  * The Music page's "Artists" card — four artists, toggled via the header
- * WidgetModeToggle between "popular" (default; most total file duration),
- * latest (newest track) and a random pick. All sets arrive as Inertia props
- * (see MusicController). Defaults to popular because "latest artist" is a weak
- * signal here — artists have no date of their own.
+ * WidgetModeToggle between "popular" (default; the reader's own listens), latest
+ * (newest track) and a random pick. All sets arrive as Inertia props (see
+ * MusicController). Defaults to popular because "latest artist" is a weak signal
+ * here — artists have no date of their own. Which also means this card can OPEN
+ * empty, on a library nobody has listened to yet: it then says "not enough data"
+ * rather than ranking artists by something that is not popularity.
  *****************************************************************************/
 import { Link } from "@inertiajs/vue3";
 import { computed } from "vue";
@@ -28,7 +30,9 @@ const modes: WidgetMode[] = ["latest", "popular", "random"];
 /** Active mode — restored from localStorage, defaulting to popular. */
 const mode = useWidgetMode("artists", "popular", modes);
 
-/** Active-mode artists — a plain name list (no secondary line). Falls back to `latest` if a mode's set is absent. */
+/** The active mode's raw set, falling back to `latest` if a mode's set is absent. */
+const active = computed(() => props[mode.value] ?? props.latest);
+
 /**
  * Active-mode artists as list entries: what each one adds up to across the collection.
  *
@@ -42,7 +46,7 @@ const mode = useWidgetMode("artists", "popular", modes);
  * Same rule as the hero tiles', and the same reason the listings draw a dash there.
  */
 const items = computed<WidgetListItem[]>(() =>
-    (props[mode.value] ?? props.latest).map(artist => ({
+    active.value.map(artist => ({
         id: artist.id,
         name: artist.name,
         href: artist.href,
@@ -56,6 +60,16 @@ const items = computed<WidgetListItem[]>(() =>
         ].filter(pip => pip !== null)
     }))
 );
+
+/**
+ * Empty-state line for the list. "popular" holds only artists the reader has played, so an
+ * empty set there is "nothing listened to yet" rather than "no artists" — and on THIS card it
+ * is what a new instance opens on, since popular is its default mode. The other modes take
+ * the generic empty.
+ */
+const emptyText = computed(() =>
+    mode.value === "popular" && active.value.length === 0 ? t("music.notEnoughData") : undefined
+);
 </script>
 
 <template>
@@ -63,9 +77,9 @@ const items = computed<WidgetListItem[]>(() =>
         <template #title>
             <icon name="artist" />
             {{ t("music.widgets.artists") }}
-            <widget-mode-toggle v-model="mode" name="artists-mode" :modes="modes" popular-by="playsThenDuration" />
+            <widget-mode-toggle v-model="mode" name="artists-mode" :modes="modes" />
         </template>
-        <widget-list :items="items" />
+        <widget-list :items="items" :empty-text="emptyText" />
         <template #footer>
             <Link href="/music/artists" class="btn btn-primary" prefetch>{{ t("music.seeAll") }}</Link>
         </template>

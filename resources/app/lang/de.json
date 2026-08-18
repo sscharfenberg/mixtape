@@ -288,8 +288,7 @@
             "random": "Zufällig",
             "tip": {
                 "latest": "Neueste — neuester Dateizeitstempel",
-                "popular_playsThenDuration": "Beliebt — von dir am häufigsten gespielt, dann meiste Minuten",
-                "popular_plays": "Beliebt — von dir am häufigsten gespielt",
+                "popular": "Beliebt — von dir am häufigsten gespielt",
                 "random": "Zufällig — zufällige Auswahl"
             }
         },
