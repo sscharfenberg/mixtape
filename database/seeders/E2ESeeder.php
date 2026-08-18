@@ -104,7 +104,12 @@ class E2ESeeder extends Seeder
      * a search term taken from them ("Paranoid") is unambiguous in a way that
      * "Track 07" never is.
      *
-     * @var array<string, array{year: int, artist: string, genre: string, bitRate: int, tracks: list<string>}>
+     * ONE OF THEM IS DELIBERATELY MISSING A TRACK (`incomplete`), because the Albums listing's
+     * "Unvollständig" tile is the one filter in this app that reports a fault in the LIBRARY
+     * rather than a fact about it — and a fixture where nothing is ever wrong can only test the
+     * tile's zero state. See the numbering in `run()` for how the gap is expressed.
+     *
+     * @var array<string, array{year: int, artist: string, genre: string, bitRate: int, tracks: list<string>, incomplete?: bool}>
      */
     private const ALBUMS = [
         'OK Computer' => [
@@ -124,6 +129,8 @@ class E2ESeeder extends Seeder
             'artist' => 'Radiohead',
             'genre' => 'Alternative Rock',
             'bitRate' => 256000,
+            // The library's one incomplete rip — twelve files whose numbering reaches thirteen.
+            'incomplete' => true,
             'tracks' => [
                 'Planet Telex', 'The Bends', 'High and Dry', 'Fake Plastic Trees',
                 'Bones', '(Nice Dream)', 'Just', 'My Iron Lung',
@@ -276,9 +283,28 @@ class E2ESeeder extends Seeder
                 'cover_path' => null,
             ]);
 
+            $last = count($album['tracks']) - 1;
+
             foreach ($album['tracks'] as $index => $name) {
                 $trackNumber++;
-                $this->seedTrack($collection, $artists[$album['artist']], $genres[$album['genre']], $name, $index + 1, $trackNumber, $album['bitRate']);
+
+                /*
+                 * A GAP IN THE NUMBERING FOR THE ONE `incomplete` ALBUM: its last file numbers one
+                 * higher than its position, so twelve files reach thirteen and the album says a
+                 * track is missing — which is what a rip that skipped one looks like to
+                 * AlbumFilter::Incomplete (per disc, highest number above the file count).
+                 *
+                 * Expressed as a shifted NUMBER rather than as a dropped title, deliberately: the
+                 * library's track count is a fixture fact several specs assert against, and moving
+                 * it to make one tile non-zero would be a change to every one of them.
+                 */
+                $number = $index + 1;
+
+                if (($album['incomplete'] ?? false) && $index === $last) {
+                    $number++;
+                }
+
+                $this->seedTrack($collection, $artists[$album['artist']], $genres[$album['genre']], $name, $number, $trackNumber, $album['bitRate']);
             }
         }
 

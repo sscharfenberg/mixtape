@@ -54,9 +54,18 @@ const table = (overrides: Record<string, unknown> = {}) => ({
     ...overrides
 });
 
+/**
+ * The strip's payload, defaulted to a library with nothing to report.
+ *
+ * Zeroed on purpose: AlbumsStats has its own tests, so what a page test wants from it is the
+ * quietest version — present, so the page mounts as the controller renders it, and silent, so
+ * nothing it draws can be mistaken for something the page decided.
+ */
+const stats = () => ({ total: 1, filters: [] });
+
 /** Mount the listing over a table payload. */
 const page = (overrides: Record<string, unknown> = {}, locale: "de" | "en" = "de") =>
-    mountApp(AlbumsPage, { props: { table: table(overrides) }, locale });
+    mountApp(AlbumsPage, { props: { table: table(overrides), stats: stats() }, locale });
 
 /** Replace the single row's fields. */
 const withRow = (fields: Record<string, unknown>) => ({ rows: [{ ...table().rows[0], ...fields }] });

@@ -312,10 +312,12 @@
                 "genres": "Anzahl der Genres mit mindestens einem Titel"
             }
         },
+        "listingFilters": {
+            "show": "anzeigen",
+            "showAll": "alle anzeigen"
+        },
         "songFilters": {
             "header": "Songs im Überblick",
-            "show": "anzeigen",
-            "showAll": "alle anzeigen",
             "label": {
                 "never-played": "Nie gespielt",
                 "added-this-week": "Neu diese Woche",
@@ -324,9 +326,24 @@
             },
             "hint": {
                 "never-played": "Songs, die du selbst noch nie gespielt hast — gezählt werden nur deine eigenen Wiedergaben.",
-                "added-this-week": "Songs, die in den letzten sieben Tagen neu in die Sammlung gekommen sind.",
+                "added-this-week": "Songs, deren Datei in den letzten sieben Tagen dazugekommen oder geändert wurde.",
                 "duplicates": "Songs, deren Audiodaten mit einem anderen Song identisch sind — dieselbe Aufnahme liegt mehrfach in der Sammlung.",
                 "no-cover": "Songs ohne eingebettetes Cover in der Datei — in Playlist und Warteschlange bleiben sie ohne Bild."
+            }
+        },
+        "albumFilters": {
+            "header": "Alben im Überblick",
+            "label": {
+                "never-played": "Nie gespielt",
+                "added-this-week": "Neu diese Woche",
+                "incomplete": "Unvollständig",
+                "single-track": "Nur ein Titel"
+            },
+            "hint": {
+                "never-played": "Alben, von denen du noch keinen Titel gespielt hast — gezählt werden nur deine eigenen Wiedergaben.",
+                "added-this-week": "Alben mit einer Datei, die in den letzten sieben Tagen dazugekommen oder geändert wurde.",
+                "incomplete": "Alben, deren Titelnummerierung höher reicht als die Anzahl der Dateien — es fehlt also mindestens ein Titel. Pro CD gezählt.",
+                "single-track": "Alben mit genau einem Titel — meist eine einzelne Datei, die einen eigenen Ordner bekommen hat."
             }
         },
         "columns": {

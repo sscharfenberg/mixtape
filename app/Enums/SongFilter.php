@@ -33,7 +33,7 @@ enum SongFilter: string
     /** Songs THIS READER has never played — the complement of the popular widget, and a queue to work through. */
     case NeverPlayed = 'never-played';
 
-    /** Songs the scanner first saw within the last week — see {@see WEEK_DAYS} for what "week" means. */
+    /** Songs whose FILE is a week old or newer — see {@see AddedThisWeek} in apply() for which date that is. */
     case AddedThisWeek = 'added-this-week';
 
     /** Songs whose audio is byte-identical to another song's — the same recording filed twice. */
@@ -78,11 +78,19 @@ enum SongFilter: string
                 }
             }),
 
-            // `tracks.created_at` is when the SCANNER first inserted the row, which is what
-            // "added" means here — not the file's own mtime (`modified_at`), which a re-tag
-            // moves without the library gaining anything. The steady-state scan leaves an
-            // untouched file's row alone, so these timestamps survive every `app:update`.
-            self::AddedThisWeek => $query->where('tracks.created_at', '>=', now()->subDays(self::WEEK_DAYS)),
+            // THE FILE'S OWN mtime, not `tracks.created_at`, and the difference is the whole
+            // reliability of this tile. A row's `created_at` is a fact about the DATABASE: it is
+            // stamped when the scanner inserts the row, so any rebuild of the library tables
+            // re-stamps every row at once and the tile answers "everything arrived this week" —
+            // measured on the dev box, 9,811 of 9,811 songs, four days after its database was
+            // rebuilt. `modified_at` is a fact about the FILE and survives that: the same 9,811
+            // songs answered 43.
+            //
+            // The trade is real and worth stating: re-tagging a file moves its mtime, so a
+            // re-tagged old song reads as new. That is the smaller lie, and it is the reading the
+            // rest of the app already calls "latest" — the Music page's newest-first modes and
+            // the albums listing's default sort are both this column.
+            self::AddedThisWeek => $query->where('tracks.modified_at', '>=', now()->subDays(self::WEEK_DAYS)),
 
             // GROUPED, not a per-row EXISTS over `Track::clones`. Both answer the same set, and
             // the shapes cost differently at this scale: the correlated one probes the

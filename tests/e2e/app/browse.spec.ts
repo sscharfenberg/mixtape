@@ -367,6 +367,12 @@ test.describe("the songs listing's stats strip", () => {
         // params into whatever is already there. A filter it dropped would look like a sort that
         // silently widened the table — so this is the case that has to be a real click.
         await page.goto("/music/songs?filter=no-cover");
+        // Waited for, not merely counted: `count()` does not auto-wait, so straight after a
+        // `goto` it answers 0 for a page Vue has not mounted yet — and an expectation of 0 rows
+        // then passes for the wrong reason or fails for one, depending on the machine. Same trap
+        // the columnValues helper carries a note about.
+        await expect(page.locator("tbody tr").first()).toBeVisible();
+
         const expected = await page.locator("tbody tr").count();
 
         await page.getByRole("button", { name: /Dauer/u }).click();
@@ -408,6 +414,66 @@ test.describe("the songs listing's stats strip", () => {
 
         await expect(tile(page, "Doppelt vorhanden")).toContainText("0");
         await expect(tile(page, "Doppelt vorhanden").getByRole("link")).toHaveCount(0);
+    });
+});
+
+test.describe("the albums listing's stats strip", () => {
+    /*
+     * The albums strip is the songs strip's arrangement at the album grain, so what is worth a
+     * browser here is that it is WIRED to the same mechanism rather than the mechanism itself —
+     * the songs specs above already walk a tile → a filtered table → a sort that keeps the
+     * filter. AlbumsStatsTest owns what the four counts mean, including the per-disc one.
+     *
+     * IT ASSERTS AGAINST "Unvollständig" RATHER THAN "never played", and that is about the shared
+     * database: the whole suite runs against one, and any spec that presses play records a real
+     * listen, so the never-played count can change between the request that drew the tile and the
+     * request its link makes. Nothing rewrites a track NUMBER, so the seeder's one deliberately
+     * incomplete album (see E2ESeeder → ALBUMS) holds still, and an equality assertion is safe.
+     */
+
+    /** One tile of the strip, addressed by the label a reader sees. */
+    const tile = (page: Page, label: string) => page.locator(".widget-stats__cell", { hasText: label });
+
+    test("opens exactly the rows a tile counted, and marks itself while it does", async ({ page }) => {
+        await page.goto("/music/albums");
+        await expect(page.locator(".widget-stats__cell").first()).toBeVisible();
+
+        const counted = Number(
+            (await tile(page, "Unvollständig").locator(".widget-stats__value").innerText()).replace(/\D/gu, "")
+        );
+
+        expect(counted).toBe(1);
+
+        await tile(page, "Unvollständig").getByRole("link").click();
+        await page.waitForURL(/\?filter=incomplete$/u);
+
+        await expect(page.locator("tbody tr")).toHaveCount(counted);
+        // …and it is the album the fixture made short, not just any row.
+        await expect(page.locator("tbody tr").first()).toContainText("The Bends");
+        await expect(page.locator(".widget-stats__cell--active")).toContainText("Unvollständig");
+    });
+
+    test("prints the album's own length, not its file count, where they differ", async ({ page }) => {
+        // The display defect the incomplete tile surfaced: twelve files numbering to thirteen used
+        // to render the last row as "13/12" — a fraction bigger than one, which reads as broken
+        // data. The denominator is the album's own numbering where that reaches higher.
+        await page.goto("/music/albums?filter=incomplete");
+        await page.locator("tbody tr").first().click();
+        await page.waitForURL(/\/music\/albums\/[0-9a-f-]{36}/u);
+
+        await expect(page.locator("tbody tr").last()).toContainText("13/13");
+    });
+
+    test("says nothing to press on the tiles the fixture leaves at zero", async ({ page }) => {
+        // Every seeded file's mtime is fixed weeks in the past and no album holds a single track,
+        // so neither question has anything to show — the state a well-kept library is in most of
+        // the time, and the one a reader must not be able to click into.
+        await page.goto("/music/albums");
+
+        for (const label of ["Neu diese Woche", "Nur ein Titel"]) {
+            await expect(tile(page, label)).toContainText("0");
+            await expect(tile(page, label).getByRole("link")).toHaveCount(0);
+        }
     });
 });
 

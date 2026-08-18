@@ -17,6 +17,10 @@
  * the columns are aggregates of the album's tracks rather than fields of its own
  * (songs, discs, playing time, and the newest file's mtime). All of them arrive raw
  * and are formatted here against the viewer's locale and timezone.
+ *
+ * ABOVE THE TABLE SITS AlbumsStats — four counts that are each a way INTO it (`?filter=`), two
+ * of which the table cannot answer at all: an album missing a track, and one holding only a
+ * single file.
  *****************************************************************************/
 import { Head, Link } from "@inertiajs/vue3";
 import { computed } from "vue";
@@ -29,7 +33,9 @@ import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import type { ColumnDef, TableResponse } from "Types/dataTable";
+import type { AlbumStats } from "Types/music";
 import { formatClock, formatDateTime, formatTimesPlayed } from "Utils/formatting";
+import AlbumsStats from "./AlbumsStats.vue";
 
 /** One album row as shaped by AlbumsController's rowMapper — every value raw. */
 interface AlbumRow {
@@ -55,9 +61,11 @@ interface AlbumRow {
     href: string;
 }
 
-defineProps<{
+const props = defineProps<{
     /** The server-driven table payload (rows + pagination + sort + search state). */
     table: TableResponse<AlbumRow>;
+    /** The strip above the table: how many albums there are, and one actionable count per filter. */
+    stats: AlbumStats;
 }>();
 
 const { t, locale } = useI18n();
@@ -99,6 +107,8 @@ const columns = computed<ColumnDef<AlbumRow>[]>(() => [
         {{ t("music.widgets.albums") }}
     </headline>
     <container>
+        <albums-stats v-bind="props.stats" />
+
         <data-table :columns="columns" :response="table" base-url="/music/albums" :has-actions="false" selectable>
             <template #toolbar-actions>
                 <selection-actions subject="album" />
@@ -134,6 +144,15 @@ const columns = computed<ColumnDef<AlbumRow>[]>(() => [
 </template>
 
 <style scoped lang="scss">
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/sizes" as s;
+
+/* The strip and the table below it, spaced by the card gap — a page reads the token of the
+   component that already defines it (CLAUDE.md → Design tokens), as SongsPage does. */
+.container > * + * {
+    margin-block-start: map.get(s.$c-card, "gap");
+}
+
 /* The title link deliberately does NOT look like a link — the whole row is the click
    target and already signals that. Identical to SongsPage's rule, and for the same
    reasons (see the comment there): `inherit` keeps the cell's themed colour, and only

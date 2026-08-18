@@ -29,6 +29,35 @@ export interface WidgetModes<T> {
 }
 
 /**
+ * One filter tile of a listing's stats strip: how many rows it counts, and the link there.
+ *
+ * Generic in its KEY and nothing else, because that is the only thing two listings' strips
+ * differ by — the count, the href and the active flag mean the same in all of them, and a
+ * second copy of this shape per listing is the copy that stops matching.
+ */
+export interface ListingFilterStat<Key extends string> {
+    key: Key;
+    /** How many rows match, over the WHOLE listing — never over the filtered table. */
+    count: number;
+    /**
+     * Where the tile's link goes, or null for a tile that offers none.
+     *
+     * Three readings, all decided server-side (the listing's controller): the table filtered to
+     * this count, the UNFILTERED table when this filter is the active one — the way back out —
+     * and null for a count of zero, which has no table worth opening.
+     */
+    href: string | null;
+    /** Whether this filter is the one currently narrowing the table. */
+    active: boolean;
+}
+
+/** A listing's whole strip: its total, then one tile per filter, in the server's order. */
+export interface ListingStats<Key extends string> {
+    total: number;
+    filters: ListingFilterStat<Key>[];
+}
+
+/**
  * The Songs listing's stat filters, by the value each one carries in `?filter=`.
  *
  * The same four strings as App\Enums\SongFilter's cases, which is what lets a tile look its own
@@ -36,28 +65,27 @@ export interface WidgetModes<T> {
  */
 export type SongFilterKey = "never-played" | "added-this-week" | "duplicates" | "no-cover";
 
-/** One filter tile of the Songs listing's strip: how many rows it counts, and the link there. */
-export interface SongFilterStat {
-    key: SongFilterKey;
-    /** How many songs match, over the WHOLE library — never over the filtered table. */
-    count: number;
-    /**
-     * Where the tile's link goes, or null for a tile that offers none.
-     *
-     * Three readings, all decided server-side (SongsController): the listing filtered to this
-     * count, the UNFILTERED listing when this filter is the active one — the way back out — and
-     * null for a count of zero, which has no table worth opening.
-     */
-    href: string | null;
-    /** Whether this filter is the one currently narrowing the table. */
-    active: boolean;
-}
+/** One tile of the Songs strip. */
+export type SongFilterStat = ListingFilterStat<SongFilterKey>;
 
-/** The Songs listing's whole strip: the library's size, then one tile per filter, in the server's order. */
-export interface SongStats {
-    total: number;
-    filters: SongFilterStat[];
-}
+/** The Songs listing's strip. */
+export type SongStats = ListingStats<SongFilterKey>;
+
+/**
+ * The Albums listing's stat filters — App\Enums\AlbumFilter's cases, read the same way.
+ *
+ * TWO OF THE FOUR ARE ALBUM-SHAPED QUESTIONS the songs strip cannot ask: a gap in the track
+ * numbering (a rip that never finished) and an album holding a single track (usually a loose
+ * file that got its own folder). Neither is visible in the listing, which is the whole reason
+ * this strip is worth its space.
+ */
+export type AlbumFilterKey = "never-played" | "added-this-week" | "incomplete" | "single-track";
+
+/** One tile of the Albums strip. */
+export type AlbumFilterStat = ListingFilterStat<AlbumFilterKey>;
+
+/** The Albums listing's strip. */
+export type AlbumStats = ListingStats<AlbumFilterKey>;
 
 /** What every widget entry carries: something to name it and somewhere to go. */
 interface WidgetEntry {

@@ -68,7 +68,7 @@ describe("SongsStats", () => {
     });
 
     it("offers 'show' on a tile that leads into a filtered table", () => {
-        expect(actions(strip())).toStrictEqual([translate("music.songFilters.show")]);
+        expect(actions(strip())).toStrictEqual([translate("music.listingFilters.show")]);
         expect(strip().find(".widget-stats__action").attributes("href")).toBe("/music/songs?filter=never-played");
     });
 
@@ -77,7 +77,7 @@ describe("SongsStats", () => {
         // unfiltered listing, and the word has to say so or the link reads as a no-op.
         const wrapper = strip({ filters: [stat({ href: "/music/songs", active: true })] });
 
-        expect(actions(wrapper)).toStrictEqual([translate("music.songFilters.showAll")]);
+        expect(actions(wrapper)).toStrictEqual([translate("music.listingFilters.showAll")]);
         expect(wrapper.find(".widget-stats__action").attributes("href")).toBe("/music/songs");
     });
 

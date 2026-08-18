@@ -17,6 +17,12 @@ use Tests\TestCase;
  * rather than either half: a tile's COUNT and the TABLE its link opens come from one predicate
  * (SongFilter::apply), and every test below asserts them together. Split across two files, a
  * change that moved one and not the other would still leave both files green.
+ *
+ * EVERY FIELD A COUNT READS IS PINNED, never left to the factory, because three of the factory's
+ * defaults are RANDOM: `cover` is true seven times in ten, `modified_at` lands anywhere this
+ * decade, and `track` is a number between 1 and 14. A test that leaves one of those alone passes
+ * on some runs and not others — which is how the audiobook case below was found failing after a
+ * dozen green ones.
  */
 class SongsStatsTest extends TestCase
 {
@@ -48,7 +54,7 @@ class SongsStatsTest extends TestCase
         // Nothing has been added this week and nothing is filed twice, so two of the four tiles
         // have no table worth opening — and a link to an empty table is a promise the page
         // cannot keep. The two that DO have rows carry their href.
-        Track::factory()->count(2)->create(['created_at' => now()->subMonths(2), 'cover' => false]);
+        Track::factory()->count(2)->create(['modified_at' => now()->subMonths(2), 'cover' => false]);
 
         $this->actingAs(User::factory()->create())
             ->get('/music/songs')
@@ -82,16 +88,24 @@ class SongsStatsTest extends TestCase
         }
     }
 
-    public function test_added_this_week_is_a_rolling_window_over_when_the_scanner_saw_the_file(): void
+    public function test_added_this_week_is_a_rolling_window_over_the_files_own_date(): void
     {
-        // `created_at` is the row's own age, not the file's mtime — a re-tagged old file moves
-        // `modified_at` without the library gaining anything, so it must not turn up here.
-        Track::factory()->create(['created_at' => now()->subDays(2), 'modified_at' => now()->subYears(5)]);
-        Track::factory()->create(['created_at' => now()->subDays(8), 'modified_at' => now()]);
+        // THE FILE'S mtime, not the row's `created_at`, and the fixture is built so the two
+        // disagree: the song that counts is an OLD ROW with a NEW FILE, and the one that does not
+        // is a fresh row holding a file from years ago. Reading `created_at` would return exactly
+        // the opposite pair — and on a rebuilt library it returns everything (SongFilter carries
+        // the measurement).
+        Track::factory()->create(['created_at' => now()->subYears(3), 'modified_at' => now()->subDays(2)]);
+        Track::factory()->create(['created_at' => now(), 'modified_at' => now()->subDays(8)]);
 
-        $this->actingAs(User::factory()->create())
+        $this->actingAs($reader = User::factory()->create())
             ->get('/music/songs')
             ->assertInertia(fn (Assert $page) => $page->where('stats.filters.1.count', 1));
+
+        // …and the table its link opens holds that same one song.
+        $this->actingAs($reader)
+            ->get('/music/songs?filter=added-this-week')
+            ->assertInertia(fn (Assert $page) => $page->has('table.rows', 1));
     }
 
     public function test_duplicates_counts_every_row_sharing_its_audio_and_nothing_else(): void
@@ -209,7 +223,7 @@ class SongsStatsTest extends TestCase
     {
         // The listing is music, so its strip is music: a chapter must not inflate the total, and
         // an unplayed book must not turn up as songs never played.
-        Track::factory()->create();
+        Track::factory()->create(['cover' => false]);
         Track::factory()->audiobook()->count(4)->create(['cover' => false]);
 
         $this->actingAs(User::factory()->create())

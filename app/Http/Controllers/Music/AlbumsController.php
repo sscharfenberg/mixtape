@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Music;
 
+use App\Enums\AlbumFilter;
 use App\Enums\CollectionType;
 use App\Http\Controllers\Controller;
 use App\Models\Collection;
 use App\Models\Track;
+use App\Models\User;
 use App\Services\DataTableService;
 use App\Services\Player\PlayCounts;
 use App\Services\Search\FoldedSearch;
@@ -31,6 +33,15 @@ use Inertia\Response;
  * Every row also carries an `href` to the album's own page (AlbumController), which
  * is what makes the table's rows clickable — the frontend only follows what the
  * server puts there.
+ *
+ * ABOVE THE TABLE SITS A STATS STRIP, the Songs listing's arrangement at the album grain: four
+ * counts, each a link to the table narrowed to exactly what it counted (`?filter=`, one value
+ * per AlbumFilter case). Two of those questions are ones the table cannot be asked at all — a
+ * gap in the track numbering, and an album holding a single file — where "most played" and
+ * "longest" are already a header click away and would only be a sort in tile clothing.
+ *
+ * THE COUNTS DESCRIBE EVERY ALBUM, never the filtered view, so they hold still while a reader
+ * works through one of them (SongsController carries that argument in full).
  */
 class AlbumsController extends Controller
 {
@@ -42,9 +53,15 @@ class AlbumsController extends Controller
      * anywhere: together with the recorded `cover_path` it is what lets the row mapper
      * decide whether a thumbnail exists — from this one query, with no filesystem
      * access at all.
+     *
+     * `?filter=` is applied to the query BEFORE DataTableService sees it, so the count, the
+     * search and the pager all work over the narrowed set rather than around it.
      */
     public function __invoke(Request $request): Response
     {
+        $reader = $request->user();
+        $filter = AlbumFilter::fromInput($request->input('filter'));
+
         // One reusable correlated base: "the tracks of the album in the current row".
         $tracksOfAlbum = fn (): \Illuminate\Database\Query\Builder => Track::query()
             ->whereColumn('tracks.collection_id', 'collections.id')
@@ -109,6 +126,8 @@ class AlbumsController extends Controller
                     $tracksOfAlbum()->select('id')->where('cover', true)
                 )->limit(1),
             ]);
+
+        $filter?->apply($query, $reader);
 
         $table = DataTableService::buildResponse(
             query: $query,
@@ -191,10 +210,52 @@ class AlbumsController extends Controller
                 // link). Relative so it works whatever host serves the app.
                 'href' => route('music.albums.show', $album->id, absolute: false),
             ],
+            // Echoed rather than applied here — the frontend drops a row selection when it
+            // changes, since the rows under those ticks are no longer the same rows.
+            filters: $filter ? ['filter' => $filter->value] : null,
         );
 
         return Inertia::render('Music/Albums/AlbumsPage', [
             'table' => $table,
+            'stats' => $this->stats($reader, $filter),
         ]);
+    }
+
+    /**
+     * The strip's numbers: how many albums there are, then one tile per AlbumFilter.
+     *
+     * EAGER rather than deferred, for the reason SongsController spells out: every sort, page and
+     * search is a full visit, so a deferred strip would blank and re-arrive on each click.
+     *
+     * A TILE'S `href` IS DECIDED HERE, like every other link on the page. The active filter
+     * offers the way back out (a filtered table a reader cannot leave is a dead end), a count of
+     * zero offers nothing at all, and anything else links to itself.
+     *
+     * @return array{total: int, filters: list<array{key: string, count: int, href: string|null, active: bool}>}
+     */
+    private function stats(?User $reader, ?AlbumFilter $active): array
+    {
+        $tiles = [];
+
+        foreach (AlbumFilter::cases() as $filter) {
+            $count = $filter->count($reader);
+            $isActive = $active === $filter;
+
+            $tiles[] = [
+                'key' => $filter->value,
+                'count' => $count,
+                'href' => match (true) {
+                    $isActive => route('music.albums', absolute: false),
+                    $count > 0 => route('music.albums', ['filter' => $filter->value], absolute: false),
+                    default => null,
+                },
+                'active' => $isActive,
+            ];
+        }
+
+        return [
+            'total' => Collection::query()->where('collections.type', CollectionType::Album)->count(),
+            'filters' => $tiles,
+        ];
     }
 }

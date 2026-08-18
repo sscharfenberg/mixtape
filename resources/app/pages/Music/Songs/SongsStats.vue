@@ -83,7 +83,7 @@ const tiles = computed<StatTile[]>(() => [
         action: stat.href
             ? {
                   href: stat.href,
-                  label: stat.active ? t("music.songFilters.showAll") : t("music.songFilters.show")
+                  label: stat.active ? t("music.listingFilters.showAll") : t("music.listingFilters.show")
               }
             : undefined
     }))
