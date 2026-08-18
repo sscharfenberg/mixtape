@@ -173,6 +173,16 @@ let lastHeartbeatAt = 0;
 let pendingResume = 0;
 
 /**
+ * The track the ELEMENT currently holds, which is not always the queue's current one: the pointer
+ * moves first and `load()` follows, so for a moment the two disagree.
+ *
+ * It exists to stamp a progress note with the track the position was actually measured on — the
+ * queue refuses a position whose track is not the one it is about to store it against, which is
+ * what stops a replaced queue resuming its new first song at the old song's progress.
+ */
+let loadedTrackId: string | null = null;
+
+/**
  * What counts as having listened to a track: HALF OF IT, or four minutes, whichever comes
  * first.
  *
@@ -313,6 +323,10 @@ function requestPlayback(): void {
  */
 function load(track: QueueTrack, autoplay: boolean): void {
     if (!element) return;
+
+    // Recorded before anything else: from here on, any position read off this element belongs to
+    // this track and to no other.
+    loadedTrackId = track.id;
 
     // A different track is loaded, so whatever the queue did before this is no longer what the
     // player is doing — stepping back from a finished queue must not still read as finished.
@@ -562,7 +576,9 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
          * element, and that module is imported by this one rather than the other way round.
          * So it gets a getter, the same handshake the two modules above use in reverse.
          */
-        bindPositionSource(() => audio.currentTime);
+        // Both halves together: the cursor, and which track it is the cursor OF. See the queue's
+        // PlaybackReading for why an unpaired position cannot be checked.
+        bindPositionSource(() => ({ seconds: audio.currentTime, trackId: loadedTrackId }));
 
         /*
          * The sleep timer stops the music but does not own the element or the play intent,
@@ -844,6 +860,7 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
         // has gone, so a timer left counting would be state nothing on screen can show.
         bindSleepStop(null);
         pendingResume = 0;
+        loadedTrackId = null;
         lastHeartbeatAt = 0;
         heardSeconds = 0;
         lastHeardAt = 0;
@@ -878,6 +895,7 @@ export function resetPlayerAudioForTests(): void {
     // that armed a timer must not leave an interval ticking into the next file.
     bindSleepStop(null);
     pendingResume = 0;
+    loadedTrackId = null;
     lastHeartbeatAt = 0;
     heardSeconds = 0;
     lastHeardAt = 0;

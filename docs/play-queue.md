@@ -250,6 +250,19 @@ owns — and that module imports this one, so the queue cannot read it. The play
 already are, in reverse. That keeps ONE writer for the payload; the alternative, a player persisting its
 own key, is two modules writing one server row.
 
+**And it never travels alone: the getter reports WHICH TRACK the cursor belongs to** (`PlaybackReading`).
+A position on its own cannot be checked, and there is a window in which it is wrong — the queue's pointer
+moves the instant somebody replaces the queue, while the element switches source a tick later, so a
+reading taken in between belongs to the track on its way out. Paired, the write refuses it (storing 0
+rather than a stranger's minute mark) and the restore refuses it (a stored id that is not the track being
+restored is not applied). Unpaired, it was stored against the incoming track and resumed there, which
+reads as **the new song remembering the old song's progress** — and only sometimes, because the write is
+coalesced, so whether the element had already switched decided it.
+
+A stored pointer with **no** id at all is still honoured: it was written before the field existed, and
+refusing it would throw away every reader's resume to fix a bug the write side has already fixed. Only a
+mismatch is refused.
+
 **When it is written: boundaries, plus a heartbeat.** Every deliberate exit writes it — pausing, changing
 track, hiding the tab, closing it. The heartbeat covers the exits that are not deliberate, and it is
 counted in **seconds of playback off `timeupdate`**, never by a timer: a timer is throttled to once a
@@ -315,15 +328,16 @@ Sharing one key means a four-minute song ending rewrites the whole queue to move
 | 2,000 | 730 KiB | 94 chars |
 | 12,058 | 4,404 KiB | 94 chars |
 
-`repeat` and `shuffle` ride with the pointer rather than the list because they change at the same rate —
-a click, not a queue edit. A new pointer field can be added **without bumping the shape**: the version is
+`repeat`, `shuffle` and the position's own `trackId` ride with the pointer rather than the list because
+they change at the same rate — a click or a track change, not a queue edit. A new pointer field can be
+added **without bumping the shape**: the version is
 shared with the list payload, so a bump would throw away every stored queue to gain one boolean, and a
 field read as `=== true` simply reads as off in a pointer written before it existed. The shuffle **walk**
 is not stored at all (see *Playing in a random order*).
 
 **The pointer is advice, not truth.** The pair can drift: a quota error on the list, a browser profile
-copied half-way. So it is refused on its own terms (wrong user, older shape, not a number) and whatever
-survives is **clamped into the list that was actually read**. Refusing it leaves the queue cued at its
+copied half-way. So it is refused on its own terms (wrong user, older shape, not a number, **a position
+naming a track this is not**) and whatever survives is **clamped into the list that was actually read**. Refusing it leaves the queue cued at its
 first track, which is a far better failure than dropping a restored queue over one integer. A pointer
 saying 5 against a one-track list loads track 1, not silence.
 

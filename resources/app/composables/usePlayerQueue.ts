@@ -207,6 +207,21 @@ type PersistedPosition = {
      * and it dies with it.
      */
     positionMs?: number;
+    /**
+     * WHICH TRACK {@link positionMs} WAS MEASURED ON — the whole guard against resuming one
+     * song at another song's progress.
+     *
+     * A pointer that carries only an index cannot be checked: replace the queue, and a
+     * position measured on the old first track is stored against the new one, which the next
+     * restore then applies. It reads as "the new song remembers the old song's progress", and
+     * it is a race rather than a certainty — the write is coalesced, so whether the element
+     * had already switched decides it, which is why it comes and goes.
+     *
+     * Optional and read tolerantly, like the two fields above: a payload written before this
+     * existed is honoured as it was (the alternative throws away everybody's resume to fix a
+     * bug the same write already fixed), and only a MISMATCH is refused.
+     */
+    trackId?: string | null;
 };
 
 /** Return type of {@link usePlayerQueue}. */
@@ -618,7 +633,20 @@ function applyPosition(stored: string | null): void {
     // as off instead of undefined — which is why adding the field needed no version bump.
     shuffle.value = payload.shuffle === true;
     localUpdatedAt = storedUpdatedAt(stored);
-    restoredPosition = typeof payload.positionMs === "number" ? payload.positionMs / 1000 : 0;
+
+    /*
+     * A POSITION IS ONLY WORTH RESTORING IF IT NAMES THE TRACK IT WAS MEASURED ON, and matches.
+     *
+     * `undefined` is honoured, because a pointer written before the field existed cannot say —
+     * refusing those would throw away every reader's resume to fix a bug the write side has
+     * already fixed. `null` (this build, nothing measured) and a MISMATCH are refused, which is
+     * what stops one song resuming at another's progress after the queue was replaced.
+     */
+    const claimed = payload.trackId;
+    const restoredTrackId = tracks.value[currentIndex.value]?.id ?? null;
+    const trustworthy = claimed === undefined || claimed === restoredTrackId;
+
+    restoredPosition = trustworthy && typeof payload.positionMs === "number" ? payload.positionMs / 1000 : 0;
 }
 
 /**
@@ -687,10 +715,21 @@ let localUpdatedAt = 0;
  * writer for the stored payload: the alternative, a player that persists its own key, means
  * two modules writing one server row.
  */
-let readPosition: (() => number) | null = null;
+let readPosition: (() => PlaybackReading) | null = null;
 
 /** The position last written, in seconds — what {@link notePlaybackProgress} compares against. */
 let writtenPosition = 0;
+
+/**
+ * The id of the track {@link writtenPosition} belongs to, or null when nothing has been measured
+ * since the pointer last moved.
+ *
+ * The element and the queue can disagree for a moment — the pointer moves first and the media
+ * element switches source afterwards — so a position read in that gap belongs to the track that is
+ * ON ITS WAY OUT. Recording whose it is turns that from an unnoticed wrong number into one this
+ * module can refuse to store or to apply.
+ */
+let positionTrackId: string | null = null;
 
 /**
  * The position a restored queue came back with, in seconds, waiting to be applied ONCE.
@@ -702,14 +741,33 @@ let writtenPosition = 0;
 let restoredPosition = 0;
 
 /**
+ * What the media element reports about its own playback.
+ *
+ * THE TWO HALVES TRAVEL TOGETHER, and that is the point of the type: a position on its own
+ * cannot be checked, so the element also says whose it is. The queue's pointer moves before the
+ * element switches source, and a reading taken in that gap belongs to the track on its way out —
+ * paired, it can be refused; unpaired, it used to be stored against the incoming track and
+ * resumed there, which read as one song remembering another's progress.
+ */
+export type PlaybackReading = {
+    /** The play cursor, in seconds. */
+    seconds: number;
+    /** The track the ELEMENT has loaded, which is not always the queue's current one. */
+    trackId: string | null;
+};
+
+/**
  * Register (or drop) the player's position getter — see {@link readPosition}.
  *
  * Called by `usePlayerAudio.attach()` with the element's own reading, and with null on
  * detach so this module never holds a closure over a node that has left the document.
  */
-export function bindPositionSource(source: (() => number) | null): void {
+export function bindPositionSource(source: (() => PlaybackReading) | null): void {
     readPosition = source;
-    if (!source) writtenPosition = 0;
+    if (!source) {
+        writtenPosition = 0;
+        positionTrackId = null;
+    }
 }
 
 /**
@@ -740,14 +798,23 @@ const POSITION_STEP_SECONDS = 1;
  * The rule ("has it moved?") lives here because the stored payload does; the CADENCE lives
  * in the player, which is the only thing that knows whether audio is running. Callers that
  * need it on disk immediately follow this with {@link flushQueueWrites}.
+ *
  */
 export function notePlaybackProgress(): void {
     if (!readPosition) return;
 
-    const seconds = readPosition();
+    const { seconds, trackId } = readPosition();
 
     if (Math.abs(seconds - writtenPosition) < POSITION_STEP_SECONDS) return;
 
+    /*
+     * WHOSE POSITION THIS IS comes from the element along with the position itself, never from
+     * this module's own pointer. Deriving it from `currentIndex` would leave a window: the pointer
+     * moves first and the source switches a tick later, so a note landing in between would stamp
+     * the outgoing track's seconds with the incoming track's id — which is exactly the pairing
+     * this exists to make impossible.
+     */
+    positionTrackId = trackId;
     commit("position");
 }
 
@@ -889,7 +956,21 @@ export function flushQueueWrites(unloading = false): void {
     // it is where the stamp lives and the stamp has to be as new as the newest change. It
     // costs ~110 characters against the list's megabytes, so the split this key exists for
     // — never rewriting the LIST for a track change — is untouched.
-    writtenPosition = readPosition?.() ?? 0;
+    /*
+     * READ FROM THE ELEMENT, BUT ONLY KEPT IF IT BELONGS HERE. The element is the truth about how
+     * far playback has got, and `positionTrackId` is the truth about WHOSE playback: they disagree
+     * for the moment between the pointer moving and the source switching, and a flush that landed
+     * in that gap used to store the outgoing track's progress against the incoming track's index.
+     */
+    const reading = readPosition?.() ?? null;
+    const currentTrackId = tracks.value[currentIndex.value]?.id ?? null;
+    // The element's own id, falling back to the last one noted — a flush can happen with no
+    // element bound at all (a pagehide after the bar unmounted), and then the last note is all
+    // there is to go on.
+    const measuredTrackId = reading?.trackId ?? positionTrackId;
+    const belongsHere = currentTrackId !== null && measuredTrackId === currentTrackId;
+
+    writtenPosition = belongsHere ? (reading?.seconds ?? writtenPosition) : 0;
     stored = writeEntry(POSITION_STORAGE_KEY, {
         version: PERSISTED_VERSION,
         userId,
@@ -897,7 +978,10 @@ export function flushQueueWrites(unloading = false): void {
         repeat: repeat.value,
         shuffle: shuffle.value,
         updatedAt: localUpdatedAt,
-        positionMs: Math.round(writtenPosition * 1000)
+        positionMs: Math.round(writtenPosition * 1000),
+        // Written even when it is null, so a payload from this build always says whether it knows
+        // — which is what lets the read side tell "not measured" from "written before this field".
+        trackId: belongsHere ? currentTrackId : null
     }) && stored;
 
     // Once per failure, and reset by the next write that works — a browser that started

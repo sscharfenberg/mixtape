@@ -1322,8 +1322,15 @@ describe("usePlayerQueue", () => {
          * position that has not moved.
          */
 
-        /** Stand in for the player, which is the only thing that can read an element. */
-        const playingAt = (seconds: number) => bindPositionSource(() => seconds);
+        /**
+         * Stand in for the player, which is the only thing that can read an element.
+         *
+         * It reports WHICH track the cursor belongs to as well as where it is, because that is
+         * what the element reports — see PlaybackReading. `trackId` defaults to the track these
+         * tests queue, so the ordinary cases read as before.
+         */
+        const playingAt = (seconds: number, trackId: string | null = "a") =>
+            bindPositionSource(() => ({ seconds, trackId }));
 
         it("stores the position with the pointer and sends it up", () => {
             playingAt(96.4);
@@ -1362,6 +1369,93 @@ describe("usePlayerQueue", () => {
 
             expect(storedPosition().positionMs).toBe(140_000);
             expect(fetchMock).toHaveBeenCalledTimes(1);
+        });
+
+        it("stores no position for a track it was not measured on", () => {
+            // THE BUG THIS PAIRING EXISTS FOR. Playing 96 seconds into "a" and then replacing the
+            // queue used to store those 96 seconds against the new queue's first track, which the
+            // next restore then applied — the new song remembering the old song's progress. The
+            // element is still on "a" at this moment (it switches source a tick later), so the
+            // reading cannot belong to "b" and is refused.
+            playingAt(96, "a");
+            usePlayerQueue().enqueue(track("a"));
+            flushQueueWrites();
+
+            usePlayerQueue().playNow([track("b")]);
+            flushQueueWrites();
+
+            expect(storedPosition().positionMs).toBe(0);
+            expect(storedPosition().trackId).toBeNull();
+            const bodies = syncedBodies();
+
+            expect(bodies[bodies.length - 1].positionMs).toBe(0);
+        });
+
+        it("stores the new track's own progress as soon as there is any", () => {
+            // …and the guard must not wedge: once the element reports the new track, its position
+            // is stored like any other.
+            playingAt(96, "a");
+            usePlayerQueue().enqueue(track("a"));
+            usePlayerQueue().playNow([track("b")]);
+            flushQueueWrites();
+
+            playingAt(12, "b");
+            notePlaybackProgress();
+            flushQueueWrites();
+
+            expect(storedPosition().positionMs).toBe(12_000);
+            expect(storedPosition().trackId).toBe("b");
+        });
+
+        it("names the track it measured, so a restore can check it", () => {
+            playingAt(30, "a");
+            usePlayerQueue().enqueue(track("a"));
+            flushQueueWrites();
+
+            expect(storedPosition().trackId).toBe("a");
+        });
+
+        it("refuses a stored position that belongs to another track", () => {
+            // The read side of the same guard, for a pointer that survived from before a list
+            // write — the two keys can drift, which is why the pointer is advice rather than truth.
+            window.localStorage.setItem(
+                "mixtape.queue",
+                JSON.stringify({
+                    version: 3,
+                    userId: "user-1",
+                    tracks: [{ id: "b", name: "Track b", artist: null, album: null, duration: null }]
+                })
+            );
+            window.localStorage.setItem(
+                "mixtape.queue.position",
+                JSON.stringify({ version: 3, userId: "user-1", currentIndex: 0, positionMs: 96_000, trackId: "a" })
+            );
+
+            usePlayerQueue().hydrate();
+
+            expect(takeRestoredPosition()).toBe(0);
+        });
+
+        it("honours a stored position written before it named its track", () => {
+            // A pointer from an earlier build cannot say whose position it is. Refusing those would
+            // throw away every reader's resume to fix a bug the write side has already fixed, so an
+            // ABSENT id is trusted and only a mismatch is refused.
+            window.localStorage.setItem(
+                "mixtape.queue",
+                JSON.stringify({
+                    version: 3,
+                    userId: "user-1",
+                    tracks: [{ id: "a", name: "Track a", artist: null, album: null, duration: null }]
+                })
+            );
+            window.localStorage.setItem(
+                "mixtape.queue.position",
+                JSON.stringify({ version: 3, userId: "user-1", currentIndex: 0, positionMs: 96_000 })
+            );
+
+            usePlayerQueue().hydrate();
+
+            expect(takeRestoredPosition()).toBe(96);
         });
 
         it("hands a restored position back to the player exactly once", () => {
