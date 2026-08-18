@@ -58,6 +58,16 @@ export const signIn = async (
  * confusing empty array.
  */
 export const columnValues = async (page: Page, header: string | RegExp): Promise<string[]> => {
+    /*
+     * WAIT FOR THE TABLE FIRST, because `allInnerTexts()` does not: it answers `[]` for a
+     * locator that matches nothing, with no auto-waiting and no retry. Called straight after a
+     * `goto`, that reads the page BEFORE Vue has mounted it — `goto` resolves on `load`, and the
+     * app paints after — so the throw below fires with an empty header list and reads as "the
+     * column is missing" on a page whose table is fine a frame later. Every other read in these
+     * specs goes through a locator assertion, which waits; this one has to ask.
+     */
+    await page.locator("thead th").first().waitFor();
+
     const headers = await page.locator("thead th").allInnerTexts();
 
     /*
