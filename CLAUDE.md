@@ -13,24 +13,6 @@ links to music with family and friends. Access is gated by auth.
 *(The host is referred to generically here. Its name, addresses, and everything else concrete live in
 the untracked `docs/host.local/` — see **Docs** below.)*
 
-**MixTape v2** is a **ground-up rewrite** of the existing app, and is what this repo holds. The legacy
-code is the sibling folder **`../mixtape.v1.deprecated/`** (newer than the public GitHub repo) — read it
-for behaviour, the data model, artisan commands, and `config/collection.php`, then re-implement on the
-new stack. It is **reference only**; this repo starts clean.
-
-## Two phases (Phase 1 first)
-
-1. ✅ **Rebuild the server** — **DONE & verified 2026-06-28.** Fresh Debian on plain LVM (large `/var`),
-   hardened, services up (PostgreSQL 17 / php-fpm 8.4 / nginx / Samba), collection restored, PoC proven.
-   Spec + design in [`docs/self-hosting/01-requirements.md`](docs/self-hosting/01-requirements.md);
-   the concrete box in `docs/host.local/infrastructure.md` (**untracked**, see *Docs*).
-2. ⬜ **Rewrite the app** — **IN PROGRESS.** New design; Inertia v3 instead of the REST API;
-   composables-first Vue + TS. See [`docs/architecture.md`](docs/architecture.md); public go-live in
-   [`docs/self-hosting/04-going-public.md`](docs/self-hosting/04-going-public.md) (generic) and
-   `docs/host.local/go-live.md` (**untracked**, real values + status).
-
-Phase 1 was done first — no point deploying new app code onto the old host.
-
 ## Load-bearing decisions
 
 **Server**
@@ -59,7 +41,7 @@ Phase 1 was done first — no point deploying new app code onto the old host.
   **one-time, expiring invite tokens**.
 - **Signed / temporary URLs** let friends play a shared song/album **without an account** (the headline
   use case).
-- **2FA is optional — each user's choice, never forced.** **Drop** the legacy web-server Basic Auth.
+- **2FA is optional — each user's choice, never forced.**
 
 ## Conventions for Claude
 
