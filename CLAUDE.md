@@ -279,6 +279,15 @@ Features the owner has asked for and wants kept. **This list lives HERE and not 
 the absence of code is what says a thing does not exist. Delete an entry when it ships; the
 code and its tests then say the rest.
 
+**A stats strip for the ARTISTS and GENRES listings.** Songs and Albums have one
+([`docs/browse-stats.md`](docs/browse-stats.md)); the other two browse listings still open straight
+onto their table. Same shape — an enum per listing, one predicate per question serving both the tile's
+count and the `?filter=` it links to — and the doc's own rule applies before choosing the questions:
+**measure them against the real library first.** Every tag-hygiene count is 0 on this collection, so a
+tile borrowed from a checklist is a slot spent on nothing; what is live here is listening,
+completeness and audio quality. Neither listing may spend a tile on something its own columns already
+sort by.
+
 **User-specific export presets.** The `.m3u` export's path prefix is one server-wide config
 value (`mixtape.playlists.export.path_prefix`, today the owner's `/Volumes/media/music` mount), so
 every export aimed anywhere else means retyping a path into the modal — and the prefix is the one
@@ -384,6 +393,25 @@ instance, written for someone else's server.
   `->count()` counts pivot rows, `->pluck('name')` is ambiguous. Also why the entry page is a
   cover grid rather than a DataTable, why a chapter row plays the WHOLE BOOK from that point, and
   why the chapter routes are flat.
+
+- [`docs/browse-stats.md`](docs/browse-stats.md) — the stats strip above a listing (Songs and Albums;
+  the other two have none yet). The rule it rests on is that a tile's COUNT and the table its link
+  opens are **one predicate** (`SongFilter` / `AlbumFilter::apply`) — written twice they drift, and the
+  drift reads as a wrong number rather than a wrong filter. A registry per listing (the enum's
+  `cases()` is the display order, its value is both the `?filter=` value and the i18n key), the href
+  decided server-side in three readings (in / out / none at zero), and counts that describe the WHOLE
+  listing so they hold still while a reader works through one.
+
+  **Choose the questions against the real library.** Measured here: songs with no embedded cover **0**,
+  no genre / artist / album / year **0**, mono **0** — the collection is meticulously tagged, so every
+  tag-hygiene tile is a slot spent on nothing, while under-192kbps is **1,169**, one-track albums
+  **101** and albums missing a track **96**. A tile that can only read 0 is worse than no tile.
+
+  Two definitions carry the weight: `incomplete` is per DISC and **strictly greater** (96 albums number
+  above their file count and are short a track; 4 number below, which is repeated numbering — a
+  different fault, and calling it incomplete sends a reader hunting a file that was never missing), and
+  `added-this-week` reads the FILE's mtime because a row's `created_at` is a fact about the database
+  (after a rebuild it answered 925 of 925).
 
 - [`docs/search.md`](docs/search.md) — search (designed **and built** 2026-08-13): one engine, a
   header overlay and a field on the Music page, and no per-widget boxes. The rule everything turns on
