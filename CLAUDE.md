@@ -284,15 +284,6 @@ predicate — the drift between them would be worse than either. And **an audit 
 fix**: every one of these is a tagging decision the reader makes in their tagger, not something the
 app should guess at (the scanner's own year reconciliation refuses to guess for the same reason).
 
-**A stats strip for the ARTISTS and GENRES listings.** Songs and Albums have one
-([`docs/browse-stats.md`](docs/browse-stats.md)); the other two browse listings still open straight
-onto their table. Same shape — an enum per listing, one predicate per question serving both the tile's
-count and the `?filter=` it links to — and the doc's own rule applies before choosing the questions:
-**measure them against the real library first.** Every tag-hygiene count is 0 on this collection, so a
-tile borrowed from a checklist is a slot spent on nothing; what is live here is listening,
-completeness and audio quality. Neither listing may spend a tile on something its own columns already
-sort by.
-
 **User-specific export presets.** The `.m3u` export's path prefix is one server-wide config
 value (`mixtape.playlists.export.path_prefix`, today the owner's `/Volumes/media/music` mount), so
 every export aimed anywhere else means retyping a path into the modal — and the prefix is the one
@@ -399,9 +390,9 @@ instance, written for someone else's server.
   cover grid rather than a DataTable, why a chapter row plays the WHOLE BOOK from that point, and
   why the chapter routes are flat.
 
-- [`docs/browse-stats.md`](docs/browse-stats.md) — the stats strip above a listing (Songs and Albums;
-  the other two have none yet). The rule it rests on is that a tile's COUNT and the table its link
-  opens are **one predicate** (`SongFilter` / `AlbumFilter::apply`) — written twice they drift, and the
+- [`docs/browse-stats.md`](docs/browse-stats.md) — the stats strip above a listing, on all four of
+  them now (songs, albums, artists, genres). The rule it rests on is that a tile's COUNT and the table
+  its link opens are **one predicate** (`SongFilter` / `AlbumFilter::apply`) — written twice they drift, and the
   drift reads as a wrong number rather than a wrong filter. A registry per listing (the enum's
   `cases()` is the display order, its value is both the `?filter=` value and the i18n key), the href
   decided server-side in three readings (in / out / none at zero), and counts that describe the WHOLE
@@ -411,6 +402,15 @@ instance, written for someone else's server.
   no genre / artist / album / year **0**, mono **0** — the collection is meticulously tagged, so every
   tag-hygiene tile is a slot spent on nothing, while under-192kbps is **1,169**, one-track albums
   **101** and albums missing a track **96**. A tile that can only read 0 is worse than no tile.
+
+  Two more definitions worth knowing before touching either of the last two strips: a genre's
+  **`one-artist` is NOT the listing's `artists` column** with a filter on it (that column counts whose
+  MAIN genre it is — 74 of 140 genres are one artist's and no sort finds them), and an artist's
+  **`lookalike-name` counts CANDIDATES rather than faults** — much of what the separator list finds is
+  a real band name, so it is a review queue and says so. It matches `name_fold` with `LIKE`, never
+  `name` with a regex: the raw column's ICU collation makes Postgres refuse both, and sqlite has no
+  regex at all. The artists strip also asks **"new this MONTH"** where the others ask the week,
+  because artists arrive far less often than files (41 over seven days against 53 over thirty).
 
   Two definitions carry the weight: `incomplete` is per DISC and **strictly greater** (96 albums number
   above their file count and are short a track; 4 number below, which is repeated numbering — a

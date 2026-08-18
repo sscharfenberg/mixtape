@@ -346,6 +346,36 @@
                 "single-track": "Alben mit genau einem Titel — meist eine einzelne Datei, die einen eigenen Ordner bekommen hat."
             }
         },
+        "artistFilters": {
+            "header": "Künstler im Überblick",
+            "label": {
+                "never-played": "Nie gespielt",
+                "compilations-only": "Nur auf Compilations",
+                "added-this-month": "Neu diesen Monat",
+                "lookalike-name": "Mehrfach-Credits"
+            },
+            "hint": {
+                "never-played": "Künstler, von denen du noch nichts gespielt hast — gezählt werden nur deine eigenen Wiedergaben.",
+                "compilations-only": "Künstler ohne eigenes Album: du hast sie nur als Gast auf den Alben anderer.",
+                "added-this-month": "Künstler mit einer Datei, die in den letzten 30 Tagen dazugekommen oder geändert wurde. Ein Monat statt einer Woche, weil Künstler seltener dazukommen als Titel.",
+                "lookalike-name": "Namen, die nach mehreren Künstlern aussehen — „A & B“, „A vs. B“, „A, B“. Zum Prüfen, nicht zum Korrigieren: oft ist es der echte Bandname."
+            }
+        },
+        "genreFilters": {
+            "header": "Genres im Überblick",
+            "label": {
+                "never-played": "Nie gespielt",
+                "one-artist": "Nur ein Künstler",
+                "added-this-week": "Neu diese Woche",
+                "one-song": "Nur ein Titel"
+            },
+            "hint": {
+                "never-played": "Genres, aus denen du noch nichts gespielt hast — gezählt werden nur deine eigenen Wiedergaben.",
+                "one-artist": "Genres, deren Titel alle von einem einzigen Künstler stammen — das Genre ist praktisch das Tag einer Band. Nicht dasselbe wie die Spalte „Künstler“, die das Hauptgenre zählt.",
+                "added-this-week": "Genres mit einer Datei, die in den letzten sieben Tagen dazugekommen oder geändert wurde.",
+                "one-song": "Genres mit genau einem Titel — meist ein Tippfehler oder ein einmaliges Tag."
+            }
+        },
         "columns": {
             "title": "Titel",
             "artist": "Künstler",

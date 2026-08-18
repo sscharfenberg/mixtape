@@ -19,6 +19,10 @@
  * the artist's own discography — albums credited to them — so a session player who only
  * guests on other people's compilations shows 0 albums beside their songs. That is the
  * reading the column commits to, not missing data (see ArtistsController).
+ *
+ * ABOVE THE TABLE SITS ArtistsStats — four counts that are each a way INTO it (`?filter=`), two of
+ * which the table cannot express: a credit that reads as several artists, and anything about when a
+ * file arrived.
  *****************************************************************************/
 import { Head, Link } from "@inertiajs/vue3";
 import { computed } from "vue";
@@ -30,7 +34,9 @@ import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import type { ColumnDef, TableResponse } from "Types/dataTable";
+import type { ArtistStats } from "Types/music";
 import { formatClock, formatFileSize, formatTimesPlayed } from "Utils/formatting";
+import ArtistsStats from "./ArtistsStats.vue";
 
 /** One artist row as shaped by ArtistsController's rowMapper — every value raw. */
 interface ArtistRow {
@@ -51,9 +57,11 @@ interface ArtistRow {
     href: string;
 }
 
-defineProps<{
+const props = defineProps<{
     /** The server-driven table payload (rows + pagination + sort + search state). */
     table: TableResponse<ArtistRow>;
+    /** The strip above the table: how many rows the listing has, and one actionable count per filter. */
+    stats: ArtistStats;
 }>();
 
 const { t, locale } = useI18n();
@@ -88,6 +96,8 @@ const columns = computed<ColumnDef<ArtistRow>[]>(() => [
         {{ t("music.widgets.artists") }}
     </headline>
     <container>
+        <artists-stats v-bind="props.stats" />
+
         <data-table :columns="columns" :response="table" base-url="/music/artists" :has-actions="false" selectable>
             <template #toolbar-actions>
                 <selection-actions subject="artist" />
@@ -118,6 +128,15 @@ const columns = computed<ColumnDef<ArtistRow>[]>(() => [
 </template>
 
 <style scoped lang="scss">
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/sizes" as s;
+
+/* The strip and the table below it, spaced by the card gap — a page reads the token of the
+   component that already defines it (CLAUDE.md → Design tokens), as the songs and albums pages do. */
+.container > * + * {
+    margin-block-start: map.get(s.$c-card, "gap");
+}
+
 /* The name link deliberately does NOT look like a link — the whole row is the click
    target and already signals that. Identical to the other listings' rule, and for the
    same reasons (see SongsPage): `inherit` keeps the cell's themed colour, and only focus

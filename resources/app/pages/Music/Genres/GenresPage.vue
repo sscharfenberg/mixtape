@@ -17,6 +17,10 @@
  * song in it (see GenresController / DominantGenre). So the column adds up to the
  * library's artists — and a genre with hundreds of songs can still show 0, meaning it is
  * nobody's main genre rather than that something is missing.
+ *
+ * ABOVE THE TABLE SITS GenresStats — four counts that are each a way INTO it (`?filter=`). Its
+ * "one artist only" tile is deliberately NOT this table's `artists` column with a filter on it; the
+ * two count different things (GenreFilter says how).
  *****************************************************************************/
 import { Head, Link } from "@inertiajs/vue3";
 import { computed } from "vue";
@@ -28,7 +32,9 @@ import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import type { ColumnDef, TableResponse } from "Types/dataTable";
+import type { GenreStats } from "Types/music";
 import { formatClock, formatFileSize, formatTimesPlayed } from "Utils/formatting";
+import GenresStats from "./GenresStats.vue";
 
 /** One genre row as shaped by GenresController's rowMapper — every value raw. */
 interface GenreRow {
@@ -49,9 +55,11 @@ interface GenreRow {
     href: string;
 }
 
-defineProps<{
+const props = defineProps<{
     /** The server-driven table payload (rows + pagination + sort + search state). */
     table: TableResponse<GenreRow>;
+    /** The strip above the table: how many rows the listing has, and one actionable count per filter. */
+    stats: GenreStats;
 }>();
 
 const { t, locale } = useI18n();
@@ -86,6 +94,8 @@ const columns = computed<ColumnDef<GenreRow>[]>(() => [
         {{ t("music.widgets.genres") }}
     </headline>
     <container>
+        <genres-stats v-bind="props.stats" />
+
         <data-table :columns="columns" :response="table" base-url="/music/genres" :has-actions="false" selectable>
             <template #toolbar-actions>
                 <selection-actions subject="genre" />
@@ -113,6 +123,15 @@ const columns = computed<ColumnDef<GenreRow>[]>(() => [
 </template>
 
 <style scoped lang="scss">
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/sizes" as s;
+
+/* The strip and the table below it, spaced by the card gap — a page reads the token of the
+   component that already defines it (CLAUDE.md → Design tokens), as the songs and albums pages do. */
+.container > * + * {
+    margin-block-start: map.get(s.$c-card, "gap");
+}
+
 /* The name link deliberately does NOT look like a link — the whole row is the click
    target and already signals that. Identical to the other listings' rule, and for the
    same reasons (see SongsPage): `inherit` keeps the cell's themed colour, and only focus

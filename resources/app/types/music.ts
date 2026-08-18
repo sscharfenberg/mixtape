@@ -87,6 +87,36 @@ export type AlbumFilterStat = ListingFilterStat<AlbumFilterKey>;
 /** The Albums listing's strip. */
 export type AlbumStats = ListingStats<AlbumFilterKey>;
 
+/**
+ * The Artists listing's stat filters — App\Enums\ArtistFilter's cases.
+ *
+ * `lookalike-name` is the one no column can express: a credit that reads as several artists
+ * ("… & The Bad Seeds", "A vs B"), which makes it a REVIEW queue rather than a fault list — two
+ * thirds of what it finds is somebody's real name, and only the reader can say which.
+ */
+export type ArtistFilterKey = "never-played" | "compilations-only" | "added-this-month" | "lookalike-name";
+
+/** One tile of the Artists strip. */
+export type ArtistFilterStat = ListingFilterStat<ArtistFilterKey>;
+
+/** The Artists listing's strip. */
+export type ArtistStats = ListingStats<ArtistFilterKey>;
+
+/**
+ * The Genres listing's stat filters — App\Enums\GenreFilter's cases.
+ *
+ * `one-artist` is NOT the listing's `artists` column with a filter on it: that column counts
+ * artists whose MAIN genre this is, where the tile counts the distinct performers of its songs
+ * (GenreFilter carries why the two disagree).
+ */
+export type GenreFilterKey = "never-played" | "one-artist" | "added-this-week" | "one-song";
+
+/** One tile of the Genres strip. */
+export type GenreFilterStat = ListingFilterStat<GenreFilterKey>;
+
+/** The Genres listing's strip. */
+export type GenreStats = ListingStats<GenreFilterKey>;
+
 /** What every widget entry carries: something to name it and somewhere to go. */
 interface WidgetEntry {
     id: string;

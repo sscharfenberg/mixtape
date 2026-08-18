@@ -477,6 +477,76 @@ test.describe("the albums listing's stats strip", () => {
     });
 });
 
+test.describe("the artists and genres strips", () => {
+    /*
+     * The last two listings to get a strip. The mechanism is already walked end to end by the songs
+     * and albums specs above, so what is worth a browser here is that each is WIRED to it — and each
+     * spec picks the one tile the fixture makes both non-zero and immovable.
+     *
+     * For artists that is the lookalike credit: the seeded library holds exactly one name that reads
+     * as several artists ("Jóhann Jóhannsson, Hildur Guðnadóttir & The Cinema Orchestra"), and
+     * nothing in the suite renames an artist. For genres it is "one artist only": every seeded genre
+     * belongs to a single band, and nothing re-tags one. Neither number can be moved by a spec that
+     * presses play, which "never played" can.
+     */
+
+    /** One tile of the strip, addressed by the label a reader sees. */
+    const tile = (page: Page, label: string) => page.locator(".widget-stats__cell", { hasText: label });
+
+    /** The number a tile is showing. */
+    const counted = async (page: Page, label: string): Promise<number> =>
+        Number((await tile(page, label).locator(".widget-stats__value").innerText()).replace(/\D/gu, ""));
+
+    test("the artists strip opens the credits that read as several artists", async ({ page }) => {
+        await page.goto("/music/artists");
+        await expect(page.locator(".widget-stats__cell").first()).toBeVisible();
+
+        const expected = await counted(page, "Mehrfach-Credits");
+
+        expect(expected).toBe(1);
+
+        await tile(page, "Mehrfach-Credits").getByRole("link").click();
+        await page.waitForURL(/\?filter=lookalike-name$/u);
+
+        await expect(page.locator("tbody tr")).toHaveCount(expected);
+        await expect(page.locator("tbody tr").first()).toContainText("Jóhann");
+        await expect(page.locator(".widget-stats__cell--active")).toContainText("Mehrfach-Credits");
+    });
+
+    test("the genres strip opens the genres carried by one artist", async ({ page }) => {
+        await page.goto("/music/genres");
+        await expect(page.locator(".widget-stats__cell").first()).toBeVisible();
+
+        const expected = await counted(page, "Nur ein Künstler");
+        const unfiltered = await page.locator("tbody tr").count();
+
+        expect(expected).toBeGreaterThan(0);
+
+        await tile(page, "Nur ein Künstler").getByRole("link").click();
+        await page.waitForURL(/\?filter=one-artist$/u);
+
+        await expect(page.locator("tbody tr")).toHaveCount(expected);
+        expect(expected).toBeLessThanOrEqual(unfiltered);
+    });
+
+    test("both strips keep their filter while the table is sorted", async ({ page }) => {
+        // The DataTable rebuilds the query string in the browser, merging its own params into
+        // whatever is already there — a filter it dropped would look like a sort that silently
+        // widened the table.
+        await page.goto("/music/genres?filter=one-artist");
+        await expect(page.locator("tbody tr").first()).toBeVisible();
+
+        const rows = await page.locator("tbody tr").count();
+
+        // "Songs" is this table's own label for the count column (the songs listing's is "Titel").
+        await page.getByRole("button", { name: /^Songs/u }).click();
+        await page.waitForURL(/sort=songs/u);
+
+        await expect(page).toHaveURL(/filter=one-artist/u);
+        await expect(page.locator("tbody tr")).toHaveCount(rows);
+    });
+});
+
 test.describe("the stats card's row", () => {
     /*
      * The Music page's stats card takes a WHOLE row of the widget grid and the four browse cards

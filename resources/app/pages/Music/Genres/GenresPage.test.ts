@@ -35,9 +35,18 @@ const table = (overrides: Record<string, unknown> = {}) => ({
     ...overrides
 });
 
+/**
+ * The strip's payload, defaulted to a listing with nothing to report.
+ *
+ * Zeroed on purpose: the strip has its own tests, so what a page test wants from it is the quietest
+ * version — present, so the page mounts as the controller renders it, and silent, so nothing it
+ * draws can be mistaken for something the page decided.
+ */
+const stats = () => ({ total: 1, filters: [] });
+
 /** Mount the listing over a table payload. */
 const page = (overrides: Record<string, unknown> = {}, locale: "de" | "en" = "de") =>
-    mountApp(GenresPage, { props: { table: table(overrides) }, locale });
+    mountApp(GenresPage, { props: { table: table(overrides), stats: stats() }, locale });
 
 describe("GenresPage", () => {
     beforeEach(() => {

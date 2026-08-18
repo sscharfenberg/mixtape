@@ -1,8 +1,9 @@
 # Browse stats — the strip above a listing
 
 A listing opens on a table of rows, which says nothing about what is in the library or what might be
-wrong with it. Above the Songs and Albums tables sits a strip of counts, and every count but the
-total is **a way into the table**: press it and the listing narrows to exactly the rows it counted.
+wrong with it. Above each of the four browse tables — songs, albums, artists, genres — sits a strip
+of counts, and every count but the total is **a way into the table**: press it and the listing
+narrows to exactly the rows it counted.
 
 Read alongside:
 
@@ -49,8 +50,7 @@ the rows under those ticks are no longer the same rows.
 
 **A bad value falls back rather than refusing** — the same reading `DataTableService` takes for
 `sort`, `dir` and `search`, and for the same reason: the query string is the table's state and readers
-pass whole URLs around, so a stale or hand-edited link should render the unfiltered listing, never a
-422. This is why the filter is not a FormRequest, against the house rule. `?filter[]=x` arrives as an
+pass whole URLs around, so a stale or hand-edited link should render the unfiltered listing, never a 422. This is why the filter is not a FormRequest, against the house rule. `?filter[]=x` arrives as an
 **array**, which `tryFrom` typed against a string answers with a 500 — hence `fromInput()`'s
 `is_string` guard, the same trap `DataTableService` documents for `?search[]=`.
 
@@ -108,13 +108,24 @@ Measured on the live collection (925 albums, ~9.8k songs), which is meticulously
 | songs with no genre / artist / album | 0     | dead                             |
 | albums with no year                  | 0     | dead                             |
 | mono files                           | 0     | dead                             |
+| artists with no album of their own   | 291   | useful                           |
+| credits that read as several names   | 110   | useful — a review queue          |
+| genres carried by a single artist    | 74    | useful — and invisible elsewhere |
+| genres with one song                 | 14    | small but real                   |
+| genres that are nobody's main one    | 1     | dead                             |
+| ID3v1-style numeric genre names      | 0     | dead                             |
 
-The lesson for the two listings that do not have a strip yet: **a tile that can only ever read 0 is
-worse than no tile**, and which questions those are is a fact about this collection rather than about
-music libraries in general. Measure before choosing. Tag-hygiene questions are dead here; listening,
-completeness and audio quality are the live axes.
+**A tile that can only ever read 0 is worse than no tile**, and which questions those are is a fact
+about this collection rather than about music libraries in general. Measure before choosing.
+Tag-hygiene questions are largely dead here; listening, completeness, audio quality and the shape of
+the credits are the live axes.
 
-## Two filters whose definition is the interesting part
+**Two windows, not one.** Songs, albums and genres ask "new this week"; artists ask "new this
+MONTH", because an artist is a coarser thing than a file — a week brings new songs constantly and
+new artists rarely, so the window that reads 43 songs reads a handful of artists and looks broken (41
+over seven days against 53 over thirty). Each label says which, so nothing is ambiguous on screen.
+
+## Four filters whose definition is the interesting part
 
 **`incomplete` is asked per DISC, and strictly greater.** Numbering restarts on disc 2, so a complete
 two-disc album has a highest number of 10 against twenty files — asked album-wide, every box set in
@@ -127,6 +138,27 @@ album with two track 4s. Measured, 96 albums number above their file count again
 reporting those four as "incomplete" sends a reader hunting a file that was never missing. An album
 carrying no track numbers at all is a third fault and falls out of the comparison on its own.
 
+**`one-artist` (genres) is not the listing's `artists` column with a filter on it.** That column
+counts artists whose MAIN genre this is (`DominantGenre`) — a question about where an artist mostly
+sits. The tile counts the distinct performers of the genre's own songs — a question about the genre.
+The two disagree by design: a genre can hold two hundred songs by one band and be nobody's main
+genre, or be several artists' main genre while its own songs come from one of them. Conflating them
+leaves a tile that still looks plausible and answers something else, which is why its test asserts
+the tile against that column rather than only against itself.
+
+**`lookalike-name` (artists) counts CANDIDATES, not faults.** It matches a curated list of
+separators — ` feat`, ` ft.`, ` vs`, `with`, `, `, `&`, `/` — and much of what it finds is
+somebody's real name (_Nick Cave & The Bad Seeds_). That is the point: only the reader can say which
+is a mis-tag, so the wording is "names that look like several artists", never "wrong". Matched with
+`LIKE` against `name_fold` rather than a regex against `name`, for two reasons that both bite — the
+raw column's nondeterministic ICU collation makes Postgres refuse `LIKE` and regex against it alike,
+and sqlite, which the test suite runs, has no regex operator at all.
+
+**`never-played` needs something playable.** The artists and genres listings deliberately show rows
+holding no music — a compilation owner named on a sleeve with none of their own recordings on it, a
+genre whose songs were all pruned — and a row a reader cannot play is not one they have never
+played. Its tile would otherwise link to rows nobody can act on.
+
 **`added-this-week` reads the FILE's mtime, not the row's `created_at`.** A row's timestamp is a fact
 about the database: the scanner stamps it on insert, so rebuilding the library tables re-stamps
 everything and the tile answers "all 925 arrived this week" — measured, exactly that, four days after
@@ -136,14 +168,14 @@ what the rest of the app calls "latest".
 
 ## Where it lives
 
-| Piece                                                        | Role                                                                     |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| `app/Enums/SongFilter.php`, `AlbumFilter.php`                | The questions, and the predicate each one is                             |
-| `Music/SongsController`, `AlbumsController`                  | The strip's payload: the total, each count, each href, the active flag   |
-| `Services/DataTableService::buildResponse`                   | Echoes the active filter back through `filters` (it never applies one)   |
-| `pages/Music/Songs/SongsStats.vue`, `Albums/AlbumsStats.vue` | Glyphs, wording, and the tiles handed to `StatTiles`                     |
-| `components/UI/Widget/StatTiles.vue`                         | The tile grid, the optional action link, the active mark                 |
-| `types/music.ts` → `ListingStats<Key>`                       | The payload shape both strips share                                      |
+| Piece                                           | Role                                                                   |
+| ----------------------------------------------- | ---------------------------------------------------------------------- |
+| `app/Enums/{Song,Album,Artist,Genre}Filter.php` | The questions, and the predicate each one is                           |
+| the four `Music/…Controller`s                   | The strip's payload: the total, each count, each href, the active flag |
+| `Services/DataTableService::buildResponse`      | Echoes the active filter back through `filters` (it never applies one) |
+| `pages/Music/…/…Stats.vue`, one per listing     | Glyphs, wording, and the tiles handed to `StatTiles`                   |
+| `components/UI/Widget/StatTiles.vue`            | The tile grid, the optional action link, the active mark               |
+| `types/music.ts` → `ListingStats<Key>`          | The payload shape all four strips share                                |
 
 A tile's link reserves a line in **every** tile of a strip that has one: a tile is a centred column,
 so one with a link under its value pushes that value up, and a row of big numbers that do not share a

@@ -346,6 +346,36 @@
                 "single-track": "Albums holding exactly one track — usually a loose file that got a folder of its own."
             }
         },
+        "artistFilters": {
+            "header": "Artists at a glance",
+            "label": {
+                "never-played": "Never played",
+                "compilations-only": "Compilations only",
+                "added-this-month": "New this month",
+                "lookalike-name": "Multiple credits"
+            },
+            "hint": {
+                "never-played": "Artists you have never played anything by — the count is your own listening and nobody else's.",
+                "compilations-only": "Artists with no album of their own: you have them only as a guest on somebody else's.",
+                "added-this-month": "Artists holding a file that arrived or changed within the last 30 days. A month rather than a week, because artists arrive far less often than songs do.",
+                "lookalike-name": "Names that look like several artists — “A & B”, “A vs. B”, “A, B”. To review rather than to correct: often it is the real band name."
+            }
+        },
+        "genreFilters": {
+            "header": "Genres at a glance",
+            "label": {
+                "never-played": "Never played",
+                "one-artist": "One artist only",
+                "added-this-week": "New this week",
+                "one-song": "One song only"
+            },
+            "hint": {
+                "never-played": "Genres you have never played anything from — the count is your own listening and nobody else's.",
+                "one-artist": "Genres whose songs are all by a single performer — the genre is really one band's tag. Not the same as the “Artists” column, which counts whose main genre it is.",
+                "added-this-week": "Genres holding a file that arrived or changed within the last seven days.",
+                "one-song": "Genres holding exactly one song — usually a typo or a one-off tag."
+            }
+        },
         "columns": {
             "title": "Title",
             "artist": "Artist",

@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Music;
 
+use App\Enums\GenreFilter;
 use App\Enums\TrackType;
 use App\Http\Controllers\Controller;
 use App\Models\Genre;
 use App\Models\Track;
+use App\Models\User;
 use App\Services\DataTableService;
 use App\Services\Music\DominantGenre;
 use App\Services\Player\PlayCounts;
@@ -42,6 +44,15 @@ use Inertia\Response;
  * YOU have played — the yours/others split belongs on the detail page, where a tile can
  * label it. Same rule and same shape as the artists listing's.
  *
+ * ABOVE THE TABLE SITS A STATS STRIP — four counts, each a link to the table narrowed to exactly
+ * what it counted (`?filter=`, one value per GenreFilter case).
+ * The one worth the strip is "only one artist", which is NOT this table's `artists` column
+ * asked with a filter: that column counts artists whose MAIN genre this is, where the tile
+ * counts the distinct performers of its songs (GenreFilter says why they differ).
+ *
+ * The counts describe every row the listing can show, never the filtered view, so they hold still
+ * while a reader works through one of them (SongsController carries that argument in full).
+ *
  * Every row also carries an `href` to the genre's own page (GenreController), which is
  * what makes the table's rows clickable — the frontend only follows what the server puts
  * there.
@@ -59,6 +70,9 @@ class GenresController extends Controller
      */
     public function __invoke(Request $request): Response
     {
+        $reader = $request->user();
+        $filter = GenreFilter::fromInput($request->input('filter'));
+
         // One reusable correlated base: "the music tracks tagged with the genre in the
         // current row". Scoped to music like every query in this namespace: `tracks` holds audiobook chapters as well as
         // music, and a chapter cannot carry an artist or a genre at all — the type CHECK
@@ -88,6 +102,10 @@ class GenresController extends Controller
                 'duration_total' => $tracksOfGenre()->selectRaw('coalesce(sum(duration), 0)'),
                 'size_total' => $tracksOfGenre()->selectRaw('coalesce(sum(size), 0)'),
             ]);
+
+        // Before DataTableService sees it, so the filter is part of what gets counted, searched
+        // and paged rather than something applied to one page of rows.
+        $filter?->apply($query, $reader);
 
         $table = DataTableService::buildResponse(
             query: $query,
@@ -139,10 +157,50 @@ class GenresController extends Controller
             // the tail of the list, where a dozen genres sit at one song each, could
             // reshuffle between two requests and drop a row off the page a reader is on.
             tiebreakers: ['name'],
+            // Echoed rather than applied here — the frontend drops a row selection when it changes,
+            // since the rows under those ticks are no longer the same rows.
+            filters: $filter ? ['filter' => $filter->value] : null,
         );
 
         return Inertia::render('Music/Genres/GenresPage', [
             'table' => $table,
+            'stats' => $this->stats($reader, $filter),
         ]);
+    }
+
+    /**
+     * The strip's numbers: how many rows the listing has, then one tile per GenreFilter.
+     *
+     * EAGER rather than deferred, and each tile's `href` decided here, for the reasons
+     * SongsController spells out — every table interaction is a full visit, and a link is the
+     * controller's to own. The active filter's tile offers the way back out; a count of zero offers
+     * nothing at all.
+     *
+     * @return array{total: int, filters: list<array{key: string, count: int, href: string|null, active: bool}>}
+     */
+    private function stats(?User $reader, ?GenreFilter $active): array
+    {
+        $tiles = [];
+
+        foreach (GenreFilter::cases() as $filter) {
+            $count = $filter->count($reader);
+            $isActive = $active === $filter;
+
+            $tiles[] = [
+                'key' => $filter->value,
+                'count' => $count,
+                'href' => match (true) {
+                    $isActive => route('music.genres', absolute: false),
+                    $count > 0 => route('music.genres', ['filter' => $filter->value], absolute: false),
+                    default => null,
+                },
+                'active' => $isActive,
+            ];
+        }
+
+        return [
+            'total' => Genre::query()->count(),
+            'filters' => $tiles,
+        ];
     }
 }
