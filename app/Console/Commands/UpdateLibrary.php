@@ -34,7 +34,8 @@ class UpdateLibrary extends Command
 
     protected $signature = 'app:update
                             {--area=* : Limit to one or more areas (music, audiobooks). Default: all}
-                            {--skip-cleanup : Skip the junk-file cleanup step}';
+                            {--skip-cleanup : Skip the junk-file cleanup step}
+                            {--recheck-years : Re-read every file to reconcile each album/book year, not just the changed ones}';
 
     protected $description = 'Scan the media library into the database (cleanup, then a content-hash diff)';
 
@@ -80,11 +81,28 @@ class UpdateLibrary extends Command
                 }
             }
 
-            $summary = $scanner->scan($areas, fn (string $line) => $this->narrate('  '.$line));
+            /*
+             * `--recheck-years` asks the scan to reconcile EVERY container's year rather than only
+             * the ones it touched, which is the one discrepancy an ordinary scan cannot see: a row
+             * whose files were corrected before this reconciliation existed disagrees with all of
+             * them, and since none of them has changed since, none of them is read.
+             *
+             * Off by default because it is the difference between stat-ing the library and parsing
+             * it — a routine scan of 12,000 files takes under a second, and reading every tag takes
+             * as long as a first import. Run it after correcting tags in bulk, or once, to settle
+             * whatever the years were before.
+             */
+            $recheckYears = (bool) $this->option('recheck-years');
+
+            if ($recheckYears) {
+                $this->narrate('Re-reading every file to reconcile album/book years (slow).');
+            }
+
+            $summary = $scanner->scan($areas, fn (string $line) => $this->narrate('  '.$line), $recheckYears);
 
             $this->narrate(sprintf(
                 'Library scan finished in %s — %d new, %d changed, %d moved, %d removed, %d skipped, '
-                    .'%d cover(s) recorded, %d cached cover(s) invalidated.',
+                    .'%d cover(s) recorded, %d cached cover(s) invalidated, %d year(s) corrected.',
                 $this->elapsed($startedAt),
                 $summary->inserted(),
                 $summary->updated(),
@@ -100,6 +118,10 @@ class UpdateLibrary extends Command
                 // deleted. Non-zero here is the visible half of a re-tag: it says the
                 // next request will re-extract rather than serve the old artwork.
                 $summary->coversForgotten(),
+                // Albums and books whose stored year no longer matched what every one of
+                // their files says. Reported because a corrected year is otherwise
+                // invisible — it changes a number on a page nobody was looking at.
+                $summary->years(),
             ));
 
             // Skipped (unreadable) files are non-fatal, but never silent: e-mail a

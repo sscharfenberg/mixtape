@@ -47,6 +47,12 @@ final class ScanSummary
         return $this->sum('covers');
     }
 
+    /** Total containers whose year was corrected from their files' tags, across every area. */
+    public function years(): int
+    {
+        return $this->sum('years');
+    }
+
     /** Total cached cover JPEGs dropped because their source was re-tagged or deleted. */
     public function coversForgotten(): int
     {

@@ -67,13 +67,17 @@ final class LibraryScanService
     /**
      * @param  TrackType[]  $areas  areas to scan
      * @param  (Closure(string):void)|null  $progress  headline milestones for the command to narrate
+     * @param  bool  $recheckYears  re-read EVERY container's files to reconcile its year, instead
+     *                              of only the containers this run touched — see
+     *                              {@see syncCollectionYears} for the discrepancy an ordinary
+     *                              scan cannot see
      */
-    public function scan(array $areas, ?Closure $progress = null): ScanSummary
+    public function scan(array $areas, ?Closure $progress = null, bool $recheckYears = false): ScanSummary
     {
         $results = [];
 
         foreach ($areas as $type) {
-            $results[$type->value] = $this->scanArea($type, $progress);
+            $results[$type->value] = $this->scanArea($type, $progress, $recheckYears);
         }
 
         return new ScanSummary($results);
@@ -87,7 +91,7 @@ final class LibraryScanService
      * cleanup inside a single transaction so a mid-scan crash can't leave the area
      * half-migrated. Returns the per-area tally.
      */
-    private function scanArea(TrackType $type, ?Closure $progress): ScanResult
+    private function scanArea(TrackType $type, ?Closure $progress, bool $recheckYears = false): ScanResult
     {
         $result = new ScanResult($type);
 
@@ -130,9 +134,20 @@ final class LibraryScanService
             return $result;
         }
 
-        DB::transaction(function () use ($type, $files, $result, $root) {
+        DB::transaction(function () use ($type, $files, $result, $root, $recheckYears) {
             /** @var Collection<string, Track> $existing keyed by area-relative path */
             $existing = Track::query()->where('type', $type)->get()->keyBy('path');
+
+            /*
+             * The year each file we actually READ this run claims, per container:
+             * [collection id => [area-relative path => year|null]].
+             *
+             * Gathered here rather than queried afterwards because a track row does not store
+             * its own year — a year is a fact about a release, so it lives on the collection
+             * (data-model.md) — which means the only place a FILE's year exists is the metadata
+             * the reader just returned. syncCollectionYears reconciles it after the diff.
+             */
+            $yearsSeen = [];
 
             $claimed = []; // [track id => true] — rows matched to a file this scan
             $newFiles = []; // files whose path isn't in the DB → pass 2
@@ -167,7 +182,9 @@ final class LibraryScanService
                     continue;
                 }
 
-                $row->fill($this->buildAttributes($type, $meta, $relPath, $size, $mtime))->save();
+                $attributes = $this->buildAttributes($type, $meta, $relPath, $size, $mtime);
+                $this->noteYear($yearsSeen, $attributes, $relPath, $meta);
+                $row->fill($attributes)->save();
                 $result->updated++;
 
                 // The file's bytes changed while its id did not — identity is the hash of
@@ -197,12 +214,15 @@ final class LibraryScanService
 
                 $match = $this->pickRenameCandidate($candidates, $relPath);
 
+                $attributes = $this->buildAttributes($type, $meta, $relPath, $size, $mtime);
+                $this->noteYear($yearsSeen, $attributes, $relPath, $meta);
+
                 if ($match !== null) {
-                    $match->fill($this->buildAttributes($type, $meta, $relPath, $size, $mtime))->save();
+                    $match->fill($attributes)->save();
                     $claimed[$match->getKey()] = true;
                     $result->renamed++;
                 } else {
-                    Track::create($this->buildAttributes($type, $meta, $relPath, $size, $mtime));
+                    Track::create($attributes);
                     $result->inserted++;
                 }
             }
@@ -223,12 +243,16 @@ final class LibraryScanService
             // --- Record each container's cover image --------------------------
             // After the prune, so the collections still standing are the real ones.
             $result->covers = $this->syncCollectionCovers($type);
+
+            // --- Reconcile each container's year against its files' tags -------
+            // Also after the prune, and for the same reason.
+            $result->years = $this->syncCollectionYears($type, $root, $yearsSeen, $recheckYears);
         });
 
         $this->announce($progress, sprintf(
-            '%s: %d new, %d changed, %d moved, %d removed, %d skipped, %d cover(s) recorded',
+            '%s: %d new, %d changed, %d moved, %d removed, %d skipped, %d cover(s) recorded, %d year(s) corrected',
             $type->value, $result->inserted, $result->updated, $result->renamed, $result->deleted, $result->errors,
-            $result->covers
+            $result->covers, $result->years
         ));
 
         return $result;
@@ -419,9 +443,149 @@ final class LibraryScanService
     }
 
     /**
+     * Remember what year one file claimed, against the container it was filed under.
+     *
+     * @param  array<string, array<string, int|null>>  $seen  [collection id => [path => year]]
+     * @param  array<string, mixed>  $attributes  the track attributes just built (for its collection)
+     */
+    private function noteYear(array &$seen, array $attributes, string $relativePath, TrackMetadata $meta): void
+    {
+        $collectionId = $attributes['collection_id'] ?? null;
+
+        if ($collectionId === null) {
+            return;
+        }
+
+        $seen[$collectionId][$relativePath] = $meta->year;
+    }
+
+    /**
+     * Bring each touched container's `year` back in line with what its files' tags say.
+     *
+     * WHY THIS EXISTS. A collection's year is written when the row is created and was never
+     * revisited, so correcting a mis-tagged album's year did nothing that a reader could see:
+     * the files said 1992, the page said 1982, and the only cure was deleting the row and
+     * rescanning. Every other tag already follows an edit — a re-tagged file's row is rebuilt
+     * from `buildAttributes` — which made the year the one fact in the library that could not be
+     * corrected by correcting the source.
+     *
+     * IT TAKES UNANIMITY, NEVER A LAST WRITE. The rule the old comment defended is still the
+     * right one: one mis-tagged file must not be able to re-date a record. So a year moves only
+     * when EVERY file of the container agrees on the same one, which also makes the outcome
+     * independent of the order the walk happened to read them in. Where the files disagree, the
+     * stored year stays and the disagreement is the reader's to fix — guessing a winner would be
+     * inventing a fact about a release out of a tagging mistake.
+     *
+     * UNANIMITY IS OVER THE WHOLE CONTAINER, not over the files this run read, and that is what
+     * the extra reads below are for. An incremental scan sees only what changed, so correcting
+     * one file of a fifteen-track album shows this method a single year — enough to contradict
+     * the stored one, never enough to decide. When the files it saw DO contradict the stored
+     * year, it reads the rest of the container's files before committing; when they agree with
+     * it, there is nothing to decide and nothing is read. So the common rescan costs no I/O at
+     * all, and the correcting one costs the album it corrects.
+     *
+     * WHICH LEAVES ONE CASE AN ORDINARY SCAN CANNOT SEE, and `$recheckAll` is for it: a
+     * discrepancy that ALREADY exists. A row created years ago from tags that have since been
+     * corrected disagrees with every one of its files, and no file has changed since — so nothing
+     * is read, nothing contradicts anything, and the wrong year survives every rescan. Measured
+     * on the dev library: *Check Your Head* stored 1982 while all fifteen files said 1992.
+     * `--recheck-years` drops the early bail-out and reads every container's files, at the price
+     * of reading the whole library's tags once. It is a flag rather than the default because that
+     * is the difference between a scan that stats 12,000 files and one that parses them.
+     *
+     * A NULL YEAR IS A VALUE, both ways round: tags that no longer carry a year clear it, because
+     * the tags are the source of truth and a stale year nobody can remove is the bug this fixes
+     * pointing the other way.
+     *
+     * @param  string  $root  the area root, for turning a stored relative path back into a file
+     * @param  array<string, array<string, int|null>>  $seen  [collection id => [path => year]]
+     * @param  bool  $recheckAll  ask every container of this area, not just the touched ones
+     * @return int containers whose year changed
+     */
+    private function syncCollectionYears(TrackType $type, string $root, array $seen, bool $recheckAll = false): int
+    {
+        $corrected = 0;
+
+        // One query for every container in play rather than a find() per id: a first scan touches
+        // all of them, and 900-odd point lookups to establish that nothing needs correcting is a
+        // cost the steady-state case should not pay either.
+        $collections = $recheckAll
+            ? MediaCollection::query()->where('type', $type->collectionType())->get()
+            : MediaCollection::query()->findMany(array_keys($seen));
+
+        foreach ($collections as $collection) {
+            $years = $seen[$collection->getKey()] ?? [];
+
+            if (! $recheckAll) {
+                $candidate = $this->unanimousYear($years);
+
+                // The files we read disagree among themselves, or they already say what the row
+                // says. Either way there is nothing to decide and no reason to read anything.
+                if ($candidate === false || $candidate === $collection->year) {
+                    continue;
+                }
+            }
+
+            $unseen = Track::query()
+                ->where('collection_id', $collection->getKey())
+                ->whereNotIn('path', array_keys($years))
+                ->pluck('path');
+
+            foreach ($unseen as $path) {
+                try {
+                    $years[$path] = $this->reader->read(rtrim($root, '/').'/'.$path)->year;
+                } catch (\Throwable $e) {
+                    // A file we cannot read is a file that cannot vote, and one silent voice is
+                    // enough to make unanimity a guess — so the container is left alone. Logged
+                    // rather than counted as a scan error: nothing about the TRACK failed here.
+                    Log::channel('library')->warning("scan: year check skipped {$path} — {$e->getMessage()}");
+                    $years = [];
+
+                    break;
+                }
+            }
+
+            $agreed = $this->unanimousYear($years);
+
+            if ($agreed === false || $agreed === $collection->year) {
+                continue;
+            }
+
+            $collection->update(['year' => $agreed]);
+            $corrected++;
+        }
+
+        return $corrected;
+    }
+
+    /**
+     * The one year a set of files agrees on, or `false` where they do not.
+     *
+     * `false` for "no agreement" rather than null, because NULL is itself an answer — a
+     * container whose files carry no year at all agrees on having none.
+     *
+     * @param  array<string, int|null>  $years
+     */
+    private function unanimousYear(array $years): int|null|false
+    {
+        if ($years === []) {
+            return false;
+        }
+
+        $distinct = array_unique($years, SORT_REGULAR);
+
+        return count($distinct) === 1 ? reset($distinct) : false;
+    }
+
+    /**
      * firstOrCreate a collection, keyed on (type, name, owner) — the same tuple
-     * the DB dedup index enforces. `year` is written only on creation; a later track
-     * never overwrites it, so a mis-tagged file cannot re-date a record.
+     * the DB dedup index enforces.
+     *
+     * `year` is written only HERE, on creation, because a single file is the wrong voice to date
+     * a release with: the file being read is whichever one the walk reached first, so letting it
+     * write would make an album's year depend on directory order and let one typo re-date a
+     * record. Keeping the year current is {@see syncCollectionYears}'s job instead, after the
+     * diff, where the whole container can be asked at once.
      *
      * @param  array{album_artist_id?: ?string}  $owner  empty for an audiobook, which has no
      *                                                   owner column — its author is per chapter

@@ -116,7 +116,7 @@ Example output:
 Scans the media library on disk into the database.
 
 ```
-php artisan app:update {--area=*} {--skip-cleanup}
+php artisan app:update {--area=*} {--skip-cleanup} {--recheck-years}
 ```
 
 ### Why it exists
@@ -138,6 +138,14 @@ whenever files are added, removed, re-tagged, or moved.
    new path is hash-matched against vanished rows to catch renames; the rest are
    inserts; gone files are relink-then-cascade deleted; orphan
    taxonomy/collections are pruned.
+3. **Reconcile each container** — an album's or book's cover image, and its **year**. Both are
+   facts about a CONTAINER derived from its files, so neither can be written by a single track:
+   the year moves only when **every file of the container agrees** on one, which is what stops a
+   single mis-tagged file re-dating a record and makes the outcome independent of the order the
+   walk read them in (`LibraryScanService::syncCollectionYears`). A container whose files
+   disagree is left alone — guessing a winner would invent a fact about a release out of a
+   tagging mistake. Unanimity is measured over the WHOLE container, so correcting one file of a
+   fifteen-track album makes the scan read the other fourteen before it decides.
 
 **Identity is the audio-frame hash**, so a rename *or* a re-tag keeps the track's
 id — playlists, most-played, and share links stay anchored. Two files with
@@ -152,8 +160,16 @@ the spelling, so the scan adopts it (`LibraryScanService::adoptSpelling`).
 
 > **A scan only re-reads files whose `(size, mtime)` moved**, so this fixes future re-tags and
 > does not retroactively repair a name that a previous scan already recorded. If a row is
-> stuck on an old spelling, `touch` the files (or re-save the tags) and scan again — there is
-> deliberately no "re-read everything" flag.
+> stuck on an old spelling, `touch` the files (or re-save the tags) and scan again.
+>
+> **`--recheck-years` is the one exception, and it is deliberately narrow**: it re-reads every
+> file to reconcile each container's YEAR, and nothing else. It exists for the discrepancy an
+> ordinary scan structurally cannot see — a row whose files were corrected before that
+> reconciliation existed disagrees with all of them, and since none of them has changed since,
+> none of them is read. It is a flag rather than the default because it is the difference between
+> stat-ing the library and parsing it: a routine scan of 12,000 files runs in under a second,
+> reading every tag takes as long as a first import. A stale artist or album SPELLING still needs
+> the `touch`.
 
 ### Arguments & options
 
@@ -161,6 +177,7 @@ the spelling, so the scan adopts it (`LibraryScanService::adoptSpelling`).
 | --- | --- | --- | --- |
 | `--area` | option (repeatable) | all | Limit to `music` and/or `audiobooks`. |
 | `--skip-cleanup` | flag | off | Skip the junk-file cleanup step. |
+| `--recheck-years` | flag | off | Re-read every file to reconcile each album/book year (slow — see the note above). |
 
 ### Config (`config/mixtape.php`)
 

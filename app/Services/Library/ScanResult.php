@@ -45,6 +45,16 @@ final class ScanResult
      */
     public int $coversForgotten = 0;
 
+    /**
+     * Containers whose `year` was corrected from their files' tags this scan — see
+     * LibraryScanService::syncCollectionYears for the unanimity rule that governs it.
+     *
+     * Counted like `covers`, and reported separately from `updated` for the same two reasons: it
+     * counts collections rather than tracks, and a steady-state rescan is expected to report 0,
+     * which is the cheap signal that the step does nothing when nothing moved.
+     */
+    public int $years = 0;
+
     public int $errors = 0;
 
     /**

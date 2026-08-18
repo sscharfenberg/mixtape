@@ -5,6 +5,7 @@ namespace Tests\Feature\Library;
 use App\Mail\LibraryAreasEmpty;
 use App\Mail\LibraryScanFailed;
 use App\Mail\LibraryScanSkipped;
+use App\Models\Collection;
 use App\Models\Track;
 use App\Services\Library\Contracts\TagReader;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -43,6 +44,34 @@ class UpdateLibraryCommandTest extends TestCase
 
         $this->assertSame(2, Track::count());
         Mail::assertNothingSent();
+    }
+
+    public function test_recheck_years_reaches_the_scan_and_says_it_is_doing_so(): void
+    {
+        // The flag's BEHAVIOUR belongs to LibraryScanServiceTest; what this pins is that the
+        // option reaches the service at all, and that a run which parses every tag in the library
+        // announces itself rather than looking like a slow ordinary scan.
+        Mail::fake();
+        $this->media('a/01.mp3', ['hash' => 'h1', 'title' => 'One', 'artist' => 'A', 'album' => 'Alb', 'year' => 1992]);
+        $this->media('a/02.mp3', ['hash' => 'h2', 'title' => 'Two', 'artist' => 'A', 'album' => 'Alb', 'year' => 1992]);
+
+        $this->artisan('app:update', ['--area' => ['music'], '--skip-cleanup' => true])->assertExitCode(0);
+
+        // A row left disagreeing with every one of its files — the state an ordinary rescan cannot
+        // see, because nothing has changed for it to read.
+        Collection::query()->where('name', 'Alb')->update(['year' => 1982]);
+
+        $this->artisan('app:update', ['--area' => ['music'], '--skip-cleanup' => true])
+            ->doesntExpectOutputToContain('Re-reading every file')
+            ->assertExitCode(0);
+
+        $this->assertSame(1982, Collection::query()->where('name', 'Alb')->value('year'));
+
+        $this->artisan('app:update', ['--area' => ['music'], '--skip-cleanup' => true, '--recheck-years' => true])
+            ->expectsOutputToContain('Re-reading every file')
+            ->assertExitCode(0);
+
+        $this->assertSame(1992, Collection::query()->where('name', 'Alb')->value('year'));
     }
 
     public function test_a_missing_area_path_aborts_and_emails_the_alert(): void

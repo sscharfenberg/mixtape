@@ -55,6 +55,162 @@ class LibraryScanServiceTest extends TestCase
         $this->scanner->scan([TrackType::Music]);
     }
 
+    /**
+     * An album of two files that agree, so every year test below starts from a settled row.
+     *
+     * @return array{0: string, 1: string} the two files' absolute paths
+     */
+    private function albumTaggedYear(int $year): array
+    {
+        return [
+            $this->media('rock/01.mp3', ['hash' => 'y1', 'title' => 'One', 'artist' => 'The Band', 'album' => 'Dated', 'track' => 1, 'year' => $year]),
+            $this->media('rock/02.mp3', ['hash' => 'y2', 'title' => 'Two', 'artist' => 'The Band', 'album' => 'Dated', 'track' => 2, 'year' => $year]),
+        ];
+    }
+
+    /** The album every year test works on. */
+    private function datedAlbum(): Collection
+    {
+        return Collection::query()->where('name', 'Dated')->sole();
+    }
+
+    /** Re-tag a file in place, moving its mtime so the scan cannot fast-path past it. */
+    private function retag(string $absolutePath, array $meta): void
+    {
+        file_put_contents($absolutePath, json_encode($meta));
+        touch($absolutePath, time() + 10);
+    }
+
+    public function test_a_corrected_year_reaches_the_album_when_every_file_agrees(): void
+    {
+        // THE BUG THIS CLOSES. A collection's year used to be written on creation and never
+        // revisited, so an album mis-dated by its tags stayed mis-dated however often the tags
+        // were corrected and the library rescanned — the one fact in the library that could not
+        // be fixed at the source.
+        [$one, $two] = $this->albumTaggedYear(1982);
+        $this->scan();
+
+        $this->assertSame(1982, $this->datedAlbum()->year);
+
+        $this->retag($one, ['hash' => 'y1', 'title' => 'One', 'artist' => 'The Band', 'album' => 'Dated', 'track' => 1, 'year' => 1992]);
+        $this->retag($two, ['hash' => 'y2', 'title' => 'Two', 'artist' => 'The Band', 'album' => 'Dated', 'track' => 2, 'year' => 1992]);
+        $this->scanner->scan([TrackType::Music]);
+
+        $this->assertSame(1992, $this->datedAlbum()->year);
+    }
+
+    public function test_one_mis_tagged_file_cannot_re_date_the_album(): void
+    {
+        // The rule the old write-once behaviour was defending, and it still holds: a year moves
+        // only on unanimity, so a single typo in one file leaves the record alone.
+        [$one] = $this->albumTaggedYear(1992);
+        $this->scan();
+
+        $this->retag($one, ['hash' => 'y1', 'title' => 'One', 'artist' => 'The Band', 'album' => 'Dated', 'track' => 1, 'year' => 1892]);
+        $this->scanner->scan([TrackType::Music]);
+
+        $this->assertSame(1992, $this->datedAlbum()->year, 'the outlier must not win');
+    }
+
+    public function test_correcting_one_file_of_an_album_reads_the_others_before_deciding(): void
+    {
+        // The incremental case, and the reason unanimity is measured over the whole album rather
+        // than over the files this run happened to read. Only file 2 is re-tagged, so the walk
+        // sees one year — enough to contradict the stored one, never enough to decide. It reads
+        // file 1 before committing, finds it says 1992 too, and corrects the album.
+        [$one, $two] = $this->albumTaggedYear(1992);
+        $this->scan();
+
+        // File 1 already says 1992; the row says 1982 because that is what it was created with.
+        Collection::query()->whereKey($this->datedAlbum()->getKey())->update(['year' => 1982]);
+        $this->retag($two, ['hash' => 'y2', 'title' => 'Two', 'artist' => 'The Band', 'album' => 'Dated', 'track' => 2, 'year' => 1992]);
+
+        $summary = $this->scanner->scan([TrackType::Music]);
+
+        $this->assertSame(1992, $this->datedAlbum()->year);
+        $this->assertSame(1, $summary->years(), 'the correction is reported, not silent');
+    }
+
+    public function test_a_year_removed_from_every_tag_is_removed_from_the_album(): void
+    {
+        // The same rule pointing the other way: the tags are the source of truth, so a stored
+        // year that no file claims any more has to go, or it is the original bug in reverse —
+        // a wrong number nobody can remove.
+        [$one, $two] = $this->albumTaggedYear(1999);
+        $this->scan();
+
+        $this->retag($one, ['hash' => 'y1', 'title' => 'One', 'artist' => 'The Band', 'album' => 'Dated', 'track' => 1]);
+        $this->retag($two, ['hash' => 'y2', 'title' => 'Two', 'artist' => 'The Band', 'album' => 'Dated', 'track' => 2]);
+        $this->scanner->scan([TrackType::Music]);
+
+        $this->assertNull($this->datedAlbum()->year);
+    }
+
+    public function test_a_steady_state_rescan_corrects_nothing(): void
+    {
+        // The cheap signal that the step is idle when nothing moved — and that it reads no files
+        // to establish that, since the years it saw already match the row.
+        $this->albumTaggedYear(2001);
+        $this->scan();
+
+        $summary = $this->scanner->scan([TrackType::Music]);
+
+        $this->assertSame(0, $summary->years());
+        $this->assertSame(2001, $this->datedAlbum()->year);
+    }
+
+    public function test_a_discrepancy_that_predates_the_scan_needs_the_recheck(): void
+    {
+        // THE CASE AN ORDINARY SCAN CANNOT SEE, and the reason the flag exists. Every file says
+        // 1992 and the row says 1982 — a row created from tags that were corrected before this
+        // reconciliation existed. No file has changed since, so nothing is read, nothing
+        // contradicts anything, and a rescan reports 0. Measured on the real library: *Check Your
+        // Head*, fifteen files at 1992 against a stored 1982.
+        $this->albumTaggedYear(1992);
+        $this->scan();
+        Collection::query()->whereKey($this->datedAlbum()->getKey())->update(['year' => 1982]);
+
+        $quiet = $this->scanner->scan([TrackType::Music]);
+
+        $this->assertSame(0, $quiet->years(), 'an ordinary scan reads nothing, so it sees nothing');
+        $this->assertSame(1982, $this->datedAlbum()->year);
+
+        $rechecked = $this->scanner->scan([TrackType::Music], null, recheckYears: true);
+
+        $this->assertSame(1, $rechecked->years());
+        $this->assertSame(1992, $this->datedAlbum()->year);
+    }
+
+    public function test_the_recheck_still_refuses_an_album_whose_files_disagree(): void
+    {
+        // The flag widens WHICH containers are asked, never the rule they are judged by: reading
+        // every file cannot turn a tagging disagreement into a fact about a release.
+        [$one] = $this->albumTaggedYear(1992);
+        $this->retag($one, ['hash' => 'y1', 'title' => 'One', 'artist' => 'The Band', 'album' => 'Dated', 'track' => 1, 'year' => 1892]);
+        $this->scan();
+
+        $summary = $this->scanner->scan([TrackType::Music], null, recheckYears: true);
+
+        $this->assertSame(0, $summary->years());
+    }
+
+    public function test_an_unreadable_neighbour_leaves_the_year_alone(): void
+    {
+        // A file that cannot be read cannot vote, and one silent voice makes unanimity a guess.
+        [$one, $two] = $this->albumTaggedYear(1992);
+        $this->scan();
+
+        Collection::query()->whereKey($this->datedAlbum()->getKey())->update(['year' => 1982]);
+        $this->retag($two, ['hash' => 'y2', 'title' => 'Two', 'artist' => 'The Band', 'album' => 'Dated', 'track' => 2, 'year' => 1992]);
+        // File 1 is now unreadable, so the run cannot complete the picture.
+        file_put_contents($one, '{"__fail": true}');
+
+        $summary = $this->scanner->scan([TrackType::Music]);
+
+        $this->assertSame(1982, $this->datedAlbum()->year);
+        $this->assertSame(0, $summary->years());
+    }
+
     public function test_first_scan_inserts_tracks_collections_and_taxonomy(): void
     {
         $this->media('rock/01.mp3', ['hash' => 'h1', 'title' => 'One', 'artist' => 'The Band', 'album' => 'Debut', 'genre' => 'Rock', 'track' => 1, 'year' => 1999]);
