@@ -47,6 +47,12 @@ final class ScanSummary
         return $this->sum('covers');
     }
 
+    /** Total untouched files re-read under `--reread`, across every area. */
+    public function reread(): int
+    {
+        return $this->sum('reread');
+    }
+
     /** Total containers whose year was corrected from their files' tags, across every area. */
     public function years(): int
     {

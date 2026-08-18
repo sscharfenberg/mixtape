@@ -35,7 +35,7 @@ class UpdateLibrary extends Command
     protected $signature = 'app:update
                             {--area=* : Limit to one or more areas (music, audiobooks). Default: all}
                             {--skip-cleanup : Skip the junk-file cleanup step}
-                            {--recheck-years : Re-read every file to reconcile each album/book year, not just the changed ones}';
+                            {--reread : Re-read every file\'s tags, ignoring the unchanged-file fast path (slow)}';
 
     protected $description = 'Scan the media library into the database (cleanup, then a content-hash diff)';
 
@@ -82,30 +82,34 @@ class UpdateLibrary extends Command
             }
 
             /*
-             * `--recheck-years` asks the scan to reconcile EVERY container's year rather than only
-             * the ones it touched, which is the one discrepancy an ordinary scan cannot see: a row
-             * whose files were corrected before this reconciliation existed disagrees with all of
-             * them, and since none of them has changed since, none of them is read.
+             * `--reread` drops the unchanged-file fast path, so every file's tags are read again and
+             * everything derived from them is rebuilt. Three real cases need it, none of which an
+             * ordinary scan can see: a tagger that PRESERVES mtimes (ID3v2 padding absorbs the edit
+             * without moving the size either, so the file looks untouched in both fields); a value
+             * that was read but had nowhere to be written, as the year was before `tracks.year`
+             * existed; and a column added afterwards, NULL until its file is read again.
              *
-             * Off by default because it is the difference between stat-ing the library and parsing
-             * it — a routine scan of 12,000 files takes under a second, and reading every tag takes
-             * as long as a first import. Run it after correcting tags in bulk, or once, to settle
-             * whatever the years were before.
+             * Off by default because it is the difference between stat-ing the library and reading
+             * it: the content hash is taken over the audio stream, so re-reading tags means reading
+             * every byte of every file. A routine scan of 12,000 files takes under a second.
              */
-            $recheckYears = (bool) $this->option('recheck-years');
+            $reread = (bool) $this->option('reread');
 
-            if ($recheckYears) {
-                $this->narrate('Re-reading every file to reconcile album/book years (slow).');
+            if ($reread) {
+                $this->narrate('Re-reading every file, ignoring the unchanged-file fast path (slow).');
             }
 
-            $summary = $scanner->scan($areas, fn (string $line) => $this->narrate('  '.$line), $recheckYears);
+            $summary = $scanner->scan($areas, fn (string $line) => $this->narrate('  '.$line), $reread);
 
             $this->narrate(sprintf(
-                'Library scan finished in %s — %d new, %d changed, %d moved, %d removed, %d skipped, '
-                    .'%d cover(s) recorded, %d cached cover(s) invalidated, %d year(s) corrected.',
+                'Library scan finished in %s — %d new, %d changed, %d re-read, %d moved, %d removed, '
+                    .'%d skipped, %d cover(s) recorded, %d cached cover(s) invalidated, %d year(s) corrected.',
                 $this->elapsed($startedAt),
                 $summary->inserted(),
                 $summary->updated(),
+                // Untouched files read again under --reread. Apart from `changed`, because nothing
+                // about them changed: this number is the work done, not the difference found.
+                $summary->reread(),
                 $summary->renamed(),
                 $summary->deleted(),
                 $summary->errors(),

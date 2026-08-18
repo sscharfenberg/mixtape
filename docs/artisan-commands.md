@@ -116,7 +116,7 @@ Example output:
 Scans the media library on disk into the database.
 
 ```
-php artisan app:update {--area=*} {--skip-cleanup} {--recheck-years}
+php artisan app:update {--area=*} {--skip-cleanup} {--reread}
 ```
 
 ### Why it exists
@@ -162,14 +162,23 @@ the spelling, so the scan adopts it (`LibraryScanService::adoptSpelling`).
 > does not retroactively repair a name that a previous scan already recorded. If a row is
 > stuck on an old spelling, `touch` the files (or re-save the tags) and scan again.
 >
-> **`--recheck-years` is the one exception, and it is deliberately narrow**: it re-reads every
-> file to reconcile each container's YEAR, and nothing else. It exists for the discrepancy an
-> ordinary scan structurally cannot see — a row whose files were corrected before that
-> reconciliation existed disagrees with all of them, and since none of them has changed since,
-> none of them is read. It is a flag rather than the default because it is the difference between
-> stat-ing the library and parsing it: a routine scan of 12,000 files runs in under a second,
-> reading every tag takes as long as a first import. A stale artist or album SPELLING still needs
-> the `touch`.
+> **`--reread` is the exception**: it drops the fast path entirely, so every file's tags are read
+> again and everything derived from them is rebuilt — a stale spelling, a value that had nowhere to
+> be written, a column added after the files were last read (NULL until then). Three real cases
+> need it and none is visible to an ordinary scan:
+>
+> 1. **a tagger that preserves mtimes** — and ID3v2 padding is designed to absorb a tag edit without
+>    moving the size either, so such an edit is invisible in both fields the fast path compares;
+> 2. **a value read but not stored** — as a file's year was before `tracks.year` existed;
+> 3. **a new column** — NULL on every existing row until its file is read again.
+>
+> It costs a full read of the library, because the content hash is taken over the audio stream: to
+> read a file's tags is to read the file. A routine scan of 12,000 files takes under a second. That
+> is why it is a flag and not a default.
+>
+> **A forced re-read is not a change**, and the summary keeps them apart: a file whose bytes are what
+> they were is counted as `re-read`, keeps its cached cover (the picture cannot have moved), and is
+> never reported as `changed`.
 
 ### Arguments & options
 
@@ -177,7 +186,7 @@ the spelling, so the scan adopts it (`LibraryScanService::adoptSpelling`).
 | --- | --- | --- | --- |
 | `--area` | option (repeatable) | all | Limit to `music` and/or `audiobooks`. |
 | `--skip-cleanup` | flag | off | Skip the junk-file cleanup step. |
-| `--recheck-years` | flag | off | Re-read every file to reconcile each album/book year (slow — see the note above). |
+| `--reread` | flag | off | Read every file's tags again, ignoring the unchanged-file fast path (slow — see the note above). |
 
 ### Config (`config/mixtape.php`)
 

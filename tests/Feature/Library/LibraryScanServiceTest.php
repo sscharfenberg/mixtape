@@ -159,7 +159,7 @@ class LibraryScanServiceTest extends TestCase
         $this->assertSame(2001, $this->datedAlbum()->year);
     }
 
-    public function test_a_discrepancy_that_predates_the_scan_needs_the_recheck(): void
+    public function test_a_discrepancy_that_predates_the_scan_needs_a_reread(): void
     {
         // THE CASE AN ORDINARY SCAN CANNOT SEE, and the reason the flag exists. Every file says
         // 1992 and the row says 1982 — a row created from tags that were corrected before this
@@ -175,23 +175,56 @@ class LibraryScanServiceTest extends TestCase
         $this->assertSame(0, $quiet->years(), 'an ordinary scan reads nothing, so it sees nothing');
         $this->assertSame(1982, $this->datedAlbum()->year);
 
-        $rechecked = $this->scanner->scan([TrackType::Music], null, recheckYears: true);
+        $rechecked = $this->scanner->scan([TrackType::Music], null, reread: true);
 
         $this->assertSame(1, $rechecked->years());
         $this->assertSame(1992, $this->datedAlbum()->year);
     }
 
-    public function test_the_recheck_still_refuses_an_album_whose_files_disagree(): void
+    public function test_a_reread_still_refuses_an_album_whose_files_disagree(): void
     {
-        // The flag widens WHICH containers are asked, never the rule they are judged by: reading
-        // every file cannot turn a tagging disagreement into a fact about a release.
+        // The flag decides WHICH files are read, never the rule the years are judged by: reading
+        // every one of them cannot turn a tagging disagreement into a fact about a release.
         [$one] = $this->albumTaggedYear(1992);
         $this->retag($one, ['hash' => 'y1', 'title' => 'One', 'artist' => 'The Band', 'album' => 'Dated', 'track' => 1, 'year' => 1892]);
         $this->scan();
 
-        $summary = $this->scanner->scan([TrackType::Music], null, recheckYears: true);
+        $summary = $this->scanner->scan([TrackType::Music], null, reread: true);
 
         $this->assertSame(0, $summary->years());
+    }
+
+    public function test_a_track_stores_the_year_its_own_file_claims(): void
+    {
+        // Beside the album's, never instead of it: the container's year is what a page shows and is
+        // reconciled FROM these values (see the migration). What the column buys is that a
+        // corrected tag now lands somewhere at all.
+        $this->albumTaggedYear(1999);
+        $this->scan();
+
+        $this->assertSame([1999, 1999], Track::query()->orderBy('track')->pluck('year')->all());
+        $this->assertSame(1999, $this->datedAlbum()->year);
+    }
+
+    public function test_a_reread_fills_a_column_added_after_the_files_were_scanned(): void
+    {
+        // What a new column looks like on an existing library: NULL until its file is read again,
+        // and a fast-path scan never reads it. This is the shape of every future column too, which
+        // is why the flag is general rather than about years.
+        $this->albumTaggedYear(2005);
+        $this->scan();
+        Track::query()->update(['year' => null]);
+
+        $quiet = $this->scanner->scan([TrackType::Music]);
+
+        $this->assertSame([null, null], Track::query()->orderBy('track')->pluck('year')->all());
+        $this->assertSame(0, $quiet->reread(), 'the fast path read nothing');
+
+        $summary = $this->scanner->scan([TrackType::Music], null, reread: true);
+
+        $this->assertSame([2005, 2005], Track::query()->orderBy('track')->pluck('year')->all());
+        $this->assertSame(2, $summary->reread(), 'both files were read again');
+        $this->assertSame(0, $summary->updated(), 'and neither of them CHANGED');
     }
 
     public function test_an_unreadable_neighbour_leaves_the_year_alone(): void

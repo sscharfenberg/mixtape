@@ -46,6 +46,16 @@ final class ScanResult
     public int $coversForgotten = 0;
 
     /**
+     * Files re-read under `--reread` whose bytes were what they already were.
+     *
+     * Counted apart from `updated` because nothing about them CHANGED — the run chose to read
+     * them again, which is how a value with nowhere to be written (the year, before it had a
+     * column) or a column added after the fact gets filled in. A summary claiming 12,000 files
+     * changed when none did would be a lie in the one place an operator looks.
+     */
+    public int $reread = 0;
+
+    /**
      * Containers whose `year` was corrected from their files' tags this scan — see
      * LibraryScanService::syncCollectionYears for the unanimity rule that governs it.
      *

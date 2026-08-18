@@ -29,7 +29,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'type', 'collection_id', 'artist_id', 'genre_id', 'narrator_id', 'author_id',
     'composer', 'publisher', 'name', 'path', 'content_hash', 'size',
     'modified_at', 'codec', 'channel', 'duration', 'sample_rate', 'bit_rate',
-    'vbr', 'cover', 'track', 'disc',
+    'vbr', 'cover', 'track', 'disc', 'year',
 ])]
 class Track extends Model
 {
@@ -55,6 +55,7 @@ class Track extends Model
             'bit_rate' => 'integer',
             'track' => 'integer',
             'disc' => 'integer',
+            'year' => 'integer',
             'vbr' => 'boolean',
             'cover' => 'boolean',
             'modified_at' => 'datetime',

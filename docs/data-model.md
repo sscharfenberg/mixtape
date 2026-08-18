@@ -163,7 +163,7 @@ collections
   type             album | audiobook                    # varchar + CHECK
   name             string                               # ICU case-insensitive collation
   name_fold        string                               # search companion, default collation
-  year             int    nullable
+  year             int    nullable                     # the RELEASE's year — reconciled from its files
   cover_path       string nullable                      # RELATIVE to the area root — the directory image
   album_artist_id  uuid   fk → artists  nullable        # music only; the container's owner
   timestamps
@@ -183,11 +183,25 @@ tracks
   content_hash     string index (non-unique)            # audio-stream hash = identity
   size, modified_at                                     # with path, the "unchanged" fast-path
   codec, channel, duration, sample_rate, bit_rate, vbr, cover, track, disc
+  year             int    nullable                     # what THIS FILE's tag claims — see below
   name, name_fold
   created_at                                            # a real "date added"
   UNIQUE (type, path)
   CHECK  music FKs null unless type = 'music'; audiobook FKs null unless type = 'audiobook'
 ```
+
+**A year is stored twice, and the two are different questions.** `tracks.year` is what one file's
+tag claims; `collections.year` is the release's year, which is what every page shows. The container's
+is not a copy of one file's — it is reconciled from all of them, on unanimity, so a single
+mis-tagged file cannot re-date a record and the answer does not depend on which file the scanner
+read first (`LibraryScanService::syncCollectionYears`). Where an album's files disagree, the
+container keeps the year it has and the disagreement is visible in its tracks.
+
+The per-file column exists because a conclusion should not be the only copy of its evidence: with
+nowhere to put a file's year, a corrected tag was read on every scan and dropped, which made the
+release year the one fact in the library that could not be fixed by fixing the tags. It is NULL on a
+row whose file has not been read since the column arrived, so nothing derives anything from a NULL —
+`app:update --reread` fills them.
 
 `type` is stored on `tracks` rather than derived through the join because a Postgres `CHECK` cannot
 reference another table — the type guard needs the value locally. The scanner keeps it in step with the

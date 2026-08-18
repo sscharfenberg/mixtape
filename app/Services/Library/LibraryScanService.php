@@ -67,17 +67,16 @@ final class LibraryScanService
     /**
      * @param  TrackType[]  $areas  areas to scan
      * @param  (Closure(string):void)|null  $progress  headline milestones for the command to narrate
-     * @param  bool  $recheckYears  re-read EVERY container's files to reconcile its year, instead
-     *                              of only the containers this run touched — see
-     *                              {@see syncCollectionYears} for the discrepancy an ordinary
-     *                              scan cannot see
+     * @param  bool  $reread  ignore the `(path, size, mtime)` fast path and read EVERY file's tags
+     *                        again, rebuilding every derived value from them — see {@see scanArea}
+     *                        for what that fixes and what it costs
      */
-    public function scan(array $areas, ?Closure $progress = null, bool $recheckYears = false): ScanSummary
+    public function scan(array $areas, ?Closure $progress = null, bool $reread = false): ScanSummary
     {
         $results = [];
 
         foreach ($areas as $type) {
-            $results[$type->value] = $this->scanArea($type, $progress, $recheckYears);
+            $results[$type->value] = $this->scanArea($type, $progress, $reread);
         }
 
         return new ScanSummary($results);
@@ -90,8 +89,27 @@ final class LibraryScanService
      * still has rows is protected, never pruned), then runs the two passes + orphan
      * cleanup inside a single transaction so a mid-scan crash can't leave the area
      * half-migrated. Returns the per-area tally.
+     *
+     * `$reread` DROPS THE FAST PATH, which is the cure for everything a scan cannot otherwise
+     * see. The fast path skips a file whose `(path, size, mtime)` is what it was, and that is
+     * normally exactly right — a file that has not moved cannot have new tags. It is wrong in
+     * three cases, and all three are real: a tagger that PRESERVES mtimes (ID3v2 padding absorbs
+     * a tag edit without changing the size either, so such an edit is invisible in both fields);
+     * a value that was read but had nowhere to be written, the way the year was before it had a
+     * column; and a column added afterwards, which is NULL on every row until its file is read
+     * again. Re-reading fixes all three at once, because it puts every file back through the same
+     * path a re-tag takes.
+     *
+     * It costs a full read of the library: the content hash is taken over the audio stream
+     * (Id3TagReader::hashAudio), so reading a file's tags means reading the file. That is why it
+     * is a flag and not a default.
+     *
+     * A FORCED RE-READ IS NOT A CHANGE, and the two are counted apart: a file whose bytes are
+     * what they were keeps its cached cover (the picture cannot have moved) and is tallied as
+     * `reread` rather than `updated`, so the summary never claims 12,000 files changed when none
+     * did.
      */
-    private function scanArea(TrackType $type, ?Closure $progress, bool $recheckYears = false): ScanResult
+    private function scanArea(TrackType $type, ?Closure $progress, bool $reread = false): ScanResult
     {
         $result = new ScanResult($type);
 
@@ -134,7 +152,7 @@ final class LibraryScanService
             return $result;
         }
 
-        DB::transaction(function () use ($type, $files, $result, $root, $recheckYears) {
+        DB::transaction(function () use ($type, $files, $result, $root, $reread) {
             /** @var Collection<string, Track> $existing keyed by area-relative path */
             $existing = Track::query()->where('type', $type)->get()->keyBy('path');
 
@@ -172,11 +190,15 @@ final class LibraryScanService
 
                 $claimed[$row->getKey()] = true;
 
-                if ($this->unchanged($row, $size, $mtime)) {
+                $untouched = $this->unchanged($row, $size, $mtime);
+
+                if ($untouched && ! $reread) {
                     continue; // fast-path — untouched, no hashing
                 }
 
-                // Same path, changed bytes → a re-tag. Re-read and update in place.
+                // Same path, changed bytes → a re-tag. Re-read and update in place. (Or the same
+                // path and the same bytes, under `--reread`, which puts an untouched file through
+                // the identical path so anything derived from its tags is rebuilt.)
                 $meta = $this->readOrSkip($absPath, $result);
                 if ($meta === null) {
                     continue;
@@ -185,6 +207,13 @@ final class LibraryScanService
                 $attributes = $this->buildAttributes($type, $meta, $relPath, $size, $mtime);
                 $this->noteYear($yearsSeen, $attributes, $relPath, $meta);
                 $row->fill($attributes)->save();
+
+                if ($untouched) {
+                    $result->reread++;
+
+                    continue;
+                }
+
                 $result->updated++;
 
                 // The file's bytes changed while its id did not — identity is the hash of
@@ -192,6 +221,10 @@ final class LibraryScanService
                 // on its own: a re-tag that replaced the embedded picture would keep
                 // being served from the old cached JPEG. Dropped here because this is
                 // the exact moment we know it happened.
+                //
+                // Only for a real change: a forced re-read of untouched bytes cannot have moved
+                // the picture, and throwing away every cached cover to prove it would make the
+                // library slow for hours afterwards.
                 if ($this->covers->forget($row)) {
                     $result->coversForgotten++;
                 }
@@ -246,13 +279,13 @@ final class LibraryScanService
 
             // --- Reconcile each container's year against its files' tags -------
             // Also after the prune, and for the same reason.
-            $result->years = $this->syncCollectionYears($type, $root, $yearsSeen, $recheckYears);
+            $result->years = $this->syncCollectionYears($root, $yearsSeen);
         });
 
         $this->announce($progress, sprintf(
-            '%s: %d new, %d changed, %d moved, %d removed, %d skipped, %d cover(s) recorded, %d year(s) corrected',
-            $type->value, $result->inserted, $result->updated, $result->renamed, $result->deleted, $result->errors,
-            $result->covers, $result->years
+            '%s: %d new, %d changed, %d re-read, %d moved, %d removed, %d skipped, %d cover(s) recorded, %d year(s) corrected',
+            $type->value, $result->inserted, $result->updated, $result->reread, $result->renamed, $result->deleted,
+            $result->errors, $result->covers, $result->years
         ));
 
         return $result;
@@ -346,6 +379,12 @@ final class LibraryScanService
             'cover' => $meta->hasCover,
             'track' => $meta->track,
             'disc' => $meta->disc,
+            // The year THIS FILE claims, which is not the same question as the year its album
+            // claims: a container's year is a conclusion drawn from its files (see
+            // syncCollectionYears), and a conclusion cannot be the only copy of its evidence.
+            // Storing it here is also what lets a corrected tag survive a scan at all — before
+            // this column there was nowhere to put it, so it was read and dropped.
+            'year' => $meta->year,
             // Taxonomy filled per type below; the tracks CHECK constraint pins
             // which FKs may be set for which type.
             'collection_id' => null,
@@ -484,14 +523,13 @@ final class LibraryScanService
      * it, there is nothing to decide and nothing is read. So the common rescan costs no I/O at
      * all, and the correcting one costs the album it corrects.
      *
-     * WHICH LEAVES ONE CASE AN ORDINARY SCAN CANNOT SEE, and `$recheckAll` is for it: a
-     * discrepancy that ALREADY exists. A row created years ago from tags that have since been
-     * corrected disagrees with every one of its files, and no file has changed since — so nothing
-     * is read, nothing contradicts anything, and the wrong year survives every rescan. Measured
-     * on the dev library: *Check Your Head* stored 1982 while all fifteen files said 1992.
-     * `--recheck-years` drops the early bail-out and reads every container's files, at the price
-     * of reading the whole library's tags once. It is a flag rather than the default because that
-     * is the difference between a scan that stats 12,000 files and one that parses them.
+     * WHICH LEAVES ONE CASE AN ORDINARY SCAN CANNOT SEE: a discrepancy that ALREADY exists. A row
+     * created from tags that have since been corrected disagrees with every one of its files, and
+     * no file has changed since — so nothing is read, nothing contradicts anything, and the wrong
+     * year survives every rescan. Measured on the dev library: *Check Your Head* stored 1982 while
+     * all fifteen files said 1992. The cure is `app:update --reread`, which needs nothing from
+     * this method: dropping the fast path hands it every file, so coverage is complete and the
+     * ordinary rule decides.
      *
      * A NULL YEAR IS A VALUE, both ways round: tags that no longer carry a year clear it, because
      * the tags are the source of truth and a stale year nobody can remove is the bug this fixes
@@ -499,31 +537,25 @@ final class LibraryScanService
      *
      * @param  string  $root  the area root, for turning a stored relative path back into a file
      * @param  array<string, array<string, int|null>>  $seen  [collection id => [path => year]]
-     * @param  bool  $recheckAll  ask every container of this area, not just the touched ones
      * @return int containers whose year changed
      */
-    private function syncCollectionYears(TrackType $type, string $root, array $seen, bool $recheckAll = false): int
+    private function syncCollectionYears(string $root, array $seen): int
     {
         $corrected = 0;
 
-        // One query for every container in play rather than a find() per id: a first scan touches
-        // all of them, and 900-odd point lookups to establish that nothing needs correcting is a
-        // cost the steady-state case should not pay either.
-        $collections = $recheckAll
-            ? MediaCollection::query()->where('type', $type->collectionType())->get()
-            : MediaCollection::query()->findMany(array_keys($seen));
+        // One query for every container the walk touched rather than a find() per id: a first
+        // scan touches all of them, and 900-odd point lookups to establish that nothing needs
+        // correcting is a cost the steady-state case should not pay either.
+        $collections = MediaCollection::query()->findMany(array_keys($seen));
 
         foreach ($collections as $collection) {
             $years = $seen[$collection->getKey()] ?? [];
+            $candidate = $this->unanimousYear($years);
 
-            if (! $recheckAll) {
-                $candidate = $this->unanimousYear($years);
-
-                // The files we read disagree among themselves, or they already say what the row
-                // says. Either way there is nothing to decide and no reason to read anything.
-                if ($candidate === false || $candidate === $collection->year) {
-                    continue;
-                }
+            // The files we read disagree among themselves, or they already say what the row
+            // says. Either way there is nothing to decide and no reason to read anything.
+            if ($candidate === false || $candidate === $collection->year) {
+                continue;
             }
 
             $unseen = Track::query()

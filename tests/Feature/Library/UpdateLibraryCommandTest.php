@@ -46,10 +46,10 @@ class UpdateLibraryCommandTest extends TestCase
         Mail::assertNothingSent();
     }
 
-    public function test_recheck_years_reaches_the_scan_and_says_it_is_doing_so(): void
+    public function test_reread_reaches_the_scan_and_says_it_is_doing_so(): void
     {
         // The flag's BEHAVIOUR belongs to LibraryScanServiceTest; what this pins is that the
-        // option reaches the service at all, and that a run which parses every tag in the library
+        // option reaches the service at all, and that a run which reads every byte of the library
         // announces itself rather than looking like a slow ordinary scan.
         Mail::fake();
         $this->media('a/01.mp3', ['hash' => 'h1', 'title' => 'One', 'artist' => 'A', 'album' => 'Alb', 'year' => 1992]);
@@ -67,7 +67,7 @@ class UpdateLibraryCommandTest extends TestCase
 
         $this->assertSame(1982, Collection::query()->where('name', 'Alb')->value('year'));
 
-        $this->artisan('app:update', ['--area' => ['music'], '--skip-cleanup' => true, '--recheck-years' => true])
+        $this->artisan('app:update', ['--area' => ['music'], '--skip-cleanup' => true, '--reread' => true])
             ->expectsOutputToContain('Re-reading every file')
             ->assertExitCode(0);
 
