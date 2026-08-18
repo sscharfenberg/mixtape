@@ -4,8 +4,8 @@
  * The Music page's "Alle Musik" card — a Widget holding the page's SEARCH HUB over a grid of
  * collection stat tiles, each an icon, a label and a big number, wrapped in a Tooltip that explains
  * how the number is derived. Music-only, matching the browse widgets; no mode toggle or footer.
- * Wide by default (spans two of its group's columns for room), and `wide` says why a page might
- * want otherwise.
+ * Wide by default (a row of its group to itself), and `wide` says why a page might want
+ * otherwise.
  *
  * THE FILE NAME IS NARROWER THAN THE JOB (docs/search.md → "The page hub"): this is the stats
  * card AND the page's search hub. One card rather than a new widget beside it, because the tiles
@@ -63,14 +63,13 @@ interface Props extends CollectionStats {
      */
     searchable?: boolean;
     /**
-     * Span two of the WidgetGroup's columns. On by default, because this card shares its group
-     * with four browse widgets and needs the room.
+     * Take a row of the WidgetGroup to itself. On by default: this card shares its group with
+     * four browse widgets, it is the densest thing in it, and a search field wants the width.
      *
-     * The welcome page turns it OFF, and that is the opposite of what it sounds like: two cards
-     * asking for two tracks each in a group that fits three leaves one per row, stacked. At one
-     * track each the group's `auto-fit` collapses the track neither lands in and the `1fr` on
-     * the other two absorbs its width — so they end up SIDE BY SIDE, splitting the row, which
-     * is what "not wide" buys here.
+     * The welcome page turns it OFF, which is the opposite of what it sounds like. Two cards
+     * each asking for a whole row get one row each, stacked — where at one track each the
+     * group's `auto-fit` collapses the track neither lands in and the `1fr` on the others
+     * absorbs its width, so the two end up SIDE BY SIDE. That pairing is what "not wide" buys.
      */
     wide?: boolean;
 }

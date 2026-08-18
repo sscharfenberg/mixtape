@@ -313,6 +313,79 @@ test.describe("the detail hero", () => {
     });
 });
 
+test.describe("the stats card's row", () => {
+    /*
+     * The Music page's stats card takes a WHOLE row of the widget grid and the four browse cards
+     * divide the next one — which is a fact about a real grid, so only a browser can answer it.
+     * `grid-column: 1 / -1` resolves against however many tracks `auto-fit` made, and the number
+     * of tracks is exactly what no unit test has.
+     *
+     * The two halves are asserted separately because they fail separately: a fixed span of two
+     * tracks passes "the card is wider than a browse card" while sitting at half the row.
+     */
+
+    /** The group's box and its cards', split into the wide one and the rest. */
+    const boxes = async (page: Page) => {
+        const group = (await page.locator(".widget-group").boundingBox())!;
+        const wide = (await page.locator(".widget--wide").boundingBox())!;
+        const rest = await Promise.all(
+            (await page.locator(".widget:not(.widget--wide)").all()).map(async card => (await card.boundingBox())!)
+        );
+
+        return { group, wide, rest };
+    };
+
+    test("gives the stats card the full width of the grid, whatever auto-fit decided", async ({ page }) => {
+        await page.setViewportSize({ width: 1600, height: 1000 });
+        await page.goto("/music");
+        await expect(page.locator(".widget--wide")).toBeVisible();
+
+        const { group, wide, rest } = await boxes(page);
+
+        // The whole row, not a span of two tracks — at this width the group fits four, so a
+        // two-track card would come back at about half of this.
+        expect(wide.width).toBeCloseTo(group.width, 0);
+
+        // …and nothing shares its row: every browse card starts below where it ends.
+        expect(Math.min(...rest.map(card => card.y))).toBeGreaterThanOrEqual(wide.y + wide.height);
+    });
+
+    test("leaves the browse cards to divide the row below between them", async ({ page }) => {
+        await page.setViewportSize({ width: 1600, height: 1000 });
+        await page.goto("/music");
+        await expect(page.locator(".widget--wide")).toBeVisible();
+
+        const { group, rest } = await boxes(page);
+
+        expect(rest).toHaveLength(4);
+
+        // Two or more to a row, which is the "usual grid" half of the arrangement: if the wide
+        // card's rule had leaked onto them they would be four stacked rows.
+        const tops = new Set(rest.map(card => Math.round(card.y)));
+
+        expect(tops.size).toBeLessThan(rest.length);
+
+        // None of them is a full row on its own.
+        for (const card of rest) expect(card.width).toBeLessThan(group.width);
+    });
+
+    test("still spans the single column a phone gets, with no breakpoint to fall through", async ({ page }) => {
+        // The rule carries no media query, and this is why that is safe rather than sloppy: at
+        // one track, "the whole row" IS that track, so the card needs no narrow-screen branch —
+        // where a span of two would have overflowed one and had to be gated.
+        await page.setViewportSize({ width: 420, height: 900 });
+        await page.goto("/music");
+        await expect(page.locator(".widget--wide")).toBeVisible();
+
+        const { group, wide, rest } = await boxes(page);
+
+        expect(wide.width).toBeCloseTo(group.width, 0);
+
+        // Every card is the full width here, so the stats one is no wider than its neighbours.
+        for (const card of rest) expect(card.width).toBeCloseTo(group.width, 0);
+    });
+});
+
 test.describe("a page heading too long for its line", () => {
     /*
      * THE ICON STAYS BESIDE THE TITLE, however many lines the title takes.

@@ -2,7 +2,7 @@
 /******************************************************************************
  * AudiobookStatsWidget
  * The Audiobooks page's "Alle Hörbücher" card — a Widget holding the numbers that describe the
- * audiobook collection. Wide by default (spans two of its group's columns), which `wide`
+ * audiobook collection. Wide by default (a row of its group to itself), which `wide`
  * lets a host page turn off.
  *
  * A sibling of StatsWidget rather than a mode of it: the two cards answer different questions
@@ -42,7 +42,7 @@ interface Props extends AudiobookStats {
      */
     searchable?: boolean;
     /**
-     * Span two of the WidgetGroup's columns. On by default, because this card is the only one
+     * Take a row of the WidgetGroup to itself. On by default, because this card is the only one
      * in its group on the Audiobooks page and should fill the row rather than sit in a third of
      * it. The welcome page turns it off so the pair of cards splits the row instead —
      * StatsWidget's prop carries why that is the way round it is.

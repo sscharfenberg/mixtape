@@ -10,8 +10,7 @@
  * shows placeholders until the fresh data lands — held at the height the body
  * already had, because no fixed skeleton can know that an entry wrapped (see
  * `onRefreshing`). Drop several inside a WidgetGroup for the responsive grid;
- * set `wide` to span two of its columns (from the landscape breakpoint up,
- * where two tracks fit).
+ * set `wide` to give one card a row of its own, at every width.
  *****************************************************************************/
 import type { ComponentPublicInstance } from "vue";
 import { ref, useTemplateRef } from "vue";
@@ -25,7 +24,7 @@ withDefaults(
     defineProps<{
         /** Show the loading overlay (a centered spinner) over the whole card. */
         loading?: boolean;
-        /** Span two grid columns in a WidgetGroup (from the "landscape" breakpoint up, where two tracks fit). */
+        /** Take a whole row of the WidgetGroup, at every width, so the cards after it start a new one. */
         wide?: boolean;
         /** Inertia prop key for this widget's data; when set the footer shows a refresh button that partial-reloads it. */
         refresh?: string;
@@ -99,7 +98,6 @@ const onRefreshing = (inFlight: boolean): void => {
 <style scoped lang="scss">
 @use "sass:map"; // https://sass-lang.com/documentation/modules/map
 @use "Abstracts/colors" as c;
-@use "Abstracts/mixins" as m;
 @use "Abstracts/sizes" as s;
 
 .widget {
@@ -137,15 +135,22 @@ const onRefreshing = (inFlight: boolean): void => {
         grid-row: 2 / span 2;
     }
 
-    // opt-in `wide`: span two grid columns in a WidgetGroup. Gated to the
-    // "landscape" breakpoint and up, where the group reliably fits two of its
-    // 220px tracks — below that the group is a single column, so spanning two
-    // would overflow. `grid-auto-flow: dense` on the group backfills the gaps a
-    // wide card leaves.
+    /* opt-in `wide`: the card takes the WHOLE row of its WidgetGroup, so the cards after it
+       start a fresh one and divide it between themselves under the group's own `auto-fit`.
+
+       `1 / -1` rather than a span of two, which is the tempting way to give a dense card room:
+       a fixed span is a guess about how many tracks the group has, and it is wrong at most
+       widths — two of four tracks leaves the card at half width with a browse card beside it,
+       and two of two is a full row by accident. `-1` is the last explicit column line whatever
+       `auto-fit` decided, so one declaration is right at every width and NEEDS NO BREAKPOINT:
+       at one track, "the whole row" is that track.
+
+       It also settles the row bands, which is the half that is easy to miss. Cards in a row
+       subgrid into shared title / body / footer bands, so a stats card sharing row 1 with a
+       browse card stretched that card's body to its own height. Alone on its row, it stretches
+       nothing. */
     &--wide {
-        @include m.mq("landscape") {
-            grid-column: span 2;
-        }
+        grid-column: 1 / -1;
     }
 }
 </style>

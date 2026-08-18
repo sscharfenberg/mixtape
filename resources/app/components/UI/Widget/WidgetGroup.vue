@@ -2,7 +2,8 @@
 /******************************************************************************
  * WidgetGroup
  * The responsive card grid the browse pages lay their Widgets out in — as many equal columns
- * as fit, one below that. Drop Widgets inside it; `wide` on one spans two of its columns.
+ * as fit, one below that. Drop Widgets inside it; `wide` on one gives it a whole row, and the
+ * cards after it start the next one.
  *
  * `pair` says "this group is two MATCHED stats cards" (the welcome page), and it settles two
  * things that only matter when a card has an opposite number:

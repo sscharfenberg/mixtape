@@ -32,9 +32,9 @@
  * wrapped to three lines in a 275px card. The variant collapses them at about 800px instead.
  *
  * `wide` IS THE ONE THAT READS BACKWARDS, so it is worth stating: both cards default to wide
- * because on their own pages they want the room, and wide means "span two tracks". Two of them
- * asking for two tracks each, in a group that fits three, is one card per row — stacked, which
- * is exactly what this page does not want. Turning it off is what puts them side by side.
+ * because on their own pages they want the room, and wide means "a row to myself". Two of them
+ * each asking for a whole row is one card per row — stacked, which is exactly what this page
+ * does not want. Turning it off is what puts them side by side.
  *
  * The one page that deliberately sets NO breadcrumbs: every trail already opens with a home
  * chip pointing here, so a crumb for this page would be that chip repeating itself with

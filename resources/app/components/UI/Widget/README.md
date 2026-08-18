@@ -49,7 +49,7 @@ import WidgetGroup from "Components/UI/Widget/WidgetGroup.vue";
 | Prop       | Type      | Default | Notes                                                                                                 |
 | ---------- | --------- | ------- | ----------------------------------------------------------------------------------------------------- |
 | `loading`  | `boolean` | `false` | Shows `WidgetLoader` over the card. Delayed reveal — a fast op never flashes it.                      |
-| `wide`     | `boolean` | `false` | Spans two group columns, **from the `landscape` breakpoint up** (below that the group is one column). |
+| `wide`     | `boolean` | `false` | Takes a **whole row** of the group (`1 / -1`), at every width; the cards after it start the next row. |
 | `refresh`  | `string`  | —       | An Inertia prop key. Renders the footer's refresh button, which partial-reloads just that prop.       |
 | `centered` | `boolean` | `false` | Centres the body vertically in its band (stays full-width) — for a card shorter than its row.         |
 
@@ -107,7 +107,8 @@ The icons carry no visible text, so each segment is wrapped in
 ## Layout: why `WidgetGroup` is not optional
 
 `WidgetGroup` is `grid-template-columns: repeat(auto-fit, minmax(min(<group-min>, 100%), 1fr))` with
-`grid-auto-flow: dense` (so a `wide` card doesn't leave holes). Each `Widget` is
+`grid-auto-flow: dense` (which backfills the tail of a row a `wide` card could not fit into, so the
+cards before it don't leave a gap). Each `Widget` is
 `grid-row: span 3` + `grid-template-rows: subgrid`, i.e. it claims the group's **title / body / footer**
 row bands and subgrids into them. That's what makes every card in a row share band heights so all the
 footers line up.
@@ -116,7 +117,8 @@ Consequences worth knowing:
 
 - A `Widget` **outside** a `WidgetGroup` has nothing to subgrid into: `subgrid` on a non-grid-item
   degrades to `none`, so the card still stacks correctly — it just sizes its bands to its own content and
-  aligns with nothing. `wide` is inert there too. Wrap even a single card.
+  aligns with nothing. `wide` is inert there too (there is no column line `-1` to reach). Wrap even a
+  single card.
 - The cards in a group are assumed to share that three-band structure. A card that omits a section just
   leaves its band empty (which is why an omitted `#title` still aligns).
 - `min(<group-min>, 100%)` is what keeps a lone card from overflowing a narrow viewport.
@@ -189,8 +191,11 @@ Other dependencies: the `m.mq("landscape")` breakpoint mixin (`Abstracts/mixins`
 1. **A `Widget` wants a `WidgetGroup` parent.** Subgrid is what aligns the bands across a row; without
    the group `grid-row: span 3` has no rows to span and the alignment silently does nothing — the card
    looks right on its own, so this is easy to miss in a row of two.
-2. **`wide` does nothing below the `landscape` breakpoint** — deliberately: the group is a single column
-   there, so spanning two would overflow.
+2. **`wide` is a whole row, not two tracks** — `grid-column: 1 / -1`, with no breakpoint, because a
+   fixed span is a guess about how many tracks `auto-fit` made: two of four leaves the card at half
+   width with a browse card beside it. It follows that a `wide` card **stretches nothing**, where a
+   card sharing a row stretches its neighbours' bands through the subgrid — and that two `wide` cards
+   in one group are two stacked rows, which is why the welcome page's pair turns it off.
 3. **`loading` vs. a skeleton** — see _The two loading states_. Using the overlay for a first load shows
    a spinner over an empty card; using a skeleton for a refresh throws away content the user can still read.
 4. **`WidgetModeToggle`'s `name` must be unique per page.** Duplicate names put every toggle in one radio

@@ -69,7 +69,9 @@ describe("Widget", () => {
         expect(wrapper.text()).toContain("Inhalt");
     });
 
-    it("takes two columns only when told to, because a wide card leaves gaps beside it", () => {
+    it("claims a row of its own only when told to, since a card that does stretches nothing", () => {
+        // The class is all a unit test can see — the row it claims is `grid-column: 1 / -1`
+        // against a real grid, which is Playwright's to measure and happy-dom's to ignore.
         expect(widget().classes()).not.toContain("widget--wide");
         expect(widget({ wide: true }).classes()).toContain("widget--wide");
     });
