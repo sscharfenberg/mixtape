@@ -13,6 +13,7 @@
  *****************************************************************************/
 import { computed } from "vue";
 import Icon from "Components/UI/Icon.vue";
+import LabelledLink from "Components/UI/LabelledLink.vue";
 import Tooltip from "Components/UI/Tooltip/Tooltip.vue";
 
 /** One stat tile — a glyph, a label, the formatted value, and a tooltip explaining it. */
@@ -34,6 +35,24 @@ export interface StatTile {
      * rather than a number. The cell's own style rule carries the measurements.
      */
     wide?: boolean;
+    /**
+     * A link under the value, for a tile whose number is worth following — the Songs listing's
+     * strip points each of its counts at the table narrowed to exactly those rows.
+     *
+     * Absent means a read-only tile, which is what the collection cards are made of: "96,00 GB"
+     * leads nowhere in particular. Absent ALSO covers the count of zero, because the server
+     * sends no href for one (SongsController) — a link to an empty table is a promise the page
+     * cannot keep, and deciding that here would put the rule in the wrong layer.
+     */
+    action?: { href: string; label: string };
+    /**
+     * Mark this tile as the one whose filter is currently narrowing the table it belongs to.
+     *
+     * The link's WORD changes with it ("show all" rather than "show"), but a word is not enough
+     * on its own: a reader who arrives at a filtered URL — a bookmark, a back button, a shared
+     * link — has to be able to see WHY the table is short before reading anything.
+     */
+    active?: boolean;
 }
 
 const props = defineProps<{
@@ -55,6 +74,17 @@ const props = defineProps<{
  * order drawn. Splitting by width alone would silently move a wide tile to the end — no consumer
  * puts one anywhere but last, which is exactly why that would go unnoticed.
  */
+/**
+ * Whether any tile in this set offers a link, which every tile then has to make room for.
+ *
+ * A tile is a centred column, so one with a link underneath pushes its own number UP: measured
+ * at 1440px, the two tiles with a link sat their values 10px above the three without, and a row
+ * of big numbers that do not share a baseline reads as a rendering fault rather than as a
+ * difference in what the tiles offer. So the line is reserved in all of them or in none of them
+ * — and "none" is the collection cards, whose tiles link nowhere and must not grow a blank line.
+ */
+const hasActions = computed<boolean>(() => props.tiles.some(tile => tile.action !== undefined));
+
 const groups = computed<StatTile[][]>(() =>
     props.tiles.reduce<StatTile[][]>((rows, tile) => {
         const current = rows[rows.length - 1];
@@ -68,14 +98,14 @@ const groups = computed<StatTile[][]>(() =>
 </script>
 
 <template>
-    <div class="widget-stats__grid">
+    <div class="widget-stats__grid" :class="{ 'widget-stats__grid--actions': hasActions }">
         <div v-for="group in groups" :key="group[0].key" class="widget-stats__lines">
             <tooltip
                 v-for="tile in group"
                 :key="tile.key"
                 :text="tile.hint"
                 class="widget-stats__cell"
-                :class="{ 'widget-stats__cell--wide': tile.wide }"
+                :class="{ 'widget-stats__cell--wide': tile.wide, 'widget-stats__cell--active': tile.active }"
             >
                 <span class="widget-stats__head">
                     <icon :name="tile.icon" :size="1" />
@@ -93,6 +123,13 @@ const groups = computed<StatTile[][]>(() =>
                      so nothing may collapse it. Lose the space and the value still looks right at
                      a glance while reading and copying as "2 Tage,3 Stunden". -->
                 <span class="widget-stats__value"><template v-for="(part, index) in tile.value" :key="part">{{ index > 0 ? " " : "" }}<span class="widget-stats__part">{{ part }}</span></template></span>
+                <!-- NOT PREFETCHED, though LabelledLink would oblige and the target is only a
+                     listing: these sit in a strip a reader's pointer crosses on the way down to
+                     the table, so warming on hover would spend a full filtered listing query per
+                     tile brushed past. A reader who means it can wait for the visit. -->
+                <labelled-link v-if="tile.action" :href="tile.action.href" icon="" class="widget-stats__action">
+                    {{ tile.action.label }}
+                </labelled-link>
             </tooltip>
         </div>
     </div>
@@ -239,6 +276,37 @@ const groups = computed<StatTile[][]>(() =>
     &--wide {
         flex-basis: 100%;
     }
+
+    /* THE ONE THAT IS ON — the filter currently narrowing the table below the strip.
+
+       A marked cell, not a recoloured one: the border and a barely-tinted ground say "this one"
+       while leaving the big number on the same near-grey every other number sits on. The
+       token pair is the mode toggle's selected pair, so "on" looks like "on" throughout the app
+       (see the colour partial for why it is re-picked rather than borrowed).
+
+       The border replaces nothing, so it has to come out of the padding rather than adding to
+       the tile's size: box-sizing is border-box (layout/_base.scss), which is exactly what keeps
+       a marked tile the same size as its neighbours. */
+    &--active {
+        border: map.get(s.$c-widget, "border") solid map.get(c.$c-widget, "cell-active-border");
+
+        background-color: map.get(c.$c-widget, "cell-active-background");
+    }
+}
+
+/* RESERVE THE LINK'S LINE IN EVERY TILE OF A STRIP THAT HAS LINKS, so the numbers share a
+   baseline across the row — see `hasActions` for the measurement. A hidden non-breaking space
+   at the link's own size is what reserves exactly one line of it: an empty box would collapse,
+   and a hard-coded height would be this rule's guess at a line-height it does not own.
+
+   `:not(:has())` rather than a flag per tile, because the question is about the tile ("do you
+   already have one?") and the DOM is the only honest place that answer lives. */
+.widget-stats__grid--actions .widget-stats__cell:not(:has(.widget-stats__action))::after {
+    visibility: hidden;
+
+    font-size: map.get(s.$c-widget, "cell-action-font-size");
+
+    content: "\00a0";
 }
 
 /* The glyph and the label on one line above the number, which is what the icons bought: the
@@ -280,6 +348,17 @@ const groups = computed<StatTile[][]>(() =>
 
 /* Bigger than it was (0.8rem), because the tiles have the room and a label nobody can read is
    a label doing none of its work — the same correction the search pips needed. */
+
+/* The tile's own link, on the line under the value.
+
+   Smaller than the label, so the NUMBER stays what the eye lands on — the link is what to do
+   about the number rather than part of reading it. No colour of its own on purpose: it is a
+   LabelledLink, which carries the app's text-link palette, so a tile's action looks like every
+   other link on the page instead of like a control this component invented. */
+.widget-stats__action {
+    font-size: map.get(s.$c-widget, "cell-action-font-size");
+}
+
 .widget-stats__label {
     font-size: 1rem;
 }

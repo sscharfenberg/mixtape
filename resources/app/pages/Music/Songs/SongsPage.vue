@@ -8,6 +8,10 @@
  * declares the columns and hands over the `table` response. Read-only for now
  * (`has-actions="false"`).
  *
+ * ABOVE THE TABLE SITS SongsStats — four counts that are each a way INTO the table
+ * (`?filter=`), because a listing that opens straight onto a grid of rows tells a reader
+ * nothing about what is in it or what might be wrong with it.
+ *
  * Rows are clickable: SongsController puts the song's detail URL on every row as
  * `href`, which DataTable visits on a row click / card tap. The title cell renders
  * that same URL as a real <Link> as well — that's the keyboard and
@@ -24,7 +28,9 @@ import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import type { ColumnDef, TableResponse } from "Types/dataTable";
+import type { SongStats } from "Types/music";
 import { formatClock } from "Utils/formatting";
+import SongsStats from "./SongsStats.vue";
 
 /** One song row as shaped by SongsController's rowMapper (duration in raw seconds). */
 interface SongRow {
@@ -39,9 +45,11 @@ interface SongRow {
     href: string;
 }
 
-defineProps<{
+const props = defineProps<{
     /** The server-driven table payload (rows + pagination + sort + search state). */
     table: TableResponse<SongRow>;
+    /** The strip above the table: the library's size, and one actionable count per filter. */
+    stats: SongStats;
 }>();
 
 const { t } = useI18n();
@@ -72,6 +80,8 @@ const columns = computed<ColumnDef<SongRow>[]>(() => [
         {{ t("music.widgets.songs") }}
     </headline>
     <container>
+        <songs-stats v-bind="props.stats" />
+
         <data-table :columns="columns" :response="table" base-url="/music/songs" :has-actions="false" selectable>
             <template #toolbar-actions>
                 <selection-actions subject="song" />
@@ -88,6 +98,16 @@ const columns = computed<ColumnDef<SongRow>[]>(() => [
 </template>
 
 <style scoped lang="scss">
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/sizes" as s;
+
+/* The strip and the table below it, spaced by the card gap — a page reads the token of the
+   component that already defines it rather than minting one (CLAUDE.md → Design tokens), which
+   is what the audiobooks page does with the same pair. */
+.container > * + * {
+    margin-block-start: map.get(s.$c-card, "gap");
+}
+
 /* The title link deliberately does NOT look like a link: the whole row is the
    click target and already signals that (pointer cursor + hover halo), so a blue
    underlined title on every row would be noise. It stays a real <a> for the

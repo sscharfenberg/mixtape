@@ -312,6 +312,23 @@
                 "genres": "Number of genres with at least one track"
             }
         },
+        "songFilters": {
+            "header": "Songs at a glance",
+            "show": "show",
+            "showAll": "show all",
+            "label": {
+                "never-played": "Never played",
+                "added-this-week": "New this week",
+                "duplicates": "Duplicates",
+                "no-cover": "No cover"
+            },
+            "hint": {
+                "never-played": "Songs you have never played yourself — the count is your own listening and nobody else's.",
+                "added-this-week": "Songs that arrived in the collection within the last seven days.",
+                "duplicates": "Songs whose audio is identical to another song's — the same recording sits in the collection more than once.",
+                "no-cover": "Songs with no cover embedded in the file — in a playlist or the queue they travel without artwork."
+            }
+        },
         "columns": {
             "title": "Title",
             "artist": "Artist",

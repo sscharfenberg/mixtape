@@ -313,6 +313,104 @@ test.describe("the detail hero", () => {
     });
 });
 
+test.describe("the songs listing's stats strip", () => {
+    /*
+     * The strip above the songs table, and the promise it makes: a tile's number is the number
+     * of rows its link opens. That promise is kept by one predicate on the server (SongFilter),
+     * but the PATH through it is only real in a browser — a link, a visit, a query string, a
+     * table drawn from it — and the query string is also what the DataTable rebuilds on every
+     * sort, which is where a filter would quietly get dropped.
+     *
+     * Fixture facts, from database/seeders/E2ESeeder.php: every track's audio hash is unique
+     * (nothing is filed twice) and every `created_at` is fixed in the past (nothing is new), so
+     * two of the four tiles are legitimately zero here — which is what makes them the test case
+     * for a tile with nothing to offer.
+     */
+
+    /** One tile of the strip, addressed by the label a reader sees. */
+    const tile = (page: Page, label: string) => page.locator(".widget-stats__cell", { hasText: label });
+
+    /** The number a tile is showing, as a number. */
+    const counted = async (page: Page, label: string): Promise<number> =>
+        Number((await tile(page, label).locator(".widget-stats__value").innerText()).replace(/\D/gu, ""));
+
+    test("opens exactly the rows a tile counted", async ({ page }) => {
+        await page.goto("/music/songs");
+        await expect(page.locator(".widget-stats__cell").first()).toBeVisible();
+
+        const unfiltered = await page.locator("tbody tr").count();
+        const expected = await counted(page, "Ohne Cover");
+
+        await tile(page, "Ohne Cover").getByRole("link").click();
+        await page.waitForURL(/\?filter=no-cover$/u);
+
+        // THE WHOLE POINT, through a real visit: the table holds as many rows as the tile said.
+        await expect(page.locator("tbody tr")).toHaveCount(expected);
+        expect(expected).toBeLessThan(unfiltered);
+    });
+
+    test("offers the way back out on the tile that is filtering", async ({ page }) => {
+        await page.goto("/music/songs?filter=no-cover");
+
+        const back = tile(page, "Ohne Cover").getByRole("link");
+
+        await expect(back).toHaveText("alle anzeigen");
+        await back.click();
+        await page.waitForURL(/\/music\/songs$/u);
+
+        // …and the strip's own numbers never moved: they describe the library, not the view.
+        await expect(page.locator("tbody tr")).toHaveCount(50);
+    });
+
+    test("keeps the filter while the table is sorted", async ({ page }) => {
+        // The DataTable rebuilds the query string in the browser for every sort, merging its own
+        // params into whatever is already there. A filter it dropped would look like a sort that
+        // silently widened the table — so this is the case that has to be a real click.
+        await page.goto("/music/songs?filter=no-cover");
+        const expected = await page.locator("tbody tr").count();
+
+        await page.getByRole("button", { name: /Dauer/u }).click();
+        await page.waitForURL(/sort=duration/u);
+
+        await expect(page).toHaveURL(/filter=no-cover/u);
+        await expect(page.locator("tbody tr")).toHaveCount(expected);
+    });
+
+    test("keeps every number on one baseline, links or no links", async ({ page }) => {
+        // A tile is a centred column, so one with a link under its value pushes that value UP:
+        // measured at 1440px, the two linked tiles sat their numbers 10px above the three
+        // without, and big numbers that do not share a baseline read as a rendering fault. The
+        // fix reserves the link's line in every tile of the strip, which only a browser can
+        // confirm — happy-dom has no layout at all.
+        await page.setViewportSize({ width: 1440, height: 1000 });
+        await page.goto("/music/songs");
+        await expect(page.locator(".widget-stats__cell").first()).toBeVisible();
+
+        const values = await page.locator(".widget-stats__value").all();
+        const tops = await Promise.all(values.map(async value => (await value.boundingBox())!.y));
+
+        expect(tops).toHaveLength(5);
+        expect(Math.max(...tops) - Math.min(...tops)).toBeLessThan(1);
+    });
+
+    test("marks the tile that is filtering, so a bookmarked URL explains itself", async ({ page }) => {
+        // The link's word changes too, but a reader arriving at this URL has read nothing yet.
+        await page.goto("/music/songs?filter=no-cover");
+
+        await expect(page.locator(".widget-stats__cell--active")).toHaveCount(1);
+        await expect(page.locator(".widget-stats__cell--active")).toContainText("Ohne Cover");
+    });
+
+    test("says nothing to press on a tile with nothing to show", async ({ page }) => {
+        // Every hash in the fixture is unique, so "filed twice" is zero here — and a link to an
+        // empty table is a promise the page cannot keep.
+        await page.goto("/music/songs");
+
+        await expect(tile(page, "Doppelt vorhanden")).toContainText("0");
+        await expect(tile(page, "Doppelt vorhanden").getByRole("link")).toHaveCount(0);
+    });
+});
+
 test.describe("the stats card's row", () => {
     /*
      * The Music page's stats card takes a WHOLE row of the widget grid and the four browse cards

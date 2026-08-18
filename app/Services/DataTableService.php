@@ -81,7 +81,11 @@ class DataTableService
      *                                 mapped through $sortColumnMap like the primary. Always
      *                                 applied; echoed back in `tiebreakers` only while the table
      *                                 is on its default sort — see there.
-     * @return array{rows: array<int, array<string, mixed>>, total: int, totalUnfiltered: int, page: int, pageSize: int, sort: array{key: string, direction: string}, tiebreakers: string[], search: string|null, searchIn: string|null, filters: null}
+     * @param  array<string, string|list<string>>|null  $filters  What is narrowing this table BESIDES
+     *                                                            the search, echoed back untouched — the caller applies it to
+     *                                                            the query itself (only the caller knows what its filters mean).
+     *                                                            See the response key for what the frontend does with it.
+     * @return array{rows: array<int, array<string, mixed>>, total: int, totalUnfiltered: int, page: int, pageSize: int, sort: array{key: string, direction: string}, tiebreakers: string[], search: string|null, searchIn: string|null, filters: array<string, string|list<string>>|null}
      */
     public static function buildResponse(
         Builder|HasMany $query,
@@ -95,6 +99,7 @@ class DataTableService
         array $tiebreakers = [],
         ?callable $nameSearchCallback = null,
         ?int $defaultPage = null,
+        ?array $filters = null,
     ): array {
         $sortKey = $request->input('sort', $defaultSort);
         $sortDir = $request->input('dir', $defaultDirection);
@@ -225,7 +230,17 @@ class DataTableService
              * mode at all, because the chip announcing it would be a lie the reader can click.
              */
             'searchIn' => $narrowed ? self::SEARCH_IN_NAME : null,
-            'filters' => null,
+            /*
+             * WHAT ELSE IS NARROWING THIS TABLE, straight back out of the caller's hands.
+             *
+             * This service does not apply it and cannot: a filter is a predicate only the
+             * listing understands (SongFilter is four different `where`s). What it is echoed
+             * for is the FRONTEND — DataTable watches the serialised sort/search/filters and
+             * drops its row selection when any of them changes, which a filtered table needs
+             * as much as a searched one: the rows underneath a set of ticks are no longer the
+             * same rows.
+             */
+            'filters' => $filters,
         ];
     }
 }

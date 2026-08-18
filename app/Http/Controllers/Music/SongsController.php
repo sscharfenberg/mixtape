@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Music;
 
+use App\Enums\SongFilter;
 use App\Enums\TrackType;
 use App\Http\Controllers\Controller;
 use App\Models\Track;
+use App\Models\User;
 use App\Services\DataTableService;
 use App\Services\Search\FoldedSearch;
 use Illuminate\Database\Eloquent\Builder;
@@ -20,6 +22,17 @@ use Inertia\Response;
  * Every row also carries an `href` to its own detail page (SongController), which
  * is what makes the table's rows clickable — the frontend only follows what the
  * server puts there, so this controller owns where a row leads.
+ *
+ * ABOVE THE TABLE SITS A STATS STRIP, and it is not decoration: each of its four counts is a
+ * question worth acting on (songs never played, added this week, filed twice, travelling with no
+ * artwork), and each tile LINKS to the table narrowed to exactly what it counted — `?filter=`,
+ * one value per SongFilter case. A number a reader cannot follow is a poster; the link is the
+ * feature.
+ *
+ * THE COUNTS DESCRIBE THE WHOLE LIBRARY, never the filtered view, so they hold still while a
+ * reader works through one of them: a strip that re-counted inside its own filter would answer
+ * "23 without artwork" with "23 without artwork" forever, and the tile a reader arrived by would
+ * be the one tile that could never change.
  */
 class SongsController extends Controller
 {
@@ -28,9 +41,16 @@ class SongsController extends Controller
      * artist / album / genre names are one query (and sortable by those columns),
      * then hands the query to DataTableService which reads the URL state and
      * shapes the TableResponse the frontend DataTable expects.
+     *
+     * `?filter=` is applied to that query BEFORE it goes in, so the pager, the search and the
+     * sort all work over the narrowed set rather than around it — and it is echoed back through
+     * `filters` so the table knows what it is showing (DataTableService says what reads it).
      */
     public function __invoke(Request $request): Response
     {
+        $reader = $request->user();
+        $filter = SongFilter::fromInput($request->input('filter'));
+
         $query = Track::query()
             ->where('tracks.type', TrackType::Music)
             ->leftJoin('artists', 'tracks.artist_id', '=', 'artists.id')
@@ -44,6 +64,10 @@ class SongsController extends Controller
                 'collections.name as album_name',
                 'genres.name as genre_name',
             ]);
+
+        // Before DataTableService sees it, so the filter is part of what gets counted, searched
+        // and paged rather than something applied to one page of rows.
+        $filter?->apply($query, $reader);
 
         $table = DataTableService::buildResponse(
             query: $query,
@@ -93,10 +117,62 @@ class SongsController extends Controller
                 // a real link). Relative so it works whatever host serves the app.
                 'href' => route('music.songs.show', $song->id, absolute: false),
             ],
+            // Echoed, not applied here — see the parameter's docblock, and `filters` in the
+            // response for the one thing the frontend does with it.
+            filters: $filter ? ['filter' => $filter->value] : null,
         );
 
         return Inertia::render('Music/Songs/SongsPage', [
             'table' => $table,
+            'stats' => $this->stats($reader, $filter),
         ]);
+    }
+
+    /**
+     * The strip's numbers: the library's size, then one tile per SongFilter.
+     *
+     * EAGER, unlike the `Inertia::defer` a page of aggregates usually wants, and the reason is
+     * the DataTable: every sort, page and search is a full visit, so a deferred strip would
+     * blank and re-arrive on each click — a skeleton flashing above a table that did not need to
+     * wait for it. Five counts, four of them index-backed, against a listing query that already
+     * joins three tables and counts twice.
+     *
+     * A TILE'S `href` IS DECIDED HERE, like every other link this app renders (a row's own
+     * href, the widget footers), so the strip cannot drift from the routes. Three readings, and
+     * the middle one is the one the strip is really for:
+     *
+     *   - the ACTIVE filter offers the way back out — the unfiltered listing — because a
+     *     filtered table a reader cannot leave is a dead end, and its tile is the only honest
+     *     place to put that door;
+     *   - a count of zero offers NOTHING, since a link to an empty table is a promise the page
+     *     cannot keep;
+     *   - anything else links to itself, filtered.
+     *
+     * @return array{total: int, filters: list<array{key: string, count: int, href: string|null, active: bool}>}
+     */
+    private function stats(?User $reader, ?SongFilter $active): array
+    {
+        $tiles = [];
+
+        foreach (SongFilter::cases() as $filter) {
+            $count = $filter->count($reader);
+            $isActive = $active === $filter;
+
+            $tiles[] = [
+                'key' => $filter->value,
+                'count' => $count,
+                'href' => match (true) {
+                    $isActive => route('music.songs', absolute: false),
+                    $count > 0 => route('music.songs', ['filter' => $filter->value], absolute: false),
+                    default => null,
+                },
+                'active' => $isActive,
+            ];
+        }
+
+        return [
+            'total' => Track::query()->where('tracks.type', TrackType::Music)->count(),
+            'filters' => $tiles,
+        ];
     }
 }

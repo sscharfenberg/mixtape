@@ -183,7 +183,7 @@ interface TableResponse<T> {
     tiebreakers?: string[]; // extra keys ordering the table after `sort`, always ascending
     search: string | null;
     searchIn?: string | null;    // "name" when the search was narrowed to the row's own name
-    filters: Record<string, string | string[]> | null; // reserved; currently always null
+    filters: Record<string, string | string[]> | null; // what else narrows the table, echoed by the server
 }
 ```
 

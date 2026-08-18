@@ -312,6 +312,23 @@
                 "genres": "Anzahl der Genres mit mindestens einem Titel"
             }
         },
+        "songFilters": {
+            "header": "Songs im Überblick",
+            "show": "anzeigen",
+            "showAll": "alle anzeigen",
+            "label": {
+                "never-played": "Nie gespielt",
+                "added-this-week": "Neu diese Woche",
+                "duplicates": "Doppelt vorhanden",
+                "no-cover": "Ohne Cover"
+            },
+            "hint": {
+                "never-played": "Songs, die du selbst noch nie gespielt hast — gezählt werden nur deine eigenen Wiedergaben.",
+                "added-this-week": "Songs, die in den letzten sieben Tagen neu in die Sammlung gekommen sind.",
+                "duplicates": "Songs, deren Audiodaten mit einem anderen Song identisch sind — dieselbe Aufnahme liegt mehrfach in der Sammlung.",
+                "no-cover": "Songs ohne eingebettetes Cover in der Datei — in Playlist und Warteschlange bleiben sie ohne Bild."
+            }
+        },
         "columns": {
             "title": "Titel",
             "artist": "Künstler",

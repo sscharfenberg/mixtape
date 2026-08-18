@@ -65,5 +65,23 @@ $widget: (
     "cell-background": light-dark(
             color.adjust(map.get(c.$grey, "mystic"), $alpha: -0.2),
             color.adjust(map.get(c.$grey, "ebony"), $alpha: -0.2)
+        ),
+    /*
+     * A cell whose filter is the one currently narrowing the table (the Songs listing's strip).
+     *
+     * THE SAME PAIR THE MODE TOGGLE LIGHTS ITS SELECTED SEGMENT WITH, re-picked from the globals
+     * here rather than read off that partial, exactly as it re-picks them from SiteMenuLinks:
+     * "this is the one that is on" is one idea in this app and should look like one idea, and a
+     * partial that reaches into another component's tokens is the copy that stops matching when
+     * either moves.
+     *
+     * It marks a cell rather than replacing its fill, so the number stays as readable as its
+     * neighbours' — a brand-coloured tile would put the big value on a saturated ground where
+     * every other value sits on grey.
+     */
+    "cell-active-border": light-dark(map.get(c.$brand, "light2", "color"), map.get(c.$brand, "dark2", "color")),
+    "cell-active-background": light-dark(
+            color.adjust(map.get(c.$brand, "light2", "color"), $alpha: -0.88),
+            color.adjust(map.get(c.$brand, "dark2", "color"), $alpha: -0.85)
         )
 ) !default;

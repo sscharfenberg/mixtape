@@ -28,6 +28,37 @@ export interface WidgetModes<T> {
     popular?: T[];
 }
 
+/**
+ * The Songs listing's stat filters, by the value each one carries in `?filter=`.
+ *
+ * The same four strings as App\Enums\SongFilter's cases, which is what lets a tile look its own
+ * label up (`music.songFilters.label[key]`) with no mapping table in between.
+ */
+export type SongFilterKey = "never-played" | "added-this-week" | "duplicates" | "no-cover";
+
+/** One filter tile of the Songs listing's strip: how many rows it counts, and the link there. */
+export interface SongFilterStat {
+    key: SongFilterKey;
+    /** How many songs match, over the WHOLE library — never over the filtered table. */
+    count: number;
+    /**
+     * Where the tile's link goes, or null for a tile that offers none.
+     *
+     * Three readings, all decided server-side (SongsController): the listing filtered to this
+     * count, the UNFILTERED listing when this filter is the active one — the way back out — and
+     * null for a count of zero, which has no table worth opening.
+     */
+    href: string | null;
+    /** Whether this filter is the one currently narrowing the table. */
+    active: boolean;
+}
+
+/** The Songs listing's whole strip: the library's size, then one tile per filter, in the server's order. */
+export interface SongStats {
+    total: number;
+    filters: SongFilterStat[];
+}
+
 /** What every widget entry carries: something to name it and somewhere to go. */
 interface WidgetEntry {
     id: string;

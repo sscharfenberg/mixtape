@@ -41,8 +41,18 @@ const table = (overrides: Record<string, unknown> = {}) => ({
     ...overrides
 });
 
+/**
+ * The strip's payload, defaulted to a library with nothing to report.
+ *
+ * Zeroed on purpose: SongsStats has its own tests, so what a page test wants from it is the
+ * quietest possible version — present, so the page mounts as the controller renders it, and
+ * silent, so nothing it draws can be mistaken for something the page decided.
+ */
+const stats = () => ({ total: 1, filters: [] });
+
 /** Mount the listing over a table payload. */
-const page = (overrides: Record<string, unknown> = {}) => mountApp(SongsPage, { props: { table: table(overrides) } });
+const page = (overrides: Record<string, unknown> = {}) =>
+    mountApp(SongsPage, { props: { table: table(overrides), stats: stats() } });
 
 describe("SongsPage", () => {
     beforeEach(() => {
@@ -112,7 +122,7 @@ describe("SongsPage", () => {
     });
 
     it("renders in English when the locale says so", () => {
-        const wrapper = mountApp(SongsPage, { props: { table: table() }, locale: "en" });
+        const wrapper = mountApp(SongsPage, { props: { table: table(), stats: stats() }, locale: "en" });
 
         expect(wrapper.findAll("th:not(.dt-head__check)")[0].text()).toBe(translate("music.columns.title", "en"));
     });

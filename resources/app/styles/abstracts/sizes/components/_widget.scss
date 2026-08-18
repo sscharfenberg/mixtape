@@ -40,5 +40,10 @@ $widget: (
     // literal `0.75rem` twice in that component; it is here because the two tokens above already
     // describe these same cells, so the set that says how a cell is drawn should say how far apart
     // they sit as well.
-    "cell-gap": 0.75rem
+    "cell-gap": 0.75rem,
+    // A stat tile's link ("show", on the Songs listing's strip), sized down from the label so the
+    // NUMBER stays what the eye lands on. It is a token because StatTiles reads it twice — once
+    // for the link and once for the blank line every other tile in that strip reserves to keep
+    // the numbers on one baseline — and two literals that must match is one literal too many.
+    "cell-action-font-size": 0.85rem
 ) !default;
