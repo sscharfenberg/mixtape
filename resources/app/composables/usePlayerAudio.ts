@@ -173,6 +173,18 @@ let lastHeartbeatAt = 0;
 let pendingResume = 0;
 
 /**
+ * The track {@link pendingResume} was measured on, straight from the queue that restored it.
+ *
+ * IT CANNOT BE ASSUMED TO BE THE NEXT TRACK LOADED, which is the whole reason it is kept. The
+ * bar carries `preload="none"`, so a restored queue fetches nothing until somebody presses
+ * play — and a reader who instead starts a different album is the first `loadedmetadata` this
+ * element ever fires. Unpaired, the restored seconds went to that album's first song: the new
+ * queue resuming at the old one's progress, only sometimes, because it depended on whether the
+ * restored track had been played first.
+ */
+let pendingResumeTrackId: string | null = null;
+
+/**
  * The track the ELEMENT currently holds, which is not always the queue's current one: the pointer
  * moves first and `load()` follows, so for a moment the two disagree.
  *
@@ -590,8 +602,12 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
 
         lastHeartbeatAt = 0;
         // Taken here, before the load below, and taken ONCE: this is the track a page load
-        // came back holding, and it is the only one a stored position can belong to.
-        pendingResume = takeRestoredPosition();
+        // came back holding, and it is the only one a stored position can belong to — which
+        // is why the queue hands over both halves and `loadedmetadata` checks them.
+        const resume = takeRestoredPosition();
+
+        pendingResume = resume.seconds;
+        pendingResumeTrackId = resume.trackId;
 
         /** Bind a media event and register its removal, so `detach()` needs no list of its own. */
         const on = <K extends keyof HTMLMediaElementEventMap>(
@@ -673,7 +689,22 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
             if (pendingResume <= 0) return;
 
             const seconds = pendingResume;
+            const owner = pendingResumeTrackId;
+
             pendingResume = 0;
+            pendingResumeTrackId = null;
+
+            /*
+             * ONLY THE TRACK IT WAS MEASURED ON, asked of the ELEMENT rather than of the
+             * queue's pointer — for the reason `loadedTrackId` is recorded at all: the pointer
+             * moves first and the source follows, so the queue would answer for a track this
+             * element has not loaded yet.
+             *
+             * Consumed either way. A resume whose track was never played has missed its
+             * moment: the position is still in storage for the next page load, and keeping it
+             * armed would seek a track queued half an hour later.
+             */
+            if (owner !== loadedTrackId) return;
 
             // The queue's figure first (getID3 measured it at scan time), the element's as
             // the fallback for a file that carried no duration at all.
@@ -860,6 +891,7 @@ export function usePlayerAudio(): UsePlayerAudioReturn {
         // has gone, so a timer left counting would be state nothing on screen can show.
         bindSleepStop(null);
         pendingResume = 0;
+        pendingResumeTrackId = null;
         loadedTrackId = null;
         lastHeartbeatAt = 0;
         heardSeconds = 0;
@@ -895,6 +927,7 @@ export function resetPlayerAudioForTests(): void {
     // that armed a timer must not leave an interval ticking into the next file.
     bindSleepStop(null);
     pendingResume = 0;
+    pendingResumeTrackId = null;
     loadedTrackId = null;
     lastHeartbeatAt = 0;
     heardSeconds = 0;

@@ -112,6 +112,12 @@ are full PHP requests rather than static hits. Nothing on the page wants them: t
 comes from the queue, and a restored position is applied on `loadedmetadata`, which under
 `preload="none"` simply arrives when playback starts.
 
+That last clause is load-bearing in one direction nobody expects: playback may start on a track the
+position was never measured on, because a reader is free to start a different album instead of the
+restored queue. So the resume travels with the id of the track it belongs to and is applied only if the
+element's loaded track matches — [`play-queue.md`](play-queue.md) → *Picking up mid-track* has all three
+hops of that pairing.
+
 What is given up is the warm buffer on that first press — one round trip — and scrubbing before
 pressing play actually gets *better*, because the fetch then starts at the seek point rather than at
 zero. It is pinned by a Playwright spec (*cues a restored queue without fetching a byte of it*) rather

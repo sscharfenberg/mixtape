@@ -440,6 +440,67 @@ describe("usePlayerAudio", () => {
             expect(element.currentTime).toBe(0);
         });
 
+        it("never resumes a track the position was not measured on", async () => {
+            /*
+             * THE BUG A RESUME WAITING FOR METADATA HAS ALL TO ITSELF, and the reason the
+             * queue's own guard cannot see it: nothing here is stored or read back. The bar
+             * carries `preload="none"`, so the restored track fetches NOTHING until somebody
+             * presses play — and a reader who instead starts a different album makes that
+             * album's first song the first `loadedmetadata` this element ever fires. Unpaired,
+             * it was seeked to the restored track's minute mark.
+             *
+             * It came and went rather than happening every time, because playing the restored
+             * track first consumes the resume where it belongs.
+             */
+            restoreQueueAt(96, [track("a", 300)]);
+            const element = attachElement();
+
+            usePlayerQueue().playNow([track("b", 300)]);
+            await nextTick();
+            metadataArrives(element);
+
+            expect(element.currentTime).toBe(0);
+        });
+
+        it("never resumes a queue built after the restored one was cleared", async () => {
+            // Emptying the queue unloads the element but says nothing about a resume still
+            // waiting for metadata — so the pairing, not the clear, is what refuses this.
+            restoreQueueAt(96, [track("a", 300)]);
+            const element = attachElement();
+
+            usePlayerQueue().clear();
+            await nextTick();
+            usePlayerQueue().playNow([track("b", 300)]);
+            await nextTick();
+            metadataArrives(element);
+
+            expect(element.currentTime).toBe(0);
+        });
+
+        it("drops a resume that missed its track rather than saving it for later", async () => {
+            /*
+             * A DELIBERATE END TO IT, and the reason to state it: the alternative — keeping the
+             * resume armed until its own track happens to load — leaves a seek waiting in a
+             * player that has moved on, and the listening it waited through has already
+             * overwritten the stored position it came from. So the pair is consumed at the
+             * first metadata after a page load, whether or not it was applicable, and the
+             * position that is still in storage is the next page load's business.
+             */
+            restoreQueueAt(96, [track("a", 300), track("b", 300)]);
+            const element = attachElement();
+
+            usePlayerQueue().jumpTo(1);
+            await nextTick();
+            metadataArrives(element);
+            expect(element.currentTime).toBe(0);
+
+            usePlayerQueue().jumpTo(0);
+            await nextTick();
+            metadataArrives(element);
+
+            expect(element.currentTime).toBe(0);
+        });
+
         it("stores the position every heartbeat of playback, and not between them", () => {
             /*
              * The heartbeat is counted in PLAYED seconds off `timeupdate`, not by a timer:

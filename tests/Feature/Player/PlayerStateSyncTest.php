@@ -308,6 +308,50 @@ class PlayerStateSyncTest extends TestCase
             );
     }
 
+    public function test_a_position_measured_on_a_deleted_track_is_not_handed_to_the_one_that_replaces_it(): void
+    {
+        /*
+         * The pointer follows a deletion, so it comes back naming a DIFFERENT song — and the
+         * seconds beside it were measured on the one that has gone. Handed over, they are
+         * applied as an ordinary resume: the client cannot tell this apart from a real one,
+         * because the row stores the position against an index and cannot name its track.
+         */
+        $user = User::factory()->create();
+        $tracks = $this->tracks(3);
+        $ids = array_map(fn (Track $track) => $track->id, $tracks);
+
+        $this->actingAs($user)->putJson('/player/state', $this->payload($ids, currentIndex: 1, positionMs: 96_500));
+        $tracks[1]->delete();
+
+        $this->actingAs($user)
+            ->get('/music')
+            ->assertInertia(fn (Assert $page) => $page
+                // The pointer still moves — it is the next thing the listener would have heard.
+                ->where('playerState.currentIndex', 1)
+                ->where('playerState.tracks.1.id', $ids[2])
+                ->where('playerState.positionMs', 0)
+            );
+    }
+
+    public function test_a_position_survives_a_deletion_elsewhere_in_the_queue(): void
+    {
+        // The mirror of the above, and the reason it is not simply "any deletion drops it":
+        // the loaded track is untouched, so the listener picks up exactly where they were.
+        $user = User::factory()->create();
+        $tracks = $this->tracks(3);
+        $ids = array_map(fn (Track $track) => $track->id, $tracks);
+
+        $this->actingAs($user)->putJson('/player/state', $this->payload($ids, currentIndex: 2, positionMs: 96_500));
+        $tracks[0]->delete();
+
+        $this->actingAs($user)
+            ->get('/music')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('playerState.currentIndex', 1)
+                ->where('playerState.positionMs', 96_500)
+            );
+    }
+
     public function test_the_client_stamp_comes_back_untouched(): void
     {
         // It is the CLIENT's clock, and the browser compares it with its own copy's stamp

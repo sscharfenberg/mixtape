@@ -466,6 +466,7 @@ export function abandonQueue(): void {
     readPosition = null;
     writtenPosition = 0;
     restoredPosition = 0;
+    restoredPositionTrackId = null;
 
     tracks.value = [];
     currentIndex.value = NOTHING;
@@ -647,6 +648,9 @@ function applyPosition(stored: string | null): void {
     const trustworthy = claimed === undefined || claimed === restoredTrackId;
 
     restoredPosition = trustworthy && typeof payload.positionMs === "number" ? payload.positionMs / 1000 : 0;
+    // Whose it is comes from the LIST that was just read rather than from the payload, so a
+    // pointer written before the field existed still hands the player a checkable pair.
+    restoredPositionTrackId = restoredPosition > 0 ? restoredTrackId : null;
 }
 
 /**
@@ -741,6 +745,19 @@ let positionTrackId: string | null = null;
 let restoredPosition = 0;
 
 /**
+ * The track {@link restoredPosition} was measured on — the third and last hop of the rule
+ * that A POSITION NEVER TRAVELS ALONE.
+ *
+ * The other two are storage (the pointer names its track, and a mismatch is refused on the
+ * way in and on the way out). This one is the HAND-OFF to the player, and it is the hop that
+ * needs it most: the bar carries `preload="none"`, so a restored queue loads no metadata
+ * until somebody presses play — and a reader who never presses play on it, but starts a
+ * different album instead, hands the player a position measured on a track it will never
+ * load. Unpaired, those seconds were applied to whatever loaded first.
+ */
+let restoredPositionTrackId: string | null = null;
+
+/**
  * What the media element reports about its own playback.
  *
  * THE TWO HALVES TRAVEL TOGETHER, and that is the point of the type: a position on its own
@@ -775,12 +792,16 @@ export function bindPositionSource(source: (() => PlaybackReading) | null): void
  *
  * Reading it CLEARS it, which is the contract: the player asks as it loads the hydrated
  * queue's track and gets a real answer exactly that once.
+ *
+ * It answers with the TRACK as well, for the reason {@link restoredPositionTrackId} gives:
+ * the player cannot assume the next track it loads is the one these seconds were measured on.
  */
-export function takeRestoredPosition(): number {
-    const seconds = restoredPosition;
+export function takeRestoredPosition(): PlaybackReading {
+    const reading = { seconds: restoredPosition, trackId: restoredPositionTrackId };
     restoredPosition = 0;
+    restoredPositionTrackId = null;
 
-    return seconds;
+    return reading;
 }
 
 /**
@@ -1553,6 +1574,17 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
         restoredPosition = payload.positionMs / 1000;
         clampIndex();
 
+        /*
+         * WHOSE POSITION IT IS, made here because this is the only place it can be: the server
+         * row stores the position against an INDEX and nothing else. Read after the clamp,
+         * which is when the pointer is final, and from the list that actually came back — so
+         * the player and the next page load both check against the same reading.
+         *
+         * A pointer naming no track (the idle "nothing loaded" the server sends back) leaves
+         * the position with no owner, which is the same as not having one.
+         */
+        restoredPositionTrackId = restoredPosition > 0 ? (tracks.value[currentIndex.value]?.id ?? null) : null;
+
         const userId = currentUserId();
         writeEntry(STORAGE_KEY, { version: PERSISTED_VERSION, userId, tracks: tracks.value.map(toPersisted) });
         writeEntry(POSITION_STORAGE_KEY, {
@@ -1562,7 +1594,12 @@ export function usePlayerQueue(): UsePlayerQueueReturn {
             repeat: repeat.value,
             shuffle: shuffle.value,
             updatedAt: payload.updatedAt,
-            positionMs: payload.positionMs
+            positionMs: payload.positionMs,
+            // NAMED, though the row it came from could not name it. Written as anything else —
+            // absent — this pointer would read back as one written before the field existed,
+            // which is trusted on sight, so the guard would be off for every reader whose
+            // queue came from the server rather than from this browser.
+            trackId: restoredPositionTrackId
         });
 
         return true;

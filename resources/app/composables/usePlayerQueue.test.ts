@@ -1274,6 +1274,28 @@ describe("usePlayerQueue", () => {
             expect(fetchMock).not.toHaveBeenCalled();
         });
 
+        it("names the track of the position it adopted, which the server row could not", () => {
+            /*
+             * The server stores the position against an INDEX and nothing else, so the pointer
+             * this writes is the first thing in the chain that can say whose it is. Leaving it
+             * absent would be worse than wrong: an absent id reads as a pointer written before
+             * the field existed, which is trusted on sight — so the guard would be off for
+             * every reader whose queue came from the server rather than from this browser.
+             */
+            signedInAs("user-1", {
+                tracks: [track("server-1"), track("server-2")],
+                currentIndex: 1,
+                repeat: false,
+                shuffle: false,
+                updatedAt: Date.now() + 60_000,
+                positionMs: 96_000
+            });
+            usePlayerQueue().hydrate();
+
+            expect(storedPosition().trackId).toBe("server-2");
+            expect(takeRestoredPosition()).toEqual({ seconds: 96, trackId: "server-2" });
+        });
+
         it("keeps the local queue when the server's copy is older than it", () => {
             /*
              * THE RACE THIS EXISTS FOR, and it is not hypothetical — the E2E suite hit it on
@@ -1321,6 +1343,9 @@ describe("usePlayerQueue", () => {
          * value reaching storage and the sync, and this module refusing to write for a
          * position that has not moved.
          */
+
+        /** What the player is handed as it loads the restored track — see PlaybackReading. */
+        const restored = () => takeRestoredPosition();
 
         /**
          * Stand in for the player, which is the only thing that can read an element.
@@ -1433,7 +1458,7 @@ describe("usePlayerQueue", () => {
 
             usePlayerQueue().hydrate();
 
-            expect(takeRestoredPosition()).toBe(0);
+            expect(restored().seconds).toBe(0);
         });
 
         it("honours a stored position written before it named its track", () => {
@@ -1455,7 +1480,9 @@ describe("usePlayerQueue", () => {
 
             usePlayerQueue().hydrate();
 
-            expect(takeRestoredPosition()).toBe(96);
+            // …and it is handed on NAMED regardless, read off the list that came back rather
+            // than off the payload, so the player can check it even when the pointer could not.
+            expect(restored()).toEqual({ seconds: 96, trackId: "a" });
         });
 
         it("hands a restored position back to the player exactly once", () => {
@@ -1467,8 +1494,8 @@ describe("usePlayerQueue", () => {
             playingAt(0);
             usePlayerQueue().hydrate();
 
-            expect(typeof takeRestoredPosition()).toBe("number");
-            expect(takeRestoredPosition()).toBe(0);
+            expect(typeof restored().seconds).toBe("number");
+            expect(restored().seconds).toBe(0);
         });
     });
 

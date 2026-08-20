@@ -263,6 +263,27 @@ A stored pointer with **no** id at all is still honoured: it was written before 
 refusing it would throw away every reader's resume to fix a bug the write side has already fixed. Only a
 mismatch is refused.
 
+**The pairing holds for all THREE hops, and the third is the one it is easiest to forget.** Storage is two
+of them — the write names the track, the read checks it. The third is the HAND-OFF from the queue to the
+player: `takeRestoredPosition()` answers with a `PlaybackReading` too, and `loadedmetadata` applies it only
+if the element's own loaded track is the one it names. Nothing is stored or read back on that hop, which is
+why it needs its own check — and it is the hop most exposed, because the bar carries `preload="none"`: a
+restored queue fetches nothing until somebody presses play, so a reader who never plays it and starts a
+different album instead makes THAT album's first song the first `loadedmetadata` the element ever fires.
+The seconds are consumed at that first boundary either way, applicable or not — a resume that missed its
+track is not saved for later, because by then the listening that followed has overwritten the position it
+came from, and the copy still in storage is the next page load's business.
+
+**The server row is the one place that cannot name the track**, because it stores the position against an
+INDEX (`player_states` holds ids and a pointer, nothing per-position). So two things happen at its edges.
+`PlayerStatePayload` answers **zero** when the id at the stored index no longer resolves: the pointer
+follows a deletion onto whatever moved up, and these seconds belong to the file that has gone — which the
+client cannot detect, since what it receives looks exactly like an ordinary resume. And the browser makes
+the pair itself as it adopts the row, writing the id of the track the clamped pointer landed on into its
+local pointer. Writing nothing there would be worse than wrong: an absent id reads as a pointer from
+before the field existed, which is trusted on sight, so the guard would be off for every reader whose
+queue came down from the server rather than out of this browser.
+
 **When it is written: boundaries, plus a heartbeat.** Every deliberate exit writes it — pausing, changing
 track, hiding the tab, closing it. The heartbeat covers the exits that are not deliberate, and it is
 counted in **seconds of playback off `timeupdate`**, never by a timer: a timer is throttled to once a

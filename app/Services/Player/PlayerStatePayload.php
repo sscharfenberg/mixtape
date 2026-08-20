@@ -106,20 +106,28 @@ final class PlayerStatePayload
             return null;
         }
 
+        $surviving = $byId->keys()->flip()->all();
+        $storedIndex = (int) ($stored['currentIndex'] ?? 0);
+
         return [
             'tracks' => $tracks,
-            'currentIndex' => self::survivingIndex($ids, $byId->keys()->flip()->all(), (int) ($stored['currentIndex'] ?? 0)),
+            'currentIndex' => self::survivingIndex($ids, $surviving, $storedIndex),
             'repeat' => (bool) ($stored['repeat'] ?? false),
             'shuffle' => (bool) ($stored['shuffle'] ?? false),
             // The CLIENT'S clock, stored verbatim and handed straight back: the browser
             // compares it with its own copy's stamp to decide which is newer, and a value
             // this server had rewritten would be comparing two different clocks.
             'updatedAt' => (int) ($stored['updatedAt'] ?? 0),
-            // How far into the loaded track the listener had got. Handed back whatever the
-            // pointer turned out to be — the client applies its own rules about whether a
-            // position is worth resuming, and a track that moved up the list keeps the
-            // seconds that belong to it.
-            'positionMs' => (int) ($stored['positionMs'] ?? 0),
+            // How far into the loaded track the listener had got. Whether it is worth
+            // resuming at all — too early in the track, too near its end — is the client's
+            // rule, applied where the element and the duration both are.
+            //
+            // ZERO WHEN THE TRACK IT WAS MEASURED ON HAS GONE, because the pointer above then
+            // names whatever moved up into the gap and these seconds are a stranger's. The row
+            // stores the position against an INDEX and cannot name its track, so this is the
+            // only place that knows the pointer moved for that reason rather than because the
+            // listener moved it.
+            'positionMs' => self::survivingPosition($ids, $surviving, $storedIndex, (int) ($stored['positionMs'] ?? 0)),
         ];
     }
 
@@ -168,6 +176,29 @@ final class PlayerStatePayload
                 'positionMs' => $positionMs,
             ]],
         );
+    }
+
+    /**
+     * The stored position, or zero if the track it belongs to is no longer in the library.
+     *
+     * Separate from {@link survivingIndex} rather than folded into it, because the two answer
+     * opposite halves of the same event: the pointer FOLLOWS a deletion (whatever moved up is
+     * the next thing the listener would have heard), while the position does not travel with
+     * it — resuming a song nobody chose at a minute mark measured on a song that has gone is
+     * the one outcome the client cannot detect for itself, since what it receives looks
+     * exactly like an ordinary resume.
+     *
+     * @param  list<string>  $ids  the stored order, including ids the library no longer has
+     * @param  array<string, int>  $surviving  id => anything, for the ids that resolved
+     */
+    private static function survivingPosition(array $ids, array $surviving, int $storedIndex, int $positionMs): int
+    {
+        // -1 is "nothing loaded" (see below), and a position measured on nothing is nothing.
+        if ($storedIndex < 0 || ! isset($ids[$storedIndex])) {
+            return 0;
+        }
+
+        return array_key_exists($ids[$storedIndex], $surviving) ? $positionMs : 0;
     }
 
     /**
