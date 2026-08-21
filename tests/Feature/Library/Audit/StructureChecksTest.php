@@ -43,6 +43,90 @@ class StructureChecksTest extends TestCase
         $this->assertSame(['Short'], $this->subjects(AuditCheck::IncompleteAlbums));
     }
 
+    public function test_it_names_which_track_is_missing(): void
+    {
+        /*
+         * WHAT THE SECTION USED TO LEAVE OUT. "This album is short" is where a reader's question
+         * begins, not ends, and finding the gap by hand means a query per album — unfindable by eye
+         * in a 673-chapter book, which is the case that decided this.
+         */
+        $this->album('Short', [
+            'A/Short/01.mp3' => ['track' => 1, 'disc' => 1],
+            'A/Short/02.mp3' => ['track' => 2, 'disc' => 1],
+            'A/Short/04.mp3' => ['track' => 4, 'disc' => 1],
+        ]);
+
+        $findings = $this->check(AuditCheck::IncompleteAlbums)->listed;
+
+        $this->assertSame(['CD 1 Track 3', 'A/Short'], $findings[0]->cells);
+    }
+
+    public function test_the_gap_is_named_per_disc_so_the_reader_looks_on_the_right_one(): void
+    {
+        // A two-disc set short on its second disc is not missing "track 2 of 5" — a reader given
+        // the wrong spelling goes hunting on the wrong disc.
+        $this->album('Two Discs', [
+            'A/Two/[Disc 1]/01.mp3' => ['track' => 1, 'disc' => 1],
+            'A/Two/[Disc 2]/01.mp3' => ['track' => 1, 'disc' => 2],
+            'A/Two/[Disc 2]/03.mp3' => ['track' => 3, 'disc' => 2],
+        ]);
+
+        $this->assertSame('CD 2 Track 2', $this->check(AuditCheck::IncompleteAlbums)->listed[0]->cells[0]);
+    }
+
+    public function test_a_gap_where_the_files_carry_no_disc_reads_as_a_bare_number(): void
+    {
+        // No `CD n` at all, because a placeholder would invent a disc the tags do not claim.
+        $this->album('No Discs', [
+            'A/No/01.mp3' => ['track' => 1, 'disc' => null],
+            'A/No/03.mp3' => ['track' => 3, 'disc' => null],
+        ]);
+
+        $this->assertSame('Track 2', $this->check(AuditCheck::IncompleteAlbums)->listed[0]->cells[0]);
+    }
+
+    public function test_a_missing_first_track_counts_from_one_and_not_from_what_is_there(): void
+    {
+        // A rip starting at 3 IS missing 1 and 2; counting from the lowest present would quietly
+        // redefine the album as complete.
+        $this->album('Late Start', [
+            'A/Late/03.mp3' => ['track' => 3, 'disc' => 1],
+        ]);
+
+        $this->assertSame('CD 1 Track 1, 2', $this->check(AuditCheck::IncompleteAlbums)->listed[0]->cells[0]);
+    }
+
+    public function test_a_long_run_of_gaps_is_capped_and_says_how_many_it_left_out(): void
+    {
+        // Numbered 1 and 300 with nothing between, one row would be taller than its section. Capped
+        // and COUNTED, never silently cut.
+        $this->album('Sparse', [
+            'A/Sparse/01.mp3' => ['track' => 1, 'disc' => 1],
+            'A/Sparse/300.mp3' => ['track' => 300, 'disc' => 1],
+        ]);
+
+        $cell = $this->check(AuditCheck::IncompleteAlbums)->listed[0]->cells[0];
+
+        // Grouped, so the phrase that makes the cell unambiguous is not repeated ten times.
+        $this->assertStringStartsWith('CD 1 Track 2, 3, 4,', $cell);
+        $this->assertStringEndsWith('…and 288 more', $cell);
+    }
+
+    public function test_a_book_names_the_chapter_it_is_short_of(): void
+    {
+        $this->book('The Stand', [
+            'K/Stand/01.mp3' => ['track' => 1, 'disc' => 1],
+            'K/Stand/02.mp3' => ['track' => 2, 'disc' => 1],
+            'K/Stand/04.mp3' => ['track' => 4, 'disc' => 1],
+        ]);
+
+        $findings = $this->check(AuditCheck::IncompleteBooks)->listed;
+
+        // The same spelling as an album's, deliberately: these files ARE CD tracks, and one
+        // vocabulary across the report beats two that each look right in isolation.
+        $this->assertSame('CD 1 Track 3', $findings[0]->cells[0]);
+    }
+
     public function test_it_reads_the_same_predicate_the_listing_filters_on(): void
     {
         /*
@@ -113,7 +197,7 @@ class StructureChecksTest extends TestCase
         $findings = $this->check(AuditCheck::RepeatedTrackNumbers)->listed;
 
         $this->assertSame('Era Vulgaris', $findings[0]->subject);
-        $this->assertSame(['1/12', 'QOTSA/[2007] Era Vulgaris'], $findings[0]->cells);
+        $this->assertSame(['CD 1 Track 12', 'QOTSA/[2007] Era Vulgaris'], $findings[0]->cells);
         // The SAME collision must not also be reported as two albums in one row.
         $this->assertSame([], $this->subjects(AuditCheck::MergedAlbums));
     }
@@ -138,7 +222,7 @@ class StructureChecksTest extends TestCase
         $this->assertCount(1, $findings);
         $this->assertSame('Once Sent From The Golden Hall', $findings[0]->subject);
         $this->assertStringContainsString(' + ', $findings[0]->cells[0]);
-        $this->assertSame('1/1, 1/2', $findings[0]->cells[1]);
+        $this->assertSame('CD 1 Track 1, 2', $findings[0]->cells[1]);
         // …and it is NOT also in the repeated-numbers section.
         $this->assertSame([], $this->subjects(AuditCheck::RepeatedTrackNumbers));
     }
@@ -163,8 +247,8 @@ class StructureChecksTest extends TestCase
 
         $this->assertCount(1, $findings);
         $this->assertSame('no DISC tags', $findings[0]->cells[2]);
-        // The numbers read without a disc, which is the visible half of the same fact.
-        $this->assertSame('1, 2', $findings[0]->cells[1]);
+        // The numbers read without a `CD n`, which is the visible half of the same fact.
+        $this->assertSame('Track 1, 2', $findings[0]->cells[1]);
         // …and the disc-tag check cannot see it, which is why the cause is reported here.
         $this->assertSame([], $this->subjects(AuditCheck::InconsistentDiscTags));
     }

@@ -68,7 +68,7 @@ final class MergedAlbumsCheck implements Check
                 $collision->name,
                 [
                     implode(' + ', $collision->folders),
-                    implode(', ', $collision->numbers),
+                    $collision->numbers->describe(),
                     $collision->discTagged ? 'same ALBUM tag' : 'no DISC tags',
                 ],
             ),

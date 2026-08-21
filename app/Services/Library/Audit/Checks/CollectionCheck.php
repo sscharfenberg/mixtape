@@ -38,6 +38,26 @@ abstract class CollectionCheck implements Check
     }
 
     /**
+     * Extra cells for a subclass that has more to say about a row, keyed by collection id.
+     *
+     * ASKED ONCE FOR THE WHOLE PAGE rather than once per finding, which is the only reason this is
+     * a hook and not a per-row method: the two checks that use it need a second query, and fifty
+     * findings must not mean fifty queries. It is handed the page that is about to be printed, so
+     * a subclass never computes anything a reader will not see.
+     *
+     * A subclass overriding this MUST widen {@see columns} to match, and the report prints these
+     * BEFORE the folder — the detail is what a reader acts on, the folder is where they go to do
+     * it. `LibraryAuditTest` fails if the two ever fall out of step.
+     *
+     * @param  string[]  $collectionIds
+     * @return array<string, string[]> collection id => cells, in `columns()` order
+     */
+    protected function details(array $collectionIds): array
+    {
+        return [];
+    }
+
+    /**
      * The one predicate that makes this check itself.
      *
      * @param  Builder<Collection>  $collections  already scoped to this check's container kind
@@ -75,10 +95,15 @@ abstract class CollectionCheck implements Check
             ->limit(CheckFindings::LIST_LIMIT)
             ->get();
 
+        $details = $this->details($rows->pluck('id')->all());
+
         $listed = $rows->map(fn (Collection $row) => new AuditFinding(
             'collection:'.$row->id,
             (string) $row->name,
-            [self::folderOf($row->getAttribute('sample_path'))],
+            [
+                ...($details[$row->id] ?? array_fill(0, count($this->columns()) - 1, '—')),
+                self::folderOf($row->getAttribute('sample_path')),
+            ],
         ))->all();
 
         return CheckFindings::fromPage($total, $listed);

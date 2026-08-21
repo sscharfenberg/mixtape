@@ -68,7 +68,7 @@ final class RepeatedTrackNumbersCheck implements Check
             fn (Collision $collision) => new AuditFinding(
                 'collection:'.$collision->collectionId,
                 $collision->name,
-                [implode(', ', $collision->numbers), $collision->folders[0] ?? '—'],
+                [$collision->numbers->describe(), $collision->folders[0] ?? '—'],
             ),
             array_filter(
                 $scope->collisions()->for(TrackType::Music),

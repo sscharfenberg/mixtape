@@ -8,11 +8,15 @@ use App\Enums\AlbumFilter;
 use App\Enums\AuditGroup;
 use App\Enums\TrackType;
 use App\Models\Collection;
+use App\Services\Library\Audit\MissingNumbers;
 use Illuminate\Database\Eloquent\Builder;
 
 /** Audiobooks whose chapter numbering reaches past the number of files. */
 final class IncompleteBooksCheck extends CollectionCheck
 {
+    /** The gap calculator, asked once per page — see {@see CollectionCheck::details}. */
+    public function __construct(private readonly MissingNumbers $missing) {}
+
     /** Structure, for the same reason the album check is: something is not there. */
     public function group(): AuditGroup
     {
@@ -37,6 +41,30 @@ final class IncompleteBooksCheck extends CollectionCheck
         return 'The same predicate as "Albums missing a track", over the other area — a book\'s numbering reaches '
             .'past its file count. It costs more here: a missing chapter in the middle of a book is a hole a '
             .'listener walks into hours in, and per-book resume will carry them straight past it.';
+    }
+
+    /** The gap first, because it is what the reader acts on; the folder is where they go to do it. */
+    public function columns(): array
+    {
+        return ['Missing', 'Folder'];
+    }
+
+    /**
+     * Which chapter(s) each flagged collection is short of.
+     *
+     * The gaps are computed for the PAGE, never derived from a predicate of their own: membership
+     * stays with {@see AlbumFilter::Incomplete} so the audit and the listing tile cannot drift,
+     * and this only answers "short of what" for the rows already chosen.
+     *
+     * @param  string[]  $collectionIds
+     * @return array<string, string[]>
+     */
+    protected function details(array $collectionIds): array
+    {
+        return array_map(
+            fn (string $missing) => [$missing],
+            $this->missing->for($collectionIds),
+        );
     }
 
     /**

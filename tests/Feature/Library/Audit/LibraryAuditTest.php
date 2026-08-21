@@ -59,6 +59,48 @@ class LibraryAuditTest extends TestCase
         }
     }
 
+    public function test_every_finding_has_exactly_as_many_cells_as_its_check_has_columns(): void
+    {
+        /*
+         * THE INVARIANT THE WHOLE TABLE RENDERER RESTS ON, and the one a new check breaks silently:
+         * a cell too few shifts every column after it, a cell too many spills outside the header,
+         * and Markdown renders both without complaint — so the report looks fine and says the wrong
+         * thing. Asserted over the real registry with a library holding one of everything, so a
+         * check that grows a column without widening its header fails here.
+         */
+        config(['mixtape.library.paths.audiobooks' => $this->makeAudiobookRoot()]);
+
+        // One fixture per shape the checks report on, so most of them have something to say.
+        $this->rawFile('Mgła/[1994] Album/01.mp3');
+        $this->album('Album', [
+            'Mgła/[1994] Album/01.mp3' => ['track' => 1, 'disc' => 1],
+            'Mgła/[1994] Album/09.mp3' => ['track' => 9, 'disc' => 1, 'year' => null, 'cover' => false],
+        ], ['cover_path' => null, 'album_artist_id' => null]);
+        $this->book('Book', [
+            'Reader/Book/01.mp3' => ['track' => 1, 'disc' => 1, 'author_id' => null],
+            'Reader/Book/04.mp3' => ['track' => 4, 'disc' => 1, 'narrator_id' => null],
+        ]);
+
+        $result = app(LibraryAudit::class)->run(AuditCheck::cases(), TrackType::cases());
+        $checked = 0;
+
+        foreach ($result->withFindings() as $check) {
+            foreach ($check->findings->listed as $finding) {
+                $this->assertCount(
+                    count($check->check->columns()),
+                    $finding->cells,
+                    $check->case->value.' reported '.count($finding->cells).' cell(s) for '
+                        .count($check->check->columns()).' column(s)',
+                );
+                $checked++;
+            }
+        }
+
+        // The assertion above is vacuous if nothing found anything, which a broken fixture would
+        // do silently.
+        $this->assertGreaterThan(5, $checked);
+    }
+
     public function test_a_check_outside_the_areas_asked_for_is_skipped_rather_than_clean(): void
     {
         $result = app(LibraryAudit::class)->run(

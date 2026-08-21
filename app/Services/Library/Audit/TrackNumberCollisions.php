@@ -97,12 +97,12 @@ final class TrackNumberCollisions
 
             $entry = $byCollection[$file->collection_id] ??= [
                 'name' => (string) $file->name,
-                'numbers' => [],
+                'numbers' => new DiscTrackList,
                 'folders' => [],
                 'tagged' => false,
             ];
 
-            $entry['numbers'][self::number($file->disc, $file->track)] = true;
+            $entry['numbers']->add($file->disc === null ? null : (int) $file->disc, (int) $file->track);
             $entry['folders'][dirname((string) $file->path)] = true;
             // ANY tagged file is enough: what the two checks need to know is whether the collision
             // could have been avoided by disc numbers that are simply absent.
@@ -116,7 +116,7 @@ final class TrackNumberCollisions
             $collisions[] = new Collision(
                 (string) $id,
                 $entry['name'],
-                array_keys($entry['numbers']),
+                $entry['numbers'],
                 array_keys($entry['folders']),
                 $entry['tagged'],
             );
@@ -132,11 +132,5 @@ final class TrackNumberCollisions
     private static function key(mixed $collectionId, mixed $disc, mixed $track): string
     {
         return $collectionId.'|'.($disc ?? '-').'|'.$track;
-    }
-
-    /** How a colliding number reads in the report: "1/4", or "4" where the files carry no disc. */
-    private static function number(mixed $disc, mixed $track): string
-    {
-        return $disc === null ? (string) $track : $disc.'/'.$track;
     }
 }

@@ -50,7 +50,18 @@ One document, and every check appears in it:
 - **A section per check with findings** — its own explanation of what the finding means and how to
   fix it, then the findings themselves. The document outlives the run and will be read by somebody
   who did not make it, so each section carries its own argument rather than pointing here.
-- **Sections are capped at 50 findings** and say how many they left out. A truncated list that
+- A **cell** can be capped too: an album numbered 1 and 300 with nothing between is missing 297
+numbers, so the *Missing* column names the first ten and counts the rest. Same rule as a section —
+capped, never silently cut.
+
+Numbers are written **`CD 1 Track 3`**, never `1/3`. A slash is how everything from page counts to
+sports scores writes "part of a total", so `2/7` beside a book reads as a book with seven chapters.
+They are grouped by disc (`CD 1 Track 1, 2, 3; CD 2 Track 4`) because the phrase that makes a cell
+unambiguous is the one that makes it unreadable when repeated, and a file with no disc tag says
+`Track 3` alone rather than inventing a disc its tags never claimed. One class writes them
+(`DiscTrackList`), so *Missing* and *Repeated* cannot describe the same kind of fact two ways.
+
+**Sections are capped at 50 findings** and say how many they left out. A truncated list that
   does not admit it reads as "that is all of them", which is the one wrong impression an audit must
   never leave; the summary's count is always the real total.
 
@@ -77,7 +88,7 @@ meticulous collection is exactly the check somebody else's library needs.
 | Check | Source | What it means |
 | --- | --- | --- |
 | Paths a Windows-1252 playlist cannot name | disk | A car head unit reading a Windows-1252 `.m3u` gets a **dead line** for these, since the encoding writes the missing character as `?`. Only a rename fixes it. Has its own section format — see [below](#the-one-check-that-is-not-a-table). |
-| Albums missing a track | database | Per disc, the highest track number is **greater** than the file count. |
+| Albums missing a track | database | Per disc, the highest track number is **greater** than the file count. The row names **which** numbers are absent (`CD 1 Track 3`) — computed for the page being printed rather than from a predicate of its own, so membership stays with the listing's filter. |
 | Albums with no folder image | database | An album prefers the one image chosen for it as a whole; without it, the thumbnail is whichever track sorts first. Read from `collections.cover_path`, which the scanner writes. |
 | Repeated track numbers | database | Two files in **one folder** claiming the same number — a bonus track that kept its neighbour's number, a hidden track numbered 0. Renumber the tags. |
 | Two albums in one row | database | The same collision **across folders**, and the **cause** column says which of two faults it is, because the cure is opposite. *Same ALBUM tag*: two different records under one name, so give one a distinguishing tag. *No DISC tags*: one genuine multi-disc set that was never disc-numbered, so tag the discs — renaming it would split a record that belongs together. A properly disc-tagged set never appears at all. |
@@ -88,7 +99,7 @@ meticulous collection is exactly the check somebody else's library needs.
 
 | Check | Source | What it means |
 | --- | --- | --- |
-| Books missing a chapter | database | The same predicate as albums, over the other area. It costs more here: a gap mid-book is a hole a listener walks into hours in, and per-book resume carries them straight past it. |
+| Books missing a chapter | database | The same predicate as albums, over the other area, and it names the missing chapter the same way. It costs more here: a gap mid-book is a hole a listener walks into hours in, and per-book resume carries them straight past it — a hole 457 chapters into a 673-chapter book is not findable by eye. |
 | Chapters with no author | database | An audiobook's author lives on the **chapter** (COMPOSER/TCOM is per file, and an anthology uses it per story), so a book has no owner column and dedupes on its title alone. A chapter with no author contributes nothing to who wrote the book. |
 | Chapters with no narrator | database | Half of what makes one recording of a book different from another, read per chapter for the same reason. |
 

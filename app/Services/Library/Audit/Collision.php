@@ -14,7 +14,8 @@ namespace App\Services\Library\Audit;
 final readonly class Collision
 {
     /**
-     * @param  string[]  $numbers  the repeated numbers, as "disc/track"
+     * @param  DiscTrackList  $numbers  the repeated numbers, which write themselves out as
+     *                                  `CD 1 Track 4` — see that class on why not `1/4`
      * @param  string[]  $folders  the distinct directories the colliding files sit in
      * @param  bool  $discTagged  whether ANY of the colliding files carries a disc number — false
      *                            means a multi-disc set that was never disc-tagged, which spans
@@ -24,7 +25,7 @@ final readonly class Collision
     public function __construct(
         public string $collectionId,
         public string $name,
-        public array $numbers,
+        public DiscTrackList $numbers,
         public array $folders,
         public bool $discTagged = true,
     ) {}
