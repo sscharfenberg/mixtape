@@ -319,7 +319,7 @@ Worth knowing here:
 | --- | --- | --- | --- |
 | `--area` | option (repeatable) | all | Limit to `music` and/or `audiobooks`. A check outside the scope is reported as skipped, never as clean. |
 | `--check` | option (repeatable) | all | Limit to checks by slug (`incomplete-albums`, `mono`, …). An unknown slug is refused and the valid ones printed — falling back to "run everything" would look like the option being ignored. |
-| `--output` | option | `library-audit.md` in the **current directory** | Where to write the report. A throwaway working file belongs next to whoever ran the command, not in `storage/`. |
+| `--output` | option | `library-audit.md` in the **current directory** | Where to write the report. A throwaway working file belongs next to whoever ran the command, not in `storage/` — but a production app root is deploy-owned and not writable by the admin, so pass `--output=~/library-audit.md` there. |
 | `--cron` | flag | off | For a scheduler: say nothing when the findings have not changed, and exit 1 when they have. `--quiet` is taken by Symfony. |
 
 ### Exit codes
@@ -327,7 +327,8 @@ Worth knowing here:
 `0` **even when it finds things** — this is a report, not a linter, and a collection may
 legitimately sit with known findings for as long as its owner likes. `2` on an unknown
 `--area` or `--check`, `1` when the report could not be written (silently "succeeding" with no
-file is the one outcome that would waste real time).
+file is the one outcome that would waste real time) — the failure names the directory that
+refused it and the user it ran as, since on a deploy-owned root that is the whole story.
 
 Under `--cron` the meaning of `1` changes: it is *the findings moved* — or that **no check ran at
 all**, which an `--area`/`--check` pair that does not overlap would otherwise turn into permanent

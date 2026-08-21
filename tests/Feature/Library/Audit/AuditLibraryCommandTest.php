@@ -114,7 +114,30 @@ class AuditLibraryCommandTest extends TestCase
         // Silently "succeeding" with no file is the one outcome that would waste real time.
         $this->artisan('app:audit', ['--output' => $this->root.'/no/such/dir/report.md'])
             ->expectsOutputToContain('Could not write the report')
+            ->expectsOutputToContain('There is no directory')
             ->assertExitCode(1);
+    }
+
+    public function test_an_unwritable_directory_names_itself_and_offers_a_way_out(): void
+    {
+        /*
+         * THE CASE THE DEFAULT GETS WRONG, and it is a place this command will be run: a production
+         * checkout under the `mixtape-deploy` model has an app root owned by the deploy user and
+         * group-readable only, so the admin running artisan there cannot create a file beside it —
+         * by design. "Check the path exists and is writable" is true and useless; the directory,
+         * the user and the flag are what turn it into one more keystroke.
+         */
+        $locked = $this->root.'/locked';
+        mkdir($locked, 0o555, true);
+
+        try {
+            $this->artisan('app:audit', ['--output' => $locked.'/report.md'])
+                ->expectsOutputToContain('is not writable by')
+                ->expectsOutputToContain('--output=')
+                ->assertExitCode(1);
+        } finally {
+            chmod($locked, 0o755);
+        }
     }
 
     public function test_an_unknown_area_is_rejected_before_anything_is_scanned(): void

@@ -150,9 +150,21 @@ cost that scales with the size of the collection.
 **The report lands in the working directory as `library-audit.md`**, and the console says so with an
 absolute path when the run finishes. A throwaway working file belongs next to whoever ran the
 command rather than in `storage/`, so it is a plain relative default — `--output=/path/to/file.md`
-puts it anywhere else. **Give a scheduled run an absolute `--output`**: a timer's working directory
-is whatever its unit was given, and on a quiet week `--cron` prints nothing at all, so there is no
-line telling you where the file went.
+puts it anywhere else.
+
+**On a production checkout the default cannot work, and that is correct.** Under the
+`mixtape-deploy` ownership model the app root belongs to the deploy user and is group-readable
+only, so the admin running artisan there cannot create a file beside it — a web root nobody can
+write to is the point of the model. Pass somewhere you own:
+
+```bash
+php artisan app:audit --output=~/library-audit.md
+```
+
+The command says which directory refused it and who it is running as, rather than leaving you to
+work it out. **Give a scheduled run an absolute `--output`** for the same reason plus one more: a
+timer's working directory is whatever its unit was given, and on a quiet week `--cron` prints
+nothing at all, so there is no line telling you where the file went.
 
 ### On a schedule
 

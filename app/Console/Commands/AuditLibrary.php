@@ -93,7 +93,12 @@ class AuditLibrary extends Command
         $document = AuditReport::render($result, now()->format('Y-m-d H:i'));
 
         if (@file_put_contents($target, $document) === false) {
-            $this->error("Could not write the report to '{$target}' — check the path exists and is writable.");
+            $this->error("Could not write the report to '{$target}'.");
+            // Two lines, not one: what is wrong, then what to do about it. (The test harness also
+            // matches one expectation per write, so a line carrying both can only be asserted once.)
+            $this->line($this->whyNotWritable($target));
+            $this->line('Pass a path you can write, e.g. --output='
+                .rtrim((string) (getenv('HOME') ?: '~'), '/').'/'.self::DEFAULT_FILENAME);
 
             return self::FAILURE;
         }
@@ -101,6 +106,53 @@ class AuditLibrary extends Command
         return $cron
             ? $this->reportChanges($result, $target)
             : $this->reportRun($result, $target);
+    }
+
+    /**
+     * Why the write failed, in the terms the reader can act on.
+     *
+     * THE DEFAULT IS WRONG IN EXACTLY ONE PLACE, and it is a place this command will be run: a
+     * production checkout deployed under the `mixtape-deploy` model has an app root owned by the
+     * deploy user and group-readable only (2750), so the admin running artisan there cannot create
+     * a file beside it — by design, since a web root nobody can write to is the point. "Check the
+     * path exists and is writable" is true and useless there; naming the directory, the user and
+     * the flag turns a dead end into one more keystroke.
+     */
+    private function whyNotWritable(string $target): string
+    {
+        $directory = dirname($target);
+        $user = $this->processUser();
+
+        if (! is_dir($directory)) {
+            return "There is no directory '{$directory}'.";
+        }
+
+        if (! is_writable($directory)) {
+            return "'{$directory}' is not writable by {$user} — a deploy-owned app root usually is not.";
+        }
+
+        return "The directory is writable by {$user}, so the file itself is probably read-only.";
+    }
+
+    /**
+     * Who this process is running as, for the message above.
+     *
+     * Through posix where it exists, because that answers for the EFFECTIVE user — `$USER` is
+     * whatever the login shell exported and survives a `sudo -u` that changed everything else,
+     * which is precisely the situation this message is explaining. Same approach as
+     * `CoverService::processUser`, for the same reason.
+     */
+    private function processUser(): string
+    {
+        if (function_exists('posix_geteuid') && function_exists('posix_getpwuid')) {
+            $user = posix_getpwuid(posix_geteuid());
+
+            if (is_array($user) && isset($user['name'])) {
+                return (string) $user['name'];
+            }
+        }
+
+        return (string) (getenv('USER') ?: 'unknown');
     }
 
     /**
