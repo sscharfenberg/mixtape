@@ -93,8 +93,13 @@ docs/review.local/
 /reports
 /badges
 
-# `php artisan app:encoding` writes its report next to wherever it was run, which is
-# usually here. It is a throwaway working file — a list of paths to rename, re-generated
-# whenever you want it — and it would otherwise show up as an untracked file in the
-# changed-files view this project deploys from.
-windows-1252-paths.md
+# `php artisan app:audit` writes its report next to wherever it was run, which is usually
+# here, and `--cron` writes its baseline beside it. Both are throwaway working files —
+# re-generated whenever you want them — and they would otherwise show up as untracked files
+# in the changed-files view this project deploys from.
+#
+# ANCHORED to the repo root, and that is not tidiness: a bare `library-audit.md` matches at
+# every level, which would silently exclude `docs/library-audit.md` — the documentation of
+# the command that writes it.
+/library-audit.md
+/library-audit.state.json

@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Library;
 
+use App\Services\Library\Audit\Contracts\RendersOwnSection;
 use IntlChar;
 use Normalizer;
 
 /**
- * Renders a {@see PathEncodingAuditResult} as a Markdown document for a person to work through.
+ * Renders a {@see PathEncodingAuditResult} as the Markdown SECTION `app:audit` prints for it.
  *
  * WHY A FILE AND NOT CONSOLE OUTPUT. The findings are a work list — you rename something, come
  * back, cross it off — and 89 lines of terminal scrollback is a bad place to keep one. Markdown
@@ -27,78 +28,23 @@ final class PathEncodingReport
     private const UNNAMED = 'no Unicode name (private-use area)';
 
     /**
-     * The whole document, ready to write.
+     * This check's section of the audit document — everything below its heading.
      *
-     * `$generatedAt` is passed in rather than read from the clock so a test can assert on the
-     * output without freezing time, and so two areas scanned in one run carry one stamp.
+     * A SECTION AND NOT A DOCUMENT, which is what changed when the encoding audit stopped being a
+     * command of its own: the shell (title, generation stamp, summary table, what to do
+     * afterwards) belongs to the report that now carries twenty-five checks, and duplicating a
+     * preamble per check would bury the findings. What stays here is the part no table can hold —
+     * see {@see RendersOwnSection}.
+     *
+     * Headings start at level 3 because the audit's own check heading is level 2.
      */
-    public static function render(PathEncodingAuditResult $result, string $generatedAt): string
+    public static function section(PathEncodingAuditResult $result): string
     {
-        $out = self::preamble($generatedAt);
-        $out .= self::summary($result);
-
         if ($result->isClean()) {
-            return $out."## Nothing to do\n\n"
-                ."Every path in the library can be written to a Windows-1252 playlist as it stands.\n"
-                ."This is the state to keep it in: re-run the command after adding music, and after\n"
-                ."any bulk re-tag or import, since those are where odd characters arrive.\n";
+            return "Every path in the library can be written to a Windows-1252 playlist as it stands.\n";
         }
 
-        $out .= self::characters($result);
-        $out .= self::work($result);
-        $out .= self::appendix($result);
-        $out .= self::afterwards();
-
-        return $out;
-    }
-
-    /** The title and the explanation of what the reader is looking at and why they should care. */
-    private static function preamble(string $generatedAt): string
-    {
-        return <<<MD
-        # Windows-1252 path audit
-
-        Generated {$generatedAt} by `php artisan app:encoding`.
-
-        ## Why this file exists
-
-        MixTape can export a playlist as an `.m3u` in **Windows-1252**, which exists for one real
-        reason: some car head units render a UTF-8 playlist as mojibake. That encoding covers about
-        250 characters, and anything outside them is written as `?`.
-
-        On a path line that is not a cosmetic loss — it is a **dead line**. The player looks for a
-        file that cannot exist, and `?` is not even a legal filename character on FAT. No substitute
-        character and no transliteration can rescue it: if a filename holds a character the encoding
-        lacks, no byte sequence in a Windows-1252 file can name that file. The track is simply
-        missing from the playlist, silently, and you find out in the car.
-
-        So the fix is to **rename the files**, which only you can do — hence this list rather than an
-        automatic repair. Everything below is read from **disk**, not from the database, so you can
-        re-run it between renames to check your work before scanning.
-
-
-        MD;
-    }
-
-    /** The headline numbers, first because they decide whether the rest is worth reading. */
-    private static function summary(PathEncodingAuditResult $result): string
-    {
-        $targets = $result->isClean() ? [] : $result->renameTargets();
-        $directories = count(array_filter($targets, fn (array $t) => $t['isDirectory']));
-
-        $rows = [
-            ['Audio files scanned', number_format($result->scanned)],
-            ['Paths a Windows-1252 export cannot name', number_format(count($result->findings))],
-            ['Distinct offending characters', number_format(count($result->offenderCounts()))],
-            ['Things to rename', number_format(count($targets)).' ('.number_format($directories).' of them folders)'],
-        ];
-
-        $out = "## Summary\n\n| | |\n| --- | ---: |\n";
-        foreach ($rows as [$label, $value]) {
-            $out .= "| {$label} | {$value} |\n";
-        }
-
-        return $out."\n";
+        return self::characters($result).self::work($result).self::appendix($result).self::afterwards();
     }
 
     /**
@@ -111,7 +57,7 @@ final class PathEncodingReport
      */
     private static function characters(PathEncodingAuditResult $result): string
     {
-        $out = "## The characters\n\n"
+        $out = "### The characters\n\n"
             ."Counted by how many paths carry them. A glyph column of `—` means the character has no\n"
             ."visible form — that is the point of listing it.\n\n"
             ."| Char | Code point | Name | Paths | What to do |\n| :---: | --- | --- | ---: | --- |\n";
@@ -141,7 +87,7 @@ final class PathEncodingReport
      */
     private static function work(PathEncodingAuditResult $result): string
     {
-        $out = "## What to rename\n\nIn this order — the first entries fix the most files.\n\n";
+        $out = "### What to rename\n\nIn this order — the first entries fix the most files.\n\n";
         $position = 0;
 
         foreach ($result->renameTargets() as $target) {
@@ -240,7 +186,7 @@ final class PathEncodingReport
     /** Every affected file, so nothing is hidden behind the grouping above. */
     private static function appendix(PathEncodingAuditResult $result): string
     {
-        $out = "## Every affected file\n\n"
+        $out = "### Every affected file\n\n"
             ."The complete list, area by area, in case the grouping above hid something you were\n"
             ."looking for.\n\n";
         $byArea = [];
@@ -250,7 +196,7 @@ final class PathEncodingReport
         }
 
         foreach ($byArea as $area => $findings) {
-            $out .= '### '.$area."\n\n";
+            $out .= '#### '.$area."\n\n";
             // Alphabetical, not walk order: this list is diffed against the previous run.
             usort($findings, fn (PathEncodingFinding $a, PathEncodingFinding $b) => strcmp($a->path, $b->path));
 
@@ -269,7 +215,7 @@ final class PathEncodingReport
     private static function afterwards(): string
     {
         return <<<'MD'
-        ## After renaming
+        ### After renaming
 
         Run **`php artisan app:update`**. Until you do, the database still holds the old paths, and
         every file you just renamed is unplayable — the app looks for a name that no longer exists.
@@ -279,7 +225,7 @@ final class PathEncodingReport
         share links survive the rename. If it reports new and removed instead, stop and look — that
         means a file was not matched, and something else changed with it.
 
-        Then re-run `php artisan app:encoding` to confirm the list has emptied.
+        Then re-run `php artisan app:audit` to confirm the list has emptied.
         MD;
     }
 

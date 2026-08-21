@@ -14,7 +14,7 @@ and package commands (`migrate`, `queue:work`, …) are not listed here — run
 | [`app:invite`](#appinvite) | Mint a one-time, expiring registration invite link |
 | [`app:update`](#appupdate) | Scan the media library into the database (cleanup + content-hash diff) |
 | [`app:clean`](#appclean) | Delete OS/Samba junk files from the library shares (the cleanup step, standalone) |
-| [`app:encoding`](#appencoding) | Report the library paths a Windows-1252 playlist export cannot name |
+| [`app:audit`](#appaudit) | Report everything that can be wrong with the library — tags, structure, scan drift |
 | [`app:playlist`](#appplaylist) | Fill a playlist with random tracks from the scanned library |
 | [`app:db-backup`](#appdb-backup) | Dump the database to the backup drive, verify it, prune old dumps |
 | [`app:db-restore`](#appdb-restore) | Restore the database from one of those dumps (interactive, destructive) |
@@ -270,109 +270,93 @@ error.
 
 ---
 
-## `app:encoding`
+## `app:audit`
 
-Lists the library paths that a **Windows-1252** `.m3u` export cannot name, as a
+Checks the library for everything that can be wrong with it and writes the findings to a
 Markdown file to work through.
 
 ```
-php artisan app:encoding {--area=*} {--output=}
+php artisan app:audit {--area=*} {--check=*} {--output=} {--cron}
 ```
 
 ### Why it exists
 
-A playlist can be exported as Windows-1252, which exists for one real reason:
-some car head units render a UTF-8 playlist as mojibake. That encoding covers
-about 250 characters, and `PlaylistExport` writes anything outside them as `?`.
+A collection goes wrong quietly. An album whose numbering reaches past its files looks
+complete until you play it; a folder with no cover art shows *some* thumbnail; a file the
+scanner cannot index is simply absent, and the album it belongs to reports as short instead.
+None of it is visible on screen, and all of it is a query away.
 
-On a path line that is not a cosmetic loss — it is a **dead line**. The player
-looks for a file that cannot exist, and `?` is not even a legal filename
-character on FAT. Nothing in the exporter can rescue it: if a filename holds a
-character the encoding lacks, no byte sequence in a Windows-1252 file can name
-that file. The only fix is to **rename the file**, which is why this reports
-rather than repairs.
-
-The export modal already warns the reader per playlist
-(`resources/app/utils/encoding.ts`, same predicate). This is the other half —
-the owner's view of the **whole collection**, so the handful of offenders can be
-renamed once instead of being warned about forever. On the real collection that
-was 89 paths of 12 074, and they **cluster**: 27 for one band, 23 for another,
-10 for one record. Not 0.7% of every playlist — none of most, and all of a few.
+**It reports and never repairs.** Every finding is a tagging or filing decision only the
+owner can make — a command that guessed would quietly invent facts about the library, which
+is the same reason the scanner refuses to settle a disputed year.
 
 ### What it does
 
-Walks the configured library roots (`scan.extensions` only, so artwork and
-sidecars are ignored), tests every **area-relative path** against the encoding,
-and writes a report containing:
+Runs 25 checks in four groups — scan drift, library structure, tag hygiene and review
+queues — and writes one document: a summary table where every check appears (a clean one as a
+row, a skipped one with the reason instead of a zero), then a section per check that found
+something, each explaining what the finding means and how to fix it.
 
-1. **Summary** — files scanned, paths that fail, distinct characters, things to
-   rename.
-2. **The characters** — each offender with its code point, Unicode name, how
-   many paths carry it, and what to do about it. Roughly half of what a real
-   collection turns up is **invisible on screen**, so the glyph column is often
-   `—` and the code point is the only handle you get.
-3. **What to rename** — the work list, grouped by path **segment** and ordered
-   by how many files each rename fixes. A bad folder name is one job, not one
-   per track; a name containing an invisible character is reprinted with the
-   offender spelled out (`My Room⟨U+F023⟩.mp3`) so you can see where it sits;
-   and where intl has an ASCII equivalent for every offender, a concrete
-   replacement name is suggested.
-4. **Every affected file** — the full list, so the grouping hides nothing.
+**The catalogue of checks, and the design rules behind them, is
+[`library-audit.md`](library-audit.md).** It is the page to read before adding a check or
+acting on a finding.
 
-> **It reads the filesystem, not the database** — deliberately. Renaming and
-> re-scanning are two steps, and the useful moment to run this is *between* them:
-> you want to know whether the rename you just did was complete, before
-> `app:update` writes the new paths in. Re-running it is how you confirm the list
-> has emptied.
+Worth knowing here:
+
+- **Scan drift comes first** because every database check is only true as of the last
+  `app:update`, and nothing records when that was. A file on disk that has never been scanned
+  makes a complete album report as *missing a track*.
+- **The disk is walked once.** Three checks want the traversal; a run narrowed to database
+  checks never touches the shares at all.
+- **Sections are capped at 50 findings** and say how many they left out — the summary's count
+  is always the real total.
+- A check that also exists as a listing filter **reads that same predicate**, so a tile and
+  the audit can never disagree.
 
 ### Arguments & options
 
 | Name | Kind | Default | Meaning |
 | --- | --- | --- | --- |
-| `--area` | option (repeatable) | all | Limit to `music` and/or `audiobooks`. |
-| `--output` | option | `windows-1252-paths.md` in the **current directory** | Where to write the report. A throwaway working file belongs next to whoever ran the command, not in `storage/`. |
+| `--area` | option (repeatable) | all | Limit to `music` and/or `audiobooks`. A check outside the scope is reported as skipped, never as clean. |
+| `--check` | option (repeatable) | all | Limit to checks by slug (`incomplete-albums`, `mono`, …). An unknown slug is refused and the valid ones printed — falling back to "run everything" would look like the option being ignored. |
+| `--output` | option | `library-audit.md` in the **current directory** | Where to write the report. A throwaway working file belongs next to whoever ran the command, not in `storage/`. |
+| `--cron` | flag | off | For a scheduler: say nothing when the findings have not changed, and exit 1 when they have. `--quiet` is taken by Symfony. |
 
 ### Exit codes
 
-`0` **even when it finds things** — this is a report, not a linter, and a
-collection may legitimately sit with known offenders for as long as its owner
-likes; exiting non-zero would turn a standing list into a nightly cron mail.
-`2` on an unknown `--area`, `1` when the report could not be written (silently
-"succeeding" with no file is the one outcome that would waste real time).
+`0` **even when it finds things** — this is a report, not a linter, and a collection may
+legitimately sit with known findings for as long as its owner likes. `2` on an unknown
+`--area` or `--check`, `1` when the report could not be written (silently "succeeding" with no
+file is the one outcome that would waste real time).
+
+Under `--cron` the meaning of `1` changes: it is *the findings moved* — or that **no check ran at
+all**, which an `--area`/`--check` pair that does not overlap would otherwise turn into permanent
+green silence. See [`library-audit.md`](library-audit.md#on-a-schedule) for the baseline it
+compares against — and for why the wrapper should still ping a dead-man's switch as a success.
 
 ### The workflow
 
 ```bash
-php artisan app:encoding          # read windows-1252-paths.md, rename what it lists
-php artisan app:update            # let the database follow — reports the renames as MOVED
-php artisan app:encoding          # confirm the list has emptied
+php artisan app:audit             # read library-audit.md, fix what it lists
+php artisan app:update            # let the database follow — reports renames as MOVED
+php artisan app:audit             # confirm the sections have emptied
 ```
 
-The middle step is the one that is easy to forget, and its absence looks exactly
-like a broken player: until it runs, the database still holds the old paths and
-every file you just renamed is **unplayable**. Because identity is the
-audio-frame hash and not the path, the scan reports renames as *moved* and each
-track keeps its id — so playlists, play counts and share links survive. If it
-reports *new* and *removed* instead, stop and look: a file was not matched.
-
-> **Not every offender needs a new name.** macOS stores filenames decomposed, so
-> `Chèvre` can arrive as `e` + a combining grave. The composed `è` **is** in
-> Windows-1252 and the pair is not, so the same word passes or fails on its
-> normal form alone. The report marks those *precompose only* — the fix changes
-> bytes without changing one visible glyph.
+The middle step is the one that is easy to forget, and its absence looks exactly like a broken
+player: until it runs, the database still holds the old paths and every file you just renamed
+is **unplayable**. Because identity is the audio-frame hash and not the path, the scan reports
+renames as *moved* and each track keeps its id — so playlists, play counts and share links
+survive. If it reports *new* and *removed* instead, stop and look: a file was not matched.
 
 ### Related code
 
-- `app/Console/Commands/AuditPathEncoding.php` — the thin command.
-- `app/Services/Library/PathEncodingAudit.php` — the walk and the check. Asks
-  mbstring the same question the exporter does (only the substitute differs), so
-  the two can never disagree; a test pins them together through a real render.
-- `app/Services/Library/PathEncodingAuditResult.php` — the roll-ups (character
-  counts, rename targets).
-- `app/Services/Library/PathEncodingReport.php` — the Markdown document.
-- `app/Services/Playlists/PlaylistExport.php` — the exporter this protects.
-- `resources/app/utils/encoding.ts` — the same check in the browser, for the
-  per-playlist warning in the export modal.
+- `app/Console/Commands/AuditLibrary.php` — the thin command.
+- `app/Enums/AuditCheck.php` — the registry, which is also the report order.
+- `app/Services/Library/Audit/` — the orchestrator, the shared walk, the document, the cron
+  baseline, and one class per check.
+- `app/Services/Playlists/PlaylistExport.php` + `resources/app/utils/encoding.ts` — the
+  exporter the encoding check protects, and the same check in the browser for the export
+  modal's per-playlist warning.
 
 ---
 

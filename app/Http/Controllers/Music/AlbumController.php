@@ -185,7 +185,7 @@ class AlbumController extends Controller
                 // on an incomplete album. A rip missing one track of ten holds nine files, so a
                 // file-count denominator renders the last row as "10/9" — a fraction bigger than
                 // one, which reads as broken data and was reported as exactly that. Measured on
-                // the live library: 96 of 925 albums number higher than their file count.
+                // the live library: 74 of 920 albums number higher than their file count.
                 //
                 // The two are combined in PHP rather than here, for the reason `discs` is floored
                 // there: the portable spelling differs per engine (Postgres GREATEST, SQLite MAX)

@@ -289,7 +289,7 @@ client state in an order the reader arranged and the server's copy of it is writ
 
 Playlists can be exported as `.m3u`. A Windows-1252 export exists for one real reason — some car head
 units render a UTF-8 playlist as mojibake — and it cannot name a file whose path holds a character
-that encoding lacks. [`app:encoding`](artisan-commands.md#appencoding) reports those paths so they can
+that encoding lacks. [`app:audit`](artisan-commands.md#appaudit) reports those paths so they can
 be renamed once instead of warned about forever.
 
 ### Downloads

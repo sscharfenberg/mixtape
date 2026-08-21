@@ -102,11 +102,12 @@ enum AlbumFilter: string
             //
             // STRICTLY GREATER, not merely different, and that is a diagnosis rather than a
             // tidy-up. The other direction — MORE files than the numbering reaches — is not a
-            // missing track at all but a repeated number: measured on the live library, 96 albums
+            // missing track at all but a repeated number: measured on the live library, 74 albums
             // number higher than their file count (genuinely missing something) against 4 that
             // number lower, and all four of those are duplicate numbering (a reissue whose bonus
             // discs all claim disc 1, an album with two track 4s). Reporting those as
-            // "incomplete" sends a reader looking for a file that was never missing.
+            // "incomplete" sends a reader looking for a file that was never missing. `app:audit`
+            // reports both, in separate sections, over this same predicate.
             //
             // `max(track) IS NOT NULL` keeps a rip whose files carry no track numbers at all out
             // of it: the comparison against NULL is unknown rather than false, so the row would

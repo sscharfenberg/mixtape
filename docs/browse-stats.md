@@ -74,7 +74,7 @@ So they hold still while a reader works through one of them. A strip that re-cou
 filter would answer "23 without artwork" with "23 without artwork" forever, and the tile a reader
 arrived by would be the one tile that could never change.
 
-The cost is that the strip can say 925 above a table of 34, which is what the **active mark** is for:
+The cost is that the strip can say 920 above a table of 34, which is what the **active mark** is for:
 without it, a reader arriving at a bookmarked `?filter=` URL sees a short table and no reason for it.
 The link's changed wording is not enough — they have not read it yet.
 
@@ -94,15 +94,15 @@ invisible in a listing and takes opening albums one at a time to find.
 
 ## Choose the questions against the real library, not from a list
 
-Measured on the live collection (925 albums, ~9.8k songs), which is meticulously tagged:
+Measured on the live collection (920 albums, ~9.9k songs), which is meticulously tagged:
 
 | Question                             | Count | Verdict                          |
 | ------------------------------------ | ----- | -------------------------------- |
 | songs never played                   | 9,806 | useful                           |
 | albums never played                  | 921   | useful                           |
-| albums missing a track               | 96    | useful — and invisible elsewhere |
-| albums holding one track             | 101   | useful (a loose file, usually)   |
-| songs under 192 kbps                 | 1,169 | useful, a re-rip queue           |
+| albums missing a track               | 74    | useful — and invisible elsewhere |
+| albums holding one track             | 92    | useful (a loose file, usually)   |
+| songs under 192 kbps                 | 1,165 | useful, a re-rip queue           |
 | songs filed twice (same audio hash)  | 8     | small but real                   |
 | songs with no embedded cover         | 0     | **a slot spent on nothing**      |
 | songs with no genre / artist / album | 0     | dead                             |
@@ -134,7 +134,7 @@ when any disc numbers HIGHER than its file count.
 
 Strictly greater, not merely different, because the other direction is a different fault: more files
 than the numbering reaches is **repeated numbering** — a reissue whose bonus disc claims disc 1, an
-album with two track 4s. Measured, 96 albums number above their file count against 4 below, and
+album with two track 4s. Measured, 74 albums number above their file count against 4 below, and
 reporting those four as "incomplete" sends a reader hunting a file that was never missing. An album
 carrying no track numbers at all is a third fault and falls out of the comparison on its own.
 
@@ -161,7 +161,7 @@ played. Its tile would otherwise link to rows nobody can act on.
 
 **`added-this-week` reads the FILE's mtime, not the row's `created_at`.** A row's timestamp is a fact
 about the database: the scanner stamps it on insert, so rebuilding the library tables re-stamps
-everything and the tile answers "all 925 arrived this week" — measured, exactly that, four days after
+everything and the tile answers "all 920 arrived this week" — measured, exactly that, four days after
 a rebuild. `modified_at` is a fact about the file and survives it (7 albums, 43 songs on the same
 data). The trade is that re-tagging a file makes it look new, which is the smaller lie and is already
 what the rest of the app calls "latest".

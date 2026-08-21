@@ -8,6 +8,7 @@ use App\Models\Playlist;
 use App\Models\PlaylistTrack;
 use App\Models\Track;
 use App\Models\User;
+use App\Services\Library\Audit\LibraryFileIndex;
 use App\Services\Library\PathEncodingAudit;
 use App\Services\Library\PathEncodingAuditResult;
 use App\Services\Library\PathEncodingFinding;
@@ -46,10 +47,18 @@ class PathEncodingAuditTest extends TestCase
         parent::tearDown();
     }
 
-    /** Run the audit over the temp library. */
+    /**
+     * Run the audit over the temp library.
+     *
+     * Through a real {@see LibraryFileIndex}, which is where the walk lives now — `app:audit`
+     * builds one and hands it to every disk-side check, so a test that fabricated a path list
+     * would stop covering the one place extensions and missing areas are decided.
+     */
     private function audit(?array $areas = null): PathEncodingAuditResult
     {
-        return (new PathEncodingAudit)->scan($areas ?? [TrackType::Music]);
+        $areas ??= [TrackType::Music];
+
+        return (new PathEncodingAudit)->scan(LibraryFileIndex::for($areas), $areas);
     }
 
     /** The relative paths flagged, so a test can assert on them without ordering noise. */
@@ -187,11 +196,10 @@ class PathEncodingAuditTest extends TestCase
         $this->assertSame(["\u{0300}"], PathEncodingAudit::offendersIn($decomposed));
         $this->assertSame([], PathEncodingAudit::offendersIn("Kung-Fu Ch\u{00E8}vre.mp3"));
 
-        $report = PathEncodingReport::render(
+        $report = PathEncodingReport::section(
             new PathEncodingAuditResult(1, [
                 new PathEncodingFinding(TrackType::Music, 'Igorrr/'.$decomposed, ["\u{0300}"], true),
-            ]),
-            '2026-08-09 13:00',
+            ])
         );
 
         $this->assertStringContainsString('Precompose only (NFC)', $report);
@@ -204,11 +212,10 @@ class PathEncodingAuditTest extends TestCase
          * Without this the advice cannot be followed: a private-use character is invisible in
          * Finder, so "rename this file" sends the reader hunting for something not on screen.
          */
-        $report = PathEncodingReport::render(
+        $report = PathEncodingReport::section(
             new PathEncodingAuditResult(1, [
                 new PathEncodingFinding(TrackType::Music, "Surfers/My Room\u{F023}.mp3", ["\u{F023}"], false),
-            ]),
-            '2026-08-09 13:00',
+            ])
         );
 
         $this->assertStringContainsString('My Room⟨U+F023⟩.mp3', $report);
@@ -219,21 +226,22 @@ class PathEncodingAuditTest extends TestCase
     {
         $this->rawFile('Radiohead/01 - Airbag.mp3');
 
-        $report = PathEncodingReport::render($this->audit(), '2026-08-09 13:00');
+        $report = PathEncodingReport::section($this->audit());
 
-        $this->assertStringContainsString('## Nothing to do', $report);
-        $this->assertStringNotContainsString('## What to rename', $report);
+        // A clean check gets no section in the audit document at all, so what `section()` returns
+        // is only ever read by a test — but it must still say something true rather than nothing.
+        $this->assertStringContainsString('can be written to a Windows-1252 playlist', $report);
+        $this->assertStringNotContainsString('What to rename', $report);
     }
 
     public function test_a_pipe_in_a_name_does_not_break_the_table_it_is_printed_in(): void
     {
         // Real album titles contain pipes, and GFM splits a table row on them before it parses
         // inline code — so a code span is no protection and an unescaped one eats the cell.
-        $report = PathEncodingReport::render(
+        $report = PathEncodingReport::section(
             new PathEncodingAuditResult(1, [
                 new PathEncodingFinding(TrackType::Music, 'AC|DC/Mgła.mp3', ['ł'], false),
-            ]),
-            '2026-08-09 13:00',
+            ])
         );
 
         // Escaped inside the table, left alone in the prose list where a backslash would print.

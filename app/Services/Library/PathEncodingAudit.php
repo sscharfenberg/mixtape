@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Services\Library;
 
 use App\Enums\TrackType;
+use App\Services\Library\Audit\LibraryFileIndex;
 use App\Services\Playlists\PlaylistExport;
 use Illuminate\Support\Facades\Log;
 use Normalizer;
-use Symfony\Component\Finder\Finder;
 
 /**
  * Finds the library files whose PATH a Windows-1252 .m3u cannot name.
@@ -29,6 +29,10 @@ use Symfony\Component\Finder\Finder;
  * two steps, and the useful moment to run this is between them: you want to know whether the
  * rename you just did was complete, before `app:update` writes the new paths in. A DB-backed
  * audit would answer a question about the last scan instead of about the disk.
+ *
+ * The walk itself belongs to {@see LibraryFileIndex}, which `app:audit` builds once and hands to
+ * every disk-side check: this one, scan drift and the unindexable-audio check all want the same
+ * traversal of a collection whose size is the only thing that makes an audit slow.
  */
 final class PathEncodingAudit
 {
@@ -42,36 +46,30 @@ final class PathEncodingAudit
     public const TARGET = 'Windows-1252';
 
     /**
-     * Walk the given areas and return every path the target encoding cannot carry.
+     * Examine the indexed paths of the given areas and return every one the target encoding
+     * cannot carry.
      *
      * A missing or unconfigured area is skipped rather than failed, matching
      * {@see LibraryCleanupService}: an instance with no audiobooks should not have a reporting
-     * command that exits non-zero at it.
+     * command that exits non-zero at it. The index has already recorded which those are, so the
+     * decision is a lookup here rather than a second `is_dir`.
      *
      * @param  TrackType[]  $areas
      */
-    public function scan(array $areas): PathEncodingAuditResult
+    public function scan(LibraryFileIndex $files, array $areas): PathEncodingAuditResult
     {
-        $extensions = array_map('strtolower', (array) config('mixtape.scan.extensions', ['mp3']));
         $scanned = 0;
         $findings = [];
 
         foreach ($areas as $type) {
-            $root = trim((string) config('mixtape.library.paths.'.$type->libraryPathKey()));
-
-            if ($root === '' || ! is_dir($root)) {
+            if (! $files->has($type)) {
                 Log::channel('library')->info("encoding audit: {$type->value} not configured or missing — skipped");
 
                 continue;
             }
 
-            foreach ((new Finder)->files()->in($root)->followLinks() as $file) {
-                if (! in_array(strtolower($file->getExtension()), $extensions, true)) {
-                    continue;
-                }
-
+            foreach ($files->audio($type) as $relative) {
                 $scanned++;
-                $relative = str_replace('\\', '/', $file->getRelativePathname());
                 $offenders = self::offendersIn($relative);
 
                 if ($offenders !== []) {

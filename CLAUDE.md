@@ -261,29 +261,6 @@ Features the owner has asked for and wants kept. **This list lives HERE and not 
 the absence of code is what says a thing does not exist. Delete an entry when it ships; the
 code and its tests then say the rest.
 
-**Reframe `app:encoding` as `app:audit`** — one command that checks the library for everything that
-can be wrong with it, rather than one narrow question. It exists today to list the paths a
-Windows-1252 `.m3u` export cannot name ([`docs/artisan-commands.md`](docs/artisan-commands.md)), which
-is one check among many, and the name promises less than the job. The checks this session's audit
-turned up on the real library, each already expressible as a query:
-
-- **paths Windows-1252 cannot name** — what the command does now.
-- **albums missing a track** — the numbering reaches past the file count, per disc. Share the
-  predicate with `AlbumFilter::Incomplete` rather than writing it twice; 96 of 925 albums.
-- **split albums** — one directory, two collection rows, because one file's ALBUM or ALBUM ARTIST tag
-  differs from its siblings' (a truncated tag, `the` for `The`, *Jerry Goldsmith* against *Frank
-  Stallone*). Five of them, and each shows up TWICE in the listing with its tracks divided. The
-  detection is "distinct collection_id per directory > 1"; the cure is the reader's, in the tags.
-- **inconsistent disc tags** inside one album — some files carrying no disc and others disc 1, which
-  makes a complete album look short (UADA's *Djinn*: four files with no disc, two with disc 1).
-- **repeated track numbers** within a disc — four albums, the mirror of "missing a track".
-
-Two things to keep in mind when it is built. **A tile's count and an audit's count are the same
-question asked twice**, so any check that also exists as a listing filter should read the same
-predicate — the drift between them would be worse than either. And **an audit reports, it does not
-fix**: every one of these is a tagging decision the reader makes in their tagger, not something the
-app should guess at (the scanner's own year reconciliation refuses to guess for the same reason).
-
 **User-specific export presets.** The `.m3u` export's path prefix is one server-wide config
 value (`mixtape.playlists.export.path_prefix`, today the owner's `/Volumes/media/music` mount), so
 every export aimed anywhere else means retyping a path into the modal — and the prefix is the one
@@ -400,8 +377,8 @@ instance, written for someone else's server.
 
   **Choose the questions against the real library.** Measured here: songs with no embedded cover **0**,
   no genre / artist / album / year **0**, mono **0** — the collection is meticulously tagged, so every
-  tag-hygiene tile is a slot spent on nothing, while under-192kbps is **1,169**, one-track albums
-  **101** and albums missing a track **96**. A tile that can only read 0 is worse than no tile.
+  tag-hygiene tile is a slot spent on nothing, while under-192kbps is **1,165**, one-track albums
+  **92** and albums missing a track **74**. A tile that can only read 0 is worse than no tile.
 
   Two more definitions worth knowing before touching either of the last two strips: a genre's
   **`one-artist` is NOT the listing's `artists` column** with a filter on it (that column counts whose
@@ -412,11 +389,33 @@ instance, written for someone else's server.
   regex at all. The artists strip also asks **"new this MONTH"** where the others ask the week,
   because artists arrive far less often than files (41 over seven days against 53 over thirty).
 
-  Two definitions carry the weight: `incomplete` is per DISC and **strictly greater** (96 albums number
+  Two definitions carry the weight: `incomplete` is per DISC and **strictly greater** (74 albums number
   above their file count and are short a track; 4 number below, which is repeated numbering — a
   different fault, and calling it incomplete sends a reader hunting a file that was never missing), and
   `added-this-week` reads the FILE's mtime because a row's `created_at` is a fact about the database
-  (after a rebuild it answered 925 of 925).
+  (after a rebuild it answered every album of every album).
+
+- [`docs/library-audit.md`](docs/library-audit.md) — **`app:audit`** (built 2026-08-20, replacing
+  `app:encoding`): 25 checks in four groups, one Markdown document, and a `--cron` mode that only
+  speaks when the findings move. Measured against the real library — 74 albums missing a track, 14
+  with no folder image, 113 lookalike artist names, and every tag-hygiene check reading **0**, which
+  is the point of the rule below.
+
+  Three things worth knowing before touching it. **The browse-stats rule does not transfer**: "a
+  tile that can only read 0 is worse than no tile" is about six tiles competing for a strip, while
+  an audit row costs one line and tells a stranger with a badly tagged library that the check ran —
+  so every check ships, clean ones collapse to a row, and only a check with findings gets a
+  section. A check that could not run says **why** rather than showing a zero, because "0" from a
+  check that never looked reads exactly like a healthy library. And **one detection can have two
+  diagnoses**: colliding `(disc, track)` pairs inside one folder are duplicate numbering, across
+  two they are two albums wearing one ALBUM tag — same query, different cure, and reported without
+  the split it is eight rows for one problem.
+
+  **NEVER PARSE A FOLDER NAME FOR MEANING** (a directory string is a grouping key; looking for
+  `[Disc n]` gave three false positives out of four, because one collection spells its disc folders
+  three ways), **mono is `channel = 'mono'`** and never `<> 'stereo'` (MP3 stores `joint_stereo`,
+  so the loose form reads 5,708 faults on a library with none), and **`--quiet` is not available to
+  any command** — Symfony defines `-q|--quiet` globally and registering it again throws.
 
 - [`docs/search.md`](docs/search.md) — search (designed **and built** 2026-08-13): one engine, a
   header overlay and a field on the Music page, and no per-widget boxes. The rule everything turns on
