@@ -109,6 +109,38 @@ class AuditLibraryCommandTest extends TestCase
         }
     }
 
+    public function test_a_leading_tilde_is_expanded_because_the_shell_did_not(): void
+    {
+        /*
+         * MEASURED IN BOTH BASH AND ZSH: a tilde is expanded only at the START of a word, so
+         * `--output ~/report.md` arrives as a real path while `--output=~/report.md` — the form
+         * this command's own help and every options table print — arrives with the tilde intact.
+         * Without this the command reports "there is no directory '~'", which reads as the command
+         * being broken rather than the shell being precise.
+         */
+        // Captured BEFORE the overwrite: read afterwards it is the temp root, and "restoring" that
+        // would leave every later test in this process with no HOME at all.
+        $original = getenv('HOME');
+        putenv('HOME='.$this->root);
+
+        try {
+            $this->artisan('app:audit', ['--output' => '~/from-tilde.md'])->assertExitCode(0);
+
+            $this->assertFileExists($this->root.'/from-tilde.md');
+        } finally {
+            $original === false ? putenv('HOME') : putenv('HOME='.$original);
+        }
+    }
+
+    public function test_a_tilde_anywhere_but_the_front_is_left_alone(): void
+    {
+        // A tilde is a legal filename character, and a path that merely CONTAINS one is not asking
+        // for a home directory — expanding it would rewrite a name the reader chose.
+        $this->artisan('app:audit', ['--output' => $this->root.'/od~d.md'])->assertExitCode(0);
+
+        $this->assertFileExists($this->root.'/od~d.md');
+    }
+
     public function test_an_unwritable_destination_fails_loudly_instead_of_reporting_success(): void
     {
         // Silently "succeeding" with no file is the one outcome that would waste real time.

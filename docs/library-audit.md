@@ -162,7 +162,9 @@ php artisan app:audit --output=~/library-audit.md
 ```
 
 The command says which directory refused it and who it is running as, rather than leaving you to
-work it out. **Give a scheduled run an absolute `--output`** for the same reason plus one more: a
+work it out. A leading `~` is expanded by the command itself, because the shell will not: measured
+in both bash and zsh, a tilde is expanded only at the START of a word, so `--output ~/report.md`
+arrives as a real path while `--output=~/report.md` arrives with the tilde intact. **Give a scheduled run an absolute `--output`** for the same reason plus one more: a
 timer's working directory is whatever its unit was given, and on a quiet week `--cron` prints
 nothing at all, so there is no line telling you where the file went.
 

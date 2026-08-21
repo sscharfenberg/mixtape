@@ -83,7 +83,7 @@ class AuditLibrary extends Command
         }
 
         $cron = (bool) $this->option('cron');
-        $target = $this->option('output') ?: self::DEFAULT_FILENAME;
+        $target = self::expandHome($this->option('output') ?: self::DEFAULT_FILENAME);
 
         if (! $cron) {
             $this->narrate('Library audit started ('.$this->describeScope($areas).', '.count($checks).' check(s)).');
@@ -106,6 +106,32 @@ class AuditLibrary extends Command
         return $cron
             ? $this->reportChanges($result, $target)
             : $this->reportRun($result, $target);
+    }
+
+    /**
+     * Expand a leading `~`, because the reader's shell did not.
+     *
+     * MEASURED IN BOTH BASH AND ZSH: a tilde is expanded only at the START of a word, so
+     * `--output ~/report.md` arrives as a real path while `--output=~/report.md` — the form every
+     * options table in the world prints, this one included — arrives with the tilde intact. What
+     * follows is a command creating a directory literally called `~`, or, here, refusing to and
+     * reporting one that does not exist, which reads as the command being broken rather than the
+     * shell being precise. Handling it here is what makes the suggestion this command prints true
+     * whichever form gets typed.
+     *
+     * `~user/…` is deliberately NOT handled. That is a real shell feature, and implementing half
+     * of it is worse than none: the half that looks up another person's home directory is exactly
+     * the half that would silently write somewhere unintended.
+     */
+    private static function expandHome(string $target): string
+    {
+        $home = rtrim((string) (getenv('HOME') ?: ''), '/');
+
+        if ($home === '' || ! ($target === '~' || str_starts_with($target, '~/'))) {
+            return $target;
+        }
+
+        return $home.substr($target, 1);
     }
 
     /**
