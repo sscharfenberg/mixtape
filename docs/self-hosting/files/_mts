@@ -1,0 +1,115 @@
+#compdef mts
+#
+# zsh completion for `mts` (MixTape media sync — see mts.sh).
+#
+# INSTALL: this file must sit in a directory on $fpath, and $fpath must be
+# populated BEFORE compinit runs. Under oh-my-zsh, $ZSH_CUSTOM/completions is
+# already on fpath, so dropping the file in is enough — but see the cache note
+# at the bottom, which is the part that actually catches people out.
+
+_mts() {
+    local curcontext="$curcontext" state line
+    typeset -A opt_args
+
+    # --- Areas --------------------------------------------------------------
+    # Static, and it must stay in step with the `case` in mts.sh, which is in
+    # turn the keys of the app's config/mixtape.php `library.paths`. Three
+    # copies of one list is not ideal, but the alternative — asking the server
+    # what areas exist — would open an ssh connection on every press of <TAB>.
+    # Completion has to be instant and side-effect free.
+    local -a areas
+    areas=(
+        'music:the music collection'
+        'audiobooks:the audiobook collection'
+    )
+
+    # --- Options ------------------------------------------------------------
+    # Descriptions carry no colons on purpose: `_describe` splits an entry on
+    # the first unescaped one, and an entry that needs `\:` is easy to get
+    # wrong in a way that looks right in the list.
+    local -a opts
+    opts=(
+        '--mirror[also delete files the library no longer has (local disks only)]'
+        '--all[carry every file, not just audio and cover images]'
+        '-n[show the plan and exit without writing]'
+        '--attempts[retries on a dropped connection]:attempts:(3 5 10)'
+        '--bwlimit=[cap the transfer rate]:rate:(5m 10m 20m 50m)'
+        '--stats[print transfer statistics at the end]'
+        '(- *)'{-h,--help}'[show usage]'
+    )
+
+    # --- Destinations -------------------------------------------------------
+    # Offer the mounted volumes first, because that is where the answer almost
+    # always is on a Mac, then fall through to ordinary directory completion so
+    # a subfolder can still be reached.
+    #
+    # The `(N/)` qualifier — plain `/`, not `-/` — is doing real work: it matches
+    # directories WITHOUT following symlinks, which drops `/Volumes/Macintosh HD`
+    # (a symlink to `/`). That is the one destination mts refuses outright, so
+    # offering it would only invite the error.
+    _mts_destinations() {
+        local -a vols
+        vols=(/Volumes/*(N/))
+        local expl
+        if (( $#vols )); then
+            _wanted volumes expl 'mounted volume' compadd -S / -q -a vols
+        fi
+        _files -/
+    }
+
+    _arguments -C \
+        $opts \
+        '1: :->area' \
+        '2: :->destination' \
+        '*:: :->rest' \
+        && return 0
+
+    case $state in
+        area)
+            _describe -t areas 'library area' areas
+            ;;
+
+        destination)
+            _mts_destinations
+            ;;
+
+        rest)
+            # Inside the nested `*::` state, `words` has been rewritten and a
+            # second `_arguments` does not offer these options at all — the
+            # commonest position of any (`mts music /Volumes/X/ --<TAB>`) would
+            # silently complete nothing. So they are added by hand.
+            #
+            # NOT `_describe`: a candidate starting with `-` is treated as an
+            # option, and options are only shown when the surrounding context
+            # has requested the `options` tag. In a nested state that
+            # negotiation does not happen, so `_describe` (even with -o)
+            # reports success while displaying nothing — a completely silent
+            # failure. `_wanted` requests the tag explicitly, then adds the
+            # matches, which is the supported way to offer options by hand.
+            local expl
+            local -a flags descs
+            flags=(--mirror --all -n --attempts --bwlimit= --stats)
+            descs=(
+                '--mirror    -- also delete files the library no longer has'
+                '--all       -- carry every file, not just audio and cover images'
+                '-n          -- show the plan and exit without writing'
+                '--attempts  -- retries on a dropped connection'
+                '--bwlimit=  -- cap the transfer rate'
+                '--stats     -- print transfer statistics at the end'
+            )
+            _wanted options expl 'option' compadd -d descs -a flags
+            ;;
+    esac
+}
+
+_mts "$@"
+
+# --- Cache note ------------------------------------------------------------
+# oh-my-zsh caches completions in ~/.zcompdump-<host>-<zsh-version> and only
+# rebuilds it when the OMZ git revision or the *fpath string* changes. Since
+# $ZSH_CUSTOM/completions is already on fpath whether or not it contains
+# anything, ADDING THIS FILE DOES NOT INVALIDATE THE CACHE — a plain shell
+# restart will not pick it up, which reads exactly like a broken completion.
+#
+# After installing (or after editing this file's #compdef line):
+#     rm -f ~/.zcompdump*  &&  exec zsh

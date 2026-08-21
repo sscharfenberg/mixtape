@@ -543,6 +543,136 @@ Three things that made this harder than it looks, all of which fail *silently*:
   commonest position of all, completes silently to nothing. Use `_wanted options expl … compadd`,
   which requests the tag explicitly.
 
+## Copying the collection to a local disk
+
+The other thing a workstation wants from the server is the media itself — filling a USB stick for a
+car, or a phone. [`files/mts.sh`](files/mts.sh) does that one job, and it is deliberately a **separate
+script rather than an `mt` subcommand.** Every `mt` command ends in `exec ssh HOST <remote-command>`,
+and everything below its parser — the `printf %q` quoting for the remote shell, the TTY policy, the
+`sudo` hop, resolving a target to a site directory — exists to run something *on the server*. A
+transfer's destination is a path on the workstation and shares none of it. `mt`'s organising idea does
+not survive the move either: the media library belongs to neither site, because both read the same
+collection, so `mt transfer --prod` would parse cleanly, be stripped from the line like any other
+target flag, and mean nothing. A command whose central flag is silently inert is worse than a second
+command.
+
+```bash
+install -m 755 mts.sh ~/.local/bin/mts             # ensure ~/.local/bin is on $PATH
+cp _mts ~/.oh-my-zsh/custom/completions/_mts
+rm -f ~/.zcompdump* && exec zsh                    # the cache note above applies here too
+```
+
+Then edit `HOST` at the top, exactly as for `mt`. It refuses to run until you do.
+
+```bash
+mts music /Volumes/<usb-label>/              # add what is missing, update what changed
+mts music /Volumes/<usb-label>/ --mirror     # …and delete what the library no longer has
+mts music /Volumes/<usb-label>/ -n           # print the plan, write nothing
+mts audiobooks /Volumes/<usb-label>/Books/
+```
+
+Once per disk, stop macOS indexing something a head unit has to read:
+
+```bash
+sudo mdutil -i off /Volumes/<usb-label>
+sudo rm -rf /Volumes/<usb-label>/.Spotlight-V100
+touch /Volumes/<usb-label>/.fseventsd/no_log
+```
+
+**Mirror music to the volume root, not into a subfolder.** At the root, every path on the disk is
+exactly the area-relative path the database stores, so a playlist exported from the app with an
+**empty** path prefix resolves on the disk verbatim — which is what `config/mixtape.php` means when it
+says a prefix describes "the machine doing the listening". Put the `.m3u` files at the root, beside
+the artist folders.
+
+### The decisions worth knowing
+
+**It carries audio and cover images, not the tree.** A library accumulates spreadsheets, helper
+scripts and OS droppings that have no business on a car stick, so the filter is an allowlist —
+`--include='*/'` to descend, the media globs, then `--exclude='*'` — with `--prune-empty-dirs` so a
+folder that held nothing else is not created at all. `--all` turns it off. The audio extensions
+mirror the app's `scan.extensions`; if the scanner learns a format, this is the other place to teach
+it.
+
+The globs are written as character classes — `*.[Jj][Pp][Gg]`, not `*.jpg` — because **rsync's
+patterns are case-sensitive and the scanner's are not.** A library the app is perfectly happy with
+can hold a `.JPG` among a thousand `.jpg`, and a plain lowercase glob leaves those albums on the disk
+with no cover art while reporting nothing wrong. Measured here: exactly two files, which is precisely
+the size of mistake that never gets noticed.
+
+**`-rt`, never `-a`.** FAT32 and exFAT store no ownership, permissions or symlinks, so `-a` asks for
+four things the filesystem cannot hold. Nothing needs subtracting afterwards, which is fortunate —
+see the flag table below.
+
+**`--modify-window=1` is the flag whose absence is silent and expensive.** FAT records modification
+times to a two-second granularity. Without the window every file looks changed on every run, so a
+"top up" re-sends the whole library, and nothing anywhere reports a problem.
+
+**Resumability is retries, not a resume protocol.** rsync is already incremental, so the honest
+answer to a dropped connection is to run it again — `--partial-dir` keeps the file that was in flight,
+and the loop re-runs up to `--attempts` times with a backoff. What makes that work is `--timeout`: an
+interrupted transfer has to *fail* before it can be retried, and without an I/O timeout a stalled
+connection simply hangs. Exit codes that mean the invocation is wrong (`1`, `2`, `4`) are not retried,
+because they will fail identically five times.
+
+**Two destination guards, because the mistake is expensive.** The directory is never created — a
+mistyped volume name does not exist, so the run fails instead of quietly filling the boot disk — and
+its device number must differ from `/`'s. Device numbers rather than parsing `df`'s mount-point
+column, which cannot be split safely when a volume name contains a space. `--mirror` adds a third:
+it requires a destination on a local `/dev/…` disk, because the library's own Samba share is very
+likely mounted on the same workstation, and `mts audiobooks /Volumes/<share>/music/ --mirror` would
+otherwise faithfully delete the music collection off the server.
+
+**Deleting from the disk is confirmed, but not with a typed word.** `mt` demands one for a production
+migration because that data exists nowhere else. Here everything on the destination is a copy of
+something the server still has, so a wrong answer costs a re-run — the question exists only so a
+`--mirror` that would empty the disk cannot pass unnoticed, and it is asked only when the plan
+actually contains deletions.
+
+**The AppleDouble sweep is not optional.** macOS stamps a file it creates with an extended attribute,
+and FAT cannot store one — so the volume driver spills each into a 4 KB `._<name>` sidecar beside the
+real file. The library's own files carry no extended attributes at all; these are made on the way in,
+which is why an `--exclude` cannot prevent them, and a ten-thousand-file library otherwise arrives
+with ten thousand phantom files that a head unit lists as tracks. `dot_clean` is the sanctioned tool
+and does not finish the job on FAT: measured on two files, it merged one sidecar, left the other and
+the directory's own behind, and restored the extended attribute it had just merged, which spills
+again. Deleting the sidecar and *then* clearing the attribute leaves nothing to regenerate. The sweep
+runs only where sidecars actually exist, so a destination on a filesystem that stores extended
+attributes natively is left alone.
+
+It also runs **on interrupt**, not only on success. The sweep is the last thing a run does and an
+abandoned run is the likeliest kind — stopping a copy that has an hour to go would otherwise leave
+thousands of phantom files on a disk somebody is about to unplug. The partial directory is
+deliberately *not* touched there: on an interrupt it holds the file that was in flight, which is the
+whole reason for keeping it.
+
+**Progress is counted, not measured.** The dry run that produces the plan also produces the file
+count, so the real run is filtered through `awk` into one updating `[n/total pct%]` line — openrsync
+has no `--info=progress2` to do it properly. The count is carried across attempts in a temporary
+file, or the display would jump backwards after a dropped connection.
+
+That `awk` runs under **`LC_ALL=C`**, which is not a detail. rsync's itemized output is not
+guaranteed to be valid UTF-8: it escapes some non-ASCII bytes in a filename as `\#NNN` octal and
+passes others through raw, so `Tír na mBan.mp3` arrives as a lone `0xC3` followed by the literal text
+`\#255`. In a UTF-8 locale `awk` then prints `towc: multibyte conversion failure` once per such line.
+It keeps going and the transfer is unaffected — but on a collection with any accented titles the
+warnings bury the display they are printed over. Byte-oriented `awk` never attempts the conversion.
+
+### macOS ships openrsync, and it is missing flags you will reach for
+
+`/usr/bin/rsync` on a current macOS is **openrsync**, which announces itself as `rsync version 2.6.9
+compatible` and is not rsync 3.x. Most of what a sync like this needs is there; the gaps are what
+make a recipe copied from anywhere else fail on the first line.
+
+| Flag | | Consequence |
+| --- | --- | --- |
+| `--modify-window`, `--partial-dir`, `--timeout`, `--contimeout`, `--include`, `--prune-empty-dirs`, `--delete`, `--bwlimit`, `--itemize-changes`, `--stats` | present | nothing to work around |
+| `--no-perms`, `--no-owner`, `--no-group` | **missing** | nothing to subtract from `-a`, so build up from `-rt` instead |
+| `--info=progress2` | **missing** | `--progress` reports per *file*; an overall figure has to be counted |
+| `--dry-run` | **missing** | `-n` works; only the long spelling is absent |
+| `--protect-args` | **missing** | a remote path is handed to a shell on the far side, so a space in it arrives re-split into two paths that do not exist. Escape it inside the quotes: `'<host>:/var/media/music/2\ Ohm/'` |
+| `--rsh` | **missing** | `-e` accepts a command with options, which is where the ssh keepalives go |
+
 ## Rate limiting and Precognition
 
 Worth understanding before you tune any throttle, because the interaction is not obvious.
