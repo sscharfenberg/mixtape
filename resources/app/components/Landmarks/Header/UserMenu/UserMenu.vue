@@ -83,70 +83,11 @@ function handleLogout(): void {
             width="20ch"
         >
             <ul class="popover-list">
-                <!-- NO `prefetch` ON THE TWO FORMS below, per CLAUDE.md's prefetch rule: a
-                     prefetch that lands after you have navigated to the same URL is applied to the
-                     page you are on and re-creates it, which on a form discards what has been typed
-                     and saves what the server sent. `/login` is the worst case in the app — it holds
-                     a password, so `useRemember` is not an option there either (remembered state
-                     goes into the history entry). The dashboard link below keeps its warming: that
-                     page is one a reader only reads. -->
-                <li v-if="!user">
-                    <Link class="popover-list-item" href="/login" @click="closePopover">
-                        <icon name="login" :size="1" />
-                        {{ t("header.userMenu.login") }}
-                    </Link>
-                </li>
-                <li v-if="!user && features.resetPasswords">
-                    <Link class="popover-list-item" href="/forgot" @click="closePopover">
-                        <icon name="support" :size="1" />
-                        {{ t("header.userMenu.loginHelp") }}
-                    </Link>
-                </li>
-                <li v-if="user">
-                    <Link class="popover-list-item" href="/dashboard" prefetch @click="closePopover">
-                        <icon name="user-settings" :size="1" />
-                        {{ t("header.userMenu.dashboard") }}
-                    </Link>
-                </li>
-                <!-- Below the dashboard, and only for a reader who has actually shared
-                     something (the `hasShares` shared prop): a menu entry leading to a list of
-                     nothing is a promise the page cannot keep. Warmed on hover for the same
-                     reason the dashboard link above it is — a page one only reads, never a
-                     form (CLAUDE.md → the prefetch rule). -->
-                <li v-if="user && hasShares">
-                    <Link class="popover-list-item" href="/dashboard/shared" prefetch @click="closePopover">
-                        <icon name="share" :size="1" />
-                        {{ t("header.userMenu.shares") }}
-                    </Link>
-                </li>
-                <!-- The reader's export presets — an account item like the two above it, and
-                     gated for the same reason: a shortcut to a page that would only offer a
-                     "create one" button is not a shortcut. Warmed on hover, being a page one
-                     only reads; the FORM one page further on is not (CLAUDE.md → the prefetch
-                     rule). -->
-                <li v-if="user && hasExportPresets">
-                    <Link class="popover-list-item" href="/dashboard/export-presets" prefetch @click="closePopover">
-                        <icon name="file_export" :size="1" />
-                        {{ t("header.userMenu.presets") }}
-                    </Link>
-                </li>
-                <!-- THE LISTENING HISTORY, IN A GROUP OF ITS OWN — a rule above it and a rule
-                     below. The entries above are about the ACCOUNT (its settings, the links it
-                     has sent, the devices it exports for); this one is about the music, and
-                     logout is about neither. The rules are what say so, since one unbroken run
-                     would read as one more setting.
-                     Drawn only for a reader who has actually listened to something, off the
-                     `hasPlays` shared prop — the same gate the shares entry above it has. Warmed
-                     on hover like both of them: a page one only reads, never a form
-                     (CLAUDE.md → the prefetch rule). -->
-                <li v-if="user && hasPlays" class="popover-list__divider" aria-hidden="true" />
-                <li v-if="user && hasPlays">
-                    <Link class="popover-list-item" href="/history" prefetch @click="closePopover">
-                        <icon name="plays" :size="1" />
-                        {{ t("header.userMenu.history") }}
-                    </Link>
-                </li>
-                <li v-if="user && hasPlays" class="popover-list__divider" aria-hidden="true" />
+                <!-- LOGOUT FIRST, AND ALONE ABOVE THE RULE. Everything under it is somewhere to
+                     GO — pages the reader is choosing between — and this is the one entry that
+                     is not navigation at all: it ends the session. Putting it at the top with a
+                     rule under it means it is never one of a run of similar-looking links, which
+                     is how a menu gets a misclick that costs a queue and a sign-in. -->
                 <li v-if="user">
                     <Link
                         class="popover-list-item"
@@ -160,6 +101,66 @@ function handleLogout(): void {
                         {{ t("header.userMenu.logout") }}
                     </Link>
                 </li>
+                <li v-if="user" class="popover-list__divider" aria-hidden="true" />
+
+                <!-- NO `prefetch` ON THE TWO GUEST FORMS below, per CLAUDE.md's prefetch rule: a
+                     prefetch that lands after you have navigated to the same URL is applied to the
+                     page you are on and re-creates it, which on a form discards what has been typed
+                     and saves what the server sent. `/login` is the worst case in the app — it holds
+                     a password, so `useRemember` is not an option there either (remembered state
+                     goes into the history entry). Every authenticated link below keeps its warming:
+                     each leads to a page a reader only reads. -->
+                <li v-if="!user">
+                    <Link class="popover-list-item" href="/login" @click="closePopover">
+                        <icon name="login" :size="1" />
+                        {{ t("header.userMenu.login") }}
+                    </Link>
+                </li>
+                <li v-if="!user && features.resetPasswords">
+                    <Link class="popover-list-item" href="/forgot" @click="closePopover">
+                        <icon name="support" :size="1" />
+                        {{ t("header.userMenu.loginHelp") }}
+                    </Link>
+                </li>
+
+                <!-- THE PLACES A READER GOES, in one run between two rules: their account, the
+                     links they have sent, the devices they export for, and what they have
+                     listened to. Three of the four are gated, so most accounts see a shorter
+                     list than this markup suggests — which is the point of the gates rather
+                     than an accident of them. -->
+                <li v-if="user">
+                    <Link class="popover-list-item" href="/dashboard" prefetch @click="closePopover">
+                        <icon name="user-settings" :size="1" />
+                        {{ t("header.userMenu.dashboard") }}
+                    </Link>
+                </li>
+                <!-- Only for a reader who has actually shared something (the `hasShares` shared
+                     prop): a menu entry leading to a list of nothing is a promise the page
+                     cannot keep. -->
+                <li v-if="user && hasShares">
+                    <Link class="popover-list-item" href="/dashboard/shared" prefetch @click="closePopover">
+                        <icon name="share" :size="1" />
+                        {{ t("header.userMenu.shares") }}
+                    </Link>
+                </li>
+                <!-- The reader's export presets, gated for the same reason: a shortcut to a page
+                     that would only offer a "create one" button is not a shortcut. -->
+                <li v-if="user && hasExportPresets">
+                    <Link class="popover-list-item" href="/dashboard/export-presets" prefetch @click="closePopover">
+                        <icon name="file_export" :size="1" />
+                        {{ t("header.userMenu.presets") }}
+                    </Link>
+                </li>
+                <!-- The listening history, last of the run and gated on `hasPlays` — a fresh
+                     account would otherwise meet a page that can only say it has listened to
+                     nothing before it ever meets the music. -->
+                <li v-if="user && hasPlays">
+                    <Link class="popover-list-item" href="/history" prefetch @click="closePopover">
+                        <icon name="plays" :size="1" />
+                        {{ t("header.userMenu.history") }}
+                    </Link>
+                </li>
+
                 <!-- `aria-hidden` because it is a rule, not an entry: without it the list
                      announces one more item than the menu actually offers. -->
                 <li class="popover-list__divider" aria-hidden="true" />

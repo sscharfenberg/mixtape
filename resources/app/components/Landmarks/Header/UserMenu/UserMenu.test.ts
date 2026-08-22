@@ -135,14 +135,37 @@ describe("UserMenu", () => {
             expect(items(signedIn({ hasPlays: false }))).not.toContain(translate("header.userMenu.history"));
         });
 
-        it("appears once they have, in a group of its own", () => {
-            // A rule above and a rule below: the entries above are about the ACCOUNT and logout
-            // is about neither, so three items in one run would read as three settings. The
-            // menu already draws one rule above its preference toggles, hence three in total.
+        it("appears once they have, in the run of places to go", () => {
+            // It sits with the dashboard rather than apart from it: everything between the two
+            // rules is somewhere to GO, and the history is one of those. The rules are the menu's
+            // only structure — one under logout, one above the preference toggles — so their
+            // count does not move with this entry.
             const wrapper = signedIn({ hasPlays: true });
 
             expect(items(wrapper)).toContain(translate("header.userMenu.history"));
-            expect(dividers(wrapper)).toHaveLength(3);
+            expect(dividers(wrapper)).toHaveLength(2);
+            expect(dividers(signedIn({ hasPlays: false }))).toHaveLength(2);
+        });
+
+        it("is drawn after the account entries, and logout before all of them", () => {
+            /*
+             * THE ORDER IS THE FEATURE HERE. Logout ends the session and everything else is
+             * navigation, so it leads and is fenced off by a rule — never one of a run of
+             * similar-looking links, which is how a menu earns a misclick that costs a queue and
+             * a sign-in. The rest read outwards from the account: settings, the links it has
+             * sent, the devices it exports for, then what has been listened to.
+             */
+            const wrapper = signedIn({ hasPlays: true, hasShares: true, hasExportPresets: true });
+
+            // Sliced because `items` also matches LanguageSwitch's two entries, which sit below
+            // the second rule and are a preference rather than a place to go.
+            expect(items(wrapper).slice(0, 5)).toStrictEqual([
+                translate("header.userMenu.logout"),
+                translate("header.userMenu.dashboard"),
+                translate("header.userMenu.shares"),
+                translate("header.userMenu.presets"),
+                translate("header.userMenu.history")
+            ]);
         });
 
         it("is never offered to a guest, whatever the prop says", () => {
