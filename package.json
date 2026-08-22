@@ -3,7 +3,7 @@
     "description": "MixTape - self-hosted personal mp3 / audiobook collection player",
     "license": "MIT",
     "private": true,
-    "version": "2.1.0",
+    "version": "2.2.0",
     "type": "module",
     "engines": {
         "node": "^26.4.0",
