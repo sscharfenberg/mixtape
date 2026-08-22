@@ -94,6 +94,19 @@ export const serverEnv: Record<string, string> = {
     SESSION_SECURE_COOKIE: "false",
     CACHE_STORE: "file",
     QUEUE_CONNECTION: "sync",
+    /*
+     * INERTIA'S DEVTOOLS RECORDER, OFF — and it is the one entry here that exists to stop the
+     * harness destroying itself rather than to configure it.
+     *
+     * It defaults to on under `APP_DEBUG`, and writes one JSON file per Inertia response into
+     * `storage/inertia-devtools`. A full suite is ~300 specs of many requests each, and every
+     * request then walks the WHOLE directory to prune it (EntriesRepository::readIndex →
+     * `iterator_to_array` over a Finder). Measured after a handful of runs: 122,326 files,
+     * 1.4 GB, and PHP exhausting its 128 MB on the health probe — which Playwright reports as
+     * "Timed out waiting 60000ms from config.webServer", naming neither the directory nor the
+     * cause. Nothing opens devtools against a headless harness, so it records for nobody.
+     */
+    INERTIA_DEVTOOLS_ENABLED: "false",
     MAIL_MAILER: "log",
     /*
      * The generated media area, NOT the committed `.env`'s `/var/media/music` — which is
