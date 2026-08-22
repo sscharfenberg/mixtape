@@ -201,11 +201,16 @@ const areas = computed<AreaLink[]>(() =>
 /* One button for a guest, up to two for a member. They wrap rather than shrink: a button whose
    label is squeezed onto two lines beside a neighbour reads as a layout accident, and there is
    room in this half for one of them at almost every width. `align-items: center` keeps a wrapped
-   pair the same width as each other rather than stretching both to the half. */
+   pair the same width as each other rather than stretching both to the half.
+
+   `space-around` rather than `center`, which is the difference between two equal destinations
+   DIVIDING their half and huddling in the middle of it — the pair is a choice, and a choice reads
+   better spread across the space it is offered in. It costs the guest arm nothing: one item under
+   `space-around` gets equal space either side, which is centred. */
 .welcome-intro__action {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: space-around;
     flex-wrap: wrap;
 
     gap: map.get(s.$c-welcome-intro, "gap");
