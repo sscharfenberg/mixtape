@@ -298,17 +298,21 @@ instance, written for someone else's server.
 - `README.md` — overview, the order to work in, and a **gotchas index** (symptom → cause → where).
 - `01-requirements.md` — hardware, OS, LVM, stack, network/exposure, security posture + the *why*.
 - `02-host-setup.md` — Debian, networking, firewall, SSH, PostgreSQL, nginx/PHP, Samba, LAN TLS.
-- `03-production-deploy.md` — the `mixtape-deploy` ownership model, Step-0 build, routine deploys.
+- `03-production-deploy.md` — the `mixtape-deploy` ownership model and the Step-0 build of the site.
 - `04-going-public.md` — domain/CNAME, port-forward, firewall widen, certbot, mail + SPF/DKIM/DMARC,
   fail2ban, backup alerting. **Auth must be in force before any exposure.**
-- `files/` — installable configs (nginx vhost, fpm pool, rate-limit zones, sudoers, deploy script,
-  `.env` template), all with placeholders. Also the two **workstation**-side files: `mt.sh` (ssh
-  wrapper — `mt artisan down --dev`, `mt artisan migrate --prod`) and its zsh completion `_mt`.
+- `commands.md` — **not a step, a reference**: the four scripts you run once the box exists. Two on
+  the server (`mixtape-prod-deploy`, `mixtape-dev-deploy`, plus artisan-as-www-data), two on the
+  workstation and **macOS-specific** (`mt`, `mts`). Anything about running a command rather than
+  building the box belongs here, not in `03`.
+- `files/` — installable configs (nginx vhost, fpm pool, rate-limit zones, sudoers, deploy scripts,
+  `.env` template), all with placeholders. Also the four **workstation**-side files: `mt.sh` (ssh
+  wrapper — `mt artisan down --dev`, `mt artisan migrate --prod`), `mts.sh` (media sync — `mts music
+  /Volumes/<label>/`) and their zsh completions `_mt` and `_mts`.
 
 **This box (untracked — `docs/host.local/`):**
 
 - `infrastructure.md` — the concrete live box: LAN topology, disks, services, secret **locations**.
-- `go-live.md` — the go-live runbook with real values and per-step status.
 - `live-configs/` — copies synced from the server, with real hostnames and cert paths.
 
 **App (Phase 2 — next):**
