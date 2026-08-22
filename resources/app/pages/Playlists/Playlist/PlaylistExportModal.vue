@@ -2,7 +2,14 @@
 /******************************************************************************
  * PlaylistExportModal
  * The three choices behind "export playlist file": the .m3u flavour, the text encoding, and
- * what to put in front of every path. Opened from the hero's action row.
+ * what to put in front of every path. Opened from a playlist's hero, from a row's menu on the
+ * listing, and from that page's "export all".
+ *
+ * ONE DIALOG FOR ONE PLAYLIST AND FOR ALL OF THEM, because the questions are identical — the
+ * device decides the flavour, the encoding and the prefix whether it is about to receive one
+ * file or twelve. What differs is the endpoint and the wording, and both are props, so there is
+ * no second dialog to keep in step with this one. The all-playlists endpoint answers with a
+ * .zip; nothing here has to know that, since the browser does the download either way.
  *
  * THE DOWNLOAD IS A PLAIN NAVIGATION, not a fetch. Submitting builds the export URL and hands
  * it to the browser, which does what browsers do with an `attachment` response: streams it to
@@ -52,8 +59,23 @@ import type { ExportEncoding, ExportFormat, ExportPreset } from "Types/exportPre
 import { unencodableInWindows1252 } from "Utils/encoding";
 
 const props = defineProps<{
-    /** Which playlist to export — its id builds the URL. */
-    playlistId: string;
+    /**
+     * Where the download goes — one playlist's export route, or the collection-level one that
+     * answers with a .zip of every playlist.
+     *
+     * A URL rather than an id, because this dialog now serves both: what differs between "this
+     * playlist" and "all of them" is the endpoint and the wording, and passing the endpoint puts
+     * that decision at the call site that already knows which it made.
+     */
+    endpoint: string;
+    /**
+     * How many playlists the download covers — 1 from a playlist's own page or a row's menu,
+     * the reader's whole list from "export all".
+     *
+     * It is the only thing the copy switches on: a dialog that said "Playlist-Datei" while
+     * about to hand over twelve of them would be describing the wrong act.
+     */
+    count: number;
     /**
      * The prefix field's starting value when the reader keeps no presets — the server's
      * configured default, from config via the page.
@@ -70,6 +92,12 @@ const props = defineProps<{
      *
      * A structural shape rather than PlaylistTrackRow: this modal needs two fields, and taking
      * the whole row type would tie it to a queue entry it never plays.
+     *
+     * IT MAY ARRIVE EMPTY AND FILL IN LATER, which is what the listing does: a playlist's own
+     * page already holds its tracks, while the listing fetches them the moment a dialog opens
+     * (an optional Inertia prop — see PlaylistsController). Nothing here waits on them: the
+     * warning is a computed, so it appears when they land, which is still before a reader can
+     * have picked the encoding it is about.
      */
     tracks: { name: string; path: string }[];
 }>();
@@ -261,6 +289,27 @@ const warning = computed<string>(() => {
     );
 });
 
+/** Whether this dialog is about the whole list rather than one playlist. Everything below reads it. */
+const isAll = computed<boolean>(() => props.count > 1);
+
+/** The dialog's title, and the note under it — both say how many files are about to arrive. */
+const header = computed<string>(() =>
+    isAll.value ? t("playlists.export.headerAll", { count: props.count }) : t("playlists.export.header")
+);
+const intro = computed<string>(() =>
+    isAll.value ? t("playlists.export.introAll", { count: props.count }) : t("playlists.export.intro")
+);
+
+/**
+ * What the button says.
+ *
+ * It names the FILE the reader is about to receive — an .m3u or a .zip — because that is the
+ * one thing they cannot infer from a dialog that otherwise looks identical in both modes.
+ */
+const submitLabel = computed<string>(() =>
+    isAll.value ? t("playlists.export.submitAll") : t("playlists.export.submit")
+);
+
 /**
  * Hand the export URL to the browser and close.
  *
@@ -276,18 +325,18 @@ function download(): void {
         prefix: prefix.value
     });
 
-    window.location.assign(`/playlists/${props.playlistId}/export?${query.toString()}`);
+    window.location.assign(`${props.endpoint}?${query.toString()}`);
     emit("close");
 }
 </script>
 
 <template>
     <modal @close="emit('close')">
-        <template #header>{{ t("playlists.export.header") }}</template>
+        <template #header>{{ header }}</template>
 
         <form id="playlist-export-form" class="form" @submit.prevent="download">
             <form-legend :items="[{ slot: 'intro', icon: 'question' }]">
-                <template #intro>{{ t("playlists.export.intro") }}</template>
+                <template #intro>{{ intro }}</template>
             </form-legend>
 
             <!-- THE PICKER, and only when the reader has something to pick from: a select with
@@ -363,7 +412,7 @@ function download(): void {
         <template #footer>
             <Button variant="default" type="submit" form="playlist-export-form">
                 <icon name="download" :size="1" />
-                <span>{{ t("playlists.export.submit") }}</span>
+                <span>{{ submitLabel }}</span>
             </Button>
 
             <!-- THE WAY IN THAT MATCHES THE MOMENT. A reader learns they want a preset while

@@ -311,7 +311,8 @@ function sort(): void {
          prefix — every time, rather than remembering the last export. -->
     <playlist-export-modal
         v-if="exporting"
-        :playlist-id="playlist.id"
+        :endpoint="`/playlists/${playlist.id}/export`"
+        :count="1"
         :fallback-prefix="exportPrefix"
         :presets="exportPresets"
         :tracks="tracks"

@@ -64,7 +64,7 @@ const modal = (fallbackPrefix = "/Volumes/media/music", tracks = SAFE, presets: 
     });
 
     const wrapper = mountApp(PlaylistExportModal, {
-        props: { playlistId: "playlist-1", fallbackPrefix, presets, tracks }
+        props: { endpoint: "/playlists/playlist-1/export", count: 1, fallbackPrefix, presets, tracks }
     });
 
     return { wrapper, assign };

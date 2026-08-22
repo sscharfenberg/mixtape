@@ -615,7 +615,8 @@
         },
         "menu": {
             "actions": "Aktionen für {name}",
-            "editMetadata": "Metadaten bearbeiten"
+            "editMetadata": "Metadaten bearbeiten",
+            "export": "Playlist-Datei exportieren"
         },
         "detail": {
             "label": "Titel dieser Wiedergabeliste",
@@ -650,7 +651,10 @@
             "presetLabel": "Voreinstellung",
             "presetPlaceholder": "eigene Einstellungen",
             "presetHint": "Übernimmt Format, Kodierung und Präfix eines deiner Geräte. Die Felder darunter kannst du danach noch ändern.",
-            "managePresets": "Voreinstellungen verwalten"
+            "managePresets": "Voreinstellungen verwalten",
+            "headerAll": "Alle Playlists exportieren",
+            "introAll": "Ein ZIP-Archiv mit einer .m3u-Datei je Playlist – {count} Stück, alle mit denselben Einstellungen. Mehrere Downloads gleichzeitig blockiert der Browser, deshalb kommt alles in einem Archiv.",
+            "submitAll": "ZIP herunterladen"
         },
         "sort": {
             "open": "Playlist sortieren",
@@ -698,7 +702,8 @@
             "duplicatesHint": "Titel, die schon drin sind, werden übersprungen.",
             "failed": "Das Hinzufügen hat nicht geklappt.",
             "tooMany": "Diese Auswahl ist zu groß — bitte weniger auswählen."
-        }
+        },
+        "exportAllLink": "Alle exportieren"
     },
     "share": {
         "play": "Abspielen",

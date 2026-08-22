@@ -24,6 +24,16 @@
  * lifted back above that overlay. The anchor's accessible name therefore stays just the
  * title, rather than the whole row read aloud.
  *
+ * THE EXPORT DIALOG IS THE PAGE'S, not the row's. A row's menu and the "export all" button
+ * both raise it, and there is one of it: a modal per row would be one dialog per playlist in
+ * the DOM, all but one of them shut. The endpoint it is handed is what decides whether the
+ * browser receives one .m3u or a .zip of every playlist.
+ *
+ * THE PATHS IT WARNS FROM ARE FETCHED WHEN IT OPENS, not carried by the page. They are an
+ * OPTIONAL Inertia prop, so an ordinary visit costs nothing and the reader pays one partial
+ * reload at the moment they ask for a dialog (PlaylistsController explains the trade). Nothing
+ * waits on it: the dialog opens immediately and its warning appears when the paths land.
+ *
  * Every value arrives raw — a plain count, seconds, ISO-8601 instants — and is
  * formatted here against the VIEWER's locale and timezone, which the server cannot
  * know. Two facts are conditional, and on facts about the data rather than about
@@ -31,22 +41,37 @@
  * until something actually changes, so an untouched playlist carries no "changed"
  * tile at all.
  *****************************************************************************/
-import { Head, Link } from "@inertiajs/vue3";
-import { useTemplateRef } from "vue";
+import { Head, Link, router } from "@inertiajs/vue3";
+import { computed, ref, useTemplateRef } from "vue";
 import { useI18n } from "vue-i18n";
 import FactPair from "Components/UI/Card/FactPair.vue";
 import Container from "Components/UI/Container.vue";
 import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
+import type { ExportPreset } from "Types/exportPresets";
 import type { PlaylistEntry } from "Types/playlists";
 import { formatDateTime, formatDuration } from "Utils/formatting";
+import PlaylistExportModal from "./Playlist/PlaylistExportModal.vue";
 import PlaylistMenu from "./PlaylistMenu.vue";
 import { usePlaylistReorder } from "./usePlaylistReorder";
 
 const props = defineProps<{
     /** The reader's own playlists, in their own order — empty for a fresh account. */
     playlists: PlaylistEntry[];
+    /** What the export dialog's prefix field opens with when the reader keeps no presets. */
+    exportPrefix: string;
+    /** The reader's export presets, for that dialog's picker — default first. */
+    exportPresets: ExportPreset[];
+    /**
+     * Every playlist's track titles and paths, keyed by playlist id — what the dialog's
+     * Windows-1252 warning is computed from.
+     *
+     * OPTIONAL, and absent on an ordinary visit: the server only evaluates it for a partial
+     * reload naming it, which is what `openExport` asks for. Undefined therefore means "not
+     * fetched yet" rather than "no tracks", and both render the same — no warning.
+     */
+    exportPaths?: Record<string, { name: string; path: string }[]>;
 }>();
 
 /**
@@ -85,6 +110,77 @@ const dateOf = (iso: string | null): string => formatDateTime(iso, locale.value)
  */
 const playtimeOf = (seconds: number | null): string =>
     seconds === null || seconds === 0 ? "" : formatDuration(seconds, (key, count) => t(`common.duration.${key}`, count));
+
+/**
+ * Which playlists the open export dialog covers, or null while it is shut.
+ *
+ * A LIST RATHER THAN AN ID, because the same dialog serves one playlist and all of them — its
+ * endpoint and its wording both hang off how many are in here, and holding an id would need a
+ * second flag beside it to say which mode it was in.
+ */
+const exporting = ref<PlaylistEntry[] | null>(null);
+
+/**
+ * Open the dialog over some playlists, and ask the server for the paths it warns from.
+ *
+ * THE RELOAD IS FIRED AND NOT AWAITED. `exportPaths` is an optional prop, so this is the
+ * request that makes it exist — but the dialog must open now: the reader pressed a menu item,
+ * and a dialog that appeared a round trip later would read as a dropped click. The warning is a
+ * computed over the prop, so it fills in by itself.
+ *
+ * `reload` FORCES `preserveState` and `preserveScroll` — its option type omits both, precisely
+ * so a caller cannot turn them off — which is what keeps this ref, the dialog it has just
+ * opened and the drag order alive across the round trip. A plain visit would rebuild the page
+ * component and shut the dialog the instant it appeared.
+ *
+ * Asked once: the prop is undefined only until the first dialog fetches it, and the answer does
+ * not go stale while the reader is on the page (adding tracks happens elsewhere).
+ */
+function openExport(playlists: PlaylistEntry[]): void {
+    exporting.value = playlists;
+
+    if (props.exportPaths === undefined) {
+        router.reload({ only: ["exportPaths"] });
+    }
+}
+
+/**
+ * The tracks of whichever playlists the dialog covers, flattened and DE-DUPLICATED BY PATH.
+ *
+ * The de-duplication is the load-bearing half, and only "export all" needs it: one track can sit
+ * in three playlists, and the dialog's warning counts and names what it is given. Left flat, a
+ * single unplayable file in three lists reads as "3 Titel enthalten Zeichen …: Björk, Björk,
+ * Björk" — a count that is wrong about how many FILES are at risk and a list that repeats itself.
+ * The path is the identity because it is what the warning is about.
+ *
+ * Empty until the paths arrive, and empty for a playlist with nothing in it — the warning treats
+ * both the same, which is right: neither can name a track that will be missing.
+ */
+const exportingTracks = computed<{ name: string; path: string }[]>(() => {
+    const seen = new Set<string>();
+
+    return (exporting.value ?? [])
+        .flatMap(playlist => props.exportPaths?.[playlist.id] ?? [])
+        .filter(track => {
+            if (seen.has(track.path)) return false;
+
+            seen.add(track.path);
+
+            return true;
+        });
+});
+
+/**
+ * Where the dialog submits: one playlist's own export, or the collection route that answers
+ * with a .zip of every one of them.
+ *
+ * Read off the same list the dialog's wording is, so the two cannot disagree — a dialog saying
+ * "all playlists" while posting to one playlist's URL is the failure this avoids by
+ * construction.
+ */
+const exportEndpoint = computed<string>(() =>
+    exporting.value?.length === 1 ? `/playlists/${exporting.value[0].id}/export` : "/playlists/export"
+);
 </script>
 
 <template>
@@ -100,6 +196,15 @@ const playtimeOf = (seconds: number | null): string =>
                 <icon name="playlist" :size="1" />
                 <span>{{ t("playlists.createLink") }}</span>
             </Link>
+
+            <!-- Only once there is more than one, which is the whole of its reason to exist: with
+                 a single playlist it would hand over a .zip holding one file, where the row's own
+                 menu hands over that file. Absent rather than disabled, since a control that
+                 cannot do anything explains itself worse than no control. -->
+            <button v-if="entries.length > 1" type="button" class="btn btn-default" @click="openExport(entries)">
+                <icon name="file_export" :size="1" />
+                <span>{{ t("playlists.exportAllLink") }}</span>
+            </button>
         </p>
 
         <ul v-if="entries.length" ref="list" class="playlist__list">
@@ -141,7 +246,7 @@ const playtimeOf = (seconds: number | null): string =>
                     <span class="playlist__title text-outline">{{ playlist.name }}</span>
                 </Link>
 
-                <playlist-menu :playlist="playlist" class="playlist__menu" />
+                <playlist-menu :playlist="playlist" class="playlist__menu" @export="openExport([playlist])" />
 
                 <span v-if="playlist.description" class="playlist__description">{{ playlist.description }}</span>
 
@@ -176,6 +281,18 @@ const playtimeOf = (seconds: number | null): string =>
             <p>{{ t("playlists.empty.text") }}</p>
         </template>
     </container>
+
+    <!-- Mounted only while open, like the dashboard's modals: the three fields then start from
+         the reader's default preset every time rather than remembering the last export. -->
+    <playlist-export-modal
+        v-if="exporting"
+        :endpoint="exportEndpoint"
+        :count="exporting.length"
+        :fallback-prefix="exportPrefix"
+        :presets="exportPresets"
+        :tracks="exportingTracks"
+        @close="exporting = null"
+    />
 </template>
 
 <style scoped lang="scss">
@@ -217,8 +334,21 @@ const playtimeOf = (seconds: number | null): string =>
 }
 
 .playlists__actions {
-    /* Reads the BUTTON's own clearance token rather than a spacing rung: the neon halo and
-       its reflection paint well outside the button's box and take part in no layout, so
+    /* Two controls now — create, and export all — so they lay out rather than sit in running
+       text, and wrap on a narrow screen instead of squeezing. */
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+
+    /* BETWEEN the two, the gap ActionPanel puts between the buttons in a detail page's hero —
+       the token of the component that already answers "how far apart do two of these sit",
+       which is what a page reads rather than minting a duplicate. Neighbouring haloes
+       overlapping is what a row of these buttons looks like everywhere else in the app;
+       `halo-clearance` below answers a different question and would push these 56px apart. */
+    gap: map.get(s.$c-action-panel, "gap");
+
+    /* UNDER them, the BUTTON's own clearance token rather than a spacing rung: the neon halo
+       and its reflection paint well outside the button's box and take part in no layout, so
        this is the button's metric, not a gap the page chose. */
     margin-block: 0 map.get(s.$c-button, "halo-clearance");
 }

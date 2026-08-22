@@ -21,6 +21,14 @@ import { specStorageState } from "../support/environment";
  *   - THE DEFAULT MARKER MOVING WITHOUT A RELOAD. The press is an Inertia PATCH with
  *     `preserveScroll`, so what a reader sees is one row's marker going out and another's coming
  *     in, in place.
+ *   - THE DOWNLOAD ITSELF. The dialog hands a URL to the browser and gets out of the way, so
+ *     whether a file actually arrives — and whether it is one .m3u or the .zip that "export all"
+ *     promises — is a question only an engine with a download manager can answer.
+ *
+ * THE TWO EXPORT JOURNEYS FROM THE LISTING ARE HERE rather than in playlists.spec.ts, and that
+ * is a deliberate placement: they need playlists of their own, and that file's drag test computes
+ * pointer coordinates from its own rows — extra rows above them are what its banner records
+ * breaking it. This file already builds a playlist for the dialog, and owns its account.
  *
  * EVERY TEST CREATES WHAT IT NEEDS, the rule playlists.spec.ts records twice over:
  * `reuseExistingServer` keeps data alive between runs, so every name below carries a
@@ -210,6 +218,45 @@ test.describe("export presets", () => {
         // The reader is never left holding presets and no default — an export dialog that had
         // quietly gone back to the server's prefix, with nothing on any page to say why.
         await expect(marker(page, mac)).toBeVisible();
+    });
+
+    test("exports one playlist from its row menu on the listing", async ({ page }) => {
+        // The dialog the listing raises is the one a playlist's own page raises — what differs
+        // is where it submits, and only a browser can prove the whole press-to-file journey.
+        await ensurePlaylist(page);
+
+        await page.locator("li.playlist", { hasText: PLAYLIST }).getByRole("button", { name: /menü|aktionen/iu }).click();
+        await page.getByRole("button", { name: /playlist-datei exportieren/iu }).click();
+        await expect(page.locator("#playlist-export-form")).toBeVisible();
+
+        const download = page.waitForEvent("download");
+        await page.getByRole("button", { name: /\.m3u herunterladen/iu }).click();
+
+        expect((await download).suggestedFilename()).toMatch(/\.m3u$/u);
+    });
+
+    test("exports every playlist as one .zip", async ({ page }) => {
+        /*
+         * A ZIP RATHER THAN N DOWNLOADS, which is the constraint the feature is shaped by: a
+         * page gets one navigation, and Chrome asks "allow multiple downloads?" after the first
+         * — a refusal then loses every file after it, silently. One archive is one download.
+         */
+        await ensurePlaylist(page);
+
+        // A second playlist, because "export all" is not offered for one — it would hand over an
+        // archive holding the file the row menu hands over directly.
+        await page.goto("/playlists/create");
+        await page.locator("#name").fill(`${PLAYLIST}-zwei`);
+        await page.getByRole("button", { name: /wiedergabeliste anlegen/iu }).click();
+        await page.waitForURL(/\/playlists$/u);
+
+        await page.getByRole("button", { name: /alle exportieren/iu }).click();
+        await expect(page.locator("#playlist-export-form")).toBeVisible();
+
+        const download = page.waitForEvent("download");
+        await page.getByRole("button", { name: /zip herunterladen/iu }).click();
+
+        expect((await download).suggestedFilename()).toBe("playlists.zip");
     });
 
     test("the user menu offers the way back once a preset exists", async ({ page }) => {

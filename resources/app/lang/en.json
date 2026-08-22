@@ -615,7 +615,8 @@
         },
         "menu": {
             "actions": "Actions for {name}",
-            "editMetadata": "Edit metadata"
+            "editMetadata": "Edit metadata",
+            "export": "Export playlist file"
         },
         "detail": {
             "label": "Tracks in this playlist",
@@ -650,7 +651,10 @@
             "presetLabel": "Preset",
             "presetPlaceholder": "custom settings",
             "presetHint": "Fills in the format, encoding and prefix of one of your devices. You can still change the fields below afterwards.",
-            "managePresets": "Manage presets"
+            "managePresets": "Manage presets",
+            "headerAll": "Export all playlists",
+            "introAll": "A .zip holding one .m3u per playlist — {count} of them, all with the same settings. Browsers block several downloads at once, which is why they arrive in one archive.",
+            "submitAll": "Download .zip"
         },
         "sort": {
             "open": "Sort playlist",
@@ -698,7 +702,8 @@
             "duplicatesHint": "Tracks already in there are skipped.",
             "failed": "That could not be added.",
             "tooMany": "That selection is too large — pick fewer."
-        }
+        },
+        "exportAllLink": "Export all"
     },
     "share": {
         "play": "Play",

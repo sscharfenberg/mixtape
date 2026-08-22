@@ -322,7 +322,9 @@ test.describe("the playlists area", () => {
         await createPlaylist(page, MENU_ROW);
         const row = page.locator("li.playlist", { hasText: MENU_ROW });
 
-        await row.locator(".popover button").click();
+        // `[popovertarget]` narrows to the TRIGGER: the panel holds a button of its own now
+        // (export), and a bare `button` selector matches both and fails strict mode.
+        await row.locator(".popover button[popovertarget]").click();
 
         await expect(row.getByRole("link", { name: /^Metadaten bearbeiten$/u })).toBeVisible();
         await expect(page).toHaveURL(/\/playlists$/u);
@@ -346,7 +348,7 @@ test.describe("the playlists area", () => {
         await intoNextSecond(page);
 
         const row = page.locator("li.playlist", { hasText: EDITED });
-        await row.locator(".popover button").click();
+        await row.locator(".popover button[popovertarget]").click();
         await row.getByRole("link", { name: /^Metadaten bearbeiten$/u }).click();
 
         await page.waitForURL(/\/playlists\/[0-9a-f-]+\/edit$/u);
@@ -413,7 +415,7 @@ test.describe("the playlists area", () => {
         await createPlaylist(page, name, "Erste Fassung.");
 
         const row = page.locator("li.playlist", { hasText: name });
-        await row.locator(".popover button").click();
+        await row.locator(".popover button[popovertarget]").click();
         await row.getByRole("link", { name: /^Metadaten bearbeiten$/u }).click();
         await page.waitForURL(/\/playlists\/[0-9a-f-]+\/edit$/u);
         await expect(page.locator("#description")).toHaveValue("Erste Fassung.");
@@ -436,7 +438,7 @@ test.describe("the playlists area", () => {
         await createPlaylist(page, name);
 
         const row = page.locator("li.playlist", { hasText: name });
-        await row.locator(".popover button").click();
+        await row.locator(".popover button[popovertarget]").click();
         await row.getByRole("link", { name: /^Metadaten bearbeiten$/u }).click();
         await page.waitForURL(/\/playlists\/[0-9a-f-]+\/edit$/u);
 

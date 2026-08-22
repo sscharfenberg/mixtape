@@ -41,6 +41,7 @@ use App\Http\Controllers\Playlists\PlaylistDeleteController;
 use App\Http\Controllers\Playlists\PlaylistExportController;
 use App\Http\Controllers\Playlists\PlaylistMetadataController;
 use App\Http\Controllers\Playlists\PlaylistOrderController;
+use App\Http\Controllers\Playlists\PlaylistsExportController;
 use App\Http\Controllers\Playlists\PlaylistTrackDeleteController;
 use App\Http\Controllers\Playlists\PlaylistTrackOrderController;
 use App\Http\Controllers\Playlists\PlaylistTracksController;
@@ -202,6 +203,18 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         Route::post('/playlists', [PlaylistMetadataController::class, 'store'])
             ->middleware(['throttle:30,1,playlist-create', HandlePrecognitiveRequests::class])
             ->name('playlists.store');
+
+        // EVERY playlist as one .zip, with the same three options applied to all of them — the
+        // listing's "export all" button. A collection route like the ordering below it, and
+        // registered before the `{playlist}` routes for the same reason `create` is: those are
+        // UUID-constrained, so "export" cannot be read as a playlist id.
+        //
+        // Bounded harder than the single export beside it (30/min): this one renders every
+        // playlist the reader keeps, so it is the one export worth spending a query per press on
+        // rather than per playlist.
+        Route::get('/playlists/export', PlaylistsExportController::class)
+            ->middleware('throttle:10,1,playlists-export-all')
+            ->name('playlists.export.all');
 
         // The reader's own ordering, written by the listing's drag handles. A collection-level
         // resource because an ordering belongs to the SET, not to any one playlist — and it

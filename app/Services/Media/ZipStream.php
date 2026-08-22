@@ -31,6 +31,19 @@ namespace App\Services\Media;
  * local header is complete and ordinary. That reads each file twice, and the second read
  * comes off the page cache the first one just warmed.
  *
+ * TWO KINDS OF ENTRY, and only one of them is a file. An album's archive is built from paths
+ * on disk; a playlist export is built from text this app has just generated, which exists
+ * nowhere else and has nothing to point at. Writing that text to a temp file first so it could
+ * be added as a path would reintroduce, for kilobytes, the whole problem the streaming above
+ * exists to avoid. So an entry carries either a path or a body, and the two differ in exactly
+ * two places: where the CRC comes from (`hash_file` against `crc32`) and where the bytes come
+ * from. Everything else — stored, exact `Content-Length`, no data descriptors — holds for both.
+ *
+ * STORED APPLIES TO THE TEXT TOO, where the "already compressed" argument does not: an .m3u
+ * would deflate well. It stays stored because the exact length is worth more than the bytes are
+ * — these archives are kilobytes, and deflating them would cost the progress bar to save
+ * nothing anybody would notice.
+ *
  * NOT ZIP64, deliberately: the format's 4 GB ceiling on an entry, on the archive and its
  * 65535-entry limit are all far above an album (1.1 GB / 154 files at the extremes of
  * this collection). Should something ever need more — a whole artist, an audiobook
@@ -67,10 +80,13 @@ final class ZipStream
     private const EXTERNAL_ATTRIBUTES = 0o100644 << 16;
 
     /**
-     * What actually goes in, as `[entry name, absolute path, size, mtime]` — the sizes
-     * SNAPSHOT at construction so `contentLength()` and `stream()` cannot disagree.
+     * What actually goes in — the sizes SNAPSHOT at construction so `contentLength()` and
+     * `stream()` cannot disagree.
      *
-     * @var list<array{name: string, path: string, size: int, time: int}>
+     * `path` names a file on disk and `body` holds bytes already in memory; exactly one of the
+     * two is set per entry.
+     *
+     * @var list<array{name: string, path: ?string, body: ?string, size: int, time: int}>
      */
     private array $files = [];
 
@@ -97,10 +113,42 @@ final class ZipStream
             $this->files[] = [
                 'name' => $name,
                 'path' => $path,
+                'body' => null,
                 'size' => $size,
                 'time' => @filemtime($path) ?: time(),
             ];
         }
+    }
+
+    /**
+     * An archive of GENERATED text — one entry per string, nothing read from disk.
+     *
+     * The playlist export's shape: every .m3u is rendered on the way past and exists only in
+     * memory, so there is no file to stat and nothing to drop. An EMPTY string is kept rather
+     * than skipped, unlike a missing file above: a playlist with no tracks renders to no lines,
+     * and a reader who exports twelve playlists should receive twelve files — one of them empty
+     * — rather than eleven and no explanation.
+     *
+     * `$time` is one instant for the whole archive, passed in rather than read from a clock
+     * here, so a caller's tests can pin it and every entry carries the same stamp.
+     *
+     * @param  array<string, string>  $entries  entry name inside the archive => its bytes
+     */
+    public static function ofContents(array $entries, int $time): self
+    {
+        $archive = new self([]);
+
+        foreach ($entries as $name => $body) {
+            $archive->files[] = [
+                'name' => $name,
+                'path' => null,
+                'body' => $body,
+                'size' => strlen($body),
+                'time' => $time,
+            ];
+        }
+
+        return $archive;
     }
 
     /** Whether anything survived the stat — an archive of nothing is a 404, not an empty zip. */
@@ -175,18 +223,23 @@ final class ZipStream
      * archive.
      *
      * @param  resource  $output
-     * @param  array{name: string, path: string, size: int, time: int}  $file
+     * @param  array{name: string, path: ?string, body: ?string, size: int, time: int}  $file
      */
     private function writeEntry($output, array $file, string &$central, int $offset): int
     {
-        $crc = (int) hexdec(hash_file('crc32b', $file['path']) ?: '0');
+        // The two kinds of entry part company here and in nowhere else: bytes in hand are
+        // summed directly, a file is hashed off the disk it is about to be read from.
+        $crc = $file['body'] !== null
+            ? crc32($file['body'])
+            : (int) hexdec(hash_file('crc32b', (string) $file['path']) ?: '0');
+
         [$time, $date] = $this->dosTimestamp($file['time']);
 
         $written = fwrite($output, $this->localHeader($file, $crc, $time, $date)) ?: 0;
 
-        $source = fopen($file['path'], 'rb');
-
-        if ($source !== false) {
+        if ($file['body'] !== null) {
+            $written += fwrite($output, $file['body']) ?: 0;
+        } elseif (($source = fopen((string) $file['path'], 'rb')) !== false) {
             $written += stream_copy_to_stream($source, $output, $file['size']) ?: 0;
             fclose($source);
         }
@@ -212,7 +265,7 @@ final class ZipStream
      * Compressed and uncompressed size are the same number because nothing is deflated,
      * and the extra field is empty.
      *
-     * @param  array{name: string, path: string, size: int, time: int}  $file
+     * @param  array{name: string, path: ?string, body: ?string, size: int, time: int}  $file
      */
     private function localHeader(array $file, int $crc, int $time, int $date): string
     {
@@ -238,7 +291,7 @@ final class ZipStream
      * Repeats the local header's fields and adds where that header sits in the archive,
      * which is what a reader uses to jump straight to a single file inside a gigabyte.
      *
-     * @param  array{name: string, path: string, size: int, time: int}  $file
+     * @param  array{name: string, path: ?string, body: ?string, size: int, time: int}  $file
      */
     private function centralHeader(array $file, int $crc, int $time, int $date, int $offset): string
     {

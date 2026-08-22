@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ExportPreset;
 use App\Models\Playlist;
+use App\Services\Playlists\ExportPresetRows;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -45,6 +48,27 @@ class PlaylistsController extends Controller
             ->get();
 
         return Inertia::render('Playlists/PlaylistsPage', [
+            // The export dialog is reachable from here as well as from a playlist's own page
+            // (its menu, and the "export all" button), so this page carries the two things that
+            // dialog opens with: the prefix a reader with no presets falls back to, and their
+            // presets themselves.
+            'exportPrefix' => (string) config('mixtape.playlists.export.path_prefix'),
+            'exportPresets' => ExportPresetRows::for(
+                ExportPreset::query()->where('user_id', $request->user()->id)->inReadingOrder()->get()
+            ),
+            // THE PATHS THE WINDOWS-1252 WARNING IS COMPUTED FROM, and the one prop here that is
+            // OPTIONAL — Inertia evaluates it only for a partial reload that asks for it by name.
+            //
+            // The warning has to name the tracks whose paths that encoding cannot carry, which
+            // means having the paths; the detail page already holds them for its table, and this
+            // page holds nothing but aggregates. Sending them with every visit would put a few
+            // hundred strings on a page a reader opens constantly to serve a dialog they open
+            // rarely — and computing the answer server-side instead would mean a second
+            // implementation of Utils/encoding's table, which is the kind of pair that drifts
+            // apart silently. So the listing asks for them at the moment a dialog opens
+            // (`router.reload({ only: ["exportPaths"] })`), and the warning appears when they
+            // land, which is still before the reader can have chosen Windows-1252.
+            'exportPaths' => Inertia::optional(fn (): array => $this->pathsByPlaylist($request)),
             'playlists' => $playlists->map(fn (Playlist $playlist): array => [
                 'id' => $playlist->id,
                 'name' => $playlist->name,
@@ -66,5 +90,36 @@ class PlaylistsController extends Controller
                     : $playlist->updated_at->toIso8601String(),
             ])->all(),
         ]);
+    }
+
+    /**
+     * Every track's title and path, grouped by the playlist holding it — what the export
+     * dialog's Windows-1252 warning reads.
+     *
+     * ONE QUERY FOR EVERY PLAYLIST rather than one per dialog, because "export all" needs the
+     * lot and a per-playlist endpoint would then be a dozen round trips. Grouped here rather
+     * than on the client so the caller can hand the dialog exactly the playlists it covers.
+     *
+     * A query builder rather than the relation: this reads two columns per row and would
+     * otherwise hydrate a Track model for each of them. Ordered like the export itself, so the
+     * names in a warning appear in the order the file would have listed them.
+     *
+     * @return array<string, list<array{name: string, path: string}>>
+     */
+    private function pathsByPlaylist(Request $request): array
+    {
+        return DB::table('playlist_tracks')
+            ->join('tracks', 'tracks.id', '=', 'playlist_tracks.track_id')
+            ->join('playlists', 'playlists.id', '=', 'playlist_tracks.playlist_id')
+            ->where('playlists.user_id', $request->user()->id)
+            ->orderBy('playlist_tracks.position')
+            ->orderBy('playlist_tracks.id')
+            ->select(['playlist_tracks.playlist_id', 'tracks.name', 'tracks.path'])
+            ->get()
+            ->groupBy('playlist_id')
+            ->map(fn ($rows): array => $rows
+                ->map(fn ($row): array => ['name' => $row->name, 'path' => $row->path])
+                ->all())
+            ->all();
     }
 }

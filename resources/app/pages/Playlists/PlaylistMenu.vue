@@ -2,9 +2,15 @@
 /******************************************************************************
  * PlaylistMenu
  * The per-row actions menu on the playlists listing — everything you can do to one
- * playlist as a whole. One item so far, "edit metadata", which opens the same form the
- * playlist was created through (Playlists/Metadata); delete / play / enqueue land here
- * rather than as more buttons on the row, which is the point of it being a menu.
+ * playlist as a whole. Two items: "edit metadata", which opens the same form the playlist was
+ * created through (Playlists/Metadata), and the export dialog, which is the same one its own
+ * page opens. Delete / play / enqueue land here rather than as more buttons on the row, which
+ * is the point of it being a menu.
+ *
+ * THE EXPORT ITEM RAISES AN EVENT WHERE THE EDIT ONE IS A LINK, and the asymmetry is the whole
+ * of what this component knows about either: editing is a page, exporting is a dialog, and a
+ * dialog per row would be one popover's worth of modal per playlist. The page owns it, so
+ * there is one.
  *
  * It sits BESIDE the row's <a>, never inside it. An <a> may not contain interactive
  * content, and a <button> nested in one is not merely invalid markup — the click runs
@@ -29,6 +35,14 @@ const props = defineProps<{
     playlist: { id: string; name: string };
 }>();
 
+const emit = defineEmits<{
+    /**
+     * Ask the page to open the export dialog over this playlist. The dialog is the page's, so
+     * it is one dialog rather than one per row.
+     */
+    export: [playlist: { id: string; name: string }];
+}>();
+
 const { t } = useI18n();
 
 /**
@@ -39,6 +53,18 @@ const { t } = useI18n();
  * where a bare uuid says nothing.
  */
 const reference = computed<string>(() => `playlist-menu-${props.playlist.id}`);
+
+/**
+ * Shut the menu, then ask the page for the export dialog.
+ *
+ * IN THAT ORDER, because a popover left open sits in the browser's top layer with the modal
+ * over it — the reader closes the dialog and finds the menu still standing where they left it,
+ * which reads as the press having failed.
+ */
+function closeAndExport(): void {
+    document.getElementById(reference.value)?.hidePopover();
+    emit("export", props.playlist);
+}
 </script>
 
 <template>
@@ -74,6 +100,16 @@ const reference = computed<string>(() => `playlist-menu-${props.playlist.id}`);
                     <icon name="settings" :size="1" />
                     {{ t("playlists.menu.editMetadata") }}
                 </Link>
+            </li>
+            <li>
+                <!-- A button, not a link: the download is a dialog away rather than a page away,
+                     and the three choices in front of it are what make the file usable on the
+                     device it is for. The popover closes with the press, so the modal opens onto
+                     the listing rather than through a menu still standing over it. -->
+                <button type="button" class="popover-list-item" @click="closeAndExport">
+                    <icon name="file_export" :size="1" />
+                    {{ t("playlists.menu.export") }}
+                </button>
             </li>
         </ul>
     </pop-over>

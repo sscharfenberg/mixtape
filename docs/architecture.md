@@ -302,6 +302,12 @@ the dialog, it does not lock it**: the three fields stay editable, and the picke
 preset as soon as one of them is edited away from it. A reader who keeps no presets gets the
 configured `mixtape.playlists.export.path_prefix` and the dialog as it was before presets existed.
 
+The same dialog exports **one playlist or all of them** — from a playlist's own page, from a row's
+menu on the listing, and from that page's "export all". All of them is a **`.zip` holding one
+`.m3u` per playlist**, and that is a browser constraint rather than a preference: a page gets one
+navigation, and the workarounds run into Chrome's own "allow multiple downloads?" prompt, after
+which a refusal loses every file silently. One archive is one download.
+
 ### Downloads
 
 A song downloads as its own mp3; an album as a `.zip`. The gate is deliberately the page's own:

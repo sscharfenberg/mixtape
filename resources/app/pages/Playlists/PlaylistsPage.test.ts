@@ -44,9 +44,23 @@ const playlist = (overrides: Partial<PlaylistEntry> = {}): PlaylistEntry => ({
     ...overrides
 });
 
-/** Mount the listing over a set of playlists. */
-const page = (playlists: PlaylistEntry[] = [playlist()], locale: "de" | "en" = "de") =>
-    mountApp(PlaylistsPage, { props: { playlists }, locale });
+/**
+ * Mount the listing over a set of playlists.
+ *
+ * The export props are fixed rather than parameterised: only the tests about the export dialog
+ * care what is in them, and they set what they need. `exportPaths` is left off entirely, which
+ * is the state an ordinary visit is in — the server sends it only for a partial reload that
+ * asks (PlaylistsController).
+ */
+const page = (
+    playlists: PlaylistEntry[] = [playlist()],
+    locale: "de" | "en" = "de",
+    exportPaths?: Record<string, { name: string; path: string }[]>
+) =>
+    mountApp(PlaylistsPage, {
+        props: { playlists, exportPrefix: "/Volumes/media/music", exportPresets: [], exportPaths },
+        locale
+    });
 
 describe("PlaylistsPage", () => {
     beforeEach(() => {
@@ -127,7 +141,11 @@ describe("PlaylistsPage", () => {
 
     it("gives every row's menu its own popover, so two rows cannot share one", () => {
         const wrapper = page([playlist({ id: "a" }), playlist({ id: "b" })]);
-        const targets = wrapper.findAll(".popover button").map(button => button.attributes("popovertarget"));
+        // `[popovertarget]` narrows to the TRIGGERS: the panel now holds a button of its own
+        // (export), and a bare `button` selector counts those too — as rows with no target.
+        const targets = wrapper
+            .findAll(".popover button[popovertarget]")
+            .map(button => button.attributes("popovertarget"));
 
         expect(targets).toStrictEqual(["playlist-menu-a", "playlist-menu-b"]);
         expect(new Set(targets).size).toBe(2);
@@ -294,6 +312,117 @@ describe("PlaylistsPage", () => {
             await nextTick();
 
             expect(titles(wrapper)).toStrictEqual(["Ambient", "Metal", "Zydeco"]);
+        });
+    });
+
+    describe("the export dialog", () => {
+        /*
+         * The listing raises the SAME dialog a playlist's own page does, from two places: a
+         * row's menu, and "export all". What can only be checked here is which of the two the
+         * reader pressed — the endpoint the dialog is handed is the whole difference between one
+         * .m3u and a .zip of everything, and it is decided in this component.
+         *
+         * The dialog is TELEPORTED, so it is queried off `document` rather than the wrapper, the
+         * rule PlaylistExportModal's own spec records.
+         */
+
+        /**
+         * Everything the open dialog says.
+         *
+         * Its own text rather than a button by position: the first `button` inside a modal is
+         * the close control every modal has, so a positional selector reads "Schließen" and says
+         * nothing about which export this is.
+         */
+        const dialogText = (): string => document.querySelector(".modal-dialog")?.textContent ?? "";
+
+        /** Three playlists — enough for "export all" to be offered at all. */
+        const many = () => [
+            playlist({ id: "a", name: "Ambient" }),
+            playlist({ id: "b", name: "Metal" }),
+            playlist({ id: "c", name: "Zydeco" })
+        ];
+
+        /** Press a row's export item, which is the only button inside that row's menu. */
+        const exportRow = async (wrapper: ReturnType<typeof page>, index = 0): Promise<void> => {
+            await wrapper.findAll("button.popover-list-item")[index].trigger("click");
+            await nextTick();
+        };
+
+        it("offers an export item in every row's menu", () => {
+            const wrapper = page(many());
+
+            expect(wrapper.findAll("button.popover-list-item")).toHaveLength(3);
+            expect(wrapper.text()).toContain(translate("playlists.menu.export"));
+        });
+
+        it("opens over the row that asked, and asks the server for the paths it warns from", async () => {
+            const wrapper = page(many());
+
+            await exportRow(wrapper, 1);
+
+            // `exportPaths` is an optional prop, so this reload is the request that makes it
+            // exist — and it names it, or the whole page would come back instead.
+            //
+            // Indexed rather than `.at(-1)`: the project targets `lib: ES2020`, where that method
+            // does not exist as far as vue-tsc is concerned (docs/testing.md → Traps).
+            expect(routerCalls[routerCalls.length - 1]).toMatchObject({
+                method: "reload",
+                options: { only: ["exportPaths"] }
+            });
+            expect(dialogText()).toContain(translate("playlists.export.submit"));
+        });
+
+        it("asks for the paths once, however many dialogs are opened", async () => {
+            const wrapper = page(many(), "de", { b: [{ name: "Airbag", path: "a.mp3" }] });
+
+            await exportRow(wrapper, 0);
+
+            // Already carried, so there is nothing to fetch: a reload here would be a round trip
+            // for an answer the page already holds.
+            expect(routerCalls.filter(call => call.method === "reload")).toHaveLength(0);
+        });
+
+        it("names a track once, however many playlists it sits in", async () => {
+            /*
+             * Only "export all" can meet this: one file in three lists is still ONE file that
+             * Windows-1252 cannot name, and the dialog counts and lists what it is handed — so
+             * without de-duplication the warning reads "3 Titel … : Świt, Świt, Świt".
+             *
+             * The path has to hold a character Windows-1252 genuinely lacks — "ł" does, where an
+             * accented Latin-1 letter like "ó" survives the trip and warns about nothing.
+             */
+            const shared = [{ name: "Świt", path: "Mgła/Exercises in Futility/01 Świt.mp3" }];
+            const wrapper = page(many(), "de", { a: shared, b: shared, c: shared });
+
+            await wrapper.get(".playlists__actions button").trigger("click");
+            await nextTick();
+
+            // Windows-1252 is what the warning is about, so it has to be chosen first.
+            document.querySelectorAll<HTMLInputElement>('input[name="encoding"]')[1].click();
+            await nextTick();
+
+            const warning = document.querySelector(".form-legend .warning")?.textContent ?? "";
+
+            expect(warning).toContain("Świt");
+            expect(warning.match(/Świt/gu)).toHaveLength(1);
+        });
+
+        it("hides export-all until there is more than one playlist", () => {
+            // With one, it would hand over a .zip holding a single file the row's own menu
+            // hands over directly.
+            expect(page([playlist()]).text()).not.toContain(translate("playlists.exportAllLink"));
+            expect(page(many()).text()).toContain(translate("playlists.exportAllLink"));
+        });
+
+        it("opens export-all over every playlist, which is what makes it a .zip", async () => {
+            const wrapper = page(many());
+
+            await wrapper.get(".playlists__actions button").trigger("click");
+            await nextTick();
+
+            // The count is what switches the copy, and the copy is what tells the reader they
+            // are about to receive an archive rather than a playlist file.
+            expect(dialogText()).toContain(translate("playlists.export.submitAll"));
         });
     });
 });

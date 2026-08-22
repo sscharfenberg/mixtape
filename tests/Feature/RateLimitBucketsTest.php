@@ -91,6 +91,7 @@ class RateLimitBucketsTest extends TestCase
             'player.state.update' => 'throttle:60,1,player-state',
             'playlists.destroy' => 'throttle:10,1,playlist-delete',
             'playlists.export' => 'throttle:30,1,playlist-export',
+            'playlists.export.all' => 'throttle:10,1,playlists-export-all',
             'playlists.order' => 'throttle:60,1,playlist-order',
             'playlists.store' => 'throttle:30,1,playlist-create',
             'playlists.tracks.destroy' => 'throttle:60,1,playlist-track-delete',
