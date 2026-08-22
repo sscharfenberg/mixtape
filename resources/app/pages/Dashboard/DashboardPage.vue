@@ -15,6 +15,7 @@ import Headline from "Components/UI/Headline.vue";
 import Icon from "Components/UI/Icon.vue";
 import StickyNav from "Components/UI/StickyNav.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
+import DashboardExportPresets from "./DashboardExportPresets.vue";
 import DashboardPassword from "./DashboardPassword.vue";
 import DashboardProfile from "./DashboardProfile.vue";
 import DashboardShares from "./DashboardShares.vue";
@@ -43,6 +44,7 @@ const hasShares = computed<boolean>(() => usePage().props.hasShares === true);
  */
 const navItems = computed(() => [
     ...(hasShares.value ? [{ id: "sharesSection", label: t("dashboard.page.nav.shares") }] : []),
+    { id: "presetsSection", label: t("dashboard.page.nav.presets") },
     { id: "passwordSection", label: t("dashboard.page.nav.password") },
     { id: "profileSection", label: t("dashboard.page.nav.profile") },
     { id: "twoFactorSection", label: t("dashboard.page.nav.twoFactor") },
@@ -59,17 +61,24 @@ const navItems = computed(() => [
 
     <sticky-nav :items="navItems" />
 
-    <!-- FIRST, and only for a reader who has shared something. It is not an account setting —
-         it is a thing they made that somebody else is holding — so it sits above the four
-         that are, and is absent entirely for the accounts that have never pressed "share".
+    <!-- Only for a reader who has shared something. It is not a setting — it is a thing they
+         made that somebody else is holding — so it sits above the ones that are, and is absent
+         entirely for the accounts that have never pressed "share".
 
-         `left`, which is what lets the four below keep the sides they have always had: the
-         headline tabs alternate down the page, and starting this one on the left makes the
-         whole run alternate whether or not it is drawn. -->
+         IT STAYS THE ONLY CONDITIONAL SECTION, AND IT STAYS FIRST, which is what makes the
+         alternation below work at all: `left` here, and the fixed run starting at `right`, so
+         the sides hold whether or not this is drawn. A section that came and went from the
+         MIDDLE of the run would flip every tab beneath it as it appeared. -->
     <dashboard-shares v-if="hasShares" align="left" />
 
-    <dashboard-password align="right" />
-    <dashboard-profile align="left" />
-    <two-factor align="right" />
-    <delete-account align="left" />
+    <!-- FIRST OF THE SETTINGS, and for most readers the first section on the page — the shares
+         block above is absent unless they have sent a link. It leads because it is the only one
+         here a reader visits to get something DONE (an export that will play in the car) rather
+         than to administer the account; password, profile and 2FA are things you set once and
+         come back to rarely, and deleting is last for the obvious reason. -->
+    <dashboard-export-presets align="right" />
+    <dashboard-password align="left" />
+    <dashboard-profile align="right" />
+    <two-factor align="left" />
+    <delete-account align="right" />
 </template>

@@ -232,10 +232,12 @@ class E2ESeeder extends Seeder
      * - it leaves a QUEUE — most of them, including `spec-search` (its spec proves that typing in
      *   the search overlay does not drive the player, so it needs something playing);
      * - it leaves PLAYLISTS — `spec-playlist-detail`, `spec-add-to-playlist`;
-     * - it needs a session nobody else writes — `spec-playlists`.
+     * - it needs a session nobody else writes — `spec-playlists`, `spec-presets`.
      *
      * `spec-selection` is on the list twice over: its spec plays what it ticks and adds what it
-     * ticks to a playlist it created.
+     * ticks to a playlist it created. `spec-presets` likewise: its writes are user-scoped rows
+     * that would otherwise turn up as options in another spec's export dialog, and each of them
+     * lands a flash it then asserts.
      *
      * `spec-logout` leaves a queue AND does one thing nothing else here does: it SIGNS OUT,
      * which kills the session it is using. It is therefore the only one of these whose parked
@@ -247,7 +249,7 @@ class E2ESeeder extends Seeder
      */
     private function seedSpecUsers(): void
     {
-        $names = ['spec-queue', 'spec-player', 'spec-now-playing', 'spec-shortcuts', 'spec-widgets', 'spec-playlist-detail', 'spec-add-to-playlist', 'spec-playlists', 'spec-search', 'spec-audiobooks', 'spec-selection', 'spec-logout'];
+        $names = ['spec-queue', 'spec-player', 'spec-now-playing', 'spec-shortcuts', 'spec-widgets', 'spec-playlist-detail', 'spec-add-to-playlist', 'spec-playlists', 'spec-presets', 'spec-search', 'spec-audiobooks', 'spec-selection', 'spec-logout'];
 
         foreach ($names as $name) {
             User::factory()->create([

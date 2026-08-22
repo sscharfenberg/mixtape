@@ -1,0 +1,42 @@
+/******************************************************************************
+ * contextual size tokens — component:ExportPresetsPage.vue
+ * @type {Sass}
+ * The list of the reader's own .m3u export presets, at every width.
+ *
+ * The row's frame — border, radius, padding, gap — is the share row's, and behind that the
+ * playlist entry's, re-picked from the globals rather than read across (a contextual partial
+ * consumes globals, never another partial's tokens).
+ *
+ * `control-padding` belongs to the row's two icon controls and is what makes them findable: a
+ * bare 19px glyph is a 19px target otherwise, which the play queue's grip and the listing's
+ * drag handle both acted on. One of these two deletes something, so it matters here.
+ * Consumed as s.$c-presets via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$presets: (
+    "border": map.get(s.$border, "base"),
+    "radius": map.get(s.$radius, "featured"),
+    "row-padding": map.get(s.$padding, "base"),
+    // between rows
+    "gap": map.get(s.$padding, "base"),
+    // inside a row: identity to values to the controls
+    "row-gap": map.get(s.$padding, "base"),
+    // the default marker and the three value pips. The share row's chip measurements,
+    // re-picked from the globals: a pip is the same object wherever it appears.
+    "chip-padding": 0.25ex 1ch,
+    "chip-gap": 0.5ch,
+    "chip-radius": map.get(s.$radius, "base"),
+    // the values and the marker, one rung down from the name they sit beside. A literal, like
+    // the share row's: there is no global type scale, and what this needs is "quieter than its
+    // neighbour" rather than a step of the page's rhythm.
+    "font-size": 0.9rem,
+    // the row's edit and delete controls
+    "control-padding": 0.35rem,
+    "control-radius": map.get(s.$radius, "base"),
+    // air above and below the page's block, so the list runs into neither the heading over it
+    // nor the button under it. The amount of air every /dashboard page has, as a literal
+    // rather than read across from the form wrapper: this page holds no form.
+    "block-margin": 3rem
+) !default;

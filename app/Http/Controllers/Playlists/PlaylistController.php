@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Playlists;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Playlists\ShowPlaylistRequest;
+use App\Models\ExportPreset;
 use App\Models\Playlist;
 use App\Services\Music\FannedCovers;
 use App\Services\Music\QueuePayload;
 use App\Services\Player\PlayCounts;
+use App\Services\Playlists\ExportPresetRows;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -68,10 +70,19 @@ class PlaylistController extends Controller
             // figure when a track finishes without dragging the whole hero back with it — the
             // same split the four Music detail pages make.
             'plays' => PlayCounts::forPlaylist($playlist, $request->user()),
-            // The default the export modal's prefix field opens with. Config rather than a
-            // literal in the page, because it describes the machine that will PLAY the file
-            // rather than anything about this playlist (config/mixtape.php says more).
+            // The prefix the export modal falls back to for a reader who keeps no presets.
+            // Config rather than a literal in the page, because it describes the machine that
+            // will PLAY the file rather than anything about this playlist (config/mixtape.php
+            // says more).
             'exportPrefix' => (string) config('mixtape.playlists.export.path_prefix'),
+            // The reader's own export presets, for the modal's picker — in the same reading
+            // order the presets page draws (the model's scope owns it, so the preset marked
+            // default there is the one this dialog opens on). Sent from here rather than
+            // shared: this is the only page in the app that exports anything, and a shared
+            // prop would ride every page load to serve one dialog.
+            'exportPresets' => ExportPresetRows::for(
+                ExportPreset::query()->where('user_id', $request->user()->id)->inReadingOrder()->get()
+            ),
         ]);
     }
 

@@ -4,6 +4,7 @@ namespace Tests\Feature\Playlists;
 
 use App\Models\Artist;
 use App\Models\Collection;
+use App\Models\ExportPreset;
 use App\Models\Play;
 use App\Models\Playlist;
 use App\Models\PlaylistTrack;
@@ -192,6 +193,24 @@ class PlaylistPageTest extends TestCase
         $this->actingAs($reader)
             ->get("/playlists/{$playlist->id}")
             ->assertInertia(fn (Assert $page) => $page->where('exportPrefix', '/mnt/music'));
+    }
+
+    public function test_it_sends_the_readers_export_presets_in_reading_order(): void
+    {
+        // The modal's picker draws these, and it opens on the one marked default — the same
+        // order and the same rows /dashboard/export-presets lists, through the model's scope.
+        $playlist = $this->ownedPlaylist($reader);
+        ExportPreset::factory()->for($reader)->create(['name' => 'Auto']);
+        ExportPreset::factory()->default()->for($reader)->create(['name' => 'MacBook']);
+        ExportPreset::factory()->create(['name' => 'Somebody else\'s']);
+
+        $this->actingAs($reader)
+            ->get("/playlists/{$playlist->id}")
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('exportPresets', 2)
+                ->where('exportPresets.0.name', 'MacBook')
+                ->where('exportPresets.0.isDefault', true)
+                ->where('exportPresets.1.name', 'Auto'));
     }
 
     public function test_the_hero_carries_the_same_four_facts_the_listing_does(): void

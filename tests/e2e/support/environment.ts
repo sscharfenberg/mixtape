@@ -342,6 +342,19 @@ export const SPEC_USERS = {
      */
     playlists: "spec-playlists",
     /*
+     * The export-presets spec's account, here for the SESSION reason above and for the rows it
+     * writes — both, and either alone would have earned it one.
+     *
+     * Its tests create, rename, re-default and delete presets, which are user-scoped rows that
+     * would otherwise appear in another spec's export dialog as options it never made. And every
+     * one of those writes lands a flash it then asserts, which is exactly the write two workers
+     * on one cookie lose.
+     *
+     * `mode: "serial"` in the spec itself is the other half, for the reason `playlists` records:
+     * an account of its own does nothing about its own tests racing each other.
+     */
+    presets: "spec-presets",
+    /*
      * The search spec's account, and it is here for the FIRST reason on this list rather than the
      * later ones: its central assertion is that typing a song title does not drive the player, so
      * it has to have something playing — which means it leaves a queue behind.

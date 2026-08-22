@@ -1,0 +1,58 @@
+/******************************************************************************
+ * contextual color tokens — component:ExportPresetsPage.vue
+ * @type {Sass}
+ * The reader's own .m3u export presets, one row each, on /dashboard/export-presets.
+ *
+ * THE SAME OBJECT AS A SHARE ROW, re-picked from the globals rather than read across (a
+ * contextual partial consumes globals, never another partial's tokens). A row here is a thing
+ * in a list with controls on it, which is what those are too — and, like those, it does not
+ * light up under the pointer, because the row itself is not pressable.
+ *
+ * THE DEFAULT ROW IS MARKED ON ITS EDGE AND NOWHERE ELSE. A second fill would read as a
+ * different KIND of row rather than as the same row marked, which is the distinction the list
+ * cannot afford to blur: every row here is one device, and only one of them is the one the
+ * export dialog opens on.
+ * Consumed as c.$c-presets via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "../global-color-tokens" as c;
+
+$presets: (
+    // the row's own fill — the share row's, and behind that the Discography tile's `odd`
+    "background": light-dark(
+            color.adjust(map.get(c.$grey, "astral"), $alpha: -0.25),
+            color.adjust(map.get(c.$grey, "ebony"), $alpha: -0.25)
+        ),
+    // the row's edge, matching the same
+    "border": light-dark(
+            color.adjust(map.get(c.$grey, "slate"), $alpha: -0.25),
+            color.adjust(map.get(c.$grey, "charcoal"), $alpha: -0.25)
+        ),
+    // …and the edge of the one the export dialog opens on: the app's live-control glow, which
+    // is a baked entry in the global palette rather than a re-scale of its neighbour
+    "border-default": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
+    // the three values under the name: one step down, so the device's name reads first
+    "surface-muted": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
+    // the fill behind the marker and the value pips. ONE STEP off the row and no more, the
+    // share row's rule: the row is already a panel on the page, so a pip that contrasted hard
+    // would read as a third layer.
+    "chip": light-dark(map.get(c.$grey, "mystic"), map.get(c.$grey, "ebony")),
+    // the marker on the row that HOLDS the default — the same glow its border wears, so the
+    // two say one thing
+    "marker": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
+    // the row's controls — edit, delete, and the "use as default" pip on every other row:
+    // quiet INK at rest, neon when aimed at, each keeping a fill of its own throughout
+    "control": light-dark(map.get(c.$grey, "asher"), map.get(c.$grey, "iron")),
+    "control-active": light-dark(map.get(c.$retro, "c3", "light"), map.get(c.$retro, "c3", "dark")),
+    "control-background": light-dark(
+            color.adjust(map.get(c.$grey, "iron"), $alpha: -0.45),
+            color.adjust(map.get(c.$grey, "black"), $alpha: -0.2)
+        ),
+    // …and the same idea harder once it is live: light lifts, dark sinks, there being no
+    // headroom on a near-black row
+    "control-background-active": light-dark(
+            color.adjust(map.get(c.$grey, "iron"), $alpha: -0.15),
+            map.get(c.$grey, "black")
+        )
+) !default;

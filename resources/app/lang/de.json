@@ -36,7 +36,8 @@
             "dashboard": "Dashboard",
             "logout": "Abmelden",
             "shares": "Geteilte Inhalte",
-            "history": "Wiedergabeverlauf"
+            "history": "Wiedergabeverlauf",
+            "presets": "Export-Voreinstellungen"
         },
         "siteMenu": {
             "nav": "Hauptnavigation",
@@ -153,7 +154,8 @@
                 "profile": "Profil",
                 "twoFactor": "Zwei-Faktor",
                 "delete": "Benutzerkonto löschen",
-                "shares": "Geteiltes"
+                "shares": "Geteiltes",
+                "presets": "Export"
             }
         },
         "profile": {
@@ -270,6 +272,41 @@
                 "header": "Link wieder aktivieren?",
                 "body": "Der Link zu „{name}“ funktioniert dann wieder – für sieben Tage ab jetzt. Es ist derselbe Link wie vorher: Wer ihn noch hat, kann damit wieder mithören.",
                 "confirm": "Wieder aktivieren"
+            }
+        },
+        "presets": {
+            "headline": "Deine Export-Voreinstellungen",
+            "summary": "Beim Export einer Wiedergabeliste entscheiden drei Angaben, ob die Datei auf dem Zielgerät läuft: Dateiformat, Zeichenkodierung und der Ort der Musik aus Sicht dieses Geräts. Leg sie einmal pro Gerät an, statt sie bei jedem Export neu einzutippen.",
+            "link": "Voreinstellungen verwalten",
+            "title": "Deine Export-Voreinstellungen",
+            "intro": "Eine Voreinstellung beschreibt ein Gerät: den Mount auf dem MacBook, den USB-Stick im Auto, das Handy. Beim Export einer Wiedergabeliste wird die als Standard markierte vorausgewählt – ändern kannst du dort weiterhin alles.",
+            "empty": "Du hast noch keine Voreinstellung angelegt. Bis dahin startet der Export-Dialog mit der Vorgabe des Servers.",
+            "create": "Neue Voreinstellung",
+            "defaultMarker": "Standard",
+            "setDefault": "Als Standard verwenden",
+            "setDefaultLabel": "„{name}“ als Standard verwenden",
+            "edit": "Bearbeiten",
+            "editLabel": "„{name}“ bearbeiten",
+            "delete": "Löschen",
+            "deleteLabel": "„{name}“ löschen",
+            "relativePaths": "relative Pfade",
+            "deleteModal": {
+                "header": "Voreinstellung löschen",
+                "intro": "„{name}“ wird gelöscht. Bereits exportierte Dateien bleiben unberührt – in ihnen stehen die Werte, nicht die Voreinstellung.",
+                "confirm": "Endgültig löschen"
+            },
+            "form": {
+                "createHeadline": "Neue Export-Voreinstellung",
+                "editHeadline": "Voreinstellung bearbeiten",
+                "createIntro": "Beschreibe das Gerät, für das du exportierst. Welche Werte richtig sind, sagt dir das Gerät – die Hinweise unter den Feldern nennen die üblichen Fälle.",
+                "editIntro": "Änderungen gelten ab dem nächsten Export. Bereits heruntergeladene Dateien bleiben, wie sie sind.",
+                "nameLabel": "Name",
+                "nameHint": "Wie das Gerät heißt, für das du exportierst – „MacBook“, „Auto“, „Handy“.",
+                "createSubmit": "Voreinstellung anlegen",
+                "createSubmitting": "wird angelegt …",
+                "editSubmit": "Änderungen speichern",
+                "editSubmitting": "wird gespeichert …",
+                "cancel": "Abbrechen"
             }
         }
     },
@@ -609,7 +646,11 @@
             "prefixHint": "Wird jedem Pfad vorangestellt — der Ort der Musik aus Sicht des Geräts, das die Datei abspielt. Leer lassen für relative Pfade.",
             "unplayable": "1 Titel enthält ein Zeichen, das Windows-1252 nicht kann — sein Pfad wird auf dem Gerät nicht gefunden: {named}. Betroffene Zeichen: {characters}. | {count} Titel enthalten Zeichen, die Windows-1252 nicht kann — ihre Pfade werden auf dem Gerät nicht gefunden: {named}. Betroffene Zeichen: {characters}.",
             "andMore": "{shown} und 1 weiterer | {shown} und {count} weitere",
-            "submit": ".m3u herunterladen"
+            "submit": ".m3u herunterladen",
+            "presetLabel": "Voreinstellung",
+            "presetPlaceholder": "eigene Einstellungen",
+            "presetHint": "Übernimmt Format, Kodierung und Präfix eines deiner Geräte. Die Felder darunter kannst du danach noch ändern.",
+            "managePresets": "Voreinstellungen verwalten"
         },
         "sort": {
             "open": "Playlist sortieren",

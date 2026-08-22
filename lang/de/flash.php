@@ -67,6 +67,15 @@ return [
         'track_removed' => '":name" wurde aus ":playlist" entfernt.',
     ],
 
+    'preset' => [
+        'created' => 'Die Export-Voreinstellung ":name" wurde angelegt.',
+        'updated' => 'Die Export-Voreinstellung ":name" wurde gespeichert.',
+        'deleted' => 'Die Export-Voreinstellung ":name" wurde gelöscht.',
+        // Benennt die Voreinstellung, weil sich in der Liste nur eine Markierung bewegt — ohne
+        // den Namen bliebe offen, welche Zeile den Klick bekommen hat.
+        'default' => '":name" wird beim Export jetzt zuerst vorgeschlagen.',
+    ],
+
     'share' => [
         // Benennt den Link nicht: die Zeile, auf die er sich bezieht, ist mit dem Klick
         // verschwunden, und "welchen" hat der Dialog davor schon beantwortet.

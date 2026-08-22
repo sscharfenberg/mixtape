@@ -35,6 +35,17 @@ const hasShares = computed(() => page.props.hasShares === true);
  */
 const hasPlays = computed(() => page.props.hasPlays === true);
 
+/**
+ * Whether this reader keeps any .m3u export presets — gates the entry to
+ * /dashboard/export-presets.
+ *
+ * The same rule as `hasShares` and `hasPlays`, applied to a feature whose dashboard section is
+ * deliberately NOT gated: this menu is a shortcut list rather than a table of contents, so an
+ * entry leading to a page that can only offer a "create one" button does not belong in it. A
+ * reader meets presets on the dashboard, or in the export dialog; they come back to them here.
+ */
+const hasExportPresets = computed(() => page.props.hasExportPresets === true);
+
 /** Trigger modifiers: always rounded, plus a lit-up highlight while a user is signed in. */
 const triggerClass = computed(() => `popover-button--rounded${user.value ? " popover-button--highlighted" : ""}`);
 
@@ -108,10 +119,22 @@ function handleLogout(): void {
                         {{ t("header.userMenu.shares") }}
                     </Link>
                 </li>
+                <!-- The reader's export presets — an account item like the two above it, and
+                     gated for the same reason: a shortcut to a page that would only offer a
+                     "create one" button is not a shortcut. Warmed on hover, being a page one
+                     only reads; the FORM one page further on is not (CLAUDE.md → the prefetch
+                     rule). -->
+                <li v-if="user && hasExportPresets">
+                    <Link class="popover-list-item" href="/dashboard/export-presets" prefetch @click="closePopover">
+                        <icon name="file_export" :size="1" />
+                        {{ t("header.userMenu.presets") }}
+                    </Link>
+                </li>
                 <!-- THE LISTENING HISTORY, IN A GROUP OF ITS OWN — a rule above it and a rule
-                     below. The two entries above are about the ACCOUNT (its settings, the links
-                     it has sent); this one is about the music, and logout is about neither. The
-                     rules are what say so, since three items in one run read as three settings.
+                     below. The entries above are about the ACCOUNT (its settings, the links it
+                     has sent, the devices it exports for); this one is about the music, and
+                     logout is about neither. The rules are what say so, since one unbroken run
+                     would read as one more setting.
                      Drawn only for a reader who has actually listened to something, off the
                      `hasPlays` shared prop — the same gate the shares entry above it has. Warmed
                      on hover like both of them: a page one only reads, never a form

@@ -26,12 +26,18 @@
  * Checked in the browser, against the paths the page already holds for the sort — so the
  * warning appears the instant Windows-1252 is picked, with no round trip.
  *
- * THE THREE DEFAULTS ARE NOT THE SAME KIND OF THING. Format and encoding default to what most
- * readers want and are remembered by nothing: they are per-export decisions. The PREFIX comes
- * from the server (`exportPrefix`, out of config/mixtape.php) because it describes the machine
- * that will PLAY the file — a Mac's /Volumes mount, a USB stick's root — which this app cannot
- * know and has no business storing per playlist.
+ * ALL THREE ANSWERS BELONG TO THE DEVICE, which is what an export PRESET is: the car head unit
+ * wants a simple list in Windows-1252 with no prefix, a phone wants an extended list in UTF-8
+ * under /storage/emulated/0/Music. So the picker at the top of this form seeds all three at
+ * once from one of the reader's presets (/dashboard/export-presets), and a reader who keeps
+ * none still gets a working dialog: `simple`, `UTF-8`, and the server's configured prefix.
+ *
+ * A PRESET SEEDS, IT DOES NOT LOCK. The three fields stay visible and editable underneath, so
+ * "the MacBook one but extended, this once" costs a click rather than a second preset — and the
+ * picker then falls back to saying "custom", because a dialog claiming to be set to "Auto"
+ * while showing UTF-8 is worse than one claiming nothing.
  *****************************************************************************/
+import { Link } from "@inertiajs/vue3";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import Button from "Components/Form/Button.vue";
@@ -39,15 +45,26 @@ import FormInput from "Components/Form/FormInput.vue";
 import FormLegend from "Components/Form/FormLegend.vue";
 import FormRow from "Components/Form/FormRow.vue";
 import RadioButtonGroup from "Components/Form/Radio/RadioButtonGroup.vue";
+import Select from "Components/Form/Select/Select.vue";
 import Modal from "Components/Modal/Modal.vue";
 import Icon from "Components/UI/Icon.vue";
+import type { ExportEncoding, ExportFormat, ExportPreset } from "Types/exportPresets";
 import { unencodableInWindows1252 } from "Utils/encoding";
 
 const props = defineProps<{
     /** Which playlist to export — its id builds the URL. */
     playlistId: string;
-    /** The prefix field's starting value, from config via the page. */
-    defaultPrefix: string;
+    /**
+     * The prefix field's starting value when the reader keeps no presets — the server's
+     * configured default, from config via the page.
+     */
+    fallbackPrefix: string;
+    /**
+     * The reader's own export presets, default first (the model's reading order). Empty is
+     * normal: the picker is not drawn at all, and the dialog is what it was before presets
+     * existed.
+     */
+    presets: ExportPreset[];
     /**
      * The entries, for the Windows-1252 check — a title to name and a path to test.
      *
@@ -61,20 +78,88 @@ const emit = defineEmits<{ close: [] }>();
 
 const { t } = useI18n();
 
+/**
+ * The preset the dialog opens on, or null when the reader keeps none.
+ *
+ * `find` rather than trusting the first row, even though the server sends them default-first:
+ * the flag is the fact, the order is a presentation of it, and reading the fact is what makes
+ * this correct if the two ever disagree. Falling back to the first row keeps the dialog opening
+ * on SOMETHING for a reader whose presets somehow carry no default — better than silently
+ * reverting to the server's prefix while a list of their own devices sits one page away.
+ */
+const opening = props.presets.find(preset => preset.isDefault) ?? props.presets[0] ?? null;
+
 /** The .m3u flavour. `simple` is a bare list of paths; `extended` adds `#EXTINF` metadata. */
-const format = ref<"simple" | "extended">("simple");
+const format = ref<ExportFormat>(opening?.format ?? "simple");
 
 /**
  * The file's text encoding.
  *
- * UTF-8 unless told otherwise, which is right for every modern player. Windows-1252 is here
- * for one real device rather than for completeness — see the labels, which name the cases
- * instead of leaving the reader to guess what an encoding is for.
+ * UTF-8 unless a preset or the reader says otherwise, which is right for every modern player.
+ * Windows-1252 is here for one real device rather than for completeness — see the labels, which
+ * name the cases instead of leaving the reader to guess what an encoding is for.
  */
-const encoding = ref<"UTF-8" | "Windows-1252">("UTF-8");
+const encoding = ref<ExportEncoding>(opening?.encoding ?? "UTF-8");
 
-/** What goes in front of every path. Seeded from config; the reader edits it per export. */
-const prefix = ref(props.defaultPrefix);
+/**
+ * What goes in front of every path.
+ *
+ * `??` rather than `||` on the preset's value: an empty prefix is a CHOICE — the USB stick
+ * where the playlist sits beside the music — and `||` would quietly replace the car preset's
+ * empty string with the server's /Volumes path on every export.
+ */
+const prefix = ref(opening?.pathPrefix ?? props.fallbackPrefix);
+
+/** Which preset the reader last picked, before the fields are compared against it below. */
+const pickedPresetId = ref<string>(opening?.id ?? "");
+
+/**
+ * What the picker actually shows: the picked preset, or nothing once the fields have moved
+ * away from it.
+ *
+ * DERIVED RATHER THAN WATCHED, so there is one answer to "which preset is this" and it cannot
+ * fall out of step with the fields — a watcher clearing the selection would have to fire on
+ * three refs and be right about every path through them. Editing any field drops the picker to
+ * its placeholder, and editing it back picks the preset up again, which is the honest reading
+ * in both directions.
+ */
+const activePresetId = computed<string>(() => {
+    const picked = props.presets.find(preset => preset.id === pickedPresetId.value);
+
+    if (picked === undefined) return "";
+
+    const matches =
+        picked.format === format.value && picked.encoding === encoding.value && picked.pathPrefix === prefix.value;
+
+    return matches ? picked.id : "";
+});
+
+/**
+ * The picker's options — the reader's devices, in the order the server sent them.
+ *
+ * `sort: false` on the Select below, because that order is a decision (the default first) and
+ * alphabetising it would bury the one preset most exports use.
+ */
+const presetOptions = computed(() => props.presets.map(preset => ({ value: preset.id, label: preset.name })));
+
+/**
+ * Fill the three fields from a preset.
+ *
+ * It writes the values rather than binding to them, which is what keeps a preset a STARTING
+ * POINT: everything below stays editable, and the picker above reports honestly (see
+ * `activePresetId`) once an edit has moved the form away from what the preset says.
+ */
+function applyPreset(id: string): void {
+    pickedPresetId.value = id;
+
+    const preset = props.presets.find(entry => entry.id === id);
+
+    if (preset === undefined) return;
+
+    format.value = preset.format;
+    encoding.value = preset.encoding;
+    prefix.value = preset.pathPrefix;
+}
 
 /**
  * The format options, shaped the way RadioButtonGroup wants them.
@@ -205,6 +290,37 @@ function download(): void {
                 <template #intro>{{ t("playlists.export.intro") }}</template>
             </form-legend>
 
+            <!-- THE PICKER, and only when the reader has something to pick from: a select with
+                 one empty state in it is a control that explains nothing. Without presets this
+                 dialog is exactly what it was before they existed.
+
+                 It sits ABOVE the three fields it fills, because that is the order the reader
+                 works in — name the device, then adjust if this export is unusual. `sort:
+                 false` keeps the server's order, which puts the default first; alphabetising
+                 would bury the preset most exports use. Not `clearable`: there is nothing to
+                 clear to, since editing any field below already returns the picker to
+                 "custom". -->
+            <form-row v-if="presets.length" :label="t('playlists.export.presetLabel')" addon-icon="file_export">
+                <!-- NO `for-id`/`id` PAIR, which is what the two other Select call sites in this
+                     app also leave off. A Select is a button plus an ARIA listbox rather than a
+                     native control, so an `id` here would fall through as an undeclared
+                     attribute onto its root <div> — leaving the row's <label for> pointing at a
+                     div that cannot take focus, and the trigger button with no name of its own.
+                     `ariaLabel` is the declared prop that names the button, and it is needed
+                     precisely because the trigger's text is a preset's NAME once one is picked:
+                     without it the control announces itself as "MacBook". -->
+                <Select
+                    :options="presetOptions"
+                    :selected="activePresetId"
+                    :placeholder="t('playlists.export.presetPlaceholder')"
+                    :ariaLabel="t('playlists.export.presetLabel')"
+                    :sort="false"
+                    :clearable="false"
+                    @change="applyPreset($event)"
+                />
+                <template #text>{{ t("playlists.export.presetHint") }}</template>
+            </form-row>
+
             <!-- Bare rows, no `addonIcon`: the icon belongs on each OPTION here, which is what
                  the recovery-type group on the "trouble signing in" page does. An addon is
                  sized for one input and stretches into a tall box beside a stack of radios.
@@ -214,7 +330,7 @@ function download(): void {
                 <radio-button-group
                     name="format"
                     :radio-buttons="formats"
-                    @change="format = ($event.target as HTMLInputElement).value as 'simple' | 'extended'"
+                    @change="format = ($event.target as HTMLInputElement).value as ExportFormat"
                 />
             </form-row>
 
@@ -222,7 +338,7 @@ function download(): void {
                 <radio-button-group
                     name="encoding"
                     :radio-buttons="encodings"
-                    @change="encoding = ($event.target as HTMLInputElement).value as 'UTF-8' | 'Windows-1252'"
+                    @change="encoding = ($event.target as HTMLInputElement).value as ExportEncoding"
                 />
             </form-row>
 
@@ -249,6 +365,55 @@ function download(): void {
                 <icon name="download" :size="1" />
                 <span>{{ t("playlists.export.submit") }}</span>
             </Button>
+
+            <!-- THE WAY IN THAT MATCHES THE MOMENT. A reader learns they want a preset while
+                 standing here retyping a path, so this is where the offer belongs — the
+                 dashboard section is for the reader who came looking. It NAVIGATES, which
+                 closes this dialog: there is nothing here worth keeping (the fields start from
+                 the default preset every time the modal mounts), and a reader going to manage
+                 their presets is not mid-export.
+
+                 No `prefetch`, and for once not because of the form rule — the presets list is
+                 a page one only reads. Warming it from inside a modal would spend a request on
+                 a link most readers will not press. -->
+            <Link class="export__manage" href="/dashboard/export-presets" @click="emit('close')">
+                <icon name="settings" :size="1" />
+                <span>{{ t("playlists.export.managePresets") }}</span>
+            </Link>
         </template>
     </modal>
 </template>
+
+<style scoped lang="scss">
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "Abstracts/colors" as c;
+@use "Abstracts/sizes" as s;
+@use "Abstracts/timings" as ti;
+
+/* The way to the presets page, in the dialog's footer beside the download.
+
+   A TEXT LINK RATHER THAN A SECOND BUTTON, because the footer holds one action — the download
+   is what this dialog is for — and two buttons of equal weight would make a reader choose
+   between them. This is an aside that happens to be clickable. */
+.export__manage {
+    display: inline-flex;
+    align-items: center;
+
+    gap: map.get(s.$c-presets, "chip-gap");
+
+    color: map.get(c.$c-presets, "control");
+
+    font-size: map.get(s.$c-presets, "font-size");
+
+    text-decoration: none;
+
+    @media (prefers-reduced-motion: no-preference) {
+        transition: color ti.$c-presets;
+    }
+
+    &:hover,
+    &:focus-visible {
+        color: map.get(c.$c-presets, "control-active");
+    }
+}
+</style>

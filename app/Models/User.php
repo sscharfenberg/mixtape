@@ -90,6 +90,16 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
         return $this->hasMany(Playlist::class);
     }
 
+    /**
+     * The user's .m3u export presets — the devices they export playlists FOR.
+     *
+     * @return HasMany<ExportPreset, $this>
+     */
+    public function exportPresets(): HasMany
+    {
+        return $this->hasMany(ExportPreset::class);
+    }
+
     /** The user's listen history. @return HasMany<Play, $this> */
     public function plays(): HasMany
     {

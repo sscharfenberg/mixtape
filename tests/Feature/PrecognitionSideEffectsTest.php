@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ExportPreset;
 use App\Models\Invite;
 use App\Models\Playlist;
 use App\Models\User;
@@ -87,6 +88,38 @@ class PrecognitionSideEffectsTest extends TestCase
                 },
                 'traced' => fn () => Playlist::query()->where('description', 'after')->exists(),
                 'invalid' => ['name', ['name' => '', 'description' => '']],
+            ],
+            'dashboard.presets.store' => [
+                'send' => function () {
+                    $user = User::factory()->create();
+                    $this->actingAs($user);
+
+                    return ['post', '/dashboard/export-presets', [
+                        'name' => 'Nachtzug',
+                        'format' => 'simple',
+                        'encoding' => 'UTF-8',
+                        'path_prefix' => '/Volumes/media/music',
+                    ]];
+                },
+                'traced' => fn () => ExportPreset::query()->where('name', 'Nachtzug')->exists(),
+                // A name past the 60-character limit the request enforces.
+                'invalid' => ['name', ['name' => str_repeat('a', 80), 'format' => 'simple', 'encoding' => 'UTF-8', 'path_prefix' => '']],
+            ],
+            'dashboard.presets.update' => [
+                'send' => function () {
+                    $user = User::factory()->create();
+                    $preset = ExportPreset::factory()->for($user)->create(['path_prefix' => '/before']);
+                    $this->actingAs($user);
+
+                    return ['put', "/dashboard/export-presets/{$preset->id}", [
+                        'name' => $preset->name,
+                        'format' => $preset->format,
+                        'encoding' => $preset->encoding,
+                        'path_prefix' => '/after',
+                    ]];
+                },
+                'traced' => fn () => ExportPreset::query()->where('path_prefix', '/after')->exists(),
+                'invalid' => ['name', ['name' => '', 'format' => 'simple', 'encoding' => 'UTF-8', 'path_prefix' => '']],
             ],
             'register.store' => [
                 'send' => function () {

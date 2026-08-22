@@ -422,6 +422,46 @@ duplicates; same rule for `playlists.position`. The row count is the thing to wa
 book dragged into a playlist writes 673 statements, so collapse this into a single `CASE` or
 `upsert` before playlists grow into the thousands.
 
+### Export presets
+
+```
+export_presets
+  id            uuid pk
+  user_id       uuid fk → users  (cascade)
+  name          string(60)       # en_GB.utf8 collation — this column is sorted by
+  format        string(16)       # PlaylistExport::FORMATS
+  encoding      string(16)       # PlaylistExport::ENCODINGS
+  path_prefix   string(255) default ''
+  is_default    bool default false
+  timestamps
+  UNIQUE (user_id, name)                          # your "MacBook" is not my "MacBook"
+  UNIQUE (user_id) WHERE is_default   -- pgsql only
+```
+
+A named bundle of the three options the `.m3u` export asks for, hanging off the **user** rather than
+off anything being exported — because all three are answered by the machine that will *play* the
+file. A car head unit wants a simple list in Windows-1252 with no prefix; a phone wants an extended
+list in UTF-8 under `/storage/emulated/0/Music`. That is what makes them one row rather than three
+settings, and what makes them per-user rather than instance-wide: they describe a person's devices,
+which the server has no way to know.
+
+**`path_prefix` is not nullable and `''` is a real value** — the USB stick where the playlist sits
+beside the music and every path is relative. Which is also the trap on the way in:
+`ConvertEmptyStringsToNull` runs before validation, so the request casts it back through `(string)`
+before its own rules see it.
+
+**Exactly one default per user**, enforced by a partial unique index on Postgres and by
+`ExportPresetDefault` everywhere (sqlite has no such index in the test schema, the same split the
+`shares` CHECK makes). It is kept true from three directions: the first preset a user creates takes
+the flag, choosing another moves it, and deleting the holder passes it to the alphabetically first
+survivor. Both failure modes are silent — with none, the export dialog quietly reverts to the
+configured prefix; with two, it opens on whichever row the sort returned first.
+
+**No `position` column.** The list is ordered default-first then by name, which is one decision in
+`ExportPreset::inReadingOrder()` and is read by both surfaces that draw presets — the dashboard page
+and the export dialog's picker. A hand-arranged order would be a second answer to "which one comes
+up first" beside the flag that already answers it.
+
 ### The play queue
 
 ```

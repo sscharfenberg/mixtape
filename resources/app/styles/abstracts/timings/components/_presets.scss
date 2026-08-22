@@ -1,0 +1,12 @@
+/******************************************************************************
+ * contextual timing token — component:ExportPresetsPage.vue
+ * @type {Sass}
+ * How fast a preset row's controls — edit, delete, and the "use as default" pip — answer the
+ * pointer. `fast`, matching the share row's controls and the playlist row behind them: a
+ * pointer affordance has to land immediately or it reads as lag rather than as feedback.
+ * Consumed as ti.$c-presets via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$presets: map.get(ti.$timings, "fast") !default;

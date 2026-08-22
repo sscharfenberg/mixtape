@@ -40,18 +40,18 @@ test.describe("the settings dashboard", () => {
 
     test("gives every jump-link a section to land on", async ({ page }) => {
         /*
-         * IT COUNTS FIVE, NOT FOUR: the four settings sections plus "your
-         * shared content", which is drawn only for a reader who has shared something. The
-         * seeded account has (E2ESeeder mints the two links the guest spec follows), so this
-         * is the with-shares shape — and that the OTHER shape exists is asserted in
-         * DashboardPage.test.ts, where an account with no shares is one prop away.
+         * IT COUNTS SIX, NOT FIVE: the five settings sections plus "your shared content", which
+         * is drawn only for a reader who has shared something. The seeded account has (E2ESeeder
+         * mints the two links the guest spec follows), so this is the with-shares shape — and
+         * that the OTHER shape exists is asserted in DashboardPage.test.ts, where an account
+         * with no shares is one prop away.
          *
          * The resolve loop is the half that matters and is why the count is worth having at
          * all: a jump-link whose anchor is not on the page scrolls nowhere and reads as a
          * broken control, which is exactly what a conditional section invites.
          */
         const links = page.locator(".sticky-nav a");
-        await expect(links).toHaveCount(5);
+        await expect(links).toHaveCount(6);
         await expect(page.locator("#sharesSection")).toHaveCount(1);
 
         for (const href of await links.evaluateAll(nodes => nodes.map(node => node.getAttribute("href")!))) {

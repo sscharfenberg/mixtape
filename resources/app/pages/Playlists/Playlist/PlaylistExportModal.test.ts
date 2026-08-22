@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import { mountApp, translate } from "Testing/mount";
+import type { ExportPreset } from "Types/exportPresets";
 import PlaylistExportModal from "./PlaylistExportModal.vue";
 
 vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
@@ -30,8 +31,32 @@ const SAFE = [
     { name: "Bones", path: "Radiohead/The Bends/05 Bones.mp3" }
 ];
 
+/**
+ * Two presets, the way the server sends them: default first, and the second one exercising
+ * every field at once — the car case, whose EMPTY prefix is a real value rather than an
+ * absence.
+ */
+const PRESETS: ExportPreset[] = [
+    {
+        id: "preset-mac",
+        name: "MacBook",
+        format: "simple",
+        encoding: "UTF-8",
+        pathPrefix: "/Volumes/media/music",
+        isDefault: true
+    },
+    {
+        id: "preset-car",
+        name: "Auto",
+        format: "extended",
+        encoding: "Windows-1252",
+        pathPrefix: "",
+        isDefault: false
+    }
+];
+
 /** Mount the modal and capture whatever it navigates to. */
-const modal = (defaultPrefix = "/Volumes/media/music", tracks = SAFE) => {
+const modal = (fallbackPrefix = "/Volumes/media/music", tracks = SAFE, presets: ExportPreset[] = []) => {
     const assign = vi.fn();
     Object.defineProperty(window, "location", {
         configurable: true,
@@ -39,11 +64,33 @@ const modal = (defaultPrefix = "/Volumes/media/music", tracks = SAFE) => {
     });
 
     const wrapper = mountApp(PlaylistExportModal, {
-        props: { playlistId: "playlist-1", defaultPrefix, tracks }
+        props: { playlistId: "playlist-1", fallbackPrefix, presets, tracks }
     });
 
     return { wrapper, assign };
 };
+
+/**
+ * Pick a preset from the picker, the way a click does.
+ *
+ * The Select is a button plus an ARIA listbox rather than a native <select>, so the option is
+ * found by its label and clicked. Teleported like everything else here, hence `document`.
+ */
+const pickPreset = async (label: string): Promise<void> => {
+    document.querySelector<HTMLButtonElement>(".form-select__button")!.click();
+    await nextTick();
+
+    const option = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
+        entry => entry.textContent?.trim() === label
+    );
+
+    option!.click();
+    await nextTick();
+};
+
+/** What the picker's trigger currently reads. */
+const pickerLabel = (): string =>
+    document.querySelector(".form-select__button")?.textContent?.trim() ?? "";
 
 /** The URL the form navigated to, parsed. */
 const submitted = (assign: ReturnType<typeof vi.fn>): URL => new URL(assign.mock.calls[0][0], "http://localhost");
@@ -135,6 +182,96 @@ describe("PlaylistExportModal", () => {
 
         expect(assign).toHaveBeenCalledTimes(1);
         expect(wrapper.emitted("close")).toHaveLength(1);
+    });
+
+    describe("the preset picker", () => {
+        /*
+         * WHAT THE PICKER IS FOR: all three answers belong to the DEVICE, not to the playlist,
+         * so a preset seeds all three at once. What cannot be tested on the server is exactly
+         * this — which values a mounted dialog starts with, and whether the picker goes on
+         * claiming a preset after the reader has edited away from it.
+         */
+
+        it("is not drawn at all for a reader who keeps none", () => {
+            // The dialog is then what it was before presets existed, seeded from config.
+            modal("/Volumes/media/music", SAFE, []);
+
+            expect(document.querySelector(".form-select__button")).toBeNull();
+        });
+
+        it("names the picker on the trigger itself, not on the box around it", () => {
+            // A Select is a button plus a listbox, so a `for`/`id` pair would leave the row's
+            // label pointing at a <div> and the button unnamed — and the button's own text is a
+            // preset NAME once one is picked, so without this it announces itself as "MacBook".
+            modal("/config/prefix", SAFE, PRESETS);
+
+            expect(document.querySelector(".form-select__button")!.getAttribute("aria-label")).toBe(
+                translate("playlists.export.presetLabel")
+            );
+        });
+
+        it("opens on the default preset rather than on the configured prefix", () => {
+            const { assign } = modal("/config/prefix", SAFE, PRESETS);
+
+            submit();
+
+            expect(submitted(assign).searchParams.get("prefix")).toBe("/Volumes/media/music");
+            expect(pickerLabel()).toContain("MacBook");
+        });
+
+        it("fills all three fields from the preset the reader picks", async () => {
+            const { assign } = modal("/config/prefix", SAFE, PRESETS);
+
+            await pickPreset("Auto");
+            submit();
+
+            const url = submitted(assign);
+            expect(url.searchParams.get("format")).toBe("extended");
+            expect(url.searchParams.get("encoding")).toBe("Windows-1252");
+            // The car preset's EMPTY prefix is a value, not an absence — picking it must clear
+            // the field rather than leave the previous preset's path standing.
+            expect(url.searchParams.get("prefix")).toBe("");
+        });
+
+        it("stops claiming a preset once a field is edited away from it", async () => {
+            // A dialog reading "Auto" while showing UTF-8 is worse than one claiming nothing.
+            modal("/config/prefix", SAFE, PRESETS);
+
+            await pickPreset("Auto");
+            expect(pickerLabel()).toContain("Auto");
+
+            typePrefix("/somewhere/else");
+            await nextTick();
+
+            expect(pickerLabel()).not.toContain("Auto");
+            expect(pickerLabel()).toContain(translate("playlists.export.presetPlaceholder"));
+        });
+
+        it("claims it again when the fields are put back", async () => {
+            // Derived rather than watched, so it reads honestly in both directions.
+            modal("/config/prefix", SAFE, PRESETS);
+
+            typePrefix("/somewhere/else");
+            await nextTick();
+            expect(pickerLabel()).not.toContain("MacBook");
+
+            typePrefix("/Volumes/media/music");
+            await nextTick();
+
+            expect(pickerLabel()).toContain("MacBook");
+        });
+
+        it("still exports what the reader edited, preset or not", async () => {
+            // A preset SEEDS, it does not lock: "the MacBook one but extended, this once".
+            const { assign } = modal("/config/prefix", SAFE, PRESETS);
+
+            await choose("format", 1);
+            submit();
+
+            const url = submitted(assign);
+            expect(url.searchParams.get("format")).toBe("extended");
+            expect(url.searchParams.get("prefix")).toBe("/Volumes/media/music");
+        });
     });
 
     describe("the Windows-1252 warning", () => {

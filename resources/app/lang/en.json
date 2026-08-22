@@ -36,7 +36,8 @@
             "dashboard": "Dashboard",
             "logout": "Sign out",
             "shares": "Shared content",
-            "history": "Listening history"
+            "history": "Listening history",
+            "presets": "Export presets"
         },
         "siteMenu": {
             "nav": "Main navigation",
@@ -153,7 +154,8 @@
                 "profile": "Profile",
                 "twoFactor": "Two-factor",
                 "delete": "Delete account",
-                "shares": "Shared"
+                "shares": "Shared",
+                "presets": "Export"
             }
         },
         "profile": {
@@ -270,6 +272,41 @@
                 "header": "Re-activate this link?",
                 "body": "The link to “{name}” will work again — for seven days from now. It is the same link as before: anybody who still has it can listen again.",
                 "confirm": "Re-activate"
+            }
+        },
+        "presets": {
+            "headline": "Your export presets",
+            "summary": "Three things decide whether an exported playlist plays on the device you made it for: the file format, the text encoding, and where the music lives from that device's point of view. Save them once per device instead of retyping them on every export.",
+            "link": "Manage presets",
+            "title": "Your export presets",
+            "intro": "A preset describes one device: the mount on your MacBook, the USB stick in the car, your phone. Exporting a playlist preselects the one marked as default — you can still change anything in the dialog.",
+            "empty": "You have not created a preset yet. Until you do, the export dialog starts from the server's own default.",
+            "create": "New preset",
+            "defaultMarker": "Default",
+            "setDefault": "Use as default",
+            "setDefaultLabel": "Use “{name}” as the default",
+            "edit": "Edit",
+            "editLabel": "Edit “{name}”",
+            "delete": "Delete",
+            "deleteLabel": "Delete “{name}”",
+            "relativePaths": "relative paths",
+            "deleteModal": {
+                "header": "Delete preset",
+                "intro": "“{name}” will be deleted. Files you have already exported are unaffected — they hold the values, not the preset.",
+                "confirm": "Delete for good"
+            },
+            "form": {
+                "createHeadline": "New export preset",
+                "editHeadline": "Edit preset",
+                "createIntro": "Describe the device you export for. The device decides which values are right — the hints under each field name the usual cases.",
+                "editIntro": "Changes apply to your next export. Files you have already downloaded stay as they are.",
+                "nameLabel": "Name",
+                "nameHint": "What the device is called — “MacBook”, “Car”, “Phone”.",
+                "createSubmit": "Create preset",
+                "createSubmitting": "creating …",
+                "editSubmit": "Save changes",
+                "editSubmitting": "saving …",
+                "cancel": "Cancel"
             }
         }
     },
@@ -609,7 +646,11 @@
             "prefixHint": "Put in front of every path — where the music lives as far as the device playing the file is concerned. Leave empty for relative paths.",
             "unplayable": "1 track contains a character Windows-1252 cannot carry — its path will not be found on the device: {named}. Characters: {characters}. | {count} tracks contain characters Windows-1252 cannot carry — their paths will not be found on the device: {named}. Characters: {characters}.",
             "andMore": "{shown} and 1 more | {shown} and {count} more",
-            "submit": "Download .m3u"
+            "submit": "Download .m3u",
+            "presetLabel": "Preset",
+            "presetPlaceholder": "custom settings",
+            "presetHint": "Fills in the format, encoding and prefix of one of your devices. You can still change the fields below afterwards.",
+            "managePresets": "Manage presets"
         },
         "sort": {
             "open": "Sort playlist",

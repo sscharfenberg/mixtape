@@ -6,11 +6,11 @@ import DashboardPage from "./DashboardPage.vue";
 vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
 
 /*
- * The dashboard is four settings sections and a jump-nav over them, and the jump-nav is the
+ * The dashboard is five settings sections and a jump-nav over them, and the jump-nav is the
  * whole reason this file exists.
  *
  * Its links are `#<id>` anchors declared in THIS file, while the ids they point at are
- * `anchor-id` props declared in four OTHER files. Nothing connects the two but the strings
+ * `anchor-id` props declared in five OTHER files. Nothing connects the two but the strings
  * matching. Rename one section's anchor — while renaming a section, say, which is exactly
  * when it happens — and there is no error, no warning, and no visual change: the link is
  * still there, still styled, still clickable, and pressing it does nothing at all. The
@@ -29,10 +29,11 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
 /**
  * Mount the whole dashboard with the props its sections read.
  *
- * `shares` decides whether there are four sections or five: "your shared content" is drawn
- * only for a reader who has shared something, which makes this page the one place both shapes
- * can be compared side by side. Defaulted to the commoner one — most accounts have never
- * pressed "share".
+ * `shares` decides whether there are five sections or six: "your shared content" is drawn only
+ * for a reader who has shared something, which makes this page the one place both shapes can be
+ * compared side by side. Defaulted to the commoner one — most accounts have never pressed
+ * "share". The export-presets section is drawn either way, because a preset is a SETTING and
+ * this page is where a reader who has never made one meets them.
  */
 const dashboard = (shares = false) => {
     setPage({
@@ -71,7 +72,7 @@ describe("DashboardPage", () => {
         const wrapper = dashboard();
         const targets = wrapper.findAll(".sticky-nav a").map(link => link.attributes("href")!);
 
-        expect(targets).toHaveLength(4);
+        expect(targets).toHaveLength(5);
         for (const target of targets) {
             expect(wrapper.find(target).exists()).toBe(true);
         }
@@ -80,8 +81,14 @@ describe("DashboardPage", () => {
     it("lists the sections in the order the page renders them", () => {
         const wrapper = dashboard();
         const linked = wrapper.findAll(".sticky-nav a").map(link => link.attributes("href")!.slice(1));
-        const rendered = ["sharesSection", "passwordSection", "profileSection", "twoFactorSection", "deleteSection"]
-            .filter(id => wrapper.find(`#${id}`).exists());
+        const rendered = [
+            "sharesSection",
+            "presetsSection",
+            "passwordSection",
+            "profileSection",
+            "twoFactorSection",
+            "deleteSection"
+        ].filter(id => wrapper.find(`#${id}`).exists());
 
         expect(linked).toStrictEqual(rendered);
     });
@@ -93,7 +100,7 @@ describe("DashboardPage", () => {
             const wrapper = dashboard(false);
 
             expect(wrapper.find("#sharesSection").exists()).toBe(false);
-            expect(wrapper.findAll(".sticky-nav a")).toHaveLength(4);
+            expect(wrapper.findAll(".sticky-nav a")).toHaveLength(5);
         });
 
         it("is drawn FIRST for a reader who has, with a jump-link to match", () => {
@@ -124,6 +131,7 @@ describe("DashboardPage", () => {
                 .findAll(".sticky-nav a")
                 .map(link => link.text())
         ).toStrictEqual([
+            translate("dashboard.page.nav.presets"),
             translate("dashboard.page.nav.password"),
             translate("dashboard.page.nav.profile"),
             translate("dashboard.page.nav.twoFactor"),
@@ -136,24 +144,28 @@ describe("DashboardPage", () => {
         expect(getLayoutProps().breadcrumbs).toStrictEqual([{ labelKey: "dashboard.page.title", icon: "user-settings" }]);
     });
 
-    it("renders all four settings sections, not just the ones the nav names", () => {
+    it("renders all five settings sections, not just the ones the nav names", () => {
         const wrapper = dashboard();
 
         expect(wrapper.findComponent({ name: "DashboardPassword" }).exists()).toBe(true);
         expect(wrapper.findComponent({ name: "DashboardProfile" }).exists()).toBe(true);
+        expect(wrapper.findComponent({ name: "DashboardExportPresets" }).exists()).toBe(true);
         expect(wrapper.findComponent({ name: "TwoFactor" }).exists()).toBe(true);
         expect(wrapper.findComponent({ name: "DeleteAccount" }).exists()).toBe(true);
     });
 
     it("alternates which edge each section's headline tab hugs", () => {
-        // Right, left, right, left down the page — the section order is what carries it, so a
-        // reordering that forgot to re-alternate would put two tabs on the same side.
+        // Right, left, right, left, right down the page — the section order is what carries it,
+        // so a reordering that forgot to re-alternate would put two tabs on the same side. The
+        // run starts at `right` so it holds whether or not the conditional shares section (which
+        // is `left`) is drawn above it — which is also why that one stays first and stays the
+        // only conditional section.
         const wrapper = dashboard();
 
         expect(
-            ["DashboardPassword", "DashboardProfile", "TwoFactor", "DeleteAccount"].map(
+            ["DashboardExportPresets", "DashboardPassword", "DashboardProfile", "TwoFactor", "DeleteAccount"].map(
                 name => wrapper.findComponent({ name }).props("align")
             )
-        ).toStrictEqual(["right", "left", "right", "left"]);
+        ).toStrictEqual(["right", "left", "right", "left", "right"]);
     });
 });

@@ -65,6 +65,31 @@ class CreatePlaylistTest extends TestCase
         $this->assertSame('/playlists/create', route('playlists.create', absolute: false));
     }
 
+    public function test_a_field_posted_as_an_array_is_refused_rather_than_fatal(): void
+    {
+        /*
+         * Cleaning runs BEFORE any rule, so it meets whatever was posted — and an array
+         * survives neither of the two obvious ways to normalise a string: `$this->string()`
+         * throws, `(string)` warns and Laravel's handler rethrows. Either way a hand-written
+         * body turns a 422 into a 500 on the route whose job is to refuse it politely.
+         *
+         * Both fields, and the create alone: `prepareForValidation` lives in
+         * ValidatesPlaylistMetadata, so the edit at `PUT /playlists/{playlist}` is the same code
+         * reached through one more door.
+         */
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->post('/playlists', ['name' => ['not' => 'a string'], 'description' => ''])
+            ->assertSessionHasErrors('name');
+
+        $this->actingAs($user)
+            ->post('/playlists', ['name' => 'Fine', 'description' => ['not' => 'a string']])
+            ->assertSessionHasErrors('description');
+
+        $this->assertDatabaseCount('playlists', 0);
+    }
+
     public function test_it_creates_a_playlist_and_returns_to_the_listing(): void
     {
         $user = User::factory()->create();

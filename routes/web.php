@@ -8,6 +8,10 @@ use App\Http\Controllers\Audiobooks\ChapterCoverController;
 use App\Http\Controllers\Audiobooks\ChapterStreamController;
 use App\Http\Controllers\AudiobooksController;
 use App\Http\Controllers\Dashboard\DashboardController;
+use App\Http\Controllers\Dashboard\ExportPresetController;
+use App\Http\Controllers\Dashboard\ExportPresetDefaultController;
+use App\Http\Controllers\Dashboard\ExportPresetDeleteController;
+use App\Http\Controllers\Dashboard\ExportPresetsController;
 use App\Http\Controllers\Dashboard\SharesController;
 use App\Http\Controllers\Dev\AudioProbeController;
 use App\Http\Controllers\Dev\IconsController;
@@ -95,6 +99,57 @@ Route::middleware(array_filter(['auth', Features::enabled(Features::emailVerific
         // `shares` shared prop, so an account that has never shared anything never meets the
         // feature at all.
         Route::get('/dashboard/shared', SharesController::class)->name('dashboard.shares');
+
+        /*
+         * THE READER'S .m3u EXPORT PRESETS — a named device ("MacBook", "Auto") holding the
+         * three export options, picked in the playlist export modal. A dashboard subpage for
+         * the same reason the share list is one: a list of unknown length has no business in
+         * the middle of a settings page.
+         *
+         * `create` is registered ahead of the `{preset}` routes so it keeps matching this one
+         * rather than being read as a preset id, and those are UUID-constrained so a stray
+         * segment 404s at the router instead of reaching model binding. Ownership lives in the
+         * request classes and answers 404, never 403, for somebody else's preset.
+         *
+         * The two writes carry the FRAMEWORK's HandlePrecognitiveRequests, the right one of the
+         * two because these rules live in a FormRequest (Store/UpdateExportPresetRequest): its
+         * dispatchers resolve the action's parameters, which is what validates a request class,
+         * then abort 204 so the action never runs. Neither kind of validation spends the 30 —
+         * App\Http\Middleware\ThrottleRequests counts validate-only traffic in a bucket of its
+         * own, so a reader tabbing through the form is not refused their own save.
+         */
+        Route::get('/dashboard/export-presets', ExportPresetsController::class)
+            ->name('dashboard.presets');
+
+        Route::get('/dashboard/export-presets/create', [ExportPresetController::class, 'create'])
+            ->name('dashboard.presets.create');
+
+        Route::post('/dashboard/export-presets', [ExportPresetController::class, 'store'])
+            ->middleware(['throttle:30,1,preset-create', HandlePrecognitiveRequests::class])
+            ->name('dashboard.presets.store');
+
+        Route::get('/dashboard/export-presets/{preset}/edit', [ExportPresetController::class, 'edit'])
+            ->whereUuid('preset')
+            ->name('dashboard.presets.edit');
+
+        Route::put('/dashboard/export-presets/{preset}', [ExportPresetController::class, 'update'])
+            ->whereUuid('preset')
+            ->middleware(['throttle:30,1,preset-update', HandlePrecognitiveRequests::class])
+            ->name('dashboard.presets.update');
+
+        // Which preset the export modal opens on — one press from the row, rather than a field
+        // on the form above (the controller says why). Bounded like the reorder routes rather
+        // than like the saves: it is a cheap idempotent press a reader may make a few times
+        // while deciding.
+        Route::patch('/dashboard/export-presets/{preset}/default', ExportPresetDefaultController::class)
+            ->whereUuid('preset')
+            ->middleware('throttle:60,1,preset-default')
+            ->name('dashboard.presets.default');
+
+        Route::delete('/dashboard/export-presets/{preset}', ExportPresetDeleteController::class)
+            ->whereUuid('preset')
+            ->middleware('throttle:30,1,preset-delete')
+            ->name('dashboard.presets.destroy');
 
         // What this reader has listened to, by day. NOT a dashboard subpage, unlike the share
         // links above: the dashboard is where an account is administered, and this is about the

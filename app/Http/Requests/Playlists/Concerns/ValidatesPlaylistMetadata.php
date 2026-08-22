@@ -29,15 +29,25 @@ trait ValidatesPlaylistMetadata
      * `description` is merged UNCONDITIONALLY so the key always exists: an edit that
      * cleared the field must store null, and a key absent from `validated()` would leave
      * the old blurb in place instead.
+     *
+     * NOTHING IS COERCED, which is the other half of running before the rules: cleaning meets
+     * whatever was posted, and an ARRAY survives neither `$this->string()` (it throws) nor
+     * `(string)` (an "Array to string conversion" warning, which Laravel's error handler
+     * rethrows). Either way a hand-written body answers 500 rather than 422, on a route whose
+     * whole job is to refuse bad input politely. So a non-string passes through untouched and
+     * the `string` rule reports it as the field error it is.
      */
     protected function prepareForValidation(): void
     {
+        $name = $this->input('name');
+        $description = $this->input('description');
+
         $this->merge([
-            'name' => $this->string('name')->trim()->value(),
+            'name' => is_string($name) ? trim($name) : $name,
             // An empty textarea posts "", which is not the same as "no description":
             // stored as null so the page can ask one question ("is there a description?")
-            // instead of two.
-            'description' => $this->string('description')->trim()->value() ?: null,
+            // instead of two. A non-string keeps its shape for the rules to refuse.
+            'description' => is_string($description) ? (trim($description) ?: null) : $description,
         ]);
     }
 

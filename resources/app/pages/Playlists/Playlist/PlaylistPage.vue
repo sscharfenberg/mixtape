@@ -44,6 +44,7 @@ import HeroSection from "Components/UI/HeroSection.vue";
 import Icon from "Components/UI/Icon.vue";
 import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import { useToast } from "Composables/useToast";
+import type { ExportPreset } from "Types/exportPresets";
 import { formatDateTime, formatDuration } from "Utils/formatting";
 import PlaylistDeleteModal from "./PlaylistDeleteModal.vue";
 import PlaylistExportModal from "./PlaylistExportModal.vue";
@@ -77,8 +78,17 @@ const props = defineProps<{
      * track finishes. Raw counts — a zero is something the tiles leave unsaid.
      */
     plays: { own: number; others: number };
-    /** What the export modal's prefix field opens with, from config via the controller. */
+    /**
+     * What the export modal's prefix field opens with when the reader keeps no presets, from
+     * config via the controller.
+     */
     exportPrefix: string;
+    /**
+     * The reader's own export presets, for the modal's picker — default first, then by name,
+     * the same order /dashboard/export-presets lists them in. Empty is normal and is what
+     * makes the fallback above matter.
+     */
+    exportPresets: ExportPreset[];
     /**
      * Up to three cover URLs for the hero's fan, picked at random per request and one per
      * album (PlaylistController::fannedCovers). Empty when nothing in the playlist carries
@@ -297,11 +307,13 @@ function sort(): void {
     </container>
 
     <!-- Mounted only while open, like the dashboard's modals: the form's three fields then
-         start from their defaults every time rather than remembering the last export. -->
+         start from the reader's default preset — or, with no presets, from the configured
+         prefix — every time, rather than remembering the last export. -->
     <playlist-export-modal
         v-if="exporting"
         :playlist-id="playlist.id"
-        :default-prefix="exportPrefix"
+        :fallback-prefix="exportPrefix"
+        :presets="exportPresets"
         :tracks="tracks"
         @close="exporting = false"
     />

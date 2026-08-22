@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Enums\Locale;
 use App\Enums\TrackType;
+use App\Models\ExportPreset;
 use App\Models\Play;
 use App\Models\Playlist;
 use App\Models\Share;
@@ -187,6 +188,21 @@ class HandleInertiaRequests extends Middleware
             // index this table already carries for the history feed itself.
             'hasPlays' => fn (): bool => $request->user() !== null
                 && Play::query()->where('user_id', $request->user()->id)->exists(),
+            // WHETHER THIS READER KEEPS ANY .m3u EXPORT PRESETS — the same shape as the two
+            // booleans above, and it gates ONE surface only: the user menu's entry to
+            // /dashboard/export-presets. That menu is a shortcut list, so an entry leading to a
+            // page that can only offer a "create one" button does not belong in it.
+            //
+            // THE DASHBOARD SECTION IS DELIBERATELY NOT GATED ON THIS, which is the difference
+            // from `hasShares`. A share link is a thing the reader MADE; a preset is a SETTING,
+            // and the dashboard is where settings live and is exhaustive — gate it there and a
+            // reader who has never heard of presets could never meet them, since the only other
+            // way in is the export modal they are trying to stop retyping into.
+            //
+            // The `has` prefix is the shadowing rule above: the presets page and the playlist
+            // page both send `presets` / `exportPresets` of their own.
+            'hasExportPresets' => fn (): bool => $request->user() !== null
+                && ExportPreset::query()->where('user_id', $request->user()->id)->exists(),
             // Player settings the CLIENT has to honour but the server owns. Only the
             // position heartbeat so far: the browser runs the clock (it is the only thing
             // that knows whether audio is playing), and this is the operator's say in how

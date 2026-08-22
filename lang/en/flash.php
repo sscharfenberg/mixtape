@@ -67,6 +67,15 @@ return [
         'track_removed' => '":name" was removed from ":playlist".',
     ],
 
+    'preset' => [
+        'created' => 'The export preset ":name" has been created.',
+        'updated' => 'The export preset ":name" has been saved.',
+        'deleted' => 'The export preset ":name" has been deleted.',
+        // Names the preset, because all that moves in the list is a marker — without the name
+        // it would be unclear which row took the click.
+        'default' => '":name" is now the preset the export dialog opens with.',
+    ],
+
     'share' => [
         // Deliberately does not name the link: the row it refers to went away with the click,
         // and "which one" was answered by the dialog just before it.

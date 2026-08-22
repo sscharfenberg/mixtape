@@ -75,6 +75,10 @@ class RateLimitBucketsTest extends TestCase
         $expected = [
             'audiobooks.bookmark' => 'throttle:120,1,audiobook-bookmark',
             'audiobooks.download' => 'throttle:10,1,audiobook-download',
+            'dashboard.presets.default' => 'throttle:60,1,preset-default',
+            'dashboard.presets.destroy' => 'throttle:30,1,preset-delete',
+            'dashboard.presets.store' => 'throttle:30,1,preset-create',
+            'dashboard.presets.update' => 'throttle:30,1,preset-update',
             'forgot.store' => 'throttle:auth-mail',
             'locale' => 'throttle:30,1,locale',
             'login.store' => 'throttle:login',

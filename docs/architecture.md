@@ -292,6 +292,16 @@ units render a UTF-8 playlist as mojibake — and it cannot name a file whose pa
 that encoding lacks. [`app:audit`](artisan-commands.md#appaudit) reports those paths so they can
 be renamed once instead of warned about forever.
 
+The export asks three questions — the `.m3u` flavour, the encoding, and what to put in front of every
+path — and **all three are answered by the device that will play the file**, not by the playlist and
+not by this server. A car head unit wants a simple list in Windows-1252 with paths relative to the
+stick it is plugged into; a Mac wants an extended list in UTF-8 under its `/Volumes` mount. So the
+three travel together as an **export preset**, owned by a user and managed at
+`/dashboard/export-presets`, and the export dialog opens on the one marked default. A preset **seeds
+the dialog, it does not lock it**: the three fields stay editable, and the picker stops claiming a
+preset as soon as one of them is edited away from it. A reader who keeps no presets gets the
+configured `mixtape.playlists.export.path_prefix` and the dialog as it was before presets existed.
+
 ### Downloads
 
 A song downloads as its own mp3; an album as a `.zip`. The gate is deliberately the page's own:
