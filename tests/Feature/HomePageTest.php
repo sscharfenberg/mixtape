@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Enums\TrackType;
 use App\Models\Collection;
+use App\Models\Play;
 use App\Models\Track;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -33,6 +35,59 @@ class HomePageTest extends TestCase
     private const AUDIOBOOK_KEYS = [
         'books', 'chapters', 'sizeBytes', 'playtimeSeconds', 'authors', 'narrators', 'firstYear', 'lastYear',
     ];
+
+    public function test_it_sends_the_readers_own_listening_time_per_area(): void
+    {
+        /*
+         * What orders the two buttons a signed-in reader gets instead of one. HOURS rather than
+         * plays, which is the whole point: one audiobook chapter outweighs several songs, so a
+         * count would put music first for somebody who only listens to books.
+         */
+        $reader = User::factory()->create();
+        $song = Track::factory()->create(['type' => TrackType::Music, 'duration' => 200.0]);
+        $chapter = Track::factory()->create(['type' => TrackType::Audiobook, 'duration' => 1800.0]);
+
+        Play::factory()->create(['user_id' => $reader->id, 'track_id' => $song->id]);
+        Play::factory()->count(2)->create(['user_id' => $reader->id, 'track_id' => $chapter->id]);
+
+        $this->actingAs($reader)
+            ->get('/')
+            // Whole numbers rather than `200.0`: the service sums floats, but JSON has one
+            // number type and a whole float crosses the wire without its decimal — so this
+            // asserts what the page actually receives.
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('listening.music', 200)
+                ->where('listening.audiobook', 3600)
+                ->etc()
+            );
+    }
+
+    public function test_another_readers_listening_is_not_counted(): void
+    {
+        $reader = User::factory()->create();
+        $track = Track::factory()->create(['type' => TrackType::Music, 'duration' => 200.0]);
+
+        Play::factory()->create(['user_id' => User::factory()->create()->id, 'track_id' => $track->id]);
+
+        $this->actingAs($reader)
+            ->get('/')
+            ->assertInertia(fn (Assert $page) => $page->where('listening.music', 0)->etc());
+    }
+
+    public function test_a_guest_is_answered_with_zeroes_rather_than_somebody_elses_hours(): void
+    {
+        // The route is public, so this runs for every stranger who reaches the domain. Every
+        // area is present at 0 so the page never has to tell "no listening" from "key absent".
+        $track = Track::factory()->create(['type' => TrackType::Music, 'duration' => 200.0]);
+        Play::factory()->create(['user_id' => User::factory()->create()->id, 'track_id' => $track->id]);
+
+        $this->get('/')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('listening.music', 0)
+                ->where('listening.audiobook', 0)
+                ->etc()
+            );
+    }
 
     public function test_a_guest_sees_the_welcome_page_with_both_collections_totals(): void
     {

@@ -79,7 +79,8 @@
         "intro": "MixTape ist eine Musik- und Hörbuchsammlung, die auf einem privaten Home-Server läuft — kein Streaming-Dienst, sondern echte Dateien, über Jahre zusammengetragen.",
         "invite": "Ein Konto gibt es nur auf Einladung. Für einen geteilten Link brauchst du keines — der spielt einfach.",
         "signIn": "Anmelden",
-        "browse": "Zur Sammlung"
+        "allMusic": "Alle Musik",
+        "allAudiobooks": "Alle Hörbücher"
     },
     "auth": {
         "login": {

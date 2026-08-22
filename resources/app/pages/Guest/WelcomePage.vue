@@ -59,6 +59,12 @@ defineProps<{
     musicStats: CollectionStats;
     /** The audiobook collection's totals, for the right-hand one. */
     audiobookStats: AudiobookStats;
+    /**
+     * How long this reader has listened in each area, in raw seconds keyed by track type — what
+     * orders the two buttons a signed-in reader is offered. All zeroes for a guest, who is
+     * offered a sign-in instead.
+     */
+    listening: Record<string, number>;
 }>();
 </script>
 
@@ -74,7 +80,15 @@ defineProps<{
         {{ t("home.claim") }}
     </headline>
     <container>
-        <welcome-intro />
+        <!-- The action panel is handed everything it needs to CHOOSE between the two areas:
+             the hours decide the order, and the two counts break a tie the way a sign-in does
+             (App\Services\Auth\LandingPage) so the page and the login agree about which area
+             this instance is mostly about. -->
+        <welcome-intro
+            :listening="listening"
+            :music-tracks="musicStats.songs"
+            :audiobook-tracks="audiobookStats.chapters"
+        />
 
         <widget-group pair>
             <stats-widget v-bind="musicStats" :searchable="false" :wide="false" />

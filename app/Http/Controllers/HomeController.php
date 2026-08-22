@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Services\Library\LibraryStats;
+use App\Services\Player\ListeningTotals;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -30,11 +32,16 @@ class HomeController extends Controller
      * Closures, like the browse pages: a partial reload for one card re-runs only that card's
      * aggregates, and a full load still evaluates both.
      */
-    public function __invoke(): Response
+    public function __invoke(Request $request): Response
     {
         return Inertia::render('Guest/WelcomePage', [
             'musicStats' => fn (): array => LibraryStats::music(),
             'audiobookStats' => fn (): array => LibraryStats::audiobooks(),
+            // HOW LONG THIS READER HAS SPENT IN EACH AREA, which is what orders the two buttons
+            // a signed-in reader gets instead of one — the area they actually use, first. Zeroes
+            // for a guest without a query, since the page draws them a sign-in button instead
+            // and there is nothing to ask on a stranger's behalf.
+            'listening' => fn (): array => ListeningTotals::forUser($request->user()),
         ]);
     }
 }

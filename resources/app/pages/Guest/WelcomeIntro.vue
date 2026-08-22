@@ -19,17 +19,28 @@
  * itself; capping the flex item would hand the slack to the other side and the halves would stop
  * being halves at exactly the widths where it matters.
  *
- * THE BUTTON KNOWS WHO IS READING. `/` is not a guests-only route — a signed-in reader who
+ * THE BUTTONS KNOW WHO IS READING. `/` is not a guests-only route — a signed-in reader who
  * clicks the logo lands here too — and "Anmelden" shown to somebody already signed in reads as a
- * broken session. So the arm is chosen from the shared `auth.user` prop: sign in, or go to the
- * collection.
+ * broken session. So a guest is offered the sign-in, and a member is offered THE AREAS
+ * THEMSELVES: all the music, all the audiobooks. One "go to the collection" button had to pick
+ * one of the two silently, and picked music for everybody.
  *
- * IT DOES NOT PREFETCH, and that is not an omission. `/login` is a form holding a PASSWORD, and
- * a prefetch landing after the reader has navigated there is applied as a navigation to the page
+ * THE ONE THEY USE COMES FIRST, ordered by how long they have listened in each rather than by
+ * how much of each the library holds. Hours are the honest unit for that question: a chapter
+ * runs half an hour against a song's three minutes, so counting plays would put music first for
+ * somebody who spends every evening on audiobooks. A tie — a fresh account with no listening at
+ * all — falls back to the bigger area, which is the rule a sign-in already lands by
+ * (App\Services\Auth\LandingPage), so the two agree about what this instance is mostly about.
+ *
+ * AN EMPTY AREA IS NOT OFFERED. This instance may legitimately hold one kind and not the other,
+ * and a button leading to a page with nothing on it is the same broken promise the header's site
+ * menu refuses to make.
+ *
+ * NOTHING PREFETCHES, and that is not an omission. `/login` is a form holding a PASSWORD, and a
+ * prefetch landing after the reader has navigated there is applied as a navigation to the page
  * they are on — re-keying the component and resetting every field on it (CLAUDE.md → the
- * prefetch rule). The `/music` arm is a plain listing and could warm safely, but one `<Link>`
- * cannot prefetch conditionally on its own href without saying so twice, and warming a landing
- * page's single button buys nothing measurable.
+ * prefetch rule). The area links are plain listings and could warm safely, but warming a landing
+ * page's buttons buys nothing measurable and the two arms would then have to say so separately.
  *
  * A COMPONENT RATHER THAN MARKUP IN THE PAGE because it owns colour and size decisions — the
  * panel, the gradient, the prose measure — and tokens are scoped to components, never to pages.
@@ -40,14 +51,65 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import Icon from "Components/UI/Icon.vue";
 
+const props = defineProps<{
+    /** Raw seconds this reader has listened to, keyed by track type — the buttons' order. */
+    listening: Record<string, number>;
+    /** How many music tracks the library holds: the tie-break, and whether music is offered at all. */
+    musicTracks: number;
+    /** The same for audiobook chapters. */
+    audiobookTracks: number;
+}>();
+
+/** One area's button, as the template draws it. */
+type AreaLink = {
+    /** The listing this leads to. */
+    href: string;
+    /** Its label, already translated. */
+    label: string;
+    /** The glyph the app uses for that area everywhere else. */
+    icon: string;
+};
+
 const { t } = useI18n();
 const page = usePage();
 
 /** Whether anyone is signed in — the one thing that decides which call to action is drawn. */
 const user = computed(() => page.props.auth.user);
 
-/** Where the button goes: into the collection for a member, to the login form for everyone else. */
-const target = computed(() => (user.value ? "/music" : "/login"));
+/**
+ * The areas a signed-in reader is offered, most-listened first.
+ *
+ * SORTED ON HOURS, TIE-BROKEN ON SIZE — the banner says why hours rather than plays, and why the
+ * tie-break is the one a sign-in lands by. Both comparisons are descending, so the sort reads as
+ * "the bigger number wins" throughout.
+ *
+ * An area with no tracks is dropped rather than disabled: this instance may hold one kind and not
+ * the other, and there is nothing to say about a link that must not be pressed.
+ *
+ * Empty for a guest, who is offered the sign-in instead — the template asks `user` rather than
+ * this, so an instance with no media at all still draws a login button.
+ */
+const areas = computed<AreaLink[]>(() =>
+    [
+        {
+            href: "/music",
+            label: t("home.allMusic"),
+            icon: "music",
+            seconds: props.listening.music ?? 0,
+            tracks: props.musicTracks
+        },
+        {
+            href: "/audiobooks",
+            label: t("home.allAudiobooks"),
+            icon: "audiobook",
+            seconds: props.listening.audiobook ?? 0,
+            tracks: props.audiobookTracks
+        }
+    ]
+        .filter(area => area.tracks > 0)
+        .sort((a, b) => b.seconds - a.seconds || b.tracks - a.tracks)
+        .map(({ href, label, icon }) => ({ href, label, icon }))
+);
 </script>
 
 <template>
@@ -57,15 +119,27 @@ const target = computed(() => (user.value ? "/music" : "/login"));
             <p>{{ t("home.invite") }}</p>
         </div>
         <div class="welcome-intro__action">
-            <!-- No `prefetch`: the guest arm is a password form. See the banner. -->
-            <Link :href="target" class="btn btn-primary">
-                <!-- `size` is a STEP on the icon scale (0–5), not a length: a fractional value
-                     matches no size class, so `--icon-size` never resolves and the SVG falls
-                     back to its intrinsic size — a 130px arrow. `1` is what every other button
-                     in the app passes. -->
-                <icon :name="user ? 'music' : 'login'" :size="1" />
-                <span>{{ user ? t("home.browse") : t("home.signIn") }}</span>
-            </Link>
+            <!-- No `prefetch` on either arm: the guest one is a password form. See the banner. -->
+            <template v-if="!user">
+                <Link href="/login" class="btn btn-primary">
+                    <!-- `size` is a STEP on the icon scale (0–5), not a length: a fractional
+                         value matches no size class, so `--icon-size` never resolves and the SVG
+                         falls back to its intrinsic size — a 130px arrow. `1` is what every
+                         other button in the app passes. -->
+                    <icon name="login" :size="1" />
+                    <span>{{ t("home.signIn") }}</span>
+                </Link>
+            </template>
+
+            <!-- One per area the library actually holds, most-listened first. `<template>` rather
+                 than `v-else` on the loop itself: `v-if` and `v-for` on one element read as a
+                 condition per iteration, which is not what either is doing here. -->
+            <template v-else>
+                <Link v-for="area in areas" :key="area.href" :href="area.href" class="btn btn-primary">
+                    <icon :name="area.icon" :size="1" />
+                    <span>{{ area.label }}</span>
+                </Link>
+            </template>
         </div>
     </div>
 </template>
@@ -123,8 +197,17 @@ const target = computed(() => (user.value ? "/music" : "/login"));
 
 /* The button centred in its own half — and still centred on its own line once the row has
    wrapped, which is the one place a `justify-content` earns its keep twice. */
+
+/* One button for a guest, up to two for a member. They wrap rather than shrink: a button whose
+   label is squeezed onto two lines beside a neighbour reads as a layout accident, and there is
+   room in this half for one of them at almost every width. `align-items: center` keeps a wrapped
+   pair the same width as each other rather than stretching both to the half. */
 .welcome-intro__action {
     display: flex;
+    align-items: center;
     justify-content: center;
+    flex-wrap: wrap;
+
+    gap: map.get(s.$c-welcome-intro, "gap");
 }
 </style>
