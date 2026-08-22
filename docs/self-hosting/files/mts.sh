@@ -257,6 +257,31 @@ if [[ $MIRROR == 1 ]]; then
     esac
 fi
 
+# The mount point the destination sits on, which is not the destination itself
+# whenever a subfolder was given — and `diskutil eject` wants the volume, so
+# telling someone to eject `/Volumes/DISK/Books/` hands them a command that
+# fails.
+#
+# Found by walking up while the device number stays the same: the first parent on
+# a DIFFERENT device is outside the volume, so the child was its root. Device
+# numbers rather than `df`'s mount-point column, which cannot be split when a
+# volume name contains a space — the same reason the guards above read `stat`.
+# The depth bound is a backstop; the boot volume is already refused, so the walk
+# cannot reach `/`, where `..` is itself and the loop would not end.
+volume_root() {
+    local d hops
+    d="${1%/}"
+    for hops in 1 2 3 4 5 6 7 8 9 10; do
+        if [[ "$(stat -f %d "$d" 2>/dev/null || echo x)" != "$(stat -f %d "$d/.." 2>/dev/null || echo y)" ]]; then
+            printf '%s' "$d"
+            return 0
+        fi
+        d="$(dirname "$d")"
+        [[ $d == / ]] && break
+    done
+    printf '%s' "${1%/}"
+}
+
 # Does this filesystem hand back the filename it was given, byte for byte?
 #
 # One probe file named with a PRECOMPOSED é (C3 A9), then the directory is read
@@ -709,4 +734,9 @@ summary() {
 }
 
 summary
-warn "Eject before unplugging:  diskutil eject '$TARGET'"
+# The cd matters and is not pedantry: macOS refuses to unmount a volume any
+# process is sitting in, and the likeliest such process is the shell that just
+# ran this. It reports that as "Unmount was dissented by PID … (/bin/zsh)",
+# which names the mechanism but not the cause.
+warn "Eject before unplugging — from outside the volume, or your own shell dissents:"
+warn "  cd ~ && diskutil eject '$(volume_root "$TARGET")'"
