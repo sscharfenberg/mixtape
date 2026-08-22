@@ -50,6 +50,11 @@ and expires. This is the headline use case and it stays friction-free. Full desi
 
 The rules that follow from that:
 
+- **A sign-in lands where the music is, not on the dashboard.** The destination follows what the
+  library actually holds — the bigger of the two areas, or the public landing page for an instance
+  with no media at all (`App\Services\Auth\LandingPage`). It is only the default: a reader bounced
+  to the login form from a deep link still gets that link back. Registering and resetting a password
+  still land on the dashboard, because both have just done something *to the account*.
 - **2FA is optional — the user's choice, never forced.** Not for friends, not for the owner.
 - **No web-server HTTP Basic Auth.** It is redundant once Fortify handles auth, and it would block
   share links: recipients would hit the Basic Auth wall first.

@@ -96,7 +96,8 @@ test("signing out takes the queue, the player and the toggle with it — and lea
         await page.locator("#name").fill(user.name);
         await page.locator("#password").fill(user.password);
         await page.getByRole("button", { name: /^Anmelden$/u }).click();
-        await page.waitForURL(/\/dashboard/u);
+        // Where a login lands follows the library now, and this one is mostly music.
+        await page.waitForURL(/\/music/u);
     }
 
     /** Sign in and put exactly one song in the queue, through the UI a reader would use. */

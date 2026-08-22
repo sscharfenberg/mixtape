@@ -51,7 +51,11 @@ class TwoFactorChallengeTest extends TestCase
         $this->postJson('/login', ['name' => 'Plain Jane', 'password' => 'password'])
             ->assertOk()
             ->assertJson(['two_factor' => false])
-            ->assertJsonPath('redirect', fn ($url) => str_contains((string) $url, '/dashboard'));
+            // LandingPage's answer for a library with nothing in it, compared against the app's
+            // own root rather than spelled out — APP_URL differs per environment. Where this
+            // lands with media present is LandingPageTest's business; that it agrees with the
+            // password-only login is what is being made sure of here.
+            ->assertJsonPath('redirect', fn ($url) => (string) $url === url('/'));
 
         $this->assertAuthenticatedAs($user);
     }
@@ -85,7 +89,11 @@ class TwoFactorChallengeTest extends TestCase
 
         $this->postJson('/two-factor-challenge', ['code' => (new Google2FA)->getCurrentOtp($secret)])
             ->assertOk()
-            ->assertJsonPath('redirect', fn ($url) => str_contains((string) $url, '/dashboard'));
+            // LandingPage's answer for a library with nothing in it, compared against the app's
+            // own root rather than spelled out — APP_URL differs per environment. Where this
+            // lands with media present is LandingPageTest's business; that it agrees with the
+            // password-only login is what is being made sure of here.
+            ->assertJsonPath('redirect', fn ($url) => (string) $url === url('/'));
 
         $this->assertAuthenticatedAs($user);
     }

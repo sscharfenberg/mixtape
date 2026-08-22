@@ -53,8 +53,9 @@ class FortifyServiceProvider extends ServiceProvider
         // stays greppable end-to-end.
         Fortify::ignoreRoutes();
 
-        // Custom login/logout responses flash a quick toast message, then
-        // redirect (login → config('fortify.home') = /dashboard, logout → '/').
+        // Custom login/logout responses flash a quick toast message, then redirect — login to
+        // whichever area the library actually holds (App\Services\Auth\LandingPage, which is
+        // what replaced config('fortify.home') for this one path), logout to '/'.
         // Bound here — the app provider registers after Fortify's, so these
         // override Fortify's default responses. See app/Http/Responses.
         $this->app->singleton(LoginResponseContract::class, LoginResponse::class);

@@ -44,7 +44,9 @@ setup("mint a session for every spec that owns a queue", async ({ browser }) => 
         await signIn(page, { name: SPEC_USERS[spec], password: SEED_USER.password });
         // Proof the session is real before it is parked: a login that merely stopped
         // redirecting would save a file full of anonymous cookies, and every spec using it
-        // would fail far away from here.
+        // would fail far away from here. The dashboard is used as the probe precisely because
+        // it is NOT where a login lands any more — reaching it proves the session, rather than
+        // re-asserting the redirect signIn already waited for.
         await page.goto("/dashboard");
         await expect(page).toHaveURL(/\/dashboard/u);
         await context.storageState({ path: specStorageState(spec) });

@@ -27,6 +27,12 @@ import { SEED_USER } from "./environment";
  * strict-mode violation in a shared helper would break every spec at once. The ids are a
  * real contract in the markup (FormRow's `for-id` wires the label to them).
  *
+ * WHERE A SUCCESSFUL LOGIN LANDS IS NO LONGER FIXED. The destination is decided by what the
+ * library holds (App\Services\Auth\LandingPage): the seeded E2E collection is mostly music, so
+ * `/music` is the default here — an instance with more audiobooks would land on `/audiobooks`,
+ * and one with no media at all on `/`. A spec that cares about a particular destination passes
+ * its own pattern; one testing a FAILING login passes null.
+ *
  * @param page     the page to drive
  * @param user     credentials; defaults to the seeded account
  * @param expectTo where a successful login should land — pass null to skip the wait when
@@ -35,7 +41,7 @@ import { SEED_USER } from "./environment";
 export const signIn = async (
     page: Page,
     user: { name: string; password: string } = SEED_USER,
-    expectTo: RegExp | null = /\/dashboard/u
+    expectTo: RegExp | null = /\/music/u
 ): Promise<void> => {
     await page.goto("/login");
     await page.locator("#name").fill(user.name);

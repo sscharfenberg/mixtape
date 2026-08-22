@@ -41,7 +41,10 @@ class LoginTest extends TestCase
             'password' => 's3cret-pass',
         ]);
 
-        $response->assertRedirect('/dashboard'); // config('fortify.home')
+        // The landing page for an instance with no media at all — see LandingPageTest, which
+        // owns the four answers this can give. It is not `/dashboard` any more: signing in to a
+        // music collection lands where the music is.
+        $response->assertRedirect('/');
         $this->assertAuthenticatedAs($user);
 
         // a fast (3000ms) success toast is flashed for the login (see LoginResponse).
@@ -68,7 +71,7 @@ class LoginTest extends TestCase
             ]);
 
         // The flash set by LoginResponse is shared by HandleInertiaRequests and
-        // reaches the (dashboard) page's Inertia props, where ToastContainer
+        // reaches the landing page's Inertia props, where ToastContainer
         // renders it. Duration is the fast 3000ms; nonce is a fresh string.
         $response->assertOk()->assertInertia(fn (Assert $page) => $page
             ->where('flash.message', __('flash.login.welcome', ['name' => 'Grace Hopper']))
@@ -216,7 +219,7 @@ class LoginTest extends TestCase
 
         // Same IP, different name: still has its full allowance, and a correct password works.
         $this->post('/login', ['name' => 'Housemate', 'password' => 'other-pass'])
-            ->assertRedirect('/dashboard');
+            ->assertRedirect('/');
         $this->assertAuthenticated();
     }
 

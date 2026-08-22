@@ -57,10 +57,14 @@ test.describe("the auth gate", () => {
         await expect(page).toHaveURL(/\/login/u);
     });
 
-    test("signs in and lands on the dashboard", async ({ page }) => {
+    test("signs in and lands where the music is", async ({ page }) => {
+        // NOT the dashboard, which is a page about the account. The destination is decided by
+        // what the library holds (App\Services\Auth\LandingPage) and the seeded collection is
+        // mostly music; the four answers that rule can give are pinned in LandingPageTest, where
+        // a library is three lines rather than a fixture.
         await signIn(page);
 
-        await expect(page).toHaveURL(/\/dashboard/u);
+        await expect(page).toHaveURL(/\/music/u);
     });
 
     test("lets a signed-in user back out again", async ({ page }) => {

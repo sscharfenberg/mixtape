@@ -2,9 +2,9 @@
 
 namespace App\Http\Responses;
 
+use App\Services\Auth\LandingPage;
 use Illuminate\Http\JsonResponse;
 use Laravel\Fortify\Contracts\TwoFactorLoginResponse as TwoFactorLoginResponseContract;
-use Laravel\Fortify\Fortify;
 use Symfony\Component\HttpFoundation\Response;
 
 class TwoFactorLoginResponse implements TwoFactorLoginResponseContract
@@ -18,6 +18,10 @@ class TwoFactorLoginResponse implements TwoFactorLoginResponseContract
      * we hand the frontend the intended URL and it navigates via router.visit();
      * the non-JSON branch keeps the plain redirect for completeness.
      *
+     * The default behind `intended()` is {@see LandingPage}'s, the same one the password-only
+     * login uses — a challenge answered is still a sign-in, and the two landing in different
+     * places would be a difference nobody chose.
+     *
      * @param  mixed  $request
      * @return Response
      */
@@ -25,10 +29,10 @@ class TwoFactorLoginResponse implements TwoFactorLoginResponseContract
     {
         if ($request->wantsJson()) {
             return new JsonResponse([
-                'redirect' => redirect()->intended(Fortify::redirects('login'))->getTargetUrl(),
+                'redirect' => redirect()->intended(LandingPage::path())->getTargetUrl(),
             ]);
         }
 
-        return redirect()->intended(Fortify::redirects('login'));
+        return redirect()->intended(LandingPage::path());
     }
 }

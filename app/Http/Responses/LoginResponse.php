@@ -2,9 +2,9 @@
 
 namespace App\Http\Responses;
 
+use App\Services\Auth\LandingPage;
 use Illuminate\Http\JsonResponse;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
-use Laravel\Fortify\Fortify;
 use Symfony\Component\HttpFoundation\Response;
 
 class LoginResponse implements LoginResponseContract
@@ -20,6 +20,11 @@ class LoginResponse implements LoginResponseContract
      * path we return { two_factor: false, redirect } and the frontend navigates
      * itself via router.visit(); the non-JSON path keeps the plain redirect (and
      * is what the feature tests and any no-JS fallback exercise).
+     *
+     * WHERE IT LANDS IS NO LONGER ONE CONFIG VALUE. `LandingPage::path()` answers with the
+     * area the library actually holds most of, or the public landing page for an instance
+     * with no media at all — the reasoning is there. It is handed to `intended()`, so it is
+     * only the fallback: a reader bounced here from a deep link still gets that link.
      *
      * The success toast is flashed before the wantsJson() branch either way:
      * the frontend's subsequent Inertia GET (router.visit) carries it into the
@@ -38,10 +43,10 @@ class LoginResponse implements LoginResponseContract
         if ($request->wantsJson()) {
             return new JsonResponse([
                 'two_factor' => false,
-                'redirect' => redirect()->intended(Fortify::redirects('login'))->getTargetUrl(),
+                'redirect' => redirect()->intended(LandingPage::path())->getTargetUrl(),
             ]);
         }
 
-        return redirect()->intended(Fortify::redirects('login'));
+        return redirect()->intended(LandingPage::path());
     }
 }
