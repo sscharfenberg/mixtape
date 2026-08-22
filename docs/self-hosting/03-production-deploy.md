@@ -615,7 +615,20 @@ interrupted transfer has to *fail* before it can be retried, and without an I/O 
 connection simply hangs. Exit codes that mean the invocation is wrong (`1`, `2`, `4`) are not retried,
 because they will fail identically five times.
 
-**Two destination guards, because the mistake is expensive.** The directory is never created — a
+**`--mirror` is refused where the filesystem renames what you write.** macOS writes a filename to FAT
+in *decomposed* form — `é` becomes `e` plus a combining accent — while the server stores whatever the
+tagger wrote, here precomposed. Lookups are normalisation-insensitive, so transfers are unaffected and
+stay idempotent; a directory *listing* is not, so rsync reads back a name that is not in its send list
+and calls a correctly-copied file extraneous. Measured on this collection: **0 files to copy and 553
+to delete**, every one an accented title sitting there and playing fine. A mirror would delete them
+and re-copy them on every run, for ever. So the property is *probed* rather than assumed — write one
+precomposed name into the destination, read the directory back, see which form returns — because it
+belongs to the volume and not to any list of filesystems a script could keep: the same Mac preserves
+on APFS and decomposes on FAT. It refuses rather than asking, because 553 deletions of good files is
+not something a yes/no prompt should be able to wave through, and dropping `--mirror` loses nothing
+but the deletions.
+
+**Two more destination guards, because the mistake is expensive.** The directory is never created — a
 mistyped volume name does not exist, so the run fails instead of quietly filling the boot disk — and
 its device number must differ from `/`'s. Device numbers rather than parsing `df`'s mount-point
 column, which cannot be split safely when a volume name contains a space. `--mirror` adds a third:
@@ -632,24 +645,39 @@ actually contains deletions.
 **The AppleDouble sweep is not optional.** macOS stamps a file it creates with an extended attribute,
 and FAT cannot store one — so the volume driver spills each into a 4 KB `._<name>` sidecar beside the
 real file. The library's own files carry no extended attributes at all; these are made on the way in,
-which is why an `--exclude` cannot prevent them, and a ten-thousand-file library otherwise arrives
-with ten thousand phantom files that a head unit lists as tracks. `dot_clean` is the sanctioned tool
-and does not finish the job on FAT: measured on two files, it merged one sidecar, left the other and
-the directory's own behind, and restored the extended attribute it had just merged, which spills
-again. Deleting the sidecar and *then* clearing the attribute leaves nothing to regenerate. The sweep
-runs only where sidecars actually exist, so a destination on a filesystem that stores extended
-attributes natively is left alone.
+which is why an `--exclude` cannot prevent them, and an eleven-thousand-file library otherwise
+arrives with **12,319** phantom files that a head unit lists as tracks. `dot_clean` does not finish
+the job on FAT: measured on two files, it merged one sidecar, left the other and the directory's own
+behind, and restored the extended attribute it had just merged, which spills again.
 
-It also runs **on interrupt**, not only on success. The sweep is the last thing a run does and an
-abandoned run is the likeliest kind — stopping a copy that has an hour to go would otherwise leave
-thousands of phantom files on a disk somebody is about to unplug. The partial directory is
-deliberately *not* touched there: on an interrupt it holds the file that was in flight, which is the
-whole reason for keeping it.
+**Deleting the sidecar is the whole cure, and an `xattr` pass is the trap.** On FAT the sidecar *is*
+where the attribute is stored, so `xattr -l` on a swept file already comes back empty — an
+`xattr -rc` pass over the tree removes nothing the delete has not, and over twelve thousand entries
+it runs for **minutes**, a syscall at a time, while the transfer looks like it has hung. That is worth
+stating plainly because the intuitive order — remove the artefact, then clear the cause — is both
+redundant and the slowest possible way to do nothing.
+
+They come back on **every** run, not only the first: rsync re-stamps directory times whenever it walks
+the tree, so a pass that transfers nothing still leaves a sidecar beside each of ~1,300 directories.
+The sweep therefore hangs off the shell's `EXIT` trap rather than sitting after the transfer loop —
+`fail` exits, so a run that gives up after its retries would otherwise skip it and leave every sidecar
+it made on a disk somebody is about to unplug. The same trap covers Ctrl-C and a closed terminal, and
+it is armed only once the destination is validated. A dry run is exempt: `-n` must leave the disk
+exactly as it found it. The partial directory is never swept, because on an interrupt it holds the
+file that was in flight — the whole reason for keeping it.
 
 **Progress is counted, not measured.** The dry run that produces the plan also produces the file
 count, so the real run is filtered through `awk` into one updating `[n/total pct%]` line — openrsync
 has no `--info=progress2` to do it properly. The count is carried across attempts in a temporary
 file, or the display would jump backwards after a dropped connection.
+
+**The run ends with a summary, not just a last progress line**, because "how far along is it" and
+"what did that just do to my disk" are different questions. New files and updated ones are counted
+separately, straight off the itemized flags — a transfer whose every attribute slot is `+` was not
+there at all, any other flag string means it was and something differed — alongside deletions,
+sidecars swept, bytes moved with the rate they moved at, and elapsed time. Every row is a measurement
+the run actually took rather than a restatement of the plan; the two differing is exactly the case
+worth seeing.
 
 That `awk` runs under **`LC_ALL=C`**, which is not a detail. rsync's itemized output is not
 guaranteed to be valid UTF-8: it escapes some non-ASCII bytes in a filename as `\#NNN` octal and

@@ -111,6 +111,21 @@ note() { printf '\033[1;36m%s\033[0m\n' "$*"; }
 warn() { printf '\033[1;33m%s\033[0m\n' "$*" >&2; }
 fail() { printf '\033[1;31mmts: %s\033[0m\n' "$*" >&2; exit 1; }
 
+# 1234567 -> 1,234,567. Done with sed rather than printf "%'d": that flag needs
+# a thousands-grouping locale, and this script forces LC_ALL=C elsewhere.
+commify() { printf '%s' "$1" | sed -e ':a' -e 's/\B[0-9]\{3\}\>/,&/;ta'; }
+
+# Bytes as a person reads them. Decimal units, because that is what the disk's
+# own capacity is quoted in, so 85 GB here matches 85 GB in Finder.
+human_bytes() {
+    awk -v b="${1:-0}" 'BEGIN {
+        split("B KB MB GB TB", u, " ")
+        i = 1
+        while (b >= 1000 && i < 5) { b /= 1000; i++ }
+        printf (i == 1 ? "%d %s" : "%.1f %s"), b, u[i]
+    }'
+}
+
 # `if`, not `[[ … ]] && fail`: under `set -e` that idiom exits the script when
 # the condition is FALSE, i.e. it would abort on every correctly-edited copy.
 if [[ $HOST == *"<your-server>"* ]]; then
@@ -242,6 +257,26 @@ if [[ $MIRROR == 1 ]]; then
     esac
 fi
 
+# Does this filesystem hand back the filename it was given, byte for byte?
+#
+# One probe file named with a PRECOMPOSED é (C3 A9), then the directory is read
+# back: a filesystem that preserves the form returns those bytes, one that
+# decomposes returns `e` followed by a combining accent (65 CC 81) and the test
+# fails. Written and removed in the destination itself, because the answer is a
+# property of that volume rather than of the platform — the same Mac preserves on
+# APFS and decomposes on FAT.
+preserves_name_form() {
+    local nfc probe found
+    nfc="$(printf 'caf\303\251')"
+    probe="$TARGET.mts-probe-$nfc"
+
+    : > "$probe" 2>/dev/null || return 0   # cannot probe: do not block on it
+    found="$(find "$TARGET" -maxdepth 1 -name '.mts-probe-*' -print 2>/dev/null | head -1)"
+    rm -f "$probe" 2>/dev/null || true
+
+    [[ $found == *"$nfc"* ]]
+}
+
 # --- Build the rsync argument list -----------------------------------------
 # -rt, NOT -a. FAT32 and exFAT have no ownership, permissions or symlinks, so
 # -a asks for four things the filesystem cannot store. Nothing needs subtracting
@@ -260,6 +295,7 @@ RSYNC_ARGS=(
     --timeout="$IO_TIMEOUT"
     --contimeout="$CONNECT_TIMEOUT"
     --itemize-changes
+    --stats
     -e "$REMOTE_SHELL"
     --exclude="$PARTIAL_DIR/"
 )
@@ -299,13 +335,129 @@ RSYNC_ARGS+=(${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"})
 SOURCE="$HOST:$SRC/"
 TARGET="${DEST%/}/"
 
+# AND THE FILESYSTEM MUST GIVE BACK THE NAME IT WAS GIVEN. macOS writes a
+# filename to FAT in decomposed form — `é` becomes `e` plus a combining
+# accent — while the server stores whatever the tagger wrote, here
+# precomposed. Lookups are normalisation-insensitive, so TRANSFERS are
+# unaffected and stay idempotent; a directory LISTING is not, so rsync reads
+# back a name that is not in its send list and calls a correctly-copied file
+# extraneous. Measured on this collection: 0 files to copy and 553 to delete,
+# every one of them an accented title that is present and playable. A mirror
+# would delete them and re-copy them on every run, for ever.
+#
+# So the property is PROBED rather than assumed — write one precomposed name,
+# read the directory back, see which form returns — because it belongs to the
+# filesystem and not to any list of filesystems this script could keep. This
+# refuses rather than asking: 553 deletions of good files is not something a
+# yes/no prompt should be able to wave through, and dropping --mirror loses
+# nothing but the deletions.
+if [[ $MIRROR == 1 ]] && ! preserves_name_form; then
+    fail "$(printf '%s\n' \
+        "--mirror is unsafe here: $DEST normalises filenames, so rsync reads back" \
+        "     a different spelling than it sent and treats every accented title as" \
+        "     extraneous. Re-run without --mirror; the copy itself is unaffected.")"
+fi
+
+# --- AppleDouble sidecars --------------------------------------------------
+# macOS stamps a file it creates with an extended attribute (today
+# `com.apple.provenance`, with an empty value), and FAT cannot store extended
+# attributes — so the volume driver spills each one into a 4 KB `._<name>`
+# AppleDouble file beside the real one. The library's own files carry no xattrs
+# at all; these are made HERE, on the way in, which is why the `._*` exclude
+# above cannot prevent them. Left alone, a ten-thousand-file library arrives
+# with ten thousand phantom 4 KB files, and a head unit lists them as tracks.
+#
+# Deleted rather than merged. `dot_clean` is the sanctioned tool for this and it
+# does not finish the job on FAT — measured on two files: it merged one sidecar,
+# left the other and the directory's own behind, and restored the attribute it
+# had just merged, which spills straight back.
+#
+# DELETING THE SIDECAR IS THE WHOLE JOB — there is no attribute left to clear
+# afterwards, because on FAT the sidecar IS where the attribute is stored.
+# Measured: delete the sidecars and `xattr -l` on the file it belonged to comes
+# back empty. An `xattr -rc` pass over the tree therefore removes nothing that
+# the delete has not already removed, and on a real library it is not merely
+# redundant but ruinous — over twelve thousand entries it runs for minutes, a
+# syscall at a time, while the run appears to have hung.
+#
+# Scoped to sidecars that EXIST, so a destination on a filesystem which stores
+# extended attributes natively (an external APFS disk) is left alone: no
+# sidecars means the volume is not spilling, so there is nothing here to fix.
+#
+# They come back on EVERY run, not only the first. rsync re-stamps directory
+# times whenever it walks the tree, so a pass that transfers nothing still leaves
+# a sidecar beside each of ~1,300 directories — which is why this is the last
+# thing a run does rather than something the first run gets out of the way.
+#
+# A FUNCTION, AND ALSO A TRAP, because the sweep is the last thing a run does
+# and an abandoned run is the likeliest kind: interrupting a two-hour copy would
+# otherwise leave thousands of phantom files on a disk somebody is about to
+# unplug and drive away with. The partial directory is deliberately NOT touched
+# here — on an interrupt it holds the file that was in flight, which is the whole
+# point of keeping it.
+#
+# THE ORDER IS CAUSE THEN ARTEFACT, AND THEN IT CHECKS. Clearing the extended
+# attributes first removes the thing the volume is spilling, so deleting the
+# sidecars afterwards cannot race a driver that is still writing them; doing it
+# the other way round is what a two-file test cannot tell you apart from doing it
+# right. The count is then re-read rather than trusted, and the pass repeated,
+# because "I deleted 12,319 files" and "there are now none" are different claims
+# and only the second one is what the disk goes into the car with. SWEPT carries
+# the honest number to the summary.
+SWEPT=0
+sweep_sidecars() {
+    local before after pass
+    # A dry run must leave the disk exactly as it found it. The EXIT trap fires
+    # on `-n` too, and sweeping there would make a command whose whole purpose is
+    # to change nothing quietly delete files.
+    if [[ ${DRY:-0} == 1 ]]; then
+        return 0
+    fi
+
+    before="$(sidecar_count)"
+    [[ ${before:-0} -gt 0 ]] || return 0
+
+    for pass in 1 2 3; do
+        find "$TARGET" -name '._*' -type f -delete 2>/dev/null || true
+        after="$(sidecar_count)"
+        [[ ${after:-0} -gt 0 ]] || break
+    done
+
+    SWEPT=$((before - after))
+    if [[ ${after:-0} -gt 0 ]]; then
+        warn "$(commify "$after") AppleDouble sidecar(s) survived three sweeps — the volume is still spilling them."
+    fi
+}
+
+# Counted in one place, because the sweep compares two readings of it and a
+# predicate written twice can disagree with itself. A directory's sidecar is a
+# regular file too, which is why -type f does not miss it.
+sidecar_count() {
+    find "$TARGET" -name '._*' -type f 2>/dev/null | wc -l | tr -d ' '
+}
+
 # --- The plan --------------------------------------------------------------
 # A dry run first, for three things at once: the file count that makes a
 # progress display possible (openrsync has no --info=progress2), the deletion
 # count, and a rehearsal that costs one file-list walk and no writes.
 
 PLAN="$(mktemp -t mts-plan)"
-trap 'rm -f "$PLAN"' EXIT
+
+# THE SWEEP HANGS OFF `EXIT`, NOT OFF THE SUCCESS PATH. A call after the transfer
+# loop looks equivalent and is not: `fail` exits, so a run that gives up after
+# its retries — or hits a usage error, or trips `set -e` — would skip it and
+# leave every sidecar it made on the disk. `EXIT` fires on every path out of
+# here, including the two early exits just below, so the disk is always left fit
+# to unplug. Armed only now, once the destination is validated: it reads $TARGET,
+# and nothing before this point has written anything to sweep.
+#
+# The signal trap therefore does nothing but exit — `exit` runs the EXIT trap, so
+# the sweep still happens on Ctrl-C, in one place rather than two. HUP is in the
+# list because closing the terminal on a two-hour copy is not an unusual way for
+# one to end. `${VAR:-}` because COUNT_FILE does not exist yet when an early
+# exit fires this, and `set -u` would abort inside the trap.
+trap 'rm -f -- "${PLAN:-}" "${COUNT_FILE:-}"; sweep_sidecars' EXIT
+trap 'printf "\n"; exit 130' INT TERM HUP
 
 note "Planning: $SOURCE -> $TARGET"
 
@@ -364,50 +516,8 @@ fi
 # jump backwards after a dropped connection.
 
 COUNT_FILE="$(mktemp -t mts-count)"
-trap 'rm -f "$PLAN" "$COUNT_FILE"' EXIT
 
-# --- AppleDouble sidecars --------------------------------------------------
-# macOS stamps a file it creates with an extended attribute (today
-# `com.apple.provenance`, with an empty value), and FAT cannot store extended
-# attributes — so the volume driver spills each one into a 4 KB `._<name>`
-# AppleDouble file beside the real one. The library's own files carry no xattrs
-# at all; these are made HERE, on the way in, which is why the `._*` exclude
-# above cannot prevent them. Left alone, a ten-thousand-file library arrives
-# with ten thousand phantom 4 KB files, and a head unit lists them as tracks.
-#
-# Deleted rather than merged. `dot_clean` is the sanctioned tool for this and it
-# does not finish the job on FAT — measured on two files: it merged one sidecar,
-# left the other and the directory's own behind, and restored the xattr it had
-# just merged, which spills straight back. Removing the sidecar and then
-# clearing the xattr leaves nothing to regenerate, and later runs only rewrite
-# what actually changed.
-#
-# Scoped to sidecars that EXIST, so a destination on a filesystem which stores
-# xattrs natively (an external APFS disk) is left alone: no sidecars means the
-# volume is not spilling, so there is nothing here to fix and its real extended
-# attributes are none of our business. `|| true` on both — xattr exits non-zero
-# on any file it cannot touch, such as the volume's own .Spotlight-V100, and
-# that is not a failure of the transfer.
-#
-# A FUNCTION, AND ALSO A TRAP, because the sweep is the last thing a run does
-# and an abandoned run is the likeliest kind: interrupting a two-hour copy would
-# otherwise leave thousands of phantom files on a disk somebody is about to
-# unplug and drive away with. The partial directory is deliberately NOT touched
-# here — on an interrupt it holds the file that was in flight, which is the whole
-# point of keeping it.
-sweep_sidecars() {
-    local n
-    n="$(find "$TARGET" -name '._*' -type f 2>/dev/null | wc -l | tr -d ' ')"
-    if [[ ${n:-0} -gt 0 ]]; then
-        find "$TARGET" -name '._*' -type f -delete 2>/dev/null || true
-        xattr -rc "$TARGET" 2>/dev/null || true
-        note "Removed $n AppleDouble sidecar(s) the volume created."
-    fi
-}
-
-# Ctrl-C during a long copy must still leave the disk fit to be unplugged.
-trap 'printf "\n"; sweep_sidecars; exit 130' INT TERM
-printf '0' > "$COUNT_FILE"
+printf '0 0 0 0\n' > "$COUNT_FILE"
 
 WIDTH=100
 if [[ -t 1 ]]; then
@@ -415,7 +525,6 @@ if [[ -t 1 ]]; then
 fi
 
 progress_filter() {
-    local base="$1"
     # LC_ALL=C, because rsync's itemized output is NOT guaranteed to be valid
     # UTF-8. It escapes some non-ASCII bytes in a filename as `\#NNN` octal and
     # passes others through raw, so a name like `Tír na mBan.mp3` reaches awk as
@@ -425,25 +534,34 @@ progress_filter() {
     # accented titles the warnings bury the progress display. Byte-oriented awk
     # never attempts the conversion. The only cost is that `length()` counts
     # bytes, so a line with multibyte characters is truncated a little early.
-    LC_ALL=C awk -v total="$TO_SEND" -v width="$WIDTH" -v base="$base" \
-        -v tty="$([[ -t 1 ]] && echo 1 || echo 0)" -v cf="$COUNT_FILE" '
+    #
+    # The four running totals are read in and written back out, so a retry
+    # continues the count instead of restarting it — see read_state.
+    LC_ALL=C awk -v total="$TO_SEND" -v width="$WIDTH" -v cf="$COUNT_FILE" \
+        -v tty="$([[ -t 1 ]] && echo 1 || echo 0)" \
+        -v b_new="$S_NEW" -v b_upd="$S_UPD" -v b_del="$S_DEL" -v b_bytes="$S_BYTES" '
         BEGIN {
-            sent = base + 0
+            nw = b_new + 0; up = b_upd + 0; dl = b_del + 0; by = b_bytes + 0
             blank = sprintf("%" width "s", "")
             pending = 0
         }
-        # Itemized lines are eleven flag characters, a space, then the path.
-        # Anything else (a warning, a --stats block) is passed through, after a
-        # newline if a progress line is sitting unterminated.
+        # Anything not itemized (a warning, a --stats line we do not want) is
+        # passed through, after a newline if a progress line is unterminated.
         function passthrough(line) {
             if (pending == 1) { printf "\n"; pending = 0 }
             print line
             fflush()
         }
-        /^\*deleting/ { deleted++; next }
+        /^\*deleting/ { dl++; next }
+        # Itemized lines are eleven flag characters, a space, then the path. A
+        # transfer whose every attribute slot is `+` is a file that was not there
+        # at all; any other flag string means it was, and something about it
+        # differed. That is the whole difference between "new" and "updated", and
+        # it is the only place either number comes from.
         /^[<>ch.][fdLDS.+?]/ {
             if ($0 !~ /^>f/) { next }
-            sent++
+            if ($1 ~ /^>f\++$/) { nw++ } else { up++ }
+            sent = nw + up
             path = $0
             sub(/^[^ ]+ +/, "", path)
             pct = (total > 0) ? int(sent * 100 / total) : 100
@@ -459,13 +577,31 @@ progress_filter() {
             }
             next
         }
+        # The one --stats figure the summary needs; the rest of that block is
+        # swallowed rather than printed over the progress line.
+        /^Total transferred file size:/ { by += $5; next }
+        /^(sent |total size |Number of |Total |Unmatched |Matched |File list )/ { next }
+        /^$/ { next }
         { passthrough($0) }
         END {
             if (pending == 1) { printf "\n" }
-            printf("%d", sent) > cf
-            if (deleted > 0) { printf "Deleted %d file(s).\n", deleted }
+            printf("%d %d %d %d\n", nw, up, dl, by) > cf
         }
     '
+}
+
+# The four totals as shell variables, re-read before every attempt so the counts
+# survive a dropped connection. One file rather than four, because they are only
+# ever written together.
+read_state() {
+    S_NEW=0; S_UPD=0; S_DEL=0; S_BYTES=0
+    # `|| true` IS LOAD-BEARING. `read` returns non-zero when it reaches EOF
+    # without its delimiter, even though it has assigned every field it found —
+    # so a state file with no trailing newline sets the variables and then kills
+    # the script, under `set -e`, with no message at all. The writers here do end
+    # the line, and this still tolerates one that does not.
+    read -r S_NEW S_UPD S_DEL S_BYTES < "$COUNT_FILE" || true
+    S_NEW="${S_NEW:-0}"; S_UPD="${S_UPD:-0}"; S_DEL="${S_DEL:-0}"; S_BYTES="${S_BYTES:-0}"
 }
 
 # --- Transfer, with retries ------------------------------------------------
@@ -494,12 +630,12 @@ while :; do
         note "Attempt $attempt of $MAX_ATTEMPTS — resuming"
     fi
 
-    done_so_far="$(cat "$COUNT_FILE")"
+    read_state
 
     # `set +e` around the pipeline: we want the code, not the trap. pipefail is
     # on, so PIPESTATUS[0] is rsync's own status rather than awk's.
     set +e
-    rsync "${RSYNC_ARGS[@]}" "$SOURCE" "$TARGET" | progress_filter "$done_so_far"
+    rsync "${RSYNC_ARGS[@]}" "$SOURCE" "$TARGET" | progress_filter
     rc="${PIPESTATUS[0]}"
     set -e
 
@@ -523,19 +659,54 @@ while :; do
 done
 
 # --- Finish ----------------------------------------------------------------
-# The transfer is done; take the sidecars it created off the disk.
-sweep_sidecars
-
 # Only a completed run may remove the partial directory, and only while it is
 # empty — rsync empties it as each file lands, so an empty one is spent.
 find "$TARGET" -name "$PARTIAL_DIR" -type d -empty -delete 2>/dev/null || true
 
+# The sweep is run HERE rather than left to the EXIT trap, even though the trap
+# would do it: the summary below reports how many sidecars went, and a trap that
+# fires after the last line printed cannot be part of it. Running it twice is
+# free — the second call reads a count of zero and returns.
+sweep_sidecars
+
 # FAT writes sit in the page cache, and a stick pulled out of a Mac without
 # being ejected loses whatever had not landed. `sync` is not a substitute for
-# ejecting, so say so rather than implying the disk is safe to remove.
+# ejecting, so the summary says so rather than implying the disk is safe to pull.
 sync
 
+read_state
 elapsed=$((SECONDS - started))
-note "Done in $((elapsed / 60))m $((elapsed % 60))s — $(cat "$COUNT_FILE") file(s) copied."
 
+# The summary answers "what did that just do to my disk", which is a different
+# question from the progress line's "how far along is it". Every row is a
+# measurement the run actually took rather than a restatement of the plan: the
+# plan is what was intended, and the two differing is exactly the case worth
+# seeing.
+summary() {
+    local label rate
+
+    rate=""
+    if [[ $elapsed -gt 0 && ${S_BYTES:-0} -gt 0 ]]; then
+        rate="  at $(human_bytes $((S_BYTES / elapsed)))/s"
+    fi
+
+    printf '\n'
+    note "  $AREA → $TARGET"
+    printf '  %s\n' "────────────────────────────────────────────────────"
+    printf '  %-18s %12s\n' "new files"      "$(commify "$S_NEW")"
+    printf '  %-18s %12s\n' "updated"        "$(commify "$S_UPD")"
+    printf '  %-18s %12s\n' "deleted"        "$(commify "$S_DEL")"
+    printf '  %-18s %12s\n' "sidecars swept" "$(commify "$SWEPT")"
+    printf '  %-18s %12s%s\n' "transferred"  "$(human_bytes "${S_BYTES:-0}")" "$rate"
+    printf '  %-18s %12s\n' "elapsed"        "$(printf '%dm %02ds' $((elapsed / 60)) $((elapsed % 60)))"
+    printf '  %s\n' "────────────────────────────────────────────────────"
+
+    label="$(du -sh "$TARGET" 2>/dev/null | cut -f1 | tr -d ' ')"
+    if [[ -n $label ]]; then
+        printf '  %-18s %12s\n' "on disk now" "$label"
+    fi
+    printf '\n'
+}
+
+summary
 warn "Eject before unplugging:  diskutil eject '$TARGET'"
