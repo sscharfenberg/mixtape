@@ -10,6 +10,7 @@ use App\Models\Genre;
 use App\Models\Track;
 use App\Models\User;
 use App\Services\Library\LibraryStats;
+use App\Services\Music\ArtistCredits;
 use App\Services\Music\DominantGenre;
 use App\Services\Player\PlayCounts;
 use Illuminate\Database\Eloquent\Builder;
@@ -218,16 +219,14 @@ class MusicController extends Controller
     }
 
     /**
-     * Four artists that actually perform tracks. The `has('tracks')` filter is
-     * load-bearing: an artist can exist as an album_artist only — compilation
-     * owners like "Irish Folk Festival", whose songs credit the individual
-     * performers — with zero tracks of its own, so its `max(modified_at)` is
-     * NULL. Postgres sorts NULLs FIRST under `ORDER BY … DESC`, which floated
-     * those track-less artists to the top of "latest" (invisible on SQLite,
-     * which sorts NULLs last). Requiring tracks drops them and keeps the widget
-     * to real performers. `popular` (the default in the widget) is {@see mostPlayed}, over the
-     * artists this reader has actually listened to; `latest` orders by the newest track's
-     * mtime; `random` shuffles.
+     * Four artists with something to play. The INNER join to the credit totals is
+     * load-bearing: an artist can be credited with nothing at all — a `collections` row whose
+     * files the scanner has since removed — so its `max(modified_at)` is NULL, and Postgres
+     * sorts NULLs FIRST under `ORDER BY … DESC`, which floats exactly those artists to the
+     * top of "latest" (invisible on SQLite, which sorts NULLs last). An inner join drops them
+     * without a clause of its own. `popular` (the default in the widget) is {@see mostPlayed},
+     * over the artists this reader has actually listened to; `latest` orders by the newest
+     * credited track's mtime; `random` shuffles.
      *
      * THIS CARD OPENS ON A SET THAT CAN BE EMPTY, which is the cost of `popular` meaning only
      * what it says. The alternative is a second sort key on total file duration, which would
@@ -242,11 +241,13 @@ class MusicController extends Controller
      * `albums` counts the collections they are the ALBUM-ARTIST of, which is the same
      * relation the artist page's own discography lists — not "albums holding a track of
      * theirs", which would count every compilation they appear on once. `songs` and
-     * `duration` are over their own tracks. All three are aggregates rather than loaded
-     * relations: four artists must not become four more queries.
+     * `duration` are over everything CREDITED to them (App\Services\Music\ArtistCredits),
+     * matching the listing and the artist's own hero. All three are aggregates rather than
+     * loaded relations: four artists must not become four more queries.
      *
-     * `tracks_sum_duration` is aliased away by hand below for the reason the genre page's
-     * totals document — an aggregate landing on an attribute that HAS a cast gets that cast.
+     * The credit totals arrive as ONE joined subquery rather than three correlated selects,
+     * which is also what makes `latest` cheap: its sort key is a column of that same
+     * aggregate, so the mode costs no extra pass.
      *
      * A fourth pip carries the reader's OWN listens across those tracks — correlated rather
      * than grouped, for the four-rows reason PlayCounts::ownCountForArtist spells out.
@@ -256,14 +257,15 @@ class MusicController extends Controller
     private function artists(string $mode, ?User $reader): array
     {
         return Artist::query()
-            ->has('tracks')
-            ->withCount(['albums', 'tracks'])
-            ->withSum('tracks as total_duration', 'duration')
+            ->joinSub(ArtistCredits::totalsPerArtist(), 'credited', 'credited.subject_id', '=', 'artists.id')
+            ->select(['artists.id', 'artists.name'])
+            ->addSelect(['credited.songs_count', 'credited.duration_total'])
+            ->withCount('albums')
             ->addSelect(['plays_count' => PlayCounts::ownCountForArtist($reader)])
             ->tap(fn (Builder $q) => match ($mode) {
                 'random' => $q->inRandomOrder(),
                 'popular' => $this->mostPlayed($q, PlayCounts::ownPerArtist($reader), 'artists.id'),
-                default => $q->withMax('tracks', 'modified_at')->orderByDesc('tracks_max_modified_at'),
+                default => $q->orderByDesc('credited.modified_at'),
             })
             ->limit(self::LIMIT)
             ->get()
@@ -271,9 +273,9 @@ class MusicController extends Controller
                 'id' => $artist->id,
                 'name' => $artist->name,
                 'albums' => (int) $artist->albums_count,
-                'songs' => (int) $artist->tracks_count,
+                'songs' => (int) $artist->songs_count,
                 // Raw seconds; the widget clocks it against the viewer's locale.
-                'duration' => (float) ($artist->total_duration ?? 0),
+                'duration' => (float) $artist->duration_total,
                 'plays' => (int) $artist->plays_count,
                 'href' => route('music.artists.show', $artist->id, absolute: false),
             ])

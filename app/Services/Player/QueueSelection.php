@@ -41,7 +41,7 @@ final class QueueSelection
      */
     public static function query(PlaylistSubject $subject, array $ids): Builder
     {
-        $tracks = QueuePayload::query()->whereIn($subject->column(), $ids);
+        $tracks = $subject->apply(QueuePayload::query(), $ids);
 
         return $subject === PlaylistSubject::Song
             ? $tracks

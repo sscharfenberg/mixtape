@@ -81,10 +81,11 @@ final class ShareArtwork
      *
      * Keyed by album so the fan is three different records, falling back to the track's own id
      * for a loose file belonging to none — the same key rule both of those pages use. Drawn
-     * from THE GRANT rather than from the subject at large: the artist page fans covers off
-     * `collections.album_artist_id`, which is not the set `tracks.artist_id` grants, and a
-     * sleeve from an album this link cannot play would be a picture of something the page has
-     * no rows for.
+     * from THE GRANT rather than from the subject at large, so a sleeve can never be a picture
+     * of something the page has no rows for: the artist page fans covers off the DISCOGRAPHY
+     * (`collections.album_artist_id`), which is a subset of what an artist share grants but
+     * not the same set — a guest credit on somebody else's record is granted and has no place
+     * in that fan.
      *
      * @return array<int, string>
      */

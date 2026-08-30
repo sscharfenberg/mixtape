@@ -15,9 +15,14 @@
  * reads them unprefixed, so a second server-driven table on the page would drive
  * this one from the same `sort` / `dir` / `page` / `search`. See ArtistController.
  *
- * No ARTIST column, unlike the album page's track table: every row here is by the
- * artist whose page this is, so the column would repeat one name down the whole
- * table. The ALBUM takes that slot instead, and links to it.
+ * THE ARTIST COLUMN IS CONDITIONAL, on `showArtist` — the server's answer to "is anything
+ * credited to this artist performed by somebody else?" (ArtistController::hasGuestCredits).
+ * Most artists perform their whole catalogue, and there the column could only repeat the name
+ * in the hero down every row; the ones it is for are a band whose collaborations tag as a
+ * separate artist ("Bring Me The Horizon feat. BABYMETAL") and a compilation owner whose rows
+ * name the individual performers, where without it the table says who nothing is by. The
+ * decision is the WHOLE catalogue's, not this page of rows', so the column cannot appear and
+ * vanish as a reader sorts or pages.
  *
  * The default order is the catalogue's own — newest year first, then album, disc and
  * track — so the tab opens on the most recent record and reads as a catalogue rather
@@ -47,6 +52,13 @@ export interface SongRow {
     track: number | null;
     /** How many tracks share the row's disc — the denominator in "3/12". Null as above. */
     trackTotal: number | null;
+    /** Who performs it — normally the artist whose page this is. Null for a file crediting nobody. */
+    artist: string | null;
+    /**
+     * That performer's own page, or null when the file credits nobody. A third destination:
+     * the row opens the song and the album cell opens the album (see the `#cell-artist` slot).
+     */
+    artistUrl: string | null;
     /** The album it is filed under, or null for a track belonging to no collection. */
     album: string | null;
     /** That album's release year, or null when the album is untagged or absent. */
@@ -66,9 +78,14 @@ export interface SongRow {
     href: string;
 }
 
-defineProps<{
+const props = defineProps<{
     /** The songs, as the server-driven table payload (rows + pagination + sort + search). */
     table: TableResponse<SongRow>;
+    /**
+     * Whether to draw the ARTIST column — see the banner. Server-decided over the whole
+     * catalogue rather than read off the rows in view, so it holds still across paging.
+     */
+    showArtist: boolean;
     /**
      * Where the table's own navigation goes — the artist page's URL. Passed in rather than
      * built here, so this component knows nothing about routes and the page keeps ownership
@@ -81,12 +98,12 @@ const { t, locale } = useI18n();
 
 /**
  * Column definitions for the table. A `computed` so the (already-translated) labels
- * re-evaluate on a locale switch.
+ * re-evaluate on a locale switch — and so the conditional ARTIST column follows `showArtist`.
  *
- * Reading order is the song, then the album context that places it — which album, from
- * when, and where inside it — then the file's own facts. That middle group is the table's
- * default sort (year, album, disc, track), so the columns a reader would use to explain
- * why the rows are grouped as they are sit together.
+ * Reading order is the song, then WHO it is by where that varies, then the album context
+ * that places it — which album, from when, and where inside it — then the file's own facts.
+ * That middle group is the table's default sort (year, album, disc, track), so the columns a
+ * reader would use to explain why the rows are grouped as they are sit together.
  *
  * DISC is out of the CARD view while TRACK is in, the same split AlbumPage makes: the
  * track number is the album's running order and worth having, while most albums are one
@@ -96,6 +113,9 @@ const { t, locale } = useI18n();
 const columns = computed<ColumnDef<SongRow>[]>(() => [
     { key: "coverUrl", label: t("music.columns.cover"), width: "4rem", align: "center", cardMedia: true },
     { key: "name", label: t("music.columns.title"), sortable: true, visibleInCard: true, cardPrimary: true },
+    ...(props.showArtist
+        ? [{ key: "artist", label: t("music.columns.artist"), sortable: true, visibleInCard: true } as ColumnDef<SongRow>]
+        : []),
     { key: "album", label: t("music.columns.album"), sortable: true, visibleInCard: true },
     { key: "year", label: t("music.columns.year"), sortable: true, align: "right" },
     { key: "disc", label: t("music.song.labels.disc"), sortable: true, align: "right" },
@@ -123,7 +143,14 @@ const columns = computed<ColumnDef<SongRow>[]>(() => [
         <template #cell-name="{ row }">
             <Link :href="row.href" class="artist-songs__title">{{ row.name }}</Link>
         </template>
-        <!-- The one cell leading somewhere OTHER than where its row leads: the row opens the
+        <!-- Present only when the column is (see `showArtist`); an unused slot costs nothing.
+             Like the album cell below it, this navigates somewhere other than its row does, so
+             it underlines on hover as well as on focus. -->
+        <template #cell-artist="{ row }">
+            <Link v-if="row.artistUrl" :href="row.artistUrl" class="artist-songs__artist">{{ row.artist }}</Link>
+            <template v-else>{{ row.artist }}</template>
+        </template>
+        <!-- A cell leading somewhere OTHER than where its row leads: the row opens the
              song, this opens the album. Which is why it underlines on hover as well as on
              focus — a cell that looks like its neighbours but navigates elsewhere is a trap.
              Plain text when the track belongs to no collection. -->
@@ -160,13 +187,15 @@ const columns = computed<ColumnDef<SongRow>[]>(() => [
 }
 
 /* The deliberate exception to the rule above, and the same one AlbumPage makes for its
-   artist cell: this is the one link that does NOT share its row's destination — the row
-   opens the song, this opens the album. So it has to say so BEFORE it is clicked, hence
-   the underline on hover as well as on focus. Still `color: inherit`: on a prolific artist
-   this cell is filled on every row, and a column of coloured album names would outshout
-   the titles the table is actually about. No transition, so no reduced-motion guard is
-   needed — the underline appears at once, which is what a pointer affordance should do. */
-.artist-songs__album {
+   artist cell: these are the links that do NOT share their row's destination — the row
+   opens the song, these open the album and the performer. So they have to say so BEFORE
+   they are clicked, hence the underline on hover as well as on focus. Still `color:
+   inherit`: on a prolific artist both cells are filled on every row, and two columns of
+   coloured names would outshout the titles the table is actually about. No transition, so
+   no reduced-motion guard is needed — the underline appears at once, which is what a
+   pointer affordance should do. */
+.artist-songs__album,
+.artist-songs__artist {
     color: inherit;
 
     text-decoration: none;

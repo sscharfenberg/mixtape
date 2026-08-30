@@ -77,6 +77,33 @@ Fortify's cache-backed login throttle, the stale `public/hot` that blanks every 
 re-seeded E2E library) are documented in [`docs/testing.md`](docs/testing.md) — **read it before
 writing tests in this repo.**
 
+**An ARTIST is credited two ways, and "their songs" is the UNION.** `tracks.artist_id` is the
+performer tag; `collections.album_artist_id` is who the record is by. Neither set contains the
+other — a compilation holds their track without being their album, and their own album holds a
+"feat." credit that tags as a **separate `artists` row** ("Bring Me The Horizon feat. BABYMETAL").
+Measured on the live library: 570 tracks across 29 artists, and for some the second arm is their
+whole catalogue — "Motorhead" owns a record whose files all tag "Motörhead" and read as one album,
+no songs. **`App\Services\Music\ArtistCredits` owns the rule; nothing re-derives it.**
+
+- **`albums` is the exception and stays narrow** — an artist's discography is what they are
+  credited with (`Artist::albums()`), never every record a track of theirs turns up on. So
+  0-albums-beside-N-songs is a real reading, and so is the reverse.
+- **Spelled as a `(track_id, artist_id)` relation, not an `OR` over two columns** — an `OR`
+  spanning `tracks` and `collections` is answerable from neither table's index, so Postgres
+  sequentially scans `tracks` once per artist: **1.9 s against 12 ms** for the artists listing.
+  It is a `UNION`, not `UNION ALL`: a track credited both ways is the normal case (9,379 of 9,949)
+  and would otherwise double every ordinary artist's totals.
+- **Sortable columns take `totalsPerArtist()`, one grouped `leftJoinSub`** — never the correlated
+  form, which re-probes the union per row (366 ms against 12 ms). Same trade `PlayCounts` documents.
+- **The dominant GENRE is still read off `tracks.artist_id`**, because it is a fact about what
+  somebody performs. A compilation owner therefore has songs and no genre — deliberate.
+- The songs tab's **artist column is conditional** on `ArtistController::hasGuestCredits`, decided
+  over the whole catalogue so it cannot appear and vanish while paging. On 612 of 641 artists the
+  column could only repeat the name in the hero.
+- `tests/Feature/Music/ArtistCreditsTest.php` asks every reader of the definition at once — page,
+  queue, listing, widget, playlist, ticked rows, share, play counts. Their own feature tests would
+  all stay green while it drifted.
+
 **Validation & authorization — FORM REQUESTS, never inline** (ported from cantrip.me, 2026-08-08).
 Every endpoint that validates input or guards a subject gets a class in
 `app/Http/Requests/<Area>/<Verb><Thing>Request.php`, type-hinted in the action. Controllers do not
@@ -443,9 +470,9 @@ instance, written for someone else's server.
   assertion, not a record, so nothing can revoke it), the four-FK subject and its CHECK, and the
   `/s/{share}` space whose containment is **structural** — a share cannot name a track outside its
   grant, so `/music` stays wholly behind `auth`. Records the two seams the code already had:
-  `PlaylistSubject::column()`, so a share grants the same tracks "play this" does (the artist trap —
-  `tracks.artist_id` is *not* `collections.album_artist_id`), and the queue's per-track `streamUrl`
-  override, which means the player needs no change at all.
+  `PlaylistSubject::apply()`, so a share grants the same tracks "play this" does (the artist trap — see
+  *An ARTIST is credited two ways* above), and the queue's per-track `streamUrl` override, which means
+  the player needs no change at all.
 
   **One class owns the grant** — `App\Services\Shares\ShareGrant`. The guest page is drawn from
   `tracks()` and both media routes admit a track through `contains()`, over the same `query()`;

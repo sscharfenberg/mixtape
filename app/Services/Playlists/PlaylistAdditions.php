@@ -87,7 +87,7 @@ final class PlaylistAdditions
      */
     public static function subjectTracks(PlaylistSubject $subject, array $ids): Builder
     {
-        $tracks = DB::table('tracks')->whereIn($subject->column(), $ids);
+        $tracks = $subject->apply(DB::table('tracks'), $ids);
 
         return $subject === PlaylistSubject::Song
             ? $tracks
@@ -158,9 +158,7 @@ final class PlaylistAdditions
             // A subquery rather than a list of ids: the ids are already in the database, and a
             // genre's worth of them in an IN clause is a statement the size of the answer.
             ->whereIn('playlist_tracks.track_id', function (Builder $query) use ($subject, $id): void {
-                $query->select('tracks.id')
-                    ->from('tracks')
-                    ->where($subject->column(), $id)
+                $subject->apply($query->select('tracks.id')->from('tracks'), [$id])
                     ->where('tracks.type', TrackType::Music->value);
             })
             ->groupBy('playlist_tracks.playlist_id')

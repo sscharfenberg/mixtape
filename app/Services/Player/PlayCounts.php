@@ -11,6 +11,7 @@ use App\Models\Genre;
 use App\Models\Playlist;
 use App\Models\Track;
 use App\Models\User;
+use App\Services\Music\ArtistCredits;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\DB;
 
@@ -33,8 +34,8 @@ use Illuminate\Support\Facades\DB;
  * one song. Counting the hash breaks the property above, because each track then quietly
  * counts its twin elsewhere and the tracks sum to more than the record they sit on. It also
  * cannot answer a SUBJECT count at all: "plays of this artist" joins `plays → tracks` and
- * filters on `artist_id`, where matching by hash double-counts any artist holding two copies
- * of one recording — the normal case in a real collection. And the hash grain was never
+ * narrows to that artist's credits, where matching by hash double-counts any artist holding
+ * two copies of one recording — the normal case in a real collection. And the hash grain was never
  * implemented anywhere. It also removed the arithmetic a reader could not reproduce — an
  * album whose track figures summed to more than the album's own, because each track was
  * quietly counting its twin elsewhere.
@@ -86,11 +87,25 @@ final class PlayCounts
      * Listens to everything credited to one artist, split the reader's way and everybody
      * else's. Scoped to music, matching the `songs` figure it sits beside.
      *
+     * NOT `forSubject`, and for the same structural reason `forPlaylist` is not: an artist's
+     * tracks are not one foreign key. They are the union of the performed and the
+     * album-credited (App\Services\Music\ArtistCredits), so the narrowing is that service's
+     * rather than a column name — which is what keeps this tile counting exactly the tracks
+     * the "songs" tile beside it counts and the songs tab below it lists.
+     *
      * @return array{own: int, others: int}
      */
     public static function forArtist(Artist $artist, ?User $user): array
     {
-        return self::forSubject('artist_id', $artist->id, $user, musicOnly: true);
+        $plays = fn (): QueryBuilder => ArtistCredits::of(
+            DB::table('plays')->join('tracks', 'plays.track_id', '=', 'tracks.id'),
+            [$artist->id]
+        )->where('tracks.type', TrackType::Music);
+
+        $total = $plays()->count();
+        $own = $user ? $plays()->where('plays.user_id', $user->id)->count() : 0;
+
+        return ['own' => $own, 'others' => $total - $own];
     }
 
     /**
@@ -167,17 +182,30 @@ final class PlayCounts
      * The reader's OWN listens per artist, as an unexecuted grouped query for a listing to
      * `leftJoinSub` on `subject_id`.
      *
-     * A grouped join rather than the correlated subquery the other columns on those pages
-     * use, and the difference is not stylistic — it was measured. A sortable column has to
-     * be computed for every row before the sort can happen, and a correlated count re-probes
-     * the plays table once per parent: on the genres listing against 500k plays that is
-     * 914 ms, against 123 ms for aggregating the whole table once and hash-joining it. The
-     * correlated shape is right for `songs_count` (it rides `tracks.artist_id` and touches
-     * nothing else) and wrong here.
+     * A grouped join rather than a correlated subquery, and the difference is not stylistic —
+     * it was measured. A sortable column has to be computed for every row before the sort can
+     * happen, and a correlated count re-probes the plays table once per parent: on the genres
+     * listing against 500k plays that is 914 ms, against 123 ms for aggregating the whole
+     * table once and hash-joining it. The correlated shape is right where a page shows FOUR
+     * rows and orders by something else — see {@see ownCountForArtist}.
+     *
+     * IT GROUPS THE CREDIT UNION, not `tracks.artist_id`, so one listen to a collaboration
+     * counts for the performer AND for the artist whose record it sits on — which is what the
+     * artists listing's `songs` column counts beside it. The union is DISTINCT, so a track
+     * credited both ways to the same artist still counts its play once.
      */
     public static function ownPerArtist(?User $user): QueryBuilder
     {
-        return self::ownPerSubject('artist_id', $user, musicOnly: true);
+        $query = DB::query()
+            ->fromSub(ArtistCredits::relation(), 'credits')
+            ->join('plays', 'plays.track_id', '=', 'credits.track_id')
+            ->join('tracks', 'tracks.id', '=', 'credits.track_id')
+            ->where('tracks.type', TrackType::Music)
+            ->groupBy('credits.artist_id')
+            ->selectRaw('credits.artist_id as subject_id')
+            ->selectRaw('count(*) as plays');
+
+        return self::scopedToReader($query, $user);
     }
 
     /** The reader's own listens per genre — see ownPerArtist for the shape and why. */
@@ -230,7 +258,13 @@ final class PlayCounts
      */
     public static function ownCountForArtist(?User $user): QueryBuilder
     {
-        return self::ownCountCorrelated('artist_id', 'artists.id', $user, musicOnly: true);
+        $query = ArtistCredits::correlated(
+            DB::table('plays')
+                ->selectRaw('count(*)')
+                ->join('tracks', 'plays.track_id', '=', 'tracks.id')
+        )->where('tracks.type', TrackType::Music);
+
+        return self::scopedToReader($query, $user);
     }
 
     /** The reader's own listens for the genre an outer query is on — see ownCountForArtist. */
@@ -261,14 +295,11 @@ final class PlayCounts
     }
 
     /**
-     * The shared body of the three subject counts: every play whose track points at `$id`
-     * through `$column`, counted twice — once in total, once for this reader.
+     * The shared body of the correlated subject counts: every play whose track points at the
+     * outer row through `$column`, narrowed to this reader.
      *
-     * "Others" is derived by subtraction rather than asked for separately, exactly as
-     * forTrack does it: one fewer query, and the two numbers cannot disagree about the total
-     * the way two independent counts could if a play landed between them. A guest gets
-     * `own: 0` and every play as somebody else's, which is the honest reading — nobody who is
-     * not signed in has a listening history here.
+     * A guest gets an impossible predicate rather than a separate return, so every caller
+     * gets one query shape whether or not somebody is signed in (scopedToReader).
      *
      * @param  string  $column  a `tracks` FK, always a literal from the callers above —
      *                          never a request value, which is what makes the interpolation safe
@@ -302,8 +333,8 @@ final class PlayCounts
     }
 
     /**
-     * The shared body of the three subject counts: every play whose track points at `$id`
-     * through `$column`, counted twice — once in total, once for this reader.
+     * The shared body of the subject counts that ARE one column: every play whose track points
+     * at `$id` through `$column`, counted twice — once in total, once for this reader.
      *
      * "Others" is derived by subtraction rather than asked for separately, exactly as
      * forTrack does it: one fewer query, and the two numbers cannot disagree about the total
@@ -311,7 +342,7 @@ final class PlayCounts
      * `own: 0` and every play as somebody else's, which is the honest reading — nobody who is
      * not signed in has a listening history here.
      *
-     * @param  string  $column  a `tracks` FK, always a literal from the three callers above —
+     * @param  string  $column  a `tracks` FK, always a literal from the callers above —
      *                          never a request value, which is what makes the interpolation safe
      * @return array{own: int, others: int}
      */
@@ -332,8 +363,9 @@ final class PlayCounts
     }
 
     /**
-     * The shared body of the three grouped counts, aliased to a fixed `subject_id` /
-     * `plays` pair so all three listings join and read it identically.
+     * The shared body of the grouped counts that ARE one column, aliased to a fixed
+     * `subject_id` / `plays` pair so every listing joins and reads it identically —
+     * {@see ownPerArtist} builds the same two columns over the credit union.
      *
      * Tracks filed under nothing are dropped rather than grouped: a NULL key joins to no
      * parent row anyway, and leaving them in makes the grouped set one row bigger than it
@@ -342,7 +374,7 @@ final class PlayCounts
      * A guest yields no rows (scopedToReader), and the caller's COALESCE turns the missing
      * row into the 0 that is true.
      *
-     * @param  string  $column  a `tracks` FK, always a literal from the three callers above
+     * @param  string  $column  a `tracks` FK, always a literal from the callers above
      */
     private static function ownPerSubject(string $column, ?User $user, bool $musicOnly): QueryBuilder
     {

@@ -6,6 +6,7 @@ namespace App\Enums;
 
 use App\Models\Artist;
 use App\Models\User;
+use App\Services\Music\ArtistCredits;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 
@@ -80,44 +81,46 @@ enum ArtistFilter: string
     {
         return match ($this) {
             // WITH SOMETHING TO PLAY, which is the half a bare "no plays exist" predicate gets
-            // wrong: this listing deliberately shows artists that perform nothing — a compilation
-            // owner named on the sleeve with none of their own recordings on it — and an artist a
-            // reader cannot play is not one they have never played. Their tile would be a link to
-            // rows nobody can act on.
-            self::NeverPlayed => $query
-                ->whereHas('tracks', fn (Builder $tracks) => $tracks->where('tracks.type', TrackType::Music))
-                ->whereNotExists(function (QueryBuilder $plays) use ($reader) {
-                    $plays->selectRaw('1')
-                        ->from('plays')
-                        ->join('tracks', 'plays.track_id', '=', 'tracks.id')
-                        ->where('tracks.type', TrackType::Music)
-                        ->whereColumn('tracks.artist_id', 'artists.id');
+            // wrong: this listing deliberately shows every artist, credited with a playable file
+            // or not, and an artist a reader CANNOT play is not one they have never played. Their
+            // tile would be a link to rows nobody can act on.
+            self::NeverPlayed => self::withCreditedMusic($query)
+                // The COMPLEMENT of the same set: artists credited with something this reader has
+                // a `plays` row for. `whereNotIn` rather than a correlated `NOT EXISTS` for the
+                // reason ArtistCredits::artistIds gives — and it is safe here because that set can
+                // never contain a NULL, which `NOT IN` would answer with no rows at all.
+                ->whereNotIn('artists.id', ArtistCredits::artistIds(
+                    function (QueryBuilder $tracks) use ($reader) {
+                        $tracks->join('plays', 'plays.track_id', '=', 'tracks.id')
+                            ->where('tracks.type', TrackType::Music);
 
-                    // A guest has no listening history, so every artist is one they have never played
-                    // — the reading PlayCounts::scopedToReader spells the same way.
-                    if ($reader === null) {
-                        $plays->whereRaw('1 = 0');
-                    } else {
-                        $plays->where('plays.user_id', $reader->id);
+                        // A guest has no listening history, so every artist is one they have never
+                        // played — the reading PlayCounts::scopedToReader spells the same way.
+                        $reader === null
+                            ? $tracks->whereRaw('1 = 0')
+                            : $tracks->where('plays.user_id', $reader->id);
                     }
-                }),
+                )),
 
-            // NO ALBUM OF THEIR OWN, BUT SONGS SOMEWHERE. Both halves are needed, and the relations
-            // they read are not the same relation: `albums` is what the artist is the ALBUM-ARTIST
-            // of, `tracks` is what they PERFORM, and conflating the two is the trap sharing.md
-            // records (`tracks.artist_id` is not `collections.album_artist_id`). Without the
-            // `tracks` half this would also collect the opposite oddity — a compilation owner
-            // credited on the sleeve with nothing of their own on it.
-            self::CompilationsOnly => $query
-                ->whereDoesntHave('albums')
-                ->whereHas('tracks', fn (Builder $tracks) => $tracks->where('tracks.type', TrackType::Music)),
+            // NO ALBUM OF THEIR OWN, BUT SONGS SOMEWHERE. Both halves are needed: `albums` is
+            // what the artist is the ALBUM-ARTIST of, and without the second half this would
+            // also collect the opposite oddity — a name credited on a sleeve with no playable
+            // file behind it at all.
+            //
+            // The second half narrows by CREDITS like every other tile here, and for an artist
+            // that passes the first it is provably the same set as "what they perform": an
+            // artist with no album of their own is named by no `album_artist_id`, so the credit
+            // union's second arm is empty for them. Written the same way regardless, because a
+            // strip whose tiles count two different things is the drift these predicates exist
+            // to prevent.
+            self::CompilationsOnly => self::withCreditedMusic($query->whereDoesntHave('albums')),
 
             // The FILE's mtime, never a row's `created_at`: a row timestamp is a fact about the
             // database and is re-stamped wholesale when the library tables are rebuilt (SongFilter
             // carries the measurement). An artist is new when something of theirs is.
-            self::AddedThisMonth => $query->whereHas('tracks', fn (Builder $tracks) => $tracks
-                ->where('tracks.type', TrackType::Music)
-                ->where('tracks.modified_at', '>=', now()->subDays(self::MONTH_DAYS))
+            self::AddedThisMonth => self::withCreditedMusic(
+                $query, fn (QueryBuilder $tracks) => $tracks
+                    ->where('tracks.modified_at', '>=', now()->subDays(self::MONTH_DAYS))
             ),
 
             self::LookalikeName => $query->where(function (Builder $name) {
@@ -138,6 +141,40 @@ enum ArtistFilter: string
     public function count(?User $reader): int
     {
         return $this->apply(Artist::query(), $reader)->count();
+    }
+
+    /**
+     * Narrow a query over artists to those credited with at least one music track — the
+     * "something to play" half two of these tiles need, and the hook the third narrows
+     * further.
+     *
+     * CREDITED, not performed: an artist owns what sits on a record credited to them as well
+     * as what they perform (App\Services\Music\ArtistCredits), which is the same set the
+     * listing's `songs` column counts and the artist's own page lists. A tile pointing at rows
+     * counted by a different rule is a link to a number the table then disagrees with.
+     *
+     * A SEMI-JOIN against the set of credited artists, never a correlated probe per row — the
+     * strip runs four of these on every page load, and the correlated spelling costs 29 seconds
+     * a tile (ArtistCredits::artistIds carries the measurement). Either way an artist credited
+     * with two hundred tracks still produces one row of the listing.
+     *
+     * @param  Builder<Artist>  $query  a query whose base table is `artists`
+     * @param  (callable(QueryBuilder): mixed)|null  $narrow  applied to the `tracks` query
+     *                                                        inside, for a tile that wants a
+     *                                                        subset of what is playable
+     * @return Builder<Artist> the same query, narrowed
+     */
+    private static function withCreditedMusic(Builder $query, ?callable $narrow = null): Builder
+    {
+        return $query->whereIn('artists.id', ArtistCredits::artistIds(
+            function (QueryBuilder $tracks) use ($narrow): void {
+                $tracks->where('tracks.type', TrackType::Music);
+
+                if ($narrow !== null) {
+                    $narrow($tracks);
+                }
+            }
+        ));
     }
 
     /**

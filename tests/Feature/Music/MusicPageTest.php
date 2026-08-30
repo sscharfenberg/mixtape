@@ -160,18 +160,23 @@ class MusicPageTest extends TestCase
         $this->assertSame(1, $entry['songs']);
     }
 
-    public function test_artists_widget_excludes_artists_with_no_tracks(): void
+    public function test_artists_widget_excludes_artists_credited_with_nothing_playable(): void
     {
-        // Two performers (each Track::factory mints its own artist) plus one
-        // album-artist-only artist — a compilation owner like "Irish Folk
-        // Festival" that performs nothing, so its max(modified_at) is NULL.
-        // Postgres sorts that NULL to the TOP of "latest" (the reported bug);
-        // the controller's has('tracks') filter drops it. Both modes should
-        // therefore return only the two real performers. (On SQLite the NULL
-        // would sort last, not first, so this asserts the filter itself — count
-        // 2, not 3 — independently of the DB's NULL ordering.)
-        Track::factory()->count(2)->create();
-        Artist::factory()->create(['name' => 'No Tracks Compilation']);
+        // LOOSE TRACKS, because Track::factory() mints its own collection and a collection
+        // mints its own album-artist — who is then credited with that track too, and the
+        // counts below would be double what the fixture reads as.
+        $performers = Artist::factory()->count(2)->create();
+
+        foreach ($performers as $performer) {
+            Track::factory()->create(['artist_id' => $performer->id, 'collection_id' => null]);
+        }
+
+        // The artist kind the INNER join exists for: credited with an album whose files are
+        // gone, so its max(modified_at) is NULL. Postgres sorts that NULL to the TOP of
+        // "latest" (the reported bug). On SQLite it would sort last, so this asserts the join
+        // itself — count 2, not 3 — independently of the driver's NULL ordering.
+        $ghost = Artist::factory()->create(['name' => 'Ghost Credit']);
+        Collection::factory()->create(['album_artist_id' => $ghost->id]);
 
         $this->actingAs(User::factory()->create())
             ->get('/music')
@@ -179,6 +184,25 @@ class MusicPageTest extends TestCase
                 ->has('artists.latest', 2)
                 ->has('artists.random', 2)
             );
+    }
+
+    public function test_the_artists_widget_credits_a_compilation_owner_with_its_records_tracks(): void
+    {
+        // The other half of the rule the join carries: an owner that performs nothing is still
+        // credited with what sits on its record, so the widget counts it as an artist with two
+        // songs rather than dropping it as empty.
+        $owner = Artist::factory()->create(['name' => 'Irish Folk Festival']);
+        $album = Collection::factory()->create(['album_artist_id' => $owner->id]);
+        $performer = Artist::factory()->create(['name' => 'Tommy Peoples']);
+
+        Track::factory()->count(2)->create(['artist_id' => $performer->id, 'collection_id' => $album->id]);
+
+        $response = $this->actingAs(User::factory()->create())->get('/music');
+        $entry = collect($this->inertiaProp($response, 'artists.latest'))->firstWhere('id', $owner->id);
+
+        $this->assertNotNull($entry, 'the owner is an artist with something to play');
+        $this->assertSame(1, $entry['albums']);
+        $this->assertSame(2, $entry['songs']);
     }
 
     public function test_albums_popular_ranks_the_readers_own_plays_and_leaves_out_everything_else(): void
@@ -277,8 +301,10 @@ class MusicPageTest extends TestCase
         $played = Artist::factory()->create(['name' => 'Played Artist']);
         $bigger = Artist::factory()->create(['name' => 'Bigger Artist']);
 
-        $track = Track::factory()->create(['artist_id' => $played->id, 'duration' => 100]);
-        Track::factory()->create(['artist_id' => $bigger->id, 'duration' => 5000]);
+        // Loose (see the note in the widget test above), so no album-artist is minted behind
+        // them and credited with the play this asserts on.
+        $track = Track::factory()->create(['artist_id' => $played->id, 'duration' => 100, 'collection_id' => null]);
+        Track::factory()->create(['artist_id' => $bigger->id, 'duration' => 5000, 'collection_id' => null]);
         Play::factory()->create(['track_id' => $track->id, 'user_id' => $reader->id]);
 
         $this->actingAs($reader)

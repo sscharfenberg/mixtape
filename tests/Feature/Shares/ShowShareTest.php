@@ -134,29 +134,38 @@ class ShowShareTest extends TestCase
     /**
      * THE ARTIST TRAP, which is the one bug this whole design is arranged around.
      *
-     * An artist's page draws its album grid from `collections.album_artist_id` and its
-     * playable queue from `tracks.artist_id`. Those overlap and neither contains the other: a
-     * compilation holds an artist's track without being their album, and an album credited to
-     * them can hold a guest track credited to somebody else. A share must grant the second
-     * set — what "play this artist" means — and the page must show exactly that, or a guest
-     * gets a row that 404s on the one record with a featured guest on it.
+     * An artist's tracks are not one column. They are the UNION of what they perform
+     * (`tracks.artist_id`) and what sits on a record credited to them
+     * (`collections.album_artist_id`) — neither contains the other: a compilation holds their
+     * track without being their album, and their own album holds a "feat." track that tags as
+     * a separate artist. A share must grant exactly what "play this artist" plays
+     * (App\Services\Music\ArtistCredits), and the page must show exactly that, or a guest
+     * gets a row the stream then refuses — which appears as a player silently stopping on one
+     * song out of ninety.
      *
-     * Asserted from BOTH ends here: the page's rows, and the stream guard's answer for each
-     * of the three tracks. They are the same set only because they are the same query.
+     * Asserted from BOTH ends here: the page's rows, and the stream guard's answer for each of
+     * the four tracks. They are the same set only because they are the same query. The fourth
+     * track is somebody else's, on somebody else's record, and is what stops the union from
+     * quietly becoming "everything".
      */
-    public function test_an_artist_share_grants_their_tracks_not_their_albums(): void
+    public function test_an_artist_share_grants_everything_credited_to_them(): void
     {
         $artist = Artist::factory()->create();
         $guest = Artist::factory()->create();
 
-        // Their own album, and on it a track credited to somebody else.
+        // Their own album, and on it a track credited to somebody else — a feature credit,
+        // which is theirs because the record is.
         $ownAlbum = Collection::factory()->create(['album_artist_id' => $artist->id]);
         $ownTrack = Track::factory()->create(['collection_id' => $ownAlbum->id, 'artist_id' => $artist->id]);
-        $guestTrack = Track::factory()->create(['collection_id' => $ownAlbum->id, 'artist_id' => $guest->id]);
+        $featureTrack = Track::factory()->create(['collection_id' => $ownAlbum->id, 'artist_id' => $guest->id]);
 
         // A compilation credited to nobody, carrying one of their tracks.
         $compilation = Collection::factory()->create(['album_artist_id' => null]);
         $onCompilation = Track::factory()->create(['collection_id' => $compilation->id, 'artist_id' => $artist->id]);
+
+        // Neither theirs to perform nor theirs to own.
+        $strangersAlbum = Collection::factory()->create(['album_artist_id' => $guest->id]);
+        $strangersTrack = Track::factory()->create(['collection_id' => $strangersAlbum->id, 'artist_id' => $guest->id]);
 
         $share = Share::factory()->ofArtist($artist)->create();
 
@@ -164,25 +173,27 @@ class ShowShareTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->where('share.kind', 'artist')
-                ->where('subject.songs', 2)
-                ->has('tracks', 2)
+                ->where('subject.songs', 3)
+                ->has('tracks', 3)
                 ->where('tracks', fn (Support $tracks) => $tracks->pluck('id')->sort()->values()->all()
-                    === collect([$ownTrack->id, $onCompilation->id])->sort()->values()->all()
+                    === collect([$ownTrack->id, $featureTrack->id, $onCompilation->id])->sort()->values()->all()
                 )
             );
 
         // …and the guard agrees, track for track. This is the assertion that would fail if
         // the page and the stream ever stopped sharing one query.
         $this->get("/s/{$share->id}/tracks/{$ownTrack->id}/stream")->assertNotFound(); // no file on disk
+        $this->get("/s/{$share->id}/tracks/{$featureTrack->id}/stream")->assertNotFound();
         $this->get("/s/{$share->id}/tracks/{$onCompilation->id}/stream")->assertNotFound();
-        $this->get("/s/{$share->id}/tracks/{$guestTrack->id}/stream")->assertNotFound();
+        $this->get("/s/{$share->id}/tracks/{$strangersTrack->id}/stream")->assertNotFound();
 
-        // Both of the first two 404 for a MISSING FILE rather than for the guard, which a
-        // status alone cannot tell apart — so the guard itself is asked directly.
+        // The first three 404 for a MISSING FILE rather than for the guard, which a status
+        // alone cannot tell apart — so the guard itself is asked directly.
         $grant = ShareGrant::for($share);
         $this->assertTrue($grant->contains($ownTrack->id));
+        $this->assertTrue($grant->contains($featureTrack->id));
         $this->assertTrue($grant->contains($onCompilation->id));
-        $this->assertFalse($grant->contains($guestTrack->id));
+        $this->assertFalse($grant->contains($strangersTrack->id));
     }
 
     public function test_every_url_it_hands_a_guest_stays_inside_the_share(): void

@@ -3,12 +3,11 @@
 namespace App\Http\Controllers\Music;
 
 use App\Enums\ArtistFilter;
-use App\Enums\TrackType;
 use App\Http\Controllers\Controller;
 use App\Models\Artist;
-use App\Models\Track;
 use App\Models\User;
 use App\Services\DataTableService;
+use App\Services\Music\ArtistCredits;
 use App\Services\Player\PlayCounts;
 use App\Services\Search\FoldedSearch;
 use Illuminate\Database\Eloquent\Builder;
@@ -36,6 +35,14 @@ use Inertia\Response;
  * their discography, and the reading this column commits to — so 0-albums-with-N-songs is
  * expected here, not missing data. The other count is not shown anywhere: an artist's
  * albums are the ones they are credited with, full stop.
+ *
+ * `songs`, `duration` and `size` read the other way round, and deliberately: they count
+ * everything CREDITED to the artist — what they perform, plus what sits on a record credited
+ * to them (App\Services\Music\ArtistCredits). So a compilation owner whose files all name the
+ * individual performers reports its albums AND their tracks, and a band's own row includes the
+ * "feat." variants that tag as a separate artist. These are the same three numbers the artist's
+ * own hero prints, which is the point — a listing that counted the narrower set would send a
+ * reader to a page disagreeing with the row they clicked.
  *
  * `plays` is the READER'S OWN listens, and the only column on this page that differs per
  * viewer. It counts listening events over the artist's tracks — so a run through an album
@@ -78,16 +85,6 @@ class ArtistsController extends Controller
         $reader = $request->user();
         $filter = ArtistFilter::fromInput($request->input('filter'));
 
-        // One reusable correlated base: "this artist's own music tracks". Scoped to music
-        // like every other query in this namespace: `tracks` holds audiobook chapters as well as
-        // music, and a chapter cannot carry an artist or a genre at all — the type CHECK
-        // forbids it. So the scope is belt-and-braces today, and what keeps the numbers right
-        // the day a kind that CAN carry them is added.
-        $tracksOfArtist = fn (): \Illuminate\Database\Query\Builder => Track::query()
-            ->where('tracks.type', TrackType::Music)
-            ->whereColumn('tracks.artist_id', 'artists.id')
-            ->toBase();
-
         $query = Artist::query()
             ->select(['artists.id', 'artists.name'])
             // The discography. The collections CHECK pins `album_artist_id` to
@@ -98,22 +95,32 @@ class ArtistsController extends Controller
             // browse list — "how much have I played this artist" is what sorts usefully. The
             // yours/others split lives on the detail page, where there is room to label it.
             //
-            // A grouped join, unlike every aggregate above it, because this column is
+            // A grouped join rather than a correlated count, because this column is
             // SORTABLE and a sortable column is computed for every artist before the sort can
             // run — see PlayCounts::ownPerArtist for the measurement that settled the shape.
             // LEFT, and COALESCEd below: an artist nobody has played has no row here and
             // still belongs in the listing.
             ->leftJoinSub(PlayCounts::ownPerArtist($request->user()), 'own_plays', 'own_plays.subject_id', '=', 'artists.id')
             ->selectRaw('coalesce(own_plays.plays, 0) as plays_count')
-            ->addSelect([
-                'songs_count' => $tracksOfArtist()->selectRaw('count(*)'),
-                // COALESCEd rather than left NULL, which is what keeps a track-less
-                // artist from leading a descending sort on Postgres (see the docblock).
-                // "0:00" and "0.00 MB" are also the honest readings for an artist with no
-                // files of their own.
-                'duration_total' => $tracksOfArtist()->selectRaw('coalesce(sum(duration), 0)'),
-                'size_total' => $tracksOfArtist()->selectRaw('coalesce(sum(size), 0)'),
-            ]);
+            // The three catalogue numbers, over everything CREDITED to the artist — performed
+            // plus album-credited, the union App\Services\Music\ArtistCredits defines and the
+            // artist's own page lists. Scoped to music inside that service, like every other
+            // query in this namespace.
+            //
+            // A GROUPED JOIN rather than three correlated subselects, for the same reason
+            // `own_plays` above is one: all three columns are SORTABLE, so every artist has to
+            // be computed before the sort can run. The credit union cannot be answered from
+            // one table's index, so correlated it re-probes once per artist — 366 ms against
+            // 12 ms for aggregating the library once and hash-joining it. LEFT, and COALESCEd
+            // below, because an artist credited with nothing playable has no row here and
+            // still belongs in the listing.
+            ->leftJoinSub(ArtistCredits::totalsPerArtist(), 'credited', 'credited.subject_id', '=', 'artists.id')
+            // COALESCEd rather than left NULL, which is what keeps such an artist from
+            // leading a descending sort on Postgres (see the docblock). "0:00" and "0.00 MB"
+            // are also the honest readings for one with nothing to play.
+            ->selectRaw('coalesce(credited.songs_count, 0) as songs_count')
+            ->selectRaw('coalesce(credited.duration_total, 0) as duration_total')
+            ->selectRaw('coalesce(credited.size_total, 0) as size_total');
 
         // Before DataTableService sees it, so the filter is part of what gets counted, searched
         // and paged rather than something applied to one page of rows.

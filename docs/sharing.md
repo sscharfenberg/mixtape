@@ -85,21 +85,29 @@ is the part most likely to be got subtly wrong, and the app solves it once:
 | song | `tracks.id` |
 | album | `tracks.collection_id` |
 | audiobook | `tracks.collection_id` |
-| artist | `tracks.artist_id` |
+| artist | `tracks.artist_id` **∪** `collections.album_artist_id` |
 | playlist | `playlist_tracks`, in its order |
 
 [`App\Enums\PlaylistSubject`](../app/Enums/PlaylistSubject.php) exists so the browser can say "artist X"
-instead of sending a track list, and its `column()` is deliberately the same narrowing each detail
+instead of sending a track list, and its `apply()` is deliberately the same narrowing each detail
 controller applies to build its `queueTracks` prop — so "add this artist" and "play this artist" cannot
 come to mean different songs. `ShareSubject` delegates to it, because a share is a third phrasing of the
 same question.
 
-**The artist trap, concretely.** `ArtistController` builds its page from two different queries: the albums
-grid reads `collections.album_artist_id`, the playable queue reads `tracks.artist_id`. Those overlap but
-neither contains the other — a compilation holds an artist's track without being their album, and an album
-credited to them can hold a guest track credited to someone else. Enforce one and render the other, and a
-guest gets an album tile holding a track that 404s: a bug that only appears on the one record in the
-collection with a featured guest.
+**The artist trap, concretely.** Three of the five rows above are one foreign key. An artist is not: they
+are credited two ways, and **neither set contains the other** — a compilation holds their track without
+being their album, and an album credited to them holds a "feat." track that tags as a separate artist
+row. So the grant is the UNION, which is why the artist row delegates on to
+[`App\Services\Music\ArtistCredits`](../app/Services/Music/ArtistCredits.php) rather than naming a
+column. Take either half alone and the page and the guard describe different sets: a guest gets a queue
+row the stream then refuses, which appears as a player stopping silently on one song out of ninety — on
+exactly the one record with a featured guest on it.
+
+The union is spelled as a `(track_id, artist_id)` relation rather than as an `OR` over two columns, and
+that is a measurement rather than a taste: an `OR` spanning `tracks` and `collections` cannot be answered
+from either table's indexes, so Postgres falls back to a sequential scan of `tracks` per artist — 1.9 s
+against 12 ms for the whole artists listing. It is a `UNION` and not a `UNION ALL`, so a track credited
+both ways (the normal case) still counts once.
 
 So the rule for the whole `/s/` space: **the guest page is built from the same query the stream guard
 enforces.** A share page for an artist therefore looks slightly different from the signed-in artist page —

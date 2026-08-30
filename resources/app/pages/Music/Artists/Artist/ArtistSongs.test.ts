@@ -6,12 +6,15 @@ import ArtistSongs, { type SongRow } from "./ArtistSongs.vue";
 vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
 
 /*
- * The artist page's songs tab. Three of its decisions are this component's own and none of
+ * The artist page's songs tab. Four of its decisions are this component's own and none of
  * them shows up as a broken page when it goes wrong.
  *
- * NO ARTIST COLUMN. Every row is by the artist whose page this is, so the column would
- * repeat one name down the whole table; the ALBUM takes that slot. Re-adding it (by copying
- * the songs listing's column set, the obvious thing to do) wastes a column and looks fine.
+ * THE ARTIST COLUMN IS CONDITIONAL, on the server's `showArtist`. Off, every row is by the
+ * artist whose page this is and the column could only repeat one name down the whole table;
+ * on, the rows are collaborations or a compilation's individual performers and without it the
+ * table says who nothing is by. Both readings look like a working page, which is why both
+ * branches are pinned here — and why the column's POSITION is asserted too: appending it (the
+ * obvious way to add a column) puts the performer after the file size.
  *
  * DISC AND TRACK READ AS A POSITION, "3/12" rather than "3". A bare number is plausible
  * data, which is exactly why the difference has to be pinned: nobody reviewing a screenshot
@@ -19,10 +22,10 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
  * smaller than the index, which happens in the collection's odd rips — so both branches
  * matter.
  *
- * THE ALBUM CELL LEADS SOMEWHERE ELSE THAN ITS ROW. The row opens the song; this opens the
- * album. It is the only cell that does, which is why it links at all — and only when the
- * track belongs to a collection, since `albumUrl` is null otherwise and would render an
- * href of "null".
+ * THE ALBUM AND ARTIST CELLS LEAD SOMEWHERE ELSE THAN THEIR ROW. The row opens the song;
+ * those two open the album and the performer. They are the only cells that do, which is why
+ * they link at all — and only when there is something to link to, since `albumUrl` /
+ * `artistUrl` are null otherwise and would render an href of "null".
  *
  * Sorting, searching and paging are the server's and are covered by ArtistController's
  * feature test plus datatable.spec.ts in a browser.
@@ -36,6 +39,8 @@ const row = (overrides: Partial<SongRow> = {}): SongRow => ({
     discTotal: 2,
     track: 3,
     trackTotal: 12,
+    artist: "Radiohead",
+    artistUrl: "/music/artists/artist-1",
     album: "OK Computer",
     year: 1997,
     albumUrl: "/music/albums/album-1",
@@ -46,11 +51,12 @@ const row = (overrides: Partial<SongRow> = {}): SongRow => ({
     ...overrides
 });
 
-/** Mount the tab over one row. */
-const tab = (overrides: Partial<SongRow> = {}, locale: "de" | "en" = "de") =>
+/** Mount the tab over one row. `showArtist` is off unless a test is about it. */
+const tab = (overrides: Partial<SongRow> = {}, locale: "de" | "en" = "de", showArtist = false) =>
     mountApp(ArtistSongs, {
         props: {
             baseUrl: "/music/artists/artist-1",
+            showArtist,
             table: {
                 rows: [row(overrides)],
                 total: 1,
@@ -77,7 +83,7 @@ describe("ArtistSongs", () => {
         resetInertia();
     });
 
-    it("leaves out the artist column, since every row is by the same one", () => {
+    it("leaves out the artist column when nothing on the page is by anybody else", () => {
         const headers = tab()
             .findAll("th:not(.dt-head__check)")
             .map(node => node.text());
@@ -93,6 +99,40 @@ describe("ArtistSongs", () => {
             translate("music.columns.duration"),
             translate("music.song.labels.size")
         ]);
+    });
+
+    it("draws the artist column right after the title when the server asks for it", () => {
+        const headers = tab({}, "de", true)
+            .findAll("th:not(.dt-head__check)")
+            .map(node => node.text());
+
+        // Between the title and the album: who it is by comes before where it sits, and
+        // appending it instead would put the performer after the file size.
+        expect(headers).toStrictEqual([
+            translate("music.columns.cover"),
+            translate("music.columns.title"),
+            translate("music.columns.artist"),
+            translate("music.columns.album"),
+            translate("music.columns.year"),
+            translate("music.song.labels.disc"),
+            translate("music.song.labels.track"),
+            translate("music.columns.duration"),
+            translate("music.song.labels.size")
+        ]);
+    });
+
+    it("links the artist cell to the performer, and leaves it plain when nobody is credited", () => {
+        // A third destination: the row opens the song, the album cell opens the album.
+        const link = tab({ artist: "Bring Me The Horizon feat. BABYMETAL", artistUrl: "/music/artists/artist-2" }, "de", true)
+            .find(".artist-songs__artist");
+
+        expect(link.element.tagName).toBe("A");
+        expect(link.attributes("href")).toBe("/music/artists/artist-2");
+
+        const untagged = tab({ artist: null, artistUrl: null }, "de", true);
+
+        expect(untagged.find(".artist-songs__artist").exists()).toBe(false);
+        expect(cell(untagged, translate("music.columns.artist"))).toBe("");
     });
 
     it("reads disc and track as a position in their set, not as bare numbers", () => {

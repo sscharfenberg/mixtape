@@ -43,6 +43,7 @@ const artist = (overrides: Record<string, unknown> = {}) => ({
     size: 10_485_760,
     genre: "Alternative Rock",
     genreUrl: "/music/genres/genre-1",
+    hasGuestCredits: false,
     ...overrides
 });
 
@@ -54,6 +55,8 @@ const row = () => ({
     discTotal: 1,
     track: 2,
     trackTotal: 12,
+    artist: "Radiohead",
+    artistUrl: "/music/artists/artist-1",
     album: "OK Computer",
     year: 1997,
     albumUrl: "/music/albums/album-1",

@@ -22,11 +22,11 @@ use Illuminate\Database\Query\Builder;
  * which appears as a player that silently stops on one song out of ninety.
  *
  * IT DOES NOT INVENT THE MAPPING. `ShareSubject::grant()` hands back the `PlaylistSubject`
- * whose `column()` every detail controller already narrows its `queueTracks` prop by, so a
- * share plays exactly the tracks "play this" plays. The artist case is why that matters:
- * `tracks.artist_id` is NOT `collections.album_artist_id`, so a mapping restated here
- * would eventually grant a set the artist page never showed (docs/sharing.md → "the artist
- * trap").
+ * whose `apply()` every detail controller already narrows its `queueTracks` prop by, so a
+ * share plays exactly the tracks "play this" plays. The artist case is why that matters: an
+ * artist's tracks are not one foreign key but the union of two — performed and
+ * album-credited (App\Services\Music\ArtistCredits) — so a mapping restated here would
+ * grant a set the artist page never showed (docs/sharing.md → "the artist trap").
  *
  * A PLAYLIST IS THE ONE SUBJECT THAT MAPPING CANNOT ANSWER, and everything
  * special about playlist sharing follows from it: a playlist's tracks are rows of
@@ -133,8 +133,8 @@ final class ShareGrant
     }
 
     /**
-     * The subject's own narrowing, before any type filter — a column comparison for the three
-     * library kinds, a pivot join for a playlist.
+     * The subject's own narrowing, before any type filter — `PlaylistSubject::apply` for the
+     * three library kinds, a pivot join for a playlist.
      *
      * Split out of {@see query()} so that "which rows" and "which kinds of track" stay two
      * separate decisions: the type filter is applied to whatever comes back from here, and a
@@ -145,7 +145,7 @@ final class ShareGrant
         $grant = $subject->grant();
 
         if ($grant !== null) {
-            return QueuePayload::query()->where($grant->column(), $this->subjectId());
+            return $grant->apply(QueuePayload::query(), [$this->subjectId()]);
         }
 
         // The pivot side is selected as well as joined, so the callers that need the reader's

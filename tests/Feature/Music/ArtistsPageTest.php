@@ -101,14 +101,18 @@ class ArtistsPageTest extends TestCase
 
     public function test_the_album_count_is_the_artists_own_discography_not_the_albums_they_play_on(): void
     {
-        // The case that pins the column's meaning. A compilation owner is credited with the
-        // album while its songs credit the individual performers, so the SAME album counts
-        // for the owner and not for the performer who actually plays on it.
+        // The case that pins the column's meaning, and the two columns pull in OPPOSITE
+        // directions here on purpose. A compilation owner is credited with the album while its
+        // songs credit the individual performers: `albums` counts that album for the OWNER
+        // alone, while `songs` counts its tracks for BOTH — the owner because the record is
+        // theirs, the performer because they play on it.
         $owner = Artist::factory()->create(['name' => 'Irish Folk Festival']);
         $performer = Artist::factory()->create(['name' => 'Tommy Peoples']);
 
         $album = Collection::factory()->create(['album_artist_id' => $owner->id]);
-        $this->track($performer, $album);
+        // A fractional duration, because a whole-number float crosses the wire as an int —
+        // only a fraction shows the sum went over unrounded for the page to clock.
+        $this->track($performer, $album, duration: 100.5, size: 1_000_000);
 
         // Sorted by name rather than left on the default (most audio first), so the row
         // order this asserts on is stated rather than a side effect of the fixture's
@@ -118,21 +122,38 @@ class ArtistsPageTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->has('table.rows', 2)
-                // Credited with the album, and with none of its songs.
+                // Credited with the album, and — because it is theirs — with its song too.
                 ->where('table.rows.0.name', 'Irish Folk Festival')
                 ->where('table.rows.0.albums', 1)
-                ->where('table.rows.0.songs', 0)
-                // COALESCEd to 0, not null: nothing to sum, but a NULL here is what floats
-                // track-less artists to the top of a descending sort on Postgres — and the
-                // default sort IS one. Asserted as an int, since a whole-number float
-                // crosses the wire as `0` (the props are compared after JSON encoding).
-                ->where('table.rows.0.duration', 0)
-                ->where('table.rows.0.size', 0)
-                // And the reverse: a song on that album, but no discography of their own.
-                // 0 albums beside 1 song is the intended reading, not missing data.
+                ->where('table.rows.0.songs', 1)
+                ->where('table.rows.0.duration', 100.5)
+                ->where('table.rows.0.size', 1_000_000)
+                // And the reverse: the same song, but no discography of their own. 0 albums
+                // beside 1 song is the intended reading, not missing data.
                 ->where('table.rows.1.name', 'Tommy Peoples')
                 ->where('table.rows.1.albums', 0)
                 ->where('table.rows.1.songs', 1)
+            );
+    }
+
+    public function test_an_artist_credited_with_nothing_playable_reads_zero_rather_than_null(): void
+    {
+        // A NULL aggregate is what floats such an artist to the top of a descending sort on
+        // Postgres — and the default sort IS one. Asserted as ints, since a whole-number float
+        // crosses the wire as `0` (the props are compared after JSON encoding).
+        $ghost = Artist::factory()->create(['name' => 'Ghost Credit']);
+        Collection::factory()->create(['album_artist_id' => $ghost->id]);
+
+        $this->actingAs(User::factory()->create())
+            ->get('/music/artists')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('table.rows', 1)
+                ->where('table.rows.0.name', 'Ghost Credit')
+                ->where('table.rows.0.albums', 1)
+                ->where('table.rows.0.songs', 0)
+                ->where('table.rows.0.duration', 0)
+                ->where('table.rows.0.size', 0)
             );
     }
 

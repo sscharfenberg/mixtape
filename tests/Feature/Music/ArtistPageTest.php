@@ -147,18 +147,49 @@ class ArtistPageTest extends TestCase
             );
     }
 
-    public function test_a_credited_compilation_owner_with_no_tracks_reports_zeroes_and_no_genre(): void
+    public function test_a_compilation_owner_holds_the_tracks_on_its_own_records(): void
     {
-        // The artist kind that has a discography and no songs at all: every track on its
-        // album credits the individual performers. The page must not fall over on the empty
-        // aggregates — and 0 here is an answer, not missing data (the tiles still render).
+        // The artist kind that PERFORMS nothing: every track on its album credits the
+        // individual musicians. It is credited with them all the same — the album is theirs —
+        // which is the half of the credit union `tracks.artist_id` alone cannot see, and the
+        // reason such a page used to read "1 album, 0 songs" beside a full discography.
         $owner = Artist::factory()->create(['name' => 'Irish Folk Festival']);
         $album = Collection::factory()->create(['album_artist_id' => $owner->id]);
+        $genre = Genre::factory()->create(['name' => 'Folk']);
 
         Track::factory()->create([
             'artist_id' => Artist::factory()->create(['name' => 'Tommy Peoples'])->id,
             'collection_id' => $album->id,
+            'genre_id' => $genre->id,
+            'duration' => 240.5,
+            'size' => 1000,
         ]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/artists/{$owner->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('artist.albums', 1)
+                ->where('artist.songs', 1)
+                ->where('artist.duration', 240.5)
+                ->where('artist.size', 1000)
+                // The dominant genre is still read off `tracks.artist_id`, which this owner
+                // has none of — a derived fact about what somebody PERFORMS, unlike the three
+                // totals above it. Asserted so the difference is deliberate rather than
+                // noticed later as a missing tile.
+                ->where('artist.genre', null)
+                // …and the songs tab gets its artist column, since the rows name somebody else.
+                ->where('artist.hasGuestCredits', true)
+            );
+    }
+
+    public function test_an_artist_credited_with_nothing_playable_reports_zeroes(): void
+    {
+        // Reachable through an album whose files the scanner has since removed. The page must
+        // not fall over on the empty aggregates — and 0 here is an answer, not missing data
+        // (the tiles still render).
+        $owner = Artist::factory()->create(['name' => 'Ghost Credit']);
+        Collection::factory()->create(['album_artist_id' => $owner->id]);
 
         $this->actingAs(User::factory()->create())
             ->get("/music/artists/{$owner->id}")
@@ -171,6 +202,8 @@ class ArtistPageTest extends TestCase
                 ->where('artist.duration', 0)
                 ->where('artist.size', 0)
                 ->where('artist.genre', null)
+                // Nothing to be by anybody, so no artist column.
+                ->where('artist.hasGuestCredits', false)
             );
     }
 
@@ -292,7 +325,7 @@ class ArtistPageTest extends TestCase
             );
     }
 
-    public function test_the_songs_tab_holds_only_this_artists_music_and_links_each_row_to_its_album(): void
+    public function test_the_songs_tab_holds_this_artists_music_and_links_each_row_to_its_album(): void
     {
         $artist = Artist::factory()->create();
         $album = Collection::factory()->create(['album_artist_id' => $artist->id, 'name' => 'Loveless']);
@@ -300,9 +333,11 @@ class ArtistPageTest extends TestCase
         Track::factory()->create([
             'artist_id' => $artist->id, 'collection_id' => $album->id, 'name' => 'Only Shallow',
         ]);
-        // Another artist's track on the same album — the tab is by ARTIST, not by album.
+        // Somebody else's album, with nothing of theirs on it — neither arm of the credit
+        // union reaches it, so it must not appear.
         Track::factory()->create([
-            'artist_id' => Artist::factory()->create()->id, 'collection_id' => $album->id,
+            'artist_id' => Artist::factory()->create()->id,
+            'collection_id' => Collection::factory()->create()->id,
         ]);
 
         $this->actingAs(User::factory()->create())
@@ -317,6 +352,74 @@ class ArtistPageTest extends TestCase
                 // a URL, and a null here would silently turn it into plain text.
                 ->where('table.rows.0.albumUrl', "/music/albums/{$album->id}")
                 ->where('table.rows.0.href', '/music/songs/'.$page->toArray()['props']['table']['rows'][0]['id'])
+            );
+    }
+
+    public function test_the_songs_tab_holds_a_collaboration_credited_to_another_artist_row(): void
+    {
+        // The fault this whole rule exists for: a feature credit tags as its own artist
+        // ("Bring Me The Horizon feat. BABYMETAL"), so the band's own page used to be missing
+        // exactly the track a listener came looking for. It is on THEIR record, so it is
+        // theirs — and the row names the performer, which is what turns the artist column on.
+        $band = Artist::factory()->create(['name' => 'Bring Me The Horizon']);
+        $feature = Artist::factory()->create(['name' => 'Bring Me The Horizon feat. BABYMETAL']);
+        $album = Collection::factory()->create(['album_artist_id' => $band->id, 'name' => 'Post Human']);
+
+        // Numbered, so the default sort (year, album, disc, track) puts them in a known order
+        // rather than leaving it to the factory's random disc and track.
+        Track::factory()->create([
+            'artist_id' => $band->id, 'collection_id' => $album->id, 'name' => 'DArkSide', 'disc' => 1, 'track' => 1,
+        ]);
+        Track::factory()->create([
+            'artist_id' => $feature->id, 'collection_id' => $album->id, 'name' => 'Kingslayer', 'disc' => 1, 'track' => 2,
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/artists/{$band->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('table.rows', 2)
+                ->where('artist.songs', 2)
+                ->where('artist.hasGuestCredits', true)
+                // The cell names the performer and links to THEIR page — a third destination,
+                // since the row opens the song and the album cell opens the album.
+                ->where('table.rows.1.artist', 'Bring Me The Horizon feat. BABYMETAL')
+                ->where('table.rows.1.artistUrl', "/music/artists/{$feature->id}")
+            );
+    }
+
+    public function test_an_artist_performing_their_whole_catalogue_gets_no_artist_column(): void
+    {
+        // The other branch, and the one 612 of the live library's 641 artists are on: every
+        // row is by the artist in the hero, so the column could only repeat that one name.
+        $artist = Artist::factory()->create();
+        $album = Collection::factory()->create(['album_artist_id' => $artist->id]);
+
+        Track::factory()->count(2)->create(['artist_id' => $artist->id, 'collection_id' => $album->id]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/artists/{$artist->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('artist.hasGuestCredits', false));
+    }
+
+    public function test_a_track_credited_both_ways_is_counted_once(): void
+    {
+        // The union is DISTINCT, and this is what that is for: the normal case is a track
+        // whose performer IS its album artist, which both arms find. Counted twice, every
+        // ordinary artist's totals would double — a fault that looks like nothing until
+        // somebody adds up.
+        $artist = Artist::factory()->create();
+        $album = Collection::factory()->create(['album_artist_id' => $artist->id]);
+
+        Track::factory()->count(3)->create(['artist_id' => $artist->id, 'collection_id' => $album->id]);
+
+        $this->actingAs(User::factory()->create())
+            ->get("/music/artists/{$artist->id}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('artist.songs', 3)
+                ->has('table.rows', 3)
             );
     }
 

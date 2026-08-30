@@ -70,7 +70,10 @@ interface ArtistDetail {
     name: string;
     /** Albums CREDITED to them — their discography, not the ones they guest on. */
     albums: number;
-    /** How many music tracks credit them as the performer. */
+    /**
+     * How many music tracks are CREDITED to them — what they perform plus what sits on a
+     * record credited to them, which is exactly what the songs tab below lists.
+     */
     songs: number;
     /** Total playing time of those tracks in seconds — 0, never null (the server COALESCEs). */
     duration: number;
@@ -86,6 +89,13 @@ interface ArtistDetail {
      * and then the tile is plain text instead of a link.
      */
     genreUrl: string | null;
+    /**
+     * Whether the songs tab should carry an artist column — true only when something credited
+     * to this artist is performed by somebody else (a "feat." variant, or a compilation whose
+     * files name the individual performers). Decided server-side over the whole catalogue so
+     * the column holds still while a reader pages; see ArtistSongs.
+     */
+    hasGuestCredits: boolean;
 }
 
 const props = defineProps<{
@@ -233,7 +243,11 @@ const tabs = computed<TabDefinition[]>(() => [
                 </template>
 
                 <template #songs>
-                    <artist-songs :table="table" :base-url="`/music/artists/${artist.id}`" />
+                    <artist-songs
+                        :table="table"
+                        :base-url="`/music/artists/${artist.id}`"
+                        :show-artist="artist.hasGuestCredits"
+                    />
                 </template>
             </tabbed-navigation>
         </div>

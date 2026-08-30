@@ -142,12 +142,22 @@ class ArtistsStatsTest extends TestCase
         // A month rather than the songs strip's week, because artists arrive far less often than
         // files do — measured, 41 artists over seven days against 53 over thirty on the live
         // library. Read off the FILE's mtime, never a row timestamp (SongFilter carries why).
-        $this->artist('Fresh', 1, ['modified_at' => now()->subDays(20)]);
+        $fresh = $this->artist('Fresh', 1, ['modified_at' => now()->subDays(20)]);
         $this->artist('Stale', 1, ['modified_at' => now()->subDays(40)]);
 
+        // TWO, not one: the tile counts by CREDITS, and both fixture tracks sit on the shared
+        // sampler owned by "Various" — so the owner of a compilation that gained a file this
+        // month is new this month too, exactly as the performer on it is. That is the same
+        // answer the listing's own `songs` column gives, which is the pairing this file exists
+        // to keep honest. "Stale" is the one that must not be counted.
         $this->actingAs(User::factory()->create())
-            ->get('/music/artists')
-            ->assertInertia(fn (Assert $page) => $page->where('stats.filters.2.count', 1));
+            ->get('/music/artists?filter=added-this-month&sort=name&dir=asc')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('stats.filters.2.count', 2)
+                ->has('table.rows', 2)
+                ->where('table.rows.0.id', $fresh->id)
+                ->where('table.rows.1.name', 'Various')
+            );
     }
 
     public function test_lookalike_names_are_candidates_rather_than_faults(): void

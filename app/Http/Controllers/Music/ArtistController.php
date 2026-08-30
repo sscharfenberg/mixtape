@@ -88,7 +88,9 @@ class ArtistController extends Controller
             // is a payload worth a few hundred kilobytes on a big subject and worth nothing
             // at all to a visit that is just browsing. See App\Services\Music\QueuePayload.
             'queueTracks' => Inertia::optional(
-                fn (): array => QueuePayload::fromQuery(QueuePayload::query()->where('tracks.artist_id', $artist->id))
+                fn (): array => QueuePayload::fromQuery(
+                    PlaylistSubject::Artist->apply(QueuePayload::query(), [$artist->id])
+                )
             ),
             // Which of the reader's playlists the hero's "add to playlist" may offer: the ids
             // of those that do not already hold EVERY one of this artist's tracks. Ids only —
@@ -127,11 +129,22 @@ class ArtistController extends Controller
                 // `collections.album_artist_id`, the same count and the same meaning as the
                 // listing's column (owner's call: an artist's albums are the ones they are
                 // credited with, not every album a track of theirs turns up on). Then
-                // everything counted over their own tracks.
+                // everything counted over their CREDITED tracks — the union the songs tab
+                // below lists, so the number and the table under it cannot disagree
+                // (App\Services\Music\ArtistCredits).
                 'albums' => $artist->albums()->count(),
                 'songs' => $totals['songs'],
                 'duration' => $totals['duration'],
                 'size' => $totals['size'],
+
+                // Whether the songs tab should carry an ARTIST column at all — true only when
+                // something credited to this artist is performed by somebody else. Decided here
+                // rather than per page of rows, so the column cannot appear and vanish as a
+                // reader pages or sorts; and decided at all because on 612 of this library's 641
+                // artists the column could only repeat the name at the top of the page, which is
+                // the same "a tile that can only read 0 is worse than no tile" rule the browse
+                // strips are built on (docs/browse-stats.md).
+                'hasGuestCredits' => $this->hasGuestCredits($artist),
 
                 // What this artist mostly IS, tag-wise. Nullable in two ways: an artist
                 // with no tracks of their own has no genre to derive one from, and
@@ -215,20 +228,27 @@ class ArtistController extends Controller
      * documents: a HasMany is not a Builder, so FoldedSearch would throw the moment
      * somebody typed in the search box — a failure that only shows up on the search path.
      *
-     * No ARTIST column, unlike the album's track table: every row here is by the artist
-     * whose page this is, so the column would repeat one name down the whole table. The
-     * ALBUM takes its place, and links to it — on this page that is the fact worth having
-     * per row, and the one destination that differs from where the row itself goes.
+     * THE ROWS ARE THE CREDIT UNION, not `tracks.artist_id` — everything they perform plus
+     * everything on a record credited to them (App\Services\Music\ArtistCredits), which is
+     * what puts "Bring Me The Horizon feat. BABYMETAL" on Bring Me The Horizon's page.
+     *
+     * THE ARTIST COLUMN IS CONDITIONAL, and the condition is computed for the whole
+     * catalogue rather than per page ({@see hasGuestCredits}): a table always carries the
+     * column's data, and the PAGE decides whether to draw it. Send it unconditionally and it
+     * repeats the hero's name down every row for the 612 artists whose catalogue is entirely
+     * their own; leave it out and a compilation owner's 256 rows name nobody at all. Its
+     * link goes to the performer's page, which is a third destination — the row opens the
+     * song, the album cell opens the album.
      *
      * @return array<string, mixed>
      */
     private function songTable(Request $request, Artist $artist): array
     {
-        $query = Track::query()
-            ->where('tracks.artist_id', $artist->id)
+        $query = PlaylistSubject::Artist->apply(Track::query(), [$artist->id])
             // Scoped to music like everything else in this namespace: an audiobook chapter may
             // legally carry an `artist_id`, and only audiobooks are barred by the CHECK.
             ->where('tracks.type', TrackType::Music)
+            ->leftJoin('artists', 'tracks.artist_id', '=', 'artists.id')
             ->leftJoin('collections', 'tracks.collection_id', '=', 'collections.id')
             ->select([
                 'tracks.id',
@@ -240,8 +260,11 @@ class ArtistController extends Controller
                 // Decides whether the artwork cell gets a URL or the placeholder, without
                 // touching the filesystem.
                 'tracks.cover',
-                // Where the album CELL links to; off `tracks`, so the join above pays for it.
+                // Where the album and artist CELLS link to; both off `tracks`, so the joins
+                // above pay for them.
                 'tracks.collection_id',
+                'tracks.artist_id',
+                'artists.name as artist_name',
                 'collections.name as album_name',
                 'collections.year as album_year',
             ])
@@ -285,9 +308,10 @@ class ArtistController extends Controller
         return DataTableService::buildResponse(
             query: $query,
             request: $request,
-            sortable: ['name', 'album', 'year', 'disc', 'track', 'duration', 'size'],
+            sortable: ['name', 'artist', 'album', 'year', 'disc', 'track', 'duration', 'size'],
             sortColumnMap: [
                 'name' => 'tracks.name',
+                'artist' => 'artists.name',
                 'album' => 'collections.name',
                 // The COALESCEd alias, not the raw column — see the select above. Both
                 // Postgres and SQLite resolve a SELECT alias in ORDER BY.
@@ -314,11 +338,14 @@ class ArtistController extends Controller
             // inside each of them. A wholesale DESC would hand back every album backwards.
             defaultSort: 'year',
             defaultDirection: 'desc',
-            // Both text columns on show, matched through their `name_fold` companions so the
-            // search is accent- and case-insensitive on one code path for Postgres and
-            // SQLite alike (FoldedSearch).
+            // Every text column the table can show, matched through their `name_fold`
+            // companions so the search is accent- and case-insensitive on one code path for
+            // Postgres and SQLite alike (FoldedSearch). The performer is searched even where
+            // the column is hidden: it costs nothing on a page whose rows all name the artist
+            // in the hero, and hiding it from the search on the pages that DO show it would be
+            // the one place a visible column could not be searched.
             searchCallback: fn (Builder $q, string $search) => FoldedSearch::apply($q, $search, [
-                'tracks.name', 'collections.name',
+                'tracks.name', 'artists.name', 'collections.name',
             ]),
             rowMapper: fn (Track $track): array => [
                 'id' => $track->id,
@@ -332,6 +359,13 @@ class ArtistController extends Controller
                 'discTotal' => $track->collection_id === null ? null : (int) $track->disc_total,
                 'track' => $track->track,
                 'trackTotal' => $track->collection_id === null ? null : (int) $track->track_total,
+                // Who actually performs it — normally the artist whose page this is, and
+                // worth a column only when it is sometimes not (see the docblock). Null for a
+                // file carrying no artist tag at all.
+                'artist' => $track->artist_name,
+                'artistUrl' => $track->artist_id === null
+                    ? null
+                    : route('music.artists.show', $track->artist_id, absolute: false),
                 'album' => $track->album_name,
                 'year' => $track->album_year,
                 // The one cell leading somewhere other than the row's own destination: the
@@ -375,15 +409,19 @@ class ArtistController extends Controller
     }
 
     /**
-     * The three numbers counted over the artist's own tracks: how many songs, how long they
-     * play, how much disk they take.
+     * The three numbers counted over everything credited to the artist: how many songs, how
+     * long they play, how much disk they take.
      *
-     * One aggregate query over the `artist_id` index rather than three, and rather than
-     * hydrating every track row to count it — the same reason AlbumController computes
-     * its totals in SQL. The sums are COALESCEd so a track-less artist reports 0 rather
-     * than null: unlike an album (which cannot exist without files), an artist credited
-     * only as an album-artist legitimately has none, and "0:00" beside "3 albums" reads
-     * as the fact it is.
+     * CREDITED, not performed — the same union the songs tab lists and the hero's Play
+     * button queues (App\Services\Music\ArtistCredits), because these three sit directly
+     * above that table and a hero reading "34 Songs" over a pager saying "1-25 of 64" is a
+     * wrong number rather than a different question.
+     *
+     * One aggregate query rather than three, and rather than hydrating every track row to
+     * count it — the same reason AlbumController computes its totals in SQL. The sums are
+     * COALESCEd so an artist with nothing reports 0 rather than null; that is rarer than it
+     * was (an album-artist now owns their record's tracks) but still reachable, by an artist
+     * whose only credit is an audiobook the music scope excludes.
      *
      * Scoped to music for the same reason the listing is — an audiobook chapter may legally
      * carry an `artist_id`.
@@ -392,9 +430,8 @@ class ArtistController extends Controller
      */
     private function trackTotals(Artist $artist): array
     {
-        $totals = Track::query()
-            ->where('artist_id', $artist->id)
-            ->where('type', TrackType::Music)
+        $totals = PlaylistSubject::Artist->apply(Track::query(), [$artist->id])
+            ->where('tracks.type', TrackType::Music)
             ->selectRaw('count(*) as songs')
             ->selectRaw('coalesce(sum(duration), 0) as duration_total')
             ->selectRaw('coalesce(sum(size), 0) as size_total')
@@ -410,6 +447,33 @@ class ArtistController extends Controller
             'duration' => (float) $totals?->duration_total,
             'size' => (int) $totals?->size_total,
         ];
+    }
+
+    /**
+     * Whether anything credited to this artist is performed by somebody ELSE — which is what
+     * decides if the songs tab shows an ARTIST column at all.
+     *
+     * True for exactly the two shapes the credit union exists for: a feature credit on their
+     * own record ("Bring Me The Horizon feat. BABYMETAL" on a Bring Me The Horizon album),
+     * and a compilation owner whose files all name the individual performers ("Various
+     * Artists", "Irish Folk Festival"). False for the 612 artists here whose catalogue is
+     * entirely their own, where the column could only repeat the name in the hero.
+     *
+     * An EXISTS rather than a count: the page asks a yes/no, and the planner can stop at the
+     * first row. It compares against the artist's own id rather than against `album_artist_id`
+     * so a NULL performer — a file with no artist tag on their record — counts as a guest
+     * credit too, which is the honest reading: the column then shows the blank, and a reader
+     * can see that the row is not credited to anyone.
+     */
+    private function hasGuestCredits(Artist $artist): bool
+    {
+        return PlaylistSubject::Artist->apply(Track::query(), [$artist->id])
+            ->where('tracks.type', TrackType::Music)
+            ->where(fn (Builder $guest) => $guest
+                ->whereNull('tracks.artist_id')
+                ->orWhere('tracks.artist_id', '!=', $artist->id)
+            )
+            ->exists();
     }
 
     /**

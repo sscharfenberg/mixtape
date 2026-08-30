@@ -25,12 +25,13 @@ namespace App\Enums;
  *
  * THE GRANT IS NOT DEFINED HERE for the library subjects. A share must play
  * exactly the tracks the app already considers to BE its subject, so
- * {@see self::grant()} delegates to `PlaylistSubject`, whose `column()` is the same
+ * {@see self::grant()} delegates to `PlaylistSubject`, whose `apply()` is the same
  * narrowing each detail controller applies to build its `queueTracks` prop. Restating
- * those columns here would be one edit away from "share this artist" and "play this
- * artist" meaning different songs — and the artist case is where that bites, because
- * `tracks.artist_id` is NOT `collections.album_artist_id` (docs/sharing.md → "the
- * artist trap").
+ * those narrowings here would be one edit away from "share this artist" and "play this
+ * artist" meaning different songs — and the artist case is where that bites, because an
+ * artist's tracks are not one foreign key at all but the union of the performed and the
+ * album-credited (App\Services\Music\ArtistCredits; docs/sharing.md → "the artist
+ * trap").
  */
 enum ShareSubject: string
 {

@@ -299,8 +299,11 @@ class SubjectPlayCountsTest extends TestCase
         $orphan = Track::factory()->create(['artist_id' => null, 'genre_id' => null, 'collection_id' => null]);
         $this->listen($reader, $orphan, 4);
 
+        // Loose, so the credit union puts these two listens on this artist ALONE: filed under
+        // an album, its album-artist would be credited with them too and tie for first place,
+        // leaving the row this asserts on to the name tiebreak.
         $artist = Artist::factory()->create();
-        $this->listen($reader, $this->track(['artist_id' => $artist->id]), 2);
+        $this->listen($reader, $this->track(['artist_id' => $artist->id, 'collection_id' => null]), 2);
 
         $this->actingAs($reader)
             ->get('/music/artists?sort=plays&dir=desc')
