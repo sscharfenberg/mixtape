@@ -1,5 +1,17 @@
 # Dependency updates and security advisories, as pull requests.
 #
+# TWO MECHANISMS, ONE FILE. Version updates are configured wholly below: the schedules, the
+# groups, the ignore entry. Security updates are not — they are a repository setting
+# (`vulnerability-alerts` for the detection, `automated-security-fixes` for the PRs, both on
+# the REST API), and no key in this file can turn them on or off. What this file contributes
+# to them is GROUPING, through a group carrying `applies-to: security-updates`. Read an
+# absence here accordingly: it says nothing about whether advisories are being watched.
+#
+# They also ignore the schedule. `day: sunday` and `open-pull-requests-limit` govern version
+# updates only; a security PR opens when the advisory lands, however many are already open.
+# Grouping is therefore the one lever on their volume, and it batches what is outstanding at
+# the same moment rather than deferring anything to the weekend.
+#
 # WHY THIS RATHER THAN AN AUDIT STEP IN CI. `composer audit` and `npm audit` fail a build for
 # something the build did not break, on a schedule nobody chose — a fresh advisory turns the
 # next unrelated push red. Worse, `npm audit` is famously noisy on a Vite/ESLint tree, where
@@ -15,7 +27,9 @@ version: 2
 
 updates:
     # The runtime code that actually faces the internet: Laravel, Fortify, Inertia, getID3.
-    # Eight direct requirements, so the volume here is low and every PR is worth reading.
+    # Eight direct requirements, so the volume here is low and every PR is worth reading —
+    # which is why no group below covers security updates either. An advisory against the
+    # framework serving the site earns its own PR rather than a place in a batch.
     - package-ecosystem: composer
       directory: /
       schedule:
@@ -45,6 +59,19 @@ updates:
               update-types:
                   - minor
                   - patch
+
+          # The same forty, for advisories rather than releases — the half of `npm audit`'s
+          # noise that never reaches a browser. Grouping is the only way to hold a wave of
+          # transitive dev findings to one PR, security updates obeying neither the schedule
+          # nor the open-PR limit.
+          #
+          # No `update-types` filter here, unlike the group above: a fix is worth taking at
+          # whatever SemVer level it ships at, and naming levels would silently drop the
+          # advisories that only a major answers. The seven RUNTIME dependencies are left out
+          # of it on purpose — an advisory against Vue or Inertia is read on its own.
+          dev-tooling-security:
+              applies-to: security-updates
+              dependency-type: development
       ignore:
           # TypeScript is held below 6.1 by ONE peer range — `@typescript-eslint/parser`
           # (reached through `@vue/eslint-config-typescript`) declares
