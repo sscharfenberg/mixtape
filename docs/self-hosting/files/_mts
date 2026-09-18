@@ -40,13 +40,21 @@ _mts() {
 
     # --- Destinations -------------------------------------------------------
     # Offer the mounted volumes first, because that is where the answer almost
-    # always is on a Mac, then fall through to ordinary directory completion so
-    # a subfolder can still be reached.
+    # always is on a Mac, then the adb transport, then fall through to ordinary
+    # directory completion so a subfolder can still be reached.
     #
     # The `(N/)` qualifier — plain `/`, not `-/` — is doing real work: it matches
     # directories WITHOUT following symlinks, which drops `/Volumes/Macintosh HD`
     # (a symlink to `/`). That is the one destination mts refuses outright, so
     # offering it would only invite the error.
+    #
+    # `adb:` is added with `-S ''` — no suffix, not even a space — because a bare
+    # `adb:` is already a complete answer (it means the area's own directory on
+    # the device) and may equally be typed on into `adb:/storage/…`. A space
+    # after it would have to be deleted again in the commoner of the two cases.
+    # It is NOT completed from `adb devices`: completion has to be instant and
+    # side-effect free, and the device path does not depend on which phone is
+    # plugged in.
     _mts_destinations() {
         local -a vols
         vols=(/Volumes/*(N/))
@@ -54,6 +62,7 @@ _mts() {
         if (( $#vols )); then
             _wanted volumes expl 'mounted volume' compadd -S / -q -a vols
         fi
+        _wanted devices expl 'android device over USB' compadd -S '' -q -- adb:
         _files -/
     }
 

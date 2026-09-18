@@ -7,6 +7,8 @@
 #   mts music /Volumes/CAR-AUDIO/ --mirror      # …and delete what the library no longer has
 #   mts music /Volumes/CAR-AUDIO/ -n            # show the plan, write nothing
 #   mts audiobooks /Volumes/CAR-AUDIO/Books/
+#   mts music adb:                              # …or onto the phone, over USB
+#   mts audiobooks adb:/storage/emulated/0/Audiobooks
 #
 # Install on the WORKSTATION, not the server — it is the machine the disk is
 # plugged into:
@@ -26,6 +28,18 @@
 # parse cleanly, be stripped from the line like any target flag, and mean
 # nothing. A command whose central flag is silently inert is worse than a
 # separate command. `mt` draws the same line for deploys, for the same reason.
+#
+# TWO TRANSPORTS, ONE COMMAND, because everything above the wire is the same
+# question. A destination that is a path is filled by rsync over ssh, straight
+# from the server; a destination written `adb:` is an Android device over USB.
+# What the two share is every decision that is about the LIBRARY rather than
+# about the wire — which areas exist, which files are worth carrying and the
+# case-insensitive spelling of that list, what counts as junk, how many times to
+# retry, what a summary should say. As two scripts those lists exist twice and
+# drift apart silently: the `.JPG` fix below is exactly the kind that lands in
+# one copy and not the other. So the transport is the only thing that branches,
+# and it is read off the destination's shape. *Transport: adb* further down has
+# what a phone needs that a car stick does not.
 #
 # MIRROR TO THE VOLUME ROOT, NOT INTO A SUBFOLDER — for music, at least. At the
 # root, every path on the disk is exactly the area-relative path the database
@@ -58,6 +72,13 @@ HOST="<your-server>"          # <-- set this
 # app's .env (MIXTAPE_MUSIC_PATH, MIXTAPE_AUDIOBOOKS_PATH). Area names below
 # line up with the keys of config/mixtape.php `library.paths`.
 MEDIA_ROOT=/var/media
+
+# The same library as this workstation sees it, which is what the adb transport
+# reads: `adb push` takes a LOCAL path, so that half copies from the mounted
+# share and never opens an ssh connection. It matches the default .m3u path
+# prefix in config/mixtape.php because it is the same answer to the same
+# question — where the files are from the point of view of this machine.
+LOCAL_MEDIA_ROOT=/Volumes/media
 
 # What a player actually needs: the audio, plus the folder image a head unit
 # shows as cover art. Everything else on the server side is left behind —
@@ -105,6 +126,19 @@ MAX_ATTEMPTS=5
 # --rsh, but its `-e program` does accept a command with options.
 REMOTE_SHELL='ssh -o ServerAliveInterval=15 -o ServerAliveCountMax=4'
 
+# Where a bare `adb:` puts each area on the device. These are Android's own
+# standard media directories, and every player that reads MediaStore looks in
+# them — which is what makes a book under Audiobooks/ be offered as a book
+# rather than as 674 songs.
+DEVICE_MUSIC_DIR=/storage/emulated/0/Music
+DEVICE_AUDIOBOOKS_DIR=/storage/emulated/0/Audiobooks
+
+# Files per `adb push`. One call per directory would do — the largest directory
+# in this library holds 674 chapters, about 70 KB of command line against a 1 MB
+# ARG_MAX — but somebody else's library is not measured, and the chunk is also
+# the blast radius of a call that fails.
+ADB_CHUNK=200
+
 # --- Output helpers --------------------------------------------------------
 
 note() { printf '\033[1;36m%s\033[0m\n' "$*"; }
@@ -114,6 +148,17 @@ fail() { printf '\033[1;31mmts: %s\033[0m\n' "$*" >&2; exit 1; }
 # 1234567 -> 1,234,567. Done with sed rather than printf "%'d": that flag needs
 # a thousands-grouping locale, and this script forces LC_ALL=C elsewhere.
 commify() { printf '%s' "$1" | sed -e ':a' -e 's/\B[0-9]\{3\}\>/,&/;ta'; }
+
+# The summary's horizontal rule, defined once because both transports draw the
+# same box around a different set of rows.
+RULE="────────────────────────────────────────────────────"
+
+# How wide a progress line may be. Read once, because `tput` forks and both
+# transports print a line per file or per directory.
+WIDTH=100
+if [[ -t 1 ]]; then
+    WIDTH="$(tput cols 2>/dev/null || echo 100)"
+fi
 
 # Bytes as a person reads them. Decimal units, because that is what the disk's
 # own capacity is quoted in, so 85 GB here matches 85 GB in Finder.
@@ -126,15 +171,9 @@ human_bytes() {
     }'
 }
 
-# `if`, not `[[ … ]] && fail`: under `set -e` that idiom exits the script when
-# the condition is FALSE, i.e. it would abort on every correctly-edited copy.
-if [[ $HOST == *"<your-server>"* ]]; then
-    fail "edit HOST at the top of this script before using it"
-fi
-
 usage() {
     cat <<EOF
-mts — copy a library area from the server to a local disk
+mts — copy a library area from the server to a local disk, or to an Android phone
 
 USAGE
   mts <area> <destination> [options] [rsync args...]
@@ -143,19 +182,29 @@ AREAS
   music                     $MEDIA_ROOT/music
   audiobooks                $MEDIA_ROOT/audiobooks
 
+DESTINATIONS
+  /Volumes/…                a mounted disk, filled by rsync over ssh
+  adb:[/device/path]        an Android device over USB, fed from
+                            $LOCAL_MEDIA_ROOT/<area>. A bare \`adb:\` uses
+                            $DEVICE_MUSIC_DIR for music and
+                            $DEVICE_AUDIOBOOKS_DIR for audiobooks
+
 OPTIONS
-  --mirror                  also delete files the library no longer has
+  --mirror                  also delete files the library no longer has (disks only)
   --all                     carry every file, not just audio and cover images
   -n                        show the plan and exit without writing
-  --attempts N              retries on a dropped connection (default $MAX_ATTEMPTS)
+  --attempts N              retries after a dropped connection (default $MAX_ATTEMPTS)
   -h, --help
 
-Anything else is passed through to rsync (--bwlimit=, --stats, …).
+Anything else is passed through to rsync (--bwlimit=, --stats, …), which the adb
+transport has no use for and refuses rather than ignoring.
 
 EXAMPLES
   mts music /Volumes/CAR-AUDIO/
   mts music /Volumes/CAR-AUDIO/ --mirror
   mts audiobooks /Volumes/CAR-AUDIO/Books/ --bwlimit=20m
+  mts music adb:
+  mts audiobooks adb: -n
 EOF
 }
 
@@ -211,9 +260,535 @@ fi
 # A `case` rather than an associative array: macOS ships bash 3.2, which has
 # none. The same reason `mt` guards its empty-array expansions.
 case "$AREA" in
-    music|audiobooks) SRC="$MEDIA_ROOT/$AREA" ;;
+    music)      SRC="$MEDIA_ROOT/music";      DEVICE_DEFAULT="$DEVICE_MUSIC_DIR" ;;
+    audiobooks) SRC="$MEDIA_ROOT/audiobooks"; DEVICE_DEFAULT="$DEVICE_AUDIOBOOKS_DIR" ;;
     *) fail "unknown area '$AREA' (music | audiobooks)" ;;
 esac
+
+# --- Which transport -------------------------------------------------------
+# Read off the destination's SHAPE, the way rsync itself reads `host:path`: a
+# destination is either a path on this machine or a device, and the two cannot be
+# confused for one another. A flag would have to be remembered; a prefix cannot
+# be left off by accident, because without it the path is simply not there.
+#
+# Deliberately NOT a guess from the path — `/storage/emulated/0/Music` is a
+# perfectly legal local path, and a script that decides what a destination means
+# by pattern-matching it is one mount point away from writing 86 GB to the wrong
+# device.
+TRANSPORT=disk
+DEVICE_DIR=""
+
+case "$DEST" in
+    adb:*)
+        TRANSPORT=adb
+        DEVICE_DIR="${DEST#adb:}"
+        ;;
+esac
+
+# ---------------------------------------------------------------------------
+# Transport: adb — an Android device over USB
+# ---------------------------------------------------------------------------
+#
+# WHY adb AND NOT A MOUNT. Copying through a mounted Android device (MacDroid,
+# gvfs-mtp, any File Provider) measured ~2.5 MB/s sustained against ~33 MB/s for
+# `adb push` over the same cable — 85 GB in ~45 minutes rather than ~10 hours. A
+# short test copy to such a mount is deceptively fast because the File Provider
+# absorbs it into a local cache and returns before the device has the data; only
+# a rate measured over minutes is real. Those mounts also leave Finder's " 2"
+# duplicates behind when a write is interrupted halfway.
+#
+# WHY NOT rsync, WHICH THIS SCRIPT OTHERWISE IS. rsync cannot address an adb
+# device at all, and through a File Provider mount it is worse than useless for
+# a sync: the mount does not report modification times reliably, so every run
+# re-sends the entire library unless --size-only is passed.
+#
+# WHY NOT `adb push --sync`, WHICH LOOKS LIKE THE WHOLE ANSWER. It compares
+# timestamps, and in practice re-pushes files that are already on the device and
+# byte-identical. Sizes are compared here instead.
+#
+# NO ssh IN THIS HALF. `adb push` reads a LOCAL path, so the source is
+# LOCAL_MEDIA_ROOT — the share this workstation already mounts — and HOST is
+# never consulted. Staging through a local copy first (server → disk → device)
+# would need 86 GB of somewhere to put it for a byte-identical result.
+#
+# AND NOTHING HERE DELETES. See the --mirror refusal in run_adb for why that is
+# a property of the destination rather than a missing feature.
+
+# POSIX single-quoting for a path interpolated into the DEVICE's shell, which is
+# a second shell this half has to quote for. Real library names need it:
+# "Guns N' Roses" breaks anything naiver.
+shq() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
+
+# Appends `( -name g1 -o -name g2 … )` to ADB_FIND. A function because both
+# halves of the predicate need one and a misplaced `-o` shows up as a silently
+# empty file list rather than as an error. An ARRAY rather than a string, because
+# two of the junk globs contain spaces and word splitting would turn
+# "System Volume Information" into three predicates that match nothing.
+adb_append_alternation() {
+    local glob first
+    first=1
+    ADB_FIND+=('(')
+    for glob in "$@"; do
+        if [[ $first == 0 ]]; then
+            ADB_FIND+=(-o)
+        fi
+        ADB_FIND+=(-name "$glob")
+        first=0
+    done
+    ADB_FIND+=(')')
+}
+
+# The source-side find, built from the SAME two glob lists rsync is handed, so a
+# format the scanner learns is taught in one place. The globs are already written
+# as character classes to survive rsync's case-sensitive patterns, and
+# `find -name` takes them unchanged — which is the whole reason there is one list
+# rather than two spellings of it.
+#
+# The junk group is PRUNED rather than negated, so it covers a directory as well
+# as a file: `! -name '.Spotlight-V100'` with `-type f` still descends into one
+# and collects the JPEGs a desktop OS left in there.
+adb_build_find() {
+    ADB_FIND=(.)
+    adb_append_alternation "${JUNK_GLOBS[@]}"
+    ADB_FIND+=(-prune -o -type f)
+    if [[ $ALL == 0 ]]; then
+        adb_append_alternation "${MEDIA_GLOBS[@]}"
+    fi
+    ADB_FIND+=(-print0)
+}
+
+# The device path an area-relative directory lands in. A file sitting directly in
+# the area root has no directory part and is spelled "." by the manifest, so one
+# code path covers both that and a nested album.
+adb_remote_dir() {
+    if [[ $1 == . ]]; then
+        printf '%s' "$DEVICE_DIR"
+    else
+        printf '%s/%s' "$DEVICE_DIR" "$1"
+    fi
+}
+
+# `stat`'s "size path" turned into the manifest's three columns — the
+# area-relative directory, the file, the size in bytes. One copy of it, because
+# both sides are compared field by field and a formatter written twice can
+# disagree with itself.
+#
+# SPLIT INTO DIRECTORY AND FILE RATHER THAN LEFT AS ONE PATH, so that a
+# byte-wise sort puts a directory's files together. Sorted whole, a
+# SUBDIRECTORY sorts between two files of its parent whenever its name falls
+# between theirs — `CD 1/` lands between `01 - …mp3` and `Folder.JPG`, because
+# `0` < `C` < `F` — and the push loop then pays a second mkdir-and-push for a
+# directory it had already finished, and reports it twice.
+#
+# A TAB separates the fields because every other plausible character occurs in
+# this library's names; no file in it contains a tab.
+ADB_MANIFEST_AWK='
+    { size = $1 + 0
+      path = substr($0, index($0, " ") + 1)
+      sub(/^\.\//, "", path)
+      base = path; sub(/^.*\//, "", base)
+      dir  = path; if (sub(/\/[^\/]*$/, "", dir) == 0) dir = "."
+      printf "%s\t%s\t%d\n", dir, base, size }'
+
+# The source side. `find .` from INSIDE the area, so the paths are relative
+# without any prefix arithmetic, and sorted under LC_ALL=C so the order is by
+# bytes rather than by a locale's idea of alphabetical.
+adb_manifest_source() {
+    # THE SUBSHELL HAS TO SPAN `stat` AS WELL AS `find`. A `( cd … && find )`
+    # alone ends at the pipe, so `stat` is handed relative paths and run in the
+    # directory this script was started in — where it reports every one of them
+    # as missing and the manifest comes back empty.
+    ( cd "$ADB_SRC" && find "${ADB_FIND[@]}" | xargs -0 stat -f '%z %N' ) \
+        | LC_ALL=C awk "$ADB_MANIFEST_AWK" \
+        | LC_ALL=C sort > "$ADB_TMP/src.tsv"
+}
+
+# The same shape, read off the device in one round trip — `-exec … +` batches the
+# paths rather than spawning a `stat` per file.
+#
+# THE DEVICE SIDE IS A LOOKUP TABLE, NOT A MIRROR, which is why it filters
+# nothing. The only question ever asked of it is whether one source file is
+# present at the right size, so a file the library does not have is never looked
+# up. That is the right answer for a phone, where the same folder holds the
+# owner's own music, a file manager's @Recycle and a player's .thumbnails —
+# nothing here deletes, so nothing here has to decide what those are.
+#
+# `cd || exit 9` rather than trusting the remote status: an unreadable
+# destination would otherwise produce an empty manifest, which reads exactly like
+# a fresh device and would re-push the whole library.
+adb_manifest_device() {
+    local rc
+    rc=0
+    adb shell "cd $(shq "$DEVICE_DIR") || exit 9; find . -type f -exec stat -c '%s %n' {} + 2>/dev/null; exit 0" \
+        </dev/null > "$ADB_TMP/dev.raw" || rc=$?
+    if [[ $rc != 0 ]]; then
+        fail "could not read '$DEVICE_DIR' on the device (adb exited $rc)"
+    fi
+
+    tr -d '\r' < "$ADB_TMP/dev.raw" \
+        | LC_ALL=C awk "$ADB_MANIFEST_AWK" \
+        | LC_ALL=C sort > "$ADB_TMP/dev.tsv"
+}
+
+# The plan: every source file the device does not already have at that size.
+#
+# THE DEVICE FILE IS MATCHED BY FILENAME, NOT BY THE USUAL `NR == FNR`. When the
+# device side is empty — a fresh phone, the exact case this exists for — awk
+# never reads a line from it, so NR and FNR stay equal into the second file and
+# every source file is filed as already present. The run then reports success
+# having transferred nothing at all.
+#
+# `key in have` rather than comparing a fetched size directly, because an unset
+# array element is numerically zero: a zero-byte source file would otherwise read
+# as present on a device that has never seen it.
+adb_todo() {
+    LC_ALL=C awk -F'\t' -v devf="$ADB_TMP/dev.tsv" '
+        { key = $1 "\t" $2 }
+        FILENAME == devf { have[key] = 1; size[key] = $3; next }
+        !(key in have) || size[key] != $3 { print }
+    ' "$ADB_TMP/dev.tsv" "$ADB_TMP/src.tsv" > "$ADB_TMP/todo"
+
+    TODO_FILES="$(wc -l < "$ADB_TMP/todo" | tr -d ' ')"
+    TODO_BYTES="$(LC_ALL=C awk -F'\t' '{ b += $3 } END { printf "%d", b + 0 }' "$ADB_TMP/todo")"
+}
+
+# A plan line as a reader recognises it. The manifest keeps the directory and the
+# file apart so the sort can group them; nothing outside it wants them that way.
+ADB_PATH_AWK='{ print ($1 == "." ? $2 : $1 "/" $2) }'
+
+# One updating line, the same shape the rsync half prints and for the same
+# reason: `adb push` has a per-file progress display and no notion of the whole
+# job. Off a terminal it prints one line per directory instead of overwriting.
+adb_progress() {
+    local line pct pad
+    pct=100
+    if [[ $2 -gt 0 ]]; then
+        pct=$(( $1 * 100 / $2 ))
+    fi
+    line="[$1/$2 ${pct}%] $3"
+    if [[ ${#line} -gt $WIDTH ]]; then
+        line="${line:0:$WIDTH}"
+    fi
+    if [[ -t 1 ]]; then
+        pad=$((WIDTH - ${#line}))
+        printf '\r%s%*s' "$line" "$pad" ""
+    else
+        printf '%s\n' "$line"
+    fi
+}
+
+# A failure is reported on its own line above the progress display, because a run
+# that pushes thirteen hundred directories and loses two has to say which two —
+# the retry pass that follows would otherwise be the only evidence it happened.
+adb_note_failure() {
+    if [[ -t 1 ]]; then
+        printf '\n'
+    fi
+    warn "  FAILED $1 :: $(printf '%s' "$2" | tail -1)"
+}
+
+# Push the named files (basenames) of one area-relative directory.
+#
+# THE PARENT MUST EXIST FIRST. `adb push <dir> <dest>` where <dest> is absent
+# treats it as the destination for the CONTENTS — it silently drops one level,
+# landing tracks in the artist folder and losing the album — and for a list of
+# files a missing destination is ambiguous the other way, as a filename. Creating
+# it removes the question; `|| true` because after the first run it is already
+# there.
+#
+# CHUNKED, so one `adb push` carries a whole album in one connection instead of
+# paying process start-up per track. The bound is ADB_CHUNK rather than the shell
+# limit: the largest directory in this library holds 674 chapters, about 70 KB of
+# command line against a 1 MB ARG_MAX, but somebody else's library is not
+# measured — and the chunk is also the blast radius of a failed call.
+adb_push_group() {
+    local dir remote out rc
+    local -a chunk
+    dir="$1"
+    shift
+    rc=0
+
+    remote="$(adb_remote_dir "$dir")"
+    adb shell "mkdir -p $(shq "$remote")" </dev/null >/dev/null 2>&1 || true
+
+    while [[ $# -gt 0 ]]; do
+        chunk=()
+        while [[ $# -gt 0 && ${#chunk[@]} -lt $ADB_CHUNK ]]; do
+            chunk+=("$ADB_SRC/$dir/$1")
+            shift
+        done
+        if ! out="$(adb push -q ${chunk[@]+"${chunk[@]}"} "$remote/" </dev/null 2>&1)"; then
+            adb_note_failure "$dir" "$out"
+            rc=1
+        fi
+    done
+
+    return $rc
+}
+
+# One pass over the plan, grouped by directory. The grouping is what makes an
+# interrupted run cheap: the manifests are rebuilt afterwards, so whatever landed
+# is simply absent from the next plan and the worst an interrupt costs is the
+# chunk in flight.
+#
+# READ ON FD 3, AND FEED EVERY adb CALL FROM /dev/null. adb reads stdin, so a
+# loop driven by `while read` off stdin hands it the rest of the plan — the loop
+# then "succeeds" after one iteration, having copied one directory out of
+# thirteen hundred. The private descriptor is the structural fix; the redirect
+# also stops `adb shell` waiting on a terminal that is not there.
+adb_push_pass() {
+    local dir base size cur landed gbytes tab
+    local -a files
+    cur=""
+    files=()
+    gbytes=0
+    landed=0
+    tab="$(printf '\t')"
+
+    while IFS="$tab" read -r dir base size <&3; do
+        if [[ -z $base ]]; then
+            continue
+        fi
+
+        if [[ -n $cur && $dir != "$cur" ]]; then
+            # The counter advances on what LANDED rather than on what was
+            # attempted, so a directory that failed does not read as 100%
+            # directly beneath the message saying it failed. Per PASS, not per
+            # run: each attempt re-plans, so its own total is the only one the
+            # ratio can be against.
+            if adb_push_group "$cur" ${files[@]+"${files[@]}"}; then
+                landed=$((landed + ${#files[@]}))
+                ADB_PUSHED_FILES=$((ADB_PUSHED_FILES + ${#files[@]}))
+                ADB_PUSHED_BYTES=$((ADB_PUSHED_BYTES + gbytes))
+                ADB_PUSHED_DIRS=$((ADB_PUSHED_DIRS + 1))
+            fi
+            adb_progress "$landed" "$TODO_FILES" "$cur"
+            files=()
+            gbytes=0
+        fi
+
+        cur="$dir"
+        files+=("$base")
+        gbytes=$((gbytes + size))
+    done 3< "$ADB_TMP/todo"
+
+    if [[ -n $cur ]]; then
+        if adb_push_group "$cur" ${files[@]+"${files[@]}"}; then
+            landed=$((landed + ${#files[@]}))
+            ADB_PUSHED_FILES=$((ADB_PUSHED_FILES + ${#files[@]}))
+            ADB_PUSHED_BYTES=$((ADB_PUSHED_BYTES + gbytes))
+            ADB_PUSHED_DIRS=$((ADB_PUSHED_DIRS + 1))
+        fi
+        adb_progress "$landed" "$TODO_FILES" "$cur"
+    fi
+
+    if [[ -t 1 ]]; then
+        printf '\n'
+    fi
+}
+
+# The whole adb run: resolve both ends, refuse what does not apply, plan, push
+# with retries, verify by re-planning, report.
+run_adb() {
+    local attached free_kb need_kb started elapsed rate attempt backoff
+
+    # --- Resolve both ends -------------------------------------------------
+    if [[ -z $DEVICE_DIR ]]; then
+        DEVICE_DIR="$DEVICE_DEFAULT"
+    fi
+    case "$DEVICE_DIR" in
+        /*) ;;
+        *)  fail "the device path must be absolute, got 'adb:$DEVICE_DIR'" ;;
+    esac
+    DEVICE_DIR="${DEVICE_DIR%/}"
+
+    ADB_SRC="$LOCAL_MEDIA_ROOT/$AREA"
+
+    # --- What this transport does not do -----------------------------------
+    # --mirror IS NOT OFFERED HERE, and not for want of an `rm`. On a car stick
+    # everything present is a copy of something the server still has, which is
+    # the assumption --delete rests on. A phone's media folder is shared user
+    # space — it already holds a file manager's @Recycle, a player's thumbnail
+    # cache and whatever was ever dropped there — so the same flag would mean
+    # "delete anything I did not send". The phone is also deliberately carrying
+    # only as much of the library as fits, which makes "extraneous" a question
+    # this script cannot answer from the source alone.
+    if [[ $MIRROR == 1 ]]; then
+        fail "--mirror is a disk-only option: nothing in a phone's media folder is safe to call extraneous"
+    fi
+
+    # An rsync flag would be accepted by the parser above and then do nothing,
+    # which is precisely the failure this script refuses for `mt transfer --prod`.
+    if [[ ${#PASSTHROUGH[@]} -gt 0 ]]; then
+        fail "'${PASSTHROUGH[*]}' is for rsync and means nothing over adb"
+    fi
+
+    # --- Guards ------------------------------------------------------------
+    if [[ ! -d $ADB_SRC ]]; then
+        fail "$(printf '%s\n' \
+            "the library is not readable at '$ADB_SRC'." \
+            "     adb copies from a LOCAL path, so this half needs the server's media" \
+            "     share mounted — or LOCAL_MEDIA_ROOT at the top pointed at where it is.")"
+    fi
+
+    if ! command -v adb >/dev/null 2>&1; then
+        fail "adb is not in PATH (brew install --cask android-platform-tools)"
+    fi
+
+    # Counted from the status column rather than from the line count: a device
+    # that has not had this host authorised is listed as `unauthorized`, and
+    # treating it as attached means failing later with a push error instead of
+    # naming the dialog waiting on the phone's screen.
+    attached="$(adb devices | awk 'NR > 1 && $2 == "device" { n++ } END { print n + 0 }')"
+    if [[ $attached == 0 ]]; then
+        fail "$(printf '%s\n' \
+            "no device is ready. Check the cable, that USB debugging is on, and that" \
+            "     this host is authorised — \`adb devices\` reports 'unauthorized' until" \
+            "     the dialog on the phone is accepted.")"
+    fi
+    if [[ $attached -gt 1 && -z ${ANDROID_SERIAL:-} ]]; then
+        fail "$attached devices are attached — name one in ANDROID_SERIAL (see \`adb devices\`)"
+    fi
+
+    # The directory is never created, for the same reason the disk half never
+    # creates its destination: a mistyped path does not exist, and 86 GB in
+    # /storage/emulated/0/Musik is a mistake nothing else would ever report.
+    # Asked for by echoing rather than by the remote exit status, which older adb
+    # builds do not forward at all.
+    if [[ "$(adb shell "test -d $(shq "$DEVICE_DIR") && echo yes" </dev/null | tr -d '\r\n')" != yes ]]; then
+        fail "$(printf '%s\n' \
+            "'$DEVICE_DIR' does not exist on the device." \
+            "     If that is really where it should go:" \
+            "       adb shell mkdir -p $(shq "$DEVICE_DIR")")"
+    fi
+
+    ADB_TMP="$(mktemp -d -t mts-adb)"
+    trap 'rm -rf -- "${ADB_TMP:-}"' EXIT
+    trap 'printf "\n"; exit 130' INT TERM HUP
+
+    # --- The plan ----------------------------------------------------------
+    note "Planning: $ADB_SRC -> adb:$DEVICE_DIR"
+
+    adb_build_find
+    adb_manifest_source
+    adb_manifest_device
+    adb_todo
+
+    note "$(commify "$TODO_FILES") file(s) to copy, $(human_bytes "$TODO_BYTES")"
+
+    if [[ $DRY == 1 ]]; then
+        LC_ALL=C awk -F'\t' "$ADB_PATH_AWK" "$ADB_TMP/todo"
+        exit 0
+    fi
+
+    if [[ $TODO_FILES == 0 ]]; then
+        note "Nothing to do — the device already has this area."
+        exit 0
+    fi
+
+    # FREE SPACE IS CHECKED BEFORE A BYTE MOVES, because the phone deliberately
+    # does not hold everything: a run that fills the device and then fails on
+    # file nine thousand reports a push error, which reads like a cable fault.
+    # `-k` matters — without it toybox answers in human units, which cannot be
+    # compared arithmetically. A `df` that cannot be parsed is not fatal; it only
+    # means the run finds out the slow way.
+    free_kb="$(adb shell "df -k $(shq "$DEVICE_DIR")" </dev/null | tr -d '\r' \
+        | awk 'NR > 1 && NF >= 4 { print $4; exit }')"
+    need_kb=$(( (TODO_BYTES + 1023) / 1024 ))
+    if [[ ${free_kb:-} =~ ^[0-9]+$ && $need_kb -gt $free_kb ]]; then
+        fail "$(printf '%s\n' \
+            "this needs $(human_bytes "$TODO_BYTES") and the device has $(human_bytes $((free_kb * 1024))) free." \
+            "     Nothing has been copied — free space on the phone, or send less of the library.")"
+    fi
+
+    # --- Transfer, verifying by re-planning --------------------------------
+    started="$SECONDS"
+    ADB_PUSHED_FILES=0
+    ADB_PUSHED_DIRS=0
+    ADB_PUSHED_BYTES=0
+
+    attempt=1
+    while :; do
+        if [[ $attempt -gt 1 ]]; then
+            note "Attempt $attempt of $MAX_ATTEMPTS — $(commify "$TODO_FILES") file(s) still missing"
+        fi
+
+        adb_push_pass
+
+        # THE VERIFICATION IS THE NEXT PLAN. Both manifests are read again and
+        # the diff recomputed, so the loop can only end once every file the
+        # library holds is on the device at the right size. That is a stronger
+        # claim than "no push reported an error", which a truncated file or a
+        # dropped directory level both satisfy — and it is why this does not
+        # compare totals instead: the device's folder holds the owner's own
+        # files, so equal sums would be the wrong question and an unequal one
+        # the wrong alarm.
+        adb_manifest_device
+        adb_todo
+
+        if [[ $TODO_FILES == 0 ]]; then
+            break
+        fi
+
+        if [[ $attempt -ge $MAX_ATTEMPTS ]]; then
+            warn ""
+            LC_ALL=C awk -F'\t' "NR <= 5 $ADB_PATH_AWK" "$ADB_TMP/todo" | sed 's/^/    /' >&2
+            if [[ $TODO_FILES -gt 5 ]]; then
+                warn "    … and $(commify $((TODO_FILES - 5))) more"
+            fi
+            fail "$(commify "$TODO_FILES") file(s) are still not on the device after $attempt attempt(s) — re-run to continue where this stopped"
+        fi
+
+        backoff=$((attempt * 5))
+        if [[ $backoff -gt 30 ]]; then
+            backoff=30
+        fi
+        warn "$(commify "$TODO_FILES") file(s) did not land — retrying in ${backoff}s"
+        sleep "$backoff"
+        attempt=$((attempt + 1))
+    done
+
+    # --- Finish ------------------------------------------------------------
+    elapsed=$((SECONDS - started))
+
+    rate=""
+    if [[ $elapsed -gt 0 && ${ADB_PUSHED_BYTES:-0} -gt 0 ]]; then
+        rate="  at $(human_bytes $((ADB_PUSHED_BYTES / elapsed)))/s"
+    fi
+
+    printf '\n'
+    note "  $AREA → adb:$DEVICE_DIR"
+    printf '  %s\n' "$RULE"
+    printf '  %-18s %12s\n' "files copied"  "$(commify "$ADB_PUSHED_FILES")"
+    printf '  %-18s %12s\n' "directories"   "$(commify "$ADB_PUSHED_DIRS")"
+    printf '  %-18s %12s%s\n' "transferred" "$(human_bytes "${ADB_PUSHED_BYTES:-0}")" "$rate"
+    printf '  %-18s %12s\n' "elapsed"       "$(printf '%dm %02ds' $((elapsed / 60)) $((elapsed % 60)))"
+    printf '  %s\n' "$RULE"
+    printf '  %-18s %12s\n' "on device now" "$(commify "$(wc -l < "$ADB_TMP/dev.tsv" | tr -d ' ')")"
+    printf '\n'
+
+    # NOTHING ON ANDROID INDEXES A FILE THAT ARRIVED OVER adb. MediaStore learns
+    # about a file because the framework tells it when an app writes one; a push
+    # goes round that entirely, so the tracks are on the disk and invisible to
+    # every player until something rescans. There is no shell command for it
+    # worth relying on — a current Pixel has no `cmd media` service at all — so
+    # the honest instruction is the one the player itself offers.
+    warn "Rescan in your player — nothing on Android indexes a file that arrived over adb."
+    warn "Exported .m3u playlists go in $DEVICE_DIR, with that same path as the export prefix."
+}
+
+if [[ $TRANSPORT == adb ]]; then
+    run_adb
+    exit 0
+fi
+
+# Everything below is the rsync transport, and only it needs a server to talk to.
+#
+# `if`, not `[[ … ]] && fail`: under `set -e` that idiom exits the script when
+# the condition is FALSE, i.e. it would abort on every correctly-edited copy.
+if [[ $HOST == *"<your-server>"* ]]; then
+    fail "edit HOST at the top of this script before using it"
+fi
 
 # --- Destination guards ----------------------------------------------------
 # The expensive mistake this script can make is writing 86 GB onto the boot
@@ -544,11 +1119,6 @@ COUNT_FILE="$(mktemp -t mts-count)"
 
 printf '0 0 0 0\n' > "$COUNT_FILE"
 
-WIDTH=100
-if [[ -t 1 ]]; then
-    WIDTH="$(tput cols 2>/dev/null || echo 100)"
-fi
-
 progress_filter() {
     # LC_ALL=C, because rsync's itemized output is NOT guaranteed to be valid
     # UTF-8. It escapes some non-ASCII bytes in a filename as `\#NNN` octal and
@@ -717,14 +1287,14 @@ summary() {
 
     printf '\n'
     note "  $AREA → $TARGET"
-    printf '  %s\n' "────────────────────────────────────────────────────"
+    printf '  %s\n' "$RULE"
     printf '  %-18s %12s\n' "new files"      "$(commify "$S_NEW")"
     printf '  %-18s %12s\n' "updated"        "$(commify "$S_UPD")"
     printf '  %-18s %12s\n' "deleted"        "$(commify "$S_DEL")"
     printf '  %-18s %12s\n' "sidecars swept" "$(commify "$SWEPT")"
     printf '  %-18s %12s%s\n' "transferred"  "$(human_bytes "${S_BYTES:-0}")" "$rate"
     printf '  %-18s %12s\n' "elapsed"        "$(printf '%dm %02ds' $((elapsed / 60)) $((elapsed % 60)))"
-    printf '  %s\n' "────────────────────────────────────────────────────"
+    printf '  %s\n' "$RULE"
 
     label="$(du -sh "$TARGET" 2>/dev/null | cut -f1 | tr -d ' ')"
     if [[ -n $label ]]; then

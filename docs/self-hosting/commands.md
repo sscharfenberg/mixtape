@@ -8,15 +8,16 @@ the box is [`03-production-deploy.md`](03-production-deploy.md); this page is th
 | [`mixtape-prod-deploy`](files/mixtape-prod-deploy.sh) | the server | deploying `main` to production, or rolling back to a SHA |
 | [`mixtape-dev-deploy`](files/mixtape-deploy-dev.sh) | the server | rebuilding the dev site from whatever is on disk |
 | [`mt`](files/mt.sh) | the workstation | one-off artisan, logs, tinker and a shell, on either site |
-| [`mts`](files/mts.sh) | the workstation | copying a library area onto a local disk |
+| [`mts`](files/mts.sh) | the workstation | copying a library area onto a local disk, or onto an Android phone |
 
 > **The two workstation scripts are written for macOS.** Not incidentally — they depend on it. Both
 > guard against **bash 3.2**, which is what `/bin/bash` still is on a Mac and where expanding an empty
 > array under `set -u` is an error rather than an empty expansion. `mts` additionally builds its whole
 > rsync invocation around **openrsync**, the macOS `rsync` that is not rsync 3.x; reads volumes under
-> **`/Volumes`**; compares filesystems with BSD **`stat -f %d`**; and sweeps the AppleDouble sidecars
-> that only a Mac writing to FAT creates. On Linux, `mt` would need little more than a shebang change,
-> while `mts` would need most of its flag choices revisited — the things it works around are not there.
+> **`/Volumes`**; compares filesystems and reads file sizes with BSD **`stat -f`**; and sweeps the
+> AppleDouble sidecars that only a Mac writing to FAT creates. On Linux, `mt` would need little more
+> than a shebang change, while `mts` would need most of its flag choices revisited — the things it
+> works around are not there.
 >
 > Both install on the machine you sit at, never on the server, and both refuse to run until `HOST` at
 > the top names your server.
@@ -220,7 +221,7 @@ Three things that made this harder than it looks, all of which fail *silently*:
   commonest position of all, completes silently to nothing. Use `_wanted options expl … compadd`,
   which requests the tag explicitly.
 
-### Copying the collection to a local disk — `mts`
+### Copying the collection onto a disk or a phone — `mts`
 
 The other thing a workstation wants from the server is the media itself — filling a USB stick for a
 car, or a phone. [`files/mts.sh`](files/mts.sh) does that one job, and it is deliberately a **separate
@@ -246,7 +247,22 @@ mts music /Volumes/<usb-label>/              # add what is missing, update what 
 mts music /Volumes/<usb-label>/ --mirror     # …and delete what the library no longer has
 mts music /Volumes/<usb-label>/ -n           # print the plan, write nothing
 mts audiobooks /Volumes/<usb-label>/Books/
+
+mts music adb:                               # …or onto an Android phone over USB
+mts audiobooks adb: -n
+mts music adb:/storage/emulated/0/Music      # the same thing, spelled out
 ```
+
+**One command, two transports, and the destination's shape picks which.** A destination that is a path
+is filled by rsync over ssh, straight from the server; one written `adb:` is an Android device over
+USB. What the two halves share is every decision that is about the *library* rather than about the
+wire — which areas exist, which files are worth carrying and the case-insensitive spelling of that
+list, what counts as junk, how many times to retry, what a summary should say. As two scripts those
+lists exist twice and drift apart silently: the `.JPG` fix below is exactly the kind that lands in one
+copy and not the other. A prefix rather than a flag, because a flag can be left off while a missing
+prefix leaves no destination at all — and *not* a guess from the path, since `/storage/emulated/0/Music`
+is a perfectly legal local path and a script that decides what a destination means by pattern-matching
+it is one mount point away from writing 86 GB to the wrong device.
 
 Once per disk, stop macOS indexing something a head unit has to read:
 
@@ -362,6 +378,81 @@ passes others through raw, so `Tír na mBan.mp3` arrives as a lone `0xC3` follow
 `\#255`. In a UTF-8 locale `awk` then prints `towc: multibyte conversion failure` once per such line.
 It keeps going and the transfer is unaffected — but on a collection with any accented titles the
 warnings bury the display they are printed over. Byte-oriented `awk` never attempts the conversion.
+
+#### The adb transport — filling a phone
+
+`adb push`, not a mounted device. Copying through a mounted Android device — MacDroid, gvfs-mtp, any
+File Provider — measured **~2.5 MB/s** sustained against **~33 MB/s** for `adb push` over the same
+cable, which is 85 GB in ~45 minutes rather than ~10 hours. A short test copy to such a mount is
+deceptively fast, because the File Provider absorbs it into a local cache and returns before the
+device has the data; only a rate measured over minutes is real. Those mounts also leave Finder's
+`" 2"` duplicates behind when a write is interrupted halfway. rsync is no help here either: it cannot
+address an adb device at all, and through a File Provider mount it is worse than useless for a sync,
+because the mount does not report modification times reliably and every run re-sends the whole
+library unless `--size-only` is passed.
+
+**There is no ssh in that half.** `adb push` reads a *local* path, so the source is the media share
+this workstation already mounts (`LOCAL_MEDIA_ROOT`, `/Volumes/media` by default — the same answer
+`config/mixtape.php` gives as the default `.m3u` path prefix, to the same question). Staging through a
+local copy first, server → disk → device, would need 86 GB of somewhere to put it for a byte-identical
+result. `HOST` is therefore never consulted, and a `mts music adb:` run works on a copy of the script
+whose `HOST` has not been edited.
+
+**It compares sizes, not timestamps — and `adb push --sync` is the trap that looks like the whole
+answer.** `--sync` compares timestamps and in practice re-pushes files that are already on the device
+and byte-identical. So both sides are reduced to a manifest of *directory, file, size*, and the plan
+is every source file the device does not already hold at that size.
+
+**The verification is the next plan.** After a push pass both manifests are read again and the diff
+recomputed, so the run can only finish once every file the library holds is on the device at the right
+size — a stronger claim than "no push reported an error", which a truncated file or a dropped directory
+level both satisfy. It is also why the two sides' *totals* are never compared: a phone's media folder
+holds the owner's own music, a file manager's `@Recycle` and a player's thumbnail cache, so equal sums
+would be the wrong question and an unequal one the wrong alarm. The device manifest is a lookup table,
+not a mirror; a file the library does not have is simply never looked up.
+
+**Free space is checked before a byte moves**, because the phone deliberately does not hold
+everything. A run that fills the device and then fails on file nine thousand reports a push error,
+which reads like a cable fault.
+
+**`--mirror` is refused outright, and not for want of an `rm`.** On a car stick everything present is
+a copy of something the server still has, which is the assumption `--delete` rests on. A phone's media
+folder is shared user space, so the same flag would mean "delete anything I did not send" — and the
+phone is carrying only as much of the library as fits, which makes "extraneous" a question the source
+cannot answer. An rsync option (`--bwlimit=`, `--stats`) is refused rather than ignored for the same
+reason the script is not an `mt` subcommand: a flag that parses and then does nothing is worse than
+one that is rejected.
+
+**Nothing on Android indexes a file that arrived over adb**, which is the one thing a first run always
+surprises someone with. MediaStore learns about a file because the framework tells it when an *app*
+writes one; a push goes round that entirely, so the tracks are on the disk and invisible to every
+player until something rescans. There is no shell command for it worth relying on — a current Pixel
+has no `cmd media` service at all — so the run ends by saying to rescan in the player. Exported `.m3u`
+playlists go at the top of the device directory with that same path as the export prefix, which is the
+phone's version of *mirror music to the volume root*.
+
+**A bare `adb:` means the area's standard Android directory** (`/storage/emulated/0/Music`,
+`/storage/emulated/0/Audiobooks`) because every player that reads MediaStore looks in those — which is
+what makes a book under `Audiobooks/` be offered as a book rather than as 674 songs. The directory is
+never created, for the same reason the disk half never creates its destination: a mistyped path does
+not exist, and 86 GB in `/storage/emulated/0/Musik` is a mistake nothing else would report.
+
+Four traps, all of which fail by *succeeding*:
+
+- **adb reads stdin.** A loop driven by `while read` off stdin hands adb the rest of the plan, and the
+  loop then finishes after one iteration having copied one directory out of thirteen hundred — and
+  reports success. Read the plan on a private descriptor, and feed every `adb` call from `/dev/null`.
+- **`NR == FNR` cannot tell "first file" from "empty first file".** With the device side empty — a
+  fresh phone, the case the whole thing exists for — awk never reads a line from it, so `NR` and `FNR`
+  stay equal into the second file and every source file is filed as already present. Match on
+  `FILENAME` instead.
+- **A subdirectory sorts *between* two files of its parent** whenever its name falls between theirs:
+  `CD 1/` lands between `01 - ….mp3` and `Folder.JPG`, because `0` < `C` < `F`. Sort the manifest by
+  *directory then file* as separate columns, or the push loop pays a second `mkdir`-and-push for a
+  directory it had already finished and reports it twice.
+- **`( cd … && find ) | xargs stat` runs `stat` in the wrong directory.** The subshell ends at the
+  pipe, so `stat` is handed relative paths and resolves them where the script was started, reporting
+  every file as missing. The subshell has to span the `stat`.
 
 #### macOS ships openrsync, and it is missing flags you will reach for
 
