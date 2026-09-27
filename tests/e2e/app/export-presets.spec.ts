@@ -97,6 +97,15 @@ const PLAYLIST = named("Exportliste");
 /** Create that playlist, unless an earlier test in this serial file already did. */
 const ensurePlaylist = async (page: Page): Promise<void> => {
     await page.goto("/playlists");
+    /*
+     * MOUNTED BEFORE COUNTED. `count()` does not wait, and `goto` resolving on `load` says nothing
+     * about the page component: pages are lazy chunks, resolved after the entry script, so under a
+     * loaded run the count can read an unmounted page as "no playlist". That sends this helper to
+     * create a duplicate, the per-owner `unique` rule keeps it on the form, and the test times out
+     * in `waitForURL` below — nowhere near the cause. The actions row renders in the same pass as
+     * the list and in both of its states, empty or not, so once it is up the count is the answer.
+     */
+    await expect(page.locator(".playlists__actions")).toBeVisible();
 
     if ((await page.locator("li.playlist", { hasText: PLAYLIST }).count()) > 0) return;
 

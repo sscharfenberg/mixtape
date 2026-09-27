@@ -197,6 +197,25 @@ export const openQueuePanel = async (page: Page): Promise<void> => {
 
         return clip === "none" || clip === "inset(0px)";
     });
+
+    /*
+     * …AND ITS ROWS HAVE BEEN RENDERED. Every row is `content-visibility: auto`, and a row's
+     * contents stay SKIPPED until the rendering update after it comes on screen — so for a frame or
+     * two a row is a box with nothing in it: its text reads as `""`, and a point over the title
+     * hit-tests to the bare `<li>`, which has no handler, instead of the load overlay. A normal
+     * `click()` waits that out through its hit-target check; `click({ force: true })` does not,
+     * and the click is silently lost. Measured: the probe lands on `.play-queue__row` straight after
+     * the clip wait and on `.play-queue__load` two frames later. No person clicks inside two frames,
+     * so this is a test-side wait, not a product fix.
+     *
+     * One rendered row is enough: every row on screen is made relevant in the same update, and
+     * waiting on ALL of them would hang on a long queue whose off-screen rows stay skipped.
+     */
+    await page.waitForFunction(() =>
+        [...document.querySelectorAll(".play-queue__name")].some((name) =>
+            name.checkVisibility({ contentVisibilityAuto: true }),
+        ),
+    );
 };
 
 /**

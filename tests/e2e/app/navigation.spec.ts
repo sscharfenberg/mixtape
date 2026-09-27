@@ -21,13 +21,16 @@ import type { Page } from "@playwright/test";
  * rather than inherited from whatever the machine running the suite happens to prefer.
  */
 
-/** What each animation frame is counted for. */
-type Frame = { crumbs: number; overlay: number; bar: number };
+/** What each animation frame is counted for, and which page it was sampled on. */
+type Frame = { path: string; crumbs: number; overlay: number; bar: number };
+
+/** The counted fields of a frame — everything `peak` and `trough` can be asked about. */
+type Count = Exclude<keyof Frame, "path">;
 
 /** Count what is on screen every animation frame, and count view transitions. */
 const instrument = (page: Page) =>
     page.addInitScript(() => {
-        const w = window as unknown as { __vt: number; __frames: Record<string, number>[] };
+        const w = window as unknown as { __vt: number; __frames: Record<string, number | string>[] };
         w.__vt = 0;
         const original = document.startViewTransition?.bind(document);
         if (original) {
@@ -40,6 +43,7 @@ const instrument = (page: Page) =>
         w.__frames = [];
         const sample = () => {
             w.__frames.push({
+                path: location.pathname,
                 crumbs: document.querySelectorAll("nav.breadcrumb").length,
                 overlay: document.querySelectorAll(".dt__overlay").length,
                 bar: document.querySelectorAll(".progressbar").length
@@ -61,9 +65,9 @@ const samples = async (page: Page) => {
     });
 
     /** The highest count `key` reached across the sampled frames. */
-    const peak = (key: keyof Frame): number => Math.max(...taken.frames.map(frame => frame[key]));
+    const peak = (key: Count): number => Math.max(...taken.frames.map(frame => frame[key]));
     /** The lowest count `key` fell to across the sampled frames. */
-    const trough = (key: keyof Frame): number => Math.min(...taken.frames.map(frame => frame[key]));
+    const trough = (key: Count): number => Math.min(...taken.frames.map(frame => frame[key]));
 
     return { ...taken, peak, trough };
 };
@@ -85,10 +89,25 @@ test.describe("navigating between pages", () => {
         await page.waitForURL(/\/music\/songs\/[0-9a-f-]{36}/u);
         await expect(page.locator("nav.breadcrumb")).toBeVisible();
 
+        /*
+         * THE SAMPLE HAS TO SPAN THE SWAP, or the trough below is true of nothing — so that is what
+         * is waited for and asserted: frames on the listing AND on the song page. The wait matters
+         * as much as the check. The URL and the new trail can both be in place before the browser
+         * has drawn one frame of the new page, and reading the sample then covers the outgoing
+         * page alone — measured, one run in ten. A frame COUNT is the wrong stand-in for either
+         * half: it measures how fast the visit was rather than whether it was watched, and a row
+         * warmed by its hover prefetch swaps in five frames on a warm local server.
+         */
+        await page.waitForFunction(() =>
+            (window as unknown as { __frames: Frame[] }).__frames.some(frame =>
+                /^\/music\/songs\/[0-9a-f-]{36}$/u.test(frame.path)
+            )
+        );
+
         const { frames, trough } = await samples(page);
+        expect(frames.map(frame => frame.path)).toContain("/music/songs");
         // Every sampled frame had exactly one trail on screen — the outgoing page's, then
         // the incoming one's, with no frame in between showing none.
-        expect(frames.length).toBeGreaterThan(5);
         expect(trough("crumbs")).toBe(1);
     });
 
