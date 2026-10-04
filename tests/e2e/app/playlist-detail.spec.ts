@@ -107,6 +107,35 @@ const rowTitles = async (page: Page, expected = ENTRIES): Promise<string[]> => {
     return (await page.locator(".playlist-tracks__name").allTextContents()).map(text => text.trim());
 };
 
+/**
+ * Open the export dialog and wait until it has finished sliding in.
+ *
+ * THE SLIDE IS WHAT A CLICK CAN LOSE. Modal animates its content down from 10rem above, and
+ * Playwright's "stable" check is two animation frames with one bounding box — which a busy CI
+ * runner can produce mid-slide. The press then lands on the download button (it takes focus)
+ * and the release lands where the button no longer is, so no `click` fires, the form never
+ * submits, and the spec waits out its whole timeout on a download nobody asked for.
+ *
+ * Polled on the content's running animations rather than on visibility: the dialog is visible
+ * from its first frame. `playState` rather than a bare count, because the animation is
+ * `forwards` and a finished one stays in `getAnimations()`.
+ */
+const openExport = async (page: Page): Promise<void> => {
+    await page.getByRole("button", { name: /Playlist-Datei exportieren/u }).click();
+    await expect(page.locator("#playlist-export-form")).toBeVisible();
+    await expect
+        .poll(() =>
+            page.evaluate(
+                () =>
+                    document
+                        .querySelector("dialog[open] .modal-dialog__content")
+                        ?.getAnimations()
+                        .filter(animation => animation.playState !== "finished").length ?? -1
+            )
+        )
+        .toBe(0);
+};
+
 test.describe("a playlist's detail page", () => {
     test("opens from the listing's row and lists its entries", async ({ page }) => {
         await openFromListing(page, POPULATED);
@@ -412,8 +441,7 @@ test.describe("a playlist's detail page", () => {
          */
         test("downloads the playlist as an .m3u named after it", async ({ page }) => {
             await openFromListing(page, POPULATED);
-            await page.getByRole("button", { name: /Playlist-Datei exportieren/u }).click();
-            await expect(page.locator("#playlist-export-form")).toBeVisible();
+            await openExport(page);
 
             const download = page.waitForEvent("download");
             await page.getByRole("button", { name: /\.m3u herunterladen/u }).click();
@@ -432,7 +460,7 @@ test.describe("a playlist's detail page", () => {
             // The extended flavour and an emptied prefix, so the file is visibly a different
             // one — which is the whole point of the three fields.
             await openFromListing(page, POPULATED);
-            await page.getByRole("button", { name: /Playlist-Datei exportieren/u }).click();
+            await openExport(page);
 
             // The LABEL, not the input: RadioButton hides the real <input> behind a styled
             // span, so it carries no accessible name and cannot be checked directly. Clicking
@@ -457,7 +485,7 @@ test.describe("a playlist's detail page", () => {
             await openFromListing(page, POPULATED);
             const url = page.url();
 
-            await page.getByRole("button", { name: /Playlist-Datei exportieren/u }).click();
+            await openExport(page);
             const download = page.waitForEvent("download");
             await page.getByRole("button", { name: /\.m3u herunterladen/u }).click();
             await download;
