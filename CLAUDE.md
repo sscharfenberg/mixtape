@@ -156,7 +156,9 @@ arms passing the same `by()` are one bucket with two ceilings. `isPrecognitive()
 question in a limiter: it reads an attribute set by `HandlePrecognitiveRequests`, which runs *after*
 the throttle. Pinned in `tests/Feature/PrecognitionThrottleTest.php`.
 
-**Linting the frontend** — use **`npm run lint`** (runs ESLint then Stylelint, both with `--fix`).
+**Linting the frontend** — use **`npm run lint`** (runs ESLint then Stylelint, both with `--fix`,
+then `npm run i18n:check` — translation keys the code uses that `de.json` / `en.json` lack, dynamic
+ones included; `-- -v` lists the patterns it resolved).
 Don't invoke `eslint` / `stylelint` directly. `npm run build` runs the same lint first, so a lint
 error fails the build before anything compiles. **Always run `npm run lint` after editing any
 frontend file (Vue / TS / SCSS) — before calling a change done — so the build stays green.**

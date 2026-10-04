@@ -77,7 +77,8 @@ instance is [`docs/self-hosting/README.md`](docs/self-hosting/README.md).
 Useful scripts:
 
 ```bash
-npm run lint          # ESLint + Stylelint, both with --fix. Gates `npm run build`
+npm run lint          # ESLint + Stylelint, both with --fix, then i18n:check. Gates `npm run build`
+npm run i18n:check    # translation keys the code uses but de.json / en.json lack (-- -v lists dynamic keys)
 npm run build         # lint + vue-tsc + Vite build
 npm run icons         # rebuild the SVG icon sprite (gitignored, NOT part of the build)
 php artisan test      # server suite
