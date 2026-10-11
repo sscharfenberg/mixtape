@@ -42,13 +42,13 @@ test("shows both collections' totals to a browser with no session", async ({ pag
     /*
      * EXACT COUNTS, because the E2E fixture is deterministic (E2ESeeder: fixed ids, names and
      * durations, no `fake()` and no `now()`) — a floor would pass on a card that had lost a tile.
-     * Six tiles each plus a year range, which both shelves earn because the year lives on the
+     * Seven tiles each plus a year range, which both shelves earn because the year lives on the
      * COLLECTION and the seeder gives one to every album and every book. The range is the tile
      * that disappears on its own — it is dropped when nothing on a shelf carries a year — so it
      * is the one worth counting rather than assuming.
      */
-    await expect(cards.nth(0).locator(".widget-stats__cell")).toHaveCount(7);
-    await expect(cards.nth(1).locator(".widget-stats__cell")).toHaveCount(7);
+    await expect(cards.nth(0).locator(".widget-stats__cell")).toHaveCount(8);
+    await expect(cards.nth(1).locator(".widget-stats__cell")).toHaveCount(8);
 });
 
 test("explains itself before it starts counting, and hands the visitor a way in", async ({ page }) => {
@@ -175,7 +175,13 @@ test("stacks them into one column well before the cards get cramped", async ({ p
  *
  * TWO CLAIMS, AND THE SECOND IS THE ONE A PER-LINE RULE CANNOT MAKE. Rows at their natural height
  * line up, but that leaves the shorter card 32px short at the bottom — a strip of nothing under
- * its playtime. So the BOTTOM row grows instead, and both cards' last tiles end on the same y.
+ * its playtime. So the BOTTOM block grows instead, and both cards' last tiles end on the same y.
+ *
+ * AND THE PLAYTIME IS NO LONGER THE LAST ROW — the listening time sits under it, in the same
+ * phrase block — so the wrap is injected into the playtime ON PURPOSE: it is the row that differs
+ * on the real library, and a row that differs with another row beneath it is the case that pulls
+ * the cards out of step. The block splits into equal rows (StatTiles carries the measurement),
+ * so the listening time starts on one line in both cards however the playtime above it wrapped.
  *
  * THE LONG PLAYTIME IS INJECTED, and that needs justifying. The E2E library is a handful of
  * files, so both playtimes fit on one line here and the rows line up whatever `align-content`
@@ -194,10 +200,16 @@ test("keeps both cards' tile rows aligned when one playtime wraps", async ({ pag
     const rows = await page.evaluate(() => {
         const cards = [...document.querySelectorAll(".widget")];
 
+        // The playtime tile of either card, found by its label rather than by position: it is not
+        // the last tile any more, and position is exactly what this case is about.
+        const playtimeOf = (card: Element) =>
+            [...card.querySelectorAll(".widget-stats__cell")]
+                .find(cell => cell.querySelector(".widget-stats__label")?.textContent === "Spielzeit")!
+                .querySelector(".widget-stats__value")!;
+
         // Give the MUSIC card the playtime a real library has — five unbreakable pieces, which is
         // what the formatter produces once the total passes a month.
-        const cells = cards[0].querySelectorAll(".widget-stats__cell");
-        const playtime = cells[cells.length - 1].querySelector(".widget-stats__value")!;
+        const playtime = playtimeOf(cards[0]);
         playtime.innerHTML = ["2 Monate,", "17 Tage,", "6 Stunden,", "38 Minuten,", "3 Sekunden"]
             .map(part => `<span class="widget-stats__part">${part}</span>`)
             .join(" ");
@@ -218,15 +230,15 @@ test("keeps both cards' tile rows aligned when one playtime wraps", async ({ pag
                 lastBottom: Math.round(last.getBoundingClientRect().bottom),
                 // The VALUE's own box, which is where "did it wrap?" is legible: the tile it sits
                 // in is sized by the layout under test, so asking the tile would be circular.
-                lastValueHeight: Math.round(last.querySelector(".widget-stats__value")!.getBoundingClientRect().height)
+                playtimeValueHeight: Math.round(playtimeOf(card).getBoundingClientRect().height)
             };
         });
     });
 
     const [music, books] = rows;
 
-    // Same number of tiles on both cards here (six facts plus a year range), so the tops compare
-    // one for one.
+    // Same number of tiles on both cards here (seven facts plus a year range), so the tops compare
+    // one for one — the listening time under the wrapped playtime included.
     expect(books.tiles).toHaveLength(music.tiles.length);
     music.tiles.forEach((cell, index) =>
         expect(Math.abs(cell.top - books.tiles[index].top)).toBeLessThanOrEqual(1));
@@ -235,7 +247,7 @@ test("keeps both cards' tile rows aligned when one playtime wraps", async ({ pag
     // so everything below holds in spite of unequal CONTENT and not because there was none.
     // Measured on the value rather than on its tile — 63px against 32px — because the tile's
     // height is the thing under test.
-    expect(music.lastValueHeight).toBeGreaterThan(books.lastValueHeight);
+    expect(music.playtimeValueHeight).toBeGreaterThan(books.playtimeValueHeight);
 
     // …and the bottom row absorbed the difference, so the two cards agree all the way down. Both
     // assertions matter: equal heights alone would pass if both tiles were short and the cards

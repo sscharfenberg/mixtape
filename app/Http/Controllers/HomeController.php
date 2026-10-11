@@ -17,8 +17,9 @@ use Inertia\Response;
  * group, so what it hands over is readable by anyone who reaches the domain. That is the
  * intent — the numbers are what the landing page is FOR, an answer to "what is this?" for
  * somebody who was sent a link — and it is safe precisely because they are totals. Not one
- * title, artist or file name leaves here; a visitor learns how much there is, never what.
- * Everything that names a row stays behind `auth` or behind a share.
+ * title, artist or file name leaves here, and not one reader: a visitor learns how much there
+ * is and how much of it has been heard, never what or by whom. Everything that names a row
+ * stays behind `auth` or behind a share.
  *
  * The two sets come from LibraryStats rather than from queries of their own, so the counts a
  * guest reads here and the counts the Music / Audiobooks pages show a member are the same

@@ -5,6 +5,7 @@ namespace Tests\Feature\Audiobooks;
 use App\Models\Author;
 use App\Models\Collection;
 use App\Models\Narrator;
+use App\Models\Play;
 use App\Models\Track;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -101,6 +102,23 @@ class AudiobooksPageTest extends TestCase
                 ->where('stats.chapters', 4)
                 ->has('books', 2)
             );
+    }
+
+    public function test_the_listening_time_counts_every_readers_chapters_and_no_music(): void
+    {
+        // Everybody's listening together, the same total the welcome page shows a guest — and
+        // chapters only: the song's play is the music card's business. Each play counts the
+        // chapter's whole length, so two plays of one chapter are twice its duration.
+        $this->library();
+        $chapter = Track::factory()->audiobook()->create(['duration' => 1500.0]);
+        $song = Track::factory()->create(['duration' => 240.0]);
+
+        Play::factory()->count(2)->create(['user_id' => User::factory()->create()->id, 'track_id' => $chapter->id]);
+        Play::factory()->create(['user_id' => User::factory()->create()->id, 'track_id' => $song->id]);
+
+        $this->actingAs(User::factory()->create())
+            ->get('/audiobooks')
+            ->assertInertia(fn (Assert $page) => $page->where('stats.listenedSeconds', 3000));
     }
 
     public function test_the_books_tab_lists_every_book_newest_first(): void

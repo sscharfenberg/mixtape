@@ -7,6 +7,7 @@ import {
     formatDecimals,
     formatDuration,
     formatDurationParts,
+    formatDurationPieces,
     formatFileSize,
     formatPosition,
     formatTimeOfDay,
@@ -261,6 +262,27 @@ describe("formatDurationParts", () => {
 
     it("carries the single-unit case as a one-element list, not an empty one", () => {
         expect(formatDurationParts(0, unit)).toStrictEqual(["0s"]);
+    });
+});
+
+/*
+ * The seams again, with the punctuation a reader sees placed where a line break cannot strand it.
+ * The stats cards draw these pieces one unbreakable run each, so the only question here is where
+ * the comma goes — and that it can never open a line.
+ */
+describe("formatDurationPieces", () => {
+    it("hangs each comma on the unit before it, so a break lands after the comma", () => {
+        expect(formatDurationPieces(3661, unit)).toStrictEqual(["1h,", "1m,", "1s"]);
+    });
+
+    it("leaves the last piece bare, with no comma trailing the phrase", () => {
+        expect(formatDurationPieces(0, unit)).toStrictEqual(["0s"]);
+    });
+
+    it("reads back as formatDuration once the pieces are spaced, so the two cannot drift", () => {
+        const total = 30 * 86400 + 4 * 86400 + 7 * 3600 + 12 * 60 + 30;
+
+        expect(formatDurationPieces(total, unit).join(" ")).toBe(formatDuration(total, unit));
     });
 });
 

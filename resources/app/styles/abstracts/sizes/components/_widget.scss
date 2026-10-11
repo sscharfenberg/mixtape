@@ -45,5 +45,11 @@ $widget: (
     // NUMBER stays what the eye lands on. It is a token because StatTiles reads it twice — once
     // for the link and once for the blank line every other tile in that strip reserves to keep
     // the numbers on one baseline — and two literals that must match is one literal too many.
-    "cell-action-font-size": 0.85rem
+    "cell-action-font-size": 0.85rem,
+    // A breakpoint NAME, not a width — `m.cq()` takes a key into $breakpoints and resolves it
+    // itself (the DataTable's token carries why). The card width from which StatTiles sets its
+    // PHRASE tiles (the playtime and the listening time) side by side instead of stacking them:
+    // half of it still holds an ordinary written-out duration on one line. StatTiles' rule for
+    // the block carries the measurement.
+    "phrases-breakpoint": "desktop"
 ) !default;

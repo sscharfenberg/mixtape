@@ -8,7 +8,7 @@ import type { DiscographyAlbum } from "Components/Music/Discography/Discography.
  * The same split `types/music.ts` documents at length.
  */
 
-/** The six numbers on the audiobook stats card, mirroring AudiobooksController::stats(). */
+/** The numbers on the audiobook stats card, mirroring LibraryStats::audiobooks(). */
 export interface AudiobookStats {
     /** How many books the library holds. */
     books: number;
@@ -18,6 +18,11 @@ export interface AudiobookStats {
     sizeBytes: number;
     /** Combined playing time of every chapter, in SECONDS. */
     playtimeSeconds: number;
+    /**
+     * How long EVERYBODY has listened to audiobooks, together, in SECONDS — each play counted at
+     * its chapter's full length. Same meaning as CollectionStats' field of the same name.
+     */
+    listenedSeconds: number;
     /** Distinct authors credited on at least one chapter. */
     authors: number;
     /** Distinct narrators credited on at least one chapter. */

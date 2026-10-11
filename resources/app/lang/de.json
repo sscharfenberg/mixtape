@@ -335,6 +335,7 @@
                 "songs": "Songs",
                 "size": "Dateigröße",
                 "playtime": "Spielzeit",
+                "listened": "Hörzeit",
                 "years": "Jahre",
                 "albums": "Alben",
                 "artists": "Künstler",
@@ -344,6 +345,7 @@
                 "songs": "Anzahl der Musikdateien in der Sammlung",
                 "size": "Gesamtgröße aller Musikdateien auf der Festplatte",
                 "playtime": "Gesamtdauer aller Musikdateien",
+                "listened": "Wie lange alle zusammen Musik gehört haben — jede Wiedergabe zählt mit der vollen Länge des Songs",
                 "years": "Von der ältesten bis zur jüngsten Jahresangabe deiner Alben — Alben ohne Jahr zählen nicht mit",
                 "albums": "Anzahl der Musikalben",
                 "artists": "Anzahl der Künstler mit mindestens einem Titel",
@@ -589,7 +591,8 @@
                 "authors": "Anzahl der Autoren mit mindestens einem Kapitel",
                 "narrators": "Anzahl der Erzähler mit mindestens einem Kapitel",
                 "years": "Von der ältesten bis zur jüngsten Jahresangabe deiner Hörbücher — Bücher ohne Jahr zählen nicht mit",
-                "playtime": "Gesamtdauer aller Kapitel"
+                "playtime": "Gesamtdauer aller Kapitel",
+                "listened": "Wie lange alle zusammen Hörbücher gehört haben — jede Wiedergabe zählt mit der vollen Länge des Kapitels"
             }
         },
         "credit": {

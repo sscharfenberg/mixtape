@@ -31,8 +31,10 @@ export interface StatTile {
     label: string;
     hint: string;
     /**
-     * Span the whole remaining line instead of one tile's width, for a value that is a PHRASE
-     * rather than a number. The cell's own style rule carries the measurements.
+     * Draw this tile among the card's PHRASES rather than among its numbers, for a value like a
+     * playtime that is written out rather than counted. A run of wide tiles is one block on a
+     * line of its own: side by side where the card has the room, stacked where it has not. The
+     * block's style rule carries the measurements.
      */
     wide?: boolean;
     /**
@@ -61,20 +63,6 @@ const props = defineProps<{
 }>();
 
 /**
- * The tiles cut into consecutive runs of the same width, each drawn as its own row group.
- *
- * IT EXISTS SO THAT ONE ROW CAN BE GIVEN THE CARD'S LEFTOVER HEIGHT — see the grid's style rule,
- * which is where that leftover comes from and why the bottom row is the right place for it. A
- * single wrapping container has no way to hand its spare cross space to one line rather than
- * sharing it between all of them, so the rows have to be real boxes for the pair case; the groups
- * collapse to `display: contents` everywhere else, which puts every tile back in one wrapping
- * container and leaves that case untouched.
- *
- * RUNS RATHER THAN "the narrow ones, then the wide ones", so the order a card declares is the
- * order drawn. Splitting by width alone would silently move a wide tile to the end — no consumer
- * puts one anywhere but last, which is exactly why that would go unnoticed.
- */
-/**
  * Whether any tile in this set offers a link, which every tile then has to make room for.
  *
  * A tile is a centred column, so one with a link underneath pushes its own number UP: measured
@@ -85,6 +73,21 @@ const props = defineProps<{
  */
 const hasActions = computed<boolean>(() => props.tiles.some(tile => tile.action !== undefined));
 
+/**
+ * The tiles cut into consecutive runs of the same width, each drawn as its own row group.
+ *
+ * IT EXISTS FOR TWO LAYOUTS THAT NEED A RUN TO BE A BOX. A run of WIDE tiles is always one —
+ * the phrase block, laid out by its own style rule. A run of number tiles is one only in a
+ * matched pair, so that one row can be given the card's leftover height (see the grid's style
+ * rule for where that leftover comes from and why the bottom row is the right place for it): a
+ * single wrapping container has no way to hand its spare cross space to one line rather than
+ * sharing it between all of them. Everywhere else the number runs collapse to
+ * `display: contents`, which puts those tiles back in one wrapping container.
+ *
+ * RUNS RATHER THAN "the narrow ones, then the wide ones", so the order a card declares is the
+ * order drawn. Splitting by width alone would silently move a wide tile to the end — no consumer
+ * puts one anywhere but last, which is exactly why that would go unnoticed.
+ */
 const groups = computed<StatTile[][]>(() =>
     props.tiles.reduce<StatTile[][]>((rows, tile) => {
         const current = rows[rows.length - 1];
@@ -99,13 +102,18 @@ const groups = computed<StatTile[][]>(() =>
 
 <template>
     <div class="widget-stats__grid" :class="{ 'widget-stats__grid--actions': hasActions }">
-        <div v-for="group in groups" :key="group[0].key" class="widget-stats__lines">
+        <div
+            v-for="group in groups"
+            :key="group[0].key"
+            class="widget-stats__lines"
+            :class="{ 'widget-stats__lines--phrases': group[0].wide }"
+        >
             <tooltip
                 v-for="tile in group"
                 :key="tile.key"
                 :text="tile.hint"
                 class="widget-stats__cell"
-                :class="{ 'widget-stats__cell--wide': tile.wide, 'widget-stats__cell--active': tile.active }"
+                :class="{ 'widget-stats__cell--active': tile.active }"
             >
                 <span class="widget-stats__head">
                     <icon :name="tile.icon" :size="1" />
@@ -138,6 +146,7 @@ const groups = computed<StatTile[][]>(() =>
 <style scoped lang="scss">
 @use "sass:map";
 @use "Abstracts/colors" as c;
+@use "Abstracts/mixins" as m;
 @use "Abstracts/sizes" as s;
 
 /* WRAPPING FLEX LINES, NOT A TRACK GRID, and the difference is the whole of "no whitespace".
@@ -160,8 +169,14 @@ const groups = computed<StatTile[][]>(() =>
    subgrid spans a DECLARED number of tracks, and the number of tile rows is a wrapping outcome
    rather than a constant. It is three at the pair's two-up width, fewer once the group collapses
    to one column, more on a phone. Pinning it would mean going back to a fixed column count —
-   the arrangement the paragraph above measures the cost of. */
+   the arrangement the paragraph above measures the cost of.
+
+   AND A SIZE CONTAINER, so the phrase block below can ask how wide the CARD is rather than how
+   wide the window is. The same card is 1393px across on the Music page and 688px on the welcome
+   page at one and the same viewport, so a media query would be answering the wrong question. */
 .widget-stats__grid {
+    container-type: inline-size;
+
     display: flex;
     align-content: stretch;
 
@@ -221,6 +236,48 @@ const groups = computed<StatTile[][]>(() =>
     }
 }
 
+/* THE PHRASES — every `wide` tile, the playtime and the listening time — AS ONE BLOCK on a line
+   of its own, always a box (a grid), never folded into the number lines.
+
+   A LINE OF ITS OWN because a phrase is not a number. In one 7rem slot the thirty-character
+   playtime wrapped to six lines and made its tile 305px tall — "Sekunden" alone is wider than
+   one — and sharing a line with two number tiles it was two lines with dead space beside it.
+   `width: 100%` claims the line in the wrapping container above without knowing how many tiles
+   share the line before it; in a pair's column of rows it is simply the full width.
+
+   SIDE BY SIDE ONCE THE CARD HAS THE ROOM, stacked until then. The threshold is the width at
+   which half the card still holds an ordinary phrase on one line — "6 Stunden, 38 Minuten,
+   3 Sekunden" measures 481px at the value's size, so each half needs ~500px with its padding,
+   and the pair ~1000px. Below that a phrase would wrap inside its half and the two tiles would end
+   up as tall as the stacked pair, having bought nothing. So the Music and Audiobooks cards set
+   them side by side on a desktop window, and the welcome page's half-width cards and every
+   phone stack them. A real collection's playtime runs to five units and still wraps in its
+   half; the tile beside it then grows with it, which reads as one row of two facts.
+
+   EQUAL ROWS WHEN STACKED (`1fr`), and that is for the welcome page's PAIR. Its two cards line
+   their rows up by giving each row its natural height and the bottom block whatever is left —
+   which holds only while the rows ABOVE agree, and the playtime is exactly the row that does
+   not: the real music card's wraps to two lines where the audiobook card's fits on one. With
+   two stacked rows of natural height the listening-time row below started 16px lower in one
+   card than in the other (measured at 1440px: 770 against 754). Equal rows split each card's
+   block at its middle instead, and since both blocks start on the same line and end on the
+   same line, their middles agree too — 770 in both.
+   What it costs a card on its own is one line of air in the shorter phrase's tile, centred like
+   every tile's content. Equal COLUMNS side by side for the same look: two facts of one kind,
+   at one width, whatever either says. `minmax(0, 1fr)` rather than `1fr`, whose min-content
+   floor would hand the wider phrase the wider half. */
+.widget-stats__lines--phrases {
+    display: grid;
+    grid-auto-rows: 1fr;
+
+    width: 100%;
+
+    @include m.cq(map.get(s.$c-widget, "phrases-breakpoint")) {
+        grid-auto-columns: minmax(0, 1fr);
+        grid-auto-flow: column;
+    }
+}
+
 /* Each tile is the Tooltip's root span (class merged onto it); as a flex item its inline-flex
    is blockified, so we only set the direction and the alignment.
 
@@ -262,20 +319,6 @@ const groups = computed<StatTile[][]>(() =>
     border-radius: map.get(s.$c-widget, "cell-radius");
 
     text-align: center;
-
-    /* THE WHOLE REMAINING ROW FOR A PHRASE, at the same size as every other tile.
-
-       The measurements, at 1280px where the old grid gave ~146px tracks. In ONE track the
-       thirty-character playtime wrapped to six lines and made its tile 305px tall — "Sekunden"
-       alone is wider than one. Sharing a line with two others it was two lines with dead space
-       beside it. On a line of its own it is one line, full width, and nothing is empty
-       anywhere.
-
-       `flex-basis: 100%` rather than a span count, so it does not have to know how many tiles
-       shared the line above it — and so another stat tile can be added without touching this. */
-    &--wide {
-        flex-basis: 100%;
-    }
 
     /* THE ONE THAT IS ON — the filter currently narrowing the table below the strip.
 

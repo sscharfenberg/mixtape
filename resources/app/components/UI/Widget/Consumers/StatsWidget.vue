@@ -36,13 +36,13 @@
  *
  * AND IT IS OPTIONAL (`searchable`), because the welcome page draws this card to a
  * visitor with no session. `/search` is inside the auth group, so a field there would be a box
- * that answers 401 to everything typed into it. The card's other half — six numbers describing a
+ * that answers 401 to everything typed into it. The card's other half — the numbers describing a
  * collection — is exactly what that page wants, so the field is dropped rather than the card.
  *
  * Values arrive raw from MusicController (CollectionStats) and are formatted here: counts
- * locale-aware, size bytes → GB/MB, and playtime seconds → a human "months, days, hours, minutes,
- * seconds" breakdown. Months are a flat 30 days (a duration has no calendar), so the parts always
- * sum back to the exact total.
+ * locale-aware, size bytes → GB/MB, and both durations — the playtime and the listening time —
+ * → a human "months, days, hours, minutes, seconds" breakdown. Months are a flat 30 days (a
+ * duration has no calendar), so the parts always sum back to the exact total.
  *****************************************************************************/
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
@@ -53,7 +53,7 @@ import type { StatTile } from "Components/UI/Widget/StatTiles.vue";
 import Widget from "Components/UI/Widget/Widget.vue";
 import type { CollectionStats } from "Types/music";
 import type { SearchKind } from "Types/search";
-import { formatDecimals, formatDurationParts, formatFileSize, formatYearRange } from "Utils/formatting";
+import { formatDecimals, formatDurationPieces, formatFileSize, formatYearRange } from "Utils/formatting";
 
 /** The collection's totals, plus the two things a host page decides about the card itself. */
 interface Props extends CollectionStats {
@@ -86,17 +86,23 @@ const { t, locale } = useI18n();
 const MUSIC_KINDS: SearchKind[] = ["artist", "album", "playlist", "song", "genre"];
 
 /**
- * The six tiles that fill the auto-fit grid (formatted via Utils/formatting).
+ * The tiles that fill the card (formatted via Utils/formatting).
  *
  * The glyphs are the ones the music widgets' pips already use for the same facts, so a reader meets
- * one meaning per icon across the page: `song`, `album`, `artist`, `genre`, `duration`, and `file`
- * for the one fact that is about bytes rather than about music.
+ * one meaning per icon across the page: `song`, `album`, `artist`, `genre`, `duration`, `plays`
+ * for the listening time (it is the play pips summed into hours), and `file` for the one fact that
+ * is about bytes rather than about music.
  *
  * PLAYTIME IS ONE OF THEM NOW, styled like the rest. It was a
  * full-width row of its own below the grid, because its value is a PHRASE rather than a number —
  * "6 Stunden, 38 Minuten, 3 Sekunden", which is what that tile is for: a library's playing time runs
  * to months, so a clock (`4761:23:11`) would be a worse answer than a long one. As a plain cell the
  * card is one set of tiles rather than a set plus an exception.
+ *
+ * THE LISTENING TIME IS ITS PARTNER, and both are `wide`: StatTiles draws a run of wide tiles as
+ * one block, side by side where the card has the room and stacked where it has not. Playtime
+ * first, because it is the fact about the collection and the listening time is the fact about
+ * what has been done with it.
  */
 const tiles = computed<StatTile[]>(() => [
     {
@@ -152,27 +158,31 @@ const tiles = computed<StatTile[]>(() => [
         label: t("music.stats.label.playtime"),
         hint: t("music.stats.hint.playtime"),
         wide: true
+    },
+    {
+        key: "listened",
+        icon: "plays",
+        value: listenedParts.value,
+        label: t("music.stats.label.listened"),
+        hint: t("music.stats.hint.listened"),
+        wide: true
     }
 ]);
 
 /**
- * The playtime's units as the pieces a line may break between — "2 Tage,", "3 Stunden,", "4 Minuten".
+ * A duration as the pieces a line may break between — "2 Tage,", "3 Stunden,", "4 Minuten".
  *
  * i18n is injected into the formatter: each unit resolves to a pluralised label from the shared
- * `common.duration.*` keys. Months are a flat 30 days (a duration has no calendar), so the parts
- * always sum back to the exact total.
- *
- * THE COMMA RIDES AT THE END OF THE PIECE IT FOLLOWS rather than travelling as a separator of its
- * own, because that is where it belongs when the line does break: "2 Tage," stays whole and the
- * break lands in the space after it, never before a comma that then opens a line. The spaces
- * between pieces are the template's, deliberately outside the unbreakable spans — they are the only
- * break opportunities the value has left.
+ * `common.duration.*` keys. Where the commas go, and why, is `formatDurationPieces`' to say.
  */
-const playtimeParts = computed<string[]>(() => {
-    const parts = formatDurationParts(props.playtimeSeconds, (key, count) => t(`common.duration.${key}`, count));
+const durationPieces = (seconds: number): string[] =>
+    formatDurationPieces(seconds, (key, count) => t(`common.duration.${key}`, count));
 
-    return parts.map((part, index) => (index === parts.length - 1 ? part : `${part},`));
-});
+/** The collection's playing time, in those pieces. */
+const playtimeParts = computed<string[]>(() => durationPieces(props.playtimeSeconds));
+
+/** Everybody's listening time, in the same pieces, so the two durations read alike side by side. */
+const listenedParts = computed<string[]>(() => durationPieces(props.listenedSeconds));
 
 /**
  * The album years as one range — "1965–2024", or null when no album carries a year at all, which

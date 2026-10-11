@@ -19,9 +19,9 @@
  * the auth group, so a field there would answer 401 to everything typed into it.
  *
  * Values arrive raw from AudiobooksController and are formatted here: counts locale-aware,
- * size bytes → GB/MB, and playtime seconds → a "months, days, hours, minutes, seconds"
- * breakdown. Months are a flat 30 days (a duration has no calendar), so the parts always sum
- * back to the exact total.
+ * size bytes → GB/MB, and both durations — the playtime and the listening time — → a "months,
+ * days, hours, minutes, seconds" breakdown. Months are a flat 30 days (a duration has no
+ * calendar), so the parts always sum back to the exact total.
  *****************************************************************************/
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
@@ -32,7 +32,7 @@ import StatTiles from "Components/UI/Widget/StatTiles.vue";
 import Widget from "Components/UI/Widget/Widget.vue";
 import type { AudiobookStats } from "Types/audiobooks";
 import type { SearchKind } from "Types/search";
-import { formatDecimals, formatDurationParts, formatFileSize, formatYearRange } from "Utils/formatting";
+import { formatDecimals, formatDurationPieces, formatFileSize, formatYearRange } from "Utils/formatting";
 
 /** The collection's totals, plus the two things a host page decides about the card itself. */
 interface Props extends AudiobookStats {
@@ -61,17 +61,17 @@ const { t, locale } = useI18n();
 const AUDIOBOOK_KINDS: SearchKind[] = ["audiobook"];
 
 /**
- * The playtime's units as the pieces a line may break between — "2 Tage,", "3 Stunden,".
- *
- * The comma rides at the END of the piece it follows, because that is where it belongs when
- * the line breaks: "2 Tage," stays whole and the break lands in the space after it. The same
- * arrangement the music card uses, and its docblock carries the rest.
+ * A duration as the pieces a line may break between — "2 Tage,", "3 Stunden,". The same pieces
+ * the music card draws; `formatDurationPieces` says where the commas go and why.
  */
-const playtimeParts = computed<string[]>(() => {
-    const parts = formatDurationParts(props.playtimeSeconds, (key, count) => t(`common.duration.${key}`, count));
+const durationPieces = (seconds: number): string[] =>
+    formatDurationPieces(seconds, (key, count) => t(`common.duration.${key}`, count));
 
-    return parts.map((part, index) => (index === parts.length - 1 ? part : `${part},`));
-});
+/** The chapters' combined playing time, in those pieces. */
+const playtimeParts = computed<string[]>(() => durationPieces(props.playtimeSeconds));
+
+/** Everybody's audiobook listening time, in the same pieces. */
+const listenedParts = computed<string[]>(() => durationPieces(props.listenedSeconds));
 
 /**
  * The books' years as one range, or null when none of them carries a year — which drops the
@@ -87,7 +87,11 @@ const yearRange = computed<string | null>(() => formatYearRange(props.firstYear,
  * `author`, `narrator`, `duration`, and `file` for the one fact that is about bytes rather
  * than about books — so a reader meets one meaning per icon across the page. The year range
  * borrows `calendar` and the music card's LABEL as well, because it is the same fact about a
- * different shelf and inventing a second word for it would be the only difference.
+ * different shelf and inventing a second word for it would be the only difference; the
+ * listening time borrows the music card's `plays` glyph and label for the same reason.
+ *
+ * The two durations are the card's `wide` pair, which StatTiles draws side by side where the
+ * card has the room — the music card's tile list carries the rest.
  */
 const tiles = computed<StatTile[]>(() => [
     {
@@ -142,6 +146,14 @@ const tiles = computed<StatTile[]>(() => [
         value: playtimeParts.value,
         label: t("audiobooks.columns.playtime"),
         hint: t("audiobooks.stats.hint.playtime"),
+        wide: true
+    },
+    {
+        key: "listened",
+        icon: "plays",
+        value: listenedParts.value,
+        label: t("music.stats.label.listened"),
+        hint: t("audiobooks.stats.hint.listened"),
         wide: true
     }
 ]);

@@ -213,6 +213,48 @@ test.describe("the music widgets", () => {
         expect(measured.widthAfter).toBe(measured.widthBefore);
     });
 
+    test("sets the two durations side by side on a wide card, and stacks them on a narrower one", async ({ page }) => {
+        /*
+         * A CONTAINER QUERY, so the question is the CARD's width and the answer only exists in a
+         * browser: the DOM is identical at both sizes. The playtime and the listening time are
+         * the card's phrase block, two across once half the card holds a written-out duration on
+         * one line, stacked below that. 1440px puts the Music card well over the line and 1024px
+         * just under it — a desktop window, which is the point: the breakpoint is the card's, so
+         * the same viewport can land on either side of it depending on the page.
+         *
+         * Both halves are asserted relationally — equal widths, shared top or one below the
+         * other — so the case holds whatever the tokens say a tile is.
+         */
+        const durations = () =>
+            page.evaluate(() => {
+                const box = (label: string) => {
+                    const cell = [...document.querySelectorAll(".widget-stats__cell")]
+                        .find(node => node.querySelector(".widget-stats__label")?.textContent === label)!;
+                    const { top, bottom, left, right, width } = cell.getBoundingClientRect();
+
+                    return { top, bottom, left, right, width };
+                };
+
+                return { playtime: box("Spielzeit"), listened: box("Hörzeit") };
+            });
+
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await expect(page.locator(".widget-stats__cell").first()).toBeVisible();
+
+        const wide = await durations();
+        expect(Math.abs(wide.listened.top - wide.playtime.top)).toBeLessThanOrEqual(1);
+        expect(Math.abs(wide.listened.width - wide.playtime.width)).toBeLessThanOrEqual(1);
+        expect(wide.listened.left).toBeGreaterThan(wide.playtime.right);
+
+        await page.setViewportSize({ width: 1024, height: 900 });
+
+        const narrow = await durations();
+        expect(narrow.listened.top).toBeGreaterThanOrEqual(narrow.playtime.bottom);
+        expect(Math.abs(narrow.listened.left - narrow.playtime.left)).toBeLessThanOrEqual(1);
+        // Each stacked tile is as wide as the pair was together: a line of its own, not half of one.
+        expect(narrow.playtime.width).toBeGreaterThan(wide.playtime.width);
+    });
+
     test("keeps a stat tile's padding under a value that cannot wrap", async ({ page }) => {
         /*
          * The third layout guard, and the same shape as the two above: a run of text that cannot

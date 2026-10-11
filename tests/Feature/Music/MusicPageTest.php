@@ -45,8 +45,8 @@ class MusicPageTest extends TestCase
                 ->has('genres.popular')
                 // the stats widget's collection totals.
                 ->has('stats', fn (Assert $stats) => $stats->hasAll([
-                    'songs', 'sizeBytes', 'playtimeSeconds', 'albums', 'artists', 'genres',
-                    'firstYear', 'lastYear',
+                    'songs', 'sizeBytes', 'playtimeSeconds', 'listenedSeconds', 'albums', 'artists',
+                    'genres', 'firstYear', 'lastYear',
                 ]))
             );
     }
@@ -417,6 +417,25 @@ class MusicPageTest extends TestCase
                 ->where('stats.artists', 3)
                 ->where('stats.genres', 3)
             );
+    }
+
+    public function test_the_listening_time_is_everybodys_music_and_not_the_viewers_alone(): void
+    {
+        /*
+         * THE ONE NUMBER ON THIS CARD THAT READS `plays`, and it is the household's together —
+         * the opposite of every play pip on the page, which are the viewer's own. Asserted from a
+         * viewer who has played nothing, so a `where user_id` that crept in would read zero.
+         * The chapter's play is the music-only half: an audiobook hour is not music listened to.
+         */
+        $song = Track::factory()->create(['duration' => 240.0]);
+        $chapter = Track::factory()->audiobook()->create(['duration' => 1800.0]);
+
+        Play::factory()->count(2)->create(['user_id' => User::factory()->create()->id, 'track_id' => $song->id]);
+        Play::factory()->create(['user_id' => User::factory()->create()->id, 'track_id' => $chapter->id]);
+
+        $this->actingAs(User::factory()->create())
+            ->get('/music')
+            ->assertInertia(fn (Assert $page) => $page->where('stats.listenedSeconds', 480));
     }
 
     public function test_every_widget_entry_carries_the_readers_own_play_count(): void

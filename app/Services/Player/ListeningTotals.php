@@ -7,11 +7,12 @@ namespace App\Services\Player;
 use App\Enums\TrackType;
 use App\Models\Play;
 use App\Models\User;
+use App\Services\Library\LibraryStats;
 use Illuminate\Support\Facades\DB;
 
 /**
- * HOW LONG ONE READER HAS SPENT IN EACH AREA — the welcome page's ordering, and nothing else so
- * far.
+ * HOW LONG HAS BEEN SPENT LISTENING, per area — for one reader, which is what orders the welcome
+ * page's two buttons, or for everybody together, which is the stats cards' listening-time tile.
  *
  * TIME RATHER THAN A COUNT, which is the whole reason this is not a method on {@see PlayCounts}:
  * that class counts listening EVENTS against a track, and events are the wrong unit for
@@ -23,12 +24,13 @@ use Illuminate\Support\Facades\DB;
  * SUMMED OVER THE TRACK'S DURATION rather than over anything the player recorded, because a
  * `plays` row is a listening event and carries no length of its own. That makes this an
  * approximation in one direction — a track skipped near its end counts whole — and it is the
- * right approximation for the question, which is about the shape of somebody's listening rather
- * than about minutes owed to anybody.
+ * right approximation for both questions, which are about the shape of the listening rather
+ * than about minutes owed to anybody. The tiles' hints say so, so a reader is not left to
+ * assume a stopwatch.
  *
- * ONE GROUPED QUERY over `plays → tracks`, keyed by the type it lands on. It reads
- * `plays (user_id, played_at)` for the scope and joins on the tracks primary key, so it stays an
- * index walk over one reader's rows rather than a scan of everybody's.
+ * Both read `plays → tracks` joined on the tracks primary key. One reader's total is an index
+ * walk over `plays (user_id, played_at)`; everybody's has no narrower scope than every row,
+ * because every row is the question.
  */
 final class ListeningTotals
 {
@@ -64,5 +66,24 @@ final class ListeningTotals
         return collect($empty)
             ->map(fn (float $zero, string $type): float => (float) ($totals[$type] ?? 0))
             ->all();
+    }
+
+    /**
+     * Seconds everybody has listened to in one area, all readers together.
+     *
+     * A TOTAL AND NOTHING ELSE, which is what lets the public welcome page show it to a guest:
+     * no reader is named and no track either, so a stranger learns how much has been heard,
+     * never what or by whom. One area per call, the way {@see LibraryStats} asks for each card's
+     * numbers, so a page with one card runs one query.
+     *
+     * Cast so a SUM over no rows — a fresh instance, or an area nobody has played — is 0.0
+     * rather than null.
+     */
+    public static function everyone(TrackType $type): float
+    {
+        return (float) Play::query()
+            ->join('tracks', 'tracks.id', '=', 'plays.track_id')
+            ->where('tracks.type', $type)
+            ->sum('tracks.duration');
     }
 }

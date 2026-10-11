@@ -152,8 +152,8 @@ export const formatTimeOfDay = (iso: string | null, locale: string): string | nu
  * like "7 hours" / "7 Stunden", so this helper needs no translation dependency of its own.
  *
  * SPLIT OUT OF {@link formatDuration} rather than replacing it, because a caller that draws the
- * breakdown needs the SEAMS: StatsWidget makes each part unbreakable so a line can only break
- * between them, and a joined string has nothing to hang that on. Everywhere the breakdown is one
+ * breakdown needs the SEAMS: the stats cards make each part unbreakable so a line can only break
+ * between them ({@link formatDurationPieces}), and a joined string has nothing to hang that on. Everywhere the breakdown is one
  * run of text (the playlist and share heroes) still asks for the string.
  *
  * @param totalSeconds total duration in seconds
@@ -181,6 +181,28 @@ export const formatDurationParts = (
     const shown = firstNonZero === -1 ? parts.slice(-1) : parts.slice(firstNonZero);
 
     return shown.map(([key, value]) => unit(key, value));
+};
+
+/**
+ * The same breakdown as the pieces a LINE may break between — ["2 Tage,", "3 Stunden,", "4 Minuten"]
+ * — for a caller that draws each piece as its own unbreakable run (StatTiles' duration tiles).
+ *
+ * THE COMMA RIDES AT THE END OF THE PIECE IT FOLLOWS rather than travelling as a separator of its
+ * own, because that is where it belongs when the line does break: "2 Tage," stays whole and the
+ * break lands in the space after it, never before a comma that would then open a line. The spaces
+ * between pieces are the caller's to draw, outside the unbreakable runs — they are the only break
+ * opportunities the value has left.
+ *
+ * @param totalSeconds total duration in seconds
+ * @param unit         resolves a unit key + count to a localised, pluralised label
+ */
+export const formatDurationPieces = (
+    totalSeconds: number,
+    unit: (key: DurationUnit, count: number) => string
+): string[] => {
+    const parts = formatDurationParts(totalSeconds, unit);
+
+    return parts.map((part, index) => (index === parts.length - 1 ? part : `${part},`));
 };
 
 /**

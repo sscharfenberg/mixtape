@@ -12,6 +12,7 @@ use App\Models\Collection;
 use App\Models\Genre;
 use App\Models\Narrator;
 use App\Models\Track;
+use App\Services\Player\ListeningTotals;
 
 /**
  * The two sets of numbers that describe the library — one for the music, one for the
@@ -26,8 +27,9 @@ use App\Models\Track;
  * EVERY NUMBER IS RAW, per the app's server-sends-raw rule: bytes and seconds, never a
  * formatted size or a clock. The cards format them, because only the client knows the locale.
  *
- * Nothing here is per-viewer — there is no reader argument and no `plays` in sight. That is
- * what lets the welcome page call it for a guest.
+ * Nothing here is per-viewer — there is no reader argument, and the one number read off `plays`
+ * is everybody's listening added together ({@see ListeningTotals::everyone}). That is what lets
+ * the welcome page call it for a guest.
  */
 class LibraryStats
 {
@@ -45,7 +47,10 @@ class LibraryStats
      * The year range is ALBUMS only — see {@see years} for what the pair means and why it is a
      * pair rather than a string.
      *
-     * @return array{songs: int, sizeBytes: int, playtimeSeconds: float, albums: int, artists: int, genres: int, firstYear: int|null, lastYear: int|null}
+     * `listenedSeconds` sits beside `playtimeSeconds` because the card draws them as a pair: how
+     * long the collection plays, and how long it has been listened to by everyone together.
+     *
+     * @return array{songs: int, sizeBytes: int, playtimeSeconds: float, listenedSeconds: float, albums: int, artists: int, genres: int, firstYear: int|null, lastYear: int|null}
      */
     public static function music(): array
     {
@@ -55,6 +60,7 @@ class LibraryStats
             'songs' => $music()->count(),
             'sizeBytes' => (int) $music()->sum('size'),
             'playtimeSeconds' => (float) $music()->sum('duration'),
+            'listenedSeconds' => ListeningTotals::everyone(TrackType::Music),
             'albums' => Collection::query()->where('type', CollectionType::Album)->count(),
             'artists' => Artist::query()->has('tracks')->count(),
             'genres' => Genre::query()->has('tracks')->count(),
@@ -63,7 +69,8 @@ class LibraryStats
     }
 
     /**
-     * The audiobook collection's totals: books, chapters, size, authors, narrators, playtime.
+     * The audiobook collection's totals: books, chapters, size, authors, narrators, playtime, and
+     * how long everyone has spent listening to it.
      *
      * Authors and narrators are counted over TAXONOMY ROWS rather than distinct values on
      * tracks, which is the same thing given the scanner prunes orphans on every run — and one
@@ -72,7 +79,7 @@ class LibraryStats
      * Cast for the same empty-library reason {@see music} carries. The year range is BOOKS only,
      * the mirror of the music card's albums-only one — {@see years}.
      *
-     * @return array{books: int, chapters: int, sizeBytes: int, playtimeSeconds: float, authors: int, narrators: int, firstYear: int|null, lastYear: int|null}
+     * @return array{books: int, chapters: int, sizeBytes: int, playtimeSeconds: float, listenedSeconds: float, authors: int, narrators: int, firstYear: int|null, lastYear: int|null}
      */
     public static function audiobooks(): array
     {
@@ -83,6 +90,7 @@ class LibraryStats
             'chapters' => $chapters()->count(),
             'sizeBytes' => (int) $chapters()->sum('size'),
             'playtimeSeconds' => (float) $chapters()->sum('duration'),
+            'listenedSeconds' => ListeningTotals::everyone(TrackType::Audiobook),
             'authors' => Author::query()->has('tracks')->count(),
             'narrators' => Narrator::query()->has('tracks')->count(),
             ...self::years(CollectionType::Audiobook),

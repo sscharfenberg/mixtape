@@ -5,7 +5,7 @@
  * paragraphs about what MixTape is, with the button centred in the half beside them.
  *
  * IT EXISTS BECAUSE THE PAGE ANSWERED "HOW MUCH" AND NEVER "WHAT". The stats cards below it are
- * six numbers about a collection a visitor has no context for — somebody who was sent a link
+ * a handful of numbers about a collection a visitor has no context for — somebody who was sent a link
  * lands on a domain, reads "1.238 Alben" and still does not know whose, or why they can see it,
  * or what to do next. The second paragraph is the load-bearing one: it says accounts are by
  * invitation, so a stranger is not left hunting for a sign-up that does not exist, and it says a

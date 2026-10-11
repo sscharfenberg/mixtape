@@ -28,12 +28,14 @@ class HomePageTest extends TestCase
 
     /** Every key the music card draws, and no other. */
     private const MUSIC_KEYS = [
-        'songs', 'sizeBytes', 'playtimeSeconds', 'albums', 'artists', 'genres', 'firstYear', 'lastYear',
+        'songs', 'sizeBytes', 'playtimeSeconds', 'listenedSeconds', 'albums', 'artists', 'genres',
+        'firstYear', 'lastYear',
     ];
 
     /** Every key the audiobook card draws, and no other. */
     private const AUDIOBOOK_KEYS = [
-        'books', 'chapters', 'sizeBytes', 'playtimeSeconds', 'authors', 'narrators', 'firstYear', 'lastYear',
+        'books', 'chapters', 'sizeBytes', 'playtimeSeconds', 'listenedSeconds', 'authors', 'narrators',
+        'firstYear', 'lastYear',
     ];
 
     public function test_it_sends_the_readers_own_listening_time_per_area(): void
@@ -102,8 +104,9 @@ class HomePageTest extends TestCase
 
     public function test_a_signed_in_reader_sees_the_same_page(): void
     {
-        // Nothing here is per-viewer — no reader argument reaches LibraryStats and no `plays`
-        // are counted — so the page must not start differing once there is a session.
+        // Nothing on the cards is per-viewer — no reader argument reaches LibraryStats, and the
+        // plays it does count are everybody's — so the page must not start differing once there
+        // is a session.
         $this->actingAs(User::factory()->create())
             ->get('/')
             ->assertOk()
@@ -134,6 +137,47 @@ class HomePageTest extends TestCase
                 // the JSON the page was rendered to, and a whole-numbered float comes back an
                 // int. `where` compares strictly, so the expressive spelling fails here.
                 ->where('audiobookStats.playtimeSeconds', 0)
+            );
+    }
+
+    public function test_a_guest_reads_everybodys_listening_time_on_the_cards(): void
+    {
+        /*
+         * THE TWO LISTENING NUMBERS ON THIS PAGE ANSWER DIFFERENT QUESTIONS, and this is the case
+         * that keeps them apart. `listening` is the reader's own, for ordering their buttons — a
+         * guest has none, and is told zero. The cards' `listenedSeconds` is the household's
+         * together, which a guest is shown on purpose: it is a total, naming nobody.
+         *
+         * Every play counts its track's whole length, two readers' plays add up, and each card
+         * counts only its own area.
+         */
+        $song = Track::factory()->create(['type' => TrackType::Music, 'duration' => 200.0]);
+        $chapter = Track::factory()->create(['type' => TrackType::Audiobook, 'duration' => 1800.0]);
+
+        Play::factory()->count(2)->create(['user_id' => User::factory()->create()->id, 'track_id' => $song->id]);
+        Play::factory()->create(['user_id' => User::factory()->create()->id, 'track_id' => $song->id]);
+        Play::factory()->create(['user_id' => User::factory()->create()->id, 'track_id' => $chapter->id]);
+
+        $this->get('/')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('musicStats.listenedSeconds', 600)
+                ->where('audiobookStats.listenedSeconds', 1800)
+                ->where('listening.music', 0)
+                ->where('listening.audiobook', 0)
+            );
+    }
+
+    public function test_an_instance_nobody_has_listened_on_reads_zero_rather_than_nothing(): void
+    {
+        // A SUM over no rows is null in SQL; the card formats a number, so the cast is the
+        // difference between "0 Sekunden" and a tile that cannot be drawn. Whole-number zero
+        // for the same JSON reason `playtimeSeconds` is asserted that way below.
+        Track::factory()->create(['type' => TrackType::Music, 'duration' => 200.0]);
+
+        $this->get('/')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('musicStats.listenedSeconds', 0)
+                ->where('audiobookStats.listenedSeconds', 0)
             );
     }
 

@@ -18,9 +18,10 @@
  * box here would answer 401 to everything typed into it.
  *
  * TOTALS ARE ALL THAT LEAVES. This route is outside `auth` and the instance is reachable from
- * the internet, so everything on this page is world-readable. Six numbers per collection is the
- * point of a landing page a friend was linked to; not one title, artist or file name appears,
- * and everything that names a row stays behind `auth` or behind a share.
+ * the internet, so everything on this page is world-readable. A handful of numbers per
+ * collection is the point of a landing page a friend was linked to; not one title, artist or
+ * file name appears, and not one reader either — the listening time is everybody's added
+ * together. Everything that names a row stays behind `auth` or behind a share.
  *
  * TWO EQUAL COLUMNS THAT COLLAPSE TO ONE, which is the WidgetGroup's own `auto-fit` grid doing
  * the work: it collapses the tracks no card lands in and lets the `1fr` on the rest absorb

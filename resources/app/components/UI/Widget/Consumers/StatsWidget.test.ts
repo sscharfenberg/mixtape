@@ -29,6 +29,7 @@ const stats = (overrides: Partial<CollectionStats> = {}): CollectionStats => ({
     songs: 12074,
     sizeBytes: 96 * 1024 ** 3,
     playtimeSeconds: 2 * 86400 + 3 * 3600 + 4 * 60 + 5,
+    listenedSeconds: 3600 + 60 + 1,
     albums: 1238,
     artists: 639,
     genres: 71,
@@ -106,13 +107,13 @@ describe("StatsWidget", () => {
 
         expect(cellFor(wrapper, label("years"))).toBeUndefined();
         expect(labels(wrapper)).toStrictEqual(
-            ["songs", "size", "albums", "artists", "genres", "playtime"].map(key => label(key))
+            ["songs", "size", "albums", "artists", "genres", "playtime", "listened"].map(key => label(key))
         );
     });
 
-    it("draws the range between the counts and the playtime when there is one", () => {
+    it("draws the range between the counts and the two durations when there is one", () => {
         expect(labels(widget())).toStrictEqual(
-            ["songs", "size", "albums", "artists", "genres", "years", "playtime"].map(key => label(key))
+            ["songs", "size", "albums", "artists", "genres", "years", "playtime", "listened"].map(key => label(key))
         );
     });
 
@@ -161,13 +162,33 @@ describe("StatsWidget", () => {
         expect(valueFor(widget({ playtimeSeconds: 125 }), label("playtime"))).toBe("2 Minuten, 5 Sekunden");
     });
 
-    it("gives the playtime phrase a line of its own, and gives it to nothing else", () => {
+    it("draws the two durations as the card's phrase block, and nothing else in it", () => {
         // The `wide` flag is the tile list's one styling decision, so it is asserted through the
-        // class it produces rather than left to a screenshot.
-        const wide = widget().findAll(".widget-stats__cell--wide");
+        // block it produces rather than left to a screenshot. WHERE the block puts them — side by
+        // side or stacked — is a container query, which only a browser can answer.
+        const blocks = widget().findAll(".widget-stats__lines--phrases");
 
-        expect(wide).toHaveLength(1);
-        expect(wide[0].find(".widget-stats__label").text()).toBe(label("playtime"));
+        expect(blocks).toHaveLength(1);
+        expect(blocks[0].findAll(".widget-stats__label").map(node => node.text()))
+            .toStrictEqual([label("playtime"), label("listened")]);
+    });
+
+    it("spells everybody's listening time out as a phrase, broken where the playtime breaks", () => {
+        // The same pieces as the playtime beside it, so the pair reads alike: each unit whole,
+        // each comma riding the unit before it.
+        expect(parts(widget(), label("listened"))).toStrictEqual(["1 Stunde,", "1 Minute,", "1 Sekunde"]);
+    });
+
+    it("reads a library nobody has listened to yet as zero rather than leaving a hole", () => {
+        expect(valueFor(widget({ listenedSeconds: 0 }), label("listened"))).toBe("0 Sekunden");
+    });
+
+    it("marks the listening time with the glyph the play pips use, since it is those plays summed", () => {
+        expect(iconNames(cellFor(widget(), label("listened"))!)).toStrictEqual(["plays"]);
+    });
+
+    it("writes the listening time in the reader's language", () => {
+        expect(valueFor(widget({}, "en"), label("listened", "en"))).toBe("1 hour, 1 minute, 1 second");
     });
 
     it("humanises the byte count instead of printing it", () => {
@@ -183,8 +204,9 @@ describe("StatsWidget", () => {
             .findAllComponents(Tooltip)
             .map(tip => tip.props("text"));
 
-        expect(hints).toHaveLength(7);
+        expect(hints).toHaveLength(8);
         expect(hints).toContain(translate("music.stats.hint.years"));
+        expect(hints).toContain(translate("music.stats.hint.listened"));
         expect(hints.every(hint => hint !== "")).toBe(true);
     });
 
@@ -207,7 +229,7 @@ describe("StatsWidget", () => {
 
         expect(wrapper.findComponent(SearchHub).exists()).toBe(false);
         expect(labels(wrapper)).toStrictEqual(
-            ["songs", "size", "albums", "artists", "genres", "years", "playtime"].map(key => label(key))
+            ["songs", "size", "albums", "artists", "genres", "years", "playtime", "listened"].map(key => label(key))
         );
     });
 });

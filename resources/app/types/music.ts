@@ -275,7 +275,7 @@ export interface SongDetail {
 
 /**
  * Collection totals for the stats widget (music only). Raw numbers — the widget
- * formats `sizeBytes` (→ GB) and `playtimeSeconds` (→ months/days/…) for display.
+ * formats `sizeBytes` (→ GB) and both durations (→ months/days/…) for display.
  */
 export interface CollectionStats {
     /** Number of music files (music-type tracks). */
@@ -284,6 +284,12 @@ export interface CollectionStats {
     sizeBytes: number;
     /** Combined duration of all music files, in seconds. */
     playtimeSeconds: number;
+    /**
+     * How long EVERYBODY has listened to music, together, in seconds — each play counted at its
+     * song's full length, because a play row records that a track was heard, not for how long.
+     * The same number for every viewer, which is what lets a guest be shown it.
+     */
+    listenedSeconds: number;
     /** Number of music albums. */
     albums: number;
     /** Number of artists with at least one track. */

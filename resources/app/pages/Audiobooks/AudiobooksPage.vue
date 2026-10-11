@@ -39,7 +39,7 @@ import type { AudiobookCredit, AudiobookStats } from "Types/audiobooks";
 import { formatClock, formatDecimals } from "Utils/formatting";
 
 const props = defineProps<{
-    /** The six numbers on the stats card. */
+    /** The numbers on the stats card. */
     stats: AudiobookStats;
     /** Every book, newest first — the Books tab. */
     books: DiscographyAlbum[];
