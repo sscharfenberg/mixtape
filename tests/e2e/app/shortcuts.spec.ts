@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { audioState, enqueueFromHero, openQueuePanel, settledValue, stopQueueSync } from "../support/actions";
+import { audioState, enqueueFromHero, openPopover, openQueuePanel, settledValue, stopQueueSync } from "../support/actions";
 import { clearServerQueue, specStorageState } from "../support/environment";
 
 /*
@@ -240,7 +240,7 @@ test.describe("the player's keyboard shortcuts", () => {
         await page.keyboard.press("Space");
         await expect.poll(async () => (await audioState(page)).paused).toBe(false);
 
-        await page.locator(".user-menu .popover-button").click();
+        await openPopover(page, ".user-menu");
         await page.locator(".user-menu .popover-list-item", { hasText: /Einstellungen|Dashboard/u }).first().click();
         await page.waitForURL(/\/dashboard/u);
         await expect.poll(async () => (await audioState(page)).paused).toBe(false);
@@ -276,7 +276,7 @@ test.describe("the player's keyboard shortcuts", () => {
          * in this engine against a synthesised tone, 1×–6× are all honoured exactly with the
          * level unchanged and the pitch held, so nothing here is near a platform limit.
          */
-        await page.locator(".player-settings .popover-button").click();
+        await openPopover(page, ".player-settings");
         // The LABEL, not the input: OptionBubbles clips its radios to a pixel so they stay
         // focusable without being visible, and Playwright will not `check()` what it cannot
         // see. The same target preferences.spec.ts uses for the colour-scheme picker.
@@ -298,7 +298,7 @@ test.describe("the player's keyboard shortcuts", () => {
     test("skims at double whatever is set, not at an absolute 2x", async ({ page }) => {
         // At a 3× setting an absolute skim would SLOW the listener down, and the release
         // would strand them at normal instead of back at what they chose.
-        await page.locator(".player-settings .popover-button").click();
+        await openPopover(page, ".player-settings");
         await page.locator('label[for="playerSpeed-3"]').click();
         await page.keyboard.press("Escape");
 
@@ -327,7 +327,7 @@ test.describe("the player's keyboard shortcuts", () => {
          * The readout is also why the popover must not resize: it is reserved rather than
          * conditional, so the panel's width is asserted across the change.
          */
-        await page.locator(".player-settings .popover-button").click();
+        await openPopover(page, ".player-settings");
         await page.locator('label[for="playerSpeed-2"]').click();
 
         const panel = page.locator(".player-settings__panel");
@@ -372,7 +372,7 @@ test.describe("the player's keyboard shortcuts", () => {
          * than any it fixed. Checked on a page long enough to scroll.
          */
         await openQueuePanel(page);
-        await page.locator(".play-queue .popover-button").click();
+        await openPopover(page, ".play-queue");
         // By the `--caution` variant, not by position: the repeat toggle sits above it.
         await page.locator(".play-queue .popover-list-item--caution").click();
         await expect(page.locator(".player-bar")).toHaveCount(0);

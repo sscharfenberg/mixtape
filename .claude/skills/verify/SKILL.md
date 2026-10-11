@@ -158,4 +158,6 @@ One trap worth knowing, because it will bite any layout check here: **a popover
 must be still before it is measured.** Panels open with a `rotateY`, transforms are included
 in `getBoundingClientRect`, and `:popover-open` is true from the first frame — so a box read
 right after the click is a few pixels from where it lands, and the assertion passes or fails
-on machine speed. `player.spec.ts`'s `openPopover` waits for two identical boxes in a row.
+on machine speed — and a click aimed mid-turn can land on whatever lies under the panel, which
+light-dismisses it. Open one with `openPopover(page, root)` from `tests/e2e/support/actions.ts`,
+which waits until the panel's opening transition has finished.

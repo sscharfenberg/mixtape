@@ -3,6 +3,7 @@ import type { Page } from "@playwright/test";
 import {
     audioState,
     enqueueFromHero,
+    openPopover,
     openQueuePanel,
     pageHeading,
     settledValue,
@@ -104,7 +105,7 @@ const playButton = (page: Page) => page.locator(".player-bar__control--play");
  * clicks.
  */
 const setMode = async (page: Page, group: "playerMode" | "playerRepeat", value: "off" | "on"): Promise<void> => {
-    await page.locator(".player-settings .popover-button").click();
+    await openPopover(page, ".player-settings");
     await page.locator(`label[for="${group}-${value}"]`).click();
     await expect(page.locator(`#${group}-${value}`)).toBeChecked();
     // Close the popover again so it cannot cover the transport.
@@ -113,29 +114,6 @@ const setMode = async (page: Page, group: "playerMode" | "playerRepeat", value: 
 
 /** Repeat on, the case most timing-sensitive specs need. */
 const enableRepeat = (page: Page): Promise<void> => setMode(page, "playerRepeat", "on");
-
-/**
- * Open a popover and wait until its box has stopped moving.
- *
- * A POPOVER IS MEASURED ONLY AFTER THIS, because a panel opens with a `rotateY` and a
- * transform is included in `getBoundingClientRect` — so a box read while the panel is
- * still turning is a couple of pixels away from where it lands, and the reading changes
- * with nothing but machine speed. That made every geometry assertion here a coin flip
- * that happened to keep landing heads: "opens upward" failed by 1.3px on one run and
- * 2.9px on the next, both of them against unchanged positioning code.
- * `:popover-open` and visibility are both true from the first frame, so neither is the
- * thing to wait for; two identical boxes in a row is.
- */
-const openPopover = async (page: Page, root: string) => {
-    await page.locator(`${root} .popover-button`).click();
-
-    const panel = page.locator(`${root} .popover-content`);
-    await expect(panel).toBeVisible();
-
-    await settledValue(async () => JSON.stringify(await panel.boundingBox()));
-
-    return panel;
-};
 
 test.describe("the player", () => {
     test.use({ viewport: { width: 1440, height: 900 } });

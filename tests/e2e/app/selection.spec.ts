@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { dismissQueuePeek, isWrite, openQueuePanel, stopQueueSync } from "../support/actions";
+import { dismissQueuePeek, isWrite, openPopover, openQueuePanel, stopQueueSync } from "../support/actions";
 import { clearServerQueue, specStorageState } from "../support/environment";
 
 /*
@@ -64,20 +64,18 @@ const rowChecks = (page: Page) => page.locator("tbody .dt-body__check label");
 const actions = (page: Page) => page.locator(".selection-actions");
 
 /**
- * Open the bulk-action menu and hand back its entries.
+ * Open the bulk-action menu and hand back its entries, once the panel has finished turning in.
  *
  * The entries are in a native `[popover]`, so they are in the DOM from the start and only
  * VISIBLE once the trigger is pressed — which is why every assertion below goes through here
  * rather than locating them directly. A locator that matched them while the panel was shut
- * would pass on a menu no reader could reach.
+ * would pass on a menu no reader could reach. `openPopover` carries why a click must also wait
+ * out the panel's opening turn.
  */
 const openSelectionMenu = async (page: Page) => {
-    await actions(page).locator(".popover-button").click();
+    await openPopover(page, ".selection-actions");
 
-    const items = page.locator(".selection-actions .popover-list-item");
-    await expect(items.first()).toBeVisible();
-
-    return items;
+    return page.locator(".selection-actions .popover-list-item");
 };
 
 /** Tick the first `count` rows and wait for the toolbar to catch up. */

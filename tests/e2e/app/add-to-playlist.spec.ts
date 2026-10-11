@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { enqueueFromHero, isWrite, openQueuePanel, stopQueueSync } from "../support/actions";
+import { enqueueFromHero, isWrite, openPopover, openQueuePanel, stopQueueSync } from "../support/actions";
 import { clearServerQueue, specStorageState } from "../support/environment";
 
 /*
@@ -165,7 +165,7 @@ test.describe("adding a song to a playlist from its hero", () => {
         await enqueueFromHero(page);
         await openQueuePanel(page);
 
-        await page.locator(".play-queue__header .popover-button").click();
+        await openPopover(page, ".play-queue__header");
         await page.getByRole("button", { name: /Zu Wiedergabeliste hinzufügen/u }).click();
         await expect(page.locator("#add-to-playlist-form")).toBeVisible();
 

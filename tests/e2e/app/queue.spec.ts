@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { enqueueFromHero, openQueuePanel, pageHeading, stopQueueSync } from "../support/actions";
+import { enqueueFromHero, openPopover, openQueuePanel, pageHeading, stopQueueSync } from "../support/actions";
 import { clearServerQueue, specStorageState } from "../support/environment";
 
 /*
@@ -390,7 +390,7 @@ test.describe("the play queue", () => {
     test("empties back to the footer when the queue is cleared", async ({ page }) => {
         await enqueueFirstSong(page);
 
-        await page.locator(".play-queue .popover-button").click();
+        await openPopover(page, ".play-queue");
         // By the `--caution` variant, not by position: the repeat toggle sits above it in
         // the menu now, and a bare `.popover-list-item` matches both.
         await page.locator(".play-queue .popover-list-item--caution").click();
@@ -447,7 +447,7 @@ test.describe("the play queue synced to the server", () => {
         await enqueueFirstSong(page);
         await synced;
 
-        await page.locator(".play-queue .popover-button").click();
+        await openPopover(page, ".play-queue");
         await page.locator(".play-queue .popover-list-item--caution").click();
         await page.waitForResponse(
             response => response.url().includes("/player/state") && response.request().method() === "PUT"

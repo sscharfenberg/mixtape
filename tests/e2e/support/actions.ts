@@ -439,3 +439,41 @@ export const settledValue = async <T>(read: () => Promise<T>): Promise<T> => {
 
     return read();
 };
+
+/**
+ * Open a `PopOver` and wait until its panel has finished turning in, then hand back the panel.
+ *
+ * THE TURN IS WHAT A CLICK CAN LOSE. A panel opens with a `rotateY` transition, and Playwright's
+ * "stable" check is two animation frames with one bounding box — which a busy CI runner can
+ * produce mid-turn. The press is then aimed at where an entry WAS: it lands on whatever lies
+ * under the panel, an `auto` popover light-dismisses on that, and every retry after it waits on
+ * an entry that is no longer visible until the test times out. The spec fails on a menu that
+ * worked, reporting the wrong element ("…intercepts pointer events") as the cause.
+ *
+ * It matters to geometry as much as to clicks: a transform is included in
+ * `getBoundingClientRect`, so a box read while the panel is still turning is a couple of pixels
+ * away from where it lands, and the reading changes with nothing but machine speed.
+ *
+ * Polled on the panel's RUNNING TRANSITIONS rather than on visibility, because `:popover-open`
+ * and visibility are both true from the first frame. Read after `toBeVisible()`, by which point
+ * the style change that starts the transition has happened — so an empty list means it is
+ * over, not that it has yet to begin.
+ *
+ * @param root a selector unique to the popover's host, e.g. ".play-queue" or ".user-menu"
+ */
+export const openPopover = async (page: Page, root: string) => {
+    await page.locator(`${root} .popover-button`).click();
+
+    const panel = page.locator(`${root} .popover-content`);
+    await expect(panel).toBeVisible();
+
+    await expect
+        .poll(() =>
+            panel.evaluate(
+                element => element.getAnimations().filter(animation => animation.playState !== "finished").length
+            )
+        )
+        .toBe(0);
+
+    return panel;
+};
