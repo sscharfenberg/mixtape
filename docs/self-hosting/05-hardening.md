@@ -193,22 +193,27 @@ tail -n 1 /var/log/modsecurity/audit.log | python3 -m json.tool | grep -E '"rule
 Then leave it in that mode **for about a week of real use**, so that every page, every form and a
 few real searches have gone through it. The audit log is one JSON object per line and readable by
 the `adm` group. This summarises it by rule, route and matched value, with UUIDs collapsed so that a
-thousand cover requests count as one route:
+thousand cover requests count as one route. It reads the rotated files too, compressed ones
+included: the log rotates daily, so after a week of detection today's file is a seventh of the
+evidence. Save it once, run it whenever:
 
 ```bash
-python3 - <<'EOF'
-import collections, json, re
+cat > ~/waf-summary.py <<'EOF'
+import collections, glob, gzip, json, re
 uuid = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
 seen = collections.Counter()
-for line in open('/var/log/modsecurity/audit.log'):
-    t = json.loads(line)['transaction']
-    route = uuid.sub('{id}', t['request']['uri'].split('?')[0])
-    for m in t.get('messages', []):
-        d = m.get('details', {})
-        seen[(d.get('ruleId'), route, d.get('data', '')[:70])] += 1
+for path in sorted(glob.glob('/var/log/modsecurity/audit.log*')):
+    with (gzip.open if path.endswith('.gz') else open)(path, 'rt') as log:
+        for line in log:
+            t = json.loads(line)['transaction']
+            route = uuid.sub('{id}', t['request']['uri'].split('?')[0])
+            for m in t.get('messages', []):
+                d = m.get('details', {})
+                seen[(d.get('ruleId'), route, d.get('data', '')[:70])] += 1
 for (rule, route, data), n in seen.most_common(50):
     print(f'{n:5}  {rule}  {route}  {data}')
 EOF
+python3 ~/waf-summary.py
 ```
 
 Reading it:
