@@ -27,6 +27,7 @@ Do these in sequence. Each assumes the previous is done.
 | 2 | [`02-host-setup.md`](02-host-setup.md) | A hardened Debian host: LVM, packages, firewall, SSH, Samba, PostgreSQL, TLS on the LAN |
 | 3 | [`03-production-deploy.md`](03-production-deploy.md) | The app running on that host, deployable with one command |
 | 4 | [`04-going-public.md`](04-going-public.md) | A real domain, a port-forward, Let's Encrypt, working transactional mail |
+| 5 | [`05-hardening.md`](05-hardening.md) | A web application firewall, a sandboxed php-fpm, kernel settings, and security updates that actually take effect |
 
 **Nothing is reachable from the internet until step 4**, and step 4 has a hard precondition: real
 authentication must be working first. Do not open a port before then.
@@ -57,6 +58,19 @@ context in the documents above; this is a jump table for when something is alrea
 | Symptom | Cause | Where |
 | --- | --- | --- |
 | `nginx -t` refuses to reload after adding the prod vhost | Two `default_server` blocks on one port — it must be removed from the dev vhost in the same change | [03](03-production-deploy.md#9-nginx-vhost) |
+| The dev site answers from the internet, though the firewall says LAN-only | Once 80/443 are forwarded for prod, the firewall admits everyone to **every** vhost on those ports; it sees a port, not a hostname. Only nginx's own `allow`/`deny` can refuse by site | [02](02-host-setup.md#29-tls-on-the-lan-self-signed) |
+| `curl https://<server-ip>/` fails with a TLS error and port 80 sends an empty reply | The catch-all is working: a request that names no site gets nothing. Ask by name with `--resolve <name>:443:<ip>` | [03](03-production-deploy.md#11-verify-on-the-lan--before-any-router-change) |
+| An upload, or any multipart request, answers 415 with nothing in Laravel's log | nginx refuses multipart bodies before PHP sees them, because the app takes none. A feature that adds an upload has to change that `map` first | [03](03-production-deploy.md#9-nginx-vhost) |
+| ICMP redirects are still accepted although `net.ipv4.conf.all.accept_redirects = 0` | On a non-forwarding host an interface accepts them while **either** `all` **or** its own value is 1. Set the interface (and `default`) too, and check the interface's value rather than the file | [05](05-hardening.md#1-kernel-and-network-settings) |
+| The cover cache can only be cleaned by one of the two users after sandboxing php-fpm | `RestrictSUIDSGID=yes` refuses the setgid `chmod` on the cache directory, and the app suppresses that error | [05](05-hardening.md#2-sandbox-php-fpm) |
+| With the WAF on server-wide, every page is evaluated twice, every track three times, and audio loses sendfile | ModSecurity-nginx 1.0.3 loses its state on internal redirects (`try_files`, `X-Accel-Redirect`). Enable it only inside `location ~ \.php$` | [05](05-hardening.md#why-only-the-php-location) |
+| In detection mode the WAF never logs a match on a stream or download URL | The `X-Accel-Redirect` hand-off discards the transaction before the logging phase. Refusals in blocking mode are logged normally; test those routes by hand once enforcing | [05](05-hardening.md#why-only-the-php-location) |
+| The WAF audit log never receives a line, though `nginx -t` passes and the rules match | A directive whose value is column-aligned with extra spaces (`SecAuditLog      /path`) is silently dropped. One space only | [05](05-hardening.md#install) |
+| The WAF refuses renaming or deleting a playlist, or every play-queue sync | CRS allows only GET HEAD POST OPTIONS by default. Add PUT, PATCH and DELETE to `tx.allowed_methods` | [05](05-hardening.md#what-the-configuration-decides) |
+| A long play queue or playlist answers 400 once the WAF is enforcing | Each JSON array element is an argument, and the limit is 1,000. List the route in `before-crs.conf` instead of raising the limit | [05](05-hardening.md#what-the-configuration-decides) |
+| The WAF audit log holds passwords | The module's sample config logs request bodies for every 4xx, and a failed login is a 4xx. Leave parts `I`/`C` out and exclude the password fields from matching | [05](05-hardening.md#what-the-configuration-decides) |
+| The WAF audit log stays empty after rotation while `audit.log.1` keeps growing | ModSecurity holds the file open and nothing reopens it. Rotate with `copytruncate`, and keep the log outside `/var/log/nginx/*.log` | [05](05-hardening.md#install) |
+| A patched OpenSSL or libxml2 changes nothing for days | Running daemons keep the old library mapped until they restart; `unattended-upgrades` does not restart them. `needrestart` with `restart = 'a'` does | [05](05-hardening.md#4-patches-that-take-effect) |
 | Locked out of `sudo` entirely | A malformed file in `/etc/sudoers.d/`. Always `visudo -c -f` **before** installing | [03](03-production-deploy.md#7-sudoers) |
 | Web user can rewrite application code | Deploy ran at `umask 002`; it must be `027` | [03](03-production-deploy.md#6-writable-directories) |
 | `nvm: command not found` during deploy | nvm is a shell function and per-user — must be installed *as* the deploy user, and sourced explicitly | [03](03-production-deploy.md#2-nvm--node) |

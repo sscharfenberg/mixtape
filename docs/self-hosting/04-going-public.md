@@ -484,6 +484,10 @@ Then confirm the check on the dashboard went red, and green again after a real r
       its own `Last-Modified`, where the PHP path sends a content hash. `Content-Length` is a real
       byte count on both paths, so it proves nothing here.
 - [ ] **SSH, Samba, and the database are unreachable from the WAN** — over IPv4 **and** IPv6.
+- [ ] **The dev site is unreachable from the WAN** even when asked for by name, and a **bare-IP**
+      request gets nothing. The firewall cannot check either one: both are nginx's job (the LAN-only
+      snippet and the catch-all). [`05-hardening.md`](05-hardening.md#5-verify) shows how to test
+      both from inside the house.
 - [ ] The invite flow works end to end, and a share link plays without login, **refuses both download
       routes**, and stops working once revoked or expired.
 - [ ] A password reset arrives, and SPF/DKIM/DMARC pass.
@@ -509,3 +513,8 @@ Then confirm the check on the dashboard went red, and green again after a real r
 **Removing the router's 80/443 forward instantly takes the instance offline** without touching the
 server at all. That is the fastest recovery from anything alarming. If the pause will be long,
 re-tighten the host firewall to LAN-only as well.
+
+## Next
+
+[`05-hardening.md`](05-hardening.md) — a web application firewall, a sandbox for php-fpm, kernel
+settings, and keeping security updates in effect.

@@ -1,0 +1,24 @@
+# /etc/logrotate.d/modsecurity
+#
+# COPYTRUNCATE IS REQUIRED, not a preference. ModSecurity opens the audit log
+# once, in the nginx master while it loads the rules, and the workers inherit
+# that handle. The USR1 that rotates nginx's own logs does not reopen it, and a
+# reload is not guaranteed to either. A rename-and-signal rotation would
+# therefore leave the WAF writing into audit.log.1 indefinitely. copytruncate
+# keeps the inode and empties it, so it does not depend on anyone reopening it.
+#
+# This is also why the file lives OUTSIDE /var/log/nginx/: the stock nginx entry
+# globs *.log there and would rotate it by rename.
+#
+# The directory is root:adm 0750, which is not group-writable, so no `su` line
+# is needed.
+
+/var/log/modsecurity/audit.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}

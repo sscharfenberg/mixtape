@@ -161,22 +161,34 @@ ls -l /run/php/mixtape-prod.sock          # must exist, www-data:www-data 0660
 An isolated pool means a production worker crash or slow-log flood cannot affect the dev site, and
 vice versa. Dev keeps the default `[www]` pool.
 
+The pool also switches off what the app never uses: file uploads, PHP's upload-progress tracking,
+and the shell-execution functions. It sizes `post_max_size` to the largest body the app accepts.
+The pool file's comments give the reason for each.
+
 ## 9. nginx vhost
 
 ```bash
 sudo install -m 644 $SRC/mixtape-limits.conf /etc/nginx/conf.d/mixtape-limits.conf
+sudo install -m 644 $SRC/mixtape-hardening.conf /etc/nginx/conf.d/mixtape-hardening.conf
+sudo install -m 644 $SRC/mixtape-catchall.nginx.conf /etc/nginx/sites-available/mixtape-catchall
 sudo install -m 644 $SRC/mixtape.prod.nginx.conf /etc/nginx/sites-available/mixtape.prod
 sudo nano /etc/nginx/sites-available/mixtape.prod    # replace <your-domain>
+sudo ln -s /etc/nginx/sites-available/mixtape-catchall /etc/nginx/sites-enabled/
 sudo ln -s /etc/nginx/sites-available/mixtape.prod /etc/nginx/sites-enabled/
 ```
 
 The rate-limit zones **must** live in `conf.d/` (the `http` context) — `limit_req_zone` and
 `limit_conn_zone` are invalid inside a `server{}` block. Defining a zone costs nothing until a server
-block references it.
+block references it. `mixtape-hardening.conf` is there for the same reason. It holds the `map` the
+prod vhost uses to refuse multipart bodies with a 415 (the app takes no uploads, so only an attack
+sends one), plus the TLS cipher and session settings every vhost inherits.
 
-> ⚠️ **The `default_server` swap.** Production takes the `default_server` flag, so it must come **off
-> the dev vhost in the same change**. Two `default_server` blocks on one port is a hard nginx error
-> and `nginx -t` will refuse to reload — leaving you with neither site updated.
+> ⚠️ **The `default_server` swap.** The **catch-all** takes the `default_server` flag, so it must come
+> **off the dev vhost in the same change**. Two `default_server` blocks on one port is a hard nginx
+> error and `nginx -t` will refuse to reload, leaving you with neither site updated. Production never
+> holds the flag. A request that names no site this box serves (a bare IP, an unknown `Host`, no SNI)
+> gets a closed connection on port 80 and a refused handshake on 443. Address-range scanners
+> therefore never see the app, or the certificate that would name it.
 
 In the dev vhost ([`files/mixtape.dev.nginx.conf`](files/mixtape.dev.nginx.conf)), remove
 `default_server` from **all four** listen lines:
@@ -193,7 +205,8 @@ sudo nginx -t && sudo systemctl reload nginx
 ```
 
 Consequence worth knowing: afterwards, an unmatched `Host` header or a bare-IP request lands on
-**production**, not dev.
+**neither** site. To reach one, ask for it by name — `curl --resolve <name>:443:<ip>`, never
+`curl https://<ip>/`.
 
 ### Media hand-off (`X-Accel-Redirect`)
 
@@ -327,13 +340,23 @@ sudo -u www-data /usr/bin/php /var/www/mixtape.prod/artisan app:invite
 
 ## 11. Verify on the LAN — before any router change
 
+Ask for the site **by name**. The catch-all answers a bare IP with nothing, so the first two lines
+below are the ones that prove it is doing so:
+
 ```bash
-curl -skI https://<server-lan-ip>/ | head -1                    # 200
-curl -skI http://<server-lan-ip>/  | head -1                    # 301 -> https
-curl -skI https://<server-lan-ip>/ | grep -iE 'content-security|x-frame|x-content|referrer'
+curl -skI https://<server-lan-ip>/ ; echo "exit $?"             # handshake refused: curl exit 35
+curl -sI  http://<server-lan-ip>/  ; echo "exit $?"             # empty reply: curl exit 52
+
+R="--resolve <your-domain>:443:<server-lan-ip> --resolve <your-domain>:80:<server-lan-ip>"
+curl -skI $R https://<your-domain>/ | head -1                   # 200
+curl -sI  $R http://<your-domain>/  | head -1                   # 301 -> https
+curl -skI $R https://<your-domain>/ | grep -iE 'content-security|x-frame|x-content|referrer'
+curl -sk  $R -o /dev/null -w '%{http_code}\n' -F probe=1 https://<your-domain>/   # 415
 sudo tail -n 40 /var/log/nginx/mixtape.prod.error.log
 sudo tail -n 40 /var/log/php/mixtape-prod.error.log
 ```
+
+(Under zsh, `$R` does not word-split. Write the two `--resolve` flags out in full there.)
 
 Confirm the ownership model actually holds — this is the check that catches a wrong umask:
 

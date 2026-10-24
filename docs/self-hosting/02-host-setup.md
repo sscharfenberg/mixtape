@@ -111,9 +111,10 @@ table inet filter {
         # Web — LAN-only until go-live.
         ip saddr <lan-subnet> tcp dport { 80, 443 } accept
 
-        # SSH and Samba stay LAN-only forever.
+        # SSH and Samba stay LAN-only forever. Samba is SMB over TCP 445 only;
+        # §2.8 turns NetBIOS (137–139) off.
         ip saddr <lan-subnet> tcp dport 22 accept
-        ip saddr <lan-subnet> tcp dport { 139, 445 } accept
+        ip saddr <lan-subnet> tcp dport 445 accept
 
         # mDNS, so <hostname>.local resolves.
         ip saddr <lan-subnet> udp dport 5353 accept
@@ -220,8 +221,27 @@ account, and SMB3 enforced:
 
 ```ini
 [global]
+   server role = standalone server
    server min protocol = SMB3
+   smb encrypt = required
    map to guest = never
+   restrict anonymous = 2
+   usershare allow guests = no
+
+   # LAN-only at the socket as well as at the firewall.
+   interfaces = lo <lan-subnet>
+   bind interfaces only = yes
+
+   # SMB over TCP 445 only. macOS and Windows find the share by mDNS or by name;
+   # NetBIOS (nmbd, ports 137–139) is a broadcast protocol nothing here needs.
+   disable netbios = yes
+   smb ports = 445
+
+   # No printers, so no printing subsystem.
+   load printers = no
+   printing = bsd
+   printcap name = /dev/null
+   disable spoolss = yes
 
 [media]
    path = /var/media
@@ -230,9 +250,16 @@ account, and SMB3 enforced:
    browseable = yes
 ```
 
+**Delete the `[homes]`, `[printers]` and `[print$]` sections** that Debian's stock `smb.conf` ships.
+`[homes]` exports your home directory to anyone holding your Samba password, and the other two are
+shares for a printing system this box does not have.
+
 ```bash
+testparm -s                                   # must parse without errors
 sudo smbpasswd -a <admin-user>
 sudo systemctl restart smbd
+sudo systemctl disable --now nmbd             # NetBIOS is off, so nmbd has nothing to do
+sudo systemctl disable --now winbind          # only if installed: a standalone server never needs it
 ```
 
 Samba is LAN-only at the firewall and must **never** be forwarded. It exists so you can drop files
@@ -258,17 +285,25 @@ untrusted certificate; that is expected and fine on the LAN.
 keeps the ACME challenge path open from the start, so nothing needs changing when certbot arrives:
 
 ```bash
+sudo install -m 644 files/mixtape-lan-only.conf /etc/nginx/snippets/mixtape-lan-only.conf
+sudo nano /etc/nginx/snippets/mixtape-lan-only.conf    # replace <lan-subnet>
 sudo install -m 644 files/mixtape.dev.nginx.conf /etc/nginx/sites-available/mixtape.dev
 sudo nano /etc/nginx/sites-available/mixtape.dev    # replace <your-dev-host>
 sudo ln -s /etc/nginx/sites-available/mixtape.dev /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-Two things in it are worth reading rather than skipping: it carries `default_server` only until
-production exists ([`03`](03-production-deploy.md#9-nginx-vhost) hands the flag over), and it ships the
-same `internal;` media locations as prod — not for speed on a LAN box, but because it is the only
-machine where that path can be rehearsed at all
-([`03`](03-production-deploy.md#media-hand-off-x-accel-redirect)).
+Three things in it are worth reading rather than skipping:
+
+- It carries `default_server` only until production exists
+  ([`03`](03-production-deploy.md#9-nginx-vhost) hands the flag over).
+- It ships the same `internal;` media locations as prod. That is not for speed on a LAN box: it is
+  the only machine where that path can be rehearsed at all
+  ([`03`](03-production-deploy.md#media-hand-off-x-accel-redirect)).
+- It is **LAN-only by its own `allow`/`deny`**, through the snippet installed above. The firewall
+  does that job today, but it stops doing it the day the web ports are forwarded for production:
+  nftables sees a port, not a hostname. From then on, anyone who sends your dev hostname to your
+  public IP reaches the dev site, debug pages and all. The snippet is what still refuses them.
 
 ## 2.10 Backups
 
