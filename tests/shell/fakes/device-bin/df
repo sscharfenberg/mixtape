@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# The device's `df -k`. With FAKE_DF_FREE_KB set it reports that much free space
+# in toybox's column order — the fourth column, which is the one mts reads — so a
+# test can fill the "phone" without filling the disk. Otherwise the real answer.
+if [[ -n ${FAKE_DF_FREE_KB:-} ]]; then
+    printf 'Filesystem 1K-blocks Used Available Use%% Mounted on\n'
+    printf '/dev/fake 999999999 0 %s 0%% /storage/emulated\n' "$FAKE_DF_FREE_KB"
+    exit 0
+fi
+exec /bin/df "$@"

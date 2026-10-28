@@ -1,19 +1,22 @@
 # Testing
 
-MixTape has **three test layers**, and they are deliberately not interchangeable. Each one exists to answer
-a question the others structurally cannot.
+MixTape has **three test layers** for the app, and they are deliberately not interchangeable. Each one exists
+to answer a question the others structurally cannot. A fourth suite covers the workstation scripts in
+`docs/self-hosting/files/`, which no app layer can reach.
 
 | Layer | Tool | Lives in | Answers |
 | --- | --- | --- | --- |
 | **Server** | PHPUnit | `tests/Unit/`, `tests/Feature/` | Does the request produce the right response, the right database state, and the right Inertia props? |
 | **Frontend unit** | Vitest | beside the source, `*.test.ts` | Does this function / composable / component behave correctly, in isolation? |
 | **End-to-end** | Playwright | `tests/e2e/` | Does the real app, in a real browser, actually work? |
+| **Shell scripts** | bats-core | `tests/shell/` | Does a workstation script (`mts`) plan, refuse and copy the way it says? |
 
 ```bash
 php artisan test        # server
 npm run test:unit       # frontend unit  (npm run test:watch to iterate)
 npm run test:e2e        # end-to-end     (npm run test:e2e:ui for the debugger)
 npm test                # unit + e2e
+npm run test:shell      # shell scripts — macOS only, needs `brew install bats-core`
 ```
 
 `npm run build` gates on lint and `vue-tsc`, **not** on tests — the suites are their own step, so an asset
@@ -62,6 +65,37 @@ tests/e2e/
 
 The split is by **directory, not by clearing cookies**, so an auth-gate test can never pass by accidentally
 inheriting a stored session.
+
+### Shell scripts — `tests/shell/`
+
+```
+tests/shell/
+├── run.sh           the runner behind `npm run test:shell` — checks for macOS and bats first
+├── test_helper.bash shared by every .bats file: sources mts.sh, builds decomposed fixtures
+├── mts.bats         layer 1: functions in, text out — no device, no server
+├── mts-adb.bats     layer 2: whole `mts … adb:` runs against fakes/
+├── mts-device.bats  layer 3: a real phone, OPT-IN (MTS_DEVICE_TESTS=1)
+└── fakes/           adb, the device's stat/df, and a no-op sleep
+```
+
+`mts.sh` is **sourced, not copied**: its `main` runs only when the file is executed, so loading it defines
+every function and nothing else — not even its shell options, which `main` sets for itself. A test calls a
+function directly, or drives a whole run with `run_mts`, which sources the script in a fresh bash pointed at
+the test's own library. `MTS_SCRIPT` points the suite at another copy: the installed one, or a deliberately
+broken one to see that a test can fail.
+
+The three files are the same cheapest-layer rule as the app's. **Layer 2's device is a temp folder on this
+Mac** (`fakes/adb` runs the shell command locally and copies on push), which proves how a run is put
+together — what it refuses, copies, reports, and that it stops — and nothing about the phone's storage.
+**Layer 3 is for that**, and writes to the phone, hence opt-in; it works in a scratch folder under
+`/storage/emulated/0/Download` and removes it afterwards. Run it after any change to the adb half:
+
+```bash
+MTS_DEVICE_TESTS=1 npm run test:shell
+```
+
+The suite is **not in CI**: the scripts are macOS tools (BSD `stat`, the share under `/Volumes`), and the
+runners are Ubuntu.
 
 ---
 
@@ -547,3 +581,27 @@ the record of *why* that code exists.
 - **Lazy, hidden images are legitimately "incomplete"** — covers are `loading="lazy"` and the discography
   renders row *and* card artwork with one `display: none`. Only a **visible** image that failed is broken,
   and check after `waitForLoadState("networkidle")`.
+
+### Shell scripts
+
+- **A bare `[[ … ]]` cannot fail a bats test on macOS.** bats runs under the system bash 3.2, where a
+  failing `[[ ]]` on any line but a test's last does not stop the test. Every `[[ $output == *…* ]]` in this
+  suite once passed whatever it was given — found when a test written to catch a missing guard stayed green
+  without the guard. Assert with `output_has` / `output_lacks`, `[ … ]`, or `[[ … ]] || false`; `run.sh`
+  refuses a `.bats` file with a bare `[[` line.
+- **APFS finds a file by either Unicode spelling, and so does the phone.** `[ -e "$nfc_path" ]` is true for a
+  file stored decomposed, so existence cannot tell which spelling is on disk. Read a **listing**
+  (`count_decomposed`, `lists_exactly`) — which is also the only thing a phone player effectively asks.
+- **`/data/local/tmp` is not the phone's media storage.** The shared storage under `/storage/emulated/0` is
+  casefolded and its kernel keeps resolving a spelling it has once looked up; adb's scratch folder is
+  neither. A device test there passed on two bugs that then failed on real music. Layer 3 works under
+  `Download/` for that reason.
+- **`fakes/adb` drains stdin, because the real one does.** A loop that read `mts`'s plan from stdin once
+  handed the rest of it to the first `adb` call, copied one folder and reported success; draining is what
+  makes that regression visible here. It is also why `run_mts` gives every run `/dev/null` — a fake reading
+  a terminal would wait for typing.
+- **A whole run goes in a separate bash, not `run main` in the test's shell.** `main` turns on
+  `set -Eeuo pipefail`, and bats' own error trap must not run under it.
+- **A buffer bug needs its boundary placed.** The test that keeps `iconv` out of `nfc` puts a letter's accent
+  exactly across iconv's 4,096-byte buffer; a uniform 20,000-line listing never lands on it and passed with
+  iconv swapped in.

@@ -64,6 +64,12 @@ the cheapest layer that can actually answer the question. Three layers, none int
   signed in). Anything that needs a real browser: navigation, history, the URL as state, CSP, media
   playback, keyboard journeys.
 
+The workstation scripts in `docs/self-hosting/files/` have a suite of their own: **bats-core**
+(`npm run test:shell`, macOS only, `brew install bats-core`) in `tests/shell/`, for `mts` today. Its
+third file writes to a real phone and is opt-in — **run `MTS_DEVICE_TESTS=1 npm run test:shell` after
+any change to `mts`'s adb half**, because the fake device is APFS, and the phone's casefolded storage
+and kernel name cache are what two real runs failed on.
+
 Two rules worth stating outright, because both cost real effort when got wrong: **don't
 component-test Inertia pages in Vitest merely to re-check their props** — `assertInertia` already
 covers that contract, so test a page for what PHP cannot see (locale formatting, an untagged field

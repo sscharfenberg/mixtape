@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# The device's toybox `stat -c FORMAT`, as mts asks the phone for it, answered by
+# macOS's BSD stat — whose `-c` does not exist. %s (size) is BSD's %z, %n (name)
+# is %N. On PATH only inside a fake `adb shell` (see ../adb).
+if [[ ${1:-} == -c ]]; then
+    fmt="$(printf '%s' "$2" | sed 's/%s/%z/g; s/%n/%N/g')"
+    shift 2
+    exec /usr/bin/stat -f "$fmt" "$@"
+fi
+exec /usr/bin/stat "$@"

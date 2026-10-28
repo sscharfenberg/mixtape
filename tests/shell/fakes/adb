@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# A stand-in for `adb`, first on PATH for mts-adb.bats. The "device" is this
+# machine's own filesystem: a test's device directory is a local temp folder, so a
+# shell command simply runs here and a push is a copy. Every call is appended to
+# FAKE_ADB_LOG, which is how a test proves that nothing was pushed.
+#
+# WHAT IT CANNOT STAND IN FOR is the phone's storage. A temp folder on APFS finds
+# either Unicode spelling of a name and lists the one it was given — like the
+# phone's casefolded shared storage in that — but it has none of the kernel
+# name-cache behaviour that made renaming in place unreliable there. A test that
+# passes against this says nothing about that; mts-device.bats exists for it.
+#
+# Knobs, all environment variables:
+#   FAKE_ADB_STATE      the state `adb devices` reports (default: device)
+#   FAKE_ADB_FAIL_PUSH  a push whose source path contains this text fails
+#   FAKE_DF_FREE_KB     the free space the device's `df -k` reports (see device-bin/df)
+
+set -euo pipefail
+
+here="$(cd "$(dirname "$0")" && pwd)"
+log="${FAKE_ADB_LOG:-/dev/null}"
+
+# adb READS STDIN, and mts has been broken by that once: a loop that read its plan
+# from stdin handed the rest of the plan to the first adb call inside it, copied
+# one directory and reported success. Drained here so the same regression shows
+# up as directories missing from a test's device. Not from a terminal, where it
+# would sit waiting for typing; run_mts gives every run /dev/null.
+if [[ ! -t 0 ]]; then
+    cat > /dev/null
+fi
+
+cmd="${1:-}"
+shift || true
+
+case "$cmd" in
+    devices)
+        printf 'List of devices attached\n%s\t%s\n' FAKE0001 "${FAKE_ADB_STATE:-device}"
+        ;;
+    shell)
+        printf 'shell %s\n' "$*" >> "$log"
+        PATH="$here/device-bin:$PATH" sh -c "$*"
+        ;;
+    push)
+        if [[ ${1:-} == -q ]]; then
+            shift
+        fi
+        dest="${!#}"
+        while [[ $# -gt 1 ]]; do
+            printf 'push %s\n' "$1" >> "$log"
+            if [[ -n ${FAKE_ADB_FAIL_PUSH:-} && $1 == *"$FAKE_ADB_FAIL_PUSH"* ]]; then
+                printf "adb: error: failed to copy '%s': remote couldn't create file\n" "$1" >&2
+                exit 1
+            fi
+            # Named after the SOURCE STRING, as adb names the device file — which
+            # is the whole reason mts hands it a precomposed path.
+            cp "$1" "$dest"
+            shift
+        done
+        ;;
+    *)
+        printf "fake adb: '%s' is not something mts calls\n" "$cmd" >&2
+        exit 1
+        ;;
+esac

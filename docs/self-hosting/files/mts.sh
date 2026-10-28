@@ -58,8 +58,6 @@
 # server, `mt artisan app:update` is what tells the app about them; this only
 # moves bytes.
 
-set -Eeuo pipefail
-
 # --- Configuration ---------------------------------------------------------
 
 # The ssh host to reach the server: an alias from ~/.ssh/config, or user@host.
@@ -147,7 +145,13 @@ fail() { printf '\033[1;31mmts: %s\033[0m\n' "$*" >&2; exit 1; }
 
 # 1234567 -> 1,234,567. Done with sed rather than printf "%'d": that flag needs
 # a thousands-grouping locale, and this script forces LC_ALL=C elsewhere.
-commify() { printf '%s' "$1" | sed -e ':a' -e 's/\B[0-9]\{3\}\>/,&/;ta'; }
+#
+# Plain ERE, one group of three per pass from the right. The GNU shorthand for
+# "inside a word" and "end of word" (`\B`, `\>`) does not exist in macOS's sed,
+# and a pattern using it does not fail — it matches nothing, so every number
+# prints ungrouped. The label and the branch are separate -e arguments because
+# BSD sed ends a label only at the end of an argument, not at a `;`.
+commify() { printf '%s' "$1" | sed -E -e ':a' -e 's/([0-9])([0-9]{3})($|,)/\1,\2\3/' -e 'ta'; }
 
 # The summary's horizontal rule, defined once because both transports draw the
 # same box around a different set of rows.
@@ -212,78 +216,86 @@ EOF
 # Two positionals in order (area, destination); flags may sit anywhere around
 # them, and anything unrecognised is forwarded to rsync verbatim. --attempts is
 # consumed here so it never reaches rsync, which has no such option.
+#
+# Everything it decides is a GLOBAL that both transports read — AREA, DEST,
+# MIRROR, ALL, DRY, PASSTHROUGH, SRC, DEVICE_DEFAULT, TRANSPORT, DEVICE_DIR. A
+# function rather than code at the top level so the test suite can source this
+# file without arguments and then hand it arguments of its own.
+parse_args() {
+    local arg expect_attempts
+    expect_attempts=0
 
-AREA=""
-DEST=""
-MIRROR=0
-ALL=0
-DRY=0
-PASSTHROUGH=()
-expect_attempts=0
+    AREA=""
+    DEST=""
+    MIRROR=0
+    ALL=0
+    DRY=0
+    PASSTHROUGH=()
 
-for arg in "$@"; do
+    for arg in "$@"; do
+        if [[ $expect_attempts == 1 ]]; then
+            MAX_ATTEMPTS="$arg"
+            expect_attempts=0
+            continue
+        fi
+        case "$arg" in
+            --mirror)        MIRROR=1 ;;
+            --all)           ALL=1 ;;
+            -n|--dry-run)    DRY=1 ;;
+            --attempts)      expect_attempts=1 ;;
+            -h|--help)       usage; exit 0 ;;
+            -*)              PASSTHROUGH+=("$arg") ;;
+            *)
+                if [[ -z $AREA ]]; then
+                    AREA="$arg"
+                elif [[ -z $DEST ]]; then
+                    DEST="$arg"
+                else
+                    PASSTHROUGH+=("$arg")
+                fi
+                ;;
+        esac
+    done
+
     if [[ $expect_attempts == 1 ]]; then
-        MAX_ATTEMPTS="$arg"
-        expect_attempts=0
-        continue
+        fail "--attempts needs a number"
     fi
-    case "$arg" in
-        --mirror)        MIRROR=1 ;;
-        --all)           ALL=1 ;;
-        -n|--dry-run)    DRY=1 ;;
-        --attempts)      expect_attempts=1 ;;
-        -h|--help)       usage; exit 0 ;;
-        -*)              PASSTHROUGH+=("$arg") ;;
-        *)
-            if [[ -z $AREA ]]; then
-                AREA="$arg"
-            elif [[ -z $DEST ]]; then
-                DEST="$arg"
-            else
-                PASSTHROUGH+=("$arg")
-            fi
+    if [[ -z $AREA || -z $DEST ]]; then
+        usage
+        exit 1
+    fi
+    if ! [[ $MAX_ATTEMPTS =~ ^[1-9][0-9]*$ ]]; then
+        fail "--attempts must be a positive integer, got '$MAX_ATTEMPTS'"
+    fi
+
+    # A `case` rather than an associative array: macOS ships bash 3.2, which has
+    # none. The same reason `mt` guards its empty-array expansions.
+    case "$AREA" in
+        music)      SRC="$MEDIA_ROOT/music";      DEVICE_DEFAULT="$DEVICE_MUSIC_DIR" ;;
+        audiobooks) SRC="$MEDIA_ROOT/audiobooks"; DEVICE_DEFAULT="$DEVICE_AUDIOBOOKS_DIR" ;;
+        *) fail "unknown area '$AREA' (music | audiobooks)" ;;
+    esac
+
+    # --- Which transport -------------------------------------------------------
+    # Read off the destination's SHAPE, the way rsync itself reads `host:path`: a
+    # destination is either a path on this machine or a device, and the two cannot be
+    # confused for one another. A flag would have to be remembered; a prefix cannot
+    # be left off by accident, because without it the path is simply not there.
+    #
+    # Deliberately NOT a guess from the path — `/storage/emulated/0/Music` is a
+    # perfectly legal local path, and a script that decides what a destination means
+    # by pattern-matching it is one mount point away from writing 86 GB to the wrong
+    # device.
+    TRANSPORT=disk
+    DEVICE_DIR=""
+
+    case "$DEST" in
+        adb:*)
+            TRANSPORT=adb
+            DEVICE_DIR="${DEST#adb:}"
             ;;
     esac
-done
-
-if [[ $expect_attempts == 1 ]]; then
-    fail "--attempts needs a number"
-fi
-if [[ -z $AREA || -z $DEST ]]; then
-    usage
-    exit 1
-fi
-if ! [[ $MAX_ATTEMPTS =~ ^[1-9][0-9]*$ ]]; then
-    fail "--attempts must be a positive integer, got '$MAX_ATTEMPTS'"
-fi
-
-# A `case` rather than an associative array: macOS ships bash 3.2, which has
-# none. The same reason `mt` guards its empty-array expansions.
-case "$AREA" in
-    music)      SRC="$MEDIA_ROOT/music";      DEVICE_DEFAULT="$DEVICE_MUSIC_DIR" ;;
-    audiobooks) SRC="$MEDIA_ROOT/audiobooks"; DEVICE_DEFAULT="$DEVICE_AUDIOBOOKS_DIR" ;;
-    *) fail "unknown area '$AREA' (music | audiobooks)" ;;
-esac
-
-# --- Which transport -------------------------------------------------------
-# Read off the destination's SHAPE, the way rsync itself reads `host:path`: a
-# destination is either a path on this machine or a device, and the two cannot be
-# confused for one another. A flag would have to be remembered; a prefix cannot
-# be left off by accident, because without it the path is simply not there.
-#
-# Deliberately NOT a guess from the path — `/storage/emulated/0/Music` is a
-# perfectly legal local path, and a script that decides what a destination means
-# by pattern-matching it is one mount point away from writing 86 GB to the wrong
-# device.
-TRANSPORT=disk
-DEVICE_DIR=""
-
-case "$DEST" in
-    adb:*)
-        TRANSPORT=adb
-        DEVICE_DIR="${DEST#adb:}"
-        ;;
-esac
+}
 
 # ---------------------------------------------------------------------------
 # Transport: adb — an Android device over USB
@@ -311,6 +323,38 @@ esac
 # never consulted. Staging through a local copy first (server → disk → device)
 # would need 86 GB of somewhere to put it for a byte-identical result.
 #
+# EVERY NAME IS SPELLED THE WAY THE SERVER SPELLS IT, PRECOMPOSED. Three facts
+# meet here. macOS's SMB client lists every name DECOMPOSED — `ä` as `a` plus a
+# combining diaeresis — whatever the server stores. `adb push` names the device
+# file after the path string it is handed. And a phone player does not play a
+# playlist line spelled differently from the name the storage lists — Poweramp
+# skips it as unplayable. So a
+# library pushed straight off the share's listing lands decomposed, plays when
+# browsed to, and is skipped by every exported .m3u, whose lines carry the
+# database's bytes — the server's own, precomposed. Measured on this collection
+# with Poweramp: 845 tracks unplayable from a playlist, and every track under an
+# accented FOLDER among them, plain-named or not. A car stick has the same
+# decomposed names (see preserves_name_form) and its head unit resolves them
+# anyway; a phone player does not.
+#
+# A DEVICE ALREADY HOLDING DECOMPOSED NAMES IS REFUSED, NOT REPAIRED. Android's
+# shared storage is CASEFOLDED: both spellings of a name are one entry (`stat`
+# gives one inode for either), so the storage would find the file — it is the
+# LISTED spelling, the one a player's scan records, that is wrong. Pushing over
+# such a file rewrites a file's name but never a folder's, and renaming in place
+# cannot be made reliable from a script: the kernel caches a name's other
+# spelling once anything has looked it up, and measured, that cached entry still
+# answered 120 s after its folder had moved away — long enough to strand a
+# folder mid-rename or to make it read as a clash with itself. A folder deleted
+# and pushed again takes the new spelling cleanly, cache or no cache. So
+# adb_check_spelling stops the run and says which folders to clear.
+#
+# Precomposing (NFC) restores the server's spelling because the server's names
+# ARE precomposed — `app:audit`'s path-encoding check reports any that are not,
+# since a combining accent has no Windows-1252 byte to export it with. Reading
+# needs nothing extra: macOS resolves a precomposed path on the share to the same
+# file, so that one spelling is both what is opened and what the device is told.
+#
 # AND NOTHING HERE DELETES. See the --mirror refusal in run_adb for why that is
 # a property of the destination rather than a missing feature.
 
@@ -318,6 +362,24 @@ esac
 # a second shell this half has to quote for. Real library names need it:
 # "Guns N' Roses" breaks anything naiver.
 shq() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
+
+# Every line of stdin in Unicode NFC — the precomposed spelling the server's
+# names are in (see *Every name is spelled the way the server spells it* above).
+#
+# PERL, NOT `iconv -f UTF-8-MAC`, which is the tool macOS seems to offer for
+# exactly this. iconv converts in fixed-size buffers and leaves a letter whose
+# accent falls across a buffer boundary decomposed: measured, one name in 14,268
+# came back unchanged, and that one track would have been pushed decomposed with
+# nothing reporting it. Perl normalises each line whole.
+#
+# A line that is not valid UTF-8 passes through UNTOUCHED rather than stopping
+# the run: the device side lists whatever else lives in its folder, and a stray
+# Latin-1 name in the owner's own files is no reason to refuse to sync.
+nfc() {
+    perl -MUnicode::Normalize -MEncode -ne '
+        my $s = eval { decode("UTF-8", $_, Encode::FB_CROAK | Encode::LEAVE_SRC) };
+        print defined $s ? encode("UTF-8", NFC($s)) : $_'
+}
 
 # Appends `( -name g1 -o -name g2 … )` to ADB_FIND. A function because both
 # halves of the predicate need one and a misplaced `-o` shows up as a silently
@@ -393,12 +455,18 @@ ADB_MANIFEST_AWK='
 # The source side. `find .` from INSIDE the area, so the paths are relative
 # without any prefix arithmetic, and sorted under LC_ALL=C so the order is by
 # bytes rather than by a locale's idea of alphabetical.
+#
+# PRECOMPOSED BEFORE ANYTHING ELSE SEES IT, because every later step takes its
+# spelling from here: the comparison with the device, the directory created on
+# it, and the path handed to `adb push`, which names the device file after it.
+# Before the sort, so the order is that of the bytes actually compared.
 adb_manifest_source() {
     # THE SUBSHELL HAS TO SPAN `stat` AS WELL AS `find`. A `( cd … && find )`
     # alone ends at the pipe, so `stat` is handed relative paths and run in the
     # directory this script was started in — where it reports every one of them
     # as missing and the manifest comes back empty.
     ( cd "$ADB_SRC" && find "${ADB_FIND[@]}" | xargs -0 stat -f '%z %N' ) \
+        | nfc \
         | LC_ALL=C awk "$ADB_MANIFEST_AWK" \
         | LC_ALL=C sort > "$ADB_TMP/src.tsv"
 }
@@ -416,6 +484,11 @@ adb_manifest_source() {
 # `cd || exit 9` rather than trusting the remote status: an unreadable
 # destination would otherwise produce an empty manifest, which reads exactly like
 # a fresh device and would re-push the whole library.
+#
+# NOT PRECOMPOSED, unlike the source side. The question is whether the device
+# LISTS the name a playlist spells — that is what a player's scan records — so a
+# decomposed name must read as absent. Normalising here would file it as present
+# and let the verification pass on a device whose playlists still miss it.
 adb_manifest_device() {
     local rc
     rc=0
@@ -425,9 +498,73 @@ adb_manifest_device() {
         fail "could not read '$DEVICE_DIR' on the device (adb exited $rc)"
     fi
 
-    tr -d '\r' < "$ADB_TMP/dev.raw" \
+    # Byte-wise for the reason given in adb_check_spelling.
+    LC_ALL=C tr -d '\r' < "$ADB_TMP/dev.raw" \
         | LC_ALL=C awk "$ADB_MANIFEST_AWK" \
         | LC_ALL=C sort > "$ADB_TMP/dev.tsv"
+}
+
+# Refuse a device whose copy of the library is spelled decomposed, naming the
+# folders and files to clear (see *A device already holding decomposed names is
+# refused* above for why it is not repaired here).
+#
+# WITHOUT IT THE RUN FAILS IN THE WORST WAY. The plan matches byte for byte, so
+# it files every such track as missing and pushes it; the push rewrites the
+# file's name but not its folder's, the re-plan still cannot see it, and five
+# attempts later the run gives up on gigabytes that were copied over themselves.
+#
+# ONLY THE LIBRARY'S OWN NAMES COUNT: a decomposed name is reported when its
+# precomposed spelling is a file or folder the source holds — the line the device
+# manifest draws — so the owner's own files, a file manager's @Recycle included,
+# never block a sync. Only the outermost of a decomposed subtree is named,
+# because deleting it is the whole instruction. `find` lists a folder before its
+# contents, which is what lets the awk skip what lies beneath one it has named.
+adb_check_spelling() {
+    local rc bad
+    rc=0
+
+    adb shell "cd $(shq "$DEVICE_DIR") || exit 9; find . -mindepth 1 2>/dev/null; exit 0" \
+        </dev/null > "$ADB_TMP/names.raw" || rc=$?
+    if [[ $rc != 0 ]]; then
+        fail "could not read '$DEVICE_DIR' on the device (adb exited $rc)"
+    fi
+
+    # Every tool that reads a device name here runs under LC_ALL=C. In a UTF-8
+    # locale macOS's sed, grep, cut, tr and paste refuse a name that is not valid
+    # UTF-8 — "illegal byte sequence", and under pipefail the run is over — and
+    # the owner's own files in this folder are under no obligation to be valid.
+    LC_ALL=C tr -d '\r' < "$ADB_TMP/names.raw" | LC_ALL=C sed 's|^\./||' > "$ADB_TMP/names.lst"
+    nfc < "$ADB_TMP/names.lst" | LC_ALL=C paste "$ADB_TMP/names.lst" - > "$ADB_TMP/names.tsv"
+
+    LC_ALL=C awk -F'\t' -v srcf="$ADB_TMP/src.tsv" '
+        FILENAME == srcf {
+            want[$1 == "." ? $2 : $1 "/" $2] = 1
+            for (d = $1; d != "." && !(d in want); ) {
+                want[d] = 1
+                if (sub(/\/[^\/]*$/, "", d) == 0) d = "."
+            }
+            next
+        }
+        {
+            for (up = $1; sub(/\/[^\/]*$/, "", up); ) if (up in named) next
+            if ($1 != $2 && ($2 in want)) { named[$1] = 1; print $1 }
+        }' "$ADB_TMP/src.tsv" "$ADB_TMP/names.tsv" > "$ADB_TMP/decomposed"
+
+    bad="$(wc -l < "$ADB_TMP/decomposed" | tr -d ' ')"
+    if [[ $bad == 0 ]]; then
+        return 0
+    fi
+
+    warn "Spelled decomposed on the device, so playlists cannot reach anything in or under them:"
+    head -5 "$ADB_TMP/decomposed" | LC_ALL=C sed 's/^/    /' >&2
+    if [[ $bad -gt 5 ]]; then
+        warn "    … and $(commify $((bad - 5))) more"
+    fi
+    fail "$(printf '%s\n' \
+        "$(commify "$bad") library name(s) on the device are spelled decomposed, as an" \
+        "     unconverted copy of the share leaves them. This cannot be repaired in place:" \
+        "     delete them from $DEVICE_DIR and run this again to copy them back" \
+        "     precomposed. Nothing has been copied.")"
 }
 
 # The plan: every source file the device does not already have at that size.
@@ -635,6 +772,13 @@ run_adb() {
         fail "adb is not in PATH (brew install --cask android-platform-tools)"
     fi
 
+    # Asked up front rather than discovered mid-pipeline, where a missing module
+    # would empty the source manifest and read as an empty library. macOS ships
+    # both; a stripped-down system might not.
+    if ! perl -MUnicode::Normalize -MEncode -e 1 >/dev/null 2>&1; then
+        fail "perl with Unicode::Normalize is needed to spell names the way the server does (see nfc)"
+    fi
+
     # Counted from the status column rather than from the line count: a device
     # that has not had this host authorised is listed as `unauthorized`, and
     # treating it as attached means failing later with a push error instead of
@@ -669,8 +813,11 @@ run_adb() {
     # --- The plan ----------------------------------------------------------
     note "Planning: $ADB_SRC -> adb:$DEVICE_DIR"
 
+    # The spelling check needs the source manifest, and comes before the device
+    # manifest so a refusal costs one listing rather than two.
     adb_build_find
     adb_manifest_source
+    adb_check_spelling
     adb_manifest_device
     adb_todo
 
@@ -777,536 +924,595 @@ run_adb() {
     warn "Exported .m3u playlists go in $DEVICE_DIR, with that same path as the export prefix."
 }
 
-if [[ $TRANSPORT == adb ]]; then
-    run_adb
-    exit 0
-fi
-
-# Everything below is the rsync transport, and only it needs a server to talk to.
+# ---------------------------------------------------------------------------
+# Transport: disk — rsync over ssh, straight from the server
+# ---------------------------------------------------------------------------
 #
-# `if`, not `[[ … ]] && fail`: under `set -e` that idiom exits the script when
-# the condition is FALSE, i.e. it would abort on every correctly-edited copy.
-if [[ $HOST == *"<your-server>"* ]]; then
-    fail "edit HOST at the top of this script before using it"
-fi
+# The whole disk run: guards, plan, sidecar sweep, transfer with retries,
+# summary. Its helpers are defined inside it, where they are used; like the adb
+# half it is a function so that sourcing this file defines it without running it.
+run_disk() {
+    # Only this transport needs a server to talk to.
+    #
+    # `if`, not `[[ … ]] && fail`: under `set -e` that idiom exits the script when
+    # the condition is FALSE, i.e. it would abort on every correctly-edited copy.
+    if [[ $HOST == *"<your-server>"* ]]; then
+        fail "edit HOST at the top of this script before using it"
+    fi
 
-# --- Destination guards ----------------------------------------------------
-# The expensive mistake this script can make is writing 86 GB onto the boot
-# disk because a volume name was mistyped, so both halves of that are refused:
-# the directory is never created (a typo does not exist, so it fails), and it
-# must not live on the same filesystem as `/`. Device numbers rather than
-# parsing `df`, whose mount-point column cannot be split safely when a volume
-# name contains a space.
+    # --- Destination guards ----------------------------------------------------
+    # The expensive mistake this script can make is writing 86 GB onto the boot
+    # disk because a volume name was mistyped, so both halves of that are refused:
+    # the directory is never created (a typo does not exist, so it fails), and it
+    # must not live on the same filesystem as `/`. Device numbers rather than
+    # parsing `df`, whose mount-point column cannot be split safely when a volume
+    # name contains a space.
 
-if [[ ! -d $DEST ]]; then
-    fail "destination '$DEST' is not a directory — is the disk mounted? (create the folder yourself if it should exist)"
-fi
+    if [[ ! -d $DEST ]]; then
+        fail "destination '$DEST' is not a directory — is the disk mounted? (create the folder yourself if it should exist)"
+    fi
 
-DEST_DEV="$(stat -f %d "$DEST")"
-ROOT_DEV="$(stat -f %d /)"
+    DEST_DEV="$(stat -f %d "$DEST")"
+    ROOT_DEV="$(stat -f %d /)"
 
-if [[ $DEST_DEV == "$ROOT_DEV" ]]; then
-    fail "destination '$DEST' is on the boot volume — this writes to removable media only"
-fi
+    if [[ $DEST_DEV == "$ROOT_DEV" ]]; then
+        fail "destination '$DEST' is on the boot volume — this writes to removable media only"
+    fi
 
-if [[ ! -w $DEST ]]; then
-    fail "destination '$DEST' is not writable (mounted read-only?)"
-fi
+    if [[ ! -w $DEST ]]; then
+        fail "destination '$DEST' is not writable (mounted read-only?)"
+    fi
 
-# --mirror DELETES, so it is allowed onto a local disk only. The library's own
-# Samba share is very likely mounted on this same machine — that is what the
-# app's .m3u path prefix points at — and `mts audiobooks /Volumes/<share>/music/
-# --mirror` would faithfully delete the entire music collection off the server.
-# A local block device is the one kind of destination where everything present
-# is a copy of something the server still has, which is the assumption --delete
-# rests on.
-#
-# Read from `df`'s FIRST field rather than its mount-point column: a device path
-# never contains a space, so awk can split it safely, while a volume name
-# frequently does. Local disks are /dev/…; smbfs, nfs and disk images are not.
-if [[ $MIRROR == 1 ]]; then
-    DEST_FS="$(df "$DEST" | awk 'NR==2 {print $1}')"
-    case "$DEST_FS" in
-        /dev/*) ;;
-        *) fail "--mirror needs a local disk, but '$DEST' is on '$DEST_FS' — refusing to delete over a network mount" ;;
-    esac
-fi
+    # --mirror DELETES, so it is allowed onto a local disk only. The library's own
+    # Samba share is very likely mounted on this same machine — that is what the
+    # app's .m3u path prefix points at — and `mts audiobooks /Volumes/<share>/music/
+    # --mirror` would faithfully delete the entire music collection off the server.
+    # A local block device is the one kind of destination where everything present
+    # is a copy of something the server still has, which is the assumption --delete
+    # rests on.
+    #
+    # Read from `df`'s FIRST field rather than its mount-point column: a device path
+    # never contains a space, so awk can split it safely, while a volume name
+    # frequently does. Local disks are /dev/…; smbfs, nfs and disk images are not.
+    if [[ $MIRROR == 1 ]]; then
+        DEST_FS="$(df "$DEST" | awk 'NR==2 {print $1}')"
+        case "$DEST_FS" in
+            /dev/*) ;;
+            *) fail "--mirror needs a local disk, but '$DEST' is on '$DEST_FS' — refusing to delete over a network mount" ;;
+        esac
+    fi
 
-# The mount point the destination sits on, which is not the destination itself
-# whenever a subfolder was given — and `diskutil eject` wants the volume, so
-# telling someone to eject `/Volumes/DISK/Books/` hands them a command that
-# fails.
-#
-# Found by walking up while the device number stays the same: the first parent on
-# a DIFFERENT device is outside the volume, so the child was its root. Device
-# numbers rather than `df`'s mount-point column, which cannot be split when a
-# volume name contains a space — the same reason the guards above read `stat`.
-# The depth bound is a backstop; the boot volume is already refused, so the walk
-# cannot reach `/`, where `..` is itself and the loop would not end.
-volume_root() {
-    local d hops
-    d="${1%/}"
-    for hops in 1 2 3 4 5 6 7 8 9 10; do
-        if [[ "$(stat -f %d "$d" 2>/dev/null || echo x)" != "$(stat -f %d "$d/.." 2>/dev/null || echo y)" ]]; then
-            printf '%s' "$d"
+    # The mount point the destination sits on, which is not the destination itself
+    # whenever a subfolder was given — and `diskutil eject` wants the volume, so
+    # telling someone to eject `/Volumes/DISK/Books/` hands them a command that
+    # fails.
+    #
+    # Found by walking up while the device number stays the same: the first parent on
+    # a DIFFERENT device is outside the volume, so the child was its root. Device
+    # numbers rather than `df`'s mount-point column, which cannot be split when a
+    # volume name contains a space — the same reason the guards above read `stat`.
+    # The depth bound is a backstop; the boot volume is already refused, so the walk
+    # cannot reach `/`, where `..` is itself and the loop would not end.
+    volume_root() {
+        local d hops
+        d="${1%/}"
+        for hops in 1 2 3 4 5 6 7 8 9 10; do
+            if [[ "$(stat -f %d "$d" 2>/dev/null || echo x)" != "$(stat -f %d "$d/.." 2>/dev/null || echo y)" ]]; then
+                printf '%s' "$d"
+                return 0
+            fi
+            d="$(dirname "$d")"
+            [[ $d == / ]] && break
+        done
+        printf '%s' "${1%/}"
+    }
+
+    # Does this filesystem hand back the filename it was given, byte for byte?
+    #
+    # One probe file named with a PRECOMPOSED é (C3 A9), then the directory is read
+    # back: a filesystem that preserves the form returns those bytes, one that
+    # decomposes returns `e` followed by a combining accent (65 CC 81) and the test
+    # fails. Written and removed in the destination itself, because the answer is a
+    # property of that volume rather than of the platform — the same Mac preserves on
+    # APFS and decomposes on FAT.
+    preserves_name_form() {
+        local nfc probe found
+        nfc="$(printf 'caf\303\251')"
+        probe="$TARGET.mts-probe-$nfc"
+
+        : > "$probe" 2>/dev/null || return 0   # cannot probe: do not block on it
+        found="$(find "$TARGET" -maxdepth 1 -name '.mts-probe-*' -print 2>/dev/null | head -1)"
+        rm -f "$probe" 2>/dev/null || true
+
+        [[ $found == *"$nfc"* ]]
+    }
+
+    # --- Build the rsync argument list -----------------------------------------
+    # -rt, NOT -a. FAT32 and exFAT have no ownership, permissions or symlinks, so
+    # -a asks for four things the filesystem cannot store. Nothing needs subtracting
+    # afterwards, which is just as well: the openrsync that ships with macOS has no
+    # --no-perms / --no-owner / --no-group at all.
+    #
+    # --modify-window=1 is the one flag whose absence is silent and expensive: FAT
+    # stores modification times at two-second granularity, so without it every file
+    # looks changed on every run and the whole area is re-sent each time.
+
+    RSYNC_ARGS=(
+        -rt
+        --modify-window=1
+        --partial
+        --partial-dir="$PARTIAL_DIR"
+        --timeout="$IO_TIMEOUT"
+        --contimeout="$CONNECT_TIMEOUT"
+        --itemize-changes
+        --stats
+        -e "$REMOTE_SHELL"
+        --exclude="$PARTIAL_DIR/"
+    )
+
+    for glob in "${JUNK_GLOBS[@]}"; do
+        RSYNC_ARGS+=(--exclude="$glob")
+    done
+
+    if [[ $ALL == 0 ]]; then
+        # Filter-rule ordering, and it only works in this order: keep every
+        # directory so the walk can descend, keep the media, drop the rest.
+        # --prune-empty-dirs then stops a folder that held nothing but a
+        # spreadsheet from being created on the disk.
+        RSYNC_ARGS+=(--include='*/')
+        for glob in "${MEDIA_GLOBS[@]}"; do
+            RSYNC_ARGS+=(--include="$glob")
+        done
+        RSYNC_ARGS+=(--exclude='*' --prune-empty-dirs)
+    fi
+
+    if [[ $MIRROR == 1 ]]; then
+        # --delete only, never --delete-excluded: excluded means "not my business",
+        # and on a shared stick that covers the owner's own files. It would also
+        # delete the partial directory mid-transfer.
+        RSYNC_ARGS+=(--delete)
+    fi
+
+    RSYNC_ARGS+=(${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"})
+
+    # A trailing slash on both sides: copy the CONTENTS of the area into the
+    # destination, rather than nesting an "music" directory inside it.
+    #
+    # No quoting needed for these two paths, but know why: rsync hands the remote
+    # path to a shell on the far side, and openrsync has no --protect-args to stop
+    # that. An area root has no spaces in it; a sub-path would (this library is full
+    # of them) and would arrive re-split into two nonexistent paths.
+    SOURCE="$HOST:$SRC/"
+    TARGET="${DEST%/}/"
+
+    # AND THE FILESYSTEM MUST GIVE BACK THE NAME IT WAS GIVEN. macOS writes a
+    # filename to FAT in decomposed form — `é` becomes `e` plus a combining
+    # accent — while the server stores whatever the tagger wrote, here
+    # precomposed. Lookups are normalisation-insensitive, so TRANSFERS are
+    # unaffected and stay idempotent; a directory LISTING is not, so rsync reads
+    # back a name that is not in its send list and calls a correctly-copied file
+    # extraneous. Measured on this collection: 0 files to copy and 553 to delete,
+    # every one of them an accented title that is present and playable. A mirror
+    # would delete them and re-copy them on every run, for ever.
+    #
+    # So the property is PROBED rather than assumed — write one precomposed name,
+    # read the directory back, see which form returns — because it belongs to the
+    # filesystem and not to any list of filesystems this script could keep. This
+    # refuses rather than asking: 553 deletions of good files is not something a
+    # yes/no prompt should be able to wave through, and dropping --mirror loses
+    # nothing but the deletions.
+    if [[ $MIRROR == 1 ]] && ! preserves_name_form; then
+        fail "$(printf '%s\n' \
+            "--mirror is unsafe here: $DEST normalises filenames, so rsync reads back" \
+            "     a different spelling than it sent and treats every accented title as" \
+            "     extraneous. Re-run without --mirror; the copy itself is unaffected.")"
+    fi
+
+    # --- AppleDouble sidecars --------------------------------------------------
+    # macOS stamps a file it creates with an extended attribute (today
+    # `com.apple.provenance`, with an empty value), and FAT cannot store extended
+    # attributes — so the volume driver spills each one into a 4 KB `._<name>`
+    # AppleDouble file beside the real one. The library's own files carry no xattrs
+    # at all; these are made HERE, on the way in, which is why the `._*` exclude
+    # above cannot prevent them. Left alone, a ten-thousand-file library arrives
+    # with ten thousand phantom 4 KB files, and a head unit lists them as tracks.
+    #
+    # Deleted rather than merged. `dot_clean` is the sanctioned tool for this and it
+    # does not finish the job on FAT — measured on two files: it merged one sidecar,
+    # left the other and the directory's own behind, and restored the attribute it
+    # had just merged, which spills straight back.
+    #
+    # DELETING THE SIDECAR IS THE WHOLE JOB — there is no attribute left to clear
+    # afterwards, because on FAT the sidecar IS where the attribute is stored.
+    # Measured: delete the sidecars and `xattr -l` on the file it belonged to comes
+    # back empty. An `xattr -rc` pass over the tree therefore removes nothing that
+    # the delete has not already removed, and on a real library it is not merely
+    # redundant but ruinous — over twelve thousand entries it runs for minutes, a
+    # syscall at a time, while the run appears to have hung.
+    #
+    # Scoped to sidecars that EXIST, so a destination on a filesystem which stores
+    # extended attributes natively (an external APFS disk) is left alone: no
+    # sidecars means the volume is not spilling, so there is nothing here to fix.
+    #
+    # They come back on EVERY run, not only the first. rsync re-stamps directory
+    # times whenever it walks the tree, so a pass that transfers nothing still leaves
+    # a sidecar beside each of ~1,300 directories — which is why this is the last
+    # thing a run does rather than something the first run gets out of the way.
+    #
+    # A FUNCTION, AND ALSO A TRAP, because the sweep is the last thing a run does
+    # and an abandoned run is the likeliest kind: interrupting a two-hour copy would
+    # otherwise leave thousands of phantom files on a disk somebody is about to
+    # unplug and drive away with. The partial directory is deliberately NOT touched
+    # here — on an interrupt it holds the file that was in flight, which is the whole
+    # point of keeping it.
+    #
+    # THE ORDER IS CAUSE THEN ARTEFACT, AND THEN IT CHECKS. Clearing the extended
+    # attributes first removes the thing the volume is spilling, so deleting the
+    # sidecars afterwards cannot race a driver that is still writing them; doing it
+    # the other way round is what a two-file test cannot tell you apart from doing it
+    # right. The count is then re-read rather than trusted, and the pass repeated,
+    # because "I deleted 12,319 files" and "there are now none" are different claims
+    # and only the second one is what the disk goes into the car with. SWEPT carries
+    # the honest number to the summary.
+    SWEPT=0
+    sweep_sidecars() {
+        local before after pass
+        # A dry run must leave the disk exactly as it found it. The EXIT trap fires
+        # on `-n` too, and sweeping there would make a command whose whole purpose is
+        # to change nothing quietly delete files.
+        if [[ ${DRY:-0} == 1 ]]; then
             return 0
         fi
-        d="$(dirname "$d")"
-        [[ $d == / ]] && break
-    done
-    printf '%s' "${1%/}"
-}
 
-# Does this filesystem hand back the filename it was given, byte for byte?
-#
-# One probe file named with a PRECOMPOSED é (C3 A9), then the directory is read
-# back: a filesystem that preserves the form returns those bytes, one that
-# decomposes returns `e` followed by a combining accent (65 CC 81) and the test
-# fails. Written and removed in the destination itself, because the answer is a
-# property of that volume rather than of the platform — the same Mac preserves on
-# APFS and decomposes on FAT.
-preserves_name_form() {
-    local nfc probe found
-    nfc="$(printf 'caf\303\251')"
-    probe="$TARGET.mts-probe-$nfc"
+        before="$(sidecar_count)"
+        [[ ${before:-0} -gt 0 ]] || return 0
 
-    : > "$probe" 2>/dev/null || return 0   # cannot probe: do not block on it
-    found="$(find "$TARGET" -maxdepth 1 -name '.mts-probe-*' -print 2>/dev/null | head -1)"
-    rm -f "$probe" 2>/dev/null || true
+        for pass in 1 2 3; do
+            find "$TARGET" -name '._*' -type f -delete 2>/dev/null || true
+            after="$(sidecar_count)"
+            [[ ${after:-0} -gt 0 ]] || break
+        done
 
-    [[ $found == *"$nfc"* ]]
-}
+        SWEPT=$((before - after))
+        if [[ ${after:-0} -gt 0 ]]; then
+            warn "$(commify "$after") AppleDouble sidecar(s) survived three sweeps — the volume is still spilling them."
+        fi
+    }
 
-# --- Build the rsync argument list -----------------------------------------
-# -rt, NOT -a. FAT32 and exFAT have no ownership, permissions or symlinks, so
-# -a asks for four things the filesystem cannot store. Nothing needs subtracting
-# afterwards, which is just as well: the openrsync that ships with macOS has no
-# --no-perms / --no-owner / --no-group at all.
-#
-# --modify-window=1 is the one flag whose absence is silent and expensive: FAT
-# stores modification times at two-second granularity, so without it every file
-# looks changed on every run and the whole area is re-sent each time.
+    # Counted in one place, because the sweep compares two readings of it and a
+    # predicate written twice can disagree with itself. A directory's sidecar is a
+    # regular file too, which is why -type f does not miss it.
+    sidecar_count() {
+        find "$TARGET" -name '._*' -type f 2>/dev/null | wc -l | tr -d ' '
+    }
 
-RSYNC_ARGS=(
-    -rt
-    --modify-window=1
-    --partial
-    --partial-dir="$PARTIAL_DIR"
-    --timeout="$IO_TIMEOUT"
-    --contimeout="$CONNECT_TIMEOUT"
-    --itemize-changes
-    --stats
-    -e "$REMOTE_SHELL"
-    --exclude="$PARTIAL_DIR/"
-)
+    # --- The plan --------------------------------------------------------------
+    # A dry run first, for three things at once: the file count that makes a
+    # progress display possible (openrsync has no --info=progress2), the deletion
+    # count, and a rehearsal that costs one file-list walk and no writes.
 
-for glob in "${JUNK_GLOBS[@]}"; do
-    RSYNC_ARGS+=(--exclude="$glob")
-done
+    PLAN="$(mktemp -t mts-plan)"
 
-if [[ $ALL == 0 ]]; then
-    # Filter-rule ordering, and it only works in this order: keep every
-    # directory so the walk can descend, keep the media, drop the rest.
-    # --prune-empty-dirs then stops a folder that held nothing but a
-    # spreadsheet from being created on the disk.
-    RSYNC_ARGS+=(--include='*/')
-    for glob in "${MEDIA_GLOBS[@]}"; do
-        RSYNC_ARGS+=(--include="$glob")
-    done
-    RSYNC_ARGS+=(--exclude='*' --prune-empty-dirs)
-fi
-
-if [[ $MIRROR == 1 ]]; then
-    # --delete only, never --delete-excluded: excluded means "not my business",
-    # and on a shared stick that covers the owner's own files. It would also
-    # delete the partial directory mid-transfer.
-    RSYNC_ARGS+=(--delete)
-fi
-
-RSYNC_ARGS+=(${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"})
-
-# A trailing slash on both sides: copy the CONTENTS of the area into the
-# destination, rather than nesting an "music" directory inside it.
-#
-# No quoting needed for these two paths, but know why: rsync hands the remote
-# path to a shell on the far side, and openrsync has no --protect-args to stop
-# that. An area root has no spaces in it; a sub-path would (this library is full
-# of them) and would arrive re-split into two nonexistent paths.
-SOURCE="$HOST:$SRC/"
-TARGET="${DEST%/}/"
-
-# AND THE FILESYSTEM MUST GIVE BACK THE NAME IT WAS GIVEN. macOS writes a
-# filename to FAT in decomposed form — `é` becomes `e` plus a combining
-# accent — while the server stores whatever the tagger wrote, here
-# precomposed. Lookups are normalisation-insensitive, so TRANSFERS are
-# unaffected and stay idempotent; a directory LISTING is not, so rsync reads
-# back a name that is not in its send list and calls a correctly-copied file
-# extraneous. Measured on this collection: 0 files to copy and 553 to delete,
-# every one of them an accented title that is present and playable. A mirror
-# would delete them and re-copy them on every run, for ever.
-#
-# So the property is PROBED rather than assumed — write one precomposed name,
-# read the directory back, see which form returns — because it belongs to the
-# filesystem and not to any list of filesystems this script could keep. This
-# refuses rather than asking: 553 deletions of good files is not something a
-# yes/no prompt should be able to wave through, and dropping --mirror loses
-# nothing but the deletions.
-if [[ $MIRROR == 1 ]] && ! preserves_name_form; then
-    fail "$(printf '%s\n' \
-        "--mirror is unsafe here: $DEST normalises filenames, so rsync reads back" \
-        "     a different spelling than it sent and treats every accented title as" \
-        "     extraneous. Re-run without --mirror; the copy itself is unaffected.")"
-fi
-
-# --- AppleDouble sidecars --------------------------------------------------
-# macOS stamps a file it creates with an extended attribute (today
-# `com.apple.provenance`, with an empty value), and FAT cannot store extended
-# attributes — so the volume driver spills each one into a 4 KB `._<name>`
-# AppleDouble file beside the real one. The library's own files carry no xattrs
-# at all; these are made HERE, on the way in, which is why the `._*` exclude
-# above cannot prevent them. Left alone, a ten-thousand-file library arrives
-# with ten thousand phantom 4 KB files, and a head unit lists them as tracks.
-#
-# Deleted rather than merged. `dot_clean` is the sanctioned tool for this and it
-# does not finish the job on FAT — measured on two files: it merged one sidecar,
-# left the other and the directory's own behind, and restored the attribute it
-# had just merged, which spills straight back.
-#
-# DELETING THE SIDECAR IS THE WHOLE JOB — there is no attribute left to clear
-# afterwards, because on FAT the sidecar IS where the attribute is stored.
-# Measured: delete the sidecars and `xattr -l` on the file it belonged to comes
-# back empty. An `xattr -rc` pass over the tree therefore removes nothing that
-# the delete has not already removed, and on a real library it is not merely
-# redundant but ruinous — over twelve thousand entries it runs for minutes, a
-# syscall at a time, while the run appears to have hung.
-#
-# Scoped to sidecars that EXIST, so a destination on a filesystem which stores
-# extended attributes natively (an external APFS disk) is left alone: no
-# sidecars means the volume is not spilling, so there is nothing here to fix.
-#
-# They come back on EVERY run, not only the first. rsync re-stamps directory
-# times whenever it walks the tree, so a pass that transfers nothing still leaves
-# a sidecar beside each of ~1,300 directories — which is why this is the last
-# thing a run does rather than something the first run gets out of the way.
-#
-# A FUNCTION, AND ALSO A TRAP, because the sweep is the last thing a run does
-# and an abandoned run is the likeliest kind: interrupting a two-hour copy would
-# otherwise leave thousands of phantom files on a disk somebody is about to
-# unplug and drive away with. The partial directory is deliberately NOT touched
-# here — on an interrupt it holds the file that was in flight, which is the whole
-# point of keeping it.
-#
-# THE ORDER IS CAUSE THEN ARTEFACT, AND THEN IT CHECKS. Clearing the extended
-# attributes first removes the thing the volume is spilling, so deleting the
-# sidecars afterwards cannot race a driver that is still writing them; doing it
-# the other way round is what a two-file test cannot tell you apart from doing it
-# right. The count is then re-read rather than trusted, and the pass repeated,
-# because "I deleted 12,319 files" and "there are now none" are different claims
-# and only the second one is what the disk goes into the car with. SWEPT carries
-# the honest number to the summary.
-SWEPT=0
-sweep_sidecars() {
-    local before after pass
-    # A dry run must leave the disk exactly as it found it. The EXIT trap fires
-    # on `-n` too, and sweeping there would make a command whose whole purpose is
-    # to change nothing quietly delete files.
-    if [[ ${DRY:-0} == 1 ]]; then
-        return 0
-    fi
-
-    before="$(sidecar_count)"
-    [[ ${before:-0} -gt 0 ]] || return 0
-
-    for pass in 1 2 3; do
-        find "$TARGET" -name '._*' -type f -delete 2>/dev/null || true
-        after="$(sidecar_count)"
-        [[ ${after:-0} -gt 0 ]] || break
-    done
-
-    SWEPT=$((before - after))
-    if [[ ${after:-0} -gt 0 ]]; then
-        warn "$(commify "$after") AppleDouble sidecar(s) survived three sweeps — the volume is still spilling them."
-    fi
-}
-
-# Counted in one place, because the sweep compares two readings of it and a
-# predicate written twice can disagree with itself. A directory's sidecar is a
-# regular file too, which is why -type f does not miss it.
-sidecar_count() {
-    find "$TARGET" -name '._*' -type f 2>/dev/null | wc -l | tr -d ' '
-}
-
-# --- The plan --------------------------------------------------------------
-# A dry run first, for three things at once: the file count that makes a
-# progress display possible (openrsync has no --info=progress2), the deletion
-# count, and a rehearsal that costs one file-list walk and no writes.
-
-PLAN="$(mktemp -t mts-plan)"
-
-# THE SWEEP HANGS OFF `EXIT`, NOT OFF THE SUCCESS PATH. A call after the transfer
-# loop looks equivalent and is not: `fail` exits, so a run that gives up after
-# its retries — or hits a usage error, or trips `set -e` — would skip it and
-# leave every sidecar it made on the disk. `EXIT` fires on every path out of
-# here, including the two early exits just below, so the disk is always left fit
-# to unplug. Armed only now, once the destination is validated: it reads $TARGET,
-# and nothing before this point has written anything to sweep.
-#
-# The signal trap therefore does nothing but exit — `exit` runs the EXIT trap, so
-# the sweep still happens on Ctrl-C, in one place rather than two. HUP is in the
-# list because closing the terminal on a two-hour copy is not an unusual way for
-# one to end. `${VAR:-}` because COUNT_FILE does not exist yet when an early
-# exit fires this, and `set -u` would abort inside the trap.
-trap 'rm -f -- "${PLAN:-}" "${COUNT_FILE:-}"; sweep_sidecars' EXIT
-trap 'printf "\n"; exit 130' INT TERM HUP
-
-note "Planning: $SOURCE -> $TARGET"
-
-if ! rsync -n "${RSYNC_ARGS[@]}" "$SOURCE" "$TARGET" > "$PLAN" 2>&1; then
-    cat "$PLAN" >&2
-    fail "could not read the plan — is '$HOST' reachable?"
-fi
-
-# grep -c on an empty match exits 1, which `set -e` would take as fatal; `|| true`
-# keeps a legitimate zero.
-TO_SEND="$(grep -c '^>f' "$PLAN" || true)"
-TO_DELETE="$(grep -c '^\*deleting' "$PLAN" || true)"
-
-note "$TO_SEND file(s) to copy, $TO_DELETE to delete"
-
-if [[ $DRY == 1 ]]; then
-    cat "$PLAN"
-    exit 0
-fi
-
-if [[ $TO_SEND == 0 && $TO_DELETE == 0 ]]; then
-    note "Nothing to do — the disk already matches the library."
-    exit 0
-fi
-
-# Deleting from the destination is confirmed, but NOT with the typed-word
-# ceremony `mt` demands of a production migration, because the stakes are not
-# comparable: everything on this disk is a copy of something the server still
-# has, and a wrong answer costs a re-run rather than data. The question exists
-# so a --mirror that would empty the disk cannot pass unnoticed.
-if [[ $TO_DELETE -gt 0 && -t 0 ]]; then
-    warn ""
-    warn "  --mirror will DELETE $TO_DELETE file(s) from $TARGET"
-    grep '^\*deleting' "$PLAN" | head -5 | sed 's/^/    /' >&2
-    if [[ $TO_DELETE -gt 5 ]]; then
-        warn "    … and $((TO_DELETE - 5)) more"
-    fi
-    warn ""
-    printf 'Continue? [y/N] '
-    reply=""
-    read -r reply < /dev/tty || fail "no terminal to confirm on; aborted"
-    case "$reply" in
-        y|Y|yes|YES) ;;
-        *) fail "aborted" ;;
-    esac
-fi
-
-# --- Progress --------------------------------------------------------------
-# openrsync has --progress, but it reports per FILE — ten thousand little
-# percentages and no idea how far through the job you are. The dry run above
-# already counted the work, so the real run is filtered through awk, which
-# turns each itemized line into one updating counter.
-#
-# The count is carried ACROSS attempts in a file: a retry re-sends only what is
-# missing, so its own counter starts at zero and the display would otherwise
-# jump backwards after a dropped connection.
-
-COUNT_FILE="$(mktemp -t mts-count)"
-
-printf '0 0 0 0\n' > "$COUNT_FILE"
-
-progress_filter() {
-    # LC_ALL=C, because rsync's itemized output is NOT guaranteed to be valid
-    # UTF-8. It escapes some non-ASCII bytes in a filename as `\#NNN` octal and
-    # passes others through raw, so a name like `Tír na mBan.mp3` reaches awk as
-    # a lone 0xC3 followed by the literal text `\#255`. In a UTF-8 locale awk
-    # then warns `towc: multibyte conversion failure` once per such line — it
-    # keeps going and the transfer is unaffected, but on a collection with any
-    # accented titles the warnings bury the progress display. Byte-oriented awk
-    # never attempts the conversion. The only cost is that `length()` counts
-    # bytes, so a line with multibyte characters is truncated a little early.
+    # THE SWEEP HANGS OFF `EXIT`, NOT OFF THE SUCCESS PATH. A call after the transfer
+    # loop looks equivalent and is not: `fail` exits, so a run that gives up after
+    # its retries — or hits a usage error, or trips `set -e` — would skip it and
+    # leave every sidecar it made on the disk. `EXIT` fires on every path out of
+    # here, including the two early exits just below, so the disk is always left fit
+    # to unplug. Armed only now, once the destination is validated: it reads $TARGET,
+    # and nothing before this point has written anything to sweep.
     #
-    # The four running totals are read in and written back out, so a retry
-    # continues the count instead of restarting it — see read_state.
-    LC_ALL=C awk -v total="$TO_SEND" -v width="$WIDTH" -v cf="$COUNT_FILE" \
-        -v tty="$([[ -t 1 ]] && echo 1 || echo 0)" \
-        -v b_new="$S_NEW" -v b_upd="$S_UPD" -v b_del="$S_DEL" -v b_bytes="$S_BYTES" '
-        BEGIN {
-            nw = b_new + 0; up = b_upd + 0; dl = b_del + 0; by = b_bytes + 0
-            blank = sprintf("%" width "s", "")
-            pending = 0
-        }
-        # Anything not itemized (a warning, a --stats line we do not want) is
-        # passed through, after a newline if a progress line is unterminated.
-        function passthrough(line) {
-            if (pending == 1) { printf "\n"; pending = 0 }
-            print line
-            fflush()
-        }
-        /^\*deleting/ { dl++; next }
-        # Itemized lines are eleven flag characters, a space, then the path. A
-        # transfer whose every attribute slot is `+` is a file that was not there
-        # at all; any other flag string means it was, and something about it
-        # differed. That is the whole difference between "new" and "updated", and
-        # it is the only place either number comes from.
-        /^[<>ch.][fdLDS.+?]/ {
-            if ($0 !~ /^>f/) { next }
-            if ($1 ~ /^>f\++$/) { nw++ } else { up++ }
-            sent = nw + up
-            path = $0
-            sub(/^[^ ]+ +/, "", path)
-            pct = (total > 0) ? int(sent * 100 / total) : 100
-            line = sprintf("[%d/%d %d%%] %s", sent, total, pct, path)
-            if (length(line) > width) { line = substr(line, 1, width) }
-            if (tty == 1) {
-                printf "\r%s%s", line, substr(blank, 1, width - length(line))
-                pending = 1
-                fflush()
-            } else if (sent % 200 == 0 || sent == total) {
+    # The signal trap therefore does nothing but exit — `exit` runs the EXIT trap, so
+    # the sweep still happens on Ctrl-C, in one place rather than two. HUP is in the
+    # list because closing the terminal on a two-hour copy is not an unusual way for
+    # one to end. `${VAR:-}` because COUNT_FILE does not exist yet when an early
+    # exit fires this, and `set -u` would abort inside the trap.
+    trap 'rm -f -- "${PLAN:-}" "${COUNT_FILE:-}"; sweep_sidecars' EXIT
+    trap 'printf "\n"; exit 130' INT TERM HUP
+
+    note "Planning: $SOURCE -> $TARGET"
+
+    if ! rsync -n "${RSYNC_ARGS[@]}" "$SOURCE" "$TARGET" > "$PLAN" 2>&1; then
+        cat "$PLAN" >&2
+        fail "could not read the plan — is '$HOST' reachable?"
+    fi
+
+    # grep -c on an empty match exits 1, which `set -e` would take as fatal; `|| true`
+    # keeps a legitimate zero.
+    TO_SEND="$(grep -c '^>f' "$PLAN" || true)"
+    TO_DELETE="$(grep -c '^\*deleting' "$PLAN" || true)"
+
+    note "$TO_SEND file(s) to copy, $TO_DELETE to delete"
+
+    if [[ $DRY == 1 ]]; then
+        cat "$PLAN"
+        exit 0
+    fi
+
+    if [[ $TO_SEND == 0 && $TO_DELETE == 0 ]]; then
+        note "Nothing to do — the disk already matches the library."
+        exit 0
+    fi
+
+    # Deleting from the destination is confirmed, but NOT with the typed-word
+    # ceremony `mt` demands of a production migration, because the stakes are not
+    # comparable: everything on this disk is a copy of something the server still
+    # has, and a wrong answer costs a re-run rather than data. The question exists
+    # so a --mirror that would empty the disk cannot pass unnoticed.
+    if [[ $TO_DELETE -gt 0 && -t 0 ]]; then
+        warn ""
+        warn "  --mirror will DELETE $TO_DELETE file(s) from $TARGET"
+        grep '^\*deleting' "$PLAN" | head -5 | sed 's/^/    /' >&2
+        if [[ $TO_DELETE -gt 5 ]]; then
+            warn "    … and $((TO_DELETE - 5)) more"
+        fi
+        warn ""
+        printf 'Continue? [y/N] '
+        reply=""
+        read -r reply < /dev/tty || fail "no terminal to confirm on; aborted"
+        case "$reply" in
+            y|Y|yes|YES) ;;
+            *) fail "aborted" ;;
+        esac
+    fi
+
+    # --- Progress --------------------------------------------------------------
+    # openrsync has --progress, but it reports per FILE — ten thousand little
+    # percentages and no idea how far through the job you are. The dry run above
+    # already counted the work, so the real run is filtered through awk, which
+    # turns each itemized line into one updating counter.
+    #
+    # The count is carried ACROSS attempts in a file: a retry re-sends only what is
+    # missing, so its own counter starts at zero and the display would otherwise
+    # jump backwards after a dropped connection.
+
+    COUNT_FILE="$(mktemp -t mts-count)"
+
+    printf '0 0 0 0\n' > "$COUNT_FILE"
+
+    progress_filter() {
+        # LC_ALL=C, because rsync's itemized output is NOT guaranteed to be valid
+        # UTF-8. It escapes some non-ASCII bytes in a filename as `\#NNN` octal and
+        # passes others through raw, so a name like `Tír na mBan.mp3` reaches awk as
+        # a lone 0xC3 followed by the literal text `\#255`. In a UTF-8 locale awk
+        # then warns `towc: multibyte conversion failure` once per such line — it
+        # keeps going and the transfer is unaffected, but on a collection with any
+        # accented titles the warnings bury the progress display. Byte-oriented awk
+        # never attempts the conversion. The only cost is that `length()` counts
+        # bytes, so a line with multibyte characters is truncated a little early.
+        #
+        # The four running totals are read in and written back out, so a retry
+        # continues the count instead of restarting it — see read_state.
+        LC_ALL=C awk -v total="$TO_SEND" -v width="$WIDTH" -v cf="$COUNT_FILE" \
+            -v tty="$([[ -t 1 ]] && echo 1 || echo 0)" \
+            -v b_new="$S_NEW" -v b_upd="$S_UPD" -v b_del="$S_DEL" -v b_bytes="$S_BYTES" '
+            BEGIN {
+                nw = b_new + 0; up = b_upd + 0; dl = b_del + 0; by = b_bytes + 0
+                blank = sprintf("%" width "s", "")
+                pending = 0
+            }
+            # Anything not itemized (a warning, a --stats line we do not want) is
+            # passed through, after a newline if a progress line is unterminated.
+            function passthrough(line) {
+                if (pending == 1) { printf "\n"; pending = 0 }
                 print line
                 fflush()
             }
-            next
-        }
-        # The one --stats figure the summary needs; the rest of that block is
-        # swallowed rather than printed over the progress line.
-        /^Total transferred file size:/ { by += $5; next }
-        /^(sent |total size |Number of |Total |Unmatched |Matched |File list )/ { next }
-        /^$/ { next }
-        { passthrough($0) }
-        END {
-            if (pending == 1) { printf "\n" }
-            printf("%d %d %d %d\n", nw, up, dl, by) > cf
-        }
-    '
-}
+            /^\*deleting/ { dl++; next }
+            # Itemized lines are eleven flag characters, a space, then the path. A
+            # transfer whose every attribute slot is `+` is a file that was not there
+            # at all; any other flag string means it was, and something about it
+            # differed. That is the whole difference between "new" and "updated", and
+            # it is the only place either number comes from.
+            /^[<>ch.][fdLDS.+?]/ {
+                if ($0 !~ /^>f/) { next }
+                if ($1 ~ /^>f\++$/) { nw++ } else { up++ }
+                sent = nw + up
+                path = $0
+                sub(/^[^ ]+ +/, "", path)
+                pct = (total > 0) ? int(sent * 100 / total) : 100
+                line = sprintf("[%d/%d %d%%] %s", sent, total, pct, path)
+                if (length(line) > width) { line = substr(line, 1, width) }
+                if (tty == 1) {
+                    printf "\r%s%s", line, substr(blank, 1, width - length(line))
+                    pending = 1
+                    fflush()
+                } else if (sent % 200 == 0 || sent == total) {
+                    print line
+                    fflush()
+                }
+                next
+            }
+            # The one --stats figure the summary needs; the rest of that block is
+            # swallowed rather than printed over the progress line.
+            /^Total transferred file size:/ { by += $5; next }
+            /^(sent |total size |Number of |Total |Unmatched |Matched |File list )/ { next }
+            /^$/ { next }
+            { passthrough($0) }
+            END {
+                if (pending == 1) { printf "\n" }
+                printf("%d %d %d %d\n", nw, up, dl, by) > cf
+            }
+        '
+    }
 
-# The four totals as shell variables, re-read before every attempt so the counts
-# survive a dropped connection. One file rather than four, because they are only
-# ever written together.
-read_state() {
-    S_NEW=0; S_UPD=0; S_DEL=0; S_BYTES=0
-    # `|| true` IS LOAD-BEARING. `read` returns non-zero when it reaches EOF
-    # without its delimiter, even though it has assigned every field it found —
-    # so a state file with no trailing newline sets the variables and then kills
-    # the script, under `set -e`, with no message at all. The writers here do end
-    # the line, and this still tolerates one that does not.
-    read -r S_NEW S_UPD S_DEL S_BYTES < "$COUNT_FILE" || true
-    S_NEW="${S_NEW:-0}"; S_UPD="${S_UPD:-0}"; S_DEL="${S_DEL:-0}"; S_BYTES="${S_BYTES:-0}"
-}
+    # The four totals as shell variables, re-read before every attempt so the counts
+    # survive a dropped connection. One file rather than four, because they are only
+    # ever written together.
+    read_state() {
+        S_NEW=0; S_UPD=0; S_DEL=0; S_BYTES=0
+        # `|| true` IS LOAD-BEARING. `read` returns non-zero when it reaches EOF
+        # without its delimiter, even though it has assigned every field it found —
+        # so a state file with no trailing newline sets the variables and then kills
+        # the script, under `set -e`, with no message at all. The writers here do end
+        # the line, and this still tolerates one that does not.
+        read -r S_NEW S_UPD S_DEL S_BYTES < "$COUNT_FILE" || true
+        S_NEW="${S_NEW:-0}"; S_UPD="${S_UPD:-0}"; S_DEL="${S_DEL:-0}"; S_BYTES="${S_BYTES:-0}"
+    }
 
-# --- Transfer, with retries ------------------------------------------------
-# Exit codes that mean "the setup is wrong" are not worth retrying — a bad flag
-# or an incompatible protocol will fail identically five times. Everything else
-# (a dropped link is 255 from ssh, a stall is 30/35, a socket error is 10/12) is
-# transient by nature and the next attempt picks up where this one stopped.
-fatal_code() {
-    case "$1" in
-        1|2|4) return 0 ;;   # syntax, protocol incompatibility, unsupported action
-        *)     return 1 ;;
-    esac
-}
+    # --- Transfer, with retries ------------------------------------------------
+    # Exit codes that mean "the setup is wrong" are not worth retrying — a bad flag
+    # or an incompatible protocol will fail identically five times. Everything else
+    # (a dropped link is 255 from ssh, a stall is 30/35, a socket error is 10/12) is
+    # transient by nature and the next attempt picks up where this one stopped.
+    fatal_code() {
+        case "$1" in
+            1|2|4) return 0 ;;   # syntax, protocol incompatibility, unsupported action
+            *)     return 1 ;;
+        esac
+    }
 
-started="$SECONDS"
-attempt=1
+    started="$SECONDS"
+    attempt=1
 
-while :; do
-    if [[ $attempt -gt 1 ]]; then
-        # A yanked disk is the other way a transfer is interrupted, and retrying
-        # into a vanished mount point would recreate it as a directory on the
-        # boot volume — the very thing the guard above refuses.
-        if [[ ! -d $TARGET ]] || [[ "$(stat -f %d "$TARGET" 2>/dev/null || echo none)" != "$DEST_DEV" ]]; then
-            fail "the destination disk is no longer mounted at '$TARGET' — stopping"
+    while :; do
+        if [[ $attempt -gt 1 ]]; then
+            # A yanked disk is the other way a transfer is interrupted, and retrying
+            # into a vanished mount point would recreate it as a directory on the
+            # boot volume — the very thing the guard above refuses.
+            if [[ ! -d $TARGET ]] || [[ "$(stat -f %d "$TARGET" 2>/dev/null || echo none)" != "$DEST_DEV" ]]; then
+                fail "the destination disk is no longer mounted at '$TARGET' — stopping"
+            fi
+            note "Attempt $attempt of $MAX_ATTEMPTS — resuming"
         fi
-        note "Attempt $attempt of $MAX_ATTEMPTS — resuming"
-    fi
+
+        read_state
+
+        # `set +e` around the pipeline: we want the code, not the trap. pipefail is
+        # on, so PIPESTATUS[0] is rsync's own status rather than awk's.
+        set +e
+        rsync "${RSYNC_ARGS[@]}" "$SOURCE" "$TARGET" | progress_filter
+        rc="${PIPESTATUS[0]}"
+        set -e
+
+        if [[ $rc == 0 ]]; then
+            break
+        fi
+
+        if fatal_code "$rc"; then
+            fail "rsync exited $rc — that is a usage or protocol error, not a dropped connection"
+        fi
+
+        if [[ $attempt -ge $MAX_ATTEMPTS ]]; then
+            fail "rsync exited $rc after $attempt attempt(s); re-run to continue where it stopped"
+        fi
+
+        backoff=$((attempt * 10))
+        if [[ $backoff -gt 60 ]]; then backoff=60; fi
+        warn "rsync exited $rc — retrying in ${backoff}s"
+        sleep "$backoff"
+        attempt=$((attempt + 1))
+    done
+
+    # --- Finish ----------------------------------------------------------------
+    # Only a completed run may remove the partial directory, and only while it is
+    # empty — rsync empties it as each file lands, so an empty one is spent.
+    find "$TARGET" -name "$PARTIAL_DIR" -type d -empty -delete 2>/dev/null || true
+
+    # The sweep is run HERE rather than left to the EXIT trap, even though the trap
+    # would do it: the summary below reports how many sidecars went, and a trap that
+    # fires after the last line printed cannot be part of it. Running it twice is
+    # free — the second call reads a count of zero and returns.
+    sweep_sidecars
+
+    # FAT writes sit in the page cache, and a stick pulled out of a Mac without
+    # being ejected loses whatever had not landed. `sync` is not a substitute for
+    # ejecting, so the summary says so rather than implying the disk is safe to pull.
+    sync
 
     read_state
+    elapsed=$((SECONDS - started))
 
-    # `set +e` around the pipeline: we want the code, not the trap. pipefail is
-    # on, so PIPESTATUS[0] is rsync's own status rather than awk's.
-    set +e
-    rsync "${RSYNC_ARGS[@]}" "$SOURCE" "$TARGET" | progress_filter
-    rc="${PIPESTATUS[0]}"
-    set -e
+    # The summary answers "what did that just do to my disk", which is a different
+    # question from the progress line's "how far along is it". Every row is a
+    # measurement the run actually took rather than a restatement of the plan: the
+    # plan is what was intended, and the two differing is exactly the case worth
+    # seeing.
+    summary() {
+        local label rate
 
-    if [[ $rc == 0 ]]; then
-        break
-    fi
+        rate=""
+        if [[ $elapsed -gt 0 && ${S_BYTES:-0} -gt 0 ]]; then
+            rate="  at $(human_bytes $((S_BYTES / elapsed)))/s"
+        fi
 
-    if fatal_code "$rc"; then
-        fail "rsync exited $rc — that is a usage or protocol error, not a dropped connection"
-    fi
+        printf '\n'
+        note "  $AREA → $TARGET"
+        printf '  %s\n' "$RULE"
+        printf '  %-18s %12s\n' "new files"      "$(commify "$S_NEW")"
+        printf '  %-18s %12s\n' "updated"        "$(commify "$S_UPD")"
+        printf '  %-18s %12s\n' "deleted"        "$(commify "$S_DEL")"
+        printf '  %-18s %12s\n' "sidecars swept" "$(commify "$SWEPT")"
+        printf '  %-18s %12s%s\n' "transferred"  "$(human_bytes "${S_BYTES:-0}")" "$rate"
+        printf '  %-18s %12s\n' "elapsed"        "$(printf '%dm %02ds' $((elapsed / 60)) $((elapsed % 60)))"
+        printf '  %s\n' "$RULE"
 
-    if [[ $attempt -ge $MAX_ATTEMPTS ]]; then
-        fail "rsync exited $rc after $attempt attempt(s); re-run to continue where it stopped"
-    fi
+        label="$(du -sh "$TARGET" 2>/dev/null | cut -f1 | tr -d ' ')"
+        if [[ -n $label ]]; then
+            printf '  %-18s %12s\n' "on disk now" "$label"
+        fi
+        printf '\n'
+    }
 
-    backoff=$((attempt * 10))
-    if [[ $backoff -gt 60 ]]; then backoff=60; fi
-    warn "rsync exited $rc — retrying in ${backoff}s"
-    sleep "$backoff"
-    attempt=$((attempt + 1))
-done
-
-# --- Finish ----------------------------------------------------------------
-# Only a completed run may remove the partial directory, and only while it is
-# empty — rsync empties it as each file lands, so an empty one is spent.
-find "$TARGET" -name "$PARTIAL_DIR" -type d -empty -delete 2>/dev/null || true
-
-# The sweep is run HERE rather than left to the EXIT trap, even though the trap
-# would do it: the summary below reports how many sidecars went, and a trap that
-# fires after the last line printed cannot be part of it. Running it twice is
-# free — the second call reads a count of zero and returns.
-sweep_sidecars
-
-# FAT writes sit in the page cache, and a stick pulled out of a Mac without
-# being ejected loses whatever had not landed. `sync` is not a substitute for
-# ejecting, so the summary says so rather than implying the disk is safe to pull.
-sync
-
-read_state
-elapsed=$((SECONDS - started))
-
-# The summary answers "what did that just do to my disk", which is a different
-# question from the progress line's "how far along is it". Every row is a
-# measurement the run actually took rather than a restatement of the plan: the
-# plan is what was intended, and the two differing is exactly the case worth
-# seeing.
-summary() {
-    local label rate
-
-    rate=""
-    if [[ $elapsed -gt 0 && ${S_BYTES:-0} -gt 0 ]]; then
-        rate="  at $(human_bytes $((S_BYTES / elapsed)))/s"
-    fi
-
-    printf '\n'
-    note "  $AREA → $TARGET"
-    printf '  %s\n' "$RULE"
-    printf '  %-18s %12s\n' "new files"      "$(commify "$S_NEW")"
-    printf '  %-18s %12s\n' "updated"        "$(commify "$S_UPD")"
-    printf '  %-18s %12s\n' "deleted"        "$(commify "$S_DEL")"
-    printf '  %-18s %12s\n' "sidecars swept" "$(commify "$SWEPT")"
-    printf '  %-18s %12s%s\n' "transferred"  "$(human_bytes "${S_BYTES:-0}")" "$rate"
-    printf '  %-18s %12s\n' "elapsed"        "$(printf '%dm %02ds' $((elapsed / 60)) $((elapsed % 60)))"
-    printf '  %s\n' "$RULE"
-
-    label="$(du -sh "$TARGET" 2>/dev/null | cut -f1 | tr -d ' ')"
-    if [[ -n $label ]]; then
-        printf '  %-18s %12s\n' "on disk now" "$label"
-    fi
-    printf '\n'
+    summary
+    # The cd matters and is not pedantry: macOS refuses to unmount a volume any
+    # process is sitting in, and the likeliest such process is the shell that just
+    # ran this. It reports that as "Unmount was dissented by PID … (/bin/zsh)",
+    # which names the mechanism but not the cause.
+    warn "Eject before unplugging — from outside the volume, or your own shell dissents:"
+    warn "  cd ~ && diskutil eject '$(volume_root "$TARGET")'"
 }
 
-summary
-# The cd matters and is not pedantry: macOS refuses to unmount a volume any
-# process is sitting in, and the likeliest such process is the shell that just
-# ran this. It reports that as "Unmount was dissented by PID … (/bin/zsh)",
-# which names the mechanism but not the cause.
-warn "Eject before unplugging — from outside the volume, or your own shell dissents:"
-warn "  cd ~ && diskutil eject '$(volume_root "$TARGET")'"
+# --- Entry point -----------------------------------------------------------
+
+# Refuse anything but macOS, saying what it is instead and why that matters.
+#
+# The script leans on macOS throughout rather than in one place — BSD `stat -f`,
+# the media share mounted under /Volumes by macOS's SMB client (whose decomposed
+# listing the adb half is built around), openrsync's flag set, and the FAT
+# behaviour preserves_name_form probes for. Elsewhere it would not fail cleanly
+# but with a `stat` usage error halfway through a plan. Windows is named because
+# it is where a reader is likeliest to try: Git Bash, MSYS2 and Cygwin say so
+# through `uname`, and WSL — which `uname` reports as plain Linux — announces
+# itself in WSL_DISTRO_NAME.
+require_macos() {
+    local system
+    system="$(uname -s)"
+    case "$system" in
+        Darwin)
+            return 0
+            ;;
+        MINGW*|MSYS*|CYGWIN*)
+            system="Windows ($system)"
+            ;;
+        Linux)
+            if [[ -n ${WSL_DISTRO_NAME:-} ]]; then
+                system="Windows (WSL, $WSL_DISTRO_NAME)"
+            fi
+            ;;
+    esac
+    fail "$(printf '%s\n' \
+        "this runs on macOS only, and this is $system." \
+        "     It relies on BSD stat, the media share mounted under /Volumes by macOS's" \
+        "     SMB client, and macOS's rsync — see docs/self-hosting/commands.md.")"
+}
+
+# The whole run: platform, arguments, then one transport or the other.
+#
+# CALLED ONLY WHEN THE FILE IS EXECUTED, so the test suite (tests/shell/) can
+# source it for its definitions and drive a run with arguments of its own. The
+# shell options are set here for the same reason: set at load time, they would
+# be imposed on the test runner that sourced the file.
+main() {
+    set -Eeuo pipefail
+    require_macos
+    parse_args "$@"
+    if [[ $TRANSPORT == adb ]]; then
+        run_adb
+        exit 0
+    fi
+    run_disk
+}
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+    main "$@"
+fi

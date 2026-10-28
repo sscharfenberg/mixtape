@@ -242,6 +242,13 @@ rm -f ~/.zcompdump* && exec zsh                    # the cache note above applie
 
 Then edit `HOST` at the top, exactly as for `mt`. It refuses to run until you do.
 
+**macOS only, and it says so.** It leans on macOS throughout rather than in one place — BSD `stat -f`,
+the media share mounted under `/Volumes` by macOS's SMB client, openrsync's flag set, the way macOS
+writes names to FAT — so anywhere else it would not fail cleanly but with a `stat` usage error halfway
+through a plan. It checks first and names what it found instead: Windows by name, whether through Git
+Bash, MSYS2, Cygwin or WSL (which reports itself to `uname` as plain Linux). Its tests live in
+`tests/shell/` and run with `npm run test:shell`; see [`docs/testing.md`](../testing.md).
+
 ```bash
 mts music /Volumes/<usb-label>/              # add what is missing, update what changed
 mts music /Volumes/<usb-label>/ --mirror     # …and delete what the library no longer has
@@ -397,6 +404,30 @@ this workstation already mounts (`LOCAL_MEDIA_ROOT`, `/Volumes/media` by default
 local copy first, server → disk → device, would need 86 GB of somewhere to put it for a byte-identical
 result. `HOST` is therefore never consulted, and a `mts music adb:` run works on a copy of the script
 whose `HOST` has not been edited.
+
+**Every name is pushed precomposed, the way the server spells it.** macOS's SMB client lists every
+name *decomposed* — `ä` as `a` plus a combining diaeresis — whatever the server stores, and `adb push`
+names the device file after the path string it is handed. A library copied straight off that listing
+therefore lands decomposed: it plays when browsed to, and an exported `.m3u` — whose lines carry the
+database's bytes, the server's precomposed spelling — cannot reach it. Measured with Poweramp on this
+collection: 845 tracks skipped as unplayable from a playlist, including every plain-named track under an
+accented *folder*. So the source listing is normalised to NFC before anything compares or pushes it;
+macOS resolves the precomposed path on the share to the same file, so that one spelling is both what is
+read and what the device is told. It is done in Perl rather than `iconv -f UTF-8-MAC`, because iconv
+converts in fixed buffers and leaves a letter whose accent falls across a boundary decomposed — one
+name in 14,268, silently.
+
+**A device that already holds decomposed names is refused, not repaired.** Android's shared storage is
+*casefolded*: both spellings of a name are one entry, so the storage finds the file either way, and it
+is only the *listed* spelling that is wrong. That cannot be fixed in place from a script. Pushing over
+such a file rewrites a file's name but never a folder's, and a rename races the kernel's name cache:
+once anything has looked up the precomposed spelling, that cached entry keeps answering — measured, still
+120 s after its folder had moved away — which strands a folder halfway through a two-step rename or makes
+it look like a clash with itself. A folder that is deleted and pushed again takes the new spelling
+cleanly, cache or no cache. So the run lists the outermost decomposed library folders, copies nothing,
+and says to delete them; the next run puts them back precomposed. Only names whose precomposed spelling
+is a library path count, so the owner's own files — a file manager's `@Recycle` included — never block a
+sync.
 
 **It compares sizes, not timestamps — and `adb push --sync` is the trap that looks like the whole
 answer.** `--sync` compares timestamps and in practice re-pushes files that are already on the device

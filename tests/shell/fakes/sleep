@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# mts backs off between push attempts (5 s, 10 s, …). A test of the retry loop
+# needs the attempts, not the waiting, so on the fake-adb PATH this returns at once.
+exit 0
