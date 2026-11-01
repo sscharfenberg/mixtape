@@ -75,11 +75,18 @@ services:
         working_dir: /var/www
         env_file:
             - docker/app.env
-        # `npm run icons` between the two, because the sprite is gitignored and no build step
+        # npm is upgraded first: the image's Node bundles npm 11, while engines.npm asks for 12
+        # and the preinstall hook refuses anything else. The range is read from package.json, so
+        # bumping it there is enough; `$$` is Compose's escape for a literal `$`.
+        #
+        # `npm run icons` before the dev server, because the sprite is gitignored and no build step
         # makes it: without it every icon renders empty on first boot, which is the first thing
         # a new reader sees. app.blade.php inlines the file behind an `exists` check, so its
         # absence is silent rather than an error anyone could act on.
-        command: sh -c "npm install && npm run icons && npm run dev"
+        command:
+            - sh
+            - -c
+            - npm install --global "npm@$$(node -p 'require("./package.json").engines.npm')" && npm install && npm run icons && npm run dev
         ports:
             # Loopback: a Vite dev server on an untrusted network is the same class of exposure
             # as the database above, and this one has a history of arbitrary-file-read CVEs.

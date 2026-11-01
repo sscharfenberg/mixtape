@@ -27,9 +27,10 @@ export default defineConfig({
         /*
          * Tests sit beside the code they cover (CLAUDE.md → Pages/Inertia: page-local
          * components, composables and tests live next to the page file), so there is no
-         * tests/ tree to point at — glob the app source instead.
+         * tests/ tree to point at — glob the source instead: the app, and the Node scripts
+         * in resources/build that the install and the build run.
          */
-        include: ["resources/app/**/*.{test,spec}.ts"],
+        include: ["resources/app/**/*.{test,spec}.ts", "resources/build/**/*.{test,spec}.ts"],
 
         /*
          * happy-dom over jsdom: markedly faster to boot per file, and it already carries

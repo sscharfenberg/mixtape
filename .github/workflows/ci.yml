@@ -30,10 +30,14 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          # .nvmrc says "26"; package.json's engines demands ^26.4.0 and the preinstall
+          # .nvmrc says "26"; package.json's engines demands ^26.13.0 and the preinstall
           # hook hard-exits on a mismatch, so this must resolve to the latest 26.x.
           node-version-file: .nvmrc
           cache: npm
+
+      # Node 26 bundles npm 11, while engines.npm asks for 12 and the preinstall hook refuses
+      # anything else. The range is read from package.json, so bumping it there is enough.
+      - run: npm install --global "npm@$(node -p 'require("./package.json").engines.npm')"
 
       - run: npm ci
 
@@ -108,6 +112,10 @@ jobs:
       - name: PHP formatting
         run: vendor/bin/pint --test
 
+      # Node 26 bundles npm 11, while engines.npm asks for 12 and the preinstall hook refuses
+      # anything else. The range is read from package.json, so bumping it there is enough.
+      - run: npm install --global "npm@$(node -p 'require("./package.json").engines.npm')"
+
       - run: npm ci
 
       # APP_KEY is the one that bites: .env is gitignored, and without a key the app
@@ -177,6 +185,10 @@ jobs:
           restore-keys: composer-
 
       - run: composer install --no-interaction --no-progress --prefer-dist
+
+      # Node 26 bundles npm 11, while engines.npm asks for 12 and the preinstall hook refuses
+      # anything else. The range is read from package.json, so bumping it there is enough.
+      - run: npm install --global "npm@$(node -p 'require("./package.json").engines.npm')"
 
       - run: npm ci
 

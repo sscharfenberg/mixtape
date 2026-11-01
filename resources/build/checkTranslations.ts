@@ -42,7 +42,7 @@
  *****************************************************************************/
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
-import chalk from "chalk";
+import { styleText } from "node:util";
 
 const root = join(import.meta.dirname, "../..");
 const appDir = join(root, "resources/app");
@@ -228,42 +228,54 @@ const brokenLinks = locales.flatMap(locale =>
  * report
  *****************************************************************************/
 /** A usage's `file:line`, greyed so the key stays the thing the eye lands on. */
-const where = (usage: Usage) => chalk.gray(`${usage.file}:${usage.line}`);
+const where = (usage: Usage) => styleText("gray", `${usage.file}:${usage.line}`);
 
 if (problems.length) {
-    console.log(chalk.bgRed.white(" MISSING "), chalk.cyan(`${problems.length} key(s) used but not defined:`));
+    console.log(
+        styleText(["bgRed", "white"], " MISSING "),
+        styleText("cyan", `${problems.length} key(s) used but not defined:`)
+    );
     for (const { usage, missingIn } of problems.sort((a, b) => a.usage.file.localeCompare(b.usage.file))) {
         const label = usage.pattern
-            ? chalk.magentaBright(usage.key) + chalk.gray(" (no key matches)")
-            : chalk.redBright(usage.key);
-        console.log(`  ${label} ${chalk.yellow(`[${missingIn.join(", ")}]`)} ${where(usage)}`);
+            ? styleText("magentaBright", usage.key) + styleText("gray", " (no key matches)")
+            : styleText("redBright", usage.key);
+        console.log(`  ${label} ${styleText("yellow", `[${missingIn.join(", ")}]`)} ${where(usage)}`);
     }
 }
 if (brokenLinks.length) {
-    console.log(chalk.bgRed.white(" LINK "), chalk.cyan(`${brokenLinks.length} linked message(s) point at nothing:`));
+    console.log(
+        styleText(["bgRed", "white"], " LINK "),
+        styleText("cyan", `${brokenLinks.length} linked message(s) point at nothing:`)
+    );
     for (const { locale, key, target } of brokenLinks) {
-        console.log(`  ${chalk.redBright(`@:${target}`)} in ${key} ${chalk.yellow(`[${locale}]`)}`);
+        console.log(`  ${styleText("redBright", `@:${target}`)} in ${key} ${styleText("yellow", `[${locale}]`)}`);
     }
 }
 if (verbose) {
-    console.log(chalk.bgBlue.white(" DYNAMIC "), chalk.cyan(`${resolved.length} pattern(s) matched at least one key:`));
+    console.log(
+        styleText(["bgBlue", "white"], " DYNAMIC "),
+        styleText("cyan", `${resolved.length} pattern(s) matched at least one key:`)
+    );
     for (const usage of resolved) {
-        console.log(`  ${chalk.greenBright(usage.key)} ${where(usage)}`);
+        console.log(`  ${styleText("greenBright", usage.key)} ${where(usage)}`);
     }
-    console.log(chalk.bgBlue.white(" SKIPPED "), chalk.cyan(`${unverifiable.length} literal(s) with no static prefix:`));
+    console.log(
+        styleText(["bgBlue", "white"], " SKIPPED "),
+        styleText("cyan", `${unverifiable.length} literal(s) with no static prefix:`)
+    );
     for (const usage of unverifiable) {
-        console.log(`  ${chalk.gray(usage.key)} ${where(usage)}`);
+        console.log(`  ${styleText("gray", usage.key)} ${where(usage)}`);
     }
 }
 
 const failed = problems.length + brokenLinks.length > 0;
 console.log(
     [
-        chalk[failed ? "bgRed" : "bgGreen"].white(failed ? " ERR " : " OK "),
-        chalk.cyan(`${usages.size} key usage(s) checked against`),
-        chalk.cyan(locales.join(" + ") + ","),
-        chalk.cyan(`${resolved.length} dynamic,`),
-        chalk.cyan(`${unverifiable.length} unverifiable.`)
+        styleText([failed ? "bgRed" : "bgGreen", "white"], failed ? " ERR " : " OK "),
+        styleText("cyan", `${usages.size} key usage(s) checked against`),
+        styleText("cyan", locales.join(" + ") + ","),
+        styleText("cyan", `${resolved.length} dynamic,`),
+        styleText("cyan", `${unverifiable.length} unverifiable.`)
     ].join(" ")
 );
 process.exit(failed ? 1 : 0);

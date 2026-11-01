@@ -51,9 +51,26 @@ sudo -u mixtape-deploy -H bash -c 'export NVM_DIR=/home/mixtape-deploy/.nvm; . $
 > nvm is a shell function, not a binary — it does not exist until `nvm.sh` is sourced — and `-H` is
 > what points `$HOME` at the deploy user's home.
 
+**npm comes with Node, and can be older than the repo asks for.** `package.json` names a range in
+`engines.npm`, and the `preinstall` hook refuses any npm outside it, so the first `npm ci` would stop
+there. Once the checkout exists (step 4), upgrade npm from inside it — the range is read out of
+`package.json`, so the command never needs editing:
+
+```bash
+sudo -u mixtape-deploy -H bash -c 'cd /var/www/mixtape.prod && export NVM_DIR=/home/mixtape-deploy/.nvm; . $NVM_DIR/nvm.sh; nvm use && npm install --global "npm@$(node -p "require(\"./package.json\").engines.npm")" && npm -v'
+```
+
 **Upgrading Node later** needs no change to the deploy script: bump `.nvmrc` and `engines.node` in the
 repo, then re-run `nvm install` (no argument) as the deploy user from inside the checkout. Both
 `nvm install` and the script's `nvm use` read `.nvmrc`, so the repo stays the single source of truth.
+**Every Node that nvm installs brings its own npm**, so follow `nvm install` with the npm upgrade
+above, or the next deploy runs on the bundled one.
+
+**A commit that raises `engines` needs the new versions on the box before it is deployed.** The
+checkout only takes the new `package.json` during the deploy, and the deploy is what fails without
+them: `npm ci` stops at the `preinstall` hook, by which point the site is already in maintenance
+mode — which a failed deploy deliberately leaves on. So install them by name first, as the deploy
+user: `nvm install <version>` for Node, `npm install --global npm@<range>` for npm.
 
 ## 3. Database
 

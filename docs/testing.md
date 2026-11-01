@@ -52,7 +52,8 @@ resources/app/components/UI/Breadcrumb.test.ts
 ```
 
 There is no `tests/` tree for them and no `__tests__/` folders. Vitest globs
-`resources/app/**/*.{test,spec}.ts`.
+`resources/app/**/*.{test,spec}.ts`, and `resources/build/**/*.{test,spec}.ts` for the Node scripts the
+install and the build run (`checkVersions.test.ts` beside `checkVersions.ts`).
 
 ### End-to-end — `tests/e2e/`
 

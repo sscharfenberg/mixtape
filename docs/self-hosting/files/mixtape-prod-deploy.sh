@@ -88,7 +88,9 @@ cd "$SITE"
 # .bashrc returns early for non-interactive shells, so a scripted `bash -lc`
 # never reaches the nvm block. `nvm use` with no argument reads the repo's
 # .nvmrc (currently "26"), so bumping Node is a repo change plus one
-# `nvm install` as this user — this script needs no edit.
+# `nvm install` as this user, then the npm upgrade 03-production-deploy.md
+# step 2 gives (each nvm-installed Node brings its own, older npm) — this
+# script needs no edit.
 [[ -s $NVM_DIR/nvm.sh ]] || fail "nvm not found at $NVM_DIR"
 export NVM_DIR
 # shellcheck disable=SC1091
