@@ -31,12 +31,12 @@
         "preinstall": "node ./resources/build/checkNodeVersion.ts"
     },
     "dependencies": {
-        "@inertiajs/vue3": "^3.9.1",
+        "@inertiajs/vue3": "^3.10.0",
         "@sscharfenberg/progressbar": "^0.2.1",
         "normalize.css": "^8.0.1",
         "sortablejs": "^1.15.7",
         "vue": "^3.5.44",
-        "vue-i18n": "^11.4.16",
+        "vue-i18n": "^11.4.17",
         "vue-input-otp": "^0.4.0"
     },
     "devDependencies": {
@@ -51,7 +51,7 @@
         "@vue/test-utils": "^2.5.1",
         "@vue/tsconfig": "^0.9.1",
         "chalk": "^6.0.1",
-        "eslint": "^10.13.0",
+        "eslint": "^10.14.0",
         "eslint-config-prettier": "^10.1.8",
         "eslint-import-resolver-typescript": "^4.4.5",
         "eslint-plugin-import-x": "^4.17.1",
@@ -64,7 +64,7 @@
         "npm-run-all2": "^9.0.4",
         "playwright": "^1.64.0",
         "prettier": "3.9.10",
-        "sass-embedded": "^1.107.0",
+        "sass-embedded": "^1.107.1",
         "semver": "^7.8.5",
         "sharp": "^0.35.5",
         "stylelint": "^17.16.0",
@@ -79,7 +79,7 @@
         "vite-plugin-image-optimizer": "^2.0.3",
         "vite-plugin-vue-devtools": "^8.2.1",
         "vitest": "^5.0.5",
-        "vue-tsc": "^3.3.13"
+        "vue-tsc": "^3.3.14"
     },
     "prettier": {
         "printWidth": 120,
