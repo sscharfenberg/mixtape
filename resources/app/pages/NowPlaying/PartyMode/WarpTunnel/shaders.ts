@@ -51,6 +51,7 @@ const inverseDepths = (): string =>
  * One triangle, three times the screen's size, from `gl_VertexID` alone — no vertex buffer and no
  * attribute at all, which WebGL2 allows against its default vertex array.
  */
+// language=GLSL
 export const VERTEX_SHADER = `#version 300 es
 void main() {
     vec2 corner = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
@@ -59,6 +60,7 @@ void main() {
 `;
 
 /** The whole picture, per pixel. Uniforms are documented where the renderer sets them. */
+// language=GLSL
 export const FRAGMENT_SHADER = `#version 300 es
 precision highp float;
 
