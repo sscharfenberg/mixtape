@@ -1,0 +1,46 @@
+/******************************************************************************
+ * contextual size tokens — component:party-mode
+ * @type {Sass}
+ * Party mode on the Now Playing page (pages/NowPlaying/PartyMode): the three track entries over
+ * the visualiser, and the controls in the corner.
+ *
+ * THE THREE ENTRIES ARE ONE SIZE — same width, same height, same artwork, same type. What makes the
+ * current one stand out is its fill and its edge (see the colour tokens), not its size: three
+ * equal panels read as one caption, where a big middle one made the row a headline with two
+ * footnotes.
+ * Consumed as s.$c-party-mode via `@use "Abstracts/sizes" as s;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-size-tokens" as s;
+
+$party-mode: (
+    // Between the entries (and the controls) and the screen's edge. Also the floor under the
+    // safe-area insets the component maxes it against, so a notch never eats it.
+    "gutter": map.get(s.$padding, "portrait"),
+    // The row of entries: as wide as the page's own cage at most, so on a TV the three stay a
+    // readable caption rather than spreading to the corners.
+    "box-max-width": map.get(s.$max, "cage"),
+    // One entry — a panel of its own now, so the roomier inset and the featured corner the page's
+    // own cards wear — and the gap between entries and inside one.
+    "track-padding": map.get(s.$padding, "portrait"),
+    "track-gap": map.get(s.$padding, "base"),
+    "track-border": map.get(s.$border, "base"),
+    "track-radius": map.get(s.$radius, "featured"),
+    // The text column's preferred width beside the artwork. Where an entry is narrower than the
+    // artwork plus this (a neighbour on a phone), the text wraps below the artwork instead of
+    // being squeezed into a sliver beside it.
+    "meta-basis": 8rem,
+    // A control in the corner — the same inset as an entry's gap, so the two read as one family.
+    "control-padding": map.get(s.$padding, "base"),
+    // Labels and chips: the neighbour cards' size, for the same reason — they annotate the title.
+    "label-font-size": 0.9rem,
+    // Every entry's title, one size for all three (see the banner): a step over body copy so it
+    // reads from a sofa, and a step more on a wide screen.
+    "title-font-size": (
+        "base": 1.15rem,
+        "landscape": 1.4rem
+    ),
+    "chip-padding": 0.25ex 1ch,
+    "chip-gap": 0.5ch,
+    "chip-radius": map.get(s.$radius, "base")
+) !default;

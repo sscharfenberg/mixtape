@@ -1,0 +1,57 @@
+/******************************************************************************
+ * contextual color tokens — component:party-mode
+ * @type {Sass}
+ * Party mode on the Now Playing page (pages/NowPlaying/PartyMode): the fullscreen visualiser's
+ * palette, and the track box and controls laid over it.
+ *
+ * DARK VALUES ONLY, NOT `light-dark()` PAIRS. Party mode is always dark — a flight through space
+ * on a white screen is not a theme anyone wants — and the overlay sets `color-scheme: dark` so
+ * anything inherited resolves the same way. A light half here would be a value nothing can reach.
+ *
+ * THE PICTURE'S COLOURS ARE READ BY A SHADER, through custom properties the overlay publishes
+ * (useVisualizer → readPalette), so these six are what a visualiser plugin paints with — and all
+ * it may paint with: the plugin contract forbids a colour of its own, the shader blends between
+ * these the way a CSS gradient blends between stops.
+ *
+ * The level ramp is the Now Playing bars' ramp (magenta → violet → blue, `c6` / `c5` / `c2`), on
+ * purpose: the tunnel's cells are the same reading as the bars, so they wear the same colours.
+ * Consumed as c.$c-party-mode via `@use "Abstracts/colors" as c;`.
+ *****************************************************************************/
+@use "sass:color"; // https://sass-lang.com/documentation/modules/color
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-color-tokens" as c;
+
+$party-mode: (
+    // Empty space — behind the tunnel, and the overlay's own fill before the first frame lands
+    // (or for good, where there is no WebGL2).
+    "space": map.get(c.$grey, "black"),
+    // The tunnel's gridlines: present in silence, so the picture is a place rather than a void
+    // while nothing plays. The palette's deep indigo — structure, not signal.
+    "grid": map.get(c.$retro, "c4", "dark"),
+    // The level ramp, quiet to loud — the bars' three stops, see the banner.
+    "ramp-low": map.get(c.$retro, "c6", "dark"),
+    "ramp-mid": map.get(c.$retro, "c5", "dark"),
+    "ramp-high": map.get(c.$retro, "c2", "dark"),
+    // The light at the end of the tunnel and the brightest stars — the control neon, because it
+    // is the one colour in the palette meant to read as a light source.
+    "glow": map.get(c.$retro, "c3", "dark"),
+    // A neighbour entry and the controls: black, thinned so the tunnel shows through. Dense enough
+    // to keep their text legible over the brightest frame without a blur behind it (see the
+    // component on why there is no backdrop-filter).
+    "track": color.adjust(map.get(c.$grey, "black"), $alpha: -0.4),
+    // The entry for what is playing: the palette's deep indigo, barely thinned. The three entries
+    // are one size, so this is what makes the middle one the one the room reads — and it has to
+    // be a HUE, not merely less transparency: over a dark tunnel, black at 60% and black at 90%
+    // read as the same black.
+    "track-current": color.adjust(map.get(c.$retro, "c4", "dark"), $alpha: -0.1),
+    // A neighbour's and a control's edge, faint; the current entry's, the full violet of the
+    // ramp's middle; and the hover / focus edge of anything pressable, the control neon.
+    "edge": color.adjust(map.get(c.$retro, "c5", "dark"), $alpha: -0.7),
+    "edge-current": map.get(c.$retro, "c5", "dark"),
+    "edge-active": map.get(c.$retro, "c3", "dark"),
+    // Ink: the current title in full white, everything that annotates it a step quieter.
+    "text": map.get(c.$grey, "white"),
+    "muted": map.get(c.$grey, "infra"),
+    // A fact chip's fill — a faint lift off the box, as on the neighbour cards.
+    "chip": color.adjust(map.get(c.$grey, "white"), $alpha: -0.9)
+) !default;

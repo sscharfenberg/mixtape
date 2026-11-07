@@ -913,6 +913,17 @@
             "paused": "Pausiert",
             "end": "Ende der Warteschlange"
         },
-        "toSongPage": "Zur Song-Seite"
+        "toSongPage": "Zur Song-Seite",
+        "party": {
+            "open": "Party-Modus",
+            "close": "Beenden",
+            "tracks": "Was gerade läuft",
+            "play": "Abspielen: {name}",
+            "pause": "Pausieren: {name}",
+            "visualizer": "Visualisierung: {name}",
+            "visualizers": {
+                "warpTunnel": "Warp-Tunnel"
+            }
+        }
     }
 }

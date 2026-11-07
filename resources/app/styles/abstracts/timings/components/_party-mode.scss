@@ -1,0 +1,12 @@
+/******************************************************************************
+ * contextual timing tokens — component:party-mode
+ * @type {Sass}
+ * Party mode's overlay: the controls fading out while the pointer rests, and the edge lighting up
+ * on a hovered or focused entry. One duration for both — `quick`, so the fade reads as the
+ * controls stepping aside rather than as something failing to load.
+ * Consumed as ti.$c-party-mode via `@use "Abstracts/timings" as ti;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-timing-tokens" as ti;
+
+$party-mode: map.get(ti.$timings, "quick") !default;

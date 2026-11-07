@@ -31,6 +31,12 @@
  * does not tear down the routing, because there is no way to un-route without throwing the
  * element away, and pulling the graph out from under a playing track to save a few objects would
  * be trading silence for nothing.
+ *
+ * A SECOND READER TAPS THE SAME GRAPH rather than routing anything of its own — see
+ * {@link openAudioTap}. Only `createMediaElementSource` is one-shot; the source node it returns
+ * can feed any number of analysers, so a consumer that wants a different resolution (party mode
+ * reads 1,024 bins and the raw waveform, where the bars want 96 bins averaged into bands) gets an
+ * AnalyserNode of its own hung off the one source, and neither reader can disturb the other.
  *****************************************************************************/
 import type { Ref } from "vue";
 import { ref } from "vue";
@@ -123,6 +129,15 @@ let context: AudioContext | null = null;
 let analyser: AnalyserNode | null = null;
 let frame: number | null = null;
 
+/**
+ * The routed element's source node — kept because it is the one thing every tap hangs off, and
+ * because it can never be made a second time for the same element.
+ */
+let source: MediaElementAudioSourceNode | null = null;
+
+/** How many taps are open. Like `consumers`, a reason to route a newly bound element at once. */
+let taps = 0;
+
 /** Removes the `play` listener that retries a refused resume, or null when none is bound. */
 let unbindRetry: (() => void) | null = null;
 
@@ -179,7 +194,8 @@ async function routeOnce(): Promise<void> {
 
     // The one irreversible call in this file. Guarded by `routed` above, because a second one on
     // the same element throws rather than being ignored.
-    context.createMediaElementSource(element).connect(analyser);
+    source = context.createMediaElementSource(element);
+    source.connect(analyser);
     analyser.connect(context.destination);
     routed = element;
 
@@ -271,18 +287,122 @@ export function bindAnalyserElement(audio: HTMLAudioElement | null): void {
         stopReading();
         routed = null;
         analyser = null;
+        source = null;
 
         return;
     }
 
     // The graph belonged to the previous element and cannot be moved; a fresh element needs a
-    // fresh source node, so the old analyser goes with it.
+    // fresh source node, so the old analyser goes with it. Open taps notice on their next read
+    // (their node no longer hangs off `source`) and rebuild themselves.
     if (routed !== audio) {
         routed = null;
         analyser = null;
+        source = null;
     }
 
-    if (consumers > 0) void route();
+    if (consumers > 0 || taps > 0) void route();
+}
+
+/** Options for {@link openAudioTap} — the analyser settings a tap's own node is built with. */
+export type AudioTapOptions = {
+    /** The FFT window, a power of two. Twice the number of frequency bins a read fills. */
+    fftSize: number;
+    /** `AnalyserNode.smoothingTimeConstant`, 0–1: how much each reading leans on the last. */
+    smoothing: number;
+    /** The level that reads as 0 in a byte reading, in dB. */
+    minDecibels: number;
+    /** The level that reads as 255 in a byte reading, in dB. */
+    maxDecibels: number;
+};
+
+/** What {@link openAudioTap} hands back. */
+export type AudioTap = {
+    /**
+     * Fill both arrays from the current audio frame. `frequency` holds `bins` values and
+     * `waveform` holds `fftSize`; both are written in place, so a caller reading sixty times a
+     * second allocates nothing. False while there is no graph to read yet — before the routing
+     * has happened, or after the element went away — and the arrays are then left untouched.
+     */
+    read: (frequency: Uint8Array<ArrayBuffer>, waveform: Uint8Array<ArrayBuffer>) => boolean;
+    /** The graph's sample rate in Hz, or 0 before there is one. What turns a bin into a pitch. */
+    sampleRate: () => number;
+    /** How many frequency bins a read fills: half the FFT window. */
+    bins: number;
+    /** Disconnect this tap's node. The routing stays, exactly as it does for `deactivate()`. */
+    release: () => void;
+};
+
+/**
+ * Open a second reader on the routed element: an AnalyserNode of the caller's own resolution,
+ * hung off the one source node beside the bars' analyser.
+ *
+ * WHY NOT REUSE THE BARS' ANALYSER: its window is 256 samples because that is what keeps the bars
+ * attached to the music (see FFT_SIZE), and at that size a bin is ~187 Hz wide — the whole bass is
+ * one bin. A consumer that wants to tell a kick from a bass line needs a longer window, and
+ * changing the shared one would change what the bars draw. A node per reader keeps both honest.
+ *
+ * THE NODE IS NOT CONNECTED ONWARDS, and does not need to be: an analyser whose input is
+ * connected is pulled by the graph whether or not its output goes anywhere (both engines'
+ * "automatic pull" for inspector nodes; Firefox processes every connected node anyway). Joining
+ * it to the destination would instead ADD a second copy of the music to the output.
+ *
+ * IT ROUTES THE ELEMENT if nothing has yet, with the same lazy, gesture-aware path `activate()`
+ * takes — so whoever opens a tap is asking for routing as surely as the bars are, and should do so
+ * from a user's press. The node itself is built on the first read that finds a graph, which is
+ * also what lets a tap survive the element being swapped: a read that finds its node hanging off
+ * an old source simply builds a new one.
+ */
+export function openAudioTap(options: AudioTapOptions): AudioTap {
+    taps += 1;
+    if (routed === null) void route();
+
+    let node: AnalyserNode | null = null;
+    let nodeSource: MediaElementAudioSourceNode | null = null;
+    let released = false;
+
+    /** Build (or rebuild) this tap's node off the current source, or report there is none. */
+    const ensureNode = (): AnalyserNode | null => {
+        if (context === null || source === null) return null;
+        if (node !== null && nodeSource === source) return node;
+
+        node = context.createAnalyser();
+        node.fftSize = options.fftSize;
+        node.smoothingTimeConstant = options.smoothing;
+        node.minDecibels = options.minDecibels;
+        node.maxDecibels = options.maxDecibels;
+        source.connect(node);
+        nodeSource = source;
+
+        return node;
+    };
+
+    return {
+        read: (frequency, waveform) => {
+            if (released) return false;
+
+            const reader = ensureNode();
+            if (reader === null) return false;
+
+            reader.getByteFrequencyData(frequency);
+            reader.getByteTimeDomainData(waveform);
+
+            return true;
+        },
+        sampleRate: () => context?.sampleRate ?? 0,
+        bins: options.fftSize / 2,
+        release: () => {
+            if (released) return;
+            released = true;
+            taps = Math.max(0, taps - 1);
+
+            // Only THIS connection: `disconnect()` with no argument on the source would cut the
+            // bars' analyser too, and with it the path to the speakers.
+            if (node !== null && nodeSource !== null) nodeSource.disconnect(node);
+            node = null;
+            nodeSource = null;
+        }
+    };
 }
 
 /** Cancel the animation loop and say the readings have stopped. Leaves the graph alone. */
@@ -330,11 +450,13 @@ export function resetAudioAnalyserForTests(): void {
     unbindRetry?.();
     unbindRetry = null;
     consumers = 0;
+    taps = 0;
     bands = ANALYSER_DEFAULT_BANDS;
     element = null;
     routed = null;
     routing = null;
     analyser = null;
+    source = null;
     void context?.close();
     context = null;
     levels.value = [];

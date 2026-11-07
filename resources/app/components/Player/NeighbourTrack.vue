@@ -40,9 +40,9 @@
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
+import { trackFacts } from "Components/Player/trackFacts";
 import Icon from "Components/UI/Icon.vue";
 import type { QueueTrack } from "Composables/usePlayerQueue";
-import { formatClock } from "Utils/formatting";
 
 const props = defineProps<{
     /** Which side of the loaded track this is — decides the label, the glyph and the order. */
@@ -72,17 +72,11 @@ const action = computed(() =>
         : t("nowPlaying.stepTo", { direction: label.value, name: props.track.name })
 );
 
-/** The facts under the title, in the hero's order, with the ones this track has no answer for dropped. */
-const facts = computed(() =>
-    props.track === null
-        ? []
-        : [
-              { key: "artist", icon: "artist", value: props.track.artist },
-              { key: "album", icon: "album", value: props.track.album },
-              { key: "genre", icon: "genre", value: props.genre },
-              { key: "duration", icon: "duration", value: formatClock(props.track.duration) }
-          ].filter(fact => fact.value)
-);
+/**
+ * The facts under the title, in the hero's order, with the ones this track has no answer for dropped.
+ * Shared with party mode's track box (trackFacts), so the two cards cannot disagree about a track.
+ */
+const facts = computed(() => (props.track === null ? [] : trackFacts(props.track, props.genre)));
 </script>
 
 <template>

@@ -1,6 +1,7 @@
 # The Now Playing page
 
-`/now-playing` (route `now-playing`, `NowPlayingController`) — four rows over the live queue.
+`/now-playing` (route `now-playing`, `NowPlayingController`) — four rows over the live queue, and a
+fullscreen party mode over the same three tracks (§5).
 
 Read alongside:
 
@@ -271,10 +272,145 @@ clipped title — a browser fact, since it is track sizing against measured text
 instances each get their own Sortable over their own `<ol>` — and both go through the one `reorder()`,
 which is what keeps them agreeing.
 
+## 5. Party mode
+
+A primary button in the hero opens `pages/NowPlaying/PartyMode`: the page gone fullscreen, a
+visualiser filling the screen, and over it a box naming the previous track, what is playing and what
+comes next — the same three tracks, with the same facts, as the page.
+
+**Three owners, and the overlay only arranges them.** `usePartyScreen` holds everything asked of the
+SCREEN (fullscreen, the wake lock, the inert page behind, the idle pointer, handing focus back);
+`useVisualizer` holds the PICTURE (the audio tap, the analysis, the loop, the plugin); the tracks are
+`usePlayerQueue`'s, drawn by `PartyTrack`, whose chips come from the same `trackFacts` the neighbour
+cards use — two layouts, one definition of what a card says about a track.
+
+**Fullscreen is an enhancement.** The overlay is a fixed layer over the viewport whether or not the
+browser grants fullscreen (iPhone Safari only grants it to `<video>`); fullscreen only removes the
+browser's chrome. It is asked for in `onMounted`, which runs inside the click that rendered the
+overlay — the user activation fullscreen requires. **Leaving fullscreen by any route ends the party**:
+Escape in fullscreen is consumed by the browser before the page sees it, so `fullscreenchange` is the
+only place that press can be heard. The overlay is not a `<dialog>`, because the Fullscreen spec
+refuses one; it carries `role="dialog"` and makes every sibling of itself `inert` instead.
+
+**Focus goes back to the button only after fullscreen has ended.** While an element is fullscreen,
+Chromium treats the rest of the document as inert on its own — measured: a `focus()` sent to the page
+before the exit completes is refused and focus falls to `<body>`. So the restore waits on
+`exitFullscreen()`.
+
+**The wake lock** is what keeps a phone on a speaker from locking after half a minute. The browser
+drops it whenever the tab is hidden, so it is taken again on `visibilitychange`.
+
+**The box stands in for the player bar**, which fullscreen does not draw: previous and next step the
+queue, the current entry plays or pauses, and the player's own shortcuts still work because they
+listen on the window. **Except the three that open the page's own UI** — `Q` (the queue panel), `/`
+and ⌘K (search): their popovers live in the inert page, and `inert` does not stop `showPopover()`, so
+they would open in the top layer over the party, unable to take focus, with every typed letter falling
+through to the player's keymap. A capture listener swallows exactly those while the party is open. It has no `backdrop-filter` — a blur over a canvas repainting every frame is
+recomputed every frame, the most expensive thing on a phone's screen — just a denser tint.
+
+### The audio: a second reader on the one graph
+
+The bars' analyser reads a 256-sample window, which keeps them attached to the music and makes a bin
+~187 Hz wide — the whole bass in one bin. Party mode wants to tell a kick from a bass line, so it
+reads **2,048 samples through an AnalyserNode of its own** (`openAudioTap` in `useAudioAnalyser`).
+Only `createMediaElementSource` is one-shot; the source node it returns can feed any number of
+analysers, so the tap hangs off the same source and **routes nothing new**. It is not connected
+onwards: an analyser with a connected input is pulled by the graph regardless, and joining it to the
+destination would play the music twice. Releasing it disconnects that one connection by name — a
+bare `disconnect()` on the source would cut the speakers.
+
+**Reduced motion opens a still picture and never opens a tap**, so the party, like the bars, never
+routes that reader's audio.
+
+`audioFrame` turns each reading into what every visualiser draws from: 64 **log-spaced** bands from
+40 Hz to 16 kHz (linear bands put half the picture above 10 kHz), bass / mid / treble split at 160 Hz
+and 2.5 kHz, a level from the waveform's RMS, and a **beat** — an onset of the bass against its own
+running average, never re-lit within 0.35s. That limit is not taste: a visualiser brightens on the
+beat, and more than three flashes a second fails WCAG 2.3.1. Every level rises fast and falls slowly,
+integrated from the clock rather than counted in frames, so a 120 Hz screen and a throttled phone feel
+the same.
+
+### Visualisers are plugins
+
+`visualizers.ts` is the contract and the registry — the same shape as `SearchKind`: a plugin is
+handed a canvas and a palette, and once a frame an `AudioFrame` and a clock, and draws. It never sees
+fullscreen, playback or the analyser, so it cannot get them wrong. **Adding one is a module and a line
+in `VISUALIZERS`**; the overlay grows a switch button by itself once there are two. Each plugin is a
+dynamic `import()`, so the page pays for none until a party opens.
+
+**Plugins are built into the app, never loaded at runtime.** Running someone else's JavaScript on an
+authenticated, internet-facing origin is cross-site scripting by design, and the production CSP
+(`script-src 'self'`) refuses it anyway. A visualiser that others could supply safely would be data —
+a fragment shader against a fixed set of uniforms — not code. MilkDrop presets through `butterchurn`
+would fit the contract as one plugin, but compile each preset's equations at runtime, which the CSP
+would have to allow (`'unsafe-eval'`, or `'wasm-unsafe-eval'` for a WebAssembly build).
+
+**The palette comes from tokens**, not from the plugin: `colors/components/_party-mode.scss` is
+published as custom properties on the overlay and read back through a probe element's computed
+`color` (a custom property computes to whatever text was written; `color` always computes to `rgb()`).
+A plugin may blend between those colours, never introduce one. Party mode is always dark, so the
+tokens are dark values and the overlay sets `color-scheme: dark`.
+
+**The host decides the resolution**: one drawing-buffer pixel per CSS pixel at most, scaled into a
+budget of ~1.4 million pixels, and stepped down once (never back up) if frames average under 25 a
+second. Not under 30: a TV at 30 Hz, or a browser saving power, caps the frame rate with the GPU idle,
+and that is not a picture too heavy to draw. A
+full-screen shader costs per pixel, and a phone's 3× display or a 4K monitor is millions of pixels of
+glow nobody can tell from a third as many.
+
+### The warp tunnel
+
+One full-screen triangle and one fragment shader (`WarpTunnel/shaders.ts`), no library. Depth is
+inversely proportional to the distance from the centre, so every pixel works out which piece of wall it
+sees from its own angle and radius.
+
+**The walls are the spectrum, fixed in space.** Each frame writes the current spectrum as a row of a
+256-row texture at the far end of the tube; the camera flies through what was written. Round the tube
+is pitch — mirrored, bass on the floor and treble on the roof — and along it is time, so the rings
+rushing past are the last few seconds of the song. The texture is a ring buffer indexed by **world
+distance**, not time, which is what keeps the walls still while the speed changes. The bass drives the
+speed, the mids the roll, the treble the stars, the level and the beat the light at the end — and the
+beat lifts the whole picture by at most 12%.
+
+**The tube winds.** Its centre line is two sines per axis with wavenumbers that share no simple
+ratio, and phases rolled afresh for every party, so the bends never settle into a pattern and no two
+flights wind alike. The path is taken relative to the camera's own position and heading, so the near
+rings stay centred and it is the far end that swings away.
+
+A plain polar tunnel gets depth from the radius in one step; a winding one cannot, and **solving it
+per pixel is the wrong approach**. Around a bend, one line of sight crosses the tube more than once
+(the near wall on the outside of the bend, and the far tube behind it), and an iterative solve finds
+whichever crossing its first guess falls towards. Drawn, the pixels that pick the far one are a
+worm wriggling at the end of the tunnel. So the renderer samples the path once a frame on the CPU,
+in double precision: forty rings from just ahead of the camera to past the spawn fade, each a circle
+on the screen (`pathCentres`). Each pixel walks them from near to far and stops at the first ring
+it lies outside of, which is where its line of sight leaves the tube: the nearest wall, the one you
+see. Between that ring and the last one containing it, the crossing is interpolated, and
+interpolating the ring's radius linearly is exact for a straight tube, since its size goes as one
+over its depth. That walk costs the shader no trigonometry at all. Computing the path from the
+unwrapped travel also matters, because the shader's `uTravel` wraps once a lap and a path taken from
+it would snap back to its first bend.
+
+Three numbers in `tunnelMath` are constraints rather than taste: the ring length must divide the
+buffer's length **exactly in binary** (0.25 does; 0.2 divides 8 only in decimal and leaves a seam once
+a lap in a float32 shader), the spawn depth must stay inside the buffer, and the travel is wrapped on
+the CPU, where the clock is a double — a float32 in the shader would lose the grid's precision after a
+few hours. A lost WebGL context (a phone reclaiming GPU memory from a background tab) is recovered by
+cancelling the loss and rebuilding on restore.
+
+### What no test can see
+
+As with the bars, **the picture's response to music**: Chromium runs muted under Playwright. What the
+browser test does prove is that the shader **compiles and links** in a real engine —
+`data-visualizer="running"` is set only after the plugin built its program, and a planted GLSL typo
+turns it into `unsupported` — that fullscreen is granted and left, and that playback is unharmed by
+the second analyser.
+
 ## What is deliberately absent
 
 - **A large transport of its own.** The `PlayerBar` is on screen the whole time, and a second set of
   controls would be two places to press play. Worth revisiting only if the bar proves too small on a
-  phone.
+  phone. Party mode is the one exception, because fullscreen draws only the overlay: there the three
+  track entries are the transport.
 - **More facts** — disc/track position, technical details. All available from `SongController`'s shape and
   all one line each; left out because a listening page is not an inspection page.

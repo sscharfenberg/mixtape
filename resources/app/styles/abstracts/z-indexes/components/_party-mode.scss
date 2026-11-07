@@ -1,0 +1,12 @@
+/******************************************************************************
+ * contextual z-index tokens — component:party-mode
+ * @type {Sass}
+ * Party mode's overlay. Fullscreen puts it in the top layer and above everything regardless;
+ * this is the windowed fallback (fullscreen refused), where it must still cover the header, the
+ * player bar and any toast — the modal rung, since it IS a modal in all but element.
+ * Consumed as z.$c-party-mode via `@use "Abstracts/z-indexes" as z;`.
+ *****************************************************************************/
+@use "sass:map"; // https://sass-lang.com/documentation/modules/map
+@use "../global-z-index-tokens" as z;
+
+$party-mode: map.get(z.$scale, "modal") !default;

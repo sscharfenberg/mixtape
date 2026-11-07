@@ -383,6 +383,16 @@ instance, written for someone else's server.
   `/dev/audio-probe` proved routed audio survives screen-off (away 215s, advanced 215s), so the
   analyser is wired directly with no toggle. Also records what no test can see (Playwright runs
   Chromium muted, so the bars never move in CI).
+
+  **PARTY MODE lives here too** (§5, `pages/NowPlaying/PartyMode/`): fullscreen visualiser + a
+  prev/current/next box. **Visualisers are PLUGINS in a registry** (`visualizers.ts` — a module and
+  one line; built in, never loaded at runtime, because foreign JS on this origin is XSS and the CSP
+  refuses it). Its audio is **`openAudioTap`**: a second AnalyserNode hung off the ONE source node —
+  never a second `createMediaElementSource` (throws), never connected onwards (doubles the output),
+  released by name (a bare `disconnect()` cuts the speakers). **Focus goes back only after
+  `exitFullscreen()` resolves** — Chromium makes everything outside a fullscreen element inert, so an
+  earlier `focus()` is silently refused. The WebGL2 warp tunnel's ring length must divide the history
+  buffer exactly in BINARY (float32 seam otherwise).
 - [`docs/audiobooks.md`](docs/audiobooks.md) — the Audiobooks area (**built 2026-08-13**): three
   pages, and the one thing music does not need — **per-book resume**, so a 673-chapter book picks
   up where you left it while three others stay in flight. Records the schema change it turned on:

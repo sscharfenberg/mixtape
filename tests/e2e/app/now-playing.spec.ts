@@ -384,3 +384,154 @@ test.describe("the Now Playing page", () => {
         expect(layout.clipped).toBe(true);
     });
 });
+
+test.describe("party mode", () => {
+    /*
+     * THE OVERLAY IN A REAL ENGINE. Its own behaviour is pinned in PartyMode.test.ts against
+     * stubbed fullscreen and no WebGL; what only a browser can answer is whether the real things
+     * cooperate:
+     *
+     *   - FULLSCREEN IS GRANTED to the click that opens it, and LEAVING it from outside the page
+     *     (the browser's Escape, its UI) ends the party — the route a reader actually takes.
+     *   - THE SHADER COMPILES AND LINKS. GLSL is checked by the driver, at runtime, nowhere else;
+     *     `data-visualizer="running"` is set only after the plugin built its program, so a typo
+     *     in the shader is a red test here rather than a black screen at a party.
+     *   - THE MUSIC IS UNHARMED by the second analyser hung off the routed element.
+     *
+     * Like the bars, the picture's RESPONSE to music cannot be asserted: Chromium runs muted
+     * here, so every reading is zero (see the file note).
+     */
+
+    /** Open the party from the hero, as a reader does. */
+    const openParty = async (page: Page): Promise<void> => {
+        await page.locator(".now-playing__party").click();
+        await expect(page.locator(".party")).toBeVisible();
+    };
+
+    test("goes fullscreen with the same three tracks the page shows, over a running tunnel", async ({ page }) => {
+        await queueAnArtist(page);
+        await page.goto("/now-playing");
+
+        const playing = await page.locator(".hero-section h2").textContent();
+        const promised = await page.locator(".neighbour--next .neighbour__title").textContent();
+
+        // Playing BEFORE the party opens, with repeat on so the one-second fixture keeps going, so
+        // the assertion below is about the party leaving playback alone rather than starting it.
+        await page.locator("body").click({ position: { x: 5, y: 5 } });
+        await page.keyboard.press("KeyR");
+        await page.keyboard.press("KeyK");
+        await expect.poll(() => page.evaluate(() => document.querySelector("audio")?.paused)).toBe(false);
+
+        await openParty(page);
+
+        await expect
+            .poll(() => page.evaluate(() => document.fullscreenElement?.classList.contains("party") ?? false))
+            .toBe(true);
+        await expect(page.locator(".party-track--current .party-track__title")).toHaveText(playing!);
+        await expect(page.locator(".party-track--next .party-track__title")).toHaveText(promised!);
+        await expect(page.locator(".party-track--previous")).toContainText("Nichts davor");
+
+        await expect(page.locator(".party")).toHaveAttribute("data-visualizer", "running");
+        await expect.poll(() => page.evaluate(() => document.querySelector("audio")?.paused)).toBe(false);
+
+        // The page behind is out of reach while the party is on — the half that matters in the
+        // windowed fallback, where the browser does not make it inert by itself.
+        expect(await page.evaluate(() => document.querySelector("main")?.closest("[inert]") !== null)).toBe(true);
+    });
+
+    test("sits on a line of its own, and draws three equal entries with the current one more solid", async ({ page }) => {
+        /*
+         * Two layout decisions only an engine can measure. The button opens under the link and the
+         * status pill rather than beside them; and the three entries are ONE SIZE — the grid's
+         * stretch gives them one height, equal tracks one width, whatever their titles — so what
+         * marks the current track is its panel: a fill far less see-through than its neighbours'.
+         */
+        await queueAnArtist(page);
+        await page.goto("/now-playing");
+
+        const link = (await page.locator(".now-playing__link").boundingBox())!;
+        const button = (await page.locator(".now-playing__party").boundingBox())!;
+        expect(button.y).toBeGreaterThanOrEqual(link.y + link.height);
+
+        await openParty(page);
+        const entries = await page.evaluate(() =>
+            ["previous", "current", "next"].map(kind => {
+                const entry = document.querySelector(`.party-track--${kind}`)!;
+                const { width, height } = entry.getBoundingClientRect();
+                const alpha = getComputedStyle(entry).backgroundColor.match(/[\d.]+/gu)?.map(Number)[3] ?? 1;
+
+                return { width, height, alpha };
+            })
+        );
+
+        const [previous, current, next] = entries;
+        for (const neighbour of [previous!, next!]) {
+            expect(neighbour.width).toBeCloseTo(current!.width, 0);
+            expect(neighbour.height).toBeCloseTo(current!.height, 0);
+            expect(current!.alpha).toBeGreaterThan(neighbour.alpha);
+        }
+    });
+
+    test("steps the player from the box, and hands the page back when it ends", async ({ page }) => {
+        await queueAnArtist(page);
+        await page.goto("/now-playing");
+        await openParty(page);
+
+        const promised = await page.locator(".party-track--next .party-track__title").textContent();
+        await page.locator(".party-track--next .party-track__action").click();
+        await expect(page.locator(".party-track--current .party-track__title")).toHaveText(promised!);
+
+        await page.locator(".party__exit").click();
+
+        await expect(page.locator(".party")).toHaveCount(0);
+        expect(await page.evaluate(() => document.fullscreenElement)).toBeNull();
+        // The step taken in the party is the page's state now, and focus is back where it was.
+        await expect(page.locator(".hero-section h2")).toHaveText(promised!);
+        await expect(page.locator(".now-playing__party")).toBeFocused();
+        expect(await page.evaluate(() => document.querySelector("main")?.closest("[inert]") ?? null)).toBeNull();
+    });
+
+    test("ends when fullscreen is left from outside the page", async ({ page }) => {
+        await queueAnArtist(page);
+        await page.goto("/now-playing");
+        await openParty(page);
+        await expect
+            .poll(() => page.evaluate(() => document.fullscreenElement !== null))
+            .toBe(true);
+
+        // What the browser's own Escape does: the page never sees the key, only the change.
+        await page.evaluate(() => document.exitFullscreen());
+
+        await expect(page.locator(".party")).toHaveCount(0);
+    });
+
+    test("keeps the page's own popovers shut while it is open", async ({ page }) => {
+        /*
+         * `Q` and `/` open the queue panel and search — popovers that live in the inert page, and
+         * `inert` does not stop `showPopover()`. Opened, they would sit in the top layer OVER the
+         * fullscreen party, unable to take focus. Only an engine has a real top layer to land in.
+         */
+        await queueAnArtist(page);
+        await page.goto("/now-playing");
+        await openParty(page);
+
+        await page.keyboard.press("Slash");
+        await page.keyboard.press("KeyQ");
+        await page.keyboard.press("ControlOrMeta+KeyK");
+
+        expect(await page.evaluate(() => document.querySelectorAll(":popover-open").length)).toBe(0);
+        await expect(page.locator(".party")).toBeVisible();
+    });
+
+    test("holds a still picture for a reader who asked for reduced motion", async ({ page }) => {
+        await page.emulateMedia({ reducedMotion: "reduce" });
+        await queueAnArtist(page);
+        await page.goto("/now-playing");
+        await openParty(page);
+
+        // Drawn once and left: no loop, and no audio tap — so this reader's audio is never routed
+        // by the party, the promise the bars make too.
+        await expect(page.locator(".party")).toHaveAttribute("data-visualizer", "still");
+        await expect(page.locator(".party-track")).toHaveCount(3);
+    });
+});

@@ -36,10 +36,15 @@
  * The page renders EVERYTHING ELSE from the queue immediately — title, artwork, artist, album,
  * runtime are all in hand — so nothing is ever blank and nothing waits on a request. The linked
  * tiles simply become links, and the year and plays appear, a moment later.
+ *
+ * PARTY MODE opens from the hero: the same three tracks over a fullscreen visualiser
+ * (./PartyMode). It is a child of this page rather than of NowPlayingSection because it borrows
+ * the page's facts for its genre chips, which the guest share page has none of.
  *****************************************************************************/
 import { Head, Link, router } from "@inertiajs/vue3";
-import { computed, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import Button from "Components/Form/Button.vue";
 import CoverImage from "Components/Music/CoverImage/CoverImage.vue";
 import PlayCountFacts from "Components/Music/PlayCountFacts.vue";
 import NowPlayingSection from "Components/Player/NowPlayingSection.vue";
@@ -51,6 +56,7 @@ import { useBreadcrumbs } from "Composables/useBreadcrumbs";
 import { usePlayerAudio } from "Composables/usePlayerAudio";
 import { usePlayerQueue } from "Composables/usePlayerQueue";
 import { formatClock } from "Utils/formatting";
+import PartyMode from "./PartyMode/PartyMode.vue";
 
 const props = defineProps<{
     /**
@@ -88,6 +94,12 @@ setBreadcrumbs([{ labelKey: "header.siteMenu.nowPlaying", icon: "now_playing" }]
 
 const { current, nextTrack, previousTrack } = usePlayerQueue();
 const { isPlaying, queueFinished } = usePlayerAudio();
+
+/**
+ * Whether party mode is open. Set by the button's own click, which matters: the overlay asks for
+ * fullscreen as it mounts, and a browser only grants that inside a user's press.
+ */
+const partying = ref(false);
 
 /** The three tracks the page draws, in reading order. Nulls at the ends of the queue. */
 const trio = computed(() => [previousTrack.value, current.value, nextTrack.value]);
@@ -253,6 +265,17 @@ watch(
                     <span class="now-playing__status" :class="`now-playing__status--${status}`" role="status">
                         {{ t(`nowPlaying.status.${status}`) }}
                     </span>
+                    <!-- ON A LINE OF ITS OWN, under the link and the status pill: those two
+                         describe this track, while this changes the whole screen. The wrapper
+                         takes the action row's full width, which is what breaks the line; the
+                         button inside keeps its own. No halo, as in every hero — the glow would
+                         pool on the panel. -->
+                    <div class="now-playing__party-row">
+                        <Button variant="primary" no-halo class="now-playing__party" @click="partying = true">
+                            <icon name="fullscreen" :size="1" />
+                            <span>{{ t("nowPlaying.party.open") }}</span>
+                        </Button>
+                    </div>
                 </template>
             </hero-section>
 
@@ -264,6 +287,10 @@ watch(
             <p v-if="!current" class="now-playing__empty">{{ t("nowPlaying.empty") }}</p>
         </div>
     </container>
+    <!-- Teleported to <body> by the component itself; rendered here so it lives and dies with
+         the page, and so navigating away mid-party takes the overlay (and its fullscreen, its
+         wake lock and its audio tap) with it. -->
+    <party-mode v-if="partying" :genres="genres" @close="partying = false" />
 </template>
 
 <style scoped lang="scss">
@@ -338,6 +365,12 @@ watch(
     &:focus-visible {
         border-color: map.get(c.$c-neighbour-track, "edge-active");
     }
+}
+
+/* The party button's own line: the hero's action row is a wrapping flex row, and an item the
+   row's full width is the one way to start a new line in it. */
+.now-playing__party-row {
+    flex-basis: 100%;
 }
 
 .now-playing__empty {
