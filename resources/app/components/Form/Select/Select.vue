@@ -348,11 +348,18 @@ onUnmounted(() => {
 @use "Abstracts/z-indexes" as z;
 
 @layer components {
+    /* NOT SELECTABLE AS TEXT: every part of this — the trigger, its label, each option — is a
+       control, and a press that drags a little (or a double click) would otherwise highlight the
+       label instead of choosing it. On the root, because the options list is a descendant even while
+       it sits in the top layer, and a descendant's `auto` resolves to its parent's `none`. The same
+       call the shared `.btn` makes. */
     .form-select {
         display: flex;
         position: relative;
 
         flex-grow: 1;
+
+        user-select: none;
 
         // leading addon (optional) — a fused icon box on the left, styled from the
         // select's own palette so the component stays self-contained.
