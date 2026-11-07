@@ -412,9 +412,6 @@ test.describe("party mode", () => {
         await queueAnArtist(page);
         await page.goto("/now-playing");
 
-        const playing = await page.locator(".hero-section h2").textContent();
-        const promised = await page.locator(".neighbour--next .neighbour__title").textContent();
-
         // Playing BEFORE the party opens, with repeat on so the one-second fixture keeps going, so
         // the assertion below is about the party leaving playback alone rather than starting it.
         await page.locator("body").click({ position: { x: 5, y: 5 } });
@@ -427,9 +424,34 @@ test.describe("party mode", () => {
         await expect
             .poll(() => page.evaluate(() => document.fullscreenElement?.classList.contains("party") ?? false))
             .toBe(true);
-        await expect(page.locator(".party-track--current .party-track__title")).toHaveText(playing!);
-        await expect(page.locator(".party-track--next .party-track__title")).toHaveText(promised!);
-        await expect(page.locator(".party-track--previous")).toContainText("Nichts davor");
+
+        /*
+         * THE SAME THREE TRACKS AS THE PAGE BENEATH IT, READ IN ONE SNAPSHOT. The fixture's audio
+         * is one second long and repeat is on, so the queue moves on every second while this test
+         * runs — titles captured before the party opened are stale by the time a slower runner
+         * reaches the assertion. One evaluate
+         * reads both sides inside a single task, where no render can land between them; null is
+         * an empty end of the queue, on either side alike.
+         */
+        const titles = await page.evaluate(() => {
+            const text = (selector: string): string | null =>
+                document.querySelector(selector)?.textContent?.trim() ?? null;
+
+            return {
+                page: [
+                    text(".neighbour--previous .neighbour__title"),
+                    text(".hero-section h2"),
+                    text(".neighbour--next .neighbour__title")
+                ],
+                party: [
+                    text(".party-track--previous .party-track__title"),
+                    text(".party-track--current .party-track__title"),
+                    text(".party-track--next .party-track__title")
+                ]
+            };
+        });
+        expect(titles.party[1]).toBeTruthy();
+        expect(titles.party).toEqual(titles.page);
 
         await expect(page.locator(".party")).toHaveAttribute("data-visualizer", "running");
         await expect.poll(() => page.evaluate(() => document.querySelector("audio")?.paused)).toBe(false);
