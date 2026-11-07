@@ -335,15 +335,34 @@ the same.
 `visualizers.ts` is the contract and the registry — the same shape as `SearchKind`: a plugin is
 handed a canvas and a palette, and once a frame an `AudioFrame` and a clock, and draws. It never sees
 fullscreen, playback or the analyser, so it cannot get them wrong. **Adding one is a module and a line
-in `VISUALIZERS`**; the overlay grows a switch button by itself once there are two. Each plugin is a
-dynamic `import()`, so the page pays for none until a party opens.
+in `VISUALIZERS`**; the picker lists it by itself, under the name `nowPlaying.party.visualizers.<id>`
+gives it (a unit test fails if either catalog lacks one). Each plugin is a dynamic `import()` and its
+own chunk of a few kilobytes, so the page pays for none until a party opens, and then only for the one
+on screen.
+
+**The picker opens on "random"**: a visualiser picked at random, replaced by another every three
+minutes of the party's own clock (which stops while the tab is hidden), never the same one twice in a
+row. Choosing one by name holds it. The choice is kept in this browser's storage, so the next party
+opens the way the last was left; where storage is refused it opens on random. The picker is the app's
+own `Select`, centred above the three track entries (the exit has the corner to itself), whose menu
+is a popover inside the overlay — so it opens in the top layer above the fullscreen element, outside
+the inert page, and flips upward at the bottom of the screen.
+
+**Most plugins are one fragment shader.** `Shader/shaderPlugin` turns a shader and a little state of
+its own into a plugin, and owns everything else — the context, compiling with the driver's errors,
+the common uniforms (resolution, clock, the four energies, the beat, the palette), lost contexts, and
+the GPU objects a plugin's state owns. `Shader/glsl` holds what every shader shares, and two of those
+are rules rather than helpers: `ramp`, the bars' magenta → violet → blue, and `finish`, the only place
+a beat may brighten a picture — by a tenth at most, and the beat itself is rate-limited. State that
+must stay smooth for hours (a scroll, a flow) is integrated on the CPU as a double and wrapped to a
+period it repeats on before it reaches a float32 shader.
 
 **Plugins are built into the app, never loaded at runtime.** Running someone else's JavaScript on an
 authenticated, internet-facing origin is cross-site scripting by design, and the production CSP
 (`script-src 'self'`) refuses it anyway. A visualiser that others could supply safely would be data —
-a fragment shader against a fixed set of uniforms — not code. MilkDrop presets through `butterchurn`
-would fit the contract as one plugin, but compile each preset's equations at runtime, which the CSP
-would have to allow (`'unsafe-eval'`, or `'wasm-unsafe-eval'` for a WebAssembly build).
+a fragment shader against the fixed set of uniforms above — not code. MilkDrop presets through
+`butterchurn` would fit the contract as one plugin, but compile each preset's equations at runtime,
+which the CSP would have to allow (`'unsafe-eval'`, or `'wasm-unsafe-eval'` for a WebAssembly build).
 
 **The palette comes from tokens**, not from the plugin: `colors/components/_party-mode.scss` is
 published as custom properties on the overlay and read back through a probe element's computed
@@ -354,23 +373,13 @@ tokens are dark values and the overlay sets `color-scheme: dark`.
 **The host decides the resolution**: one drawing-buffer pixel per CSS pixel at most, scaled into a
 budget of ~1.4 million pixels, and stepped down once (never back up) if frames average under 25 a
 second. Not under 30: a TV at 30 Hz, or a browser saving power, caps the frame rate with the GPU idle,
-and that is not a picture too heavy to draw. A
-full-screen shader costs per pixel, and a phone's 3× display or a 4K monitor is millions of pixels of
-glow nobody can tell from a third as many.
+and that is not a picture too heavy to draw. A full-screen shader costs per pixel, and a phone's 3×
+display or a 4K monitor is millions of pixels of glow nobody can tell from a third as many.
 
-### The warp tunnel
+### The winding tube
 
-One full-screen triangle and one fragment shader (`WarpTunnel/shaders.ts`), no library. Depth is
-inversely proportional to the distance from the centre, so every pixel works out which piece of wall it
-sees from its own angle and radius.
-
-**The walls are the spectrum, fixed in space.** Each frame writes the current spectrum as a row of a
-256-row texture at the far end of the tube; the camera flies through what was written. Round the tube
-is pitch — mirrored, bass on the floor and treble on the roof — and along it is time, so the rings
-rushing past are the last few seconds of the song. The texture is a ring buffer indexed by **world
-distance**, not time, which is what keeps the walls still while the speed changes. The bass drives the
-speed, the mids the roll, the treble the stars, the level and the beat the light at the end — and the
-beat lifts the whole picture by at most 12%.
+Both tunnels fly down the same tube (`WindingTube/`). Depth is inversely proportional to the distance
+from the centre, so every pixel works out which piece of wall it sees from where it is on the screen.
 
 **The tube winds.** Its centre line is two sines per axis with wavenumbers that share no simple
 ratio, and phases rolled afresh for every party, so the bends never settle into a pattern and no two
@@ -382,29 +391,68 @@ per pixel is the wrong approach**. Around a bend, one line of sight crosses the 
 (the near wall on the outside of the bend, and the far tube behind it), and an iterative solve finds
 whichever crossing its first guess falls towards. Drawn, the pixels that pick the far one are a
 worm wriggling at the end of the tunnel. So the renderer samples the path once a frame on the CPU,
-in double precision: forty rings from just ahead of the camera to past the spawn fade, each a circle
-on the screen (`pathCentres`). Each pixel walks them from near to far and stops at the first ring
-it lies outside of, which is where its line of sight leaves the tube: the nearest wall, the one you
-see. Between that ring and the last one containing it, the crossing is interpolated, and
-interpolating the ring's radius linearly is exact for a straight tube, since its size goes as one
-over its depth. That walk costs the shader no trigonometry at all. Computing the path from the
-unwrapped travel also matters, because the shader's `uTravel` wraps once a lap and a path taken from
-it would snap back to its first bend.
+in double precision: forty rings from just ahead of the camera to its far end, each a circle on the
+screen (`pathCentres`). Each pixel walks them from near to far and stops at the first ring it lies
+outside of, which is where its line of sight leaves the tube: the nearest wall, the one you see.
+Between that ring and the last one containing it, the crossing is interpolated, and interpolating the
+ring's radius linearly is exact for a straight tube, since its size goes as one over its depth. That
+walk costs the shader no trigonometry at all. Computing the path from the unwrapped travel also
+matters, because a shader's travel is wrapped once a lap and a path taken from it would snap back to
+its first bend.
 
-Three numbers in `tunnelMath` are constraints rather than taste: the ring length must divide the
-buffer's length **exactly in binary** (0.25 does; 0.2 divides 8 only in decimal and leaves a seam once
-a lap in a float32 shader), the spawn depth must stay inside the buffer, and the travel is wrapped on
-the CPU, where the clock is a double — a float32 in the shader would lose the grid's precision after a
-few hours. A lost WebGL context (a phone reclaiming GPU memory from a background tab) is recovered by
-cancelling the loss and rebuilding on restore.
+### The seven visualisers
+
+**EQ warp** (`EQWarp/`) — the tube's walls are the spectrum, fixed in space. Each frame writes the
+current spectrum as a row of a 256-row texture at the far end; the camera flies through what was
+written. Round the tube is pitch — mirrored, bass on the floor and treble on the roof — and along it
+is time, so the rings rushing past are the last few seconds of the song. The texture is a ring buffer
+indexed by **world distance**, not time, which keeps the walls still while the speed changes. Three
+numbers in `tunnelMath` are constraints rather than taste: the ring length must divide the buffer's
+length **exactly in binary** (0.25 does; 0.2 divides 8 only in decimal and leaves a seam once a lap
+in a float32 shader), the spawn depth must stay inside both the buffer and the tube's sampled length,
+and the travel is wrapped on the CPU.
+
+**Warp tunnel** (`WarpTunnel/`) — the same tube with no grid: streaks of light stream past, dense
+stars shoot by, the far end dissolves into a bright exit, and it is fast even in silence. The streaks
+are noise stretched along the tube and **periodic both ways** — round it, so the angle's wrap has no
+seam, and along it, so the travel can be wrapped without the pattern jumping; each fbm octave doubles
+frequency and period exactly, which keeps every octave periodic too.
+
+**Synthwave horizon** (`Synthwave/`) — a neon grid floor running to the horizon, a striped sun
+sinking behind mountains, stars over a violet haze. The mountains are the spectrum (bass at the
+screen's edges, treble low in the middle so the sun shows), smoothed on the CPU — quick to rise, slow
+to fall — because a range that jitters every frame reads as noise rather than terrain.
+
+**Julia fractal** (`Julia/`) — chosen over a Mandelbrot zoom, which on a GPU ends after fifteen or
+twenty seconds when a float32 runs out of digits. A Julia set never zooms; its shape is decided by one
+constant, and moving that constant gives endless change at a fixed cost. **The constant rides the edge
+of the Mandelbrot set's main cardioid**, where every Julia set is connected and detailed: a plain
+circle of constants crosses regions whose sets are scattered dust, which is an almost black screen.
+
+**Echo rings** (`Feedback/`) — each frame redraws the last one slightly zoomed, turned and faded,
+and draws the live waveform over it as a ring, so the rings echo outward. Two passes over two textures
+(not a `shaderPlugin`); what the display pass adds is never fed back, so the beat's lift cannot
+compound. Eight-bit channels never quite reach black under a multiplicative decay, so the feedback
+pass also subtracts a fraction of a step, which is what lets a trail end.
+
+**Plasma** (`Plasma/`) — interfering sines through the ramp, dimmed most of the way towards empty
+space, because a full-strength plasma fills the screen with the brightest colours in the palette. Every
+wave advances by a whole multiple of one phase wrapped at a full turn, so it stays smooth for hours.
+
+**Nebula** (`Nebula/`) — space first, gas second: three layers of twinkling stars, and over them a
+cloud ADDED as light, thin enough to see stars through, broken into wisps and cut by dark dust lanes.
+The cloud is warped ONCE, gently — warped deeper, its shapes fold into each other and read as stirred
+goo — and biased towards the middle of the screen, so wherever the drift has wandered there is a
+nebula to look at. The bass, mids and treble each light a colour of the gas. The heaviest picture
+after the fractal (five fbm evaluations a pixel).
 
 ### What no test can see
 
 As with the bars, **the picture's response to music**: Chromium runs muted under Playwright. What the
-browser test does prove is that the shader **compiles and links** in a real engine —
-`data-visualizer="running"` is set only after the plugin built its program, and a planted GLSL typo
-turns it into `unsupported` — that fullscreen is granted and left, and that playback is unharmed by
-the second analyser.
+browser test does prove is that **every** visualiser's shader **compiles and links** in a real
+engine — each is chosen through the picker, and `data-visualizer="running"` is set only after its
+program built; a planted GLSL typo turns it into `unsupported` — that fullscreen is granted and left,
+and that playback is unharmed by the second analyser.
 
 ## What is deliberately absent
 

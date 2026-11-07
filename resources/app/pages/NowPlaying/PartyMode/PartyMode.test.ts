@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
+import Select from "Components/Form/Select/Select.vue";
 import { resetPlayerAudioForTests } from "Composables/usePlayerAudio";
 import type { QueueTrack } from "Composables/usePlayerQueue";
 import { resetPlayerQueueForTests, usePlayerQueue } from "Composables/usePlayerQueue";
 import { resetInertia } from "Testing/inertia";
-import { mountApp } from "Testing/mount";
+import { mountApp, translate } from "Testing/mount";
 import PartyMode from "./PartyMode.vue";
+import { RANDOM, VISUALIZERS } from "./visualizers";
 
 vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
 
@@ -193,10 +195,22 @@ describe("PartyMode", () => {
         expect(document.querySelectorAll(".party-track")).toHaveLength(3);
     });
 
-    it("offers no visualiser switch while there is only one visualiser", () => {
-        open();
+    it("offers random first, then every visualiser by its name", () => {
+        const wrapper = open();
+        const options = wrapper.findComponent(Select).props("options") as { value: string; label: string }[];
 
-        expect(document.querySelectorAll(".party__control")).toHaveLength(1);
+        expect(options.map(option => option.value)).toEqual([RANDOM, ...VISUALIZERS.map(entry => entry.id)]);
+        expect(options[1]?.label).toBe(translate(`nowPlaying.party.visualizers.${VISUALIZERS[0]?.id}`));
+    });
+
+    it("puts the visualiser chosen in the picker on screen, and holds the choice there", async () => {
+        window.localStorage.clear();
+        const wrapper = open();
+
+        wrapper.findComponent(Select).vm.$emit("change", "julia");
+
+        await vi.waitFor(() => expect(overlay().dataset.active).toBe("julia"));
+        expect(wrapper.findComponent(Select).props("selected")).toBe("julia");
     });
 });
 

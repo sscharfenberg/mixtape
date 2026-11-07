@@ -920,9 +920,16 @@
             "tracks": "Was gerade läuft",
             "play": "Abspielen: {name}",
             "pause": "Pausieren: {name}",
-            "visualizer": "Visualisierung: {name}",
+            "visualizer": "Visualisierung",
+            "random": "Zufällig (alle {minutes} Minuten neu)",
             "visualizers": {
-                "warpTunnel": "Warp-Tunnel"
+                "eqWarp": "EQ-Warp",
+                "warpTunnel": "Warp-Tunnel",
+                "synthwave": "Synthwave-Horizont",
+                "julia": "Julia-Fraktal",
+                "feedback": "Echo-Ringe",
+                "plasma": "Plasma",
+                "nebula": "Sternennebel"
             }
         }
     }

@@ -920,9 +920,16 @@
             "tracks": "What is playing",
             "play": "Play: {name}",
             "pause": "Pause: {name}",
-            "visualizer": "Visualisation: {name}",
+            "visualizer": "Visualisation",
+            "random": "Random (a new one every {minutes} minutes)",
             "visualizers": {
-                "warpTunnel": "Warp tunnel"
+                "eqWarp": "EQ warp",
+                "warpTunnel": "Warp tunnel",
+                "synthwave": "Synthwave horizon",
+                "julia": "Julia fractal",
+                "feedback": "Echo rings",
+                "plasma": "Plasma",
+                "nebula": "Nebula"
             }
         }
     }

@@ -32,6 +32,9 @@ $party-mode: (
     "meta-basis": 8rem,
     // A control in the corner — the same inset as an entry's gap, so the two read as one family.
     "control-padding": map.get(s.$padding, "base"),
+    // The visualiser picker, centred over the tracks: wide enough for the longest name
+    // ("Synthwave-Horizont") and the random entry's interval, without spreading across the picture.
+    "picker-width": 17rem,
     // Labels and chips: the neighbour cards' size, for the same reason — they annotate the title.
     "label-font-size": 0.9rem,
     // Every entry's title, one size for all three (see the banner): a step over body copy so it

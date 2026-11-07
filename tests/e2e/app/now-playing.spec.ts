@@ -545,6 +545,39 @@ test.describe("party mode", () => {
         await expect(page.locator(".party")).toBeVisible();
     });
 
+    test("opens on random, and draws every visualiser chosen from the picker", async ({ page }) => {
+        /*
+         * EVERY SHADER COMPILES AND LINKS IN A REAL ENGINE — the one fact about a visualiser nothing
+         * below a browser can check, since GLSL is compiled by the driver at runtime. Each is chosen
+         * through the real picker (a Select whose menu is a popover above the fullscreen overlay),
+         * and `running` is set only once its program built.
+         */
+        await queueAnArtist(page);
+        await page.goto("/now-playing");
+        await openParty(page);
+
+        const picker = page.locator(".party__picker .form-select__button");
+        await expect(picker).toContainText("Zufällig");
+        await expect(page.locator(".party")).toHaveAttribute("data-visualizer", "running");
+
+        const visualizers = [
+            ["eqWarp", "EQ-Warp"],
+            ["warpTunnel", "Warp-Tunnel"],
+            ["synthwave", "Synthwave-Horizont"],
+            ["julia", "Julia-Fraktal"],
+            ["feedback", "Echo-Ringe"],
+            ["plasma", "Plasma"],
+            ["nebula", "Sternennebel"]
+        ] as const;
+        for (const [id, name] of visualizers) {
+            await picker.click();
+            await page.getByRole("option", { name, exact: true }).click();
+            await expect(page.locator(".party")).toHaveAttribute("data-active", id);
+            await expect(page.locator(".party")).toHaveAttribute("data-visualizer", "running");
+            await expect(picker).toContainText(name);
+        }
+    });
+
     test("holds a still picture for a reader who asked for reduced motion", async ({ page }) => {
         await page.emulateMedia({ reducedMotion: "reduce" });
         await queueAnArtist(page);

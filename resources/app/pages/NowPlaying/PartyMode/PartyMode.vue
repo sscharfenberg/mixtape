@@ -8,8 +8,8 @@
  *   - the SCREEN — fullscreen, the wake lock, the inert page behind, the idle pointer —
  *     is usePartyScreen;
  *   - the PICTURE — the audio tap, the analysis, the loop and the plugin — is useVisualizer, over
- *     the registry in visualizers.ts (the warp tunnel is the first plugin; adding one is a module
- *     and a line there);
+ *     the registry in visualizers.ts (seven plugins; adding one is a module and a line there),
+ *     chosen with the picker in the corner: "random" by default, or any of them by name;
  *   - the TRACKS are usePlayerQueue's, exactly as the page reads them, drawn by PartyTrack.
  *
  * MOUNTED BY THE PRESS THAT OPENS IT. The page renders this with `v-if` from the button's click,
@@ -30,13 +30,14 @@
  *****************************************************************************/
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import Select from "Components/Form/Select/Select.vue";
 import Icon from "Components/UI/Icon.vue";
 import { usePlayerAudio } from "Composables/usePlayerAudio";
 import { usePlayerQueue } from "Composables/usePlayerQueue";
 import PartyTrack from "./PartyTrack.vue";
 import { usePartyScreen } from "./usePartyScreen";
 import { useVisualizer } from "./useVisualizer";
-import { VISUALIZERS } from "./visualizers";
+import { RANDOM, RANDOM_INTERVAL_SECONDS, VISUALIZERS } from "./visualizers";
 
 const props = defineProps<{
     /**
@@ -61,20 +62,27 @@ const canvas = ref<HTMLCanvasElement | null>(null);
 const leave = (): void => emit("close");
 
 const { idle, wake } = usePartyScreen(root, leave);
-const { status, active, start, cycle, stop } = useVisualizer({ canvas, root, isPlaying });
+const { status, active, choice, start, select, stop } = useVisualizer({ canvas, root, isPlaying });
 
 /** One track's genre, or null when it has none, is unknown, or there is no track at all. */
 const genreOf = (id: string | undefined): string | null => (id === undefined ? null : (props.genres[id] ?? null));
 
 /**
- * The cycle button's label: what is on screen now, which is also what the press moves away from.
- * Only rendered when there is more than one visualiser to cycle through.
+ * The picker's entries: random first — it is the default, and the one a party is meant to be left
+ * on — then every visualiser in the registry's order, by its translated name.
  */
-const visualizerName = computed(() =>
-    t("nowPlaying.party.visualizer", {
-        name: t(`nowPlaying.party.visualizers.${VISUALIZERS[active.value]?.id ?? "warpTunnel"}`)
-    })
-);
+const pickerOptions = computed(() => [
+    { value: RANDOM, label: t("nowPlaying.party.random", { minutes: RANDOM_INTERVAL_SECONDS / 60 }) },
+    ...VISUALIZERS.map(entry => ({ value: entry.id, label: t(`nowPlaying.party.visualizers.${entry.id}`) }))
+]);
+
+/** The id of the visualiser on screen, for the overlay's `data-active` — what a browser test reads. */
+const activeId = computed(() => VISUALIZERS[active.value]?.id ?? "");
+
+/** Take the picker's change. The Select answers "" when cleared, which this one never is. */
+const choose = (value: string): void => {
+    if (value !== "") void select(value);
+};
 
 onMounted(() => {
     void start();
@@ -100,6 +108,7 @@ onBeforeUnmount(() => {
             :aria-label="t('nowPlaying.party.open')"
             tabindex="-1"
             :data-visualizer="status"
+            :data-active="activeId"
             @pointermove="wake"
             @pointerdown="wake"
             @keydown="wake"
@@ -110,17 +119,31 @@ onBeforeUnmount(() => {
             <canvas :key="active" ref="canvas" class="party__canvas" aria-hidden="true"></canvas>
 
             <div class="party__controls">
-                <button v-if="VISUALIZERS.length > 1" type="button" class="party__control" @click="cycle">
-                    <icon name="refresh" :size="1" />
-                    <span>{{ visualizerName }}</span>
-                </button>
                 <button type="button" class="party__control party__exit" @click="leave">
                     <icon name="close" :size="1" />
                     <span>{{ t("nowPlaying.party.close") }}</span>
                 </button>
             </div>
 
-            <section class="party__box" :aria-label="t('nowPlaying.party.tracks')">
+            <!-- The picker and the tracks, docked together along the bottom: the picker centred
+                 over the three entries it sits with, rather than crowding the exit in the corner. -->
+            <div class="party__dock">
+                <!-- The app's own Select: its menu is a popover inside this overlay, so it opens in
+                     the top layer ABOVE the fullscreen element and stays out of the inert page — and
+                     flips upward here, at the bottom of the screen. Unsorted, so random keeps its
+                     place at the top. -->
+                <Select
+                    class="party__picker"
+                    :options="pickerOptions"
+                    :selected="choice"
+                    :sort="false"
+                    :clearable="false"
+                    addon-icon="now_playing"
+                    :aria-label="t('nowPlaying.party.visualizer')"
+                    @change="choose"
+                />
+
+                <section class="party__box" :aria-label="t('nowPlaying.party.tracks')">
                 <party-track
                     kind="previous"
                     :track="previousTrack"
@@ -134,8 +157,9 @@ onBeforeUnmount(() => {
                     :playing="isPlaying"
                     @activate="toggle"
                 />
-                <party-track kind="next" :track="nextTrack" :genre="genreOf(nextTrack?.id)" @activate="next" />
-            </section>
+                    <party-track kind="next" :track="nextTrack" :genre="genreOf(nextTrack?.id)" @activate="next" />
+                </section>
+            </div>
         </div>
     </Teleport>
 </template>
@@ -199,8 +223,9 @@ onBeforeUnmount(() => {
     height: 100%;
 }
 
-/* Top right, clear of the notch where there is one. They fade while the pointer rests — but not
-   while one of them has keyboard focus, which would hide the thing a keyboard reader is on. */
+/* Top right, clear of the notch where there is one. The exit fades while the pointer rests, as the
+   picker does — but neither while it has keyboard focus, which would hide the thing a keyboard
+   reader is on. */
 .party__controls {
     display: flex;
     position: absolute;
@@ -214,8 +239,36 @@ onBeforeUnmount(() => {
     }
 }
 
-.party--idle .party__controls:not(:focus-within) {
+.party--idle .party__controls:not(:focus-within),
+.party--idle .party__picker:not(:focus-within) {
     opacity: 0;
+}
+
+/* The bottom of the screen: the picker centred over the tracks, both inside the gutters and the
+   safe area, and no wider than the page's own cage. */
+.party__dock {
+    display: flex;
+    position: absolute;
+    right: max(#{map.get(s.$c-party-mode, "gutter")}, env(safe-area-inset-right));
+    bottom: max(#{map.get(s.$c-party-mode, "gutter")}, env(safe-area-inset-bottom));
+    left: max(#{map.get(s.$c-party-mode, "gutter")}, env(safe-area-inset-left));
+    align-items: center;
+    flex-direction: column;
+
+    max-width: map.get(s.$c-party-mode, "box-max-width");
+    gap: map.get(s.$c-party-mode, "track-gap");
+
+    margin-inline: auto;
+}
+
+/* The visualiser picker: the app's Select, given a width of its own so it neither collapses to its
+   current label nor stretches across the picture. Fades with the exit while the pointer rests. */
+.party__picker {
+    width: map.get(s.$c-party-mode, "picker-width");
+
+    @media (prefers-reduced-motion: no-preference) {
+        transition: opacity ti.$c-party-mode linear;
+    }
 }
 
 .party__control {
@@ -257,20 +310,14 @@ onBeforeUnmount(() => {
    is the whole title — the trap the Now Playing grids document. */
 .party__box {
     display: grid;
-    position: absolute;
-    right: max(#{map.get(s.$c-party-mode, "gutter")}, env(safe-area-inset-right));
-    bottom: max(#{map.get(s.$c-party-mode, "gutter")}, env(safe-area-inset-bottom));
-    left: max(#{map.get(s.$c-party-mode, "gutter")}, env(safe-area-inset-left));
 
     grid-template-areas:
         "current current"
         "previous next";
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 
-    max-width: map.get(s.$c-party-mode, "box-max-width");
+    width: 100%;
     gap: map.get(s.$c-party-mode, "track-gap");
-
-    margin-inline: auto;
 
     @include m.mq("landscape") {
         grid-template-areas: "previous current next";

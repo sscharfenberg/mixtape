@@ -391,8 +391,13 @@ instance, written for someone else's server.
   never a second `createMediaElementSource` (throws), never connected onwards (doubles the output),
   released by name (a bare `disconnect()` cuts the speakers). **Focus goes back only after
   `exitFullscreen()` resolves** — Chromium makes everything outside a fullscreen element inert, so an
-  earlier `focus()` is silently refused. The WebGL2 warp tunnel's ring length must divide the history
-  buffer exactly in BINARY (float32 seam otherwise).
+  earlier `focus()` is silently refused. **Seven visualisers**, the picker defaulting to RANDOM (a new
+  one every 3 minutes, choice kept in localStorage). One-shader plugins go through
+  `Shader/shaderPlugin` — and every picture must end in GLSL `finish()` (the bounded beat lift) and use
+  `ramp()`, never colours of its own. Both tunnels share `WindingTube/` (CPU-sampled path + per-pixel
+  near-to-far ring walk — the fix for the "worm"). The EQ warp's ring length must divide the history
+  buffer exactly in BINARY (float32 seam otherwise). Julia's constant rides the main CARDIOID's edge —
+  a circle of constants crosses "dust" regions that render nearly black.
 - [`docs/audiobooks.md`](docs/audiobooks.md) — the Audiobooks area (**built 2026-08-13**): three
   pages, and the one thing music does not need — **per-book resume**, so a 673-chapter book picks
   up where you left it while three others stay in flight. Records the schema change it turned on:

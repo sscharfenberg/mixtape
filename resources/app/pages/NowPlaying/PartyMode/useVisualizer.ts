@@ -19,14 +19,20 @@
  * worse to look at than one that is slightly soft. "Very late" sits below 30 fps on purpose: a TV
  * at 30 Hz or a browser saving power caps the frame rate with the GPU idle, and must not be read as
  * a picture too heavy to draw.
+ *
+ * WHICH PICTURE: the reader's choice — RANDOM (the default) or one visualiser by name — kept in
+ * this browser's storage, so the next party opens the way the last one was left. Random mode moves
+ * on every RANDOM_INTERVAL_SECONDS of the party's own clock, which stops while the tab is hidden,
+ * so nobody comes back to a picture that changed behind their back. Storage is a convenience: where
+ * it is unavailable (a private window, blocked site data) the party simply opens on random.
  *****************************************************************************/
 import type { Ref } from "vue";
 import { nextTick, ref } from "vue";
 import type { AudioTap } from "Composables/useAudioAnalyser";
 import { openAudioTap } from "Composables/useAudioAnalyser";
 import { createAudioAnalysis } from "./audioFrame";
-import type { Rgb, VisualizerPalette, VisualizerPlugin, VisualizerRenderer } from "./visualizers";
-import { VISUALIZERS } from "./visualizers";
+import type { Rgb, VisualizerChoice, VisualizerPalette, VisualizerPlugin, VisualizerRenderer } from "./visualizers";
+import { RANDOM, RANDOM_INTERVAL_SECONDS, VISUALIZERS, pickRandom } from "./visualizers";
 
 /**
  * Where the loop stands — published on the overlay as `data-visualizer`, which is what lets a
@@ -48,15 +54,41 @@ export type UseVisualizerOptions = {
 export type UseVisualizerReturn = {
     /** See {@link VisualizerStatus}. */
     status: Ref<VisualizerStatus>;
-    /** The index into VISUALIZERS of the plugin on screen. */
+    /** The index into VISUALIZERS of the plugin on screen, or -1 before the first has loaded. */
     active: Ref<number>;
+    /** What the picker holds: RANDOM, or the id of the visualiser chosen by name. */
+    choice: Ref<VisualizerChoice>;
     /** Load the first plugin and start drawing. Call once the canvas is in the DOM. */
     start: () => Promise<void>;
-    /** Switch to the next plugin in the registry. */
-    cycle: () => Promise<void>;
+    /** Take a new choice from the picker, show it, and remember it in this browser. */
+    select: (choice: VisualizerChoice) => Promise<void>;
     /** Stop drawing and release the tap and the plugin. Safe to call more than once. */
     stop: () => void;
 };
+
+/** Where this browser remembers the picker's choice. */
+const STORAGE_KEY = "mixtape.party.visualizer";
+
+/** The remembered choice, or RANDOM when there is none, it is no longer a visualiser, or storage is unavailable. */
+function storedChoice(): VisualizerChoice {
+    try {
+        const stored = window.localStorage.getItem(STORAGE_KEY);
+        if (stored !== null && VISUALIZERS.some(entry => entry.id === stored)) return stored;
+    } catch {
+        // Storage refused (a private window, blocked site data): random it is.
+    }
+
+    return RANDOM;
+}
+
+/** Remember the choice, quietly doing without where storage is unavailable. */
+function storeChoice(choice: VisualizerChoice): void {
+    try {
+        window.localStorage.setItem(STORAGE_KEY, choice);
+    } catch {
+        // A convenience, not a promise — the party works the same without it.
+    }
+}
 
 /**
  * The most pixels a frame is drawn at — roughly 1600 × 880. Past this the picture does not get
@@ -170,7 +202,8 @@ function readPalette(root: HTMLElement): VisualizerPalette {
  */
 export function useVisualizer(options: UseVisualizerOptions): UseVisualizerReturn {
     const status = ref<VisualizerStatus>("loading");
-    const active = ref(0);
+    const active = ref(-1);
+    const choice = ref<VisualizerChoice>(storedChoice());
 
     const analysis = createAudioAnalysis();
     const still = !window.matchMedia("(prefers-reduced-motion: no-preference)").matches;
@@ -181,10 +214,12 @@ export function useVisualizer(options: UseVisualizerOptions): UseVisualizerRetur
     let renderer: VisualizerRenderer | null = null;
     let handle: number | null = null;
     let startedAt = 0;
+    // The party clock's reading when the picture on screen appeared — what random mode counts from.
+    let shownAt = 0;
     let quality = 1;
     let intervals: number[] = [];
     let lastFrame: number | null = null;
-    // Bumped by every start, cycle and stop, so a plugin import that resolves after the party has
+    // Bumped by every mount and by stop, so a plugin import that resolves after the party has
     // moved on can tell it is no longer wanted.
     let generation = 0;
 
@@ -244,6 +279,11 @@ export function useVisualizer(options: UseVisualizerOptions): UseVisualizerRetur
                 : analysis.idle(seconds);
 
         renderer.render(frame, seconds);
+
+        // Random mode's turn is up. The switch cancels this frame's successor, so it cannot fire twice.
+        if (choice.value === RANDOM && seconds - shownAt >= RANDOM_INTERVAL_SECONDS) {
+            void switchTo(pickRandom(VISUALIZERS.length, active.value));
+        }
     };
 
     /** Throw away the running plugin and stop the loop, leaving the tap open. */
@@ -299,11 +339,23 @@ export function useVisualizer(options: UseVisualizerOptions): UseVisualizerRetur
 
         resize();
         status.value = still ? "still" : "running";
+        shownAt = (performance.now() - startedAt) / 1000;
         if (still) return;
 
         lastFrame = null;
         intervals = [];
         handle = requestAnimationFrame(tick);
+    };
+
+    /**
+     * Put the plugin at `index` on screen, unless it already is. The canvas is re-keyed on
+     * `active`, so the new plugin starts on a fresh context rather than one the last plugin released.
+     */
+    const switchTo = async (index: number): Promise<void> => {
+        if (index === active.value && renderer !== null) return;
+        unmountPlugin();
+        active.value = index;
+        await mountPlugin();
     };
 
     /** Open the tap (unless motion is off) and mount the first plugin. */
@@ -320,14 +372,20 @@ export function useVisualizer(options: UseVisualizerOptions): UseVisualizerRetur
             waveform = new Uint8Array(TAP_OPTIONS.fftSize);
         }
 
-        await mountPlugin();
+        const named = VISUALIZERS.findIndex(entry => entry.id === choice.value);
+        await switchTo(named >= 0 ? named : pickRandom(VISUALIZERS.length, -1));
     };
 
-    /** Move to the next plugin. The canvas is re-keyed on `active`, so it starts on a fresh context. */
-    const cycle = async (): Promise<void> => {
-        unmountPlugin();
-        active.value = (active.value + 1) % VISUALIZERS.length;
-        await mountPlugin();
+    /**
+     * Take the picker's new choice. RANDOM moves straight to another picture — so choosing it visibly
+     * does something — and then on every interval; a name shows that visualiser and holds it.
+     */
+    const select = async (next: VisualizerChoice): Promise<void> => {
+        choice.value = next;
+        storeChoice(next);
+
+        const named = VISUALIZERS.findIndex(entry => entry.id === next);
+        await switchTo(named >= 0 ? named : pickRandom(VISUALIZERS.length, active.value));
     };
 
     /** Stop everything this party started. */
@@ -339,5 +397,5 @@ export function useVisualizer(options: UseVisualizerOptions): UseVisualizerRetur
         tap = null;
     };
 
-    return { status, active, start, cycle, stop };
+    return { status, active, choice, start, select, stop };
 }
