@@ -578,6 +578,32 @@ test.describe("party mode", () => {
         }
     });
 
+    test("opens the next party on the visualiser picked in this one", async ({ page }) => {
+        /*
+         * THE PICK SURVIVES THE PAGE, not just the overlay. useVisualizer's own spec pins the
+         * storage round trip against a stubbed registry; what only a browser shows is that the
+         * real picker writes it and a party opened after a RELOAD — nothing of the last one left
+         * in memory — reads it back, on screen and in the picker's label alike.
+         */
+        await queueAnArtist(page);
+        await page.goto("/now-playing");
+        await openParty(page);
+
+        const picker = page.locator(".party__picker .form-select__button");
+        await picker.click();
+        await page.getByRole("option", { name: "Sternennebel", exact: true }).click();
+        await expect(page.locator(".party")).toHaveAttribute("data-active", "nebula");
+        await page.locator(".party__exit").click();
+        await expect(page.locator(".party")).toHaveCount(0);
+
+        await page.reload();
+        await openParty(page);
+
+        await expect(page.locator(".party")).toHaveAttribute("data-active", "nebula");
+        await expect(page.locator(".party")).toHaveAttribute("data-visualizer", "running");
+        await expect(picker).toContainText("Sternennebel");
+    });
+
     test("holds a still picture for a reader who asked for reduced motion", async ({ page }) => {
         await page.emulateMedia({ reducedMotion: "reduce" });
         await queueAnArtist(page);
