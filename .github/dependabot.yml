@@ -87,6 +87,18 @@ updates:
           - dependency-name: typescript
             versions: [">=6.1.0"]
 
+          # Stylelint is held below 18 by the SCSS half of its config stack, the same kind of
+          # ceiling as TypeScript's: `stylelint-config-standard-scss`, the
+          # `stylelint-config-recommended-scss` it extends, and the `stylelint-scss` plugin all
+          # declare a `stylelint` peer that stops at 17, so 18 fails `npm ci` on the conflict.
+          # The Vue configs (`>=16.0.0`) and `stylelint-order` already accept it.
+          #
+          # Delete this entry when all three widen their range
+          # (`npm view stylelint-config-standard-scss peerDependencies`, and the same for the
+          # other two), and upgrade the SCSS configs in the same change as stylelint itself.
+          - dependency-name: stylelint
+            versions: [">=18.0.0"]
+
     # The workflow actions themselves. Pinned by major tag, so this is how a deprecated runner
     # image or a retired action version gets noticed before it stops working.
     - package-ecosystem: github-actions
