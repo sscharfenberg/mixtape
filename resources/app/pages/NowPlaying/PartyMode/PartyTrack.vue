@@ -187,7 +187,6 @@ const facts = computed(() => (props.track === null ? [] : trackFacts(props.track
    sliver. */
 .party-track__body {
     display: flex;
-    align-items: center;
     flex-wrap: wrap;
 
     min-width: 0;
