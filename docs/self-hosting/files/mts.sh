@@ -109,6 +109,12 @@ JUNK_GLOBS=(
 # try to play. Kept out of the visible tree, and excluded from transfer.
 PARTIAL_DIR=.mts-partial
 
+# How far apart two modification times may be and still count as the same, in
+# seconds: FAT stores them at two-second granularity. rsync's --modify-window and
+# the daylight-saving re-stamp (restamp_shifted) both read this one value,
+# because a tolerance written twice can disagree with itself.
+MODIFY_WINDOW=1
+
 # An interrupted transfer must FAIL rather than hang, or there is nothing for
 # the retry loop to retry. --timeout is rsync's own I/O timeout; a stalled
 # connection dies inside two minutes instead of waiting on the kernel.
@@ -297,6 +303,53 @@ parse_args() {
     esac
 }
 
+# --- What is carried, as a find ----------------------------------------------
+# Both transports list a source tree with `find` — the adb half the share it
+# pushes from, the disk half the server it compares timestamps against — and both
+# must see exactly the files rsync's filter rules carry, so the predicate is built
+# once, here.
+
+# Appends `( -name g1 -o -name g2 … )` to MEDIA_FIND. A function because both
+# halves of the predicate need one and a misplaced `-o` shows up as a silently
+# empty file list rather than as an error. An ARRAY rather than a string, because
+# two of the junk globs contain spaces and word splitting would turn
+# "System Volume Information" into three predicates that match nothing.
+append_find_alternation() {
+    local glob first
+    first=1
+    MEDIA_FIND+=('(')
+    for glob in "$@"; do
+        if [[ $first == 0 ]]; then
+            MEDIA_FIND+=(-o)
+        fi
+        MEDIA_FIND+=(-name "$glob")
+        first=0
+    done
+    MEDIA_FIND+=(')')
+}
+
+# The source-side find, built from the SAME two glob lists rsync is handed, so a
+# format the scanner learns is taught in one place. The globs are already written
+# as character classes to survive rsync's case-sensitive patterns, and
+# `find -name` takes them unchanged — which is the whole reason there is one list
+# rather than two spellings of it.
+#
+# The junk group is PRUNED rather than negated, so it covers a directory as well
+# as a file: `! -name '.Spotlight-V100'` with `-type f` still descends into one
+# and collects the JPEGs a desktop OS left in there.
+#
+# Only predicates BSD and GNU find both have, because the disk half runs this on
+# the server, which is Linux, while the adb half and the test suite run it here.
+build_media_find() {
+    MEDIA_FIND=(.)
+    append_find_alternation "${JUNK_GLOBS[@]}"
+    MEDIA_FIND+=(-prune -o -type f)
+    if [[ $ALL == 0 ]]; then
+        append_find_alternation "${MEDIA_GLOBS[@]}"
+    fi
+    MEDIA_FIND+=(-print0)
+}
+
 # ---------------------------------------------------------------------------
 # Transport: adb — an Android device over USB
 # ---------------------------------------------------------------------------
@@ -381,44 +434,6 @@ nfc() {
         print defined $s ? encode("UTF-8", NFC($s)) : $_'
 }
 
-# Appends `( -name g1 -o -name g2 … )` to ADB_FIND. A function because both
-# halves of the predicate need one and a misplaced `-o` shows up as a silently
-# empty file list rather than as an error. An ARRAY rather than a string, because
-# two of the junk globs contain spaces and word splitting would turn
-# "System Volume Information" into three predicates that match nothing.
-adb_append_alternation() {
-    local glob first
-    first=1
-    ADB_FIND+=('(')
-    for glob in "$@"; do
-        if [[ $first == 0 ]]; then
-            ADB_FIND+=(-o)
-        fi
-        ADB_FIND+=(-name "$glob")
-        first=0
-    done
-    ADB_FIND+=(')')
-}
-
-# The source-side find, built from the SAME two glob lists rsync is handed, so a
-# format the scanner learns is taught in one place. The globs are already written
-# as character classes to survive rsync's case-sensitive patterns, and
-# `find -name` takes them unchanged — which is the whole reason there is one list
-# rather than two spellings of it.
-#
-# The junk group is PRUNED rather than negated, so it covers a directory as well
-# as a file: `! -name '.Spotlight-V100'` with `-type f` still descends into one
-# and collects the JPEGs a desktop OS left in there.
-adb_build_find() {
-    ADB_FIND=(.)
-    adb_append_alternation "${JUNK_GLOBS[@]}"
-    ADB_FIND+=(-prune -o -type f)
-    if [[ $ALL == 0 ]]; then
-        adb_append_alternation "${MEDIA_GLOBS[@]}"
-    fi
-    ADB_FIND+=(-print0)
-}
-
 # The device path an area-relative directory lands in. A file sitting directly in
 # the area root has no directory part and is spelled "." by the manifest, so one
 # code path covers both that and a nested album.
@@ -465,7 +480,7 @@ adb_manifest_source() {
     # alone ends at the pipe, so `stat` is handed relative paths and run in the
     # directory this script was started in — where it reports every one of them
     # as missing and the manifest comes back empty.
-    ( cd "$ADB_SRC" && find "${ADB_FIND[@]}" | xargs -0 stat -f '%z %N' ) \
+    ( cd "$ADB_SRC" && find "${MEDIA_FIND[@]}" | xargs -0 stat -f '%z %N' ) \
         | nfc \
         | LC_ALL=C awk "$ADB_MANIFEST_AWK" \
         | LC_ALL=C sort > "$ADB_TMP/src.tsv"
@@ -815,7 +830,7 @@ run_adb() {
 
     # The spelling check needs the source manifest, and comes before the device
     # manifest so a refusal costs one listing rather than two.
-    adb_build_find
+    build_media_find
     adb_manifest_source
     adb_check_spelling
     adb_manifest_device
@@ -928,9 +943,193 @@ run_adb() {
 # Transport: disk — rsync over ssh, straight from the server
 # ---------------------------------------------------------------------------
 #
+# DAYLIGHT SAVING ON A DISK THAT KEEPS LOCAL TIME. FAT stores a modification time
+# as a wall-clock reading with no zone, and macOS converts it with the UTC offset
+# in force NOW rather than the one in force when the file was written. So once
+# the clocks change, every file written in the other season reads exactly an hour
+# off — same bytes, same size — and rsync, which compares times to within
+# MODIFY_WINDOW, re-sends the whole area to change nothing but timestamps.
+# Measured on this collection after the change to winter time: every file on the
+# stick 3,600 s late, and a plan of 11,104 files to copy for an 87 GB area that
+# had not changed. It flips back in spring, so whichever season a disk was filled
+# in, the other one re-sends it.
+#
+# rsync cannot be told about it. --modify-window=3601 absorbs the shift, and with
+# it any same-size re-tag made within an hour or two of the copy already on the
+# disk — and a tag edit very often keeps the size, because ID3v2 pads. So the disk
+# is corrected instead: a file whose size matches the server's and whose time is
+# off by EXACTLY the zone's shift, to within the window, gets the server's time
+# written onto it. A real edit is off by whatever it is off by; landing on the
+# shift to the second is not something a library does by accident. Re-stamping is
+# one metadata write per file — seconds for the whole area, against hours.
+#
+# Measured per file rather than probed per volume, because one disk holds both
+# kinds: files written in each season, of which only the other season's are off.
+# On a filesystem that stores UTC (APFS, exFAT) nothing matches, and the cost is
+# one listing.
+
+# The size of this zone's daylight-saving shift in seconds — the difference
+# between its UTC offsets in mid-January and mid-July, so a southern-hemisphere
+# zone answers the same — or 0 where the clocks never change, which lets a run
+# skip the server listing altogether. Not assumed to be an hour: Lord Howe Island
+# moves by thirty minutes.
+dst_shift() {
+    perl -MTime::Local=timegm -e '
+        my $year = (localtime)[5] + 1900;
+        my @offset = map {
+            my $t = timegm(0, 0, 12, 15, $_, $year);
+            timegm((localtime $t)[0 .. 5]) - $t
+        } 0, 6;
+        print abs($offset[1] - $offset[0]);'
+}
+
+# One record per carried file on the server — "mtime<TAB>size<TAB>path", NUL-
+# terminated, the path relative to the area — for restamp_shifted to compare.
+#
+# Filtered by MEDIA_FIND, so it names exactly what rsync's rules carry: a file the
+# filter excludes is not this script's business even when the disk holds one by
+# the same name. Stat'd by Perl rather than `find -printf` or `stat -c`, because
+# the same command runs on the server's GNU tools and, in the test suite, on this
+# Mac's BSD ones; Perl is in Debian's essential set, so the server has it. Every
+# word is quoted for the remote shell, which re-splits the command line — two junk
+# globs hold spaces and one a `$`.
+server_listing() {
+    local cmd word
+    build_media_find
+    cmd="cd $(shq "$SRC") && find"
+    for word in "${MEDIA_FIND[@]}"; do
+        cmd+=" $(shq "$word")"
+    done
+    cmd+=" | perl -0ne $(shq 'chomp; my @s = lstat or next; s{^\./}{}; print "$s[9]\t$s[7]\t$_\0"')"
+    # Unquoted on purpose: REMOTE_SHELL is a command followed by its options.
+    # shellcheck disable=SC2086
+    $REMOTE_SHELL -o ConnectTimeout="$CONNECT_TIMEOUT" "$HOST" "$cmd"
+}
+
+# Reads server_listing on stdin and writes the server's time onto every file under
+# the directory $1 (with its trailing slash) that has the server's size and a time
+# off by exactly $2 seconds, either way, to within MODIFY_WINDOW — see *Daylight
+# saving* above. With $3 = 1, a dry run, it only counts them. Prints
+# "matched refused": how many files were off by the shift, and how many of those
+# the volume would not re-stamp — rsync copies those, exactly as it would have.
+#
+# A file the disk lacks, or holds at another size, is left alone: it is the plan's
+# to send, and agreeing its time would hide it from the plan. The path arrives
+# precomposed, the server's spelling, and still finds a file FAT stores
+# decomposed, because a lookup — unlike a listing — ignores the difference.
+restamp_shifted() {
+    perl -e '
+        my ($root, $shift, $window, $dry) = @ARGV;
+        local $/ = "\0";
+        my ($matched, $refused) = (0, 0);
+        while (my $record = <STDIN>) {
+            chomp $record;
+            my ($mtime, $size, $path) = split /\t/, $record, 3;
+            next unless defined $path && length $path;
+            my @st = lstat "$root$path" or next;
+            next unless -f _ && $st[7] == $size;
+            next unless abs(abs($st[9] - $mtime) - $shift) <= $window;
+            $matched++;
+            next if $dry;
+            next if utime $st[8], $mtime, "$root$path";
+            $refused++;
+            warn "could not re-stamp $path: $!\n";
+        }
+        print "$matched $refused\n";' "$1" "$2" "$MODIFY_WINDOW" "$3"
+}
+
+# --- AppleDouble sidecars --------------------------------------------------
+# macOS stamps a file it creates with an extended attribute (today
+# `com.apple.provenance`, with an empty value), and FAT cannot store extended
+# attributes — so the volume driver spills each one into a 4 KB `._<name>`
+# AppleDouble file beside the real one. The library's own files carry no xattrs
+# at all; these are made HERE, on the way in, which is why the `._*` exclude
+# above cannot prevent them. Left alone, a ten-thousand-file library arrives
+# with ten thousand phantom 4 KB files, and a head unit lists them as tracks.
+# Writing a file's time is enough to earn one, so restamp_shifted leaves a
+# sidecar beside every file it corrects, exactly as a copy would.
+#
+# Deleted rather than merged. `dot_clean` is the sanctioned tool for this and it
+# does not finish the job on FAT — measured on two files: it merged one sidecar,
+# left the other and the directory's own behind, and restored the attribute it
+# had just merged, which spills straight back.
+#
+# DELETING THE SIDECAR IS THE WHOLE JOB — there is no attribute left to clear
+# afterwards, because on FAT the sidecar IS where the attribute is stored.
+# Measured: delete the sidecars and `xattr -l` on the file it belonged to comes
+# back empty. An `xattr -rc` pass over the tree therefore removes nothing that
+# the delete has not already removed, and on a real library it is not merely
+# redundant but ruinous — over twelve thousand entries it runs for minutes, a
+# syscall at a time, while the run appears to have hung.
+#
+# Scoped to sidecars that EXIST, so a destination on a filesystem which stores
+# extended attributes natively (an external APFS disk) is left alone: no
+# sidecars means the volume is not spilling, so there is nothing here to fix.
+#
+# They come back on EVERY run, not only the first. rsync re-stamps directory
+# times whenever it walks the tree, so a pass that transfers nothing still leaves
+# a sidecar beside each of ~1,300 directories — which is why this is the last
+# thing a run does rather than something the first run gets out of the way.
+#
+# A FUNCTION, AND ALSO A TRAP, because the sweep is the last thing a run does
+# and an abandoned run is the likeliest kind: interrupting a two-hour copy would
+# otherwise leave thousands of phantom files on a disk somebody is about to
+# unplug and drive away with. The partial directory is deliberately NOT touched
+# here — on an interrupt it holds the file that was in flight, which is the whole
+# point of keeping it.
+#
+# IT CHECKS RATHER THAN TRUSTS. The count is re-read after each pass, and the
+# pass repeated, because "I deleted 12,319 files" and "there are now none" are
+# different claims and only the second one is what the disk goes into the car
+# with. SWEPT carries the honest number to the summary.
+SWEPT=0
+sweep_sidecars() {
+    local before after pass
+    # A dry run must leave the disk exactly as it found it. The EXIT trap fires
+    # on `-n` too, and sweeping there would make a command whose whole purpose is
+    # to change nothing quietly delete files.
+    if [[ ${DRY:-0} == 1 ]]; then
+        return 0
+    fi
+
+    before="$(sidecar_count)"
+    [[ ${before:-0} -gt 0 ]] || return 0
+
+    for pass in 1 2 3; do
+        find "$TARGET" -name '._*' -type f -delete 2>/dev/null || true
+        after="$(sidecar_count)"
+        [[ ${after:-0} -gt 0 ]] || break
+    done
+
+    SWEPT=$((before - after))
+    if [[ ${after:-0} -gt 0 ]]; then
+        warn "$(commify "$after") AppleDouble sidecar(s) survived three sweeps — the volume is still spilling them."
+    fi
+}
+
+# Counted in one place, because the sweep compares two readings of it and a
+# predicate written twice can disagree with itself. A directory's sidecar is a
+# regular file too, which is why -type f does not miss it.
+#
+# THE `|| true` INSIDE THE GROUP IS LOAD-BEARING. A volume macOS has indexed or
+# trashed on holds `.Spotlight-V100` and `.Trashes`, which refuse to be read
+# ("Operation not permitted"), so find walks everything else and then exits 1.
+# Under pipefail that is the pipeline's status, and under `set -e` the assignment
+# reading this count ends the run on the spot — silently, the message having gone
+# to /dev/null, and before one sidecar is deleted: from the EXIT trap, and from
+# the call before the summary, taking the summary with it. Measured on a stick
+# macOS had indexed: 12,539 sidecars left by runs that each reported nothing. A
+# sidecar in a folder that cannot be read cannot be deleted from here either, so
+# counting what can be reached is the right answer and not a workaround.
+sidecar_count() {
+    { find "$TARGET" -name '._*' -type f 2>/dev/null || true; } | wc -l | tr -d ' '
+}
+
 # The whole disk run: guards, plan, sidecar sweep, transfer with retries,
-# summary. Its helpers are defined inside it, where they are used; like the adb
-# half it is a function so that sourcing this file defines it without running it.
+# summary. Most of its helpers are defined inside it, where they are used; the
+# re-stamp and the sweep sit above it so the test suite can call them. Like the
+# adb half it is a function so that sourcing this file defines it without
+# running it.
 run_disk() {
     # Only this transport needs a server to talk to.
     #
@@ -1035,11 +1234,13 @@ run_disk() {
     #
     # --modify-window=1 is the one flag whose absence is silent and expensive: FAT
     # stores modification times at two-second granularity, so without it every file
-    # looks changed on every run and the whole area is re-sent each time.
+    # looks changed on every run and the whole area is re-sent each time. It is NOT
+    # what absorbs the hour a change of clocks puts on a FAT disk; restamp_shifted
+    # does that, before the plan.
 
     RSYNC_ARGS=(
         -rt
-        --modify-window=1
+        --modify-window="$MODIFY_WINDOW"
         --partial
         --partial-dir="$PARTIAL_DIR"
         --timeout="$IO_TIMEOUT"
@@ -1109,82 +1310,8 @@ run_disk() {
     fi
 
     # --- AppleDouble sidecars --------------------------------------------------
-    # macOS stamps a file it creates with an extended attribute (today
-    # `com.apple.provenance`, with an empty value), and FAT cannot store extended
-    # attributes — so the volume driver spills each one into a 4 KB `._<name>`
-    # AppleDouble file beside the real one. The library's own files carry no xattrs
-    # at all; these are made HERE, on the way in, which is why the `._*` exclude
-    # above cannot prevent them. Left alone, a ten-thousand-file library arrives
-    # with ten thousand phantom 4 KB files, and a head unit lists them as tracks.
-    #
-    # Deleted rather than merged. `dot_clean` is the sanctioned tool for this and it
-    # does not finish the job on FAT — measured on two files: it merged one sidecar,
-    # left the other and the directory's own behind, and restored the attribute it
-    # had just merged, which spills straight back.
-    #
-    # DELETING THE SIDECAR IS THE WHOLE JOB — there is no attribute left to clear
-    # afterwards, because on FAT the sidecar IS where the attribute is stored.
-    # Measured: delete the sidecars and `xattr -l` on the file it belonged to comes
-    # back empty. An `xattr -rc` pass over the tree therefore removes nothing that
-    # the delete has not already removed, and on a real library it is not merely
-    # redundant but ruinous — over twelve thousand entries it runs for minutes, a
-    # syscall at a time, while the run appears to have hung.
-    #
-    # Scoped to sidecars that EXIST, so a destination on a filesystem which stores
-    # extended attributes natively (an external APFS disk) is left alone: no
-    # sidecars means the volume is not spilling, so there is nothing here to fix.
-    #
-    # They come back on EVERY run, not only the first. rsync re-stamps directory
-    # times whenever it walks the tree, so a pass that transfers nothing still leaves
-    # a sidecar beside each of ~1,300 directories — which is why this is the last
-    # thing a run does rather than something the first run gets out of the way.
-    #
-    # A FUNCTION, AND ALSO A TRAP, because the sweep is the last thing a run does
-    # and an abandoned run is the likeliest kind: interrupting a two-hour copy would
-    # otherwise leave thousands of phantom files on a disk somebody is about to
-    # unplug and drive away with. The partial directory is deliberately NOT touched
-    # here — on an interrupt it holds the file that was in flight, which is the whole
-    # point of keeping it.
-    #
-    # THE ORDER IS CAUSE THEN ARTEFACT, AND THEN IT CHECKS. Clearing the extended
-    # attributes first removes the thing the volume is spilling, so deleting the
-    # sidecars afterwards cannot race a driver that is still writing them; doing it
-    # the other way round is what a two-file test cannot tell you apart from doing it
-    # right. The count is then re-read rather than trusted, and the pass repeated,
-    # because "I deleted 12,319 files" and "there are now none" are different claims
-    # and only the second one is what the disk goes into the car with. SWEPT carries
-    # the honest number to the summary.
-    SWEPT=0
-    sweep_sidecars() {
-        local before after pass
-        # A dry run must leave the disk exactly as it found it. The EXIT trap fires
-        # on `-n` too, and sweeping there would make a command whose whole purpose is
-        # to change nothing quietly delete files.
-        if [[ ${DRY:-0} == 1 ]]; then
-            return 0
-        fi
-
-        before="$(sidecar_count)"
-        [[ ${before:-0} -gt 0 ]] || return 0
-
-        for pass in 1 2 3; do
-            find "$TARGET" -name '._*' -type f -delete 2>/dev/null || true
-            after="$(sidecar_count)"
-            [[ ${after:-0} -gt 0 ]] || break
-        done
-
-        SWEPT=$((before - after))
-        if [[ ${after:-0} -gt 0 ]]; then
-            warn "$(commify "$after") AppleDouble sidecar(s) survived three sweeps — the volume is still spilling them."
-        fi
-    }
-
-    # Counted in one place, because the sweep compares two readings of it and a
-    # predicate written twice can disagree with itself. A directory's sidecar is a
-    # regular file too, which is why -type f does not miss it.
-    sidecar_count() {
-        find "$TARGET" -name '._*' -type f 2>/dev/null | wc -l | tr -d ' '
-    }
+    # sweep_sidecars, above run_disk, removes what the volume spills. It runs from
+    # the EXIT trap armed below, and once more before the summary.
 
     # --- The plan --------------------------------------------------------------
     # A dry run first, for three things at once: the file count that makes a
@@ -1210,6 +1337,37 @@ run_disk() {
     trap 'printf "\n"; exit 130' INT TERM HUP
 
     note "Planning: $SOURCE -> $TARGET"
+
+    # --- Daylight saving -------------------------------------------------------
+    # Before the plan, so the plan counts only what actually differs (see
+    # *Daylight saving on a disk that keeps local time* above run_disk). A dry run
+    # must leave the disk as it found it, so there the files are only counted and
+    # the plan still lists them — said in so many words, or a dry run in November
+    # reads as an 87 GB job.
+    RESTAMPED=0
+    shift_seconds="$(dst_shift)"
+    if [[ $shift_seconds -gt 0 ]]; then
+        if ! restamp="$(server_listing | restamp_shifted "$TARGET" "$shift_seconds" "$DRY")"; then
+            fail "could not list the server's files — is '$HOST' reachable?"
+        fi
+        read -r shifted refused <<< "$restamp"
+
+        span="an hour"
+        if [[ $shift_seconds != 3600 ]]; then
+            span="$((shift_seconds / 60)) minutes"
+        fi
+
+        if [[ $shifted -gt 0 && $DRY == 1 ]]; then
+            note "$(commify "$shifted") file(s) read exactly $span off the server's time — a daylight-saving shift, not a change."
+            note "A real run re-stamps them instead of copying them; the plan below still counts them."
+        elif [[ $shifted -gt 0 ]]; then
+            RESTAMPED=$((shifted - refused))
+            note "Re-stamped $(commify "$RESTAMPED") file(s) that read exactly $span off the server's time — a daylight-saving shift, not a change"
+            if [[ $refused -gt 0 ]]; then
+                warn "$(commify "$refused") file(s) could not be re-stamped and will be copied instead"
+            fi
+        fi
+    fi
 
     if ! rsync -n "${RSYNC_ARGS[@]}" "$SOURCE" "$TARGET" > "$PLAN" 2>&1; then
         cat "$PLAN" >&2
@@ -1440,13 +1598,16 @@ run_disk() {
         printf '  %s\n' "$RULE"
         printf '  %-18s %12s\n' "new files"      "$(commify "$S_NEW")"
         printf '  %-18s %12s\n' "updated"        "$(commify "$S_UPD")"
+        printf '  %-18s %12s\n' "re-stamped"     "$(commify "$RESTAMPED")"
         printf '  %-18s %12s\n' "deleted"        "$(commify "$S_DEL")"
         printf '  %-18s %12s\n' "sidecars swept" "$(commify "$SWEPT")"
         printf '  %-18s %12s%s\n' "transferred"  "$(human_bytes "${S_BYTES:-0}")" "$rate"
         printf '  %-18s %12s\n' "elapsed"        "$(printf '%dm %02ds' $((elapsed / 60)) $((elapsed % 60)))"
         printf '  %s\n' "$RULE"
 
-        label="$(du -sh "$TARGET" 2>/dev/null | cut -f1 | tr -d ' ')"
+        # `|| true` for the reason sidecar_count gives: du exits 1 over a folder it
+        # cannot read, still printing the total of everything it could.
+        label="$({ du -sh "$TARGET" 2>/dev/null || true; } | cut -f1 | tr -d ' ')"
         if [[ -n $label ]]; then
             printf '  %-18s %12s\n' "on disk now" "$label"
         fi

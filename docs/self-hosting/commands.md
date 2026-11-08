@@ -308,6 +308,22 @@ see the flag table below.
 times to a two-second granularity. Without the window every file looks changed on every run, so a
 "top up" re-sends the whole library, and nothing anywhere reports a problem.
 
+**A change of clocks is what the window cannot absorb, so the disk is re-stamped instead.** FAT stores
+a modification time as a wall-clock reading with no zone, and macOS converts it with the UTC offset in
+force *now*, not the one in force when the file was written. Once the clocks change, every file
+written in the other season reads exactly an hour off with its size unchanged, and rsync re-sends the
+area to change nothing but timestamps. Measured on this collection: every file on the stick 3,600 s
+late, and a plan of 11,104 files to copy for an 87 GB area that had not changed. It flips back in
+spring, so a disk filled in one season is re-sent in the other. `--modify-window=3601` would hide the
+shift, and with it any same-size re-tag made within an hour or two of the copy already on the disk —
+and a tag edit very often keeps the size, because ID3v2 pads. So before the plan, `mts` lists the
+server's files (one ssh call, through the same filter rsync is given) and writes the server's time onto
+every file whose size matches and whose time is off by *exactly* the zone's shift, to within the
+window. A real edit is off by whatever it is off by. Correcting 11,061 files took about a minute, where
+the copy would have taken hours. The shift is read off the time zone rather than assumed to be an hour,
+so a zone without daylight saving skips the listing altogether; a dry run only counts the files, and
+says that the plan it prints still includes them.
+
 **Resumability is retries, not a resume protocol.** rsync is already incremental, so the honest
 answer to a dropped connection is to run it again — `--partial-dir` keeps the file that was in flight,
 and the loop re-runs up to `--attempts` times with a backoff. What makes that work is `--timeout`: an
@@ -365,6 +381,16 @@ it made on a disk somebody is about to unplug. The same trap covers Ctrl-C and a
 it is armed only once the destination is validated. A dry run is exempt: `-n` must leave the disk
 exactly as it found it. The partial directory is never swept, because on an interrupt it holds the
 file that was in flight — the whole reason for keeping it.
+
+**A folder the sweep cannot read must not stop it.** A stick that macOS has indexed or trashed on holds
+`.Spotlight-V100` and `.Trashes`, which refuse to be read (`Operation not permitted`), so `find` — and
+`du`, for the summary — walk everything else and then exit 1. Under `pipefail` and `set -e`, a count
+read from such a pipeline ends the run on the spot: silently, because the message went to `/dev/null`,
+before a single sidecar is deleted, and before the summary is printed. Measured: 12,539 sidecars on a
+stick whose every run had reported nothing wrong. Both pipelines are written `{ … || true; } | …`; a
+sidecar inside a folder nobody may read cannot be deleted from here anyway. The re-stamp above makes
+the sweep matter as much after a change of clocks as after a copy, because writing a file's time is
+enough to earn it a sidecar.
 
 **Progress is counted, not measured.** The dry run that produces the plan also produces the file
 count, so the real run is filtered through `awk` into one updating `[n/total pct%]` line — openrsync

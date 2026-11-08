@@ -58,7 +58,7 @@ setup() {
 
 # The source-side find over a fixture tree, one path per line, sorted.
 carried() {
-    (cd "$1" && find "${ADB_FIND[@]}") | tr '\0' '\n' | LC_ALL=C sort
+    (cd "$1" && find "${MEDIA_FIND[@]}") | tr '\0' '\n' | LC_ALL=C sort
 }
 
 @test "the media filter takes any case of an extension and nothing else" {
@@ -66,7 +66,7 @@ carried() {
     mkdir -p "$src"
     touch "$src/01.mp3" "$src/02.MP3" "$src/Folder.JPG" "$src/cover.png" "$src/booklet.pdf"
     ALL=0
-    adb_build_find
+    build_media_find
     run carried "$BATS_TEST_TMPDIR/src"
     [ "$output" = "$(printf '%s\n' ./A/B/01.mp3 ./A/B/02.MP3 ./A/B/Folder.JPG ./A/B/cover.png)" ]
 }
@@ -76,7 +76,7 @@ carried() {
     mkdir -p "$src/A" "$src/.Spotlight-V100/Store"
     touch "$src/A/01.mp3" "$src/A/._01.mp3" "$src/A/.DS_Store" "$src/.Spotlight-V100/Store/x.jpg" "$src/A/notes.txt"
     ALL=1
-    adb_build_find
+    build_media_find
     run carried "$src"
     [ "$output" = "$(printf '%s\n' ./A/01.mp3 ./A/notes.txt)" ]
 }
@@ -96,7 +96,7 @@ carried() {
     ADB_SRC="$BATS_TEST_TMPDIR/music"
     make_nfd_file "$ADB_SRC/Blue Öyster Cult/[1976] Agents/03 - Fear.mp3" 7
     ALL=0
-    adb_build_find
+    build_media_find
     # From somewhere else: the subshell has to span `stat` as well as `find`, or
     # stat resolves the relative paths here and the manifest comes back empty.
     cd /
@@ -119,6 +119,149 @@ carried() {
     printf 'A\ta.mp3\t10\nA\tb.mp3\t19\n' > "$ADB_TMP/dev.tsv"
     adb_todo
     [ "$(cut -f2 "$ADB_TMP/todo")" = "$(printf '%s\n' b.mp3 c.mp3)" ]
+}
+
+# --- Daylight saving: the disk half's re-stamp ---------------------------------
+
+# A file's modification time, in seconds since the epoch.
+mtime_of() {
+    stat -f %m "$1"
+}
+
+# Create FILE of SIZE bytes with modification time MTIME (epoch seconds) — set
+# through utime rather than `touch -t`, which reads its argument in local time.
+file_at() {
+    mkdir -p "$(dirname "$1")"
+    head -c "$2" /dev/zero > "$1"
+    perl -e 'utime $ARGV[0], $ARGV[0], $ARGV[1] or die "$!\n"' "$3" "$1"
+}
+
+# One server_listing record per argument triple: mtime, size, path.
+listing() {
+    while [ $# -gt 0 ]; do
+        printf '%s\t%s\t%s\0' "$1" "$2" "$3"
+        shift 3
+    done
+}
+
+@test "dst_shift is the zone's own shift, and 0 where the clocks never change" {
+    [ "$(TZ=Europe/Berlin dst_shift)" = 3600 ]
+    # Southern hemisphere: summer in January, so the offsets subtract the other way.
+    [ "$(TZ=Australia/Sydney dst_shift)" = 3600 ]
+    [ "$(TZ=Australia/Lord_Howe dst_shift)" = 1800 ]
+    [ "$(TZ=UTC dst_shift)" = 0 ]
+}
+
+@test "a file exactly the shift off the server, at its size, gets the server's time" {
+    disk="$BATS_TEST_TMPDIR/disk"
+    t=1591954508
+    # Late (written in summer, read in winter), early (the reverse), and a second
+    # further out, which is FAT's two-second rounding of an odd server time.
+    file_at "$disk/A/late.mp3" 10 $((t + 3600))
+    file_at "$disk/A/early.mp3" 10 $((t - 3600))
+    file_at "$disk/A/rounded.mp3" 10 $((t + 3601))
+    run restamp_shifted "$disk/" 3600 0 < <(listing $t 10 A/late.mp3 $t 10 A/early.mp3 $t 10 A/rounded.mp3)
+    [ "$output" = "3 0" ]
+    [ "$(mtime_of "$disk/A/late.mp3")" = $t ]
+    [ "$(mtime_of "$disk/A/early.mp3")" = $t ]
+    [ "$(mtime_of "$disk/A/rounded.mp3")" = $t ]
+}
+
+@test "a real change is left for the plan to send" {
+    # Same size but off by some other amount: a re-tag, which ID3v2 padding very
+    # often makes without changing the size. Off by exactly the shift but at
+    # another size: changed content. And a file the disk does not hold at all.
+    disk="$BATS_TEST_TMPDIR/disk"
+    t=1591954508
+    file_at "$disk/A/retagged.mp3" 10 $((t + 1800))
+    file_at "$disk/A/beyond.mp3" 10 $((t + 3605))
+    file_at "$disk/A/resized.mp3" 11 $((t + 3600))
+    run restamp_shifted "$disk/" 3600 0 < <(listing $t 10 A/retagged.mp3 $t 10 A/beyond.mp3 $t 10 A/resized.mp3 $t 10 A/missing.mp3)
+    [ "$output" = "0 0" ]
+    [ "$(mtime_of "$disk/A/retagged.mp3")" = $((t + 1800)) ]
+    [ "$(mtime_of "$disk/A/beyond.mp3")" = $((t + 3605)) ]
+    [ "$(mtime_of "$disk/A/resized.mp3")" = $((t + 3600)) ]
+}
+
+@test "a dry run counts the shifted files and re-stamps none of them" {
+    disk="$BATS_TEST_TMPDIR/disk"
+    t=1591954508
+    file_at "$disk/A/late.mp3" 10 $((t + 3600))
+    run restamp_shifted "$disk/" 3600 1 < <(listing $t 10 A/late.mp3)
+    [ "$output" = "1 0" ]
+    [ "$(mtime_of "$disk/A/late.mp3")" = $((t + 3600)) ]
+}
+
+@test "the server's precomposed name re-stamps a file the disk stores decomposed" {
+    # FAT, like APFS here, finds a file by either spelling — so the server's own
+    # bytes are enough, and nothing needs translating on the way in.
+    disk="$BATS_TEST_TMPDIR/disk"
+    t=1591954508
+    make_nfd_file "$disk/Blue Öyster Cult/03 - Fear.mp3" 7
+    perl -e 'utime $ARGV[0], $ARGV[0], $ARGV[1] or die' $((t + 3600)) "$(nfd "$disk/Blue Öyster Cult/03 - Fear.mp3")"
+    run restamp_shifted "$disk/" 3600 0 < <(listing $t 7 'Blue Öyster Cult/03 - Fear.mp3')
+    [ "$output" = "1 0" ]
+    [ "$(mtime_of "$disk/Blue Öyster Cult/03 - Fear.mp3")" = $t ]
+}
+
+@test "the server listing names what rsync carries, through a remote shell's quoting" {
+    # The fake ssh does what the real one does with its last argument: hands it to
+    # a shell to split. Names with spaces, a quote and a `$` must survive that, and
+    # the junk folder and the spreadsheet must not appear.
+    server="$BATS_TEST_TMPDIR/server/music"
+    file_at "$server/Guns N' Roses/[1987] \$Appetite/01 - Jungle.mp3" 12 1500000000
+    file_at "$server/Guns N' Roses/[1987] \$Appetite/Folder.JPG" 3 1500000002
+    file_at "$server/Guns N' Roses/[1987] \$Appetite/tracklist.xlsx" 5 1500000004
+    file_at "$server/.Spotlight-V100/Store/cover.jpg" 4 1500000006
+    ssh() { local last; for last; do :; done; bash -c "$last"; }
+    listed() { server_listing | tr '\0\t' '\n|' | LC_ALL=C sort; }
+    SRC="$server"
+    HOST=fake
+    ALL=0
+    # From elsewhere, so a relative path cannot pass by accident.
+    cd /
+    run listed
+    [ "$status" -eq 0 ]
+    [ "$output" = "$(printf '%s\n' "1500000000|12|Guns N' Roses/[1987] \$Appetite/01 - Jungle.mp3" "1500000002|3|Guns N' Roses/[1987] \$Appetite/Folder.JPG")" ]
+}
+
+# --- AppleDouble sidecars ------------------------------------------------------
+
+# A disk holding a track, its sidecar and a folder's sidecar, plus a folder find
+# cannot read — what `.Spotlight-V100` and `.Trashes` are on a stick macOS has
+# indexed.
+sidecar_disk() {
+    mkdir -p "$1/A" "$1/.Spotlight-V100"
+    touch "$1/A/01.mp3" "$1/A/._01.mp3" "$1/._A"
+    chmod 000 "$1/.Spotlight-V100"
+}
+
+# sweep_sidecars under main's own shell options, in a bash of its own (see run_mts).
+run_sweep() {
+    run bash -c 'source "$MTS_SCRIPT"; set -Eeuo pipefail; TARGET="$1/"; DRY="$2"; sweep_sidecars; echo "swept $SWEPT"' _ "$1" "$2"
+    chmod 755 "$1/.Spotlight-V100"
+}
+
+@test "the sweep finishes on a disk with a folder it cannot read" {
+    # find exits 1 there after doing its job, and under pipefail and `set -e` the
+    # count that reads it would end the run before one sidecar was deleted —
+    # silently, with the message sent to /dev/null.
+    disk="$BATS_TEST_TMPDIR/disk"
+    sidecar_disk "$disk"
+    run_sweep "$disk" 0
+    [ "$status" -eq 0 ]
+    output_has "swept 2"
+    [ "$(find "$disk" -name '._*' | wc -l | tr -d ' ')" -eq 0 ]
+    [ -f "$disk/A/01.mp3" ]
+}
+
+@test "a dry run's sweep deletes nothing" {
+    disk="$BATS_TEST_TMPDIR/disk"
+    sidecar_disk "$disk"
+    run_sweep "$disk" 1
+    [ "$status" -eq 0 ]
+    output_has "swept 0"
+    [ "$(find "$disk" -name '._*' | wc -l | tr -d ' ')" -eq 2 ]
 }
 
 # --- Arguments -----------------------------------------------------------------
