@@ -53,7 +53,12 @@ vec3 starLayer(vec2 p, float scale, float density, float size, float halo, float
     vec2 centre = 0.2 + 0.6 * hash22(cell + seed);
     float d = length(fract(grid) - centre);
     float twinkle = 0.75 + 0.25 * sin(uTime * (0.8 + 2.5 * hash12(cell + 3.7)) + pick * 50.0);
-    float light = exp(-d * d / (size * size)) + halo * exp(-d * 7.0);
+    // A star is drawn only inside its own cell, so the halo must reach nothing at the cell's edge:
+    // cut off there instead, it ends in four straight lines — a faint square round every large
+    // star, plain on a screen that lifts near-black (a TV) though lost on a laptop's.
+    vec2 inCell = fract(grid);
+    float edge = min(min(inCell.x, 1.0 - inCell.x), min(inCell.y, 1.0 - inCell.y));
+    float light = exp(-d * d / (size * size)) + halo * exp(-d * 7.0) * smoothstep(0.0, 0.2, edge);
     vec3 tint = mix(uGlow, uHigh, hash12(cell + 1.3));
     return tint * light * twinkle * (0.65 + 0.6 * uTreble);
 }
