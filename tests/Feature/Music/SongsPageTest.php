@@ -64,6 +64,11 @@ class SongsPageTest extends TestCase
         // One song per searchable column, each findable only through that column —
         // title, artist, album, genre. The album case is the one that surprises:
         // "Moto" is a substring of Badmotorfinger, so it returns the whole album.
+        //
+        // Every term must also miss whatever the factories invent for the OTHER columns of
+        // these four rows, or the search finds two songs. That is why the genre is found by
+        // "Grung" and not "Grun": Faker's de_DE first names include Sigrun, and an incidental
+        // artist of that name matches "Grun" too.
         $songs = [
             'title' => Track::factory()->create(['name' => 'Rusty Cage']),
             'artist' => Track::factory()->create([
@@ -79,7 +84,7 @@ class SongsPageTest extends TestCase
 
         $user = User::factory()->create();
 
-        foreach (['Rusty' => 'title', 'Soundgar' => 'artist', 'Moto' => 'album', 'Grun' => 'genre'] as $term => $key) {
+        foreach (['Rusty' => 'title', 'Soundgar' => 'artist', 'Moto' => 'album', 'Grung' => 'genre'] as $term => $key) {
             $this->actingAs($user)
                 ->get('/music/songs?search='.$term)
                 ->assertOk()
