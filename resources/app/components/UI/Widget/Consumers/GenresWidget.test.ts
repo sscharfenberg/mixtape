@@ -57,7 +57,7 @@ describe("GenresWidget", () => {
     it("labels the pips with an artist, an album and a song icon", () => {
         const symbols = widget(genre())
             .findAll(".widget-list__pip use")
-            .map(node => node.attributes("href"));
+            .map(node => node.attributes("xlink:href"));
 
         expect(symbols).toStrictEqual(["#artist", "#album", "#song"]);
     });

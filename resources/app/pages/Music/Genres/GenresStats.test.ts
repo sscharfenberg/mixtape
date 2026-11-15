@@ -68,7 +68,7 @@ describe("GenresStats", () => {
     it("gives every tile a glyph of its own", () => {
         const keys: GenreFilterStat["key"][] = ["never-played", "one-artist", "added-this-week", "one-song"];
         const wrapper = strip({ filters: keys.map(key => stat({ key })) });
-        const icons = wrapper.findAll(".widget-stats__head .icon use").map(node => node.attributes("href"));
+        const icons = wrapper.findAll(".widget-stats__head .icon use").map(node => node.attributes("xlink:href"));
 
         // Five tiles, five glyphs: the total plus one per filter. Two tiles wearing one glyph read
         // as a duplicate rather than as two questions.

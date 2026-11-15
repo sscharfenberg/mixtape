@@ -76,7 +76,7 @@ describe("ArtistsWidget", () => {
     it("labels the pips with an album, a song and a duration icon", () => {
         const symbols = widget(artist())
             .findAll(".widget-list__pip use")
-            .map(node => node.attributes("href"));
+            .map(node => node.attributes("xlink:href"));
 
         expect(symbols).toStrictEqual(["#album", "#song", "#duration"]);
     });

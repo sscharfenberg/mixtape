@@ -12,11 +12,13 @@ describe("Icon", () => {
     it("references the named sprite symbol", () => {
         const wrapper = mountApp(Icon, { props: { name: "close" } });
 
-        // The template writes `xlink:href`, which serializes as such — but the DOM
-        // exposes the namespaced attribute under its LOCAL name, so attributes() keys
-        // it as "href". Assert both, so neither the markup nor the lookup can drift.
+        // The template writes the namespaced `xlink:href`; it serializes under that name
+        // and attributes() keys it by the same qualified name, never the bare "href".
+        // Assert the markup, the lookup, and the absence of the bare name, so neither
+        // can drift without this failing.
         expect(wrapper.html()).toContain('xlink:href="#close"');
-        expect(wrapper.find("use").attributes("href")).toBe("#close");
+        expect(wrapper.find("use").attributes("xlink:href")).toBe("#close");
+        expect(wrapper.find("use").attributes("href")).toBeUndefined();
     });
 
     it("maps the numeric size step onto its class, defaulting to medium", () => {

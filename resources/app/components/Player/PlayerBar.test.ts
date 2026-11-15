@@ -249,7 +249,7 @@ describe("PlayerBar", () => {
             await fadeTo(252);
 
             expect(wrapper.find(".player-bar__sleep").exists()).toBe(true);
-            expect(wrapper.find(".player-bar__sleep use").attributes("href")).toBe("#dark");
+            expect(wrapper.find(".player-bar__sleep use").attributes("xlink:href")).toBe("#dark");
             expect(wrapper.find(".player-bar__sleep span").text()).toBe("4:12");
         });
 

@@ -84,7 +84,7 @@ describe("WidgetList", () => {
             })
         ]);
 
-        const symbols = wrapper.findAll(".widget-list__pip use").map(node => node.attributes("href"));
+        const symbols = wrapper.findAll(".widget-list__pip use").map(node => node.attributes("xlink:href"));
         expect(symbols).toStrictEqual(["#album", "#duration"]);
     });
 

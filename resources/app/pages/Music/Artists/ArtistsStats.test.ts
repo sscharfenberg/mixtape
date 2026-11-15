@@ -67,7 +67,7 @@ describe("ArtistsStats", () => {
     it("gives every tile a glyph of its own", () => {
         const keys: ArtistFilterStat["key"][] = ["never-played", "compilations-only", "added-this-month", "lookalike-name"];
         const wrapper = strip({ filters: keys.map(key => stat({ key })) });
-        const icons = wrapper.findAll(".widget-stats__head .icon use").map(node => node.attributes("href"));
+        const icons = wrapper.findAll(".widget-stats__head .icon use").map(node => node.attributes("xlink:href"));
 
         // Five tiles, five glyphs: the total plus one per filter. Two tiles wearing one glyph read
         // as a duplicate rather than as two questions.
@@ -79,7 +79,7 @@ describe("ArtistsStats", () => {
         // `mute` for never played means one thing across the app; a second glyph for one question
         // would read as two questions.
         const wrapper = strip({ filters: [stat({ key: "never-played" })] });
-        const icons = wrapper.findAll(".widget-stats__head .icon use").map(node => node.attributes("href"));
+        const icons = wrapper.findAll(".widget-stats__head .icon use").map(node => node.attributes("xlink:href"));
 
         expect(icons[1]).toContain("mute");
     });

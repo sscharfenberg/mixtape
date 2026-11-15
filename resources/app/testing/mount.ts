@@ -76,13 +76,13 @@ export const mountApp = <C extends Component>(component: C, options: MountAppOpt
 /**
  * The sprite symbol names of every `<Icon>` rendered inside `wrapper`, in document order.
  *
- * Exists because reading them by hand is a trap: Icon's template writes `xlink:href`, but
- * the DOM exposes that namespaced attribute under its LOCAL name, so
- * `attributes("xlink:href")` comes back undefined while `attributes("href")` works. Every
- * test that checks which icon rendered would otherwise re-learn that.
+ * Exists because reading them by hand is a trap: Icon's template writes the namespaced
+ * `xlink:href`, and `attributes()` keys it by that QUALIFIED name — `attributes("href")`
+ * comes back undefined, so a presence check fails while an absence check passes no matter
+ * what rendered. Every test that checks which icon rendered would otherwise re-learn that.
  */
 export const iconNames = (wrapper: { findAll: (selector: string) => { attributes: (name: string) => string | undefined }[] }): string[] =>
-    wrapper.findAll("use").map(node => (node.attributes("href") ?? "").replace(/^#/u, ""));
+    wrapper.findAll("use").map(node => (node.attributes("xlink:href") ?? "").replace(/^#/u, ""));
 
 /**
  * Look up a translation the same way a component would, for building expectations

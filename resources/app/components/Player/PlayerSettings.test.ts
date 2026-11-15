@@ -64,7 +64,7 @@ describe("PlayerSettings", () => {
         // trigger's own gear is a `use` too.
         const wrapper = mountApp(PlayerSettings);
 
-        expect(wrapper.findAll(".option-bubbles use").map(node => node.attributes("href"))).toStrictEqual([
+        expect(wrapper.findAll(".option-bubbles use").map(node => node.attributes("xlink:href"))).toStrictEqual([
             "#shuffle_off",
             "#shuffle",
             "#repeat_off",
@@ -73,7 +73,7 @@ describe("PlayerSettings", () => {
     });
 
     it("wears the gear in the bar, so it reads as settings rather than a fourth transport button", () => {
-        expect(mountApp(PlayerSettings).find(".popover-button use").attributes("href")).toBe("#settings");
+        expect(mountApp(PlayerSettings).find(".popover-button use").attributes("xlink:href")).toBe("#settings");
     });
 
     it("starts with both modes off, normal speed and no sleep timer, matching a fresh player", () => {
@@ -356,7 +356,7 @@ describe("PlayerSettings", () => {
             await choose(wrapper, 3, 1);
 
             expect(wrapper.find(".player-settings__mark").exists()).toBe(true);
-            expect(wrapper.find(".player-settings__mark use").attributes("href")).toBe("#dark");
+            expect(wrapper.find(".player-settings__mark use").attributes("xlink:href")).toBe("#dark");
         });
 
         it("hides the mark from assistive tech, and renames the trigger instead", async () => {
@@ -384,7 +384,7 @@ describe("PlayerSettings", () => {
             await nextTick();
 
             expect(sleepGroup(wrapper).findAll("input")).toHaveLength(5);
-            expect(sleepGroup(wrapper).find("use").attributes("href")).toBe("#audiobook");
+            expect(sleepGroup(wrapper).find("use").attributes("xlink:href")).toBe("#audiobook");
         });
 
         it("keeps the chapter option while it is armed, even once the queue moves on", async () => {

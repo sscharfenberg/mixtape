@@ -42,7 +42,7 @@ const row = (overrides: Partial<HistoryPlay> = {}) => mountApp(HistoryRow, { pro
 
 /** The row's glyphs, in DOM order — the kind pip, then one per fact. */
 const glyphs = (wrapper: ReturnType<typeof row>) =>
-    wrapper.findAll("use").map(node => node.attributes("href"));
+    wrapper.findAll("use").map(node => node.attributes("xlink:href"));
 
 describe("HistoryRow", () => {
     beforeEach(() => {

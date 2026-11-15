@@ -84,6 +84,6 @@ describe("AppFooter", () => {
 
         expect(link.text()).toBe("");
         expect(link.attributes("aria-label")).toBeTruthy();
-        expect(link.find("use").attributes("href")).toContain("github");
+        expect(link.find("use").attributes("xlink:href")).toContain("github");
     });
 });

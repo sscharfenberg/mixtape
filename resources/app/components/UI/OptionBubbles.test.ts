@@ -39,7 +39,7 @@ describe("OptionBubbles", () => {
     it("draws one option per glyph, in the order given", () => {
         const wrapper = bubbles();
 
-        expect(wrapper.findAll("use").map(node => node.attributes("href"))).toStrictEqual([
+        expect(wrapper.findAll("use").map(node => node.attributes("xlink:href"))).toStrictEqual([
             "#shuffle_off",
             "#shuffle"
         ]);

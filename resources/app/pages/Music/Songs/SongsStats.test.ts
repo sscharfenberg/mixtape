@@ -106,7 +106,7 @@ describe("SongsStats", () => {
         // duplicate rather than as two questions.
         const keys: SongFilterStat["key"][] = ["never-played", "added-this-week", "duplicates", "no-cover"];
         const wrapper = strip({ filters: keys.map(key => stat({ key })) });
-        const icons = wrapper.findAll(".widget-stats__head .icon use").map(node => node.attributes("href"));
+        const icons = wrapper.findAll(".widget-stats__head .icon use").map(node => node.attributes("xlink:href"));
 
         expect(new Set(icons).size).toBe(icons.length);
     });

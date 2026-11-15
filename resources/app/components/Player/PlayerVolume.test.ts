@@ -22,16 +22,15 @@ vi.mock("@inertiajs/vue3", () => import("Testing/inertia"));
  * differ (the trigger reports audibility, the inner button reports the mute flag), so
  * asserting them as one set would hide exactly the case worth checking.
  *
- * Read as plain `href` even though Icon's template writes `xlink:href`: the attribute
- * SERIALIZES under the namespaced name but the DOM exposes it under the bare one, which
- * is the trap Icon.test.ts already documents. (The reverse of the E2E specs, where a real
- * browser insists on the qualified read.)
+ * Read by the qualified `xlink:href`, the name Icon's template writes: `attributes()` keys a
+ * namespaced attribute by that name and answers undefined for the bare `href`, which is
+ * the trap Icon.test.ts documents — the same read the E2E specs make in a real browser.
  */
 const triggerGlyph = (wrapper: ReturnType<typeof mountApp>): string | undefined =>
-    wrapper.find(".popover-button use").attributes("href");
+    wrapper.find(".popover-button use").attributes("xlink:href");
 
 const muteGlyph = (wrapper: ReturnType<typeof mountApp>): string | undefined =>
-    wrapper.find(".player-volume__mute use").attributes("href");
+    wrapper.find(".player-volume__mute use").attributes("xlink:href");
 
 describe("PlayerVolume", () => {
     beforeEach(() => {

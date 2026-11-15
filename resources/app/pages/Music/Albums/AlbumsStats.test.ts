@@ -74,7 +74,7 @@ describe("AlbumsStats", () => {
     it("gives every filter a glyph of its own", () => {
         const keys: AlbumFilterStat["key"][] = ["never-played", "added-this-week", "incomplete", "single-track"];
         const wrapper = strip({ filters: keys.map(key => stat({ key })) });
-        const icons = wrapper.findAll(".widget-stats__head .icon use").map(node => node.attributes("href"));
+        const icons = wrapper.findAll(".widget-stats__head .icon use").map(node => node.attributes("xlink:href"));
 
         // Five tiles, five glyphs: the album total plus one per filter. A strip where two tiles
         // wear the same glyph reads as a duplicate rather than as two questions.
@@ -86,7 +86,7 @@ describe("AlbumsStats", () => {
         // `mute` for never played and `recent` for new arrivals are the same questions there, so
         // a reader meeting them twice meets one glyph.
         const wrapper = strip({ filters: [stat({ key: "never-played" }), stat({ key: "added-this-week" })] });
-        const icons = wrapper.findAll(".widget-stats__head .icon use").map(node => node.attributes("href"));
+        const icons = wrapper.findAll(".widget-stats__head .icon use").map(node => node.attributes("xlink:href"));
 
         expect(icons[1]).toContain("mute");
         expect(icons[2]).toContain("recent");
