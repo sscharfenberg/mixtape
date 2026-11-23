@@ -7,7 +7,7 @@ the box is [`03-production-deploy.md`](03-production-deploy.md); this page is th
 | --- | --- | --- |
 | [`mixtape-prod-deploy`](files/mixtape-prod-deploy.sh) | the server | deploying `main` to production, or rolling back to a SHA |
 | [`mixtape-dev-deploy`](files/mixtape-deploy-dev.sh) | the server | rebuilding the dev site from whatever is on disk |
-| [`mt`](files/mt.sh) | the workstation | one-off artisan, logs, tinker and a shell, on either site |
+| [`mt`](files/mt.sh) | the workstation | one-off artisan, logs, tinker, a shell and deploys, on either site |
 | [`mts`](files/mts.sh) | the workstation | copying a library area onto a local disk, or onto an Android phone |
 
 > **The two workstation scripts are written for macOS.** Not incidentally — they depend on it. Both
@@ -30,8 +30,9 @@ the box is [`03-production-deploy.md`](03-production-deploy.md); this page is th
 sudo -u mixtape-deploy /usr/local/bin/mixtape-prod-deploy
 ```
 
-That is the whole loop: push to `main`, run that on the server. Pass a commit SHA as an argument to
-roll back to a known-good commit.
+That is the whole loop: push to `main`, run that on the server — or `mt deploy --prod` from the
+workstation, which also refuses while you have commits `origin/main` lacks. Pass a commit SHA as an
+argument to roll back to a known-good commit.
 
 The script puts the site into maintenance mode first and **deliberately leaves it there if the deploy
 fails** — serving new code against a half-applied migration is worse than showing a maintenance page.
@@ -46,8 +47,8 @@ is nothing to fetch. [`files/mixtape-deploy-dev.sh`](files/mixtape-deploy-dev.sh
 already on disk:
 
 ```bash
-mixtape-dev-deploy            # rebuild + migrate
-mixtape-dev-deploy --fresh    # rebuild + migrate:fresh --seed
+mixtape-dev-deploy            # rebuild + migrate          (workstation: mt deploy)
+mixtape-dev-deploy --fresh    # rebuild + migrate:fresh --seed   (mt deploy --fresh)
 ```
 
 Install it as `/usr/local/bin/mixtape-dev-deploy` (755 root:root) and edit `HEALTH_URL` at the top.
@@ -109,7 +110,8 @@ not the server:
 install -m 755 mt.sh ~/.local/bin/mt     # ensure ~/.local/bin is on $PATH
 ```
 
-Then edit `HOST` at the top to your ssh alias. It refuses to run until you do.
+Then edit `HOST` at the top to your ssh alias. It refuses to run until you do. `REPO`, your local
+clone, is needed only by `mt deploy --prod`, which refuses until it is set.
 
 ```bash
 mt artisan down --dev         # dev into maintenance
@@ -120,6 +122,9 @@ mt logs -f --dev
 mt logs --auth --prod       # the auth.log that feeds fail2ban
 mt tinker --prod
 mt shell --dev
+mt deploy                     # rebuild the dev site (--fresh: migrate:fresh --seed)
+mt deploy --prod              # deploy origin/main
+mt deploy <sha> --prod        # roll back to a known-good commit
 ```
 
 The `--dev` / `--prod` flag may appear **anywhere** in the line and is stripped before the rest is
@@ -153,9 +158,13 @@ their harmless dev equivalents. Laravel's own `--force` confirmation is no help 
 non-interactively on the far side of an ssh pipe, where that prompt never fires. The wrapper therefore
 asks on the *workstation* side, reading from `/dev/tty` so a piped stdin cannot answer for you.
 
-**It deliberately does not deploy.** Deploys carry guards a passthrough wrapper has no business
-duplicating — the unpushed-commit check, maintenance-mode handling, the dirty-tree refusal. Keep
-calling `mixtape-prod-deploy` / `mixtape-dev-deploy` for those.
+**`mt deploy` only starts the server's deploy script.** Maintenance-mode handling, the dirty-tree
+refusal and the health check stay in `mixtape-prod-deploy` / `mixtape-dev-deploy`; the wrapper
+bypasses none of them. It adds the one guard that can only run on the workstation: prod deploys
+`origin/main`, so `mt deploy --prod` refuses while `HEAD` has commits `origin/main` lacks — that
+deploy would report success with older code. The check fails closed: no repository at `REPO`, or an
+`origin` it cannot reach, refuses too, rather than reading as "nothing unpushed". With a SHA (a
+rollback) there is nothing to compare, and the check is skipped.
 
 #### mt traps
 

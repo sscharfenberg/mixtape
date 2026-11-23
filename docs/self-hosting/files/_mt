@@ -136,6 +136,7 @@ _mt() {
                 'tinker:open a tinker REPL'
                 'logs:tail laravel.log'
                 'shell:interactive shell in the site directory'
+                'deploy:rebuild the dev site, or deploy production with --prod'
                 'help:show usage'
             )
             _describe -t commands 'mt command' subcommands
@@ -160,6 +161,13 @@ _mt() {
                         '--auth[tail auth.log (the fail2ban feed) instead of the app log]' \
                         '-f[follow the log]' \
                         '-n[number of lines]:lines:(10 25 50 100 500)'
+                    ;;
+                deploy)
+                    # --fresh belongs to the dev rebuild; prod takes an
+                    # optional SHA, which cannot be completed usefully here.
+                    _arguments \
+                        $target_flags \
+                        '--fresh[dev only: migrate:fresh --seed (drops the dev database)]'
                     ;;
                 *)
                     _mt_target_flags

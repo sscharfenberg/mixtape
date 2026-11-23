@@ -333,7 +333,7 @@ instance, written for someone else's server.
   building the box belongs here, not in `03`.
 - `files/` — installable configs (nginx vhost, fpm pool, rate-limit zones, sudoers, deploy scripts,
   `.env` template), all with placeholders. Also the four **workstation**-side files: `mt.sh` (ssh
-  wrapper — `mt artisan down --dev`, `mt artisan migrate --prod`), `mts.sh` (media sync — `mts music
+  wrapper — `mt artisan down --dev`, `mt artisan migrate --prod`, `mt deploy --prod`), `mts.sh` (media sync — `mts music
   /Volumes/<label>/`) and their zsh completions `_mt` and `_mts`.
 
 **This box (untracked — `docs/host.local/`):**

@@ -7,6 +7,8 @@
 #   mt artisan route:list --dev      # pipes cleanly: | grep song
 #   mt tinker --prod
 #   mt logs -f --dev
+#   mt deploy                        # rebuild the dev site
+#   mt deploy --prod                 # deploy origin/main to production
 #
 # The target flag may appear ANYWHERE in the line — `mt artisan down --dev` and
 # `mt --dev artisan down` are the same command. It is stripped before the rest
@@ -33,9 +35,12 @@
 # belongs to that account, not yours. That prompt is a feature here: it is one
 # more beat of friction between a typo and production.
 #
-# This does NOT deploy. Deploys have guards (unpushed-commit check,
-# maintenance-mode handling) that a passthrough wrapper has no business
-# duplicating — call mixtape-prod-deploy / mixtape-dev-deploy for those.
+# `deploy` starts the server's deploy script: mixtape-dev-deploy (rebuild what
+# the IDE uploaded) or, with --prod, mixtape-prod-deploy as mixtape-deploy.
+# Those keep all their own guards (maintenance mode, the dirty-tree refusal, the
+# health check); this wrapper bypasses none and adds one: prod deploys
+# origin/main, so `mt deploy --prod` refuses while HEAD has commits origin/main
+# lacks — such a deploy would report success with older code.
 #
 # Tab completion for the subcommands is in `_mt` alongside this file.
 
@@ -50,6 +55,13 @@ HOST="<your-server>"          # <-- set this
 DEV_SITE=/var/www/mixtape.dev
 PROD_SITE=/var/www/mixtape.prod
 PHP=/usr/bin/php
+DEV_DEPLOY=/usr/local/bin/mixtape-dev-deploy
+PROD_DEPLOY=/usr/local/bin/mixtape-prod-deploy
+DEPLOY_USER=mixtape-deploy
+
+# Your local clone, for the unpushed-commit check of `mt deploy --prod`. Only
+# that command needs it; everything else works with the placeholder.
+REPO="<path-to-your-clone>"   # <-- set this
 
 # Shown in `mt help` only; nothing depends on it being reachable.
 DEV_URL="https://<your-dev-host>/"
@@ -75,6 +87,9 @@ COMMANDS
   tinker              open a tinker REPL
   logs [-f] [-n N]    tail the newest app log (add --auth for auth.log)
   shell               interactive shell in the site directory
+  deploy [--fresh]    rebuild the dev site (--fresh: migrate:fresh --seed)
+  deploy [<sha>] --prod
+                      deploy origin/main (or a SHA: the rollback) to production
   help
 
 TARGET
@@ -87,6 +102,7 @@ EXAMPLES
   mt artisan migrate --prod
   mt artisan route:list --dev | grep song
   mt logs -f --prod
+  mt deploy --prod
 EOF
 }
 
@@ -185,6 +201,30 @@ remote_cmd() {
     printf '%s' "${out# }"
 }
 
+# --- Unpushed-commit guard for `deploy --prod` ------------------------------
+# Prod deploys origin/main. Commits on HEAD that origin/main lacks would make
+# the deploy "succeed" with older code. Every step FAILS CLOSED: a wrong REPO or
+# an unreachable origin would otherwise leave the log empty, which reads as
+# "nothing unpushed", and the deploy would go ahead unchecked.
+refuse_unpushed() {
+    if [[ $REPO == *"<path-to-your-clone>"* ]]; then
+        fail "edit REPO at the top of this script before deploying production"
+    fi
+    if [[ ! -d $REPO/.git ]]; then
+        fail "no git repo at $REPO — refusing to deploy unchecked"
+    fi
+    git -C "$REPO" fetch -q origin \
+        || fail "could not reach origin — refusing to deploy against a stale origin/main"
+    local ahead
+    ahead=$(git -C "$REPO" log --oneline origin/main..HEAD) \
+        || fail "could not compare HEAD with origin/main"
+    if [[ -n $ahead ]]; then
+        warn "HEAD has commits origin/main does not, and prod deploys origin/main:"
+        printf '%s\n' "$ahead" >&2
+        fail "push (or merge) them first"
+    fi
+}
+
 # WHY NO `cd` INTO THE SITE: on prod the `cd` would run as YOUR login user,
 # which cannot traverse the 2750 mixtape-deploy:www-data tree — only the `sudo`
 # that follows switches to www-data. `cd … && sudo …` therefore dies with
@@ -280,6 +320,22 @@ exec tail ${tail_args} \"\$f\""
                 "sudo -u www-data env HOME=/tmp bash -c $(printf '%q' "cd $SITE && exec bash -i")"
         else
             exec ssh -tt "$HOST" "cd $(printf '%q' "$SITE") && exec \$SHELL -l"
+        fi
+        ;;
+
+    deploy)
+        # -tt: a deploy runs for minutes and prints colour; Ctrl-C should reach
+        # it on the server, not just this end.
+        if [[ $TARGET == prod ]]; then
+            # A SHA is a deliberate choice (the rollback), not origin/main, so
+            # the check does not apply — and must never block a rollback.
+            if [[ ${#ARGS[@]} -eq 0 ]]; then
+                refuse_unpushed
+            fi
+            exec ssh -tt "$HOST" \
+                "$(remote_cmd sudo -u "$DEPLOY_USER" "$PROD_DEPLOY" ${ARGS[@]+"${ARGS[@]}"})"
+        else
+            exec ssh -tt "$HOST" "$(remote_cmd "$DEV_DEPLOY" ${ARGS[@]+"${ARGS[@]}"})"
         fi
         ;;
 
