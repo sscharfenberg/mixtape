@@ -319,7 +319,7 @@ router's hairpin. A LAN machine that connects to your public IP arrives with the
 its source (see [`04`](04-going-public.md#the-jail)), which is exactly what an outsider looks like:
 
 ```bash
-WAN=$(dig +short <your-dyndns-host> | tail -1)
+WAN=$(dig +short <your-domain> | tail -1)
 
 # The dev site, asked for by name through the public IP: refused
 curl -sk -o /dev/null -w '%{http_code}\n' --resolve <your-dev-host>:443:$WAN https://<your-dev-host>/   # 403

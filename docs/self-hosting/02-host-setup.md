@@ -281,8 +281,7 @@ sudo openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
 Reference it from your vhost, redirect HTTP to HTTPS, and enable HTTP/2. Browsers will warn about the
 untrusted certificate; that is expected and fine on the LAN.
 
-[`files/mixtape.dev.nginx.conf`](files/mixtape.dev.nginx.conf) is that vhost, ready to install — it
-keeps the ACME challenge path open from the start, so nothing needs changing when certbot arrives:
+[`files/mixtape.dev.nginx.conf`](files/mixtape.dev.nginx.conf) is that vhost, ready to install:
 
 ```bash
 sudo install -m 644 files/mixtape-lan-only.conf /etc/nginx/snippets/mixtape-lan-only.conf

@@ -6,9 +6,11 @@ Steering context for this repo. Kept lean on purpose — detailed design lives i
 ## What this is
 
 **MixTape** is a self-hosted web app that organizes a personal mp3 / audiobook collection and plays it
-in the browser. It runs on a **home server** and is **intentionally reachable from the internet** — a
-real domain CNAMEs to a DynDNS host, and the router forwards **only 80/443** — so the owner can share
-links to music with family and friends. Access is gated by auth.
+in the browser. It runs on a **home server** and is **intentionally reachable from the internet** — the
+canonical host is the **apex of a real domain**, whose DNS is at Cloudflare (every record DNS only, no
+proxy) with `ddclient` on the server keeping its A record on the dynamic home IP, and the router forwards
+**only 80/443** — so the owner can share links to music with family and friends. A previous public name
+stays a 301 to the apex, because share links naming it are out in chats. Access is gated by auth.
 
 *(The host is referred to generically here. Its name, addresses, and everything else concrete live in
 the untracked `docs/host.local/` — see **Docs** below.)*
@@ -18,7 +20,8 @@ the untracked `docs/host.local/` — see **Docs** below.)*
 **Server**
 
 - Latest stable Debian, minimal install; **LVM** with a **large `/var`** and a small `/home`.
-- **Nginx + php-fpm**, HTTPS via **Let's Encrypt (certbot)**; media library at **`/var/media`**.
+- **Nginx + php-fpm**, HTTPS via **Let's Encrypt (certbot, DNS-01 through Cloudflare)** — no
+  certificate depends on port 80; media library at **`/var/media`**.
 - **Internet-facing by design** on **443/HTTPS** (clean links), but **only the web ports (80/443) are
   forwarded** — SSH, Samba, and the database stay **LAN-only and must never be exposed.**
 - **Back up the media collection before any wipe** — it's the only thing whose loss is permanent (the
@@ -307,16 +310,13 @@ hang if a real reader turns out to need it.
 > **The split is generic-vs-specific, and it is enforced by `.gitignore`.** This repo is public.
 > **Reproducible** server documentation — anything another person could follow on their own hardware —
 > is **tracked** in `docs/self-hosting/` and uses placeholders (`<your-domain>`, `<server-lan-ip>`).
-> Anything describing **this one box** — hostname, LAN topology, MACs, the DynDNS host, the real
-> domain, secret locations — goes in **`docs/host.local/`**, which is gitignored as a whole
-> directory.
+> Anything describing **this one box** — hostname, LAN topology, MACs, the real domain and its DNS
+> zone, secret locations — goes in **`docs/host.local/`**, which is gitignored as a whole
+> directory, so the docs sit beside the code they describe without being published.
 >
 > **Never put a real host name, LAN address, MAC, or the live domain in a tracked file.** When adding
 > server material, ask which half it is: the transferable lesson goes in `self-hosting/`, the concrete
 > state in `host.local/`. Most changes touch both.
->
-> _(Until 2026-07-19 this all lived in an untracked sibling folder `../mixtape-ops/`. A gitignored
-> directory does the same job without the docs being one level away from the code they describe.)_
 
 **Self-hosting guide (tracked — `docs/self-hosting/`):** the full path from bare hardware to a public
 instance, written for someone else's server.
@@ -325,8 +325,9 @@ instance, written for someone else's server.
 - `01-requirements.md` — hardware, OS, LVM, stack, network/exposure, security posture + the *why*.
 - `02-host-setup.md` — Debian, networking, firewall, SSH, PostgreSQL, nginx/PHP, Samba, LAN TLS.
 - `03-production-deploy.md` — the `mixtape-deploy` ownership model and the Step-0 build of the site.
-- `04-going-public.md` — domain/CNAME, port-forward, firewall widen, certbot, mail + SPF/DKIM/DMARC,
-  fail2ban, backup alerting. **Auth must be in force before any exposure.**
+- `04-going-public.md` — domain + DNS (Cloudflare, ddclient), port-forward, firewall widen, certbot
+  DNS-01, changing the canonical host, mail + SPF/DKIM/DMARC + inbound routing, fail2ban, backup
+  alerting. **Auth must be in force before any exposure.**
 - `commands.md` — **not a step, a reference**: the four scripts you run once the box exists. Two on
   the server (`mixtape-prod-deploy`, `mixtape-dev-deploy`, plus artisan-as-www-data), two on the
   workstation and **macOS-specific** (`mt`, `mts`). Anything about running a command rather than

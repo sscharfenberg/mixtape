@@ -71,7 +71,8 @@ Three principles, in order of how much they matter:
 - **Composer**, **Node** (version pinned by `.nvmrc` in the repo), and the app itself.
 - **Operational:** `chrony` (time sync), `unattended-upgrades`, `fail2ban`, `nftables`, `auditd`,
   AppArmor, `avahi-daemon` (mDNS, so the box answers on `<hostname>.local`), `rsync`, `git`, `curl`,
-  `unzip`, `certbot` + `python3-certbot-nginx`, and `exfatprogs` if your backup drive is exFAT.
+  `unzip`, `ddclient`, `certbot` + `python3-certbot-dns-cloudflare` (or your DNS provider's
+  plugin), and `exfatprogs` if your backup drive is exFAT.
 
 ## Network & exposure model
 
@@ -80,12 +81,14 @@ the headline feature. That makes hardening non-optional.
 
 - A LAN whose router can **port-forward TCP 80 and 443** to the host.
 - A **stable LAN address** for the host: a static IP, or a DHCP reservation by MAC.
-- A **DynDNS** name, if your home IP is dynamic (it almost certainly is).
-- Ideally a **real domain** pointed at the DynDNS name by CNAME. You need one for clean URLs, for a
-  Let's Encrypt certificate, and — the part people forget — because transactional mail needs
-  SPF/DKIM/DMARC **TXT** records, which most DynDNS providers cannot host.
+- A **real domain** whose DNS is hosted by a provider with an API (Cloudflare's free plan, every
+  record "DNS only"). You need the domain for clean URLs, for a Let's Encrypt certificate, and — the
+  part people forget — because transactional mail needs SPF/DKIM/DMARC **TXT** records. The API is
+  what copes with a dynamic home IP (it almost certainly is one): `ddclient` on the server keeps the
+  A record current, and certbot proves ownership through the same zone, so even the apex works.
 - **Only 80 and 443 are ever exposed.** SSH, Samba, and the database stay LAN-only or localhost and
-  must never be forwarded. Port 80 exists only to answer the ACME challenge and redirect to HTTPS.
+  must never be forwarded. Port 80 exists only to redirect to HTTPS; certificates are validated
+  through DNS.
 
 > **The hard rule:** do not forward any port until real authentication is in force. Invite-only
 > registration and signed share-links must both work on the LAN first. See
@@ -98,7 +101,7 @@ the headline feature. That makes hardening non-optional.
 - **Firewall (nftables):** default-deny inbound. 80/443 public once you go live (LAN-only before
   that); SSH and Samba LAN-only; **database localhost-only** — reach it through an SSH tunnel, never
   a firewall hole.
-- **TLS:** Let's Encrypt via certbot once you have a domain. Before that, a self-signed certificate
+- **TLS:** Let's Encrypt via certbot (DNS-01) once you have a domain. Before that, a self-signed certificate
   on the LAN, which validates the entire nginx → php-fpm → app path without needing DNS.
 - **App auth:** open registration disabled, one-time expiring invite tokens, optional per-user 2FA,
   and expiring, revocable share links for account-free listening.

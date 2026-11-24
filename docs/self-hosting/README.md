@@ -26,7 +26,7 @@ Do these in sequence. Each assumes the previous is done.
 | 1 | [`01-requirements.md`](01-requirements.md) | What hardware/OS/network you need, and the reasoning — read before buying or wiping anything |
 | 2 | [`02-host-setup.md`](02-host-setup.md) | A hardened Debian host: LVM, packages, firewall, SSH, Samba, PostgreSQL, TLS on the LAN |
 | 3 | [`03-production-deploy.md`](03-production-deploy.md) | The app running on that host, deployable with one command |
-| 4 | [`04-going-public.md`](04-going-public.md) | A real domain, a port-forward, Let's Encrypt, working transactional mail |
+| 4 | [`04-going-public.md`](04-going-public.md) | A real domain with its DNS on an API, a port-forward, Let's Encrypt over DNS-01, working transactional mail |
 | 5 | [`05-hardening.md`](05-hardening.md) | A web application firewall, a sandboxed php-fpm, kernel settings, and security updates that actually take effect |
 
 **Nothing is reachable from the internet until step 4**, and step 4 has a hard precondition: real
@@ -85,6 +85,9 @@ context in the documents above; this is a jump table for when something is alrea
 | A scheduled timer never fires on a server that sleeps | `Persistent=true` is what catches up a missed run; without it a nightly scan or weekly prune waits a full period. Why this box uses systemd timers rather than Laravel's scheduler | [03](03-production-deploy.md#scheduled-share-link-prune) |
 | `UnsupportedSchemeException` on send | `MAIL_SCHEME` set to something other than `smtp`/`smtps` — leave it unset | [04](04-going-public.md#step-6--transactional-mail) |
 | SPF suddenly fails after adding a record | Two SPF TXT records on one domain = permerror. There must be exactly one, with merged includes | [04](04-going-public.md#dns-records) |
+| Every deploy fails and leaves the site in maintenance, right after the public name changed | The deploy's health check does not follow redirects and accepts only 200 or 503, so a `HEALTH_URL` on the old name now gets a 301. Point it at the new host before the old one starts redirecting | [04](04-going-public.md#step-5--app-production-config) |
+| ddclient's cache says `status=noconnect` although the A record is right | In ddclient 3.11 the plain `status` field reads that even when every update succeeds; read `status-ipv4` | [04](04-going-public.md#step-1--domain-and-dns) |
+| After moving DNS, an old name fails for some visitors only | Their resolver still holds the previous provider's NS records (often 86400 s) and is told what the old zone said — e.g. a CNAME to a DynDNS host already retired. Keep anything the old zone pointed at alive until those expire | [04](04-going-public.md#step-1--domain-and-dns) |
 | 429 on a form that validates as you type | Precognition posts to the same route as the submit, so live validation eats the throttle budget | [03](03-production-deploy.md#rate-limiting-and-precognition) |
 | `psysh` refuses to start under `artisan tinker` | www-data's home is deploy-owned by design; pass `HOME=/tmp` | [cmd](commands.md#running-artisan-in-production) |
 | `storage/logs/laravel.log` missing on prod but present on dev | Different drivers: dev is `single`, prod is `stack`+`daily`, and the daily driver writes `laravel-YYYY-MM-DD.log`. Resolve the newest `laravel*.log` instead of hardcoding | [cmd](commands.md#mt-traps) |

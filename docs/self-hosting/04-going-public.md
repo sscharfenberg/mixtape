@@ -14,26 +14,60 @@ that a logged-out browser can reach nothing but the login page before continuing
 
 ## Step 1 — Domain and DNS
 
-Your home IP is almost certainly dynamic, so keep a DynDNS host updating it and point a **real domain**
-at that host by CNAME:
+The instance needs a **real domain**, for three separate reasons: a clean URL, a Let's Encrypt
+certificate, and — the one people forget — the **SPF/DKIM/DMARC TXT records** mail requires. Your home
+IP is almost certainly dynamic, so something has to keep the domain's address record current.
 
-- Register a domain. You need one for three separate reasons: a clean URL, a Let's Encrypt
-  certificate, and — the one people forget — the **SPF/DKIM/DMARC TXT records** mail requires. Most
-  DynDNS providers cannot host TXT records at all, which is what forces this.
-- Create `<subdomain>.<your-domain>` as a **CNAME** to your DynDNS hostname. The DynDNS client keeps
-  that hostname pointed at your current WAN IP, so address churn is invisible to your real domain and
-  nothing extra runs on the server.
-- Let's Encrypt's HTTP-01 challenge follows CNAMEs, so certificate validation works fine through this
-  indirection.
+Host the domain's DNS at a provider with an API that both **ddclient** (the address) and **certbot**
+(the certificate, Step 4) speak. Cloudflare's free plan is the common choice and the one shown here.
+The registration can stay where it is; only the nameservers move.
 
-> **CNAME at the apex is impossible** — the DNS specification forbids it, because the apex must carry
-> SOA and NS records and a CNAME cannot coexist with other records. This is universal, not a
-> limitation of your registrar. Use a subdomain, or a provider offering ALIAS/ANAME flattening.
+- **Every record "DNS only"** (the grey cloud). Proxied, Cloudflare terminates TLS and sits inside
+  every audio stream, and the server sees Cloudflare's addresses instead of visitors' — fail2ban, the
+  rate limits and the WAF all key on the client address. A proxied CNAME also answers with
+  Cloudflare's addresses instead of its target, which breaks DKIM and Return-Path records outright.
+- An **A record for `<your-domain>`**, kept on your WAN address by ddclient on the server. The apex
+  works because this is an A record; any other name (`www`, an older public name) is a CNAME to it.
+- **Two API tokens**, each *Zone: Read + DNS: Edit* on this one zone: one for ddclient, one for
+  certbot. Separate tokens can be rolled without touching the other job.
+
+```conf
+# /etc/ddclient.conf — root 600: it holds the token
+ssl=yes
+usev4=webv4, webv4=https://1.1.1.1/cdn-cgi/trace, webv4-skip='ip='
+usev6=disabled
+
+protocol=cloudflare, \
+zone=<your-domain>, \
+login=token, \
+password='<ddclient token>' \
+<your-domain>
+```
+
+```bash
+sudo systemctl restart ddclient
+sudo grep -o 'status-ipv4=[a-z]*' /var/cache/ddclient/ddclient.cache    # status-ipv4=good
+```
+
+> **Never run ddclient with `-verbose` or `-debug` where the output is logged** — both print the
+> Authorization header, i.e. the token. And read `status-ipv4`, not `status`: the plain field says
+> `noconnect` in ddclient 3.11 even when every update succeeds.
+
+> **Moving the nameservers takes a day to settle.** The registry's delegation carries a short TTL,
+> but the previous provider's own NS records typically carry 86400 s, and a resolver that cached those
+> keeps asking the old zone until they expire. Give every name in use the same answer in both zones
+> until then, and keep anything the old zone pointed at — a DynDNS name behind a CNAME — alive for
+> that day too.
+
+> **A CNAME at the apex is impossible** — the DNS specification forbids it, because the apex must
+> carry SOA and NS records and a CNAME cannot coexist with other records. That is why a DynDNS
+> hostname behind a CNAME only ever works for a subdomain, and why an apex on a dynamic IP needs a
+> provider whose A record a client can update.
 
 ## Step 2 — Port-forward
 
-- Forward **TCP 80 and 443** to the server's LAN address. Port 80 is needed for the ACME challenge
-  and the HTTPS redirect.
+- Forward **TCP 80 and 443** to the server's LAN address. Port 80 carries only the HTTP→HTTPS
+  redirect: certificates are validated through DNS (Step 4), so renewal needs no inbound port.
 - **Verify SSH (22), Samba (139/445), and the database are not forwarded.** Check this explicitly
   rather than assuming; some routers helpfully "assist" with UPnP.
 - **Decide about IPv6.** If your ISP gives the host a public IPv6 address, it may be reachable
@@ -58,16 +92,34 @@ SSH and Samba stay LAN-scoped; the database stays localhost-only.
 
 ## Step 4 — Real TLS certificate
 
+Validate through DNS — the **DNS-01** challenge — rather than over port 80. certbot writes a TXT
+record through the provider's API, so issuance and renewal need no inbound port, and `certonly` never
+edits the vhost.
+
 ```bash
-sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d <subdomain>.<your-domain>
+sudo apt install -y certbot python3-certbot-dns-cloudflare
+# The certbot token, without touching shell history — type the line, then Ctrl-D:
+#   dns_cloudflare_api_token = <certbot token>
+sudo sh -c 'umask 077; cat > /etc/letsencrypt/cloudflare.ini'
+
+# Rehearse against the staging CA first; it costs no production rate limit.
+sudo certbot certonly --dry-run --dns-cloudflare \
+  --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini \
+  --dns-cloudflare-propagation-seconds 30 \
+  --cert-name <your-domain> --key-type ecdsa -d <your-domain>
+
+# Then the same without --dry-run, plus the hook that makes nginx load renewals:
+sudo certbot certonly --dns-cloudflare \
+  --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini \
+  --dns-cloudflare-propagation-seconds 30 \
+  --cert-name <your-domain> --key-type ecdsa -d <your-domain> \
+  --deploy-hook 'systemctl reload nginx'
 ```
 
-certbot rewrites the vhost, swapping the self-signed paths for the real certificate and ensuring the
-HTTP→HTTPS redirect. It leaves `# managed by Certbot` markers; leave them alone, as renewal re-applies
-them.
-
-Update `server_name` and `APP_URL` to the real host, then confirm renewal actually works:
+Add one `-d` per extra name the vhost redirects (`www.`, an older public name). The vhost in
+[`files/mixtape.prod.nginx.conf`](files/mixtape.prod.nginx.conf) already reads
+`/etc/letsencrypt/live/<your-domain>/`. Debian's `python3-cloudflare` prints a large `!!` WARNING
+banner about the package version on every run; it is harmless. Then confirm renewal actually works:
 
 ```bash
 sudo certbot renew --dry-run
@@ -76,12 +128,17 @@ systemctl list-timers | grep certbot
 
 A certificate that cannot auto-renew silently expires in 90 days.
 
+> **Right after a nameserver move, the dry run is the test.** A Let's Encrypt resolver that still
+> holds the previous provider's NS records asks the old zone, finds no challenge record and fails.
+> It only holds them if it looked the domain up within their TTL, and each failed real attempt costs
+> one of five per hostname per hour — so rehearse first rather than wait by the clock.
+
 ## Step 5 — App production config
 
 ```ini
 APP_ENV=production
 APP_DEBUG=false
-APP_URL=https://<subdomain>.<your-domain>
+APP_URL=https://<your-domain>
 ```
 
 ```bash
@@ -99,6 +156,22 @@ sudo -u www-data /usr/bin/php /var/www/mixtape.prod/artisan event:cache
 nginx terminates TLS directly on the host — the router forward is plain NAT, not a reverse proxy — so
 no `TrustProxies` or `X-Forwarded-*` handling is needed. If you *do* put a proxy in front later, that
 changes.
+
+> **Changing the canonical host later** is a vhost swap plus `APP_URL`, and the previous name stays
+> a 301 (the optional block in the vhost) so share links already sent keep working. Three things
+> come with it:
+>
+> - **Point the deploy script's `HEALTH_URL` at the new host first.** It does not follow redirects and
+>   accepts only 200 or 503, so once the old name answers 301, every deploy fails — and a failed
+>   deploy deliberately leaves production in maintenance mode.
+> - **Everyone signs in once more.** With `SESSION_DOMAIN=null` the session and remember-me cookies
+>   belong to the host that set them, and the new host never receives the old ones.
+> - **Per-device player settings reset once** (theme, volume, speed, visualiser): `localStorage` is
+>   per origin. The play queue is stored server-side and survives.
+>
+> The order of the vhost swap and the `APP_URL` change does not matter for pages and mail — inside a
+> request Laravel builds URLs from the request's host — as long as no `trustHosts` middleware pins the
+> old name. `APP_URL` is what console commands and the scheduler use.
 
 ## Step 6 — Transactional mail
 
@@ -146,6 +219,13 @@ Your provider generates the exact values. Three things to know:
   failing messages — your users' password-reset mails — to a third party. Add `rua` later, pointing
   at a mailbox you control. Note that a cross-domain `rua` requires the receiving domain to publish
   `<your-domain>._report._dmarc.<their-domain>` or the reports are silently dropped.
+
+- **Inbound mail** is optional, and the relay does not provide it. Cloudflare's **Email Routing**
+  forwards chosen addresses (`admin@<your-domain>`) to a mailbox you already read, for free — which
+  also gives `rua=` reports a home on your own domain. Enabling it adds three MX records, a DKIM key of
+  its own (`cf2024-1._domainkey`, beside the relay's selectors) and an SPF record at the apex. The
+  one-SPF rule above applies to it like to any other. Leave its catch-all rule disabled: mail to
+  `no-reply@` then bounces at once instead of landing in your inbox.
 
 **Click/open tracking is offered by most relays; decline it for this app.** It rewrites every link to
 route through the provider's domain, which for verification and password-reset mail means a third
@@ -295,11 +375,12 @@ Then fail a login on purpose and confirm the counter moves.
 > complains).
 >
 > Verify rather than assume: fail a login from a LAN browser *via the public URL* and read the `ip=`
-> field. If it matches `dig +short <your-dyndns-host>`, you are hairpinned. Fix by ignoring the
-> DynDNS name — fail2ban accepts hostnames and re-resolves them, so it tracks a dynamic IP:
+> field. If it matches `dig +short <your-domain>`, you are hairpinned. Fix by ignoring your own
+> domain — ddclient keeps its A record on the WAN address, and fail2ban accepts hostnames and
+> re-resolves them, so it tracks a dynamic IP:
 >
 > ```
-> ignoreip = 127.0.0.1/8 ::1 <your-lan-cidr> <your-dyndns-host>
+> ignoreip = 127.0.0.1/8 ::1 <your-lan-cidr> <your-domain>
 > ```
 >
 > Costs a DNS lookup per check, and leaves a brief window after an IP change where the house is
