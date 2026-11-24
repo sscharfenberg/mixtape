@@ -25,8 +25,9 @@ the untracked `docs/host.local/` — see **Docs** below.)*
 - **Internet-facing by design** on **443/HTTPS** (clean links), but **only the web ports (80/443) are
   forwarded** — SSH, Samba, and the database stay **LAN-only and must never be exposed.**
 - **Back up the media collection before any wipe** — it's the only thing whose loss is permanent (the
-  DB is rebuilt from it via artisan in ~40 s). Backups go to a **separate physical drive**, so a
-  system-disk reinstall can't touch them. Wipe/repartition only after a **verified** backup — "the
+  DB is rebuilt from it via artisan in ~40 s). Backups go to a **separate physical drive** and
+  **off-site** (restic, nightly, into a repository on each), so neither a system-disk reinstall nor
+  the house can take them all. Wipe/repartition only after a **verified** backup — "the
   archive exists" is not "the archive restores". (Concrete disks/labels: `docs/host.local/`.)
 
 **App**
@@ -329,8 +330,8 @@ instance, written for someone else's server.
 - `02-host-setup.md` — Debian, networking, firewall, SSH, PostgreSQL, nginx/PHP, Samba, LAN TLS.
 - `03-production-deploy.md` — the `mixtape-deploy` ownership model and the Step-0 build of the site.
 - `04-going-public.md` — domain + DNS (Cloudflare, ddclient), port-forward, firewall widen, certbot
-  DNS-01, changing the canonical host, mail + SPF/DKIM/DMARC + inbound routing, fail2ban, backup
-  alerting. **Auth must be in force before any exposure.**
+  DNS-01, changing the canonical host, mail + SPF/DKIM/DMARC + inbound routing, fail2ban, backups
+  (restic to the backup drive and B2) and their alerting. **Auth must be in force before any exposure.**
 - `commands.md` — **not a step, a reference**: the four scripts you run once the box exists. Two on
   the server (`mixtape-prod-deploy`, `mixtape-dev-deploy`, plus artisan-as-www-data), two on the
   workstation and **macOS-specific** (`mt`, `mts`). Anything about running a command rather than

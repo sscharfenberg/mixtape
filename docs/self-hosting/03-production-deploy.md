@@ -566,11 +566,10 @@ Then install the units (as root):
 | [`files/mixtape-library-scan.service`](files/mixtape-library-scan.service) | `/etc/systemd/system/…` | the oneshot unit (www-data, `TimeoutStartSec=1800`) |
 | [`files/mixtape-library-scan.timer`](files/mixtape-library-scan.timer) | `/etc/systemd/system/…` | daily `05:30`, `Persistent=true` |
 
-> **Keep this timer clear of the media backup.** The scan's first act is to delete junk files
-> inside `/var/media`, and GNU tar exits non-zero when a file disappears from under it — which
-> aborts the backup, fires its failure alert, and leaves that Sunday with no snapshot. The backup
-> starts at 03:00–03:15 and reads the whole collection twice, so on a slow drive it is still
-> running long after 04:00.
+> **Keep this timer clear of the backup.** The scan's first act is to delete junk files inside
+> `/var/media`, and restic exits 3 when a file disappears while it reads — a failed run, which fires
+> the alert and leaves that night without a media snapshot. The backup starts at 04:00–04:15 and
+> normally finishes in minutes; a large import of new records stretches it.
 
 ```bash
 sudo install -m 0644 -o root -g root mixtape-library-scan.service mixtape-library-scan.timer /etc/systemd/system/
@@ -690,16 +689,15 @@ sent to somebody cannot be reissued — restoring an account is an inconvenience
 losing the `shares` table means links in other people's chat windows stop working and
 there is no way to tell them.
 
-A **daily** timer dumps the database to the same drive the media snapshots go to:
+A **daily** timer dumps the database to the backup drive, where the nightly restic run picks the
+dumps up and takes them off-site ([`04`](04-going-public.md#step-8--backups-and-alerting)):
 
 ```
 php artisan app:db-backup
 ```
 
-**Daily rather than weekly**, unlike the media backup, because the two cost different
-things. A media snapshot is most of a terabyte and only changes when somebody rips a
-record; a database dump is megabytes and changes every time anyone plays a song. Daily
-also sets the worst case for a restore: one day of listening history.
+**Daily**, because a dump is megabytes and changes every time anyone plays a song.
+Daily also sets the worst case for a restore: one day of listening history.
 
 **It writes to the backup drive, not to `storage/`.** A dump that only exists on the
 system disk is no use against the failure it is there for. The unit names the mount in
@@ -711,13 +709,13 @@ then succeeds for months onto exactly the disk it was supposed to survive.
 **The dump is verified, not just written.** `pg_dump --format=custom` writes to a
 `.partial` name, `pg_restore --list` then reads its table of contents back, and only
 then is it renamed into place. So a name in that directory means "this one restored",
-not "this one finished writing" — the same distinction the media backup's hash check
-makes, and the reason a dump interrupted by a full disk or a pulled cable is discarded
-rather than kept.
+not "this one finished writing", and a dump interrupted by a full disk or a pulled cable
+is discarded rather than kept.
 
 Retention is 30 days (`MIXTAPE_DB_BACKUP_RETENTION_DAYS`), pruned by the date in the
 filename rather than by mtime — a file copied or restored carries a new mtime, where
-the name still carries the date of the data.
+the name still carries the date of the data. The restic snapshots keep one dump a month
+for a year beyond that.
 
 | File | Destination | Purpose |
 | --- | --- | --- |
@@ -738,11 +736,11 @@ ls -lh /mnt/usb/db-backups
 ```
 
 Unlike the library scan and the share prune, this one **does** have an `OnFailure=`
-reporter, for the same reason the media backup does: a failed scan leaves stale rows
+reporter, for the same reason the restic backup does: a failed scan leaves stale rows
 and the next run fixes them, where a failed backup leaves nothing and you find out when
-you need it. It reuses `mixtape-backup-alert.sh`, told which job it is reporting, so the
-push names the database and marks that job's own dead-man's switch rather than the
-media backup's.
+you need it. It reuses `mixtape-backup-alert.sh`
+([`04`](04-going-public.md#alerting)), told which job it is reporting, so the push names
+the database and marks that job's own dead-man's switch rather than the restic run's.
 
 **It runs as root**, unlike the library scan and the share prune — forced by the
 drive, not chosen. The backup disk is exFAT, which carries no Unix permissions and is
@@ -757,8 +755,8 @@ journal.
 **It is a full dead-man's switch** if you set `HC_DB_PING_URL` in
 `/etc/mixtape/backup-alerts.env`: `OnFailure=` reports a run that ran and failed,
 while the success ping is what catches a timer that never fired at all. Give it a
-check of its **own** — sharing the media backup's URL means a failed dump marks that
-period red and sends you to the wrong drive. Both are optional; unset, they skip.
+check of its **own** — sharing the restic run's URL means a failed dump marks that
+period red and sends you to the wrong job. Both are optional; unset, they skip.
 
 ### Restoring
 

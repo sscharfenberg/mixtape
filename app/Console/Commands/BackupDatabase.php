@@ -21,10 +21,9 @@ use Illuminate\Support\Facades\Process;
  * A plain `.sql` dump would need a second pass to compress and could then only ever be
  * replayed whole, through `psql`.
  *
- * IT IS WRITTEN AS `.partial` AND RENAMED, and verified in between — the same shape
- * mixtape-media-backup.sh uses, for the same reason. A dump interrupted by a full disk, a
- * pulled USB cable or a reboot is a FILE THAT EXISTS AND DOES NOT RESTORE, and the rename is
- * what makes a name in that directory mean "this one worked". Verification is
+ * IT IS WRITTEN AS `.partial` AND RENAMED, and verified in between. A dump interrupted by a
+ * full disk, a pulled USB cable or a reboot is a FILE THAT EXISTS AND DOES NOT RESTORE, and
+ * the rename is what makes a name in that directory mean "this one worked". Verification is
  * `pg_restore --list`, which reads the archive's table of contents: cheap, and the difference
  * between "bytes were written" and "Postgres can read them back".
  *

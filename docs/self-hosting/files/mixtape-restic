@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+# /usr/local/sbin/mixtape-restic   — 750 root:root
+#
+# MixTape's backup with restic, into two repositories that share one password
+# (/root/mixtape/restic-password — keep a copy in a password manager with both
+# repository URLs, because without it nothing below can be restored):
+#
+#   /mnt/usb/restic/mixtape      the backup drive: survives a dead system disk
+#   B2 <bucket>/mixtape          Backblaze B2: survives the house
+#
+# What, in both repositories, as three tags so each is thinned on its own:
+#   mixtape-media   /var/media/music and /var/media/audiobooks, the only data
+#                   whose loss is permanent. Nobody can serve these again, so
+#                   they go off-site.
+#   mixtape-db      app:db-backup's nightly dumps (02:30), which it writes to
+#                   the backup drive. The directory keeps 30 days; the
+#                   snapshots keep a monthly dump for a year.
+#   mixtape-config  prod's .env (APP_KEY — without it the restored 2FA secrets
+#                   are unreadable) and the server configuration this guide
+#                   builds, which exists nowhere else. /etc/nginx,
+#                   /etc/php/8.4/fpm, /etc/postgresql/17/main and
+#                   /etc/letsencrypt are taken whole: anything else on the box
+#                   may share files in them, and a rename inside them must not
+#                   break this job. Globs pick up new mixtape-* files; a path
+#                   or pattern that matches nothing stays literal, restic fails
+#                   and the failure alerts — which is how a renamed file is
+#                   noticed instead of silently dropping out of the backup.
+#
+# A missing backup drive costs the USB repository and that night's dumps (they
+# live on the drive), never the off-site media and config: B2 still runs, and
+# the job fails so the alert fires.
+#
+# restic encrypts both repositories. On an exFAT drive that is the only
+# protection: exFAT has no permissions, every file there is world-readable.
+#
+# The B2 key is limited to the prefix mixtape/ and cannot delete (listBuckets,
+# listFiles, readFiles, writeFiles). What restic removes (forget --prune, its
+# lock files) is only HIDDEN, and the bucket's lifecycle rule deletes hidden
+# versions after 90 days. A break-in on the server can therefore hide the
+# off-site copy, not destroy it: 90 days to notice and restore.
+#
+# Run by mixtape-restic.timer (04:00, after app:db-backup); a failure alerts
+# through mixtape-restic-failed.service, success pings healthchecks.io from the
+# unit. One repository failing does not stop the other.
+#
+# B2_LIMIT_UPLOAD (KiB/s, optional) throttles the B2 uploads only. The nightly
+# run leaves it unset; the first run, which uploads the whole collection, sets
+# it so the house can still stream.
+#
+# Restore, e.g. one album from B2 into /tmp/restore, as root:
+#   export RESTIC_PASSWORD_FILE=/root/mixtape/restic-password
+#   read -r AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY < /root/mixtape/b2-key; export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
+#   restic -r s3:https://s3.<region>.backblazeb2.com/<bucket>/mixtape snapshots
+#   restic -r … restore latest --tag mixtape-media --include '/var/media/music/<Artist>/<Album>' --target /tmp/restore
+# --include is a PATTERN: escape [ and ] in a folder name ("\[2006\]"), or the
+# restore matches nothing and says so only by restoring nothing.
+# A dump goes back with `php artisan app:db-restore`; the library itself comes
+# back from the restored media with `php artisan app:update`.
+
+set -Eeuo pipefail
+umask 077
+
+MEDIA=(/var/media/music /var/media/audiobooks)
+DUMPS=/mnt/usb/db-backups
+CONFIG=(
+    /var/www/mixtape.prod/.env
+    /etc/nginx /etc/php/8.4/fpm /etc/postgresql/17/main /etc/letsencrypt
+    /etc/systemd/system/mixtape-* /etc/sudoers.d/mixtape-deploy
+    /etc/logrotate.d/mixtape-* /etc/logrotate.d/modsecurity
+    /etc/fail2ban/jail.local /etc/fail2ban/filter.d/mixtape-*
+    /etc/nftables.conf /etc/ddclient.conf /etc/samba/smb.conf
+    /usr/local/sbin/mixtape-* /usr/local/bin/mixtape-*
+    /etc/mixtape /root/mixtape
+    /usr/local/sbin/waf-report /etc/waf-report /etc/systemd/system/waf-report.*
+)
+USB_MOUNT=/mnt/usb
+USB_REPO=$USB_MOUNT/restic/mixtape
+B2_REPO="s3:https://s3.<region>.backblazeb2.com/<bucket>/mixtape"
+# restic groups and thins snapshots per host. Pinned rather than read from the
+# machine, so renaming it does not start a second history beside the first.
+HOST="<hostname>"
+KEEP=(--keep-daily 7 --keep-weekly 5 --keep-monthly 12)
+
+B2_LIMIT=()
+if [[ -n ${B2_LIMIT_UPLOAD:-} ]]; then
+    B2_LIMIT=(--limit-upload "$B2_LIMIT_UPLOAD")
+fi
+
+export RESTIC_PASSWORD_FILE=/root/mixtape/restic-password
+export RESTIC_CACHE_DIR=/var/cache/restic
+# The key file is "<keyID> <applicationKey>", as `b2 key create` prints it.
+read -r AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY < /root/mixtape/b2-key
+export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
+
+# backup_to <name> <dumps: yes|no> <restic global options…>
+backup_to() {
+    local name=$1 dumps=$2
+    shift 2
+    local -a r=(restic "$@")
+    # Smallest first: a failure further down still leaves config and dumps in.
+    # Exit code 3 (a path could not be read) is a failure too: an incomplete
+    # snapshot is not a backup.
+    echo "==> $name: server config"
+    "${r[@]}" backup --host "$HOST" --tag mixtape-config "${CONFIG[@]}" || return 1
+    if [[ $dumps == yes ]]; then
+        echo "==> $name: database dumps"
+        "${r[@]}" backup --host "$HOST" --tag mixtape-db "$DUMPS" || return 1
+    fi
+    echo "==> $name: media"
+    "${r[@]}" backup --host "$HOST" --tag mixtape-media "${MEDIA[@]}" || return 1
+    echo "==> $name: forget + prune (${KEEP[*]})"
+    # Grouped by tag, not by path list: a changed CONFIG must not strand the
+    # older snapshots in a group of their own that nothing would ever thin out.
+    "${r[@]}" forget --host "$HOST" --group-by host,tags "${KEEP[@]}" --prune || return 1
+    # Sundays: read back a tenth of the data. B2 egress is free up to three
+    # times the stored amount.
+    if [[ $(date +%u) == 7 ]]; then
+        echo "==> $name: check, reading 10% of the data"
+        "${r[@]}" check --read-data-subset=10% || return 1
+    fi
+}
+
+failed=()
+# Not RequiresMountsFor= in the unit: a missing drive must not cost the
+# off-site copy. And never write into the bare mountpoint, which is on the
+# system disk.
+if mountpoint -q "$USB_MOUNT"; then
+    backup_to usb yes -r "$USB_REPO" || failed+=(usb)
+    backup_to b2 yes -r "$B2_REPO" "${B2_LIMIT[@]}" || failed+=(b2)
+else
+    echo "Backup drive is not mounted at $USB_MOUNT: no USB repository, and no dumps for B2" >&2
+    failed+=(usb)
+    backup_to b2 no -r "$B2_REPO" "${B2_LIMIT[@]}" || failed+=(b2)
+fi
+
+if (( ${#failed[@]} )); then
+    echo "FAILED: ${failed[*]}" >&2
+    exit 1
+fi
+echo "==> both repositories done"

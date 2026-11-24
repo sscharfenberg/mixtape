@@ -1,14 +1,18 @@
-# /etc/systemd/system/mixtape-backup-failed.service
+# /etc/systemd/system/mixtape-restic-failed.service
 #
-# Triggered by OnFailure= in mixtape-media-backup.service. Not enabled, not
-# timed — systemd starts it only when the backup unit enters a failed state.
-
+# Triggered by OnFailure= in mixtape-restic.service. Not enabled, not timed —
+# systemd starts it only when the backup unit enters a failed state.
+#
+# THE SAME SCRIPT THE OTHER BACKUPS USE, told which job it is reporting: the push
+# names the job and its unit, and `restic` selects HC_RESTIC_PING_URL as the
+# dead-man's switch to mark failed.
 [Unit]
-Description=Report a failed MixTape media backup (dead-man's-switch + push)
+Description=Report a failed MixTape restic backup (dead-man's-switch + push)
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/sbin/mixtape-backup-alert.sh
+ExecStart=/usr/local/sbin/mixtape-backup-alert.sh restic mixtape-restic
+
 # Sandboxing. These four are the ones that cost nothing here: this job reads and
 # writes only the paths named above and touches nothing in /home or /usr. Left at
 # `full` rather than `strict` deliberately — `strict` makes the whole filesystem

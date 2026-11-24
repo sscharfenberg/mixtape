@@ -1,0 +1,32 @@
+# /etc/systemd/system/mixtape-restic.service — runs /usr/local/sbin/mixtape-restic
+# (restic: the backup drive + Backblaze B2). Started by mixtape-restic.timer.
+#
+# NO RequiresMountsFor=/mnt/usb, unlike the database backup: a missing drive
+# must not cost the off-site copy. The script checks the mountpoint itself,
+# backs up to B2 anyway and then fails, so OnFailure= still reports it.
+#
+# THE SUCCESS PING is the dead-man's switch, as in mixtape-db-backup.service:
+# OnFailure= only reports a run that RAN and failed, while a timer that never
+# fires is silent. `-` so a failed ping cannot fail the backup; an unset
+# HC_RESTIC_PING_URL simply skips.
+[Unit]
+Description=MixTape backup: restic to the backup drive and Backblaze B2
+Wants=network-online.target
+After=network-online.target
+OnFailure=mixtape-restic-failed.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/mixtape-restic
+ExecStartPost=-/bin/sh -c '. /etc/mixtape/backup-alerts.env 2>/dev/null; [ -n "$HC_RESTIC_PING_URL" ] && exec curl -fsS -m 10 --retry 3 -o /dev/null "$HC_RESTIC_PING_URL"; exit 0'
+# Yield to anything a listener is doing.
+Nice=10
+IOSchedulingClass=idle
+# Bounds a nightly run, which reads only what changed. The first run uploads
+# the whole collection and runs outside this unit, as a transient one.
+TimeoutStartSec=3h
+NoNewPrivileges=yes
+PrivateTmp=yes
+# read-only, not yes: the key and password live in /root/mixtape.
+ProtectHome=read-only
+ProtectSystem=full

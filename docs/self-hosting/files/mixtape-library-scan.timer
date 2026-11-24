@@ -6,19 +6,18 @@
 Description=Daily MixTape library scan
 
 [Timer]
-# WELL CLEAR OF THE SUNDAY BACKUP, and this gap is a correctness requirement rather than
+# WELL CLEAR OF THE NIGHTLY BACKUP, and this gap is a correctness requirement rather than
 # politeness. The scan's first action is to DELETE files inside /var/media (cleanup_masks),
-# and GNU tar exits non-zero on "file removed before we read it" — under the backup script's
-# `set -euo pipefail` that aborts the run, fires the failure alert, and leaves that Sunday with
-# no snapshot at all. The backup starts 03:00-03:15 and reads the whole collection TWICE (once
-# to write the tar, once to verify the hash), so on a slow drive it is still going well past
-# 04:00. Do not move this earlier; if anything, add `Conflicts=mixtape-media-backup.service`
-# and `After=` to the service unit to make the ordering structural rather than arithmetic.
+# and restic exits 3 when a file vanishes while it reads ("at least one source file could not
+# be read"). mixtape-restic counts that as a failed run: the alert fires and that night has no
+# media snapshot. The backup starts at 04:00-04:15 and reads only what changed, so a normal
+# night is done in minutes; a large import is uploaded in that same pass and takes longer.
+# Do not move this earlier.
 OnCalendar=*-*-* 05:30:00
 
-# Persistent: a home server is often asleep at 04:00. Without this a missed scan
+# Persistent: a home server is often asleep at night. Without this a missed scan
 # waits a whole day; with it, systemd runs the one missed scan shortly after the
-# next boot (same reasoning as the media backup timer). This is *why* the scan
+# next boot (same reasoning as the backup timers). This is *why* the scan
 # is a dedicated timer rather than Laravel's scheduler driven by a per-minute
 # `schedule:run`: a missed `dailyAt('04:00')` is silently skipped, never caught
 # up. One scheduled command doesn't need the scheduler's indirection anyway.

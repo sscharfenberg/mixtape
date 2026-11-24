@@ -1,0 +1,17 @@
+# /etc/systemd/system/mixtape-restic.timer
+#
+# Enable with: sudo systemctl enable --now mixtape-restic.timer
+[Unit]
+Description=MixTape backup: nightly restic run
+
+[Timer]
+# 04:00 on the server's clock: after mixtape-db-backup (02:30), whose dumps
+# this reads, and well clear of the library scan (05:30), which deletes files
+# under /var/media — mixtape-library-scan.timer says why that gap matters.
+OnCalendar=*-*-* 04:00:00
+RandomizedDelaySec=15m
+# A home server is sometimes off at 04:00; a missed night runs at boot instead.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

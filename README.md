@@ -118,7 +118,7 @@ npm run test:e2e      # end-to-end suite
 | [`01-requirements.md`](docs/self-hosting/01-requirements.md) | Hardware, OS, storage layout, stack, network and exposure model, security posture |
 | [`02-host-setup.md`](docs/self-hosting/02-host-setup.md) | Debian, networking, firewall, SSH, PostgreSQL, nginx/PHP, Samba, TLS on the LAN |
 | [`03-production-deploy.md`](docs/self-hosting/03-production-deploy.md) | The deploy ownership model, first deploy, routine deploys, rate limiting, scheduled jobs |
-| [`04-going-public.md`](docs/self-hosting/04-going-public.md) | Domain, port-forward, Let's Encrypt, transactional mail, login hardening, backup alerting |
+| [`04-going-public.md`](docs/self-hosting/04-going-public.md) | Domain, port-forward, Let's Encrypt, transactional mail, login hardening, off-site backups and their alerting |
 | [`docs/self-hosting/files/`](docs/self-hosting/files) | Installable configs — nginx vhosts, fpm pool, sudoers, deploy scripts, systemd units, `.env` template |
 | [`docker/README.md`](docker/README.md) | The local Docker development stack |
 

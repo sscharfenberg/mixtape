@@ -449,15 +449,155 @@ Two things worth knowing before you tune anything on a freshly public site:
   is another way to ban someone by mistake, and daily rotation with `rotate 14` already bounds the
   volume.
 
-## Step 8 — Backup alerting
+## Step 8 — Backups and alerting
 
-The backup job from [`02-host-setup.md`](02-host-setup.md#210-backups) logs to the journal, which
-nobody reads. The failure that actually happens is the *silent* one — the machine was off, the timer
-got disabled, the script hung — and a journal entry cannot report an event that never occurred.
+The media is the only thing whose loss is permanent, and a backup drive in the same house as the server
+shares its fate: a fire, a theft or a surge takes both. So the collection goes to two places — the
+backup drive and off-site storage — in one nightly job that also takes the database dumps
+([`03`](03-production-deploy.md#scheduled-database-backup)) and the server configuration this guide
+builds. Then the job gets an alarm, because a backup that silently stops running is the failure that
+actually happens.
 
-- **A dead-man's-switch** (healthchecks.io or similar) catches exactly that class. Create a check with
-  a period matching your backup interval and a generous grace, and have the script ping `/start` at
-  the beginning and success at the end.
+None of this needs an open port, so it can be done at any point once [`03`](03-production-deploy.md)
+is complete.
+
+### restic, into two repositories
+
+[restic](https://restic.net/) writes encrypted, deduplicated snapshots. One script,
+[`files/mixtape-restic`](files/mixtape-restic), backs up into two repositories that share one password:
+
+| Repository | Survives |
+| --- | --- |
+| `/mnt/usb/restic/mixtape`, on the backup drive | a dead system disk |
+| `<bucket>/mixtape`, on Backblaze B2 | the house |
+
+Three tags, each thinned on its own (7 daily, 5 weekly, 12 monthly snapshots):
+
+- **`mixtape-media`**: `/var/media/music` and `/var/media/audiobooks`.
+- **`mixtape-db`**: the dump directory. It keeps 30 days itself; the snapshots keep one dump a month for
+  a year.
+- **`mixtape-config`**: prod's `.env` — its `APP_KEY` is what decrypts the restored 2FA secrets — and
+  the server configuration from this guide: nginx, the php-fpm pools, PostgreSQL's settings, the
+  certificates, the units, sudoers, fail2ban, the firewall. It exists nowhere else, and rebuilding it
+  from these documents takes days.
+
+What the design decides:
+
+- **Daily is cheap.** A run reads only files whose size or mtime changed, and stores only chunks the
+  repository does not have yet, so a quiet night takes seconds. A re-tagged file is picked up through
+  its mtime even when ID3 padding absorbed the edit and the size stayed the same.
+- **The off-site key cannot delete.** It is limited to the `mixtape/` prefix, with `listBuckets`,
+  `listFiles`, `readFiles` and `writeFiles` only. What restic removes is then merely *hidden*, and a
+  lifecycle rule on the bucket deletes hidden versions after 90 days: a break-in on the server can hide
+  the off-site copy, not destroy it, and you have 90 days to notice.
+- **A missing drive does not cost the off-site copy.** The unit has no `RequiresMountsFor=`. The script
+  checks the mountpoint itself, backs up media and config to B2 anyway, and then fails, so the alert
+  fires.
+- **Both repositories are encrypted**, which on an exFAT drive is the only protection there is: exFAT
+  has no permissions.
+- **On Sundays it reads a tenth of each repository back** (`check --read-data-subset=10%`), which
+  catches a drive or a bucket that has started returning damaged data. B2 charges nothing for egress
+  up to three times what you store.
+
+### Set it up
+
+**1. The bucket and the key**, on your workstation with the [b2 CLI](https://www.backblaze.com/docs/cloud-storage-command-line-tools)
+(`brew install b2-tools`) and the account's **master key**, which is only needed for this:
+
+```bash
+b2 account authorize                         # the master key
+b2 bucket create <bucket> allPrivate         # globally unique: add a random suffix
+b2 key create --bucket <bucket> --name-prefix mixtape/ \
+  mixtape-restic listBuckets,listFiles,readFiles,writeFiles
+#   prints "<keyID> <applicationKey>": step 2's input
+b2 account clear                             # no master key left on the workstation
+```
+
+Then, in the web UI, set the bucket's **Lifecycle Settings** to *Keep prior versions for this number
+of days: 90*, and note its **endpoint** (`s3.<region>.backblazeb2.com`). restic reaches B2 through
+that S3 endpoint, which is what Backblaze recommends for it. `b2 bucket get <bucket>` shows the rule as
+`"daysFromHidingToDeleting": 90` with an empty `fileNamePrefix`, so it covers `mixtape/`.
+
+Backblaze also caps each day's usage (**Caps & Alerts**). A full restore downloads the whole
+collection, so set the download cap above that before you need it, or a restore stops at the cap for
+the rest of the day.
+
+**2. The secrets on the server.** Paste the key, then Enter and Ctrl-D:
+
+```bash
+sudo apt install -y restic
+sudo install -d -m 700 /root/mixtape
+sudo sh -c 'umask 077; cat > /root/mixtape/b2-key'      # "<keyID> <applicationKey>"
+sudo sh -c 'umask 077; head -c 32 /dev/urandom | base64 > /root/mixtape/restic-password'
+sudo cat /root/mixtape/restic-password
+```
+
+Put that password into a password manager **together with both repository URLs**. Without it, nothing
+in either repository can be restored — and the copy on the server dies with the server.
+
+**3. Install.** Fill in `<region>`, `<bucket>` and `<hostname>` at the top of the script first.
+`CONFIG` names every file this guide installs, [`05`](05-hardening.md)'s included, and a path that
+does not exist fails the run on purpose: that is how a renamed file is noticed instead of silently
+dropping out of the backup. So leave out what your box does not have yet —
+`/etc/logrotate.d/modsecurity` and the three `waf-report` entries until you have done `05`, the Samba
+and ddclient files if you skipped those — and add them back when you do.
+
+| File | Installs as | Role |
+| --- | --- | --- |
+| [`files/mixtape-restic`](files/mixtape-restic) | `/usr/local/sbin/…` (750 root) | the backup |
+| [`files/mixtape-restic.service`](files/mixtape-restic.service) | `/etc/systemd/system/…` | the unit: `OnFailure=` and the success ping |
+| [`files/mixtape-restic.timer`](files/mixtape-restic.timer) | `/etc/systemd/system/…` | nightly at 04:00, `Persistent=true` |
+| [`files/mixtape-restic-failed.service`](files/mixtape-restic-failed.service) | `/etc/systemd/system/…` | what `OnFailure=` starts |
+
+```bash
+sudo install -m 750 -o root -g root mixtape-restic /usr/local/sbin/
+sudo install -m 644 -o root -g root mixtape-restic.service mixtape-restic.timer \
+  mixtape-restic-failed.service /etc/systemd/system/
+sudo systemctl daemon-reload
+```
+
+The alerting it reports through is installed [below](#alerting); the timer waits until both are in.
+
+**4. Create both repositories:**
+
+```bash
+sudo bash -c '
+  export RESTIC_PASSWORD_FILE=/root/mixtape/restic-password RESTIC_CACHE_DIR=/var/cache/restic
+  read -r AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY < /root/mixtape/b2-key
+  export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
+  restic -r /mnt/usb/restic/mixtape init
+  restic -r s3:https://s3.<region>.backblazeb2.com/<bucket>/mixtape init'
+```
+
+**5. The first run, in the evening.** It uploads the whole collection, so it runs as a **transient
+unit**: a dropped SSH session does not stop it, and the service's 3-hour ceiling does not apply.
+`B2_LIMIT_UPLOAD` (KiB/s) throttles the B2 half; about half your line's upload leaves the rest for
+anyone streaming from the instance. The USB half goes first and runs at the drive's speed.
+
+```bash
+sudo systemd-run --unit=mixtape-restic-seed --setenv=B2_LIMIT_UPLOAD=<KiB/s> \
+  -p Nice=10 -p IOSchedulingClass=idle /usr/local/sbin/mixtape-restic
+journalctl -fu mixtape-restic-seed           # Ctrl-C leaves it running
+```
+
+It is done when the journal says `both repositories done`. Every run after it is incremental.
+
+**6. The timer**, once the alerting below is in place:
+
+```bash
+sudo systemctl enable --now mixtape-restic.timer
+```
+
+### Alerting
+
+The journal records a failed run, and nobody reads it. Worse, the failure that actually happens is the
+*silent* one — the machine was off, the timer got disabled, the script hung — and a journal entry
+cannot report an event that never occurred.
+
+- **A dead-man's-switch** (healthchecks.io or similar) catches exactly that class. Give each backup a
+  check of its own — period 1 day, grace 2 hours — and let its unit ping it after every successful
+  run. One check for both would let a failed dump mark the restic run's period red and send you to
+  the wrong job.
 - **Push delivery** (ntfy or similar) gets it to your phone without needing a mail server. **Prove it
   notifies with the screen off**, not just that the message reaches the topic: on Android without
   Google Play Services, or with the app from F-Droid, a ntfy.sh subscription only fetches messages when
@@ -465,74 +605,55 @@ got disabled, the script hung — and a journal entry cannot report an event tha
   and set the app's battery use to *Unrestricted*.
 - A systemd `OnFailure=` hook reports runs that fail *or* die outright.
 
-This does not depend on TLS, the domain, or mail, so it can be done at any point.
-
-### The pieces
-
 | File | Installs as | Role |
 | --- | --- | --- |
-| [`files/mixtape-media-backup.sh`](files/mixtape-media-backup.sh) | `/usr/local/sbin/…` (755 root) | the backup; pings `/start` and success |
-| [`files/mixtape-backup-alert.sh`](files/mixtape-backup-alert.sh) | `/usr/local/sbin/…` (755 root) | pings `/fail` + pushes to ntfy |
-| [`files/mixtape-media-backup.service`](files/mixtape-media-backup.service) | `/etc/systemd/system/…` | the unit, with `OnFailure=` |
-| [`files/mixtape-backup-failed.service`](files/mixtape-backup-failed.service) | `/etc/systemd/system/…` | what `OnFailure=` starts |
-| [`files/backup-alerts.env.template`](files/backup-alerts.env.template) | `/etc/mixtape/backup-alerts.env` (**0600 root**) | the two secrets |
+| [`files/mixtape-backup-alert.sh`](files/mixtape-backup-alert.sh) | `/usr/local/sbin/…` (755 root) | pings `/fail` + pushes to ntfy, for both backups |
+| [`files/backup-alerts.env.template`](files/backup-alerts.env.template) | `/etc/mixtape/backup-alerts.env` (**0600 root**) | the ping URLs and the topic |
 
 ```sh
 sudo install -d -m 0755 /etc/mixtape
 sudo install -m 0600 -o root -g root backup-alerts.env.template /etc/mixtape/backup-alerts.env
-sudo nano /etc/mixtape/backup-alerts.env            # real ping URL + topic
-sudo install -m 0755 -o root -g root mixtape-media-backup.sh mixtape-backup-alert.sh /usr/local/sbin/
-sudo install -m 0644 -o root -g root mixtape-media-backup.service mixtape-backup-failed.service /etc/systemd/system/
-sudo systemctl daemon-reload
+sudo nano /etc/mixtape/backup-alerts.env            # both ping URLs + the topic
+sudo install -m 0755 -o root -g root mixtape-backup-alert.sh /usr/local/sbin/
 ```
 
-### Four decisions worth understanding
+The database backup's reporter, `mixtape-db-backup-failed.service`, is installed with its unit in
+[`03`](03-production-deploy.md#scheduled-database-backup); it calls the same script.
+
+### Decisions worth understanding
 
 **Failure reporting lives in the `OnFailure=` hook, not in the script.** A `trap` inside the script
 cannot report a run that was OOM-killed, signalled, or that failed before the trap was installed.
 systemd knows the unit failed even when the process never got to say so. The trade-off is that
 running the script by hand does not alert — acceptable, because by hand you are watching the output.
 
-**Skipped runs must ping success.** A backup that correctly does nothing (the collection has not
-changed) is a healthy run. If it stayed silent, the switch would false-alarm every quiet week, and an
-alert you have learned to ignore is worse than no alert.
-
-**Do not put `ConditionPathIsMountPoint=` on the backup unit.** This one is a trap. A failed
-`Condition` does not fail a unit — systemd *skips* it and records success. Guard the backup drive that
-way and the most likely real failure, the drive being unplugged, silently skips the run, `OnFailure=`
-never fires, and you hear nothing until the grace window lapses. Let the script test the mountpoint
-and exit non-zero instead. Conditions express "not applicable", not "the thing I am protecting is
-broken".
+**Do not put `ConditionPathIsMountPoint=` on a backup unit.** This one is a trap. A failed `Condition`
+does not fail a unit — systemd *skips* it and records success. Guard the backup drive that way and
+the most likely real failure, the drive being unplugged, silently skips the run, `OnFailure=` never
+fires, and you hear nothing until the grace window lapses. Let the script test the mountpoint and exit
+non-zero instead. Conditions express "not applicable", not "the thing I am protecting is broken".
 
 **Alerting must never break the backup.** Missing config disables pinging rather than failing; every
-`curl` is `|| true`; the alert script never `set -e`s and always exits 0. Otherwise a monitoring
-outage turns a good backup into a failed one, and you end up debugging the alarm instead of the thing
-it watches.
+`curl` is `|| true` or a `-` command; the alert script never `set -e`s and always exits 0. Otherwise a
+monitoring outage turns a good backup into a failed one, and you end up debugging the alarm instead of
+the thing it watches.
 
 ### Verify it
 
-Prove the failure path *and* the success path — a switch nobody has seen fire is a guess:
+Prove the success path *and* the failure path — a switch nobody has seen fire is a guess:
 
 ```sh
-# success: should show a run and a green check
-sudo systemctl start mixtape-media-backup.service
-journalctl -u mixtape-media-backup -n 20 --no-pager
+sudo systemctl start mixtape-restic.service           # incremental; the check turns green
+journalctl -u mixtape-restic -n 20 --no-pager
+sudo systemctl start mixtape-restic-failed.service    # a test alert: a push, and the check turns red
+sudo systemctl start mixtape-restic.service           # green again
 ```
 
-A run that takes the "nothing changed" branch is the interesting success case — the dashboard should
-record it as a normal (very short) run, not stay silent.
-
-> **Unmounting the backup drive does not test the failure path.** `RequiresMountsFor=` pulls the mount
-> in as a dependency, so starting the unit *remounts* it and the backup succeeds. That is desirable —
-> a merely-unmounted drive self-heals — but it means only a physically absent drive fails that way.
-> Check `systemctl show … -p Result` before concluding anything: `Result=success` with no push means
-> nothing failed, not that alerting is broken.
-
-Test the failure path with a temporary override instead, which exercises the real chain — unit fails
-→ `OnFailure=` → alert unit → `/fail` ping + push — without touching the drive or the script:
+Starting the reporter by hand proves the push and the `/fail` ping. To prove the whole chain — unit
+fails → `OnFailure=` → reporter — without touching the drive or the script, use a temporary override:
 
 ```sh
-sudo systemctl edit mixtape-media-backup.service --drop-in=test-failure
+sudo systemctl edit mixtape-restic.service --drop-in=test-failure
 ```
 
 ```ini
@@ -545,13 +666,70 @@ The empty `ExecStart=` is required: it clears the inherited list, and without it
 runs both commands.
 
 ```sh
-sudo systemctl start mixtape-media-backup.service     # expect the job to fail
-systemctl status mixtape-backup-failed.service --no-pager
-sudo systemctl revert mixtape-media-backup.service    # remove the drop-in
+sudo systemctl start mixtape-restic.service     # expect the job to fail
+systemctl status mixtape-restic-failed.service --no-pager
+sudo systemctl revert mixtape-restic.service    # remove the drop-in
 sudo systemctl daemon-reload
 ```
 
-Then confirm the check on the dashboard went red, and green again after a real run.
+> **Unmounting the backup drive does not fail the database backup.** Its unit names the drive in
+> `RequiresMountsFor=`, which pulls the mount in as a dependency, so starting the unit *remounts* it
+> and the dump succeeds. That is desirable — a merely-unmounted drive self-heals — but it means only a
+> physically absent drive fails that way. Check `systemctl show … -p Result` before concluding
+> anything: `Result=success` with no push means nothing failed, not that alerting is broken. The same
+> drop-in works on `mixtape-db-backup.service`.
+
+### Restore, and rehearse it
+
+A backup you have never restored is a hypothesis. Before relying on this one — and before deleting
+any older copy — restore one album, the dumps and `.env` **from B2**, the copy you would need after a
+fire, and compare them with the originals:
+
+```bash
+sudo bash -c '
+  A="/var/media/music/<Artist>/<Album>"
+  export RESTIC_PASSWORD_FILE=/root/mixtape/restic-password RESTIC_CACHE_DIR=/var/cache/restic
+  read -r AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY < /root/mixtape/b2-key
+  export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
+  R=s3:https://s3.<region>.backblazeb2.com/<bucket>/mixtape
+  restic -r $R snapshots
+  P=${A//\[/\\[}; P=${P//\]/\\]}             # --include is a pattern: escape [ and ]
+  restic -r $R restore latest --tag mixtape-media --include "$P" --target /tmp/restore
+  restic -r $R restore latest --tag mixtape-db --target /tmp/restore
+  restic -r $R restore latest --tag mixtape-config --include /var/www/mixtape.prod/.env --target /tmp/restore
+  diff -r "/tmp/restore$A" "$A" && echo "album identical"
+  cmp /tmp/restore/var/www/mixtape.prod/.env /var/www/mixtape.prod/.env && echo ".env identical"
+  pg_restore --list "$(ls /tmp/restore/mnt/usb/db-backups/*.dump | tail -1)" | head
+  rm -rf /tmp/restore'
+```
+
+**`--include` is a pattern, not a path.** A folder named `[2006] Album` holds a character class, so an
+unescaped include matches nothing — and restic reports that only by restoring nothing, which `diff`
+then calls a missing directory. The line that sets `P` escapes the brackets.
+
+Then read the whole USB repository back once. It takes about as long as reading the collection from
+the drive, so run it as a transient unit and read the result from its journal:
+
+```bash
+sudo systemd-run --unit=mixtape-restic-readcheck -p Nice=10 -p IOSchedulingClass=idle \
+  --setenv=RESTIC_PASSWORD_FILE=/root/mixtape/restic-password --setenv=RESTIC_CACHE_DIR=/var/cache/restic \
+  /usr/bin/restic -r /mnt/usb/restic/mixtape check --read-data
+sudo journalctl -u mixtape-restic-readcheck --no-pager | tail -4    # want: no errors were found
+```
+
+The journal shows no progress while it runs — restic draws its progress bar only on a terminal —
+and the unit is unloaded once it exits, so the journal is where the answer stays. Its "memory peak" is
+the page cache of everything it read, charged to the unit, not memory restic held.
+
+Two things that look wrong and are not:
+
+- **`restic snapshots` lists two snapshots from one day.** While a history is shorter than the
+  policy, `forget` also keeps the oldest snapshot as the first one of its period. Both thin out once
+  there are more days than `--keep-daily`.
+- **A dump goes back with `php artisan app:db-restore`**
+  ([`03`](03-production-deploy.md#restoring)), not with restic: restic restores the *file*, the
+  command restores the database from it. The library's own rows come back from the restored media
+  with `php artisan app:update`.
 
 ## Step 9 — Final verification
 
@@ -591,7 +769,8 @@ Then confirm the check on the dashboard went red, and green again after a real r
       If the second command finds anything, those files hold reset links: rotate them out
       (`sudo rm`) once the level is raised, rather than leaving them to age.
 - [ ] `certbot renew --dry-run` is clean and the renewal timer is active.
-- [ ] A deliberately failed backup produces an actual notification.
+- [ ] A deliberately failed backup produces an actual notification, with the phone's screen off.
+- [ ] One album, the dumps and `.env` have come back from B2 identical to the originals.
 
 ## Kill switch
 

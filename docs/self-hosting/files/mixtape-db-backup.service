@@ -25,8 +25,8 @@
 # by the drive rather than chosen. The backup disk is exFAT, mounted with fixed
 # ownership (uid=1000,gid=1000,umask=022) because exFAT carries no Unix permissions
 # — so www-data cannot write to it at all, and root is the only user that can
-# without remounting a disk that also holds the owner's own data. The media backup
-# runs as root for exactly the same reason.
+# without remounting a disk that also holds the owner's own data. The restic
+# backup that takes these dumps off-site runs as root as well.
 #
 # LOG_CHANNEL=stderr IS WHAT MAKES THAT SAFE, and it is not a tidiness preference.
 # The `daily` channel writes storage/logs/laravel-YYYY-MM-DD.log and CREATES that
@@ -38,7 +38,8 @@
 #
 # IT HAS AN OnFailure= REPORTER, unlike the library scan and the share prune. A
 # failed scan leaves stale rows and the next run fixes it; a failed backup leaves
-# nothing, and you find out when you need it. Same argument as the media backup.
+# nothing, and you find out when you need it. Same argument as for the restic
+# backup.
 #
 # THE SUCCESS PING IS WHAT MAKES IT A DEAD-MAN'S SWITCH, and it is worth the one
 # extra line: OnFailure= only reports a run that RAN and failed. A timer that never

@@ -74,7 +74,7 @@ return [
     | artists, genres, authors, narrators — is rebuilt from /var/media by
     | `app:update` in well under a minute, so a dump is small and quick.
     |
-    | THE PATH BELONGS ON THE BACKUP DRIVE, beside the media snapshots. A dump
+    | THE PATH BELONGS ON THE BACKUP DRIVE, beside the media's backup. A dump
     | written only to `storage/` lives on the system disk, which is the disk it
     | exists to survive the loss of.
     |
@@ -82,10 +82,10 @@ return [
 
     'backup' => [
 
-        // Where dumps are written. The USB drive the media snapshots go to, in a
-        // directory of its own next to /mnt/usb/snapshots. The systemd unit names
-        // the same mount in RequiresMountsFor=, so an unplugged drive fails the
-        // unit rather than quietly filling the root filesystem.
+        // Where dumps are written: a directory of its own on the backup drive,
+        // from where the nightly restic run takes them off-site. The systemd unit
+        // names the same mount in RequiresMountsFor=, so an unplugged drive fails
+        // the unit rather than quietly filling the root filesystem.
         'path' => env('MIXTAPE_DB_BACKUP_PATH', '/mnt/usb/db-backups'),
 
         // How many days of dumps to keep. Generous because they are small — the

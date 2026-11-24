@@ -126,6 +126,9 @@ sudo install -o root -g adm -m 640 /dev/null /var/log/modsecurity/audit.log
 sudo install -m 644 $SRC/modsecurity.logrotate /etc/logrotate.d/modsecurity
 ```
 
+If the backup from [`04` Step 8](04-going-public.md#step-8--backups-and-alerting) left
+`/etc/logrotate.d/modsecurity` out of its `CONFIG`, add it back now.
+
 When editing these files later, keep **one space** between a directive and its value. A
 column-aligned line such as `SecAuditLog      /var/log/…` is silently dropped: `nginx -t` passes,
 the rules run, and the audit log stays empty.
@@ -316,8 +319,11 @@ sudo systemctl daemon-reload && sudo systemctl enable --now waf-report.timer
 sudo waf-report --dry-run --since "$(date -d '-14 days' +%FT%T)"   # what it WOULD have sent
 ```
 
-The report goes to the ntfy topic the backup alerts use (§ backup alerting in
-[`04`](04-going-public.md#step-8--backup-alerting)); `apps.json` can name mail or a Discord webhook
+The backup's `CONFIG` names the script, `/etc/waf-report` and both units; add them back if you left
+them out in [`04`](04-going-public.md#step-8--backups-and-alerting).
+
+The report goes to the ntfy topic the backup alerts use ([`04`](04-going-public.md#alerting));
+`apps.json` can name mail or a Discord webhook
 instead, and one entry per app if a second app shares the WAF — the parsing exists once. Each app keeps
 its own window in `/var/lib/waf-report/`: a report that reached none of its channels keeps the window,
 so the next run reports the gap too.
@@ -373,12 +379,15 @@ Two kinds of the updates it does install have no effect until something else hap
 
   ```bash
   printf '%s\n' 'Unattended-Upgrade::Automatic-Reboot "true";' \
-                'Unattended-Upgrade::Automatic-Reboot-Time "04:30";' \
+                'Unattended-Upgrade::Automatic-Reboot-Time "03:30";' \
     | sudo tee /etc/apt/apt.conf.d/52unattended-upgrades-reboot
   ```
 
-  It reboots only when an update asked for one. Pick a time that misses your own timers
-  (`systemctl list-timers`): a reboot in the middle of a backup is a failed backup. Before you rely
+  It reboots only when an update asked for one, at the next 03:30 after the upgrade ran. Pick a
+  time that misses your own timers (`systemctl list-timers`): a reboot in the middle of a backup is a
+  failed backup. 03:30 falls between the database dump (02:30) and the restic run (04:00), which
+  can still be running at 04:30 on a Sunday, when it reads data back, or after a large import.
+  Before you rely
   on it, **reboot once by hand** and confirm that everything comes back on its own (sites, mounts,
   timers), because from then on nobody is watching when it reboots.
 

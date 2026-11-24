@@ -23,6 +23,7 @@ A single always-on machine hosts everything:
 | RAM | 4 GB | 8 GB+ comfortable (php-fpm `memory_limit` 256M; backups are I/O-bound) |
 | System disk | SSD | OS + DB + app + media; size the media volume to your collection plus growth |
 | Backup disk | second drive ≥ collection size | must be a **separate physical disk**, so reinstalling the system disk leaves backups untouched |
+| Off-site storage | a bucket ≥ collection size | anything restic can write to; Backblaze B2 here. It is what survives the house |
 | Availability | always-on | it is a server people expect to answer |
 
 A reference build used an 8-core / 32 GB box with a ~930 GB NVMe holding a ~96 GB collection, and a
@@ -72,7 +73,7 @@ Three principles, in order of how much they matter:
 - **Operational:** `chrony` (time sync), `unattended-upgrades`, `fail2ban`, `nftables`, `auditd`,
   AppArmor, `avahi-daemon` (mDNS, so the box answers on `<hostname>.local`), `rsync`, `git`, `curl`,
   `unzip`, `ddclient`, `certbot` + `python3-certbot-dns-cloudflare` (or your DNS provider's
-  plugin), and `exfatprogs` if your backup drive is exFAT.
+  plugin), `restic`, and `exfatprogs` if your backup drive is exFAT.
 
 ## Network & exposure model
 
@@ -112,11 +113,14 @@ the headline feature. That makes hardening non-optional.
 
 ## Backups
 
-- **The media is the priority.** The database is *derived* — the scan chain rebuilds it from the files
-  in minutes — so the collection is the only thing whose loss is permanent. Use rotated, checksummed
-  snapshots to the backup drive, ideally with one copy off-box, and **verify a restore periodically**.
-  A backup you have never restored is a hypothesis.
-- **The database** needs no backup until there is user data (accounts, playlists, listen history).
-  Once there is, schedule `pg_dump` too.
+- **The media is the priority.** The library half of the database is *derived* — the scan rebuilds it
+  from the files in minutes — so the collection is the only thing whose loss is permanent. Back it up
+  to the backup drive **and off-site**: a drive in the same house shares the server's fire, theft and
+  surge. restic does both nightly, encrypted and deduplicated. **Restore from it before you rely on
+  it**; a backup you have never restored is a hypothesis.
+- **The database** holds what nothing can rebuild once people use the instance: accounts, playlists,
+  listening history, share links. A nightly `pg_dump` goes to the backup drive, and the restic job
+  takes the dumps off-site with the media.
+- **The server configuration** takes days to rebuild from these documents. The same job keeps it.
 - **Alert on failure.** A backup job that silently stops running is the common failure, not one that
-  errors loudly. See [`04-going-public.md`](04-going-public.md#step-8--backup-alerting).
+  errors loudly. See [`04-going-public.md`](04-going-public.md#step-8--backups-and-alerting).

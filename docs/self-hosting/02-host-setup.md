@@ -306,20 +306,19 @@ Three things in it are worth reading rather than skipping:
 
 ## 2.10 Backups
 
-The media is the only thing whose loss is permanent. A workable scheme, driven by a systemd timer:
+The media is the only thing whose loss is permanent. It is backed up nightly with restic, into one
+repository on the separate backup drive and one off-site, by a job that also takes the database dumps
+and the server configuration. So it is set up in
+[`04` Step 8](04-going-public.md#step-8--backups-and-alerting), once the things it protects exist; it
+needs no open port, only the order of this guide puts it there.
 
-- Rotated `tar` snapshots to the separate backup drive, keeping the last few.
-- **Change detection**, so an unchanged collection does not burn a full snapshot every run.
-- **Verification on write** — read the archive back after creating it. An unverified backup is a
-  guess.
-- A weekly `systemd` timer rather than cron, so failures land in the journal with context.
+Until then the copy on this box may be the only one. If the collection is not still on the disk it
+came from, put a plain copy on the backup drive now, and delete it once the first restic run has
+finished:
 
-The script and its units are [`files/mixtape-media-backup.sh`](files/mixtape-media-backup.sh),
-[`files/mixtape-media-backup.service`](files/mixtape-media-backup.service) and
-[`files/mixtape-media-backup.timer`](files/mixtape-media-backup.timer).
-
-Failure *alerting* is covered in [`04-going-public.md`](04-going-public.md#step-8--backup-alerting).
-Until that exists, a backup that quietly stops running looks exactly like one that is working.
+```bash
+sudo rsync -rt /var/media/ /mnt/usb/media-copy/     # -rt, not -a: exFAT keeps no owners or modes
+```
 
 ## Next
 
