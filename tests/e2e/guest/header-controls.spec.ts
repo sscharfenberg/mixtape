@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/test";
 
 /*
  * The header's round triggers, from a browser with no session — where there is exactly ONE

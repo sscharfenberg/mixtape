@@ -162,6 +162,14 @@ Then the app is served on **:8100** — deliberately not 8000, so a hand-started
 and the `setup` project signs in once per seeded account and saves the sessions for the `app` project to
 reuse.
 
+**The server runs the app's Content-Security-Policy enforced** (`CSP_ENFORCE` in `environment.ts`), where
+production may still run it report-only, and the fixture in `support/test.ts` fails any test whose pages
+trip it — naming the directive and the blocked URL rather than letting a feature assertion time out on
+the script or stream that never loaded. That makes every spec a CSP test for the pages it visits.
+`guest/content-security-policy.spec.ts` checks the precondition: that the header really is the
+enforcing one and the nonced theme snippet runs under it, since a run that fell back to report-only
+would leave the guard watching nothing.
+
 **It needs a seeded database and playable audio — but no real media library.** The rows come from the
 seeder; the *files* are written by `seedMediaFiles`, which drops a copy of the committed one-second mp3
 fixture at every path the seeder claims and points `MIXTAPE_MUSIC_PATH` at that throwaway directory. Nothing
@@ -202,6 +210,7 @@ Note that **login is by `name`, not email** (`Fortify::username() === 'name'`).
 
 | File | Role |
 | --- | --- |
+| `test.ts` | The suite's `test` and `expect`: Playwright's, plus an automatic fixture that fails any test on a Content-Security-Policy violation in any page of its context. **Every spec imports both from here**, never from `@playwright/test` (type imports excepted). |
 | `environment.ts` | Ports, paths, the server env overrides, the generated media area, and the stand-up/teardown primitives. |
 | `globalSetup.ts` / `globalTeardown.ts` | Run them, in the right order. |
 | `auth.setup.ts` | The `setup` project: signs in for real and stores a session per account in `SPEC_USERS`. |

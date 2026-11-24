@@ -32,6 +32,16 @@ Three of those are load-bearing enough to state as rules:
   data flow one-directional: props down from the server, module state only for what the server cannot
   own.
 
+The **Content-Security-Policy is the app's**, not the web server's:
+`App\Http\Middleware\ContentSecurityPolicy`, global middleware, sends it on every response with a fresh
+script nonce. Vite's tags and the one inline script (the pre-paint theme snippet in `app.blade.php`)
+carry the nonce, which is what lets the policy refuse every other inline script — something nginx,
+which cannot mint a nonce per request, could only allow wholesale with `'unsafe-inline'`. It is
+report-only until `CSP_ENFORCE` (config `mixtape.csp.enforce`), and the end-to-end suite runs it
+enforced and fails on any violation ([`testing.md`](testing.md)). A new inline `<script>` therefore
+needs `nonce="{{ Vite::cspNonce() }}"`; anything loaded from another origin needs the policy widened in
+that one class, deliberately.
+
 ## Access model
 
 The audience is **explicitly not public** — family and friends, who receive links — but the instance

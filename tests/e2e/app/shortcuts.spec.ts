@@ -1,7 +1,7 @@
-import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { audioState, enqueueFromHero, openPopover, openQueuePanel, settledValue, stopQueueSync } from "../support/actions";
 import { clearServerQueue, specStorageState } from "../support/environment";
+import { expect, test } from "../support/test";
 
 /*
  * The player's keyboard shortcuts, in a real engine.

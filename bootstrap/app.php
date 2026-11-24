@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\ConfigureLocale;
+use App\Http\Middleware\ContentSecurityPolicy;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ThrottleRequests;
 use Illuminate\Foundation\Application;
@@ -21,6 +22,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // than named per route, because a route that forgets it is a route where a reader's
         // typing refuses their own save. See the class for the measurements.
         $middleware->alias(['throttle' => ThrottleRequests::class]);
+
+        // GLOBAL, not in the web group: a 404 for a path no route matches never reaches the
+        // group, and its error page must carry the policy like every other page.
+        $middleware->append(ContentSecurityPolicy::class);
 
         $middleware->web(append: [
             // ConfigureLocale must precede HandleInertiaRequests so the resolved

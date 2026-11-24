@@ -1,7 +1,7 @@
-import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { enqueueFromHero, openPopover, openQueuePanel, pageHeading, stopQueueSync } from "../support/actions";
 import { clearServerQueue, specStorageState } from "../support/environment";
+import { expect, test } from "../support/test";
 
 /*
  * The play queue's LAYOUT, which is the half no other test layer can see.

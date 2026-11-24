@@ -1,6 +1,6 @@
-import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { pageHeading } from "../support/actions";
+import { expect, test } from "../support/test";
 
 /*
  * Downloading a song and a whole album, from the hero of their own pages.

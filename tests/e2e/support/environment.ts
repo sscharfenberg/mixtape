@@ -128,7 +128,14 @@ export const serverEnv: Record<string, string> = {
     // area existed, and empty means "no such area" — a chapter's stream would 404 and the
     // resume spec would look like the bookmark was never written.
     MIXTAPE_AUDIOBOOKS_PATH: MEDIA_ROOT,
-    MIXTAPE_STREAM_INTERNAL_PREFIX: ""
+    MIXTAPE_STREAM_INTERNAL_PREFIX: "",
+    /*
+     * The Content-Security-Policy ENFORCED, where production may still run it report-only:
+     * every spec then loads every page under the policy for real, and the guard in test.ts
+     * fails any test that trips it. `content-security-policy.spec.ts` checks this took effect,
+     * because a run that silently fell back to report-only would pass with the guard blind.
+     */
+    CSP_ENFORCE: "true"
 };
 
 /** Run an artisan command with the E2E overrides applied, returning its stdout. */

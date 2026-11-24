@@ -65,7 +65,10 @@ the cheapest layer that can actually answer the question. Three layers, none int
   components. Pure logic, composables, and a component's own behaviour.
 - **End-to-end → Playwright** (`npm run test:e2e`) in `tests/e2e/` (`guest/` = no session, `app/` =
   signed in). Anything that needs a real browser: navigation, history, the URL as state, CSP, media
-  playback, keyboard journeys.
+  playback, keyboard journeys. Specs import `test` and `expect` from **`tests/e2e/support/test.ts`**,
+  never from `@playwright/test`: its fixture fails any test on a CSP violation, and the server runs the
+  app's policy enforced. **The CSP is the app's** (`ContentSecurityPolicy` middleware, a per-request
+  nonce), so a new inline `<script>` needs `nonce="{{ Vite::cspNonce() }}"` (`architecture.md` → *Stack*).
 
 The workstation scripts in `docs/self-hosting/files/` have a suite of their own: **bats-core**
 (`npm run test:shell`, macOS only, `brew install bats-core`) in `tests/shell/`, for `mts` today. Its

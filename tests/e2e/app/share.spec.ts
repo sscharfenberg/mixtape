@@ -1,6 +1,6 @@
-import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { pageHeading } from "../support/actions";
+import { expect, test } from "../support/test";
 
 /*
  * Minting a share link from a detail page's hero, and copying it out of the modal.

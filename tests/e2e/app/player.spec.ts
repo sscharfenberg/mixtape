@@ -1,4 +1,3 @@
-import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import {
     audioState,
@@ -10,6 +9,7 @@ import {
     stopQueueSync
 } from "../support/actions";
 import { clearServerQueue, specStorageState } from "../support/environment";
+import { expect, test } from "../support/test";
 
 /*
  * PLAYBACK — the part that only a real browser can answer.
@@ -616,45 +616,21 @@ test.describe("the player", () => {
         expect(await page.evaluate(() => (document.querySelector("audio") as HTMLAudioElement).muted)).toBe(true);
     });
 
-    test("plays under the production Content-Security-Policy", async ({ page }) => {
+    test("plays under the app's enforced Content-Security-Policy", async ({ page }) => {
         /*
-         * The check `docs/self-hosting/04-going-public.md` left open, and the reason it was
-         * open: the plan expected vidstack, which wraps audio in a MediaSource and would
-         * have needed `media-src blob:` added to the live policy. A native <audio> pointed
-         * at a same-origin route does not, and this is the proof rather than the argument.
+         * `media-src 'self'` is the directive a player wrapping audio in a MediaSource would
+         * need widened (`blob:`). A native <audio> pointed at a same-origin stream route does
+         * not, and this is the proof rather than the argument.
          *
-         * `artisan serve` sends no CSP — the live policy is an nginx `add_header` — so it is
-         * injected onto the document response here, copied verbatim from
-         * docs/self-hosting/files/mixtape.prod.nginx.conf. A violation would show up as a
-         * console error AND as an element that never leaves `paused`, so both are asserted.
+         * Every spec runs under the app's own policy, enforced (support/environment.ts), and
+         * the guard in support/test.ts fails a test on any violation — so what is left to show
+         * here is that the audio actually ADVANCES under it, since a blocked stream would
+         * leave the element paused without the page itself looking broken.
          */
-        const CSP =
-            "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
-            "img-src 'self' data:; font-src 'self'; connect-src 'self'; media-src 'self'; object-src 'none'; " +
-            "base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests";
-
-        await page.route("**/*", async route => {
-            if (route.request().resourceType() !== "document") return route.fallback();
-
-            const response = await route.fetch();
-            await route.fulfill({
-                response,
-                headers: { ...response.headers(), "content-security-policy": CSP }
-            });
-        });
-
-        const violations: string[] = [];
-        page.on("console", message => {
-            if (message.type() === "error" && /content security policy/iu.test(message.text())) {
-                violations.push(message.text());
-            }
-        });
-
         await enqueueSongs(page, 1);
         await playButton(page).click();
 
         await expect.poll(async () => (await audioState(page)).currentTime).toBeGreaterThan(0.1);
-        expect(violations).toStrictEqual([]);
     });
 
     test("keeps playing across an Inertia navigation", async ({ page }) => {

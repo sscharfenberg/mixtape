@@ -292,15 +292,23 @@ All `add_header` directives live in the `server{}` block on purpose. A single `a
 `location{}` **drops every inherited header for that location** — nginx's header-inheritance trap, and
 a very easy way to ship a site whose CSP silently does not apply to its own PHP responses.
 
-The shipped CSP keeps `script-src 'unsafe-inline'` (required by the inline pre-paint theme script,
-since nginx cannot emit per-request nonces) and `style-src 'unsafe-inline'` (Vue's `v-bind()` inline
-styles). Both still block external-origin loads. Moving CSP into Laravel middleware with per-request
-nonces would let you drop the former.
+**The Content-Security-Policy is not among them: the app sends it.** Its middleware
+(`App\Http\Middleware\ContentSecurityPolicy`) mints a script nonce per request, which nginx cannot do,
+so the inline pre-paint theme script runs without `script-src 'unsafe-inline'` and every other inline
+script is refused. Only `style-src` keeps `'unsafe-inline'`, for the inline styles Vue writes. A second
+policy from nginx would apply on top of the app's — the stricter of two wins — so it could only ever be
+a copy to keep in step; the shipped vhost sends none. The prerendered maintenance page never reaches the
+app, so it has no policy.
+
+The policy starts **report-only**: browsers log in the console what it would block and nothing breaks.
+Use the site for a few days with the console open — every page, a stream, a download, a share link —
+then set `CSP_ENFORCE=true` in `.env` and `config:cache`, the same detection-first rollout as the WAF
+([`05`](05-hardening.md#3-a-web-application-firewall)).
 
 > **The player needs no CSP widening.** It is a native `<audio>` whose `src` is a same-origin route,
-> which the shipped `media-src 'self'` already allows; a `blob:` source would only be needed by a
-> library that wraps audio in a MediaSource. Still exercise playback after any CSP change — it is the
-> likeliest casualty, and the end-to-end suite has a spec that plays a track under this exact policy.
+> which `media-src 'self'` already allows; a `blob:` source would only be needed by a library that
+> wraps audio in a MediaSource. The end-to-end suite runs every spec under the app's policy, enforced,
+> and one of them plays a track — so a change that would block playback fails there first.
 
 ## 10. First deploy
 

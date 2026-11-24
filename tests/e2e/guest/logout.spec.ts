@@ -1,6 +1,6 @@
-import { expect, test } from "@playwright/test";
 import { enqueueFromHero, pageHeading, stopQueueSync } from "../support/actions";
 import { SEED_USER, SPEC_USERS } from "../support/environment";
+import { expect, test } from "../support/test";
 
 /*
  * What signing out does to the player, which nothing but a real browser can answer.

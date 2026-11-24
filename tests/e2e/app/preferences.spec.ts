@@ -1,6 +1,6 @@
-import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { settledValue } from "../support/actions";
+import { expect, test } from "../support/test";
 
 /*
  * The user menu's colour-scheme switch, in a real engine.

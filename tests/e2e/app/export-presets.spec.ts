@@ -1,6 +1,6 @@
-import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { specStorageState } from "../support/environment";
+import { expect, test } from "../support/test";
 
 /*
  * Export presets, from the dashboard to the export dialog they exist for.

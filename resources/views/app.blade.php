@@ -20,8 +20,10 @@
         @include('partials.social-card')
         {{-- Apply the persisted theme before first paint so light-dark() resolves
              correctly with no flash. Runs synchronously in <head>, ahead of the
-             deferred module bundle. Mirrors ThemeSwitch.vue's "theme" localStorage key. --}}
-        <script>
+             deferred module bundle. Mirrors ThemeSwitch.vue's "theme" localStorage key.
+             The nonce is what lets it run under the Content-Security-Policy, which
+             allows no other inline script (App\Http\Middleware\ContentSecurityPolicy). --}}
+        <script nonce="{{ Vite::cspNonce() }}">
             (function () {
                 try {
                     var theme = localStorage.getItem("theme");

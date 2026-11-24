@@ -238,4 +238,21 @@ return [
         'quality' => 82,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Content-Security-Policy
+    |--------------------------------------------------------------------------
+    |
+    | The policy itself is App\Http\Middleware\ContentSecurityPolicy. This only says
+    | whether browsers ENFORCE it or merely report what it would have blocked, in the
+    | console. Report-only is the default so a changed policy is tried on real traffic
+    | before anything can break; the end-to-end suite runs enforced (CSP_ENFORCE in
+    | tests/e2e/support/environment.ts) and fails on any violation.
+    |
+    */
+
+    'csp' => [
+        'enforce' => (bool) env('CSP_ENFORCE', false),
+    ],
+
 ];

@@ -37,7 +37,7 @@ Write a throwaway spec rather than a script. Put it in `tests/e2e/app/` (signed 
 never accidentally inherit a stored login.
 
 ```ts
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/test";
 import { columnValues, pageHeading } from "../support/actions";
 
 test("the thing I just changed", async ({ page }) => {
@@ -130,8 +130,9 @@ The fixture now writes **real audio**: `seedMediaFiles` drops a copy of the comm
 one-second mp3 at every path `E2ESeeder` claims, and `MIXTAPE_MUSIC_PATH` points at that
 throwaway directory. So the stream route really streams, and `tests/e2e/app/player.spec.ts`
 covers play/pause, auto-advance at a track boundary, repeat, seeking, the buffer indicator,
-and playback under the **production CSP** (injected onto the document via `page.route`, so
-the live policy is exercised without nginx).
+and playback under the app's own **Content-Security-Policy, enforced** — the e2e server runs
+with `CSP_ENFORCE=true`, and `tests/e2e/support/test.ts` fails any test on a violation. A
+throwaway spec must import `test` and `expect` from there too, or it runs unguarded.
 
 Two things to know before writing a player check of your own:
 

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/test";
 
 /*
  * The public landing page at `/`, from a browser with no session: the claim, and the two

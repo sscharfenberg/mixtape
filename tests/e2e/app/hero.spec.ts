@@ -1,6 +1,6 @@
-import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { settled } from "../support/actions";
+import { expect, test } from "../support/test";
 
 /*
  * The hero's metadata row — one rule, and a bug that hid inside a CSS selector.

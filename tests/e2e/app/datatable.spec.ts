@@ -1,5 +1,5 @@
-import { expect, test } from "@playwright/test";
 import { clockToSeconds, columnValues, expectOnTablePage, fold, pageHeading } from "../support/actions";
+import { expect, test } from "../support/test";
 
 /*
  * The DataTable's server-driven contract, which is the single strongest reason this app

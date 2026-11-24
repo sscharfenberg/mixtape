@@ -1,7 +1,7 @@
-import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { enqueueFromHero, pageHeading, stopQueueSync } from "../support/actions";
 import { clearServerQueue, specStorageState } from "../support/environment";
+import { expect, test } from "../support/test";
 
 /*
  * The cross-kind search, in a real engine (docs/search.md).

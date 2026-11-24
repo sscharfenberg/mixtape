@@ -1,6 +1,6 @@
-import { expect } from "@playwright/test";
 import type { Page, Request, Response } from "@playwright/test";
 import { SEED_USER } from "./environment";
+import { expect } from "./test";
 
 /******************************************************************************
  * Actions and readers shared across the E2E specs.

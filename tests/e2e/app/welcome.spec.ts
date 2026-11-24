@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/test";
 
 /*
  * The landing page as a SIGNED-IN reader sees it — the half `guest/welcome.spec.ts` cannot

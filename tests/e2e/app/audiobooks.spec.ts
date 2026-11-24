@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
-import { expect, test } from "@playwright/test";
 import { openQueuePanel, pageHeading, stopQueueSync } from "../support/actions";
 import { clearBookmarks, clearServerQueue, specStorageState } from "../support/environment";
+import { expect, test } from "../support/test";
 
 /*
  * The Audiobooks area in a real browser: the three tabs, the accordion, a book's page, and the

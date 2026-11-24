@@ -1,6 +1,6 @@
-import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { columnValues, pageHeading } from "../support/actions";
+import { expect, test } from "../support/test";
 
 /*
  * Getting around the library: the four listings, the detail pages they lead to, and the

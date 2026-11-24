@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { settled, stopQueueSync } from "../support/actions";
 import { clearServerQueue, specStorageState } from "../support/environment";
+import { expect, test } from "../support/test";
 
 /*
  * One playlist's detail page, in a real engine.

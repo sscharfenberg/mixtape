@@ -1,6 +1,6 @@
-import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { columnValues, countDocumentRequests, pageHeading } from "../support/actions";
+import { expect, test } from "../support/test";
 
 /*
  * The tabbed detail pages, and the promise useTabParam makes about them.

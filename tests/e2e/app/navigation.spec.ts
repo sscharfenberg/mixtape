@@ -1,5 +1,5 @@
-import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { expect, test } from "../support/test";
 
 /*
  * How a navigation FEELS, which is the one thing only a real browser can answer.

@@ -1,5 +1,5 @@
-import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { expect, test } from "../support/test";
 
 /*
  * The header's round triggers, signed in — where all three ring variants are on screen at

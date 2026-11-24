@@ -1,7 +1,7 @@
-import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { enqueueFromHero, isWrite, openPopover, openQueuePanel, stopQueueSync } from "../support/actions";
 import { clearServerQueue, specStorageState } from "../support/environment";
+import { expect, test } from "../support/test";
 
 /*
  * Adding a song to a playlist from its own page, in a real engine.

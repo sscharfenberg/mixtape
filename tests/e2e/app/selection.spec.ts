@@ -1,7 +1,7 @@
-import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { dismissQueuePeek, isWrite, openPopover, openQueuePanel, stopQueueSync } from "../support/actions";
 import { clearServerQueue, specStorageState } from "../support/environment";
+import { expect, test } from "../support/test";
 
 /*
  * Bulk actions over a DataTable's ticked rows, in a real engine.

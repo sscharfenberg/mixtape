@@ -23,8 +23,8 @@ There is no library that does not.
 
 The CSP question falls out the same way. A native `<audio src>` pointed at a same-origin route
 satisfies `media-src 'self'` unchanged, where a MediaSource-based library would want `media-src blob:`.
-`tests/e2e/app/player.spec.ts` injects the production policy verbatim onto the document and plays a
-track under it, so narrowing that directive fails the suite.
+The end-to-end suite runs every spec under the app's own policy, enforced, and
+`tests/e2e/app/player.spec.ts` plays a track under it, so narrowing that directive fails the suite.
 
 ## Background playback — the one genuine risk, and what holds
 

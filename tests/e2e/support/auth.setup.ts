@@ -1,7 +1,7 @@
 import path from "node:path";
-import { expect, test as setup } from "@playwright/test";
 import { signIn } from "./actions";
 import { SEED_USER, SPEC_USERS, repoRoot, specStorageState } from "./environment";
+import { expect, test as setup } from "./test";
 
 /** Where the signed-in session is parked for the `app` project to reuse. */
 const STATE = path.join(repoRoot, "tests/e2e/.auth/user.json");
