@@ -458,7 +458,11 @@ got disabled, the script hung — and a journal entry cannot report an event tha
 - **A dead-man's-switch** (healthchecks.io or similar) catches exactly that class. Create a check with
   a period matching your backup interval and a generous grace, and have the script ping `/start` at
   the beginning and success at the end.
-- **Push delivery** (ntfy or similar) gets it to your phone without needing a mail server.
+- **Push delivery** (ntfy or similar) gets it to your phone without needing a mail server. **Prove it
+  notifies with the screen off**, not just that the message reaches the topic: on Android without
+  Google Play Services, or with the app from F-Droid, a ntfy.sh subscription only fetches messages when
+  the app is opened — the alert is there, and nobody is told. Turn on *Instant delivery* for the topic
+  and set the app's battery use to *Unrestricted*.
 - A systemd `OnFailure=` hook reports runs that fail *or* die outright.
 
 This does not depend on TLS, the domain, or mail, so it can be done at any point.

@@ -1,0 +1,15 @@
+# /etc/systemd/system/waf-report.timer
+#
+# Enable with: sudo systemctl enable --now waf-report.timer
+#
+# Once a day, in the morning of whoever reads the report: a refusal that hit a
+# real visitor waits at most a day to be seen, and a quiet day sends nothing.
+[Unit]
+Description=Daily report of the requests the WAF refused
+
+[Timer]
+OnCalendar=*-*-* 07:00:00 Europe/Berlin
+Persistent=true
+
+[Install]
+WantedBy=timers.target

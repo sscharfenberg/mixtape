@@ -288,6 +288,40 @@ Each refusal leaves a `ModSecurity: Access denied` line in the vhost's error log
 **Kill switch:** `SecRuleEngine DetectionOnly` (keeps logging) or `Off`, then reload. One line, and
 no vhost is touched.
 
+### A daily report of refusals that hit a visitor
+
+An enforcing WAF refuses a request before the app sees it, so a false positive — a song title that
+reads like SQL, a playlist name with a `<` — is invisible: the visitor gets a 403 and nobody else
+learns of it. [`files/waf-report`](files/waf-report) reads the audit log once a day and sends a report
+**only when a refusal looks like a real visitor's**. That needs all three of:
+
+- the app's **session cookie** on the request — a real page sets it, most scanners never keep it;
+- a rule **beyond the file-name rules** (920440 backup files, 930130 restricted files, 920500
+  restricted extensions) — a scanner that did keep the cookie still trips only those on its probes
+  for `/.env` and `/index.php.bak`;
+- a **client that made no file-name probe** in the same window — the same scanner's payloads (a shell
+  expression POSTed to `/`) trip ordinary rules, so its address gives it away instead.
+
+Measured on a public instance: of 437 refusals in two weeks, 20 carried the session cookie and **none**
+passed all three, so a quiet day sends nothing. A report names the path (ids folded), the rules and the
+request field each one matched in — **never the value, the query or the client address**, since the
+channel is a third party. Everything else, with times and clients, goes to the journal.
+
+```bash
+sudo install -m 750 $SRC/waf-report /usr/local/sbin/waf-report
+sudo install -d -m 750 /etc/waf-report
+sudo install -m 640 $SRC/waf-report.apps.json /etc/waf-report/apps.json   # edit the hosts
+sudo install -m 644 $SRC/waf-report.service $SRC/waf-report.timer /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now waf-report.timer
+sudo waf-report --dry-run --since "$(date -d '-14 days' +%FT%T)"   # what it WOULD have sent
+```
+
+The report goes to the ntfy topic the backup alerts use (§ backup alerting in
+[`04`](04-going-public.md#step-8--backup-alerting)); `apps.json` can name mail or a Discord webhook
+instead, and one entry per app if a second app shares the WAF — the parsing exists once. Each app keeps
+its own window in `/var/lib/waf-report/`: a report that reached none of its channels keeps the window,
+so the next run reports the gap too.
+
 ### When the rules update
 
 `modsecurity-crs` receives security updates like any other package, but nginx keeps the rules it
