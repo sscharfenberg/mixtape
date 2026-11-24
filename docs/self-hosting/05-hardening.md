@@ -74,6 +74,23 @@ resolves a hostname (the mail relay's).
 > both clean it up, and that option refuses the `chmod`. The app suppresses that error, so all you
 > would see is a cache that only one of the two users can delete from.
 
+### `open_basedir`, for when the box hosts more than this app
+
+The sandbox above belongs to the **service**, and every pool runs under php8.4-fpm's one service. With
+MixTape alone that is the whole story. Once a second app has pools under the same master, the sandbox
+cannot keep the two apart: what separates them is each pool's **user**, its `disable_functions`, and
+`open_basedir`, which limits PHP's own file functions to the listed directories. PHP enforces it, not
+the kernel, so code that can start a process steps around it — which is why it comes with
+`disable_functions`, never instead of it. Together they keep PHP in the prod pool (the web user) out of
+the other app's tree, its media and the access logs.
+
+[`files/mixtape-prod.pool.conf`](files/mixtape-prod.pool.conf) carries the line. The list is what the
+app uses: its tree, the two media areas, `/tmp`, the PHP error log's directory and the pool's (unused)
+native session path. Every entry ends in `/`, because `open_basedir` compares prefixes; artisan on the
+command line is not affected. A path missing from the list surfaces as a **500**, so walk the app after
+adding it: sign in, play and seek a track, covers, an album and an audiobook download, a playlist
+export, a share link, search, and a password reset.
+
 ## 3. A web application firewall
 
 The app does its own input handling: FormRequests validate every write, every query is
@@ -371,8 +388,6 @@ sudo needrestart -b
 - **An AppArmor profile for php-fpm.** The systemd sandbox in §2 provides the containment that
   matters, the read-only media library above all, for a fraction of the upkeep. A profile that is
   slightly wrong fails in ways that look like application bugs.
-- **`open_basedir`.** It is enforced by PHP, which means the code execution it is supposed to contain
-  can step around it. The part that matters is enforced by the kernel in §2.
 - **A fail2ban jail on WAF matches.** The reasoning is the same as for the bot-search jail in
   [`04`](04-going-public.md#log-rotation): scanners rotate addresses, so bans land on hosts that were
   not coming back, and a mistaken ban locks out a real person. The WAF already refuses the request
