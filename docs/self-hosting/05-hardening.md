@@ -101,6 +101,7 @@ sudo install -m 644 $SRC/modsec-main.conf       /etc/nginx/modsec/main.conf
 sudo install -m 644 $SRC/modsec-crs-setup.conf  /etc/nginx/modsec/crs-setup.conf
 sudo install -m 644 $SRC/modsec-before-crs.conf /etc/nginx/modsec/before-crs.conf
 sudo install -m 644 $SRC/modsec-after-crs.conf  /etc/nginx/modsec/after-crs.conf
+sudo install -m 644 $SRC/modsec-mixtape.conf    /etc/nginx/modsec/mixtape.conf
 sudo install -m 644 $SRC/mixtape-modsecurity.conf /etc/nginx/conf.d/mixtape-modsecurity.conf
 
 sudo install -d -o root -g adm -m 750 /var/log/modsecurity
@@ -114,11 +115,11 @@ the rules run, and the audit log stays empty.
 
 Two edits before the reload:
 
-- **Check the session cookie's name** in `after-crs.conf` against the real one. It is derived from
-  `APP_NAME` unless `SESSION_COOKIE` overrides it:
+- **Check the session cookie's name** in `mixtape.conf` (rule 10003) against the real one. It is
+  derived from `APP_NAME` unless `SESSION_COOKIE` overrides it:
   `curl -sI https://<your-domain>/login | grep -i set-cookie`.
-- **Uncomment `modsecurity on;`** inside `location ~ \.php$` in both vhosts, and nowhere else (see
-  below for why).
+- **Uncomment `modsecurity on;` and the `modsecurity_rules_file` line under it** inside
+  `location ~ \.php$` in both vhosts, and nowhere else (see below for why).
 
 ```bash
 sudo nginx -t && sudo systemctl reload nginx
@@ -161,6 +162,24 @@ is never redirected, and it is logged like any other. Those routes take no input
 path, the cookies and a `Range` header, which is why the enforcing walk below plays, seeks and
 downloads by hand.
 
+### Why the app's exclusions are a file of their own
+
+`conf.d/mixtape-modsecurity.conf` loads `main.conf` — the engine, the CRS, `before-crs.conf` and
+`after-crs.conf` — at **http** level, so whatever those files say applies to every site nginx serves.
+MixTape's own exclusions (its routes, its field names, its session cookie) therefore sit in
+`modsec/mixtape.conf`, which only MixTape's vhosts load, with `modsecurity_rules_file` next to
+`modsecurity on;`. With one app on the box that changes nothing. Once a second app moves in, MixTape's
+exclusions do not quietly become that app's: a route of the same name — every Laravel app has a
+`/login` — would otherwise inherit them, and the second app's coverage would be decided by a file its
+own documentation never mentions.
+
+Two facts make it work. Rules loaded by a vhost run **before** the shared rules of the same phase, so
+a phase-1 `ctl:` in `mixtape.conf` reaches every CRS rule. And `SecRuleUpdateTargetBy*` are
+configuration-time directives that edit rules in the parent context, which a vhost-loaded file cannot
+reach — so the field exclusions are one runtime `SecAction` with `ctl:ruleRemoveTargetByTag`. What
+stays shared is what is true of every Laravel app or of nginx: the framework's `XSRF-TOKEN` and
+`remember_web_*` cookies in `after-crs.conf`, protocol rules in `before-crs.conf`.
+
 ### What the configuration decides
 
 The files carry the reasoning; this is the map.
@@ -169,13 +188,13 @@ The files carry the reasoning; this is the map.
 | --- | --- | --- |
 | PUT, PATCH, DELETE are allowed methods | `crs-setup.conf` | Renaming or deleting a playlist, renewing a share and the play-queue sync are all scored as attacks |
 | Only JSON and urlencoded bodies are allowed | `crs-setup.conf` | Multipart (never sent by the app) is accepted by the WAF |
-| Password fields are never matched | `after-crs.conf` | A password containing `--` or `<` is quoted into the audit log, and into nginx's error log once blocking |
-| The raw body is never matched on the credential routes | `before-crs.conf` | The same leak, through the few rules that read `REQUEST_BODY` |
-| The bulk id lists skip body inspection | `before-crs.conf` | A queue longer than 1,000 tracks is refused with 400, and every sync runs every rule over every id |
+| Password fields are never matched | `mixtape.conf` (10003) | A password containing `--` or `<` is quoted into the audit log, and into nginx's error log once blocking |
+| The raw body is never matched on the credential routes | `mixtape.conf` (10002) | The same leak, through the few rules that read `REQUEST_BODY` |
+| The bulk id lists skip body inspection | `mixtape.conf` (10001) | A queue longer than 1,000 tracks is refused with 400, and every sync runs every rule over every id |
 | No request bodies in the audit log | `main.conf` (`SecAuditLogParts`) | The module's sample config logs bodies for every 4xx, so failed logins are stored with their passwords |
 | Audit only rule matches and 5xx responses | `main.conf` | Every 422, 429 and 419 is logged, and the real matches drown |
 | Response bodies are not inspected | `main.conf` | Every page is buffered for leak rules that have nothing to find |
-| Laravel's own cookies are not matched | `after-crs.conf` | Encrypted base64 values become a steady source of false positives |
+| Laravel's own cookies are not matched | `after-crs.conf` (`XSRF-TOKEN`, `remember_web_*`), `mixtape.conf` (the session cookie) | Encrypted base64 values become a steady source of false positives |
 
 The paranoia level stays at 1, the CRS default. Each level above it adds rules that fire on ordinary
 free text, and this app is built out of free text: song titles, playlist names, search terms.
@@ -221,16 +240,16 @@ Reading it:
 - **A scanner probing `/.env`, `/wp-login.php` or `/cgi-bin/` is the WAF working.** Those are true
   positives. Leave them alone.
 - **A match on a real user's request is a false positive** — a search for a band whose name reads
-  like a shell command, say. Exclude **one rule from one argument** in `after-crs.conf`, never a
-  whole rule from the whole site:
+  like a shell command, say. Exclude **one rule from one argument** in `mixtape.conf`, never a
+  whole rule from the whole site. It has to be a runtime rule, with the next free local id:
 
   ```apache
   # 932100 (Unix command injection) fired on a search term, ARGS:q, that only
   # looked like a shell command. The search box never reaches a shell.
-  SecRuleUpdateTargetById 932100 "!ARGS:q"
+  SecAction "id:10010,phase:1,pass,nolog,t:none,ctl:ruleRemoveTargetById=932100;ARGS:q"
   ```
 
-- A match on a route listed in `before-crs.conf` means a route there has drifted from
+- A match on a route listed in `mixtape.conf` means a route there has drifted from
   `routes/web.php`.
 
 ### Enforcing
