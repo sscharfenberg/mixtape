@@ -27,16 +27,13 @@ use RecursiveIteratorIterator;
  * The slug rule mirrors GitHub's: strip inline code markers, lowercase, drop anything that is not a
  * letter, number, space, hyphen or underscore — which is what removes the em-dashes this project's
  * headings are full of — then spaces to hyphens.
- *
- * `docs/host.local/` is deliberately skipped. It is gitignored, so its contents differ per machine
- * and a failure there could be neither reproduced nor fixed by anyone else.
  */
 class DocumentationLinksTest extends TestCase
 {
     /** Directories with no documentation in them, or none of ours. */
     private const SKIP = [
         '.git', 'node_modules', 'vendor', 'storage', 'public', 'test-results',
-        'playwright-report', 'docs/host.local',
+        'playwright-report',
     ];
 
     /**

@@ -12,8 +12,8 @@ proxy) with `ddclient` on the server keeping its A record on the dynamic home IP
 **only 80/443** — so the owner can share links to music with family and friends. A previous public name
 stays a 301 to the apex, because share links naming it are out in chats. Access is gated by auth.
 
-*(The host is referred to generically here. Its name, addresses, and everything else concrete live in
-the untracked `docs/host.local/` — see **Docs** below.)*
+*(The host is **debbie**. Its addresses, disks and everything else concrete are in the private
+repository `sscharfenberg/debbie`, checked out at `../debbie` — see **Docs** below.)*
 
 ## Load-bearing decisions
 
@@ -28,7 +28,7 @@ the untracked `docs/host.local/` — see **Docs** below.)*
   DB is rebuilt from it via artisan in ~40 s). Backups go to a **separate physical drive** and
   **off-site** (restic, nightly, into a repository on each), so neither a system-disk reinstall nor
   the house can take them all. Wipe/repartition only after a **verified** backup — "the
-  archive exists" is not "the archive restores". (Concrete disks/labels: `docs/host.local/`.)
+  archive exists" is not "the archive restores". (Concrete disks/labels: `../debbie/infrastructure.md`.)
 
 **App**
 
@@ -312,16 +312,17 @@ hang if a real reader turns out to need it.
 
 ## Docs
 
-> **The split is generic-vs-specific, and it is enforced by `.gitignore`.** This repo is public.
-> **Reproducible** server documentation — anything another person could follow on their own hardware —
-> is **tracked** in `docs/self-hosting/` and uses placeholders (`<your-domain>`, `<server-lan-ip>`).
-> Anything describing **this one box** — hostname, LAN topology, MACs, the real domain and its DNS
-> zone, secret locations — goes in **`docs/host.local/`**, which is gitignored as a whole
-> directory, so the docs sit beside the code they describe without being published.
+> **The split is generic-vs-specific.** This repo is public. **Reproducible** server documentation —
+> anything another person could follow on their own hardware — is **tracked** in `docs/self-hosting/`
+> and uses placeholders (`<your-domain>`, `<server-lan-ip>`). Everything about **this one box,
+> debbie** — LAN topology, MACs, the real domain and its DNS zone, disks, secret locations, the live
+> configuration — is in the **private repository `sscharfenberg/debbie`**, checked out beside this one
+> at `../debbie`. Read its `CLAUDE.md` and `infrastructure.md` before any work on the server.
 >
-> **Never put a real host name, LAN address, MAC, or the live domain in a tracked file.** When adding
-> server material, ask which half it is: the transferable lesson goes in `self-hosting/`, the concrete
-> state in `host.local/`. Most changes touch both.
+> **The host name `debbie` and that repository's name may appear in tracked files; nothing else
+> concrete does** — no LAN address, MAC, or the live domain. When adding server material, ask which
+> half it is: the transferable lesson goes in `self-hosting/`, the concrete state in the debbie
+> repository. Most changes touch both.
 
 **Self-hosting guide (tracked — `docs/self-hosting/`):** the full path from bare hardware to a public
 instance, written for someone else's server.
@@ -342,10 +343,13 @@ instance, written for someone else's server.
   wrapper — `mt artisan down --dev`, `mt artisan migrate --prod`, `mt deploy --prod`), `mts.sh` (media sync — `mts music
   /Volumes/<label>/`) and their zsh completions `_mt` and `_mts`.
 
-**This box (untracked — `docs/host.local/`):**
+**This box (private — `sscharfenberg/debbie`, checked out at `../debbie`):**
 
-- `infrastructure.md` — the concrete live box: LAN topology, disks, services, secret **locations**.
-- `live-configs/` — copies synced from the server, with real hostnames and cert paths.
+- `infrastructure.md` — the live box: LAN topology, disks, services, both apps on it, secret
+  **locations**.
+- `snapshot/` — the box's configuration as of the last `debbie-pull`, with `permissions.txt` and
+  `acl.txt` beside it.
+- Its issues — the open work on the box.
 
 **App (Phase 2 — next):**
 

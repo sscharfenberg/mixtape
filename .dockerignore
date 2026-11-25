@@ -10,5 +10,4 @@ storage/framework/views/*.php
 public/build
 public/hot
 public/storage
-docs/host.local
 *.sqlite
