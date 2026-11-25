@@ -10,7 +10,7 @@ change: the dev vhost refuses everything outside the LAN
 ([`02` §2.9](02-host-setup.md#29-tls-on-the-lan-self-signed)); a catch-all vhost answers a bare IP
 with nothing; the prod vhost refuses multipart bodies; and the production pool switches off uploads,
 upload progress and shell execution ([`03` §8–9](03-production-deploy.md#9-nginx-vhost)).
-[§5](#5-verify) below checks all of them from outside.
+[§6](#6-verify) below checks all of them from outside.
 
 The files referenced below are in [`files/`](files/). As in `03`:
 
@@ -324,7 +324,10 @@ them out in [`04`](04-going-public.md#step-8--backups-and-alerting).
 
 The report goes out through `notify` ([`04`](04-going-public.md#alerting)), to the channels
 `/etc/notify/apps.json` lists for the app of the same `name` — the backup alerts' channels. A second app
-that shares the WAF gets an entry in both files, and the parsing still exists once. Each app keeps its
+that shares the WAF gets an entry in both files, and the parsing still exists once. A request is matched
+to its app by its Host; an HTTP/3 request has none ([§5](#5-http3)), so it goes by the prefix each
+vhost puts on the transaction id (`modsecurity_transaction_id "<name>-$request_id"`). With a single app
+on the box, a request without a Host can only be that app's. Each app keeps its
 own window in `/var/lib/waf-report/`: a report that reached none of its channels keeps the window, so
 the next run reports the gap too, and one that reached only some moves it on but fails the run.
 
@@ -391,7 +394,64 @@ Two kinds of the updates it does install have no effect until something else hap
   on it, **reboot once by hand** and confirm that everything comes back on its own (sites, mounts,
   timers), because from then on nobody is watching when it reboots.
 
-## 5. Verify
+## 5. HTTP/3
+
+HTTP/3 runs over QUIC on **UDP 443**. A browser learns of it from the `Alt-Svc` header of a response
+it got over TCP and uses it from its next connection on; wherever UDP 443 does not get through, it
+stays on HTTP/2 by itself. For this app it means fewer round trips on a phone network, and a
+connection that survives the phone changing networks mid-song. The cost: nginx cannot `sendfile`
+over QUIC, so audio served over HTTP/3 is encrypted in user space, which is more CPU per byte and
+irrelevant at a household's traffic.
+
+Five changes, made together. The last two are the ones a quick test does not catch:
+
+1. **UDP 443 through the router and the firewall.** Forward UDP 443 to the server beside TCP 443, and
+   add the rule beside the web rule from [`04` Step 3](04-going-public.md#step-3--widen-the-firewall):
+
+   ```nft
+           udp dport 443 accept
+   ```
+
+2. **The QUIC default server.** Uncomment the second block in `mixtape-catchall`: it refuses a QUIC
+   handshake for a bare IP or an unknown name, as the TCP block does, and it carries the one
+   `reuseport` an address and port allow.
+3. **The site.** Uncomment the two `listen 443 quic` lines and the `Alt-Svc` header in the prod vhost.
+   Only the canonical name needs them: no other name sends `Alt-Svc`, so no browser asks it for HTTP/3.
+4. **The WAF.** Over HTTP/3, nginx takes the name from `:authority` and hands ModSecurity **no Host
+   header**, and the Core Rule Set allows HTTP versions up to 2.0 only, so without rule 10200 in
+   `before-crs.conf` (already in the template) **every** HTTP/3 request is refused. The missing Host
+   is also why the vhost sets `modsecurity_transaction_id "mixtape-$request_id"`: it is how the
+   [refusal report](#a-daily-report-of-refusals-that-hit-a-visitor) knows whose an HTTP/3 refusal is
+   when two sites share the WAF.
+5. **The kernel's path MTU.** A DSL uplink over PPPoE carries 1492-byte packets, not 1500. nginx's
+   QUIC finds the path MTU by probing with don't-fragment packets; the router answers a too-large one
+   with ICMP "fragmentation needed", the kernel remembers that and refuses every larger datagram with
+   `EMSGSIZE`, and nginx treats the refusal as fatal and drops the whole connection. The error log says
+   `sendmsg() failed (90: Message too long) while sending frames`, and the browser falls back to
+   HTTP/2 and marks HTTP/3 broken for the site for several minutes. A page load is too short to reach
+   the probe sizes that fail; one song is enough. [`files/quic-pmtu.sysctl.conf`](files/quic-pmtu.sysctl.conf)
+   makes the kernel ignore that ICMP for UDP (TCP keeps its path-MTU discovery), so the oversized
+   probe is simply lost and nginx's own search settles on the size the path carries.
+
+```bash
+sudo install -m 644 $SRC/quic-pmtu.sysctl.conf /etc/sysctl.d/90-quic-pmtu.conf
+sudo sysctl -p /etc/sysctl.d/90-quic-pmtu.conf && sudo ip route flush cache
+sudo nano /etc/nftables.conf                              # the udp line above
+sudo nft -c -f /etc/nftables.conf && sudo nft -f /etc/nftables.conf
+sudo systemctl restart fail2ban                           # re-adds its ban table
+sudo nano /etc/nginx/sites-available/mixtape-catchall     # uncomment the QUIC block
+sudo nano /etc/nginx/sites-available/mixtape.prod         # the quic listens + Alt-Svc
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+**Check it with a browser, not only with curl.** curl proves the port and the WAF (§6); the path-MTU
+failure it may never show, because its QUIC stack announces a smaller maximum UDP payload than a
+browser does and nginx never probes it past 1492. Load the site twice (the first load learns
+`Alt-Svc`), check that DevTools' *Protocol* column says `h3`, then play a whole song and seek in it.
+The access log names each request's protocol (`HTTP/3.0`), and `grep 'Message too long'` over the
+vhost's error log must find nothing.
+
+## 6. Verify
 
 From **outside** the LAN — a phone on mobile data, or any outside host — or from inside through the
 router's hairpin. A LAN machine that connects to your public IP arrives with the **WAN** address as
@@ -411,6 +471,11 @@ curl -s  http://$WAN/  ; echo "exit $?"        # 52: empty reply
 curl -s -o /dev/null -w '%{http_code}\n' -F probe=1 https://<your-domain>/                              # 415
 curl -s -o /dev/null -w '%{http_code}\n' 'https://<your-domain>/?q=%3Cscript%3Ealert(1)%3C%2Fscript%3E'  # 403 once On
 
+# HTTP/3 (§5), with an HTTP/3-capable curl: the site answers, the WAF still refuses, a bare IP gets nothing
+curl -sS --http3-only -o /dev/null -w '%{http_version} %{http_code}\n' https://<your-domain>/            # 3 200
+curl -sS --http3-only -o /dev/null -w '%{http_code}\n' 'https://<your-domain>/?q=%3Cscript%3E'          # 403
+curl -sSk --http3-only https://$WAN/ ; echo "exit $?"                                                  # 7: handshake refused
+
 # TLS 1.2 offers no CBC suites
 echo | openssl s_client -connect <your-domain>:443 -tls1_2 -cipher ECDHE-ECDSA-AES128-SHA 2>&1 | grep -c 'Cipher is'   # 0
 ```
@@ -422,6 +487,7 @@ On the server:
 
 ```bash
 sysctl net.ipv4.conf.<lan-interface>.accept_redirects kernel.yama.ptrace_scope   # 0, 1
+sysctl net.ipv4.ip_no_pmtu_disc                                                   # 3 with HTTP/3 (§5)
 systemd-analyze security php8.4-fpm | tail -1
 sudo needrestart -b
 ```

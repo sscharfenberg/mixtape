@@ -88,7 +88,8 @@ sudo nft -c -f /etc/nftables.conf && sudo nft -f /etc/nftables.conf
 sudo systemctl restart fail2ban     # re-adds its ban table after the reload
 ```
 
-SSH and Samba stay LAN-scoped; the database stays localhost-only.
+SSH and Samba stay LAN-scoped; the database stays localhost-only. HTTP/3 adds UDP 443 here later, in
+[`05` §5](05-hardening.md#5-http3), together with the four other changes it needs.
 
 ## Step 4 — Real TLS certificate
 
@@ -779,7 +780,7 @@ Two things that look wrong and are not:
 - [ ] **SSH, Samba, and the database are unreachable from the WAN** — over IPv4 **and** IPv6.
 - [ ] **The dev site is unreachable from the WAN** even when asked for by name, and a **bare-IP**
       request gets nothing. The firewall cannot check either one: both are nginx's job (the LAN-only
-      snippet and the catch-all). [`05-hardening.md`](05-hardening.md#5-verify) shows how to test
+      snippet and the catch-all). [`05-hardening.md`](05-hardening.md#6-verify) shows how to test
       both from inside the house.
 - [ ] The invite flow works end to end, and a share link plays without login, **refuses both download
       routes**, and stops working once revoked or expired.

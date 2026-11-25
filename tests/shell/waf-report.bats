@@ -24,8 +24,7 @@ WAF_REPORT="${WAF_REPORT:-$(cd "$BATS_TEST_DIRNAME/../../docs/self-hosting/files
 export WAF_REPORT_NOTIFY="${WAF_REPORT_NOTIFY:-$(cd "$BATS_TEST_DIRNAME/../../docs/self-hosting/files" && pwd)/notify}"
 
 # Fresh config, audit log and state directory per test. Two apps, so routing is
-# always under test: `mix` on mix.example (no HTTP/3), `crd` on crd.example
-# (the HTTP/3 app).
+# always under test: `mix` on mix.example, `crd` on crd.example.
 setup() {
     AUDIT="$BATS_TEST_TMPDIR/audit.log"
     CONFIG="$BATS_TEST_TMPDIR/apps.json"
@@ -46,7 +45,7 @@ write_config() {
   "apps": [
     {"name": "mix", "label": "Mix", "hosts": ["mix.example", "www.mix.example"],
      "session_cookie": "mix-session", "exclusions": "/etc/nginx/modsec/mix.conf"},
-    {"name": "crd", "label": "Crd", "hosts": ["crd.example"], "http3_default": true,
+    {"name": "crd", "label": "Crd", "hosts": ["crd.example"],
      "session_cookie": "crd-session", "exclusions": "/etc/nginx/modsec/crd.conf"}
   ]
 }
@@ -62,7 +61,9 @@ EOF
 EOF
 }
 
-# One audit-log line: refusal HOST COOKIE STATUS URI RULE [HTTP_VERSION] [CLIENT].
+# One audit-log line: refusal HOST COOKIE STATUS URI RULE [HTTP_VERSION] [CLIENT]
+# [TRANSACTION_ID] — an empty HOST leaves the header out, as nginx does over
+# HTTP/3, and an empty CLIENT keeps the default.
 # The timestamp is ten minutes ago in server time, the shape ModSecurity writes;
 # the matched value is a script tag, which a report must never repeat.
 refusal() {
@@ -70,13 +71,14 @@ refusal() {
 import datetime, json, sys
 host, cookie, status, uri, rule = sys.argv[1:6]
 version = float(sys.argv[6]) if len(sys.argv) > 6 and sys.argv[6] else 2.0
-client = sys.argv[7] if len(sys.argv) > 7 else "203.0.113.7"
+client = sys.argv[7] if len(sys.argv) > 7 and sys.argv[7] else "203.0.113.7"
+unique_id = sys.argv[8] if len(sys.argv) > 8 else "test-1"
 headers = {"Cookie": cookie} if cookie else {}
 if host:
     headers["Host"] = host
 when = (datetime.datetime.now() - datetime.timedelta(minutes=10)).strftime("%a %b %d %H:%M:%S %Y")
 print(json.dumps({"transaction": {
-    "client_ip": client, "time_stamp": when, "unique_id": "test-1",
+    "client_ip": client, "time_stamp": when, "unique_id": unique_id,
     "request": {"method": "GET", "http_version": version, "uri": uri, "headers": headers},
     "response": {"http_code": int(status)},
     "messages": [
@@ -174,14 +176,54 @@ waf_report() {
     output_has "/etc/nginx/modsec/crd.conf"
 }
 
-@test "an HTTP/3 request without a Host belongs to the app that speaks HTTP/3" {
-    refusal "" "crd-session=abc" 403 "/decks?q=<script>" 941100 3.0
+@test "an HTTP/3 request without a Host belongs to the app its transaction id names" {
+    refusal "" "crd-session=abc" 403 "/decks?q=<script>" 941100 3.0 "" "crd-1a2b3c"
+    refusal "" "mix-session=abc" 403 "/playlists?q=<script>" 941100 3.0 "" "mix-4d5e6f"
 
     waf_report
     [ "$status" -eq 0 ]
-    [ ! -e "$MIX_OUT" ]
     run cat "$CRD_OUT"
     output_has "GET /decks"
+    output_lacks "GET /playlists"
+    run cat "$MIX_OUT"
+    output_has "GET /playlists"
+    output_lacks "GET /decks"
+}
+
+@test "a Host-less request whose transaction id names no app is nobody's when two apps share the box" {
+    refusal "" "mix-session=abc; crd-session=abc" 403 "/?q=<script>" 941100 3.0 "" "179550202582.492467"
+
+    waf_report
+    [ "$status" -eq 0 ]
+    output_has "mix: window"
+    output_has "crd: window"
+    output_lacks "1 visitor request(s) refused"
+    [ ! -e "$MIX_OUT" ]
+    [ ! -e "$CRD_OUT" ]
+}
+
+@test "on a box with a single app, a Host-less request is that app's" {
+    cat > "$CONFIG" <<EOF
+{"audit_logs": "$AUDIT", "apps": [
+  {"name": "mix", "label": "Mix", "hosts": ["mix.example"],
+   "session_cookie": "mix-session", "exclusions": "/etc/nginx/modsec/mix.conf"}]}
+EOF
+    refusal "" "mix-session=abc" 403 "/playlists?q=<script>" 941100 3.0 "" "179550202582.492467"
+
+    waf_report
+    [ "$status" -eq 0 ]
+    run cat "$MIX_OUT"
+    output_has "GET /playlists"
+}
+
+@test "--app does not take another app's Host-less request" {
+    refusal "" "crd-session=abc" 403 "/decks?q=<script>" 941100 3.0 "" "crd-1a2b3c"
+
+    waf_report --app mix
+    [ "$status" -eq 0 ]
+    output_has "mix: window"
+    output_has "0 visitor request(s) refused, 0 other(s) refused"
+    [ ! -e "$MIX_OUT" ]
 }
 
 @test "a delivered report moves the app's window, so the next run is quiet" {

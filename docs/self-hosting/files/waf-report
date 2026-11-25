@@ -115,15 +115,19 @@ def audit_lines(pattern, since):
             yield from f
 
 
-def app_for(transaction, hosts, http3_app):
-    """The app a transaction belongs to, by its Host; HTTP/3 arrives without one (nginx hands
-    ModSecurity no Host for it, taking the name from :authority), so it goes to the one app that
-    speaks HTTP/3, if the config names one."""
+def app_for(transaction, hosts, all_apps, apps):
+    """The app a transaction belongs to, by its Host. HTTP/3 arrives without one: nginx takes the
+    name from :authority and hands ModSecurity no Host header. Such a request goes by the prefix
+    its vhost puts on the transaction id (modsecurity_transaction_id "<app>-$request_id"); on a box
+    with a single app it can only be that app's. Only an app this run reports on is returned."""
     headers = {k.lower(): v for k, v in transaction["request"].get("headers", {}).items()}
     host = headers.get("host", "").split(":")[0].lower()
-    if not host and transaction["request"].get("http_version") == 3.0:
-        return http3_app, headers
-    return hosts.get(host), headers
+    if host:
+        return hosts.get(host), headers
+    unique_id = str(transaction.get("unique_id", ""))
+    named = [app for app in all_apps if unique_id.startswith(f"{app['name']}-")]
+    owner = named[0] if named else (all_apps[0] if len(all_apps) == 1 else None)
+    return (owner if owner in apps else None), headers
 
 
 def is_visitor(app, headers, findings):
@@ -143,14 +147,13 @@ def is_scanner_probe(findings):
 def collect(config, apps, since):
     """Every refusal in the window, per app, plus what was only counted."""
     hosts = {host.lower(): app for app in apps for host in app["hosts"]}
-    http3_app = next((app for app in apps if app.get("http3_default")), None)
     results = {app["name"]: {"refusals": [], "passed": 0} for app in apps}
     unreadable = 0
     earliest = min(since[app["name"]] for app in apps)
     for line in audit_lines(config.get("audit_logs", DEFAULT_AUDIT_LOGS), earliest):
         try:
             transaction = json.loads(line)["transaction"]
-            app, headers = app_for(transaction, hosts, http3_app)
+            app, headers = app_for(transaction, hosts, config["apps"], apps)
             if app is None:
                 continue
             when = audit_timestamp(transaction["time_stamp"])
@@ -236,8 +239,6 @@ def load_config(path):
         for key in ("name", "label", "hosts", "session_cookie", "exclusions"):
             if key not in app:
                 raise ValueError(f"app {app.get('name', '?')}: no '{key}' in {path}")
-    if sum(1 for app in config["apps"] if app.get("http3_default")) > 1:
-        raise ValueError(f"more than one app with http3_default in {path}")
     return config
 
 

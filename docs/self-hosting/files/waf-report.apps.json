@@ -1,5 +1,5 @@
 {
-    "_comment": "/etc/waf-report/apps.json (640 root:root) — the apps waf-report reports on. One entry per app: its hosts, its session cookie (Str::slug(APP_NAME).'-session' unless SESSION_COOKIE overrides it) and the exclusions file the report points at. Where a report goes is notify's business: name is the app's key in /etc/notify/apps.json, whose channels it is sent to. http3_default: true on the one app that listens on HTTP/3, whose requests reach ModSecurity without a Host.",
+    "_comment": "/etc/waf-report/apps.json (640 root:root) — the apps waf-report reports on. One entry per app: its hosts, its session cookie (Str::slug(APP_NAME).'-session' unless SESSION_COOKIE overrides it) and the exclusions file the report points at. Where a report goes is notify's business: name is the app's key in /etc/notify/apps.json, whose channels it is sent to. name is also the prefix the app's vhost puts on ModSecurity's transaction id (modsecurity_transaction_id \"<name>-$request_id\"), which is how an HTTP/3 request, arriving without a Host, is told apart.",
     "audit_logs": "/var/log/modsecurity/audit.log*",
     "apps": [
         {
