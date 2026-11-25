@@ -73,6 +73,7 @@ CONFIG=(
     /root/mixtape
     /usr/local/sbin/notify /etc/notify /etc/systemd/system/notify-failure@.service
     /usr/local/sbin/waf-report /etc/waf-report /etc/systemd/system/waf-report.*
+    /usr/local/sbin/smartd-notify /etc/smartd.conf
 )
 USB_MOUNT=/mnt/usb
 USB_REPO=$USB_MOUNT/restic/mixtape

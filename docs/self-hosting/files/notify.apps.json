@@ -1,5 +1,5 @@
 {
-    "_comment": "/etc/notify/apps.json (640 root:root) — who notify tells, per app. Secrets are never in here: each channel names the root-only dotenv file it reads them from. Channel types: ntfy (topic_key, default NTFY_TOPIC, from env_file, default the secrets file; optional server), mail (the app's own MAIL_* from env_file; the recipient as to, or as to_key in that file, default APP_CONTACT), discord (webhook_key, default DISCORD_WEBHOOK_URL, from env_file), file (path; for trying a configuration). A unit belongs to the app its name starts with (mixtape-restic.service -> mixtape); the name is also what waf-report's apps.json refers to.",
+    "_comment": "/etc/notify/apps.json (640 root:root) — who notify tells, per app. Secrets are never in here: each channel names the root-only dotenv file it reads them from. Channel types: ntfy (topic_key, default NTFY_TOPIC, from env_file, default the secrets file; optional server), mail (the app's own MAIL_* from env_file; the recipient as to, or as to_key in that file, default APP_CONTACT), discord (webhook_key, default DISCORD_WEBHOOK_URL, from env_file), file (path; for trying a configuration). A unit belongs to the app its name starts with (mixtape-restic.service -> mixtape); the name is also what waf-report's apps.json refers to. host is the box itself — smartd's disk warnings, through smartd-notify — with the ntfy channel only: the box has no mail account of its own.",
     "secrets": "/etc/notify/secrets.env",
     "apps": {
         "mixtape": {
@@ -7,6 +7,12 @@
             "channels": [
                 { "type": "ntfy" },
                 { "type": "mail", "env_file": "/var/www/mixtape.prod/.env", "to": "admin@<your-domain>" }
+            ]
+        },
+        "host": {
+            "label": "Server",
+            "channels": [
+                { "type": "ntfy" }
             ]
         }
     }

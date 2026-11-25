@@ -457,7 +457,8 @@ shares its fate: a fire, a theft or a surge takes both. So the collection goes t
 backup drive and off-site storage — in one nightly job that also takes the database dumps
 ([`03`](03-production-deploy.md#scheduled-database-backup)) and the server configuration this guide
 builds. Then the job gets an alarm, because a backup that silently stops running is the failure that
-actually happens.
+actually happens. Last, both disks get a watch of their own, so a drive that is wearing out says so
+while everything on it still exists twice.
 
 None of this needs an open port, so it can be done at any point once [`03`](03-production-deploy.md)
 is complete.
@@ -479,8 +480,8 @@ Three tags, each thinned on its own (7 daily, 5 weekly, 12 monthly snapshots):
   a year.
 - **`mixtape-config`**: prod's `.env` — its `APP_KEY` is what decrypts the restored 2FA secrets — and
   the server configuration from this guide: nginx, the php-fpm pools, PostgreSQL's settings, the
-  certificates, the units, sudoers, fail2ban, the firewall. It exists nowhere else, and rebuilding it
-  from these documents takes days.
+  certificates, the units, sudoers, fail2ban, the firewall, the alerting and the disk watch. It exists
+  nowhere else, and rebuilding it from these documents takes days.
 
 What the design decides:
 
@@ -762,6 +763,71 @@ Two things that look wrong and are not:
   command restores the database from it. The library's own rows come back from the restored media
   with `php artisan app:update`.
 
+### Disk health
+
+The backups cover a disk that has died; nothing so far says one is about to. Both disks report their
+own wear through SMART — reallocated and pending sectors, an SSD's spare blocks and percentage used,
+temperature — and `smartd`, from [smartmontools](https://www.smartmontools.org/), reads it every 30
+minutes and runs self-tests on a schedule. Its warnings go through `notify` like everything else, to
+an `apps.json` entry of their own: `host`, the box itself, with the ntfy channel only, because the box
+has no mail account of its own. Give it an app's `mail` channel as well if you want a second one.
+
+| File | Installs as | Role |
+| --- | --- | --- |
+| [`files/smartd.conf`](files/smartd.conf) | `/etc/smartd.conf` (644 root) | which disks, which checks, the self-test schedule |
+| [`files/smartd-notify`](files/smartd-notify) | `/usr/local/sbin/…` (755 root) | hands a warning to `notify --app host` |
+
+The `host` entry is part of [`files/notify.apps.json`](files/notify.apps.json); add it to
+`/etc/notify/apps.json` if that was installed without it.
+
+```sh
+sudo apt install smartmontools
+sudo smartctl --scan-open                    # each disk, and the -d type it needs
+ls -l /dev/disk/by-id/                       # the stable names smartd.conf wants
+sudo cp /etc/smartd.conf /root/smartd.conf.dist
+sudo install -m 0644 -o root -g root smartd.conf /etc/smartd.conf
+sudo nano /etc/smartd.conf                   # both disks' by-id names, the temperature limits
+sudo install -m 0755 -o root -g root smartd-notify /usr/local/sbin/
+sudo smartd -q showtests                     # parses the file, lists the next self-tests
+sudo systemctl restart smartmontools
+journalctl -u smartmontools -n 20 --no-pager # want: "Monitoring 1 ATA/SATA, … 1 NVMe devices"
+```
+
+What the configuration decides:
+
+- **Disks by id, never `/dev/sdX`.** A second USB disk plugged in can take over `sda`, and smartd
+  would then watch it under the backup drive's line.
+- **The backup drive is `-d removable`.** Without it smartd refuses to start while the drive is
+  unplugged — and then watches the system disk no more than the missing one. A missing drive already
+  fails the restic run, which alerts.
+- **A USB drive needs `-d sat`**, so that SMART passes through the bridge. Many bridges answer the
+  attributes but not the health verdict — smartd then logs "not capable of SMART Health Status
+  check" and watches the attributes, which is where a failing hard disk shows first anyway. A bridge
+  that passes nothing at all makes `smartctl -a -d sat` come back empty; restic's weekly read-back is
+  then the only watch on that drive.
+- **Self-tests run in daylight**: short ones on Sundays at 12:00, long ones on the 1st at 10:00, clear
+  of the nightly jobs. A long test of a 2 TB USB hard disk takes about six hours, and the disk stays
+  usable meanwhile.
+- **A warning repeats once a day while it lasts**, smartd's default with Debian's state files, so one
+  missed push is not the end of it.
+- **An NVMe drive's error log is not a symptom.** `smartctl -a` may show thousands of "Error Information
+  Log Entries", all "Invalid Field in Command": the kernel probing features the drive lacks. smartd
+  tells those apart from device errors and alerts on the latter only.
+- **`smartd-notify` prints nothing.** smartd takes any output of its `-M exec` program as a sign that
+  the program is broken, so `notify`'s per-channel report goes to the journal instead
+  (`journalctl -t smartd-notify`).
+- **The alert names the disk by its kernel name** (`/dev/sda`), never by the by-id path, which carries
+  the serial number: an ntfy topic is a third party.
+
+Prove the path once: add `-M test` to the end of one line in `/etc/smartd.conf` and restart.
+
+```sh
+sudo systemctl restart smartmontools         # one push: "Disk: EmailTest on /dev/…"
+journalctl -t smartd-notify -n 5 --no-pager  # host: ntfy: sent
+```
+
+Then remove `-M test` and restart again, or every restart of smartd pushes another test.
+
 ## Step 9 — Final verification
 
 - [ ] From **off the LAN** (phone on mobile data): the site loads with a **valid** certificate,
@@ -801,6 +867,7 @@ Two things that look wrong and are not:
       (`sudo rm`) once the level is raised, rather than leaving them to age.
 - [ ] `certbot renew --dry-run` is clean and the renewal timer is active.
 - [ ] A deliberately failed backup produces an actual notification, with the phone's screen off.
+- [ ] smartd's test message has arrived, and `-M test` is out of `/etc/smartd.conf` again.
 - [ ] One album, the dumps and `.env` have come back from B2 identical to the originals.
 
 ## Kill switch

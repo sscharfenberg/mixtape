@@ -1,0 +1,54 @@
+#!/bin/bash
+# /usr/local/sbin/smartd-notify   — 755 root:root
+#
+# smartd's -M exec program (/etc/smartd.conf): hands a disk warning to notify as
+# the app "host" — the box itself — whose channels /etc/notify/apps.json lists.
+# smartd describes the problem in SMARTD_* environment variables (man
+# smartd.conf, under -M exec).
+#
+# The text names the disk by its kernel name (/dev/sda), not by the by-id path
+# smartd.conf gives it, and leaves SMARTD_FULLMESSAGE out: the path carries the
+# drive's serial number, the full message the host name as well, and every
+# channel is a third party — an ntfy topic is readable by anyone who knows its
+# name.
+#
+# smartd takes ANY output of this program as a sign that it is broken and logs
+# a fragment of it as such. notify reports each channel on stdout, so its output
+# goes to the journal instead (journalctl -t smartd-notify). The exit status is
+# notify's, which smartd records.
+#
+# A warning is urgent; smartd's test message (-M test, failtype EmailTest) is
+# not.
+#
+# $SMARTD_NOTIFY_COMMAND names another notify (the tests use the repository's);
+# notify itself honours $NOTIFY_CONFIG.
+#
+# Prove the whole path: add `-M test` to a line of /etc/smartd.conf and restart
+# smartmontools — one push per such line — then take it out again, or every
+# restart pushes a test.
+
+set -u
+
+notify=${SMARTD_NOTIFY_COMMAND:-/usr/local/sbin/notify}
+failtype=${SMARTD_FAILTYPE:-unknown problem}
+message=${SMARTD_MESSAGE:-smartd reported a problem.}
+device=${SMARTD_DEVICE:-}
+
+if [[ -n $device ]]; then
+    kernel=$(readlink -f "$device" 2>/dev/null)
+    kernel=${kernel:-$device}
+    message=${message//"$device"/$kernel}
+    device=$kernel
+else
+    device="an unknown disk"
+fi
+
+priority=--urgent
+if [[ $failtype == EmailTest ]]; then
+    priority=
+fi
+
+exec systemd-cat -t smartd-notify "$notify" --app host ${priority:+"$priority"} --tags floppy_disk \
+    --title "Disk: $failtype on $device" \
+    "$message
+Inspect with: smartctl -a $device; journalctl -u smartmontools -n 50"
