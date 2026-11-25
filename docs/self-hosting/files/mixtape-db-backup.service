@@ -47,23 +47,27 @@
 # silent, and silence is indistinguishable from success without something that has
 # to keep saying "still here".
 #
+# Both go through /usr/local/sbin/notify: OnFailure= starts notify-failure@ with
+# this unit's name, and the success ping is `notify --ok` with it. notify finds
+# this unit's check as HC_MIXTAPE_DB_BACKUP in /etc/notify/secrets.env, and no
+# such key simply skips, so a box that has not configured one is not an error.
+#
 # `-` PREFIX so a failed ping cannot fail the backup: the alarm is not the job, and
 # a unit that goes red because healthchecks.io was briefly down would train you to
-# ignore it. Unset HC_DB_PING_URL simply skips, so a box that has not configured
-# one is not an error.
+# ignore it. (notify --ok exits 0 whatever happens; the `-` says so here too.)
 [Unit]
 Description=MixTape database backup (pg_dump to the backup drive, verified, 30-day retention)
 RequiresMountsFor=/mnt/usb
 After=postgresql.service
 Wants=postgresql.service
-OnFailure=mixtape-db-backup-failed.service
+OnFailure=notify-failure@%n.service
 
 [Service]
 Type=oneshot
 WorkingDirectory=/var/www/mixtape.prod
 Environment=LOG_CHANNEL=stderr
 ExecStart=/usr/bin/php /var/www/mixtape.prod/artisan app:db-backup
-ExecStartPost=-/bin/sh -c '. /etc/mixtape/backup-alerts.env 2>/dev/null; [ -n "$HC_DB_PING_URL" ] && exec curl -fsS -m 10 --retry 3 -o /dev/null "$HC_DB_PING_URL"; exit 0'
+ExecStartPost=-/usr/local/sbin/notify --ok %n
 
 # Yield to anything a listener is doing. A dump of this size is seconds of work,
 # but it runs while the house may still be playing something.

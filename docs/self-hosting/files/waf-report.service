@@ -2,9 +2,9 @@
 #
 # The daily report of the requests the WAF refused, for every app in
 # /etc/waf-report/apps.json (/usr/local/sbin/waf-report), started by
-# waf-report.timer. Root, because the audit log is root:adm 640 and each app's
-# channel secrets are in root-only files. Each app's window end lives in
-# /var/lib/waf-report/<app>.window-end.
+# waf-report.timer. Root, because the audit log is root:adm 640 and the reports
+# go out through /usr/local/sbin/notify, whose channel secrets are in root-only
+# files. Each app's window end lives in /var/lib/waf-report/<app>.window-end.
 [Unit]
 Description=Report the requests the WAF refused, per app
 Wants=network-online.target

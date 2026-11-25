@@ -7,18 +7,19 @@
 #
 # THE SUCCESS PING is the dead-man's switch, as in mixtape-db-backup.service:
 # OnFailure= only reports a run that RAN and failed, while a timer that never
-# fires is silent. `-` so a failed ping cannot fail the backup; an unset
-# HC_RESTIC_PING_URL simply skips.
+# fires is silent. Both go through /usr/local/sbin/notify, which finds this
+# unit's check as HC_MIXTAPE_RESTIC in /etc/notify/secrets.env; no such key
+# simply skips. `-` so a failed ping cannot fail the backup.
 [Unit]
 Description=MixTape backup: restic to the backup drive and Backblaze B2
 Wants=network-online.target
 After=network-online.target
-OnFailure=mixtape-restic-failed.service
+OnFailure=notify-failure@%n.service
 
 [Service]
 Type=oneshot
 ExecStart=/usr/local/sbin/mixtape-restic
-ExecStartPost=-/bin/sh -c '. /etc/mixtape/backup-alerts.env 2>/dev/null; [ -n "$HC_RESTIC_PING_URL" ] && exec curl -fsS -m 10 --retry 3 -o /dev/null "$HC_RESTIC_PING_URL"; exit 0'
+ExecStartPost=-/usr/local/sbin/notify --ok %n
 # Yield to anything a listener is doing.
 Nice=10
 IOSchedulingClass=idle

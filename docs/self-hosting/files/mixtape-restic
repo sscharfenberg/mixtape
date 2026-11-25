@@ -40,8 +40,8 @@
 # off-site copy, not destroy it: 90 days to notice and restore.
 #
 # Run by mixtape-restic.timer (04:00, after app:db-backup); a failure alerts
-# through mixtape-restic-failed.service, success pings healthchecks.io from the
-# unit. One repository failing does not stop the other.
+# through notify-failure@, success pings healthchecks.io from the unit (both by
+# /usr/local/sbin/notify). One repository failing does not stop the other.
 #
 # B2_LIMIT_UPLOAD (KiB/s, optional) throttles the B2 uploads only. The nightly
 # run leaves it unset; the first run, which uploads the whole collection, sets
@@ -70,7 +70,8 @@ CONFIG=(
     /etc/fail2ban/jail.local /etc/fail2ban/filter.d/mixtape-*
     /etc/nftables.conf /etc/ddclient.conf /etc/samba/smb.conf
     /usr/local/sbin/mixtape-* /usr/local/bin/mixtape-*
-    /etc/mixtape /root/mixtape
+    /root/mixtape
+    /usr/local/sbin/notify /etc/notify /etc/systemd/system/notify-failure@.service
     /usr/local/sbin/waf-report /etc/waf-report /etc/systemd/system/waf-report.*
 )
 USB_MOUNT=/mnt/usb

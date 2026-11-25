@@ -9,9 +9,10 @@
 # would turn a false positive into a ban of a real user.
 #
 # The apps are in /etc/waf-report/apps.json (files/waf-report.apps.json is the
-# template): each names its hosts, its session cookie, its exclusions file and
-# its channels. One script and one timer for all of them, so the parsing below
-# exists once.
+# template): each names its hosts, its session cookie and its exclusions file.
+# One script and one timer for all of them, so the parsing below exists once.
+# Reports go out through /usr/local/sbin/notify, to the channels its own config
+# lists for the app of the same name, so no channel is implemented here.
 #
 # A refusal counts as a VISITOR'S when the request carried the app's session
 # cookie AND at least one rule besides the scanner rules matched AND its client
@@ -24,8 +25,8 @@
 # it away instead: no visitor's browser asks for /phpinfo.php.bak, and a client
 # that did is a scanner for the whole window. Only when an app has
 # at least one visitor refusal in the window does its report go out, through
-# that app's channels, each sent on its own so one failing does not cost the
-# others. Everything else is only counted. The full list, with times and
+# that app's channels (notify sends each on its own, so one failing does not
+# cost the others). Everything else is only counted. The full list, with times and
 # clients, goes to the journal:
 #   journalctl -u waf-report
 #
@@ -46,24 +47,26 @@
 #   --app NAME      only this app
 #   --config PATH   the apps file (default /etc/waf-report/apps.json, or
 #                   $WAF_REPORT_CONFIG)
+#
+# $WAF_REPORT_NOTIFY names another notify (the tests use the repository's);
+# notify itself honours $NOTIFY_CONFIG.
 
 import argparse
 import collections
 import datetime
-import email.message
-import email.utils
 import glob
 import gzip
 import json
 import os
 import re
-import smtplib
-import ssl
+import subprocess
 import sys
 import traceback
-import urllib.request
 
 DEFAULT_CONFIG = "/etc/waf-report/apps.json"
+NOTIFY = os.environ.get("WAF_REPORT_NOTIFY", "/usr/local/sbin/notify")
+# notify's exit codes: 0 every channel took it, 3 some did; anything else, none did.
+DELIVERED, PARTLY_DELIVERED = 0, 3
 DEFAULT_AUDIT_LOGS = "/var/log/modsecurity/audit.log*"
 STATE_DIR = os.environ.get("STATE_DIRECTORY", "/var/lib/waf-report")
 # A WAF denial answers 403 (rule matches), 400 (an unparsable body) or 413 (a
@@ -81,110 +84,19 @@ MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", 
 UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.IGNORECASE)
 # "Matched Data: … found within ARGS:json.text: <value>" -> ARGS:json.text
 MATCHED_IN = re.compile(r"within ([A-Z_]+(?::[^\s:]+)?)")
-DISCORD_LIMIT = 4000
-NTFY_LIMIT = 3800
-
-
-def env_value(path, key):
-    """One KEY=value from a dotenv-style file, quotes stripped; '' when absent or unreadable."""
-    try:
-        with open(path) as f:
-            for line in f:
-                m = re.match(rf"^\s*{re.escape(key)}\s*=\s*(.*?)\s*$", line)
-                if m:
-                    return m.group(1).strip("'\"")
-    except OSError:
-        pass
-    return ""
-
-
-def send_ntfy(channel, title, text, failed):
-    """A push to the app's ntfy topic. The topic name is the credential, so it is read from a root-only file."""
-    topic = env_value(channel["env_file"], channel.get("topic_key", "NTFY_TOPIC"))
-    if not topic:
-        raise RuntimeError(f"no {channel.get('topic_key', 'NTFY_TOPIC')} in {channel['env_file']}")
-    server = channel.get("server", "https://ntfy.sh").rstrip("/")
-    request = urllib.request.Request(
-        f"{server}/{topic}",
-        data=text.encode()[:NTFY_LIMIT],
-        headers={
-            "Title": title,
-            "Priority": "urgent" if failed else "high",
-            "Tags": "rotating_light" if failed else "shield",
-            "User-Agent": "waf-report",
-        },
-    )
-    with urllib.request.urlopen(request, timeout=10):
-        pass
-
-
-def send_discord(channel, title, text, failed):
-    """An embed through the app's Discord webhook, read from the app's own .env."""
-    webhook = env_value(channel["env_file"], channel.get("webhook_key", "DISCORD_WEBHOOK_URL"))
-    if not webhook:
-        raise RuntimeError(f"no {channel.get('webhook_key', 'DISCORD_WEBHOOK_URL')} in {channel['env_file']}")
-    color = 0xD32F2F if failed else 0xF57C00
-    payload = {"embeds": [{"title": title, "description": text[:DISCORD_LIMIT], "color": color}]}
-    request = urllib.request.Request(
-        webhook,
-        data=json.dumps(payload).encode(),
-        headers={"Content-Type": "application/json", "User-Agent": "waf-report"},
-    )
-    with urllib.request.urlopen(request, timeout=10):
-        pass
-
-
-def send_mail(channel, title, text, failed):
-    """A mail through the app's own SMTP settings, to the address its .env names (APP_CONTACT by default)."""
-    env_file = channel["env_file"]
-    to_key = channel.get("to_key", "APP_CONTACT")
-    env = {key: env_value(env_file, key) for key in (
-        "MAIL_HOST", "MAIL_PORT", "MAIL_SCHEME", "MAIL_USERNAME", "MAIL_PASSWORD",
-        "MAIL_FROM_ADDRESS", "MAIL_FROM_NAME", to_key,
-    )}
-    missing = [key for key in ("MAIL_HOST", "MAIL_FROM_ADDRESS", to_key) if not env[key]]
-    if missing:
-        raise RuntimeError(f"no {', '.join(missing)} in {env_file}")
-    message = email.message.EmailMessage()
-    message["Subject"] = title
-    message["From"] = email.utils.formataddr((env["MAIL_FROM_NAME"], env["MAIL_FROM_ADDRESS"]))
-    message["To"] = env[to_key]
-    message.set_content(text)
-    port = int(env["MAIL_PORT"] or 587)
-    context = ssl.create_default_context()
-    if env["MAIL_SCHEME"] == "smtps" or port == 465:
-        server = smtplib.SMTP_SSL(env["MAIL_HOST"], port, timeout=20, context=context)
-    else:
-        server = smtplib.SMTP(env["MAIL_HOST"], port, timeout=20)
-        server.starttls(context=context)
-    with server:
-        if env["MAIL_USERNAME"]:
-            server.login(env["MAIL_USERNAME"], env["MAIL_PASSWORD"])
-        server.send_message(message)
-
-
-def send_file(channel, title, text, failed):
-    """Appends the report to a file: for trying a configuration, and for the tests."""
-    with open(channel["path"], "a") as f:
-        f.write(f"{title}\n{text}\n---\n")
-
-
-SENDERS = {"ntfy": send_ntfy, "discord": send_discord, "mail": send_mail, "file": send_file}
 
 
 def deliver(app, title, text, failed=False):
-    """Every channel of the app, each on its own. Returns the channels that failed."""
-    plain = text.replace("**", "").replace("`", "")
-    failures = []
-    for channel in app["channels"]:
-        kind = channel["type"]
-        try:
-            SENDERS[kind](channel, title, text if kind == "discord" else plain, failed)
-            print(f"{app['name']}: {kind}: sent")
-        except Exception as error:
-            failures.append(f"{kind} ({type(error).__name__}: {str(error)[:200]})")
-            print(f"{app['name']}: {kind}: failed ({type(error).__name__}: {str(error)[:200]})", file=sys.stderr)
-    return failures
+    """Hands the report to notify for the app's channels, the body on stdin. Returns notify's exit
+    code; its per-channel lines go to this unit's journal with the rest of the run."""
+    command = [NOTIFY, "--app", app["name"], "--title", title, "--tags", "rotating_light" if failed else "shield"]
+    if failed:
+        command.append("--urgent")
+    try:
+        return subprocess.run(command, input=text, text=True, timeout=180).returncode
+    except (OSError, subprocess.TimeoutExpired) as error:
+        print(f"{app['name']}: notify did not run ({type(error).__name__}: {error})", file=sys.stderr)
+        return -1
 
 
 def audit_timestamp(value):
@@ -321,12 +233,9 @@ def load_config(path):
     with open(path) as f:
         config = json.load(f)
     for app in config["apps"]:
-        for key in ("name", "label", "hosts", "session_cookie", "exclusions", "channels"):
+        for key in ("name", "label", "hosts", "session_cookie", "exclusions"):
             if key not in app:
                 raise ValueError(f"app {app.get('name', '?')}: no '{key}' in {path}")
-        for channel in app["channels"]:
-            if channel.get("type") not in SENDERS:
-                raise ValueError(f"app {app['name']}: unknown channel type {channel.get('type')!r}")
     if sum(1 for app in config["apps"] if app.get("http3_default")) > 1:
         raise ValueError(f"more than one app with http3_default in {path}")
     return config
@@ -368,16 +277,16 @@ def run(args):
             print(f"  {refusal['when']}  {kind:<8} {refusal['client']:<39} {refusal['status']}  "
                   f"{refusal['request']}  [{rules}]  id={refusal['id']}")
 
-        failures = []
+        delivery = DELIVERED
         if visitors:
             title = f"{app['label']} WAF refused {len(visitors)} visitor request{'s' if len(visitors) != 1 else ''}"
             text = report_text(app, start, until, visitors, others, zone)
             if args.dry_run:
                 print(f"\n--- {app['name']}: would send ---\n{title}\n{text}\n")
                 continue
-            failures = deliver(app, title, text)
-            if len(failures) == len(app["channels"]):
-                errors[app["name"]] = "report not delivered: " + "; ".join(failures)
+            delivery = deliver(app, title, text)
+            if delivery not in (DELIVERED, PARTLY_DELIVERED):
+                errors[app["name"]] = "report not delivered by any channel"
                 continue
 
         if not args.dry_run and args.since is None:
@@ -386,8 +295,8 @@ def run(args):
             with open(temporary, "w") as f:
                 f.write(until.isoformat())
             os.replace(temporary, window_file(app))
-        if failures:
-            errors[app["name"]] = "report delivered, but not by " + "; ".join(failures)
+        if delivery == PARTLY_DELIVERED:
+            errors[app["name"]] = "report delivered, but not by every channel"
 
     if unreadable:
         print(f"{unreadable} unreadable line(s) in the audit logs", file=sys.stderr)

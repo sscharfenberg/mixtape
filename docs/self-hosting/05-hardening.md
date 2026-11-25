@@ -322,11 +322,11 @@ sudo waf-report --dry-run --since "$(date -d '-14 days' +%FT%T)"   # what it WOU
 The backup's `CONFIG` names the script, `/etc/waf-report` and both units; add them back if you left
 them out in [`04`](04-going-public.md#step-8--backups-and-alerting).
 
-The report goes to the ntfy topic the backup alerts use ([`04`](04-going-public.md#alerting));
-`apps.json` can name mail or a Discord webhook
-instead, and one entry per app if a second app shares the WAF — the parsing exists once. Each app keeps
-its own window in `/var/lib/waf-report/`: a report that reached none of its channels keeps the window,
-so the next run reports the gap too.
+The report goes out through `notify` ([`04`](04-going-public.md#alerting)), to the channels
+`/etc/notify/apps.json` lists for the app of the same `name` — the backup alerts' channels. A second app
+that shares the WAF gets an entry in both files, and the parsing still exists once. Each app keeps its
+own window in `/var/lib/waf-report/`: a report that reached none of its channels keeps the window, so
+the next run reports the gap too, and one that reached only some moves it on but fails the run.
 
 ### When the rules update
 

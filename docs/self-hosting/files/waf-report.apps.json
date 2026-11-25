@@ -1,5 +1,5 @@
 {
-    "_comment": "/etc/waf-report/apps.json (640 root:root) — the apps waf-report reports on. One entry per app: its hosts, its session cookie (Str::slug(APP_NAME).'-session' unless SESSION_COOKIE overrides it), the exclusions file the report points at, and its channels. Channel secrets are never in here: each channel names the root-only file it reads them from. Channel types: ntfy (topic_key, default NTFY_TOPIC; optional server), mail (the app's own MAIL_* and to_key, default APP_CONTACT), discord (webhook_key, default DISCORD_WEBHOOK_URL), file (path; for trying a configuration). http3_default: true on the one app that listens on HTTP/3, whose requests reach ModSecurity without a Host.",
+    "_comment": "/etc/waf-report/apps.json (640 root:root) — the apps waf-report reports on. One entry per app: its hosts, its session cookie (Str::slug(APP_NAME).'-session' unless SESSION_COOKIE overrides it) and the exclusions file the report points at. Where a report goes is notify's business: name is the app's key in /etc/notify/apps.json, whose channels it is sent to. http3_default: true on the one app that listens on HTTP/3, whose requests reach ModSecurity without a Host.",
     "audit_logs": "/var/log/modsecurity/audit.log*",
     "apps": [
         {
@@ -7,10 +7,7 @@
             "label": "MixTape",
             "hosts": ["<your-domain>", "www.<your-domain>"],
             "session_cookie": "mixtape-session",
-            "exclusions": "/etc/nginx/modsec/mixtape.conf",
-            "channels": [
-                { "type": "ntfy", "env_file": "/etc/mixtape/backup-alerts.env", "topic_key": "NTFY_TOPIC" }
-            ]
+            "exclusions": "/etc/nginx/modsec/mixtape.conf"
         }
     ]
 }

@@ -721,7 +721,6 @@ for a year beyond that.
 | --- | --- | --- |
 | [`files/mixtape-db-backup.service`](files/mixtape-db-backup.service) | `/etc/systemd/system/…` | the oneshot unit (www-data) |
 | [`files/mixtape-db-backup.timer`](files/mixtape-db-backup.timer) | `/etc/systemd/system/…` | daily `02:30`, `Persistent=true` |
-| [`files/mixtape-db-backup-failed.service`](files/mixtape-db-backup-failed.service) | `/etc/systemd/system/…` | the `OnFailure=` reporter |
 
 ```bash
 sudo systemctl enable --now mixtape-db-backup.timer
@@ -738,9 +737,10 @@ ls -lh /mnt/usb/db-backups
 Unlike the library scan and the share prune, this one **does** have an `OnFailure=`
 reporter, for the same reason the restic backup does: a failed scan leaves stale rows
 and the next run fixes them, where a failed backup leaves nothing and you find out when
-you need it. It reuses `mixtape-backup-alert.sh`
-([`04`](04-going-public.md#alerting)), told which job it is reporting, so the push names
-the database and marks that job's own dead-man's switch rather than the restic run's.
+you need it. Its `OnFailure=notify-failure@%n.service` is the same template every job uses
+([`04`](04-going-public.md#alerting)), started with this unit's name, so the push names the
+database and marks that job's own dead-man's switch rather than the restic run's. Until
+`04`'s alerting is installed, the template does not exist and a failure reports nothing.
 
 **It runs as root**, unlike the library scan and the share prune — forced by the
 drive, not chosen. The backup disk is exFAT, which carries no Unix permissions and is
@@ -752,9 +752,9 @@ root-owned log file php-fpm cannot write, and the app would silently stop loggin
 Sending this unit's output to stderr opens no file at all and puts everything in the
 journal.
 
-**It is a full dead-man's switch** if you set `HC_DB_PING_URL` in
-`/etc/mixtape/backup-alerts.env`: `OnFailure=` reports a run that ran and failed,
-while the success ping is what catches a timer that never fired at all. Give it a
+**It is a full dead-man's switch** if you set `HC_MIXTAPE_DB_BACKUP` in
+`/etc/notify/secrets.env`: `OnFailure=` reports a run that ran and failed, while the
+success ping (`notify --ok`) is what catches a timer that never fired at all. Give it a
 check of its **own** — sharing the restic run's URL means a failed dump marks that
 period red and sends you to the wrong job. Both are optional; unset, they skip.
 

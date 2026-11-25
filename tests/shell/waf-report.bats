@@ -11,14 +11,17 @@
 # their address — every channel is a third party.
 #
 # Each test writes audit-log lines in libmodsecurity's JSON shape to a temp
-# file and runs the script against a config whose channels are `file`s, so
-# nothing touches the network and no WAF is needed.
+# file and runs the script against the repository's notify, whose config gives
+# each app a `file` channel, so nothing touches the network and no WAF is
+# needed. Delivery itself is notify's and is tested in notify.bats; here it is
+# only the door a report leaves by.
 
 load test_helper
 
 # WAF_REPORT may point at another copy — the installed one, or a deliberately
 # broken one to see that a test can fail at all.
 WAF_REPORT="${WAF_REPORT:-$(cd "$BATS_TEST_DIRNAME/../../docs/self-hosting/files" && pwd)/waf-report}"
+export WAF_REPORT_NOTIFY="${WAF_REPORT_NOTIFY:-$(cd "$BATS_TEST_DIRNAME/../../docs/self-hosting/files" && pwd)/notify}"
 
 # Fresh config, audit log and state directory per test. Two apps, so routing is
 # always under test: `mix` on mix.example (no HTTP/3), `crd` on crd.example
@@ -29,24 +32,32 @@ setup() {
     MIX_OUT="$BATS_TEST_TMPDIR/mix.reports"
     CRD_OUT="$BATS_TEST_TMPDIR/crd.reports"
     export STATE_DIRECTORY="$BATS_TEST_TMPDIR/state"
+    export NOTIFY_CONFIG="$BATS_TEST_TMPDIR/notify.json"
     : > "$AUDIT"
     write_config "$MIX_OUT"
 }
 
-# The two-app config; $1 is where the mix app's reports go (a path in a missing
-# directory makes its only channel fail).
+# The two-app config, and notify's for the same two apps; $1 is where the mix
+# app's reports go (a path in a missing directory makes its only channel fail).
 write_config() {
     cat > "$CONFIG" <<EOF
 {
   "audit_logs": "$AUDIT",
   "apps": [
     {"name": "mix", "label": "Mix", "hosts": ["mix.example", "www.mix.example"],
-     "session_cookie": "mix-session", "exclusions": "/etc/nginx/modsec/mix.conf",
-     "channels": [{"type": "file", "path": "$1"}]},
+     "session_cookie": "mix-session", "exclusions": "/etc/nginx/modsec/mix.conf"},
     {"name": "crd", "label": "Crd", "hosts": ["crd.example"], "http3_default": true,
-     "session_cookie": "crd-session", "exclusions": "/etc/nginx/modsec/crd.conf",
-     "channels": [{"type": "file", "path": "$CRD_OUT"}]}
+     "session_cookie": "crd-session", "exclusions": "/etc/nginx/modsec/crd.conf"}
   ]
+}
+EOF
+    cat > "$NOTIFY_CONFIG" <<EOF
+{
+  "secrets": "$BATS_TEST_TMPDIR/secrets.env",
+  "apps": {
+    "mix": {"label": "Mix", "channels": [{"type": "file", "path": "$1"}]},
+    "crd": {"label": "Crd", "channels": [{"type": "file", "path": "$CRD_OUT"}]}
+  }
 }
 EOF
 }
@@ -219,6 +230,35 @@ waf_report() {
     [ -s "$STATE_DIRECTORY/crd.window-end" ]
     run grep -c "WAF report FAILED" "$CRD_OUT"
     [ "$output" = 0 ]
+}
+
+@test "a report one channel took and another did not moves the window but fails the run" {
+    cat > "$NOTIFY_CONFIG" <<EOF
+{"apps": {"mix": {"label": "Mix", "channels": [
+    {"type": "file", "path": "$MIX_OUT"},
+    {"type": "file", "path": "$BATS_TEST_TMPDIR/missing-dir/mix.reports"}]},
+  "crd": {"label": "Crd", "channels": [{"type": "file", "path": "$CRD_OUT"}]}}}
+EOF
+    refusal mix.example "mix-session=abc" 403 "/?q=<script>" 941100
+
+    waf_report
+    [ "$status" -eq 1 ]
+    output_has "mix: report delivered, but not by every channel"
+    [ -s "$STATE_DIRECTORY/mix.window-end" ]
+    run grep -c "Mix WAF refused" "$MIX_OUT"
+    [ "$output" = 1 ]
+    run grep -c "WAF report FAILED" "$MIX_OUT"
+    [ "$output" = 1 ]
+}
+
+@test "a missing notify is an undelivered report, not a crash" {
+    refusal mix.example "mix-session=abc" 403 "/?q=<script>" 941100
+
+    WAF_REPORT_NOTIFY="$BATS_TEST_TMPDIR/no-such-notify" waf_report
+    [ "$status" -eq 1 ]
+    output_has "mix: notify did not run"
+    output_has "mix: report not delivered by any channel"
+    [ ! -e "$STATE_DIRECTORY/mix.window-end" ]
 }
 
 @test "--app limits the run to one app" {

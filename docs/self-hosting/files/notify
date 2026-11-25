@@ -1,0 +1,305 @@
+#!/usr/bin/env python3
+# /usr/local/sbin/notify   — 750 root:root
+#
+# The one way anything on this box tells a person something: every unit's
+# failure, every dead-man's-switch ping and the WAF report go through here, so
+# each channel is implemented once and each app's channels are listed once.
+#
+#   notify --app NAME --title TITLE [--urgent] [--tags TAGS] [BODY]
+#       Sends BODY (or stdin) to every channel of the app. Exit 0 when every
+#       channel took it, 3 when some did, 4 when none did; the WAF report
+#       reads that to decide whether its window may move on.
+#   notify --failed UNIT
+#       What notify-failure@.service runs for a unit's OnFailure=. Marks the
+#       unit's healthchecks.io check failed and pushes "UNIT FAILED", urgent,
+#       to the app the unit belongs to.
+#   notify --ok UNIT
+#       A unit's ExecStartPost=: pings its check. Always exits 0, so the
+#       monitoring can never fail the job it watches.
+#
+# Configuration: /etc/notify/apps.json (or --config, or $NOTIFY_CONFIG), whose
+# template is files/notify.apps.json. Each app names its channels; a channel's
+# secrets stay in a root-only dotenv file it names (the app's own .env for its
+# mail account, /etc/notify/secrets.env for the ntfy topic), so no secret is
+# written twice. A unit belongs to the app its name starts with
+# ("mixtape-restic.service" -> "mixtape"); a unit no app claims reports to
+# every app, each distinct channel once.
+#
+# A unit's check is HC_<UNIT> in the secrets file: the unit name without
+# ".service", upper-cased, every other character an underscore
+# (mixtape-db-backup.service -> HC_MIXTAPE_DB_BACKUP). No such key, no ping —
+# a box without healthchecks.io is not an error.
+#
+# Secrets never reach a command line, where ps would show them: everything is
+# read and sent in-process. The text says what broke and where to look and
+# nothing about hosts or addresses, because every channel is a third party and
+# an ntfy topic is readable by anyone who knows its name.
+
+import argparse
+import email.message
+import email.utils
+import json
+import os
+import re
+import shutil
+import smtplib
+import ssl
+import subprocess
+import sys
+import time
+import urllib.request
+
+DEFAULT_CONFIG = "/etc/notify/apps.json"
+DEFAULT_SECRETS = "/etc/notify/secrets.env"
+DISCORD_LIMIT = 4000
+NTFY_LIMIT = 3800
+PING_ATTEMPTS = 3
+EXIT_PARTIAL = 3
+EXIT_NONE = 4
+
+_env_cache = {}
+
+
+def env_file(path):
+    """A dotenv file as a dict, the way Laravel reads one: quotes stripped, `null` empty, and
+    ${KEY} replaced by an earlier key of the same file — MAIL_FROM_NAME="${APP_NAME}" is the
+    shape a fresh Laravel .env has. Unreadable or missing reads as empty, so the caller can say
+    which key it lacked."""
+    if path in _env_cache:
+        return _env_cache[path]
+    values = {}
+    try:
+        with open(path) as f:
+            for line in f:
+                m = re.match(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$", line)
+                if not m:
+                    continue
+                key, value = m.groups()
+                quote = value[0] if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"" else ""
+                if quote:
+                    value = value[1:-1]
+                elif " #" in value:
+                    value = value.split(" #", 1)[0].rstrip()
+                if not quote and value.lower() in ("null", "(null)"):
+                    value = ""
+                if quote != "'":
+                    value = re.sub(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}", lambda r: values.get(r.group(1), ""), value)
+                values[key] = value
+    except OSError:
+        pass
+    _env_cache[path] = values
+    return values
+
+
+def secret(path, key):
+    """One value from a dotenv file, or an error naming the key and the file — never the value."""
+    value = env_file(path).get(key, "")
+    if not value:
+        raise RuntimeError(f"no {key} in {path}")
+    return value
+
+
+def plain(text):
+    """The Markdown the Discord embed renders, stripped for the channels that show it raw."""
+    return text.replace("**", "").replace("`", "")
+
+
+def send_ntfy(channel, config, title, text, urgent, tags):
+    """A push to the ntfy topic. The topic name is the credential, so it comes from a root-only file."""
+    source = channel.get("env_file", config["secrets"])
+    topic = secret(source, channel.get("topic_key", "NTFY_TOPIC"))
+    server = channel.get("server", "https://ntfy.sh").rstrip("/")
+    headers = {"Title": title, "Priority": "urgent" if urgent else "high", "User-Agent": "notify"}
+    if tags:
+        headers["Tags"] = tags
+    request = urllib.request.Request(f"{server}/{topic}", data=plain(text).encode()[:NTFY_LIMIT], headers=headers)
+    with urllib.request.urlopen(request, timeout=10):
+        pass
+
+
+def send_discord(channel, config, title, text, urgent, tags):
+    """An embed through a Discord webhook, read from the env file the channel names (the app's .env).
+    The User-Agent is not decoration: Discord refuses Python's default one."""
+    webhook = secret(channel["env_file"], channel.get("webhook_key", "DISCORD_WEBHOOK_URL"))
+    payload = {"embeds": [{"title": title, "description": text[:DISCORD_LIMIT], "color": 0xD32F2F if urgent else 0xF57C00}]}
+    request = urllib.request.Request(
+        webhook,
+        data=json.dumps(payload).encode(),
+        headers={"Content-Type": "application/json", "User-Agent": "notify"},
+    )
+    with urllib.request.urlopen(request, timeout=10):
+        pass
+
+
+def send_mail(channel, config, title, text, urgent, tags):
+    """A mail through the app's own SMTP account (its MAIL_* keys), to `to` or to the address its
+    env file holds under `to_key` (APP_CONTACT by default). The app's account rather than one of
+    the box's own, because the app's sending domain is already authenticated (SPF, DKIM)."""
+    env = env_file(channel["env_file"])
+    recipient = channel.get("to") or env.get(channel.get("to_key", "APP_CONTACT"), "")
+    missing = [key for key in ("MAIL_HOST", "MAIL_FROM_ADDRESS") if not env.get(key)]
+    if not recipient:
+        missing.append(channel.get("to_key", "APP_CONTACT"))
+    if missing:
+        raise RuntimeError(f"no {', '.join(missing)} in {channel['env_file']}")
+    message = email.message.EmailMessage()
+    message["Subject"] = title
+    message["From"] = email.utils.formataddr((env.get("MAIL_FROM_NAME", ""), env["MAIL_FROM_ADDRESS"]))
+    message["To"] = recipient
+    if urgent:
+        message["X-Priority"] = "1"
+    message.set_content(plain(text))
+    port = int(env.get("MAIL_PORT") or 587)
+    context = ssl.create_default_context()
+    if env.get("MAIL_SCHEME") == "smtps" or port == 465:
+        server = smtplib.SMTP_SSL(env["MAIL_HOST"], port, timeout=20, context=context)
+    else:
+        server = smtplib.SMTP(env["MAIL_HOST"], port, timeout=20)
+        server.starttls(context=context)
+    with server:
+        if env.get("MAIL_USERNAME"):
+            server.login(env["MAIL_USERNAME"], env.get("MAIL_PASSWORD", ""))
+        server.send_message(message)
+
+
+def send_file(channel, config, title, text, urgent, tags):
+    """Appends the message to a file: for trying a configuration, and for the tests."""
+    with open(channel["path"], "a") as f:
+        f.write(f"{'[urgent] ' if urgent else ''}{title}\n{plain(text)}\n---\n")
+
+
+SENDERS = {"ntfy": send_ntfy, "discord": send_discord, "mail": send_mail, "file": send_file}
+
+
+def load_config(path):
+    """The apps file, checked up front so a typo fails the test send, not the first real alert."""
+    with open(path) as f:
+        config = json.load(f)
+    config.setdefault("secrets", DEFAULT_SECRETS)
+    for name, app in config["apps"].items():
+        if not app.get("channels"):
+            raise ValueError(f"app {name}: no channels in {path}")
+        for channel in app["channels"]:
+            if channel.get("type") not in SENDERS:
+                raise ValueError(f"app {name}: unknown channel type {channel.get('type')!r} in {path}")
+    return config
+
+
+def deliver(config, names, title, text, urgent=False, tags=""):
+    """Every channel of the named apps, each on its own so one failing costs none of the others;
+    a channel two apps share is sent once. Returns the exit code: 0, EXIT_PARTIAL or EXIT_NONE."""
+    channels = {}
+    for name in names:
+        for channel in config["apps"][name]["channels"]:
+            channels.setdefault(json.dumps(channel, sort_keys=True), (name, channel))
+    sent = 0
+    for name, channel in channels.values():
+        kind = channel["type"]
+        try:
+            SENDERS[kind](channel, config, title, text, urgent, tags)
+            sent += 1
+            print(f"{name}: {kind}: sent")
+        except Exception as error:
+            print(f"{name}: {kind}: failed ({type(error).__name__}: {str(error)[:200]})", file=sys.stderr)
+    if sent == len(channels):
+        return 0
+    return EXIT_PARTIAL if sent else EXIT_NONE
+
+
+def apps_for(config, unit):
+    """The app a unit belongs to by its name, or every app when none claims it — a unit of the
+    box itself (certbot, say) concerns all of them."""
+    owners = [name for name in config["apps"] if unit.startswith(f"{name}-")]
+    return owners[:1] or list(config["apps"])
+
+
+def check_key(unit):
+    """The secrets-file key of a unit's healthchecks.io check: HC_ plus the unit name without
+    ".service", upper-cased, with every character a shell variable cannot hold made an underscore."""
+    stem = unit[: -len(".service")] if unit.endswith(".service") else unit
+    return "HC_" + re.sub(r"[^A-Z0-9]", "_", stem.upper())
+
+
+def ping(config, unit, fail=False):
+    """Pings the unit's check, /fail for a failure, retrying a short network hiccup. A file:// URL
+    appends "ok" or "fail" to that file instead, for the tests. Returns what happened, for the log."""
+    url = env_file(config["secrets"]).get(check_key(unit), "")
+    if not url:
+        return f"no {check_key(unit)}, not pinged"
+    if url.startswith("file://"):
+        with open(url[len("file://"):], "a") as f:
+            f.write(f"{unit} {'fail' if fail else 'ok'}\n")
+        return "pinged"
+    target = url.rstrip("/") + ("/fail" if fail else "")
+    for attempt in range(1, PING_ATTEMPTS + 1):
+        try:
+            with urllib.request.urlopen(urllib.request.Request(target, headers={"User-Agent": "notify"}), timeout=10):
+                return "pinged"
+        except Exception as error:
+            if attempt == PING_ATTEMPTS:
+                return f"ping failed ({type(error).__name__})"
+            time.sleep(attempt)
+
+
+def describe(unit):
+    """The unit's own Description=, so the alert says what the job is; the bare name when systemctl
+    cannot tell (no such unit, or not a systemd box)."""
+    systemctl = shutil.which("systemctl")
+    if systemctl:
+        try:
+            result = subprocess.run([systemctl, "show", "-p", "Description", "--value", unit],
+                                    capture_output=True, text=True, timeout=10)
+            if result.returncode == 0 and result.stdout.strip():
+                return result.stdout.strip()
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    return unit
+
+
+def report_failure(config, unit):
+    """--failed: the check first, since it costs nothing and is independent of every channel,
+    then the push to the unit's app."""
+    print(f"{unit}: {ping(config, unit, fail=True)}")
+    names = apps_for(config, unit)
+    stem = unit[: -len(".service")] if unit.endswith(".service") else unit
+    title = f"{config['apps'][names[0]]['label']}: {stem} FAILED" if len(names) == 1 else f"{stem} FAILED"
+    text = f"{describe(unit)} failed.\nInspect with: `journalctl -u {unit} -n 50`"
+    return deliver(config, names, title, text, urgent=True, tags="rotating_light")
+
+
+def main():
+    """Parse the options and do one of the three things. --ok never fails; the other two exit
+    with deliver()'s code, and a broken config exits 1 before anything is sent."""
+    parser = argparse.ArgumentParser(description="Tell a person: through each app's channels, and healthchecks.io.")
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--app", help="send to this app's channels")
+    mode.add_argument("--failed", metavar="UNIT", help="report that UNIT failed (OnFailure=)")
+    mode.add_argument("--ok", metavar="UNIT", help="ping UNIT's check (ExecStartPost=)")
+    parser.add_argument("--title", help="with --app: the subject")
+    parser.add_argument("--urgent", action="store_true", help="with --app: urgent priority, red")
+    parser.add_argument("--tags", default="", help="with --app: ntfy tags, comma-separated")
+    parser.add_argument("--config", default=os.environ.get("NOTIFY_CONFIG", DEFAULT_CONFIG))
+    parser.add_argument("body", nargs="?", help="with --app: the text (default: stdin)")
+    args = parser.parse_args()
+
+    if args.ok:
+        try:
+            print(f"{args.ok}: {ping(load_config(args.config), args.ok)}")
+        except Exception as error:
+            print(f"{args.ok}: not pinged ({type(error).__name__}: {error})", file=sys.stderr)
+        sys.exit(0)
+
+    config = load_config(args.config)
+    if args.failed:
+        sys.exit(report_failure(config, args.failed))
+
+    if args.app not in config["apps"]:
+        parser.error(f"no app {args.app!r} in {args.config}")
+    if not args.title:
+        parser.error("--app needs --title")
+    text = args.body if args.body is not None else sys.stdin.read()
+    sys.exit(deliver(config, [args.app], args.title, text, args.urgent, args.tags))
+
+
+if __name__ == "__main__":
+    main()

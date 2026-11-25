@@ -540,19 +540,18 @@ in either repository can be restored — and the copy on the server dies with th
 does not exist fails the run on purpose: that is how a renamed file is noticed instead of silently
 dropping out of the backup. So leave out what your box does not have yet —
 `/etc/logrotate.d/modsecurity` and the three `waf-report` entries until you have done `05`, the Samba
-and ddclient files if you skipped those — and add them back when you do.
+and ddclient files if you skipped those — and add them back when you do. The three `notify` entries are
+the [alerting](#alerting) below: install that before the first run.
 
 | File | Installs as | Role |
 | --- | --- | --- |
 | [`files/mixtape-restic`](files/mixtape-restic) | `/usr/local/sbin/…` (750 root) | the backup |
 | [`files/mixtape-restic.service`](files/mixtape-restic.service) | `/etc/systemd/system/…` | the unit: `OnFailure=` and the success ping |
 | [`files/mixtape-restic.timer`](files/mixtape-restic.timer) | `/etc/systemd/system/…` | nightly at 04:00, `Persistent=true` |
-| [`files/mixtape-restic-failed.service`](files/mixtape-restic-failed.service) | `/etc/systemd/system/…` | what `OnFailure=` starts |
 
 ```bash
 sudo install -m 750 -o root -g root mixtape-restic /usr/local/sbin/
-sudo install -m 644 -o root -g root mixtape-restic.service mixtape-restic.timer \
-  mixtape-restic-failed.service /etc/systemd/system/
+sudo install -m 644 -o root -g root mixtape-restic.service mixtape-restic.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 ```
 
@@ -603,22 +602,41 @@ cannot report an event that never occurred.
   Google Play Services, or with the app from F-Droid, a ntfy.sh subscription only fetches messages when
   the app is opened — the alert is there, and nobody is told. Turn on *Instant delivery* for the topic
   and set the app's battery use to *Unrestricted*.
+- **Mail** through the app's own SMTP account, as a second channel that does not depend on the phone.
 - A systemd `OnFailure=` hook reports runs that fail *or* die outright.
+
+All of it goes through one script, [`files/notify`](files/notify), and one template unit: a unit opts
+in with `OnFailure=notify-failure@%n.service` and pings its check with
+`ExecStartPost=-/usr/local/sbin/notify --ok %n`. Both backups' units already carry those two lines.
 
 | File | Installs as | Role |
 | --- | --- | --- |
-| [`files/mixtape-backup-alert.sh`](files/mixtape-backup-alert.sh) | `/usr/local/sbin/…` (755 root) | pings `/fail` + pushes to ntfy, for both backups |
-| [`files/backup-alerts.env.template`](files/backup-alerts.env.template) | `/etc/mixtape/backup-alerts.env` (**0600 root**) | the ping URLs and the topic |
+| [`files/notify`](files/notify) | `/usr/local/sbin/…` (750 root) | sends to each app's channels; pings and fails checks |
+| [`files/notify-failure@.service`](files/notify-failure@.service) | `/etc/systemd/system/…` | what every `OnFailure=` starts |
+| [`files/notify.apps.json`](files/notify.apps.json) | `/etc/notify/apps.json` (640 root) | each app's channels |
+| [`files/notify.secrets.env`](files/notify.secrets.env) | `/etc/notify/secrets.env` (**0600 root**) | the ntfy topic and every check's ping URL |
 
 ```sh
-sudo install -d -m 0755 /etc/mixtape
-sudo install -m 0600 -o root -g root backup-alerts.env.template /etc/mixtape/backup-alerts.env
-sudo nano /etc/mixtape/backup-alerts.env            # both ping URLs + the topic
-sudo install -m 0755 -o root -g root mixtape-backup-alert.sh /usr/local/sbin/
+sudo install -d -m 0750 /etc/notify
+sudo install -m 0640 -o root -g root notify.apps.json /etc/notify/apps.json
+sudo nano /etc/notify/apps.json                     # the mail recipient
+sudo install -m 0600 -o root -g root notify.secrets.env /etc/notify/secrets.env
+sudo nano /etc/notify/secrets.env                   # the topic + both ping URLs
+sudo install -m 0750 -o root -g root notify /usr/local/sbin/
+sudo install -m 0644 -o root -g root notify-failure@.service /etc/systemd/system/
+sudo systemctl daemon-reload
+echo "If you can read this, alerts work." | sudo notify --app mixtape --title "Test"
 ```
 
-The database backup's reporter, `mixtape-db-backup-failed.service`, is installed with its unit in
-[`03`](03-production-deploy.md#scheduled-database-backup); it calls the same script.
+The last line prints one line per channel, `sent` or why not. A check's key in `secrets.env` is
+`HC_` plus the unit name, upper-cased, `-` as `_` — `HC_MIXTAPE_RESTIC`, `HC_MIXTAPE_DB_BACKUP` — and
+a key left out simply means that unit pings nothing. The mail channel reads the account from the
+app's own `.env`, so its password exists once.
+
+**A second app on the same box** gets an entry of its own in `apps.json`, named after the prefix of its
+units (`<app>-backup.service` belongs to `<app>`), with whatever channels it reads: `discord` takes a
+webhook from the app's `.env`, `mail` a `to_key` such as `APP_CONTACT`. A unit no app claims reports to
+every app.
 
 ### Decisions worth understanding
 
@@ -627,29 +645,41 @@ cannot report a run that was OOM-killed, signalled, or that failed before the tr
 systemd knows the unit failed even when the process never got to say so. The trade-off is that
 running the script by hand does not alert — acceptable, because by hand you are watching the output.
 
+**One template, one script, for every job.** Near-identical copies of an alarm are how one of them
+quietly stops matching the others. The only thing that differs between jobs is the unit's name, so
+that is the template's instance, and everything else — which channels, which check — follows from it.
+
 **Do not put `ConditionPathIsMountPoint=` on a backup unit.** This one is a trap. A failed `Condition`
 does not fail a unit — systemd *skips* it and records success. Guard the backup drive that way and
 the most likely real failure, the drive being unplugged, silently skips the run, `OnFailure=` never
 fires, and you hear nothing until the grace window lapses. Let the script test the mountpoint and exit
 non-zero instead. Conditions express "not applicable", not "the thing I am protecting is broken".
 
-**Alerting must never break the backup.** Missing config disables pinging rather than failing; every
-`curl` is `|| true` or a `-` command; the alert script never `set -e`s and always exits 0. Otherwise a
-monitoring outage turns a good backup into a failed one, and you end up debugging the alarm instead of
-the thing it watches.
+**`OnFailure=` on a `Restart=` service fires on every crash.** With the default `RestartMode=`, each
+automatic restart passes through the failed state, so a crash loop pushes once per `RestartSec=`. A
+long-running service that should alert only when it cannot be kept up takes `RestartMode=direct` and a
+start limit (`StartLimitIntervalSec=`, `StartLimitBurst=` in `[Unit]`): restarts stay quiet, and the
+unit fails — once — when the limit is hit. The backups here are oneshots and need none of this.
+
+**Alerting must never break the backup.** Missing config disables pinging rather than failing;
+`notify --ok` always exits 0 and its line in the unit carries a `-` as well; the template's command is
+`-` too, so an alert that could not be delivered is a journal line, not a second failed unit.
+Otherwise a monitoring outage turns a good backup into a failed one, and you end up debugging the alarm
+instead of the thing it watches.
 
 ### Verify it
 
 Prove the success path *and* the failure path — a switch nobody has seen fire is a guess:
 
 ```sh
-sudo systemctl start mixtape-restic.service           # incremental; the check turns green
+sudo systemctl start mixtape-restic.service                          # incremental; the check turns green
 journalctl -u mixtape-restic -n 20 --no-pager
-sudo systemctl start mixtape-restic-failed.service    # a test alert: a push, and the check turns red
-sudo systemctl start mixtape-restic.service           # green again
+sudo systemctl start notify-failure@mixtape-restic.service.service   # a test alert: push + mail, check red
+sudo systemctl start mixtape-restic.service                          # green again
 ```
 
-Starting the reporter by hand proves the push and the `/fail` ping. To prove the whole chain — unit
+Starting the reporter by hand proves the push, the mail and the `/fail` ping. The doubled
+`.service.service` is right: the instance is the unit's full name. To prove the whole chain — unit
 fails → `OnFailure=` → reporter — without touching the drive or the script, use a temporary override:
 
 ```sh
@@ -667,7 +697,7 @@ runs both commands.
 
 ```sh
 sudo systemctl start mixtape-restic.service     # expect the job to fail
-systemctl status mixtape-restic-failed.service --no-pager
+journalctl -u notify-failure@mixtape-restic.service.service -n 5 --no-pager
 sudo systemctl revert mixtape-restic.service    # remove the drop-in
 sudo systemctl daemon-reload
 ```

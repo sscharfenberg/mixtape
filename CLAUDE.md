@@ -71,9 +71,10 @@ the cheapest layer that can actually answer the question. Three layers, none int
   app's policy enforced. **The CSP is the app's** (`ContentSecurityPolicy` middleware, a per-request
   nonce), so a new inline `<script>` needs `nonce="{{ Vite::cspNonce() }}"` (`architecture.md` → *Stack*).
 
-The workstation scripts in `docs/self-hosting/files/` have a suite of their own: **bats-core**
-(`npm run test:shell`, macOS only, `brew install bats-core`) in `tests/shell/`, for `mts` today. Its
-third file writes to a real phone and is opt-in — **run `MTS_DEVICE_TESTS=1 npm run test:shell` after
+The scripts in `docs/self-hosting/files/` have a suite of their own: **bats-core**
+(`npm run test:shell`, macOS only, `brew install bats-core`) in `tests/shell/` — the workstation's
+`mts` and the server's `notify` and `waf-report`. `mts-device.bats` writes to a real phone and is
+opt-in — **run `MTS_DEVICE_TESTS=1 npm run test:shell` after
 any change to `mts`'s adb half**, because the fake device is APFS, and the phone's casefolded storage
 and kernel name cache are what two real runs failed on.
 

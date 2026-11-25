@@ -1,0 +1,34 @@
+# /etc/systemd/system/notify-failure@.service
+#
+# What a unit's failure starts. A unit opts in with one line in [Unit]:
+#
+#   OnFailure=notify-failure@%n.service
+#
+# and systemd starts this template with the failed unit's name as the instance
+# — never enabled, never timed. notify marks the unit's healthchecks.io check
+# failed and pushes to the app the unit belongs to (/usr/local/sbin/notify).
+#
+# ONE TEMPLATE FOR EVERY UNIT, rather than a reporter per job: near-identical
+# copies of an alarm are how one of them quietly stops matching the others, and
+# the only thing that differs between jobs is the unit's name.
+#
+# %i, not %I: the instance is a unit name, and %I would unescape every `-` in
+# it to a `/`.
+#
+# `-` before the command: an alert that could not be delivered is in the
+# journal, and the reporter must not turn into a second failed unit — you would
+# be debugging the alarm instead of the job it watches.
+#
+# No User=, so it runs as root and can read /etc/notify/secrets.env and the
+# apps' .env files; the secrets are read by notify itself rather than injected
+# here, so `systemctl cat` does not print them to anyone who can read units.
+[Unit]
+Description=Report the failure of %i
+
+[Service]
+Type=oneshot
+ExecStart=-/usr/local/sbin/notify --failed %i
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
