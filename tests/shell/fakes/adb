@@ -13,6 +13,8 @@
 # Knobs, all environment variables:
 #   FAKE_ADB_STATE      the state `adb devices` reports (default: device)
 #   FAKE_ADB_FAIL_PUSH  a push whose source path contains this text fails
+#   FAKE_ADB_LISTED_ROOT  a push source under this folder is found only by the
+#                       spelling a listing of it returns (see the push branch)
 #   FAKE_DF_FREE_KB     the free space the device's `df -k` reports (see device-bin/df)
 
 set -euo pipefail
@@ -51,8 +53,19 @@ case "$cmd" in
                 printf "adb: error: failed to copy '%s': remote couldn't create file\n" "$1" >&2
                 exit 1
             fi
-            # Named after the SOURCE STRING, as adb names the device file — which
-            # is the whole reason mts hands it a precomposed path.
+            # THE SHARE, NOT APFS. APFS finds a file by either Unicode spelling;
+            # macOS's SMB client finds a share's file reliably only by the
+            # spelling it listed, and fails the other with the error below —
+            # for some characters and not others, by rules nothing documents.
+            # The stand-in grants none of them, so a run that opens any source
+            # by a spelling of its own fails here as it can on the share.
+            if [[ -n ${FAKE_ADB_LISTED_ROOT:-} && $1 == "$FAKE_ADB_LISTED_ROOT"/* ]] \
+                && ! find "$FAKE_ADB_LISTED_ROOT" | LC_ALL=C grep -qxF -- "$1"; then
+                printf "adb: error: cannot stat '%s': No such file or directory\n" "$1" >&2
+                exit 1
+            fi
+            # Named after the SOURCE's basename when DEST is a folder, as adb
+            # names the device file, and DEST itself when it is a file path.
             cp "$1" "$dest"
             shift
         done

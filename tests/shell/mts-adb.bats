@@ -10,6 +10,7 @@ setup() {
     export TEST_MEDIA_ROOT="$BATS_TEST_TMPDIR/media"
     export DEVICE="$BATS_TEST_TMPDIR/device/Music"
     export FAKE_ADB_LOG="$BATS_TEST_TMPDIR/adb.log"
+    export FAKE_ADB_LISTED_ROOT="$TEST_MEDIA_ROOT"
     export PATH="$FAKES_DIR:$PATH"
     mkdir -p "$TEST_MEDIA_ROOT/music" "$DEVICE"
     : > "$FAKE_ADB_LOG"

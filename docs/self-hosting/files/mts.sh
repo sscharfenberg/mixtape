@@ -404,9 +404,20 @@ build_media_find() {
 #
 # Precomposing (NFC) restores the server's spelling because the server's names
 # ARE precomposed — `app:audit`'s path-encoding check reports any that are not,
-# since a combining accent has no Windows-1252 byte to export it with. Reading
-# needs nothing extra: macOS resolves a precomposed path on the share to the same
-# file, so that one spelling is both what is opened and what the device is told.
+# since a combining accent has no Windows-1252 byte to export it with.
+#
+# TWO SPELLINGS, ONE FOR EACH END: a file is OPENED by the name the share listed
+# and the device is TOLD the precomposed one. The share cannot be trusted to
+# open a precomposed path. Samba compares names byte for byte, so a name the
+# client did not list reaches the server in whatever spelling the client
+# converts it to — and measured, macOS's client finds the precomposed spelling
+# of every Latin-1 accent in this library and not of `ō` (U+014D, in
+# `01 - Jorōgumo.mp3`): `stat` by the precomposed path says No such file, by the
+# listed one it finds the file, while the server holds it precomposed. Nothing
+# documents which characters the client converts back, so the listed spelling is
+# the only one this script opens. And because `adb push` names a device file
+# after its source's basename, a file whose basename changes under precomposing
+# is pushed on its own, to an explicit device path (see adb_push_group).
 #
 # AND NOTHING HERE DELETES. See the --mirror refusal in run_adb for why that is
 # a property of the destination rather than a missing feature.
@@ -473,17 +484,25 @@ ADB_MANIFEST_AWK='
 #
 # PRECOMPOSED BEFORE ANYTHING ELSE SEES IT, because every later step takes its
 # spelling from here: the comparison with the device, the directory created on
-# it, and the path handed to `adb push`, which names the device file after it.
-# Before the sort, so the order is that of the bytes actually compared.
+# it, and the name the device file is given. Before the sort, so the order is
+# that of the bytes actually compared.
+#
+# A FOURTH COLUMN KEEPS THE PATH AS THE SHARE LISTED IT, which is the one
+# spelling the share is sure to open (see *Two spellings, one for each end*
+# above). It rides along unread by the comparison: both manifests are matched on
+# the first three columns, which the shared formatter keeps identical in shape.
+# The lines pair up by position because `nfc` and the formatter each turn one
+# line into one line.
 adb_manifest_source() {
     # THE SUBSHELL HAS TO SPAN `stat` AS WELL AS `find`. A `( cd … && find )`
     # alone ends at the pipe, so `stat` is handed relative paths and run in the
     # directory this script was started in — where it reports every one of them
     # as missing and the manifest comes back empty.
-    ( cd "$ADB_SRC" && find "${MEDIA_FIND[@]}" | xargs -0 stat -f '%z %N' ) \
-        | nfc \
-        | LC_ALL=C awk "$ADB_MANIFEST_AWK" \
-        | LC_ALL=C sort > "$ADB_TMP/src.tsv"
+    ( cd "$ADB_SRC" && find "${MEDIA_FIND[@]}" | xargs -0 stat -f '%z %N' ) > "$ADB_TMP/src.raw"
+
+    nfc < "$ADB_TMP/src.raw" | LC_ALL=C awk "$ADB_MANIFEST_AWK" > "$ADB_TMP/src.nfc"
+    LC_ALL=C sed 's/^[0-9]* //; s|^\./||' "$ADB_TMP/src.raw" > "$ADB_TMP/src.listed"
+    LC_ALL=C paste "$ADB_TMP/src.nfc" "$ADB_TMP/src.listed" | LC_ALL=C sort > "$ADB_TMP/src.tsv"
 }
 
 # The same shape, read off the device in one round trip — `-exec … +` batches the
@@ -639,7 +658,31 @@ adb_note_failure() {
     warn "  FAILED $1 :: $(printf '%s' "$2" | tail -1)"
 }
 
-# Push the named files (basenames) of one area-relative directory.
+# One `adb push` of SOURCES to DEST, a failure reported against DIR — the
+# directory a reader recognises, whichever of the two calls below it came from.
+adb_push_call() {
+    local dir dest out
+    dir="$1"
+    dest="$2"
+    shift 2
+    if ! out="$(adb push -q "$@" "$dest" </dev/null 2>&1)"; then
+        adb_note_failure "$dir" "$out"
+        return 1
+    fi
+}
+
+# Push the files of one area-relative directory, given as PAIRS: the name the
+# device is to list (precomposed), then the area-relative path the share listed
+# the file under.
+#
+# A FILE WHOSE NAME PRECOMPOSING CHANGES GOES ON ITS OWN, to an explicit device
+# path. `adb push` names a device file after its source's basename, and the
+# source is opened by the share's spelling (see *Two spellings, one for each
+# end*), so a chunk would land it decomposed. Every other file — a plain name in
+# an accented folder included — goes in a chunk to the folder, whose own
+# spelling comes from the mkdir below. That keeps the per-file cost to the names
+# that need it — measured on this library, 465 files of 14,281 (music and
+# audiobooks), against 620 plain names under an accented folder.
 #
 # THE PARENT MUST EXIST FIRST. `adb push <dir> <dest>` where <dest> is absent
 # treats it as the destination for the CONTENTS — it silently drops one level,
@@ -654,26 +697,33 @@ adb_note_failure() {
 # command line against a 1 MB ARG_MAX, but somebody else's library is not
 # measured — and the chunk is also the blast radius of a failed call.
 adb_push_group() {
-    local dir remote out rc
+    local dir remote rc name src
     local -a chunk
     dir="$1"
     shift
     rc=0
+    chunk=()
 
     remote="$(adb_remote_dir "$dir")"
     adb shell "mkdir -p $(shq "$remote")" </dev/null >/dev/null 2>&1 || true
 
     while [[ $# -gt 0 ]]; do
-        chunk=()
-        while [[ $# -gt 0 && ${#chunk[@]} -lt $ADB_CHUNK ]]; do
-            chunk+=("$ADB_SRC/$dir/$1")
-            shift
-        done
-        if ! out="$(adb push -q ${chunk[@]+"${chunk[@]}"} "$remote/" </dev/null 2>&1)"; then
-            adb_note_failure "$dir" "$out"
-            rc=1
+        name="$1"
+        src="$ADB_SRC/$2"
+        shift 2
+        if [[ ${src##*/} != "$name" ]]; then
+            adb_push_call "$dir" "$remote/$name" "$src" || rc=1
+            continue
+        fi
+        chunk+=("$src")
+        if [[ ${#chunk[@]} -ge $ADB_CHUNK ]]; then
+            adb_push_call "$dir" "$remote/" "${chunk[@]}" || rc=1
+            chunk=()
         fi
     done
+    if [[ ${#chunk[@]} -gt 0 ]]; then
+        adb_push_call "$dir" "$remote/" "${chunk[@]}" || rc=1
+    fi
 
     return $rc
 }
@@ -689,15 +739,16 @@ adb_push_group() {
 # thirteen hundred. The private descriptor is the structural fix; the redirect
 # also stops `adb shell` waiting on a terminal that is not there.
 adb_push_pass() {
-    local dir base size cur landed gbytes tab
+    local dir base size listed cur landed gbytes nfiles tab
     local -a files
     cur=""
     files=()
     gbytes=0
+    nfiles=0
     landed=0
     tab="$(printf '\t')"
 
-    while IFS="$tab" read -r dir base size <&3; do
+    while IFS="$tab" read -r dir base size listed <&3; do
         if [[ -z $base ]]; then
             continue
         fi
@@ -709,25 +760,27 @@ adb_push_pass() {
             # run: each attempt re-plans, so its own total is the only one the
             # ratio can be against.
             if adb_push_group "$cur" ${files[@]+"${files[@]}"}; then
-                landed=$((landed + ${#files[@]}))
-                ADB_PUSHED_FILES=$((ADB_PUSHED_FILES + ${#files[@]}))
+                landed=$((landed + nfiles))
+                ADB_PUSHED_FILES=$((ADB_PUSHED_FILES + nfiles))
                 ADB_PUSHED_BYTES=$((ADB_PUSHED_BYTES + gbytes))
                 ADB_PUSHED_DIRS=$((ADB_PUSHED_DIRS + 1))
             fi
             adb_progress "$landed" "$TODO_FILES" "$cur"
             files=()
             gbytes=0
+            nfiles=0
         fi
 
         cur="$dir"
-        files+=("$base")
+        files+=("$base" "$listed")
+        nfiles=$((nfiles + 1))
         gbytes=$((gbytes + size))
     done 3< "$ADB_TMP/todo"
 
     if [[ -n $cur ]]; then
         if adb_push_group "$cur" ${files[@]+"${files[@]}"}; then
-            landed=$((landed + ${#files[@]}))
-            ADB_PUSHED_FILES=$((ADB_PUSHED_FILES + ${#files[@]}))
+            landed=$((landed + nfiles))
+            ADB_PUSHED_FILES=$((ADB_PUSHED_FILES + nfiles))
             ADB_PUSHED_BYTES=$((ADB_PUSHED_BYTES + gbytes))
             ADB_PUSHED_DIRS=$((ADB_PUSHED_DIRS + 1))
         fi

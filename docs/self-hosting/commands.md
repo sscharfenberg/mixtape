@@ -446,11 +446,19 @@ names the device file after the path string it is handed. A library copied strai
 therefore lands decomposed: it plays when browsed to, and an exported `.m3u` — whose lines carry the
 database's bytes, the server's precomposed spelling — cannot reach it. Measured with Poweramp on this
 collection: 845 tracks skipped as unplayable from a playlist, including every plain-named track under an
-accented *folder*. So the source listing is normalised to NFC before anything compares or pushes it;
-macOS resolves the precomposed path on the share to the same file, so that one spelling is both what is
-read and what the device is told. It is done in Perl rather than `iconv -f UTF-8-MAC`, because iconv
-converts in fixed buffers and leaves a letter whose accent falls across a boundary decomposed — one
-name in 14,268, silently.
+accented *folder*. So the source listing is normalised to NFC before anything compares it, in Perl
+rather than `iconv -f UTF-8-MAC`, because iconv converts in fixed buffers and leaves a letter whose
+accent falls across a boundary decomposed — one name in 14,268, silently.
+
+**A file is opened by the name the share listed, and the device is told the precomposed one.** The
+share cannot be trusted to open a precomposed path: Samba compares names byte for byte, so a spelling
+the client did not list reaches the server however the client converts it, and macOS's client finds
+the precomposed form of every Latin-1 accent and not of `ō` (U+014D) — `stat` by the precomposed path
+says *No such file*, by the listed one it finds the file, while the server holds it precomposed. So the
+manifest keeps both spellings. Because `adb push` names a device file after its source's basename, a
+file whose name changes under precomposing is pushed on its own to an explicit device path; every
+other file, a plain name in an accented folder included, still goes in a chunk to a folder created
+precomposed.
 
 **A device that already holds decomposed names is refused, not repaired.** Android's shared storage is
 *casefolded*: both spellings of a name are one entry, so the storage finds the file either way, and it

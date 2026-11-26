@@ -92,16 +92,17 @@ carried() {
         | cmp - "$BATS_TEST_TMPDIR/manifest"
 }
 
-@test "the source manifest spells every name precomposed, as the server does" {
+@test "the source manifest spells every name precomposed, and keeps the path the share listed" {
     ADB_SRC="$BATS_TEST_TMPDIR/music"
-    make_nfd_file "$ADB_SRC/Blue Öyster Cult/[1976] Agents/03 - Fear.mp3" 7
+    make_nfd_file "$ADB_SRC/Blue Öyster Cult/[1976] Agents/03 - Fëar.mp3" 7
     ALL=0
     build_media_find
     # From somewhere else: the subshell has to span `stat` as well as `find`, or
     # stat resolves the relative paths here and the manifest comes back empty.
     cd /
     adb_manifest_source
-    printf '%s\t%s\t%s\n' 'Blue Öyster Cult/[1976] Agents' '03 - Fear.mp3' 7 | cmp - "$ADB_TMP/src.tsv"
+    printf '%s\t%s\t%s\t%s\n' 'Blue Öyster Cult/[1976] Agents' '03 - Fëar.mp3' 7 \
+        "$(nfd 'Blue Öyster Cult/[1976] Agents/03 - Fëar.mp3')" | cmp - "$ADB_TMP/src.tsv"
 }
 
 @test "the plan takes every file when the device is empty, a zero-byte one too" {
